@@ -52,9 +52,6 @@ DESCR__E_M3
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */
 #include <errno.h>
 
-/* External global variables. */
-extern int sys_log_fd;
-
 
 /*############################# remove_dir() ############################*/
 int
@@ -69,9 +66,8 @@ remove_dir(char *dirname)
 
    if ((dp = opendir(dirname)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to opendir() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to opendir() <%s> : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
    if (*(ptr - 1) != '/')
@@ -92,15 +88,13 @@ remove_dir(char *dirname)
       {
          if (errno == ENOENT)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Failed to delete %s : %s (%s %d)\n",
-                      dirname, strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Failed to delete <%s> : %s", dirname, strerror(errno));
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to delete %s : %s (%s %d)\n",
-                      dirname, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to delete <%s> : %s", dirname, strerror(errno));
             (void)closedir(dp);
             return(INCORRECT);
          }
@@ -116,16 +110,14 @@ remove_dir(char *dirname)
    }
    if (closedir(dp) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to closedir() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to closedir() <%s> : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
    if (rmdir(dirname) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to rmdir() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to rmdir() <%s> : %s", dirname, strerror(errno));
       (void)closedir(dp);
       return(INCORRECT);
    }

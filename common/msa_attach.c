@@ -1,6 +1,6 @@
 /*
  *  msa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,8 +64,7 @@ DESCR__E_M3
 #include "mondefs.h"
 
 /* Global variables */
-extern int                    sys_log_fd,
-                              msa_fd,
+extern int                    msa_fd,
                               msa_id,
                               no_of_afds;
 #ifndef _NO_MMAP
@@ -108,9 +107,9 @@ msa_attach(void)
 #ifdef _NO_MMAP
          if (munmap_emu((void *)msa) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap() %s : %s (%s %d)\n",
-                      msa_stat_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() <%s> : %s",
+                       msa_stat_file, strerror(errno));
          }
          else
          {
@@ -121,17 +120,17 @@ msa_attach(void)
 
          if (stat(msa_stat_file, &stat_buf) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to stat() %s : %s (%s %d)\n",
-                      msa_stat_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to stat() <%s> : %s",
+                       msa_stat_file, strerror(errno));
          }
          else
          {
             if (munmap((void *)msa, stat_buf.st_size) == -1)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to munmap() %s : %s (%s %d)\n",
-                         msa_stat_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to munmap() <%s> : %s",
+                          msa_stat_file, strerror(errno));
             }
             else
             {
@@ -156,17 +155,17 @@ msa_attach(void)
             my_usleep(800000L);
             if (loop_counter++ > 12)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         msa_id_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to open() <%s> : %s",
+                          msa_id_file, strerror(errno));
                return(INCORRECT);
             }
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      msa_id_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() <%s> : %s",
+                       msa_id_file, strerror(errno));
             return(INCORRECT);
          }
       }
@@ -174,9 +173,9 @@ msa_attach(void)
       /* Check if its locked */
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not set write lock for %s : %s (%s %d)\n",
-                   msa_id_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not set write lock for <%s> : %s",
+                    msa_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -184,9 +183,9 @@ msa_attach(void)
       /* Read the msa_id */
       if (read(fd, &msa_id, sizeof(int)) < 0)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not read the value of the msa_id : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not read the value of the msa_id : %s",
+                    strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -194,17 +193,16 @@ msa_attach(void)
       /* Unlock file and close it */
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not unlock %s : %s (%s %d)\n",
-                   msa_id_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unlock %s : %s", msa_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
       if (close(fd) == -1)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not close() %s : %s (%s %d)\n",
-                   msa_id_file, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Could not close() <%s> : %s",
+                    msa_id_file, strerror(errno));
       }
 
       (void)sprintf(p_msa_stat_file, ".%d", msa_id);
@@ -213,8 +211,8 @@ msa_attach(void)
       {
          if (close(msa_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
 
@@ -224,34 +222,34 @@ msa_attach(void)
          {
             if (retries++ > 8)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         msa_stat_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to open() <%s> : %s",
+                          msa_stat_file, strerror(errno));
                return(INCORRECT);
             }
             else
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         msa_stat_file, strerror(errno), __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to open() <%s> : %s",
+                          msa_stat_file, strerror(errno));
                (void)sleep(1);
                continue;
             }
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      msa_stat_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() <%s> : %s",
+                       msa_stat_file, strerror(errno));
             return(INCORRECT);
          }
       }
 
       if (fstat(msa_fd, &stat_buf) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to stat() %s : %s (%s %d)\n",
-                   msa_stat_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to stat() %s : %s",
+                    msa_stat_file, strerror(errno));
          return(INCORRECT);
       }
 
@@ -263,8 +261,8 @@ msa_attach(void)
                       MAP_SHARED, msa_fd, 0)) == (caddr_t) -1)
 #endif
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "mmap() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "mmap() error : %s", strerror(errno));
          return(INCORRECT);
       }
 

@@ -1,6 +1,6 @@
 /*
  *  next_counter.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,8 +56,7 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables */
-extern int counter_fd,
-           sys_log_fd;
+extern int counter_fd;
 
 
 /*############################# next_counter() ##########################*/
@@ -70,21 +69,19 @@ next_counter(int *counter)
    /* Try to lock file which holds counter */
    if (fcntl(counter_fd, F_SETLKW, &wlock) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not set write lock. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__, "Could not set write lock.");
       return(INCORRECT);
    }
 
    /* Go to beginning in file */
    if (lseek(counter_fd, 0, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not seek() : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() : %s", strerror(errno));
       if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not unset write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unset write lock : %s", strerror(errno));
       }
       return(INCORRECT);
    }
@@ -92,14 +89,12 @@ next_counter(int *counter)
    /* Read the value of counter */
    if (read(counter_fd, counter, sizeof(int)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not read value of counter : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not read value of counter : %s", strerror(errno));
       if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not unset write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unset write lock : %s", strerror(errno));
       }
       return(INCORRECT);
    }
@@ -107,13 +102,12 @@ next_counter(int *counter)
    /* Go to beginning in file */
    if (lseek(counter_fd, 0, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not seek() : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() : %s", strerror(errno));
       if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not unset write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unset write lock : %s", strerror(errno));
       }
       return(INCORRECT);
    }
@@ -127,14 +121,12 @@ next_counter(int *counter)
    /* Write new value into counter file */
    if (write(counter_fd, counter, sizeof(int)) != sizeof(int))
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write value to counter file : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write value to counter file : %s", strerror(errno));
       if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not unset write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unset write lock : %s", strerror(errno));
       }
       return(INCORRECT);
    }
@@ -142,9 +134,8 @@ next_counter(int *counter)
    /* Unlock file which holds the counter */
    if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not unset write lock : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not unset write lock : %s", strerror(errno));
       return(INCORRECT);
    }
 

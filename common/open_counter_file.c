@@ -54,7 +54,6 @@ DESCR__E_M3
 #include <errno.h>
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -75,9 +74,9 @@ open_counter_file(char *file_name)
          if ((fd = coe_open(counter_file, O_RDWR | O_CREAT,
                             S_IRUSR | S_IWUSR)) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not open() %s : %s (%s %d)\n",
-                      counter_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not open() %s : %s",
+                       counter_file, strerror(errno));
          }
          else
          {
@@ -86,9 +85,9 @@ open_counter_file(char *file_name)
             /* Initialise counter file with zero */
             if (write(fd, &status, sizeof(int)) != sizeof(int))
             {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Could not initialise %s : %s (%s %d)\n",
-                         counter_file, strerror(errno), __FILE__, __LINE__);
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "Could not initialise %s : %s",
+                          counter_file, strerror(errno));
                (void)close(fd);
             }
             else
@@ -96,9 +95,9 @@ open_counter_file(char *file_name)
                /* Position descriptor to start of file. */
                if (lseek(fd, 0, SEEK_SET) == -1)
                {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Could not lseek() to start in %s : %s (%s %d)\n",
-                            counter_file, strerror(errno), __FILE__, __LINE__);
+                  system_log(FATAL_SIGN, __FILE__, __LINE__,
+                             "Could not lseek() to start in %s : %s",
+                             counter_file, strerror(errno));
                   (void)close(fd);
                }
                else
@@ -110,9 +109,8 @@ open_counter_file(char *file_name)
       }
       else
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not open %s : %s (%s %d)\n",
-                   counter_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not open %s : %s", counter_file, strerror(errno));
       }
    }
    else

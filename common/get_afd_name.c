@@ -1,6 +1,6 @@
 /*
  *  get_afd_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -54,7 +54,6 @@ DESCR__E_M3
 #include <unistd.h>            /* close()                                */
 #include <errno.h>
 
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -81,8 +80,8 @@ get_afd_name(char *afd_name)
 
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    if (n > 0)

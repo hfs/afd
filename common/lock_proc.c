@@ -1,6 +1,6 @@
 /*
  *  lock_proc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,6 @@ DESCR__E_M3
 #include <errno.h>
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 /* Local global variables */
@@ -83,26 +82,23 @@ lock_proc(int proc_id, int test_lock)
       if ((fd = coe_open(file, (O_WRONLY | O_CREAT | O_TRUNC),
                          (S_IRUSR | S_IWUSR))) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to open() %s : %s (%s %d)\n",
-                   file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() <%s> : %s", file, strerror(errno));
          exit(INCORRECT);
       }
    }
    else if (errno != 0)
         {
-           (void)rec(sys_log_fd, ERROR_SIGN,
-                     "Failed to stat() %s : %s (%s %d)\n",
-                     file, strerror(errno), __FILE__, __LINE__);
+           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to stat() <%s> : %s", file, strerror(errno));
            exit(INCORRECT);
         }
         else /* The file already exists. */
         {
            if ((fd = coe_open(file, O_RDWR)) == -1)
            {
-              (void)rec(sys_log_fd, ERROR_SIGN,
-                        "Failed to open() %s : %s (%s %d)\n",
-                        file, strerror(errno), __FILE__, __LINE__);
+              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to open() %s : %s", file, strerror(errno));
               exit(INCORRECT);
            }
         }
@@ -111,8 +107,8 @@ lock_proc(int proc_id, int test_lock)
    offset = NO_OF_LOCK_PROC + ((proc_id + 1) * 100);
    if (lseek(fd, offset, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "lseek() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "lseek() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -124,32 +120,30 @@ lock_proc(int proc_id, int test_lock)
    {
       if (fcntl(fd, F_GETLK, &wlock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not get write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not get write lock : %s", strerror(errno));
          exit(INCORRECT);
       }
       if (wlock.l_type == F_UNLCK)
       {
          if (close(fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
          return(NULL);
       }
 
       if (read(fd, user_str, 100) != 100)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "read() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "read() error : %s", strerror(errno));
          exit(INCORRECT);
       }
       if (close(fd) == -1)
       {
-         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
       }
 
       return(user_str);
@@ -163,25 +157,22 @@ lock_proc(int proc_id, int test_lock)
             /* The file is already locked. */
             if (read(fd, user_str, 100) != 100)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "read() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "read() error : %s", strerror(errno));
                exit(INCORRECT);
             }
             if (close(fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "close() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
             }
 
             return(user_str);
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not set write lock : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not set write lock : %s", strerror(errno));
             exit(INCORRECT);
          }
       }
@@ -189,8 +180,8 @@ lock_proc(int proc_id, int test_lock)
       get_user(user_str);
       if (write(fd, user_str, 100) != 100)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "write() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "write() error : %s", strerror(errno));
          exit(INCORRECT);
       }
    }

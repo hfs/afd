@@ -91,7 +91,7 @@ int                        counter_fd = -1,     /* NOT USED */
                            fsa_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
-                           trans_db_log_fd = -1,
+                           trans_db_log_fd = STDERR_FILENO,
                            amg_flag = NO,
                            timeout_flag;
 #ifndef _NO_MMAP
@@ -151,7 +151,8 @@ main(int argc, char *argv[])
    unsigned int     *ol_job_number = NULL;
    char             *ol_data = NULL,
                     *ol_file_name = NULL;
-   unsigned short   *ol_file_name_length;
+   unsigned short   *ol_archive_name_length,
+                    *ol_file_name_length;
    off_t            *ol_file_size = NULL;
    size_t           ol_size,
                     ol_real_size;
@@ -227,6 +228,7 @@ main(int argc, char *argv[])
                       &ol_data,              /* Pointer to buffer       */
                       &ol_file_name,
                       &ol_file_name_length,
+                      &ol_archive_name_length,
                       &ol_file_size,
                       &ol_size,
                       &ol_transfer_time,
@@ -267,7 +269,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+      if (fsa[db.fsa_pos].debug == YES)
       {
          trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                       "Connected to port %d.", db.port);
@@ -393,13 +395,9 @@ main(int argc, char *argv[])
                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done + files_to_send;
                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size = fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done + file_size_to_send;
             }
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, INFO_SIGN,
-                         "%-*s[%d]: Bursting. (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, __FILE__, __LINE__);
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Bursting.");
             }
          }
 
@@ -450,18 +448,15 @@ main(int argc, char *argv[])
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to open local file %s : %s",
+                         "Failed to open local file <%s> : %s",
                          fullname, strerror(errno));
                wmo_quit();
                exit(OPEN_LOCAL_ERROR);
             }
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, INFO_SIGN,
-                         "%-*s[%d]: Open local file %s (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, fullname, __FILE__, __LINE__);
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Open local file <%s>", fullname);
             }
 
 #ifdef _OUTPUT_LOG
@@ -904,14 +899,11 @@ main(int argc, char *argv[])
              */
             if (archive_file(file_path, p_file_name_buffer, p_db) < 0)
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to archive file %s (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, p_file_name_buffer,
-                            __FILE__, __LINE__);
+                  trans_db_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to archive file <%s>",
+                               p_file_name_buffer);
                }
 
                /*
@@ -921,7 +913,7 @@ main(int argc, char *argv[])
                if (unlink(fullname) == -1)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Could not unlink() local file %s after sending it successfully : %s",
+                             "Could not unlink() local file <%s> after sending it successfully : %s",
                              fullname, strerror(errno));
                }
 
@@ -929,11 +921,12 @@ main(int argc, char *argv[])
                if (db.output_log == YES)
                {
                   (void)strcpy(ol_file_name, p_file_name_buffer);
+                  *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                   *ol_transfer_time = end_time - start_time;
-                  *ol_file_name_length = 0;
-                  ol_real_size = strlen(p_file_name_buffer) + ol_size;
+                  *ol_archive_name_length = 0;
+                  ol_real_size = *ol_file_name_length + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -944,14 +937,10 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, INFO_SIGN,
-                            "%-*s[%d]: Archived file %s (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, p_file_name_buffer,
-                            __FILE__, __LINE__);
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Archived file <%s>", p_file_name_buffer);
                }
 
 #ifdef _OUTPUT_LOG
@@ -964,9 +953,9 @@ main(int argc, char *argv[])
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                   *ol_transfer_time = end_time - start_time;
+                  *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
                   ol_real_size = *ol_file_name_length +
-                                 strlen(&ol_file_name[*ol_file_name_length + 1]) +
-                                 ol_size;
+                                 *ol_archive_name_length + 1 + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -990,11 +979,12 @@ main(int argc, char *argv[])
             if (db.output_log == YES)
             {
                (void)strcpy(ol_file_name, p_file_name_buffer);
+               *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
-               *ol_file_name_length = 0;
-               ol_real_size = strlen(ol_file_name) + ol_size;
+               *ol_archive_name_length = 0;
+               ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1111,7 +1101,7 @@ main(int argc, char *argv[])
 
    /* Disconnect from remote port */
    wmo_quit();
-   if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+   if (fsa[db.fsa_pos].debug == YES)
    {
       trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                    "Disconnected from port %d.", db.port);

@@ -6,11 +6,12 @@ include ../../../Include.mk
 
 CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I../../.. -I../../../init_afd -I../afd_ctrl -I../show_olog $(XINCLUDES)
 LIB     = libxafd.a
-HEADERS = ../afd_ctrl/afd_ctrl.h ../../../config.h
+HEADERS = ../afd_ctrl/afd_ctrl.h ../../../config.h x_common_defs.h
 OBJS    = check_info_file.o\
           check_nummeric.o\
           generic_print.o\
           get_current_jid_list.o\
+          get_dir_options.o\
           get_ip_no.o\
           get_printer_cmd.o\
           handle_setup_file.o\

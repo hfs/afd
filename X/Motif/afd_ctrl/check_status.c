@@ -46,7 +46,6 @@ DESCR__E_M3
 #include <stdio.h>               /* sprintf()                            */
 #include <string.h>              /* strcmp(), strcpy(), memmove()        */
 #include <math.h>                /* log10()                              */
-#include <sys/times.h>           /* times()                              */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifndef _NO_MMAP
@@ -154,7 +153,8 @@ Widget   w;
          blink_flag = ON;
       }
       else if ((p_afd_status->afdd == ON) &&
-               (prev_afd_status.afdd == OFF) &&
+               ((prev_afd_status.afdd == OFF) ||
+                (prev_afd_status.afdd == NEITHER)) &&
                (p_afd_status->amg != OFF) &&
                (p_afd_status->fd != OFF) &&
                (p_afd_status->archive_watch != OFF))
@@ -267,17 +267,20 @@ Widget   w;
                draw_proc_led(AW_LED, prev_afd_status.archive_watch);
                flush = YES;
             }
-            if (kill(*(pid_t *)(pid_list + ((AFDD_NO + 1) * sizeof(pid_t))), 0) == -1)
+            if (prev_afd_status.afdd != NEITHER)
             {
-               /*
-                * Process is not alive, but it is in the AFD_ACTIVE
-                * file?!
-                */
-               blink_flag = ON;
-               p_afd_status->afdd = OFF;
-               prev_afd_status.afdd = p_afd_status->afdd;
-               draw_proc_led(AFDD_LED, prev_afd_status.afdd);
-               flush = YES;
+               if (kill(*(pid_t *)(pid_list + ((AFDD_NO + 1) * sizeof(pid_t))), 0) == -1)
+               {
+                  /*
+                   * Process is not alive, but it is in the AFD_ACTIVE
+                   * file?!
+                   */
+                  blink_flag = ON;
+                  p_afd_status->afdd = OFF;
+                  prev_afd_status.afdd = p_afd_status->afdd;
+                  draw_proc_led(AFDD_LED, prev_afd_status.afdd);
+                  flush = YES;
+               }
             }
          }
       }

@@ -63,9 +63,6 @@ DESCR__E_M3
 #define  READ  0
 #define  WRITE 1
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*############################## exec_cmd() #############################*/
 int
@@ -77,16 +74,16 @@ exec_cmd(char *cmd, char *buffer)
 
    if (pipe(channels) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "pipe() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "pipe() error : %s", strerror(errno));
       return(INCORRECT);
    }
 
    switch (child_pid = fork())
    {
       case -1: /* Failed to fork */
-         (void)rec(sys_log_fd, ERROR_SIGN, "fork() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "fork() error : %s", strerror(errno));
          return(INCORRECT);
 
       case 0 : /* Child process */
@@ -133,9 +130,8 @@ exec_cmd(char *cmd, char *buffer)
                         if ((n = read(channels[READ], &buffer[bytes_read],
                                       (MAX_PATH_LENGTH + MAX_PATH_LENGTH - bytes_read))) < 0)
                         {
-                           (void)rec(sys_log_fd, ERROR_SIGN,
-                                     "read() error : %s (%s %d)\n",
-                                     strerror(errno), __FILE__, __LINE__);
+                           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                      "read() error : %s", strerror(errno));
                            return(INCORRECT);
                         }
                         if (n > 0)
@@ -171,9 +167,8 @@ exec_cmd(char *cmd, char *buffer)
                        if ((n = read(channels[READ], &buffer[bytes_read],
                                      (MAX_PATH_LENGTH - bytes_read))) < 0)
                        {
-                          (void)rec(sys_log_fd, ERROR_SIGN,
-                                    "read() error : %s (%s %d)\n",
-                                    strerror(errno), __FILE__, __LINE__);
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "read() error : %s", strerror(errno));
                           return(INCORRECT);
                        }
                        if (n > 0)
@@ -184,9 +179,8 @@ exec_cmd(char *cmd, char *buffer)
                     }
                     else
                     {
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "select() error : %s (%s %d)\n",
-                                 strerror(errno), __FILE__, __LINE__);
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "select() error : %s", strerror(errno));
                        return(INCORRECT);
                     }
             } /* for (;;) */
@@ -194,8 +188,8 @@ exec_cmd(char *cmd, char *buffer)
 
          if (close(channels[READ]) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
 
          break;

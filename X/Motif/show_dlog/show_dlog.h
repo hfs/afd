@@ -122,14 +122,15 @@ struct db_entry
 /* Structure to hold all data for a single dir ID. */
 struct info_data
        {
-          unsigned int    job_no;
-          int             count;       /* Counts number of dbe entries. */
-          char            input_id;
-          char            dir[MAX_PATH_LENGTH];
-          char            file_name[MAX_FILENAME_LENGTH];
-          char            proc_user[MAX_PROC_USER_LENGTH + 1];
-          char            extra_reason[MAX_PATH_LENGTH];
-          struct db_entry *dbe;
+          unsigned int       job_no;
+          int                count;   /* Counts number of dbe entries. */
+          char               input_id;
+          char               dir[MAX_PATH_LENGTH];
+          char               file_name[MAX_FILENAME_LENGTH];
+          char               proc_user[MAX_PROC_USER_LENGTH + 1];
+          char               extra_reason[MAX_PATH_LENGTH];
+          struct dir_options d_o;
+          struct db_entry    *dbe;
        };
 
 /* Permission structure for show_dlog */

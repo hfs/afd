@@ -84,6 +84,7 @@ int                  line_length = 0,  /* encode_base64()                */
                      sigpipe_flag;
 long                 transfer_timeout;
 char                 msg_str[MAX_RET_MSG_LENGTH],
+                     *p_work_dir = NULL,
                      tr_hostname[MAX_HOSTNAME_LENGTH + 1];
 struct data          db;
 struct filename_list *rl;

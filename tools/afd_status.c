@@ -252,6 +252,8 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "\n");
    (void)fprintf(stdout, "Number of transfers  : %d\n", p_afd_status->no_of_transfers);
    (void)fprintf(stdout, "Jobs in queue        : %d\n", p_afd_status->jobs_in_queue);
+   (void)fprintf(stdout, "AMG fork() counter   : %d\n", p_afd_status->amg_fork_counter);
+   (void)fprintf(stdout, "FD fork() counter    : %d\n", p_afd_status->fd_fork_counter);
    (void)fprintf(stdout, "AFD start time       : %s", ctime(&p_afd_status->start_time));
 
    exit(SUCCESS);

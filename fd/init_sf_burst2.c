@@ -25,7 +25,9 @@ DESCR__S_M3
  **   init_sf_burst2 - initialises all variables for sf_xxx for a burst
  **
  ** SYNOPSIS
- **   int init_sf_burst2(struct job *p_new_db, char *file_path)
+ **   int init_sf_burst2(struct job   *p_new_db,
+ **                      char         *file_path,
+ **                      unsigned int *values_changed)
  **
  ** DESCRIPTION
  **
@@ -67,7 +69,9 @@ extern struct job                 db;
 
 /*########################## init_sf_burst2() ###########################*/
 int
-init_sf_burst2(struct job *p_new_db, char *file_path)
+init_sf_burst2(struct job   *p_new_db,
+               char         *file_path,
+               unsigned int *values_changed)
 {
    int   files_to_send = 0;
 #ifdef _WITH_BURST_2
@@ -77,33 +81,76 @@ init_sf_burst2(struct job *p_new_db, char *file_path)
    if (p_new_db != NULL)
    {
       db.archive_time = p_new_db->archive_time;
+/*
       db.port         = p_new_db->port;
+*/
 #ifdef _AGE_LIMIT
       db.age_limit    = p_new_db->age_limit;
 #endif
       db.chmod        = p_new_db->chmod;
       db.chmod_str[0] = p_new_db->chmod_str[0];
-      db.chmod_str[1] = p_new_db->chmod_str[1];
-      db.chmod_str[2] = p_new_db->chmod_str[2];
-      db.chmod_str[3] = p_new_db->chmod_str[3];
-      db.chmod_str[4] = p_new_db->chmod_str[4];
+      if (db.chmod_str[0] != '\0')
+      {
+         db.chmod_str[1] = p_new_db->chmod_str[1];
+         db.chmod_str[2] = p_new_db->chmod_str[2];
+         db.chmod_str[3] = p_new_db->chmod_str[3];
+         db.chmod_str[4] = p_new_db->chmod_str[4];
+      }
       db.user_id      = p_new_db->user_id;
       db.group_id     = p_new_db->group_id;
+      if (values_changed != NULL)
+      {
+         *values_changed = 0;
+         if (strcmp(db.user, p_new_db->user) != 0)
+         {
+            *values_changed |= USER_CHANGED;
+         }
+         if (strcmp(db.target_dir, p_new_db->target_dir) != 0)
+         {
+            *values_changed |= TARGET_DIR_CHANGED;
+         }
+         if (db.transfer_mode != p_new_db->transfer_mode)
+         {
+            *values_changed |= TYPE_CHANGED;
+         }
+      }
       (void)strcpy(db.user, p_new_db->user);
       (void)strcpy(db.password, p_new_db->password);
       (void)strcpy(db.target_dir, p_new_db->target_dir);
-      (void)strcpy(db.smtp_server, p_new_db->smtp_server);
+      if (p_new_db->smtp_server[0] == '\0')
+      {
+         db.smtp_server[0] = '\0';
+      }
+      else
+      {
+         (void)strcpy(db.smtp_server, p_new_db->smtp_server);
+      }
       if (db.no_of_restart_files > 0)
       {
          FREE_RT_ARRAY(db.restart_file);
+         db.restart_file = NULL;
       }
       db.no_of_restart_files = p_new_db->no_of_restart_files;
       if (db.no_of_restart_files > 0)
       {
          db.restart_file = p_new_db->restart_file;
       }
-      (void)strcpy(db.trans_rename_rule, p_new_db->trans_rename_rule);
-      (void)strcpy(db.user_rename_rule, p_new_db->user_rename_rule);
+      if (p_new_db->trans_rename_rule[0] == '\0')
+      {
+         db.trans_rename_rule[0] = '\0';
+      }
+      else
+      {
+         (void)strcpy(db.trans_rename_rule, p_new_db->trans_rename_rule);
+      }
+      if (p_new_db->user_rename_rule[0] == '\0')
+      {
+         db.user_rename_rule[0] = '\0';
+      }
+      else
+      {
+         (void)strcpy(db.user_rename_rule, p_new_db->user_rename_rule);
+      }
       (void)strcpy(db.lock_notation, p_new_db->lock_notation);
       db.archive_dir[0]      = '\0';
       db.transfer_mode       = p_new_db->transfer_mode;
@@ -130,26 +177,9 @@ init_sf_burst2(struct job *p_new_db, char *file_path)
       db.special_ptr  = p_new_db->special_ptr;
       db.special_flag = p_new_db->special_flag;
 #ifdef _OUTPUT_LOG
-      db.output_log = p_new_db->output_log;
+      db.output_log   = p_new_db->output_log;
 #endif
-      db.mode_flag = p_new_db->mode_flag;
-#ifdef _WHEN_WE_KNOW
-      if (p_new_db->special_ptr != NULL)
-      {
-         if ((db.special_ptr = malloc(sizeof(p_new_db->special_ptr))) == NULL)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "malloc() error : %s\n", strerror(errno));
-            exit(ALLOC_ERROR);
-         }
-         (void)memcpy(db.special_ptr, p_new_db->special_ptr,
-                      sizeof(p_new_db->special_ptr));
-      }
-      else
-      {
-         db.special_ptr = NULL;
-      }
-#endif
+      db.mode_flag    = p_new_db->mode_flag;
       free(p_new_db);
       p_new_db = NULL;
    }
@@ -167,7 +197,7 @@ init_sf_burst2(struct job *p_new_db, char *file_path)
    {
       char gbuf[MAX_PATH_LENGTH];
 
-      if (counter_fd != -1)
+      if (counter_fd == -1)
       {
          if ((counter_fd = open_counter_file(COUNTER_FILE)) < 0)
          {

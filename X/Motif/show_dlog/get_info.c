@@ -136,6 +136,7 @@ get_info(int item, char input_id)
          no_of_job_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          jd = (struct job_id_data *)ptr;
+         (void)close(jd_fd);
       }
       else
       {
@@ -181,6 +182,7 @@ get_info(int item, char input_id)
          no_of_dir_names = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
+         (void)close(dnb_fd);
       }
       else
       {
@@ -449,6 +451,7 @@ get_job_data(struct job_id_data *p_jd)
    }
 
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
+   get_dir_options(p_jd->dir_id_pos, &id.d_o);
    id.dbe[0].priority = p_jd->priority;
    id.dbe[0].no_of_files = p_jd->no_of_files;
    p_file = p_jd->file_list;
@@ -515,10 +518,10 @@ get_dir_data(int dir_pos)
                   j;
    register char  *p_file,
                   *p_tmp;
-   int            size,
-                  gotcha;
+   int            gotcha;
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
+   get_dir_options(dir_pos, &id.d_o);
 
    id.count = 0;
    for (i = (*no_of_job_ids - 1); i > -1; i--)
@@ -609,6 +612,8 @@ get_dir_data(int dir_pos)
          /* Save all FD (standart) options. */
          if (id.dbe[id.count].no_of_soptions > 0)
          {
+            size_t size;
+
             size = strlen(jd[i].soptions);
             if ((id.dbe[id.count].soptions = calloc(size + 1,
                                                     sizeof(char))) == NULL)

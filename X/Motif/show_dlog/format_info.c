@@ -81,6 +81,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   22.02.1998 H.Kiehl Created
+ **   01.07.2001 H.Kiehl Show directory options.
  **
  */
 DESCR__E_M3
@@ -176,6 +177,41 @@ format_output_info(char *text)
       if (count > max_x)
       {
          max_x = count;
+      }
+      if (id.d_o.url[0] != '\0')
+      {
+         if (perm.view_passwd != YES)
+         {                           
+            remove_passwd(id.d_o.url);
+         }
+         count = sprintf(text + length, "DIR-URL    : %s\n", id.d_o.url);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+      }
+      if (id.d_o.no_of_dir_options > 0)
+      {
+         count = sprintf(text + length, "DIR-options: %s\n",
+                         id.d_o.aoptions[0]);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+         max_y++;
+         for (i = 1; i < id.d_o.no_of_dir_options; i++)
+         {
+            count = sprintf(text + length, "             %s\n",
+                            id.d_o.aoptions[i]);
+            length += count;
+            if (count > max_x)
+            {
+               max_x = count;
+            }
+            max_y++;
+         }
       }
       count = sprintf(text + length, "Filter     : %s\n", id.dbe[0].files[0]);
       length += count;
@@ -402,6 +438,41 @@ format_input_info(char *text)
          max_x = count;
       }
       max_y++;
+      if (id.d_o.url[0] != '\0')
+      {
+         if (perm.view_passwd != YES)
+         {                           
+            remove_passwd(id.d_o.url);
+         }
+         count = sprintf(text + length, "DIR-URL    : %s\n", id.d_o.url);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+      }
+      if (id.d_o.no_of_dir_options > 0)
+      {
+         count = sprintf(text + length, "DIR-options: %s\n",
+                         id.d_o.aoptions[0]);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+         max_y++;
+         for (i = 1; i < id.d_o.no_of_dir_options; i++)
+         {
+            count = sprintf(text + length, "             %s\n",
+                            id.d_o.aoptions[i]);
+            length += count;
+            if (count > max_x)
+            {
+               max_x = count;
+            }
+            max_y++;
+         }
+      }
       p_begin_underline = text + length;
 
       for (j = 0; j < id.count; j++)

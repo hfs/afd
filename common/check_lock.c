@@ -1,6 +1,6 @@
 /*
  *  check_lock.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,8 +55,6 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 
-extern int sys_log_fd;
-
 
 /*############################ check_lock() #############################*/
 int
@@ -68,9 +66,8 @@ check_lock(char *file, char block_flag)
    {
       if (errno != ENOENT)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not open() %s : %s (%s %d)\n",
-                   file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not open() <%s> : %s", file, strerror(errno));
       }
       return(INCORRECT);
    }
@@ -82,9 +79,8 @@ check_lock(char *file, char block_flag)
 
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not set write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not set write lock : %s", strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -96,9 +92,8 @@ check_lock(char *file, char block_flag)
        */
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not unlock %s : %s (%s %d)\n",
-                   file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unlock <%s> : %s", file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -109,9 +104,8 @@ check_lock(char *file, char block_flag)
 
       if (fcntl(fd, F_GETLK, &tlock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not set write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not set write lock : %s", strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -128,8 +122,8 @@ check_lock(char *file, char block_flag)
 
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    return(0);

@@ -38,13 +38,6 @@
 #define STOP_BUTTON             2
 #define STOP_BUTTON_PRESSED     4
 
-/* Status definitions for resending files. */
-#define PENDING                 10
-#define NOT_ARCHIVED            11
-#define NOT_FOUND               12
-#define NOT_IN_ARCHIVE          13
-/* NOTE: DONE is defined in afddefs.h as 3 */
-
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
 #define START_TIME_NO_ENTER     1
@@ -106,11 +99,12 @@ struct db_entry
 /* Structure to hold all data for a single dir ID. */
 struct info_data
        {
-          unsigned int    dir_no;
-          int             count;       /* Counts number of dbe entries. */
-          char            dir[MAX_PATH_LENGTH];
-          char            file_name[MAX_FILENAME_LENGTH];
-          struct db_entry *dbe;
+          unsigned int       dir_no;
+          int                count;       /* Counts number of dbe entries. */
+          char               dir[MAX_PATH_LENGTH];
+          char               file_name[MAX_FILENAME_LENGTH];
+          struct dir_options d_o;
+          struct db_entry    *dbe;
        };
 
 /* Permission structure for show_olog */

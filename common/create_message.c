@@ -1,6 +1,6 @@
 /*
  *  create_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,7 +58,6 @@ DESCR__E_M3
 #include <errno.h>
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char msg_dir[],
             *p_msg_dir;
 
@@ -75,18 +74,16 @@ create_message(int job_id, char *recipient, char *options)
    if ((fd = open(msg_dir, O_RDWR | O_CREAT | O_TRUNC,
                   S_IRUSR | S_IWUSR)) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                msg_dir, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to open() <%s> : %s", msg_dir, strerror(errno));
       return(INCORRECT);
    }
 
    length = sprintf(buffer, "%s\n", DESTINATION_IDENTIFIER);
    if (write(fd, buffer, length) != length)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to write() to %s : %s (%s %d)\n",
-                msg_dir, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to write() to <%s> : %s", msg_dir, strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
@@ -94,9 +91,8 @@ create_message(int job_id, char *recipient, char *options)
    length = sprintf(buffer, "%s\n\n", recipient);
    if (write(fd, buffer, length) != length)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to write() to %s : %s (%s %d)\n",
-                msg_dir, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to write() to <%s> : %s", msg_dir, strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
@@ -106,9 +102,8 @@ create_message(int job_id, char *recipient, char *options)
       length = sprintf(buffer, "%s\n", OPTION_IDENTIFIER);
       if (write(fd, buffer, length) != length)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   msg_dir, strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to <%s> : %s", msg_dir, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -116,9 +111,8 @@ create_message(int job_id, char *recipient, char *options)
       length = strlen(options);
       if (write(fd, options, length) != length)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   msg_dir, strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to <%s> : %s", msg_dir, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -126,9 +120,8 @@ create_message(int job_id, char *recipient, char *options)
       /* Don't forget the newline, options does not have it. */
       if (write(fd, "\n", 1) != 1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   msg_dir, strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to <%s> : %s", msg_dir, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -136,8 +129,8 @@ create_message(int job_id, char *recipient, char *options)
 
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    return(SUCCESS);

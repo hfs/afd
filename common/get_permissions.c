@@ -1,6 +1,6 @@
 /*
  *  get_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,7 +63,6 @@ DESCR__E_M3
 #include <errno.h>
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -125,17 +124,17 @@ get_permissions(char **perm_buffer)
    if (((buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL) ||
        ((*perm_buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL))
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to calloc(). Permission control deactivated!!! : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to calloc(). Permission control deactivated!!! : %s",
+                 strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
    if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to read() %s. Permission control deactivated!!! : %s (%s %d)\n",
-                afd_user_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to read() <%s>. Permission control deactivated!!! : %s",
+                 afd_user_file, strerror(errno));
       free(buffer); free(*perm_buffer);
       (void)close(fd);
       return(INCORRECT);
@@ -153,7 +152,7 @@ get_permissions(char **perm_buffer)
          while (*ptr != '\n')
          {
             *(*perm_buffer + i) = *ptr;
-            i++ ; ptr++;
+            i++; ptr++;
          }
          if (((ptr + 1) - buffer) >= stat_buf.st_size)
          {
@@ -173,8 +172,8 @@ get_permissions(char **perm_buffer)
 
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    free(buffer);

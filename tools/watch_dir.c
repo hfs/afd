@@ -47,9 +47,11 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>           /* stat(), S_ISDIR()                     */
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */
+#include <unistd.h>             /* STDERR_FILENO                         */
 #include <errno.h>
 
-int sys_log_fd;                 /* NOTE: Not used!                       */
+int  sys_log_fd = STDERR_FILENO;
+char *p_work_dir = NULL;
 
 /* Local functions */
 static void usage(char *);

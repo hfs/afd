@@ -75,11 +75,12 @@ int                        counter_fd = -1,    /* NOT USED */
                                           /* in this module.             */
                            trans_rule_pos,/* NOT USED */
                            user_rule_pos, /* NOT USED */
+                           timeout_flag = OFF,
                            fsa_id,
                            fsa_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
-                           trans_db_log_fd = -1,
+                           trans_db_log_fd = STDERR_FILENO,
                            amg_flag = NO;
 long                       transfer_timeout; /* Not used [init_sf()]    */
 #ifndef _NO_MMAP
@@ -88,6 +89,7 @@ off_t                      fsa_size;
 off_t                      *file_size_buffer;
 char                       host_deleted = NO,
                            *p_work_dir = NULL,
+                           msg_str[1],
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
                            *file_name_buffer;
 struct filetransfer_status *fsa;
@@ -147,7 +149,8 @@ main(int argc, char *argv[])
    unsigned int     *ol_job_number = NULL;
    char             *ol_data = NULL,
                     *ol_file_name = NULL;
-   unsigned short   *ol_file_name_length;
+   unsigned short   *ol_archive_name_length,
+                    *ol_file_name_length;
    off_t            *ol_file_size = NULL;
    size_t           ol_size,
                     ol_real_size;
@@ -184,6 +187,7 @@ main(int argc, char *argv[])
 
    /* Initialise variables */
    p_work_dir = work_dir;
+   msg_str[0] = '\0';
    files_to_send = init_sf(argc, argv, file_path, MAP_FLAG);
    p_db = &db;
 
@@ -226,6 +230,7 @@ main(int argc, char *argv[])
                       &ol_data,
                       &ol_file_name,
                       &ol_file_name_length,
+                      &ol_archive_name_length,
                       &ol_file_size,
                       &ol_size,
                       &ol_transfer_time,
@@ -301,11 +306,8 @@ main(int argc, char *argv[])
           */
          if (setjmp(env_alrm) != 0)
          {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Map function timed out! #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, db.job_id,
-                      __FILE__, __LINE__);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Map function timed out!");
             exit(MAP_FUNCTION_ERROR);
          }
          (void)alarm(MAP_TIMEOUT);
@@ -328,50 +330,30 @@ main(int argc, char *argv[])
                                         fax_print_error_str)) < 0)
             {
                (void)alarm(0);
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to print file %s to %s [FAX PRINT ERROR %d]. (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH,
-                            tr_hostname, (int)db.job_no,
-                            file_name, db.hostname,
-                            fax_error, __FILE__, __LINE__);
-                  (void)rec(trans_db_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH,
-                            tr_hostname, (int)db.job_no,
-                            fax_print_error_str);
+                  trans_db_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to print file <%s> to %s [FAX PRINT ERROR %d].",
+                               file_name, db.hostname, fax_error);
+                  trans_db_log(ERROR_SIGN, NULL, 0, "%s", fax_print_error_str);
                }
-               (void)rec(transfer_log_fd, INFO_SIGN,
-                         "%-*s[%d]: %d Bytes printed in %d file(s).\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to print file <%s> to %s [FAX PRINT ERROR %d].",
+                         file_name, db.hostname, fax_error);
+               trans_log(ERROR_SIGN, NULL, 0, "%s", fax_print_error_str);
+               trans_log(INFO_SIGN, NULL, 0, "%d Bytes printed in %d file(s).",
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH,
-                         tr_hostname, (int)db.job_no,
-                         fax_print_error_str);
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to print file %s to %s [FAX PRINT ERROR %d]. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         tr_hostname, (int)db.job_no,
-                         file_name, db.hostname,
-                         fax_error, db.job_id,
-                         __FILE__, __LINE__);
                exit(MAP_FUNCTION_ERROR);
             }
             else
             {
                (void)alarm(0);
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, INFO_SIGN,
-                            "%-*s[%d]: Printed file %s to %s. (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH,
-                            tr_hostname, (int)db.job_no,
-                            file_name, db.hostname,
-                            __FILE__, __LINE__);
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Printed file <%s> to %s.",
+                               file_name, db.hostname);
                }
             }
          }
@@ -387,70 +369,38 @@ main(int argc, char *argv[])
             (void)alarm(0);
             if (map_errno != DB_OKAY)
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to send file %s to %s:%d [MAP ERROR %ld]. (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH,
-                            tr_hostname, (int)db.job_no,
-                            file_name, db.hostname,
-                            db.port, map_errno,
-                            __FILE__, __LINE__);
-                  (void)rec(trans_db_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH,
-                            tr_hostname, (int)db.job_no,
-                            map_db_errafd());
+                  trans_db_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to send file <%s> to %s:%d [MAP ERROR %ld].",
+                               file_name, db.hostname, db.port, map_errno);
+                  trans_db_log(ERROR_SIGN, NULL, 0, "%s", map_db_errafd());
                }
-               (void)rec(transfer_log_fd, INFO_SIGN,
-                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to send file <%s> to %s:%d [MAP ERROR %ld].",
+                         file_name, db.hostname, db.port, map_errno);
+               trans_log(ERROR_SIGN, NULL, 0, "%s", map_db_errafd());
+               trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH,
-                         tr_hostname, (int)db.job_no,
-                         map_db_errafd());
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to send file %s to %s:%d [MAP ERROR %ld]. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         tr_hostname, (int)db.job_no,
-                         file_name, db.hostname,
-                         db.port, map_errno,
-                         db.job_id, __FILE__, __LINE__);
                exit(MAP_FUNCTION_ERROR);
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, INFO_SIGN,
-                            "%-*s[%d]: Send file %s to %s:%d [%ld]. (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH,
-                            tr_hostname, (int)db.job_no,
-                            file_name, db.hostname, db.port,
-                            map_errno,  __FILE__, __LINE__);
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Send file <%s> to %s:%d [%ld].",
+                               file_name, db.hostname, db.port, map_errno);
                }
             }
          }
       }
       else
       {
-         (void)rec(transfer_log_fd, WARN_SIGN,
-                   "%-*s[%d]: Ignoring file %s, since MAP can't handle files with %d Bytes length. #%d (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   file_name, *p_file_size_buffer, db.job_id,
-                   __FILE__, __LINE__);
-
-         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
-         {
-            (void)rec(trans_db_log_fd, WARN_SIGN,
-                      "%-*s[%d]: Ignoring file %s, since MAP can't handle files with %d Bytes length. (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      file_name, *p_file_size_buffer,
-                      __FILE__, __LINE__);
-         }
+         trans_log(WARN_SIGN, __FILE__, __LINE__,
+                   "Ignoring file <%s>, since MAP can't handle files with %d Bytes length.",
+                   file_name, *p_file_size_buffer);
       }
 
 #ifdef _OUTPUT_LOG
@@ -564,13 +514,10 @@ main(int argc, char *argv[])
           */
          if (archive_file(file_path, file_name, p_db) < 0)
          {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to archive file %s (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, file_name, __FILE__, __LINE__);
+               trans_db_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to archive file <%s>", file_name);
             }
 
             /*
@@ -580,7 +527,7 @@ main(int argc, char *argv[])
             if (unlink(source_file) < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Could not unlink() local file %s after copying it successfully : %s",
+                          "Could not unlink() local file <%s> after copying it successfully : %s",
                           source_file, strerror(errno));
             }
 
@@ -588,10 +535,12 @@ main(int argc, char *argv[])
             if (db.output_log == YES)
             {
                (void)strcpy(ol_file_name, p_file_name_buffer);
+               *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
-               ol_real_size = strlen(p_file_name_buffer) + ol_size;
+               *ol_archive_name_length = 0;
+               ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -602,13 +551,10 @@ main(int argc, char *argv[])
          }
          else
          {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, INFO_SIGN,
-                         "%-*s[%d]: Archived file %s. (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, file_name, __FILE__, __LINE__);
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Archived file <%s>.", file_name);
             }
 
 #ifdef _OUTPUT_LOG
@@ -620,9 +566,9 @@ main(int argc, char *argv[])
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
+               *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
                ol_real_size = *ol_file_name_length +
-                              strlen(&ol_file_name[*ol_file_name_length + 1]) +
-                              ol_size;
+                              *ol_archive_name_length + 1 + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -638,7 +584,7 @@ main(int argc, char *argv[])
          if (unlink(source_file) < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not unlink() local file %s after copying it successfully : %s",
+                       "Could not unlink() local file <%s> after copying it successfully : %s",
                        source_file, strerror(errno));
          }
 
@@ -646,10 +592,12 @@ main(int argc, char *argv[])
          if (db.output_log == YES)
          {
             (void)strcpy(ol_file_name, p_file_name_buffer);
+            *ol_file_name_length = (unsigned short)strlen(ol_file_name);
             *ol_file_size = *p_file_size_buffer;
             *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
             *ol_transfer_time = end_time - start_time;
-            ol_real_size = strlen(p_file_name_buffer) + ol_size;
+            *ol_archive_name_length = 0;
+            ol_real_size = *ol_file_name_length + ol_size;
             if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -670,7 +618,8 @@ main(int argc, char *argv[])
               j;
          char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
-         lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
+         lock_region_w(fsa_fd,
+                       (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
          fsa[db.fsa_pos].error_counter = 0;
 
          /*
@@ -680,7 +629,7 @@ main(int argc, char *argv[])
          if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Failed to open() FIFO %s : %s",
+                       "Failed to open() FIFO <%s> : %s",
                        fd_wake_up_fifo, strerror(errno));
          }
          else
@@ -688,13 +637,13 @@ main(int argc, char *argv[])
             if (write(fd, "", 1) != 1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to write() to FIFO %s : %s",
+                          "Failed to write() to FIFO <%s> : %s",
                           fd_wake_up_fifo, strerror(errno));
             }
             if (close(fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Failed to close() FIFO %s : %s",
+                          "Failed to close() FIFO <%s> : %s",
                           fd_wake_up_fifo, strerror(errno));
             }
          }
@@ -730,10 +679,8 @@ main(int argc, char *argv[])
       p_file_size_buffer++;
    } /* for (i = 0; i < files_to_send; i++) */
 
-   (void)rec(transfer_log_fd, INFO_SIGN, "%-*s[%d]: %d Bytes send in %d file(s).\n",
-             MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-             fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-             i);
+   trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
+             fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done, i);
 
    /*
     * Remove file directory.
@@ -741,7 +688,7 @@ main(int argc, char *argv[])
    if (rmdir(file_path) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to remove directory %s : %s",
+                 "Failed to remove directory <%s> : %s",
                  file_path, strerror(errno));
    }
 #endif /* _WITH_MAP_SUPPORT */
@@ -776,7 +723,7 @@ sf_map_exit(void)
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo %s : %s", sf_fin_fifo, strerror(errno));
+                 "Could not open fifo <%s> : %s", sf_fin_fifo, strerror(errno));
    }
    else
    {

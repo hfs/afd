@@ -1,6 +1,6 @@
 /*
  *  read_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,9 +55,6 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*############################# read_file() #############################*/
 int
@@ -69,15 +66,15 @@ read_file(char *filename, char **buffer)
    /* Open file */
    if ((fd = open(filename, O_RDONLY)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not open %s : %s (%s %d)\n",
-                filename, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open %s : %s", filename, strerror(errno));
       return(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not fstat() %s : %s (%s %d)\n",
-                filename, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not fstat() %s : %s", filename, strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
@@ -85,9 +82,8 @@ read_file(char *filename, char **buffer)
    /* Allocate enough memory for the contents of the file */
    if ((*buffer = malloc(stat_buf.st_size + 1)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not allocate memory %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not allocate memory %s", strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
@@ -96,8 +92,8 @@ read_file(char *filename, char **buffer)
    /* Read file into buffer */
    if (read(fd, *buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to read %s : %s (%s %d)\n",
-                filename, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to read %s : %s", filename, strerror(errno));
       (void)close(fd);
       free(*buffer);
       return(INCORRECT);
@@ -106,8 +102,8 @@ read_file(char *filename, char **buffer)
    /* Close file */
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    return(stat_buf.st_size);

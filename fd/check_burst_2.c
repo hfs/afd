@@ -25,9 +25,10 @@ DESCR__S_M3
  **   check_burst_2 - checks if FD still has jobs in the queue
  **
  ** SYNOPSIS
- **   int check_burst_2(struct job **p_new_db,
- **                     char       *file_path,
- **                     int        *files_to_send)
+ **   int check_burst_2(struct job   **p_new_db,
+ **                     char         *file_path,
+ **                     int          *files_to_send,
+ **                     unsigned int *values_changed)
  **
  ** DESCRIPTION
  **   The function check_burst_2() checks if FD has jobs in the queue
@@ -76,7 +77,10 @@ extern struct job                 db;
 
 /*########################### check_burst_2() ###########################*/
 int
-check_burst_2(struct job **p_new_db, char *file_path, int *files_to_send)
+check_burst_2(struct job   **p_new_db,
+              char         *file_path,
+              int          *files_to_send,
+              unsigned int *values_changed)
 {
    int ret = NO;
 
@@ -220,6 +224,9 @@ retry:
 #endif
                                        (*p_new_db)->lock           = DEFAULT_LOCK;
                                        (*p_new_db)->smtp_server[0] = '\0';
+#ifdef _WITH_SCP1_SUPPORT
+                                       (*p_new_db)->chmod          = FILE_MODE;
+#endif
                                        (*p_new_db)->chmod_str[0]   = '\0';
                                        (*p_new_db)->trans_rename_rule[0] = '\0';
                                        (*p_new_db)->user_rename_rule[0] = '\0';
@@ -295,7 +302,7 @@ retry:
 
       if (ret == YES)
       {
-         *files_to_send = init_sf_burst2(*p_new_db, file_path);
+         *files_to_send = init_sf_burst2(*p_new_db, file_path, values_changed);
          if (*files_to_send == 0)
          {
             goto retry;

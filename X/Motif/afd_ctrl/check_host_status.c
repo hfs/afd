@@ -1087,17 +1087,8 @@ Widget   w;
 static void
 calc_transfer_rate(int i)
 {
-   int           j;
+   register int  j;
    unsigned long bytes_send = 0L;
-   time_t        end_time,
-                 delta_time;
-
-   end_time = times(&tmsdummy);
-   if ((delta_time = (end_time - connect_data[i].start_time)) == 0)
-   {
-      delta_time = 1;
-   }
-   connect_data[i].start_time = end_time;
 
    for (j = 0; j < fsa[i].allowed_transfers; j++)
    {
@@ -1118,6 +1109,15 @@ calc_transfer_rate(int i)
 
    if (bytes_send > 0)
    {
+      time_t end_time,
+             delta_time;
+
+      end_time = times(&tmsdummy);
+      if ((delta_time = (end_time - connect_data[i].start_time)) == 0)
+      {
+         delta_time = 1;
+      }
+      connect_data[i].start_time = end_time;
       connect_data[i].bytes_per_sec = (double)(bytes_send) /
                                       delta_time * clktck;
 

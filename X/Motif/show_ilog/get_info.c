@@ -163,6 +163,7 @@ get_info(int item)
          no_of_job_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          jd = (struct job_id_data *)ptr;
+         (void)close(jd_fd);
       }
       else
       {
@@ -223,6 +224,7 @@ get_info(int item)
          no_of_dir_names = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
+         (void)close(dnb_fd);
       }
       else
       {
@@ -433,13 +435,14 @@ get_all(int item)
 static void
 get_dir_data(int dir_pos)
 {
-   register int   i,
-                  j;
-   register char  *p_tmp;
-   int            size,
-                  gotcha;
+   register int  i,
+                 j;
+   register char *p_tmp;
+   int           gotcha;
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
+
+   get_dir_options(dir_pos, &id.d_o);
 
    id.count = 0;
    for (i = (*no_of_job_ids - 1); i > -1; i--)
@@ -525,6 +528,8 @@ get_dir_data(int dir_pos)
                   /* Save all FD (standart) options. */
                   if (id.dbe[id.count].no_of_soptions > 0)
                   {
+                     size_t size;
+
                      size = strlen(jd[i].soptions);
                      if ((id.dbe[id.count].soptions = calloc(size + 1,
                                                              sizeof(char))) == NULL)

@@ -60,8 +60,7 @@ DESCR__E_M3
 #include <errno.h>
 
 /* Global variables */
-extern int                        sys_log_fd,
-                                  fsa_id;
+extern int                        fsa_id;
 #ifndef _NO_MMAP
 extern off_t                      fsa_size;
 #endif
@@ -85,24 +84,23 @@ check_fsa(void)
 #ifdef _NO_MMAP
          if (munmap_emu(ptr) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap_emu() from FSA (%d) : %s (%s %d)\n",
-                      fsa_id, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap_emu() from FSA (%d) : %s",
+                       fsa_id, strerror(errno));
          }
 #else
          if (munmap(ptr, fsa_size) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap() from FSA [fsa_id = %d fsa_size = %d] : %s (%s %d)\n",
-                      fsa_id, fsa_size, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() from FSA [fsa_id = %d fsa_size = %d] : %s",
+                       fsa_id, fsa_size, strerror(errno));
          }
 #endif
 
          if (fsa_attach() < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to attach to FSA. (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to attach to FSA.");
             exit(INCORRECT);
          }
 

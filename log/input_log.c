@@ -59,6 +59,7 @@ DESCR__S_M1
  ** HISTORY
  **   11.02.1997 H.Kiehl Created
  **   07.01.2001 H.Kiehl Build in some checks when fifo buffer overflows.
+ **   14.06.2001 H.Kiehl Removed the above unneccessary checks.
  **
  */
 DESCR__E_M1
@@ -298,48 +299,51 @@ main(int argc, char *argv[])
               {
                  n += bytes_buffered;
                  bytes_buffered = 0;
-                 if (n >= check_size)
+                 do
                  {
-                    do
+                    if (n < (check_size - 1))
                     {
-                       (void)fprintf(input_file, "%-10ld %s %lu %u\n",
-                                     now, 
-                                     p_file_name,
-                                     (unsigned long)*file_size,
-                                     *dir_number);
-                       length = check_size + strlen(p_file_name);
-                       n -= length;
-                       if (n > 0)
-                       {
-                          (void)memmove(fifo_buffer, &fifo_buffer[length], n);
-                          if ((n < check_size) ||
-                              ((check_size + strlen(p_file_name)) > n))
-                          {
-                             bytes_buffered = n;
-                             no_of_buffered_writes++;
-#ifdef _REPORT_BUFFER_OVERFLOW
-                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                        "Fifo buffer for input_log overflowed!");
-#endif /* _REPORT_BUFFER_OVERFLOW */
-                             break;
-                          }
-                       }
-                       no_of_buffered_writes++;
-                    } while (n >= check_size);
-
-                    if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_SLOW)
-                    {
-                       (void)fflush(input_file);
-                       no_of_buffered_writes = 0;
+                       length = n;
+                       bytes_buffered = n;
                     }
-                 }
-                 else
+                    else
+                    {
+                       length = strlen(p_file_name);
+                       if (n < (check_size + length))
+                       {
+                          length = n;
+                          bytes_buffered = n;
+                       }
+                       else
+                       {
+                          (void)fprintf(input_file, "%-10ld %s %lu %u\n",
+                                        now, 
+                                        p_file_name,
+                                        (unsigned long)*file_size,
+                                        *dir_number);
+                          length = length + check_size;
+                       }
+                    }
+                    n -= length;
+                    if (n > 0)
+                    {
+                       (void)memmove(fifo_buffer, &fifo_buffer[length], n);
+                    }
+                    no_of_buffered_writes++;
+                 } while (n > 0);
+
+                 if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_SLOW)
                  {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "Hmmm. Seems like I am reading garbage from the fifo (%d).",
-                               n);
+                    (void)fflush(input_file);
+                    no_of_buffered_writes = 0;
                  }
               }
+              else if (n < 0)
+                   {
+                      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                 "read() error (%d) : %s", n, strerror(errno));
+                      exit(INCORRECT);
+                   }
 
               /*
                * Since we can receive a constant stream of data

@@ -1,6 +1,6 @@
 /*
  *  map_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,9 +53,6 @@ DESCR__E_M3
 #include <sys/mman.h>               /* mmap()                            */
 #include <errno.h>
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*############################# map_file() ##############################*/
 void *
@@ -65,25 +62,22 @@ map_file(char *file, int *fd)
 
    if ((*fd = coe_open(file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open() and create %s : %s (%s %d)\n",
-                file, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to open() + create <%s> : %s", file, strerror(errno));
       exit(INCORRECT);
    }
 
    if (fstat(*fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to fstat() %s : %s (%s %d)\n",
-                file, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to fstat() <%s> : %s", file, strerror(errno));
       exit(INCORRECT);
    }
 
    if (stat_buf.st_size == 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "It doesn't make sense to mmap() to a file of zero length. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "It doesn't make sense to mmap() to a file of zero length.");
       exit(INCORRECT);
    }
 

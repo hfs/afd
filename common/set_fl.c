@@ -36,9 +36,6 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*############################# set_fl() ################################*/
 void
@@ -48,8 +45,8 @@ set_fl(int fd, int flags)
 
    if ((val = fcntl(fd, F_GETFL, 0)) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "fcntl() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "fcntl() error : %s", strerror(errno));
       exit(INCORRECT);
    }
    
@@ -57,8 +54,8 @@ set_fl(int fd, int flags)
 
    if (fcntl(fd, F_SETFL, val) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "fcntl() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "fcntl() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 

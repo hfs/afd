@@ -1,6 +1,6 @@
 /*
  *  get_definition.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,9 +52,6 @@ DESCR__E_M3
 #include <stdlib.h>
 #include <errno.h>
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*########################### get_definition() ##########################*/
 char *
@@ -69,9 +66,8 @@ get_definition(char *buffer,
 
    if ((real_search_value = malloc(strlen(search_value) + 2)) == NULL)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       return(NULL);
    }
    real_search_value[0] = '\n';

@@ -1,6 +1,6 @@
 /*
  *  attach_buf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,9 +57,6 @@ DESCR__E_M3
 #include <sys/mman.h>               /* mmap()                            */
 #include <errno.h>
 
-/* External global variables */
-extern int  sys_log_fd;
-
 
 /*############################ attach_buf() #############################*/
 void *
@@ -75,17 +72,16 @@ attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
     */
    if ((*fd = coe_open(file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open() and create %s : %s (%s %d)\n",
-                file, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to open() and create <%s> : %s",
+                 file, strerror(errno));
       exit(INCORRECT);
    }
 
    if (fstat(*fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to fstat() %s : %s (%s %d)\n",
-                file, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to fstat() <%s> : %s", file, strerror(errno));
       exit(INCORRECT);
    }
 
@@ -95,23 +91,20 @@ attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
 
       if (write(*fd, &buf_size, sizeof(int)) != sizeof(int))
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   file, strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to <%s> : %s", file, strerror(errno));
          exit(INCORRECT);
       }
       if (lseek(*fd, new_size - 1, SEEK_SET) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to lseek() %s : %s (%s %d)\n",
-                   file, strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to lseek() <%s> : %s", file, strerror(errno));
          exit(INCORRECT);
       }
       if (write(*fd, "", 1) != 1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   file, strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to <%s> : %s", file, strerror(errno));
          exit(INCORRECT);
       }
 
@@ -123,9 +116,9 @@ attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
       {
          if (lock_region(*fd, 0) == IS_LOCKED)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Another %s is already running. Terminating. (%s %d)\n",
-                      prog_name, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Another <%s> is already running. Terminating.",
+                       prog_name);
             exit(INCORRECT);
          }
       }

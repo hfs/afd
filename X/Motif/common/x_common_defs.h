@@ -285,6 +285,14 @@ struct coord
           int y;
        };
 
+struct dir_options
+       {
+          int  no_of_dir_options;
+          char aoptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
+          char dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
+          char url[MAX_PATH_LENGTH];
+       };
+
 #define CREATE_LFC_STRING(str, value)                       \
         {                                                   \
            (str)[5] = '\0';                                 \
@@ -587,6 +595,7 @@ extern int  check_info_file(void),
             store_host_names(char **, char *),
             xrec(Widget, char, char *, ...);
 extern void check_nummeric(Widget, XtPointer, XtPointer),
+            get_dir_options(int, struct dir_options *),
             get_ip_no(char *, char *),
             get_printer_cmd(char *, char *),
             init_color(Display *),

@@ -1,6 +1,6 @@
 /*
  *  fra_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,8 +63,7 @@ DESCR__E_M3
 #include <errno.h>
 
 /* Global variables */
-extern int                        sys_log_fd,
-                                  fra_fd,
+extern int                        fra_fd,
                                   fra_id,
                                   no_of_dirs;
 #ifndef _NO_MMAP
@@ -107,9 +106,9 @@ fra_attach(void)
 #ifdef _NO_MMAP
          if (munmap_emu((void *)fra) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap() %s : %s (%s %d)\n",
-                      fra_stat_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() %s : %s",
+                       fra_stat_file, strerror(errno));
          }
          else
          {
@@ -120,17 +119,17 @@ fra_attach(void)
 
          if (stat(fra_stat_file, &stat_buf) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to stat() %s : %s (%s %d)\n",
-                      fra_stat_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to stat() <%s> : %s",
+                       fra_stat_file, strerror(errno));
          }
          else
          {
             if (munmap((void *)fra, stat_buf.st_size) == -1)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to munmap() %s : %s (%s %d)\n",
-                         fra_stat_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to munmap() %s : %s",
+                          fra_stat_file, strerror(errno));
             }
             else
             {
@@ -155,17 +154,17 @@ fra_attach(void)
             my_usleep(800000L);
             if (loop_counter++ > 12)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         fra_id_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to open() <%s> : %s",
+                          fra_id_file, strerror(errno));
                return(INCORRECT);
             }
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      fra_id_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() <%s> : %s",
+                       fra_id_file, strerror(errno));
             return(INCORRECT);
          }
       }
@@ -173,9 +172,9 @@ fra_attach(void)
       /* Check if its locked */
       if (fcntl(fd, F_SETLKW, &wlock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not set write lock for %s : %s (%s %d)\n",
-                   fra_id_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not set write lock for <%s> : %s",
+                    fra_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -183,9 +182,9 @@ fra_attach(void)
       /* Read the fra_id */
       if (read(fd, &fra_id, sizeof(int)) < 0)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not read the value of the fra_id : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not read the value of the fra_id : %s",
+                    strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
@@ -193,17 +192,17 @@ fra_attach(void)
       /* Unlock file and close it */
       if (fcntl(fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not unlock %s : %s (%s %d)\n",
-                   fra_id_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unlock <%s> : %s",
+                    fra_id_file, strerror(errno));
          (void)close(fd);
          return(INCORRECT);
       }
       if (close(fd) == -1)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not close() %s : %s (%s %d)\n",
-                   fra_id_file, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Could not close() <%s> : %s",
+                    fra_id_file, strerror(errno));
       }
 
       (void)sprintf(p_fra_stat_file, ".%d", fra_id);
@@ -212,8 +211,8 @@ fra_attach(void)
       {
          if (close(fra_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
 
@@ -223,34 +222,34 @@ fra_attach(void)
          {
             if (retries++ > 8)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         fra_stat_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to open() <%s> : %s",
+                          fra_stat_file, strerror(errno));
                return(INCORRECT);
             }
             else
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         fra_stat_file, strerror(errno), __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to open() <%s> : %s",
+                          fra_stat_file, strerror(errno));
                (void)sleep(1);
                continue;
             }
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      fra_stat_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() <%s> : %s",
+                       fra_stat_file, strerror(errno));
             return(INCORRECT);
          }
       }
 
       if (fstat(fra_fd, &stat_buf) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to stat() %s : %s (%s %d)\n",
-                   fra_stat_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to stat() <%s> : %s",
+                    fra_stat_file, strerror(errno));
          return(INCORRECT);
       }
 
@@ -262,8 +261,8 @@ fra_attach(void)
                       MAP_SHARED, fra_fd, 0)) == (caddr_t) -1)
 #endif
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "mmap() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "mmap() error : %s", strerror(errno));
          return(INCORRECT);
       }
 

@@ -1,6 +1,6 @@
 /*
  *  draw_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,6 +29,16 @@ DESCR__S_M3
  **   void draw_line_status(int pos, signed char delta)
  **   void draw_button_line(void)
  **   void draw_blank_line(int pos)
+ **   void draw_dest_identifier(int pos, int x, int y)
+ **   void draw_debug_led(int pos, int x, int y)
+ **   void draw_led(int pos, int led_no, int x, int y)
+ **   void draw_proc_led(int led_no, signed char led_status)
+ **   void draw_log_status(int log_typ, int si_pos)
+ **   void draw_queue_counter(int queue_counter)
+ **   void draw_proc_stat(int pos, int job_no, int x, int y)
+ **   void draw_detailed_selection(int pos, int job_no)
+ **   void draw_chars(int pos, char type, int x, int y)
+ **   void draw_bar(int pos, signed cahr delta, char bar_no, int x, int y);
  **
  ** DESCRIPTION
  **   The function draw_label_line() draws the label which is just
@@ -118,8 +128,8 @@ static unsigned int  counter = 0;
 void
 draw_label_line(void)
 {
-   int  i,
-        x = 0;
+   int i,
+       x = 0;
 
    for (i = 0; i < no_of_columns; i++)
    {
@@ -316,7 +326,10 @@ draw_button_line(void)
    draw_proc_led(AMG_LED, prev_afd_status.amg);
    draw_proc_led(FD_LED, prev_afd_status.fd);
    draw_proc_led(AW_LED, prev_afd_status.archive_watch);
-   draw_proc_led(AFDD_LED, prev_afd_status.afdd);
+   if (prev_afd_status.afdd != NEITHER)
+   {
+      draw_proc_led(AFDD_LED, prev_afd_status.afdd);
+   }
 
    /* Draw log status indicators */
    draw_log_status(RECEIVE_LOG_INDICATOR,
@@ -337,8 +350,8 @@ draw_button_line(void)
 void
 draw_blank_line(int pos)
 {
-   int   x,
-         y;
+   int x,
+       y;
 
    locate_xy(pos, &x, &y);
 
@@ -353,7 +366,7 @@ draw_blank_line(int pos)
 void
 draw_dest_identifier(int pos, int x, int y)
 {
-   XGCValues  gc_values;
+   XGCValues gc_values;
 
    if (connect_data[pos].special_flag & HOST_IN_DIR_CONFIG)
    {
@@ -407,9 +420,9 @@ draw_dest_identifier(int pos, int x, int y)
 void
 draw_debug_led(int pos, int x, int y)
 {
-   int        x_offset,
-              y_offset;
-   XGCValues  gc_values;
+   int       x_offset,
+             y_offset;
+   XGCValues gc_values;
 
    x_offset = x + x_offset_debug_led;
    y_offset = y + SPACE_ABOVE_LINE + y_offset_led;
@@ -471,9 +484,9 @@ draw_debug_led(int pos, int x, int y)
 void
 draw_led(int pos, int led_no, int x, int y)
 {
-   int        x_offset,
-              y_offset;
-   XGCValues  gc_values;
+   int       x_offset,
+             y_offset;
+   XGCValues gc_values;
 
    x_offset = x + x_offset_led;
    y_offset = y + SPACE_ABOVE_LINE;
@@ -503,9 +516,10 @@ draw_led(int pos, int led_no, int x, int y)
 void
 draw_proc_led(int led_no, signed char led_status)
 {
-   int        x_offset,
-              y_offset;
-   XGCValues  gc_values;
+   int       x_offset,
+             y_offset;
+   GC        tmp_gc;
+   XGCValues gc_values;
 
    x_offset = x_offset_stat_leds + (led_no * (glyph_width + PROC_LED_SPACING));
    y_offset = SPACE_ABOVE_LINE + y_offset_led;
@@ -514,6 +528,7 @@ draw_proc_led(int led_no, signed char led_status)
    {
       XFillArc(display, button_window, led_gc, x_offset, y_offset,
                glyph_width, glyph_width, 0, 23040);
+      tmp_gc = black_line_gc;
    }
    else
    {
@@ -523,6 +538,7 @@ draw_proc_led(int led_no, signed char led_status)
          XChangeGC(display, color_gc, GCForeground, &gc_values);
          XFillArc(display, button_window, color_gc, x_offset, y_offset,
                   glyph_width, glyph_width, 0, 23040);
+         tmp_gc = black_line_gc;
       }
       else if (led_status == STOPPED)
            {
@@ -530,6 +546,13 @@ draw_proc_led(int led_no, signed char led_status)
               XChangeGC(display, color_gc, GCForeground, &gc_values);
               XFillArc(display, button_window, color_gc, x_offset, y_offset,
                        glyph_width, glyph_width, 0, 23040);
+              tmp_gc = black_line_gc;
+           }
+      else if (led_status == NEITHER)
+           {
+              XFillArc(display, button_window, button_bg_gc, x_offset,
+                       y_offset, glyph_width, glyph_width, 0, 23040);
+              tmp_gc = button_bg_gc;
            }
            else
            {
@@ -537,11 +560,12 @@ draw_proc_led(int led_no, signed char led_status)
               XChangeGC(display, color_gc, GCForeground, &gc_values);
               XFillArc(display, button_window, color_gc, x_offset, y_offset,
                        glyph_width, glyph_width, 0, 23040);
+              tmp_gc = black_line_gc;
            }
    }
 
-   /* Draw LED frame */
-   XDrawArc(display, button_window, black_line_gc, x_offset, y_offset,
+   /* Draw LED frame. */
+   XDrawArc(display, button_window, tmp_gc, x_offset, y_offset,
             glyph_width, glyph_width, 0, 23040);
 
    return;
@@ -706,20 +730,20 @@ draw_queue_counter(int queue_counter)
               string[2] = (queue_counter / 10) + '0';
               string[3] = (queue_counter % 10) + '0';
            }
-           else if (queue_counter < 1000)
-                {
-                   string[0] = ' ';
-                   string[1] = (queue_counter / 100) + '0';
-                   string[2] = ((queue_counter / 10) % 10) + '0';
-                   string[3] = (queue_counter % 10) + '0';
-                }
-                else
-                {
-                   string[0] = ((queue_counter / 1000) % 10) + '0';
-                   string[1] = ((queue_counter / 100) % 10) + '0';
-                   string[2] = ((queue_counter / 10) % 10) + '0';
-                   string[3] = (queue_counter % 10) + '0';
-                }
+      else if (queue_counter < 1000)
+           {
+              string[0] = ' ';
+              string[1] = (queue_counter / 100) + '0';
+              string[2] = ((queue_counter / 10) % 10) + '0';
+              string[3] = (queue_counter % 10) + '0';
+           }
+           else
+           {
+              string[0] = ((queue_counter / 1000) % 10) + '0';
+              string[1] = ((queue_counter / 100) % 10) + '0';
+              string[2] = ((queue_counter / 10) % 10) + '0';
+              string[3] = (queue_counter % 10) + '0';
+           }
    }
 
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
@@ -835,10 +859,10 @@ draw_detailed_selection(int pos, int job_no)
 void
 draw_chars(int pos, char type, int x, int y)
 {
-   int        length;
-   char       *ptr = NULL;
-   XGCValues  gc_values;
-   GC         tmp_gc;
+   int       length;
+   char      *ptr = NULL;
+   XGCValues gc_values;
+   GC        tmp_gc;
 
    switch(type)
    {
@@ -893,7 +917,6 @@ draw_chars(int pos, char type, int x, int y)
                     y + text_offset + SPACE_ABOVE_LINE,
                     ptr,
                     length);
-
 
    return;
 }

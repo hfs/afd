@@ -1,6 +1,6 @@
 /*
  *  get_rename_rules.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,8 +69,7 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables */
-extern int         sys_log_fd,
-                   no_of_rule_headers;
+extern int         no_of_rule_headers;
 extern struct rule *rule;
 
 
@@ -92,17 +91,15 @@ get_rename_rules(char *rule_file)
           */
          if (first_time == YES)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "No renaming rules file! (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "No renaming rules file!");
             first_time = NO;
          }
       }
       else
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to stat() %s : %s (%s %d)\n",
-                   rule_file, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to stat() %s : %s", rule_file, strerror(errno));
       }
    }
    else
@@ -121,8 +118,7 @@ get_rename_rules(char *rule_file)
          }
          else
          {
-            (void)rec(sys_log_fd, INFO_SIGN,
-                      "Rereading renaming rules file.\n");
+            system_log(INFO_SIGN, NULL, 0, "Rereading renaming rules file.");
          }
 
          if (last_read != 0)
@@ -151,18 +147,16 @@ get_rename_rules(char *rule_file)
          /* Allocate memory to store file */
          if ((buffer = malloc(stat_buf.st_size + 1)) == NULL)
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "malloc() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "malloc() error : %s", strerror(errno));
             exit(INCORRECT);
          }
 
          /* Open file */
          if ((fd = open(rule_file, O_RDONLY)) == -1)
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      rule_file, strerror(errno), __FILE__, __LINE__);
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to open() %s : %s", rule_file, strerror(errno));
             free(buffer);
             exit(INCORRECT);
          }
@@ -170,19 +164,18 @@ get_rename_rules(char *rule_file)
          /* Read file into buffer */
          if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Failed to read() %s : %s (%s %d)\n",
-                      rule_file, strerror(errno), __FILE__, __LINE__);
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to read() %s : %s", rule_file, strerror(errno));
             free(buffer);
+            (void)close(fd);
             exit(INCORRECT);
          }
-
-         /* Close file */
          if (close(fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                       strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
+         buffer[stat_buf.st_size] = '\0';
 
          /*
           * Now that we have the contents in the buffer lets first see
@@ -206,11 +199,11 @@ get_rename_rules(char *rule_file)
                          *search_ptr,
                          tmp_char;
 
-            if ((rule = calloc(no_of_rule_headers, sizeof(struct rule))) == NULL)
+            if ((rule = calloc(no_of_rule_headers,
+                               sizeof(struct rule))) == NULL)
             {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "calloc() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "calloc() error : %s (%s %d)\n", strerror(errno));
                exit(INCORRECT);
             }
             ptr = buffer;
@@ -220,9 +213,9 @@ get_rename_rules(char *rule_file)
                if ((ptr = posi(ptr, "\n\n[")) == NULL)
                {
                   /* Impossible! We just did find it and now it's gone?!? */
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Could not get start of rule header %d [%d]. (%s %d)\n",
-                            i, no_of_rule_headers, __FILE__, __LINE__);
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Could not get start of rule header %d [%d].",
+                             i, no_of_rule_headers);
                   rule[i].filter = NULL;
                   rule[i].rename_to = NULL;
                   break;
@@ -379,12 +372,11 @@ get_rename_rules(char *rule_file)
                                        }
                                        if (more_data == YES)
                                        {
-                                          (void)rec(sys_log_fd, WARN_SIGN,
-                                                    "In rule [%s] the rule %s %s has data following the rename to part. Ignoring it! (%s %d)\n",
-                                                    rule[i].header,
-                                                    rule[i].filter[j],
-                                                    rule[i].rename_to[j],
-                                                    __FILE__, __LINE__);
+                                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                     "In rule [%s] the rule %s %s has data following the rename to part. Ignoring it!",
+                                                     rule[i].header,
+                                                     rule[i].filter[j],
+                                                     rule[i].rename_to[j]);
                                        }
                                     }
                                     else if (tmp_char == '\n')
@@ -398,9 +390,9 @@ get_rename_rules(char *rule_file)
                                  {
                                     if (end_ptr != ptr)
                                     {
-                                       (void)rec(sys_log_fd, WARN_SIGN,
-                                                 "A filter is specified for the rule header %s but not a rule. (%s %d)\n",
-                                                 rule[i].header, __FILE__, __LINE__);
+                                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                  "A filter is specified for the rule header %s but not a rule.",
+                                                  rule[i].header);
                                        ptr = end_ptr;
                                     }
                                     else if (*ptr == '\n')
@@ -415,31 +407,30 @@ get_rename_rules(char *rule_file)
                         }
                         else
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Rule header %s specified, but could not find any rules. (%s %d)\n",
-                                     rule[i].header, __FILE__, __LINE__);
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "Rule header %s specified, but could not find any rules.",
+                                      rule[i].header);
                         }
                      }
                      else
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to determine the end of the rule header. (%s %d)\n",
-                                  __FILE__, __LINE__);
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Failed to determine the end of the rule header.");
                      }
                   }
                   else
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Rule header to long. May not be longer then %d Bytes [MAX_RULE_HEADER_LENGTH]. (%s %d)\n",
-                               MAX_RULE_HEADER_LENGTH, __FILE__, __LINE__);
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Rule header to long. May not be longer then %d Bytes [MAX_RULE_HEADER_LENGTH].",
+                                MAX_RULE_HEADER_LENGTH);
                   }
                }
             } /* for (i = 0; i < no_of_rule_headers; i++) */
-
-            /* The buffer holding the contents of the rule file */
-            /* is no longer needed.                             */
-            free(buffer);
          } /* if (no_of_rule_headers > 0) */
+
+         /* The buffer holding the contents of the rule file */
+         /* is no longer needed.                             */
+         free(buffer);
       } /* if (stat_buf.st_mtime != last_read) */
    }
 
@@ -449,13 +440,12 @@ get_rename_rules(char *rule_file)
 
       for (i = 0; i < no_of_rule_headers; i++)
       {
-         (void)rec(sys_log_fd, INFO_SIGN, "[%s]\n", rule[i].header);
+         system_log(INFO_SIGN, NULL, 0, "[%s]", rule[i].header);
          for (j = 0; j < rule[i].no_of_rules; j++)
          {
-            (void)rec(sys_log_fd, INFO_SIGN, "%s\t\t%s\n",
-                      rule[i].filter[j], rule[i].rename_to[j]);
+            system_log(INFO_SIGN, NULL, 0, "%s\t\t%s",
+                       rule[i].filter[j], rule[i].rename_to[j]);
          }
-         rec(sys_log_fd, INFO_SIGN, "\n");
       }
    }
 #endif /* _DEBUG_RULES */

@@ -113,7 +113,7 @@ int                        counter_fd = -1,
                            fsa_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
-                           trans_db_log_fd = -1,
+                           trans_db_log_fd = STDERR_FILENO,
                            amg_flag = NO,
                            timeout_flag,
                            sigpipe_flag;
@@ -165,17 +165,23 @@ main(int argc, char *argv[])
                     files_to_send,
                     files_send = 0,
 #ifdef _BURST_MODE
-                    total_files_send = 0,
                     burst_counter = 0,
 #endif
                     blocksize;
    off_t            lock_offset;
+#ifdef _WITH_BURST_2
+   int              disconnect = NO;
+   unsigned int     burst_2_counter = 0,
+                    total_append_count = 0,
+                    values_changed = 0;
+#endif /* _WITH_BURST_2 */
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
    unsigned int     *ol_job_number = NULL;
    char             *ol_data = NULL,
                     *ol_file_name = NULL;
-   unsigned short   *ol_file_name_length;
+   unsigned short   *ol_archive_name_length,
+                    *ol_file_name_length;
    off_t            *ol_file_size = NULL;
    size_t           ol_size,
                     ol_real_size;
@@ -183,7 +189,7 @@ main(int argc, char *argv[])
                     start_time = 0,
                     *ol_transfer_time = NULL;
    struct tms       tmsdummy;
-#endif
+#endif /* _OUTPUT_LOG */
    off_t            *p_file_size_buffer;
    char             *ptr,
                     *ascii_buffer = NULL,
@@ -200,6 +206,9 @@ main(int argc, char *argv[])
                     work_dir[MAX_PATH_LENGTH];
    struct stat      stat_buf;
    struct job       *p_db;
+#ifdef _WITH_BURST_2         
+   struct job       *p_new_db;
+#endif /* _WITH_BURST_2 */
 #ifdef SA_FULLDUMP
    struct sigaction sact;
 #endif
@@ -276,6 +285,7 @@ main(int argc, char *argv[])
                       &ol_data,              /* Pointer to buffer       */
                       &ol_file_name,
                       &ol_file_name_length,
+                      &ol_archive_name_length,
                       &ol_file_size,
                       &ol_size,
                       &ol_transfer_time,
@@ -317,7 +327,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+      if (fsa[db.fsa_pos].debug == YES)
       {
          if (status == 230)
          {
@@ -331,22 +341,160 @@ main(int argc, char *argv[])
       }
    }
 
+#ifdef _WITH_BURST_2
+   do
+   {
+      if (burst_2_counter > 0)
+      {
+#ifdef _BURST_MODE
+         (void)strcpy(fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name,
+                      db.msg_name);
+         fsa[db.fsa_pos].job_status[(int)db.job_no].error_file = db.error_file;
+         fsa[db.fsa_pos].job_status[(int)db.job_no].job_id = db.job_id;
+         search_for_files = NO;
+         burst_counter = 0;
+         unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
+#endif /* _BURST_MODE */
+         if (values_changed & USER_CHANGED)
+         {
+            status = 0;
+         }
+         else
+         {
+            status = 230;
+         }
+#ifdef _OUTPUT_LOG
+         if ((db.output_log == YES) && (ol_data == NULL))
+         {
+            output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
+                            &ol_file_name_length, &ol_archive_name_length,
+                            &ol_file_size, &ol_size, &ol_transfer_time,
+                            db.host_alias, FTP);
+         }
+#endif /* _OUTPUT_LOG */
+      }
+#endif /* _WITH_BURST_2 */
+
    /* Login */
    if (status != 230) /* We are not already logged in! */
    {
       if (fsa[db.fsa_pos].proxy_name[0] == '\0')
       {
-         /* Send user name */
+#ifdef _WITH_BURST_2
+         /* Send user name. */
+         if ((disconnect == YES) ||
+             (((status = ftp_user(db.user)) != SUCCESS) && (status != 230)))
+         {
+            if ((disconnect == YES) ||
+                ((burst_2_counter > 0) && (status == 530)))
+            {
+               /*
+                * Aaargghh..., we need to logout again! The server is
+                * not able to handle more than one USER request.
+                * We should use the REIN (REINITIALIZE) command here,
+                * however it seems most FTP-servers have this not
+                * implemented.
+                */
+               if ((status = ftp_quit()) != SUCCESS)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to disconnect from remote host (%d).", status);
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : QUIT_ERROR);
+               }
+               else
+               {
+                  if (fsa[db.fsa_pos].debug == YES)
+                  {
+                     trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Logged out. Needed for burst.");
+                  }
+               }
+
+               /* Connect to remote FTP-server. */
+               if (((status = ftp_connect(db.hostname, db.port)) != SUCCESS) &&
+                   (status != 230))
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "FTP connection to <%s> at port %d failed (%d).",
+                            db.hostname, db.port, status);
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
+               }
+               else
+               {
+                  if (fsa[db.fsa_pos].debug == YES)
+                  {
+                     if (status == 230)
+                     {
+                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                     "Connected. No user and password required, logged in.");
+                     }
+                     else
+                     {
+                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                     "Connected.");
+                     }
+                  }
+               }
+
+               if (status != 230) /* We are not already logged in! */
+               {
+                  /* Send user name. */
+                  if (((status = ftp_user(db.user)) != SUCCESS) &&
+                      (status != 230))
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to send user <%s> (%d).",
+                               db.user, status);
+                     (void)ftp_quit();
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
+                  }
+               }
+               else
+               {
+                  if (fsa[db.fsa_pos].debug == YES)
+                  {
+                     if (status != 230)
+                     {
+                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                     "Entered user name <%s>.", db.user);
+                     }
+                     else
+                     {
+                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                     "Entered user name <%s>. No password required, logged in.",
+                                     db.user);
+                     }
+                  }
+               }
+
+               /*
+                * Since we did a new connect we must set the transfer type
+                * again. Or else we will transfer files in ASCII mode.
+                */
+               values_changed |= TYPE_CHANGED;
+               disconnect = YES;
+            }
+            else
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to send user <%s> (%d).", db.user, status);
+               (void)ftp_quit();
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
+            }
+         }
+#else
+         /* Send user name. */
          if (((status = ftp_user(db.user)) != SUCCESS) && (status != 230))
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to send user <%s> (%d).", db.user, status);
             (void)ftp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
+            exit(USER_ERROR);
          }
+#endif
          else
          {
-            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
                if (status != 230)
                {
@@ -375,8 +523,7 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                                "Entered password, logged in as %s.", db.user);
@@ -390,48 +537,111 @@ main(int argc, char *argv[])
       }
    } /* if (status != 230) */
 
-   /* Set transfer mode */
-   if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
+#ifdef _WITH_BURST_2
+   if ((burst_2_counter == 0) || (values_changed & TYPE_CHANGED))
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "Failed to set transfer mode to <%c> (%d).",
-                db.transfer_mode, status);
-      (void)ftp_quit();
-      exit((timeout_flag == ON) ? TIMEOUT_ERROR : TYPE_ERROR);
-   }
-   else
-   {
-      if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+#endif /* _WITH_BURST_2 */
+      /*
+       * In ASCII-mode an extra buffer is needed to convert LF's
+       * to CRLF. By creating this buffer the function ftp_write()
+       * knows it has to send the data in ASCII-mode.
+       */
+      if ((db.transfer_mode == 'A') || (db.transfer_mode == 'D'))
       {
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                      "Changed transfer mode to %c.", db.transfer_mode);
+         if (db.transfer_mode == 'D')
+         {
+            db.transfer_mode = 'I';
+         }
+         if (ascii_buffer == NULL)
+         {
+            if ((ascii_buffer = (char *)malloc((blocksize * 2))) == NULL)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "malloc() error : %s", strerror(errno));
+               exit(ALLOC_ERROR);
+            }
+         }
       }
-   }
 
-   /* Change directory if necessary */
-   if (db.target_dir[0] != '\0')
-   {
-      if ((status = ftp_cd(db.target_dir)) != SUCCESS)
+      /* Set transfer mode */
+      if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to change directory to <%s> (%d).",
-                   db.target_dir, status);
+                   "Failed to set transfer mode to <%c> (%d).",
+                   db.transfer_mode, status);
          (void)ftp_quit();
-         exit((timeout_flag == ON) ? TIMEOUT_ERROR : CHDIR_ERROR);
+         exit((timeout_flag == ON) ? TIMEOUT_ERROR : TYPE_ERROR);
       }
       else
       {
-         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+         if (fsa[db.fsa_pos].debug == YES)
          {
             trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Changed directory to %s.", db.target_dir);
+                         "Changed transfer mode to %c.", db.transfer_mode);
          }
       }
-   } /* if (db.target_dir[0] != '\0') */
+#ifdef _WITH_BURST_2
+   } /* ((burst_2_counter == 0) || (values_changed & TYPE_CHANGED)) */
+#endif /* _WITH_BURST_2 */
+
+#ifdef _WITH_BURST_2
+   if ((burst_2_counter == 0) || (values_changed & TARGET_DIR_CHANGED))
+   {
+      /*
+       * We must go to the home directory of the user when the target
+       * directory is not the absolute path.
+       */
+      if ((burst_2_counter > 0) && (db.target_dir[0] != '/') &&
+          (disconnect == NO))
+      {
+         if ((status = ftp_cd("")) != SUCCESS)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to change to home directory (%d).", status);
+            (void)ftp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : CHDIR_ERROR);
+         }
+         else
+         {
+            if (fsa[db.fsa_pos].debug == YES)
+            {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Changed to home directory.");
+            }
+         }
+      }
+#endif /* _WITH_BURST_2 */
+      /* Change directory if necessary. */
+      if (db.target_dir[0] != '\0')
+      {
+         if ((status = ftp_cd(db.target_dir)) != SUCCESS)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to change directory to <%s> (%d).",
+                      db.target_dir, status);
+            (void)ftp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : CHDIR_ERROR);
+         }
+         else
+         {
+            if (fsa[db.fsa_pos].debug == YES)
+            {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Changed directory to %s.", db.target_dir);
+            }
+         }
+      } /* if (db.target_dir[0] != '\0') */
+#ifdef _WITH_BURST_2
+   } /* ((burst_2_counter == 0) || (values_changed & TARGET_DIR_CHANGED)) */
+#endif /* _WITH_BURST_2 */
 
    /* Inform FSA that we have finished connecting and */
    /* will now start to transfer data.                */
+#ifdef _WITH_BURST_2
+   if ((host_deleted == NO) && (burst_2_counter == 0))
+#else
    if (host_deleted == NO)
+#endif
    {
       lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
       rlock_region(fsa_fd, lock_offset);
@@ -453,7 +663,7 @@ main(int argc, char *argv[])
          fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = FTP_ACTIVE;
          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = files_to_send;
 
-         /* Number of connections */
+         /* Number of connections. */
          lock_region_w(fsa_fd,
                        (char *)&fsa[db.fsa_pos].connections - (char *)fsa);
          fsa[db.fsa_pos].connections += 1;
@@ -477,7 +687,7 @@ main(int argc, char *argv[])
       }
       else
       {
-         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+         if (fsa[db.fsa_pos].debug == YES)
          {
             trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                          "Created lock file %s.", LOCK_FILENAME);
@@ -488,30 +698,37 @@ main(int argc, char *argv[])
       if ((status = ftp_close_data(DATA_WRITE)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to close lock file %s (%d).",
+                   "Failed to close lock file <%s> (%d).",
                    LOCK_FILENAME, status);
          (void)ftp_quit();
          exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
       }
       else
       {
-         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+         if (fsa[db.fsa_pos].debug == YES)
          {
             trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Closed data connection for remote lock file %s.",
+                         "Closed data connection for remote lock file <%s>.",
                          LOCK_FILENAME);
          }
       }
    }
 
-   /* Allocate buffer to read data from the source file. */
-   if ((buffer = malloc(blocksize + 4)) == NULL)
+#ifdef _WITH_BURST_2
+   if (burst_2_counter == 0)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "malloc() error : %s", strerror(errno));
-      (void)ftp_quit();
-      exit(ALLOC_ERROR);
-   }
+#endif /* _WITH_BURST_2 */
+      /* Allocate buffer to read data from the source file. */
+      if ((buffer = malloc(blocksize + 4)) == NULL)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "malloc() error : %s", strerror(errno));
+         (void)ftp_quit();
+         exit(ALLOC_ERROR);
+      }
+#ifdef _WITH_BURST_2
+   } /* (burst_2_counter == 0) */
+#endif /* _WITH_BURST_2 */
 
 #ifdef _BURST_MODE
    do
@@ -559,9 +776,7 @@ main(int argc, char *argv[])
          burst_counter = fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter;
          unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
 
-         total_files_send += files_send;
-
-         /* Tell user we are bursting */
+         /* Tell user we are bursting. */
          if (host_deleted == NO)
          {
             if (check_fsa() == YES)
@@ -585,13 +800,9 @@ main(int argc, char *argv[])
                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done + files_to_send;
                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size = fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done + file_size_to_send;
             }
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, INFO_SIGN,
-                         "%-*s[%d]: Bursting. (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, __FILE__, __LINE__);
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Bursting.");
             }
          }
 
@@ -602,7 +813,7 @@ main(int argc, char *argv[])
       }
 #endif
 
-      /* Send all files */
+      /* Send all files. */
       p_file_name_buffer = file_name_buffer;
       p_file_size_buffer = file_size_buffer;
       for (files_send = 0; files_send < files_to_send; files_send++)
@@ -667,12 +878,12 @@ main(int argc, char *argv[])
                         if (unlink(fullname) == -1)
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Failed to unlink() duplicate file %s : %s",
+                                      "Failed to unlink() duplicate file <%s> : %s",
                                       fullname, strerror(errno));
                         }
                         msg_str[0] = '\0';
                         trans_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "File %s is currently transmitted by job %d. Will NOT send file again!",
+                                  "File <%s> is currently transmitted by job %d. Will NOT send file again!",
                                   p_file_name_buffer, j);
 
                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done++;
@@ -786,7 +997,7 @@ main(int argc, char *argv[])
                   if ((status = ftp_size(initial_filename, &remote_size)) != SUCCESS)
                   {
                      trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "Failed to send SIZE command for file %s (%d).",
+                               "Failed to send SIZE command for file <%s> (%d).",
                                initial_filename, status);
                      if (timeout_flag == ON)
                      {
@@ -796,11 +1007,10 @@ main(int argc, char *argv[])
                   else
                   {
                      append_offset = remote_size;
-                     if ((fsa[db.fsa_pos].debug == YES) &&
-                         (trans_db_log_fd != -1))
+                     if (fsa[db.fsa_pos].debug == YES)
                      {
                         trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Remote size of %s is %d.",
+                                     "Remote size of <%s> is %d.",
                                      initial_filename, remote_size);
                      }
                   }
@@ -814,7 +1024,7 @@ main(int argc, char *argv[])
                                          line_buffer)) != SUCCESS)
                   {
                      trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "Failed to send LIST command for file %s (%d).",
+                               "Failed to send LIST command for file <%s> (%d).",
                                initial_filename, status);
                      if (timeout_flag == ON)
                      {
@@ -869,11 +1079,10 @@ main(int argc, char *argv[])
                              }
                              *p_end = '\0';
                              append_offset = atoi(ptr);
-                             if ((fsa[db.fsa_pos].debug == YES) &&
-                                 (trans_db_log_fd != -1))
+                             if (fsa[db.fsa_pos].debug == YES)
                              {
                                 trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                             "Remote size of %s is %d.",
+                                             "Remote size of <%s> is %d.",
                                              initial_filename, append_offset);
                              }
                           }
@@ -902,7 +1111,7 @@ main(int argc, char *argv[])
                                    db.mode_flag, DATA_WRITE)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to open remote file %s (%d).",
+                         "Failed to open remote file <%s> (%d).",
                          initial_filename, status);
                msg_str[0] = '\0';
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
@@ -913,10 +1122,10 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                               "Open remote file %s.", initial_filename);
+                               "Open remote file <%s>.", initial_filename);
                }
             }
 
@@ -925,7 +1134,7 @@ main(int argc, char *argv[])
             {
                msg_str[0] = '\0';
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to open local file %s : %s",
+                         "Failed to open local file <%s> : %s",
                          fullname, strerror(errno));
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
@@ -933,13 +1142,10 @@ main(int argc, char *argv[])
                (void)ftp_quit();
                exit(OPEN_LOCAL_ERROR);
             }
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, INFO_SIGN,
-                         "%-*s[%d]: Open local file %s (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, fullname, __FILE__, __LINE__);
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Open local file <%s>", fullname);
             }
             if (append_offset > 0)
             {
@@ -950,18 +1156,17 @@ main(int argc, char *argv[])
                      append_offset = 0;
                      msg_str[0] = '\0';
                      trans_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Failed to seek() in %s (Ignoring append): %s",
+                               "Failed to seek() in <%s> (Ignoring append): %s",
                                fullname, strerror(errno));
                   }
                   else
                   {
                      append_count++;
-                     if ((fsa[db.fsa_pos].debug == YES) &&
-                         (trans_db_log_fd != -1))
+                     if (fsa[db.fsa_pos].debug == YES)
                      {
                         msg_str[0] = '\0';
                         trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Appending file %s at %d.",
+                                     "Appending file <%s> at %d.",
                                      fullname, append_offset);
                      }
                   }
@@ -981,7 +1186,7 @@ main(int argc, char *argv[])
                {
                   msg_str[0] = '\0';
                   trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                            "Hmmm. Failed to stat() %s : %s",
+                            "Hmmm. Failed to stat() <%s> : %s",
                             fullname, strerror(errno));
                }
                else
@@ -1010,7 +1215,7 @@ main(int argc, char *argv[])
                            (void)ftp_get_reply();
                         }
                         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "Failed to write EUMETSAT header to remote file %s",
+                                  "Failed to write EUMETSAT header to remote file <%s>",
                                   initial_filename);
                         msg_str[0] = '\0';
                         trans_log(INFO_SIGN, NULL, 0,
@@ -1103,7 +1308,7 @@ main(int argc, char *argv[])
                      (void)ftp_get_reply();
                   }
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to write WMO header to remote file %s",
+                            "Failed to write WMO header to remote file <%s>",
                             initial_filename);
                   msg_str[0] = '\0';
                   trans_log(INFO_SIGN, NULL, 0,
@@ -1161,7 +1366,7 @@ main(int argc, char *argv[])
                   {
                      msg_str[0] = '\0';
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Could not read() local file %s : %s",
+                               "Could not read() local file <%s> : %s",
                                fullname, strerror(errno));
                      trans_log(INFO_SIGN, NULL, 0,
                                "%d Bytes send in %d file(s).",
@@ -1190,7 +1395,7 @@ main(int argc, char *argv[])
                         (void)ftp_get_reply();
                      }
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write to remote file %s",
+                               "Failed to write to remote file <%s>",
                                initial_filename);
                      msg_str[0] = '\0';
                      trans_log(INFO_SIGN, NULL, 0,
@@ -1242,7 +1447,7 @@ main(int argc, char *argv[])
                   {
                      msg_str[0] = '\0';
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Could not read() local file %s : %s",
+                               "Could not read() local file <%s> : %s",
                                fullname, strerror(errno));
                      trans_log(INFO_SIGN, NULL, 0,
                                "%d Bytes send in %d file(s).",
@@ -1275,7 +1480,7 @@ main(int argc, char *argv[])
                         (void)ftp_get_reply();
                      }
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write rest to remote file %s",
+                               "Failed to write rest to remote file <%s>",
                                initial_filename);
                      msg_str[0] = '\0';
                      trans_log(INFO_SIGN, NULL, 0,
@@ -1340,7 +1545,7 @@ main(int argc, char *argv[])
                              (void)ftp_get_reply();
                           }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                    "Failed to write <CR><CR><LF><ETX> to remote file %s",
+                                    "Failed to write <CR><CR><LF><ETX> to remote file <%s>",
                                     initial_filename);
                           msg_str[0] = '\0';
                           trans_log(INFO_SIGN, NULL, 0,
@@ -1394,7 +1599,7 @@ main(int argc, char *argv[])
                {
                   msg_str[0] = '\0';
                   trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                            "Hmmm. Failed to stat() %s : %s",
+                            "Hmmm. Failed to stat() <%s> : %s",
                             fullname, strerror(errno));
                   break;
                }
@@ -1413,7 +1618,7 @@ main(int argc, char *argv[])
                       * can be taken against the originator.
                       */
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "File %s for host %s was DEFINITELY NOT send in dot notation.",
+                                "File <%s> for host %s was DEFINITELY NOT send in dot notation.",
                                 final_filename,
                                 fsa[db.fsa_pos].host_dsp_name);
                   }
@@ -1428,7 +1633,7 @@ main(int argc, char *argv[])
             if (close(fd) == -1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to close() local file %s : %s",
+                          "Failed to close() local file <%s> : %s",
                           final_filename, strerror(errno));
                /*
                 * Since we usually do not send more then 100 files and
@@ -1450,7 +1655,7 @@ main(int argc, char *argv[])
                if ((*p_file_size_buffer > 0) || (timeout_flag == ON))
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to close remote file %s",
+                            "Failed to close remote file <%s>",
                             initial_filename);
                   msg_str[0] = '\0';
                   trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
@@ -1462,16 +1667,16 @@ main(int argc, char *argv[])
                else
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to close remote file %s (%d). Ignoring since file size is %d.",
+                            "Failed to close remote file <%s> (%d). Ignoring since file size is %d.",
                             initial_filename, status, *p_file_size_buffer);
                }
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                               "Closed data connection for file %s.",
+                               "Closed data connection for file <%s>.",
                                initial_filename);
                }
             }
@@ -1488,23 +1693,22 @@ main(int argc, char *argv[])
                                        db.chmod_str)) != SUCCESS)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to chmod remote file %s to %s (%d).",
+                            "Failed to chmod remote file <%s> to %s (%d).",
                             initial_filename, db.chmod_str, status);
                   if (timeout_flag == ON)
                   {
                      timeout_flag = OFF;
                   }
                }
-               else if ((fsa[db.fsa_pos].debug == YES) &&
-                        (trans_db_log_fd != -1))
+               else if (fsa[db.fsa_pos].debug == YES)
                     {
                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                    "Changed mode of remote file %s to %s",
+                                    "Changed mode of remote file <%s> to %s",
                                     initial_filename, db.chmod_str);
                     }
             }
 
-            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
                char line_buffer[MAX_RET_MSG_LENGTH];
 
@@ -1512,7 +1716,7 @@ main(int argc, char *argv[])
                                       line_buffer)) != SUCCESS)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to list remote file %s (%d).",
+                            "Failed to list remote file <%s> (%d).",
                             initial_filename, status);
                   if (timeout_flag == ON)
                   {
@@ -1521,23 +1725,10 @@ main(int argc, char *argv[])
                }
                else
                {
-                  if (line_buffer[strlen(line_buffer) - 1] == '\n')
-                  {
-                     (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, line_buffer);
-                  }
-                  else
-                  {
-                     (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, line_buffer);
-                  }
-                  (void)rec(trans_db_log_fd, INFO_SIGN,
-                            "%-*s[%d]: Local file size of %s is %d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, final_filename,
-                            (int)stat_buf.st_size, __FILE__, __LINE__);
+                  trans_db_log(INFO_SIGN, NULL, 0, "%s", line_buffer);
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Local file size of <%s> is %d",
+                               final_filename, (int)stat_buf.st_size);
                }
             }
          } /* if (append_offset < p_file_size_buffer) */
@@ -1576,7 +1767,7 @@ main(int argc, char *argv[])
                                    remote_filename)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to move remote file %s to %s (%d)",
+                         "Failed to move remote file <%s> to <%s> (%d)",
                          initial_filename, remote_filename, status);
                msg_str[0] = '\0';
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
@@ -1587,10 +1778,10 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                               "Renamed remote file %s to %s",
+                               "Renamed remote file <%s> to <%s>",
                                initial_filename, remote_filename);
                }
             }
@@ -1618,7 +1809,7 @@ main(int argc, char *argv[])
                                    db.mode_flag, DATA_WRITE)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to open remote ready file %s (%d).",
+                         "Failed to open remote ready file <%s> (%d).",
                          ready_file_name, status);
                msg_str[0] = '\0';
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
@@ -1629,11 +1820,10 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                               "Open remote ready file %s", ready_file_name);
+                               "Open remote ready file <%s>", ready_file_name);
                }
             }
 
@@ -1667,7 +1857,7 @@ main(int argc, char *argv[])
                   (void)ftp_get_reply();
                }
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to write to remote ready file %s (%d).",
+                         "Failed to write to remote ready file <%s> (%d).",
                          ready_file_name, status);
                msg_str[0] = '\0';
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
@@ -1694,7 +1884,7 @@ main(int argc, char *argv[])
             if ((status = ftp_close_data(DATA_WRITE)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to close remote ready file %s (%d).",
+                         "Failed to close remote ready file <%s> (%d).",
                          ready_file_name, status);
                msg_str[0] = '\0';
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
@@ -1705,11 +1895,10 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                               "Closed remote ready file %s", ready_file_name);
+                               "Closed remote ready file <%s>", ready_file_name);
                }
             }
          }
@@ -1737,12 +1926,10 @@ main(int argc, char *argv[])
                   timeout_flag = OFF;
                }
             }
-            else if ((fsa[db.fsa_pos].debug == YES) &&
-                     (trans_db_log_fd != -1))
+            else if (fsa[db.fsa_pos].debug == YES)
                  {
                     trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                 "Send SITE %s %s",
-                                 db.special_ptr, p_name);
+                                 "Send SITE %s %s", db.special_ptr, p_name);
                  }
          }
 
@@ -1756,7 +1943,8 @@ main(int argc, char *argv[])
             /* sure that it is NOT stale!            */
             if (check_fsa() == YES)
             {
-               if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+               if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                   no_of_hosts)) == INCORRECT)
                {
                   host_deleted = YES;
                }
@@ -1805,7 +1993,7 @@ main(int argc, char *argv[])
                   {
                      msg_str[0] = '\0';
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Hmmm. Failed to stat() %s : %s",
+                               "Hmmm. Failed to stat() <%s> : %s",
                                fullname, strerror(errno));
                   }
                }
@@ -1881,13 +2069,10 @@ main(int argc, char *argv[])
              */
             if (archive_file(file_path, final_filename, p_db) < 0)
             {
-               if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to archive file %s (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, final_filename,
-                            __FILE__, __LINE__);
+                  trans_db_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to archive file <%s>", final_filename);
                }
 
                /*
@@ -1897,7 +2082,7 @@ main(int argc, char *argv[])
                if ((unlink(fullname) == -1) && (errno != ENOENT))
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Could not unlink() local file %s after sending it successfully : %s",
+                             "Could not unlink() local file <%s> after sending it successfully : %s",
                              fullname, strerror(errno));
                }
 
@@ -1907,17 +2092,20 @@ main(int argc, char *argv[])
                   if (db.trans_rename_rule[0] == '\0')
                   {
                      (void)strcpy(ol_file_name, p_file_name_buffer);
+                     *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                   }
                   else
                   {
-                     (void)sprintf(ol_file_name, "%s /%s", p_file_name_buffer,
-                                   remote_filename);
+                     *ol_file_name_length = (unsigned short)sprintf(ol_file_name,
+                                                                    "%s /%s",
+                                                                    p_file_name_buffer,
+                                                                    remote_filename);
                   }
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                   *ol_transfer_time = end_time - start_time;
-                  *ol_file_name_length = 0;
-                  ol_real_size = strlen(p_file_name_buffer) + ol_size;
+                  *ol_archive_name_length = 0;
+                  ol_real_size = *ol_file_name_length + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1928,13 +2116,10 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+               if (fsa[db.fsa_pos].debug == YES)
                {
-                  (void)rec(trans_db_log_fd, INFO_SIGN,
-                            "%-*s[%d]: Archived file %s (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, final_filename,
-                            __FILE__, __LINE__);
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Archived file <%s>", final_filename);
                }
 
 #ifdef _OUTPUT_LOG
@@ -1957,9 +2142,9 @@ main(int argc, char *argv[])
                   *ol_file_size = *p_file_size_buffer;
                   *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                   *ol_transfer_time = end_time - start_time;
+                  *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
                   ol_real_size = *ol_file_name_length +
-                                 strlen(&ol_file_name[*ol_file_name_length + 1]) +
-                                 ol_size;
+                                 *ol_archive_name_length + 1 + ol_size;
                   if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1975,7 +2160,7 @@ main(int argc, char *argv[])
             if (unlink(fullname) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Could not unlink() local file %s after sending it successfully : %s",
+                          "Could not unlink() local file <%s> after sending it successfully : %s",
                           fullname, strerror(errno));
             }
 
@@ -1985,17 +2170,20 @@ main(int argc, char *argv[])
                if (db.trans_rename_rule[0] == '\0')
                {
                   (void)strcpy(ol_file_name, p_file_name_buffer);
+                  *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                }
                else
                {
-                  (void)sprintf(ol_file_name, "%s /%s", p_file_name_buffer,
-                                remote_filename);
+                  *ol_file_name_length = (unsigned short)sprintf(ol_file_name,
+                                                                 "%s /%s",
+                                                                 p_file_name_buffer,
+                                                                 remote_filename);
                }
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
-               *ol_file_name_length = 0;
-               ol_real_size = strlen(ol_file_name) + ol_size;
+               *ol_archive_name_length = 0;
+               ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -2098,7 +2286,7 @@ main(int argc, char *argv[])
             if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to open() FIFO %s : %s",
+                          "Failed to open() FIFO <%s> : %s",
                           fd_wake_up_fifo, strerror(errno));
             }
             else
@@ -2106,13 +2294,13 @@ main(int argc, char *argv[])
                if (write(fd, "", 1) != 1)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to write() to FIFO %s : %s",
+                             "Failed to write() to FIFO <%s> : %s",
                              fd_wake_up_fifo, strerror(errno));
                }
                if (close(fd) == -1)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Failed to close() FIFO %s : %s",
+                             "Failed to close() FIFO <%s> : %s",
                              fd_wake_up_fifo, strerror(errno));
                }
             }
@@ -2152,13 +2340,8 @@ main(int argc, char *argv[])
       search_for_files = YES;
       lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
    } while (fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter != burst_counter);
-
-   fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = CLOSING_CONNECTION;
    fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
-   total_files_send += files_send;
-#endif
-
-   free(buffer);
+#endif /* _BURST_MODE */
 
    /* Do not forget to remove lock file if we have created one */
    if ((db.lock == LOCKFILE) && (fsa[db.fsa_pos].active_transfers == 1))
@@ -2166,7 +2349,7 @@ main(int argc, char *argv[])
       if ((status = ftp_dele(LOCK_FILENAME)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to remove remote lock file %s (%d)",
+                   "Failed to remove remote lock file <%s> (%d)",
                    LOCK_FILENAME, status);
          msg_str[0] = '\0';
          trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
@@ -2177,18 +2360,81 @@ main(int argc, char *argv[])
       }
       else
       {
-         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+         if (fsa[db.fsa_pos].debug == YES)
          {
             trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Removed lock file %s.", LOCK_FILENAME);
+                         "Removed lock file <%s>.", LOCK_FILENAME);
          }
       }
    }
 
+   /*
+    * If a file that is to be appended, removed (eg. by disabling
+    * the host), the name of the append file will be left in the
+    * message (in the worst case forever). So lets do a check
+    * here if all files are transmitted only then remove all append
+    * files from the message.
+    */
+   if ((db.no_of_restart_files > 0) &&
+       (append_count != db.no_of_restart_files) &&
+       (fsa[db.fsa_pos].total_file_counter == 0))
+   {
+      remove_all_appends(db.job_id);
+   }
+
+   /*
+    * Remove file directory.
+    */
+   if (rmdir(file_path) == -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to remove directory <%s> : %s [PID = %d] [job_no = %d]",
+                 file_path, strerror(errno), db.my_pid, (int)db.job_no);
+   }
+
+#ifdef _WITH_BURST_2
+      burst_2_counter++;
+      total_append_count += append_count;
+      append_count = 0;
+#ifdef _BURST_MODE
+      burst_2_counter += burst_counter;
+#endif /* _BURST_MODE */
+   } while (check_burst_2(&p_new_db, file_path, &files_to_send,
+                          &values_changed) == YES);
+   burst_2_counter--;
+#endif /* _WITH_BURST_2 */
+
+   fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = CLOSING_CONNECTION;
+   free(buffer);
+
    (void)sprintf(remote_filename, "%lu Bytes send in %d file(s).",
                  fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                 total_files_send);
+                 fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
 
+#ifdef _WITH_BURST_2
+   if (total_append_count == 1)
+   {
+      (void)strcat(remote_filename, " [APPEND]");
+   }
+   else if (total_append_count > 1)
+        {
+           char tmp_buffer[13 + MAX_INT_LENGTH];
+
+           (void)sprintf(tmp_buffer, " [APPEND * %d]", total_append_count);
+           (void)strcat(remote_filename, tmp_buffer);
+        }
+   if (burst_2_counter == 1)
+   {
+      (void)strcat(remote_filename, " [BURST]");
+   }
+   else if (burst_2_counter > 1)
+        {
+           char tmp_buffer[12 + MAX_INT_LENGTH];
+
+           (void)sprintf(tmp_buffer, " [BURST * %u]", burst_2_counter);
+           (void)strcat(remote_filename, tmp_buffer);
+        }
+#else
    if (append_count == 1)
    {
       (void)strcat(remote_filename, " [APPEND]");
@@ -2212,6 +2458,7 @@ main(int argc, char *argv[])
            (void)sprintf(tmp_buffer, " [BURST * %d]", burst_counter);
            (void)strcat(remote_filename, tmp_buffer);
         }
+#endif /* _BURST_MODE */
 #endif
    msg_str[0] = '\0';
    trans_log(INFO_SIGN, NULL, 0, "%s", remote_filename);
@@ -2234,7 +2481,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+      if (fsa[db.fsa_pos].debug == YES)
       {
          trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Logged out.");
       }
@@ -2244,40 +2491,6 @@ main(int argc, char *argv[])
    if (ascii_buffer != NULL)
    {
       free(ascii_buffer);
-   }
-
-   /*
-    * If a file that is to be appended, removed (eg. by disabling
-    * the host), the name of the append file will be left in the
-    * message (in the worst case forever). So lets do a check
-    * here if all files are transmitted only then remove all append
-    * files from the message.
-    */
-   if ((db.no_of_restart_files > 0) &&
-       (append_count != db.no_of_restart_files) &&
-       (fsa[db.fsa_pos].total_file_counter == 0))
-   {
-      remove_all_appends(db.job_id);
-   }
-
-   /*
-    * Remove file directory, but only when all files have
-    * been transmitted.
-    */
-   if ((files_to_send == files_send) || (files_to_send == 0))
-   {
-      if (rmdir(file_path) == -1)
-      {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to remove directory %s : %s [PID = %d] [job_no = %d]",
-                    file_path, strerror(errno), db.my_pid, (int)db.job_no);
-      }
-   }
-   else
-   {
-      system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "There are still %d files for %s. Will NOT remove this job!",
-                 files_to_send - files_send, file_path);
    }
 
    exitflag = 0;
@@ -2321,7 +2534,7 @@ sf_ftp_exit(void)
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open fifo %s : %s",
+                 "Could not open fifo <%s> : %s",
                  sf_fin_fifo, strerror(errno));
    }
    else

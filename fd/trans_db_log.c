@@ -47,10 +47,13 @@ DESCR__E_M3
 #include <time.h>                     /* time(), localtime()             */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
+#include <fcntl.h>
+#include <errno.h>
 #include "fddefs.h"
 
 extern int    trans_db_log_fd;
 extern char   msg_str[],
+              *p_work_dir,
               tr_hostname[];
 extern struct job db;
 
@@ -67,6 +70,34 @@ trans_db_log(char *sign, char *file, int line, char *fmt, ...)
    char         buf[MAX_LINE_LENGTH];
    va_list      ap;
    struct tm    *p_ts;
+
+   if ((trans_db_log_fd == STDERR_FILENO) && (p_work_dir != NULL))
+   {
+      char trans_db_log_fifo[MAX_PATH_LENGTH];
+
+      (void)strcpy(trans_db_log_fifo, p_work_dir);
+      (void)strcat(trans_db_log_fifo, FIFO_DIR);
+      (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
+      if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1)
+      {
+         if (errno == ENOENT)
+         {
+            if ((make_fifo(trans_db_log_fifo) == SUCCESS) &&
+                ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1))
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not open fifo <%s> : %s",
+                          TRANS_DEBUG_LOG_FIFO, strerror(errno));
+            }
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not open fifo %s : %s",
+                       TRANS_DEBUG_LOG_FIFO, strerror(errno));
+         }
+      }
+   }
 
    tvalue = time(NULL);
    p_ts    = localtime(&tvalue);
@@ -111,6 +142,11 @@ trans_db_log(char *sign, char *file, int line, char *fmt, ...)
    va_start(ap, fmt);
    length += vsprintf(&buf[length], fmt, ap);
    va_end(ap);
+   if (buf[length - 1] == '\n')
+   {
+      length--;
+      buf[length] = '\0';
+   }
 
    if ((file == NULL) || (line == 0))
    {

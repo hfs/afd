@@ -53,8 +53,7 @@ DESCR__E_M3
 #include <errno.h>
 
 /* Global variables */
-extern int                        sys_log_fd,
-                                  fsa_fd,
+extern int                        fsa_fd,
                                   fsa_id,
                                   no_of_hosts;
 #ifndef _NO_MMAP
@@ -72,8 +71,8 @@ fsa_detach(void)
    {
       if (close(fsa_fd) == -1)
       {
-         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
       }
       fsa_fd = -1;
    }
@@ -86,17 +85,15 @@ fsa_detach(void)
 #ifdef _NO_MMAP
       if (munmap_emu((void *)((char *)fsa - AFD_WORD_OFFSET)) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap_emu() FSA : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap_emu() FSA : %s", strerror(errno));
          return(INCORRECT);
       }
 #else
       if (munmap(((char *)fsa - AFD_WORD_OFFSET), fsa_size) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap() FSA : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() FSA : %s", strerror(errno));
          return(INCORRECT);
       }
 #endif

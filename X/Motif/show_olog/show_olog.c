@@ -80,52 +80,59 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-Display          *display;
-XtAppContext     app;
-Widget           toplevel_w,
-                 start_time_w,
-                 end_time_w,
-                 file_name_w,
-                 directory_w,
-                 file_length_w,
-                 recipient_w,
-                 headingbox_w,
-                 listbox_w,
-                 statusbox_w,
-                 summarybox_w,
-                 scrollbar_w,
-                 special_button_w;
-Window           main_window;
-XmFontList       fontlist;
-int              amg_flag = NO,
-                 char_width,
-                 file_name_length,
-                 file_name_toggle_set,
-                 items_selected = NO,
-                 no_of_log_files,
-                 no_of_search_hosts,
-                 special_button_flag,
-                 sys_log_fd = STDERR_FILENO,
-                 toggles_set;
-Dimension        button_height;
-time_t           start_time_val,
-                 end_time_val;
-size_t           search_file_size;
-char             *p_work_dir,
-                 font_name[256],
-                 search_file_name[MAX_PATH_LENGTH],
-                 search_directory_name[MAX_PATH_LENGTH],
-                 **search_recipient,
-                 **search_user;
-struct item_list *il;
-struct sol_perm  perm;
+Display                    *display;
+XtAppContext               app;
+Widget                     toplevel_w,
+                           start_time_w,
+                           end_time_w,
+                           file_name_w,
+                           directory_w,
+                           file_length_w,
+                           recipient_w,
+                           headingbox_w,
+                           listbox_w,
+                           statusbox_w,
+                           summarybox_w,
+                           scrollbar_w,
+                           special_button_w;
+Window                     main_window;
+XmFontList                 fontlist;
+int                        amg_flag = NO,
+                           char_width,
+                           file_name_length,
+                           file_name_toggle_set,
+                           fra_fd = -1,
+                           fra_id,
+                           items_selected = NO,
+                           no_of_dirs = 0,
+                           no_of_log_files,
+                           no_of_search_hosts,
+                           special_button_flag,
+                           sys_log_fd = STDERR_FILENO,
+                           toggles_set;
+#ifndef _NO_MMAP
+off_t                      fra_size;
+#endif
+Dimension                  button_height;
+time_t                     start_time_val,
+                           end_time_val;
+size_t                     search_file_size;
+char                       *p_work_dir,
+                           font_name[256],
+                           search_file_name[MAX_PATH_LENGTH],
+                           search_directory_name[MAX_PATH_LENGTH],
+                           **search_recipient,
+                           **search_user;
+struct item_list           *il;
+struct sol_perm            perm;
+struct fileretrieve_status *fra;
 
 /* Local function prototypes */
-static void      init_show_olog(int *, char **),
-                 eval_permissions(char *),
-                 sig_bus(int),
-                 sig_segv(int),
-                 usage(char *);
+static void                init_show_olog(int *, char **),
+                           eval_permissions(char *),
+                           sig_bus(int),
+                           sig_segv(int),
+                           usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/

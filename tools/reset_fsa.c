@@ -69,7 +69,8 @@ struct filetransfer_status *fsa;
 int
 main(int argc, char *argv[])
 {
-   int  position = -1;
+   int  i,
+        position = -1;
    char hostname[MAX_HOSTNAME_LENGTH + 1],
         work_dir[MAX_PATH_LENGTH];
 
@@ -118,6 +119,10 @@ main(int argc, char *argv[])
 
    fsa[position].total_file_counter = 0;
    fsa[position].total_file_size = 0;
+   for (i = 0; i < fsa[position].allowed_transfers; i++)
+   {
+      fsa[position].job_status[i].connect_status = DISCONNECT;
+   }
 
    exit(SUCCESS);
 }

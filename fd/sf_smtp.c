@@ -105,7 +105,7 @@ int                        counter_fd = -1,
                            line_length = 0, /* encode_base64()           */
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
-                           trans_db_log_fd = -1,
+                           trans_db_log_fd = STDERR_FILENO,
                            amg_flag = NO,
                            timeout_flag;
 #ifndef _NO_MMAP
@@ -179,7 +179,8 @@ main(int argc, char *argv[])
    unsigned int     *ol_job_number = NULL;
    char             *ol_data = NULL,
                     *ol_file_name = NULL;
-   unsigned short   *ol_file_name_length;
+   unsigned short   *ol_archive_name_length,
+                    *ol_file_name_length;
    off_t            *ol_file_size = NULL;
    size_t           ol_size,
                     ol_real_size;
@@ -247,8 +248,9 @@ main(int argc, char *argv[])
    if (db.output_log == YES)
    {
       output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
-                      &ol_file_name_length, &ol_file_size, &ol_size,
-                      &ol_transfer_time, db.host_alias, SMTP);
+                      &ol_file_name_length, &ol_archive_name_length,
+                      &ol_file_size, &ol_size, &ol_transfer_time,
+                      db.host_alias, SMTP);
    }
 #endif
 
@@ -269,8 +271,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      if ((fsa[db.fsa_pos].debug == YES) &&
-          (trans_db_log_fd != -1))
+      if (fsa[db.fsa_pos].debug == YES)
       {
          trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Connected.");
       }
@@ -292,8 +293,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      if ((fsa[db.fsa_pos].debug == YES) &&
-          (trans_db_log_fd != -1))
+      if (fsa[db.fsa_pos].debug == YES)
       {
          trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Send HELO.");
       }
@@ -518,11 +518,10 @@ main(int argc, char *argv[])
          }
          else
          {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
                trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Entered local user name %s.", local_user);
+                            "Entered local user name <%s>.", local_user);
             }
          }
 
@@ -562,11 +561,10 @@ main(int argc, char *argv[])
          }
          else
          {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
                trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Remote address %s accepted by SMTP-server.",
+                            "Remote user <%s> accepted by SMTP-server.",
                             remote_user);
             }
          }
@@ -581,8 +579,7 @@ main(int argc, char *argv[])
          }
          else
          {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
                trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Set DATA mode.");
             }
@@ -603,7 +600,7 @@ main(int argc, char *argv[])
                    fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                    fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to open() local file %s : %s",
+                   "Failed to open() local file <%s> : %s",
                    fullname, strerror(errno));
          (void)smtp_close();
          (void)smtp_quit();
@@ -611,13 +608,10 @@ main(int argc, char *argv[])
       }
       else
       {
-         if ((fsa[db.fsa_pos].debug == YES) &&
-             (trans_db_log_fd != -1))
+         if (fsa[db.fsa_pos].debug == YES)
          {
-            (void)rec(trans_db_log_fd, INFO_SIGN,
-                      "%-*s[%d]: Open local file %s (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fullname, __FILE__, __LINE__);
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                         "Open local file <%s>", fullname);
          }
       }
 
@@ -1232,7 +1226,7 @@ main(int argc, char *argv[])
          }
          else
          {
-            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
                trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Closing data mode.");
             }
@@ -1350,13 +1344,10 @@ main(int argc, char *argv[])
           */
          if (archive_file(file_path, final_filename, p_db) < 0)
          {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to archive file %s (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         final_filename, __FILE__, __LINE__);
+               trans_db_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to archive file <%s>", final_filename);
             }
 
             /*
@@ -1366,7 +1357,7 @@ main(int argc, char *argv[])
             if (unlink(fullname) < 0)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Could not unlink() local file %s after sending it successfully : %s",
+                          "Could not unlink() local file <%s> after sending it successfully : %s",
                           strerror(errno), fullname);
             }
 
@@ -1374,10 +1365,12 @@ main(int argc, char *argv[])
             if (db.output_log == YES)
             {
                (void)strcpy(ol_file_name, p_file_name_buffer);
+               *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
-               ol_real_size = strlen(p_file_name_buffer) + ol_size;
+               *ol_archive_name_length = 0;
+               ol_real_size = *ol_file_name_length + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1388,13 +1381,10 @@ main(int argc, char *argv[])
          }
          else
          {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if (fsa[db.fsa_pos].debug == YES)
             {
-               (void)rec(trans_db_log_fd, INFO_SIGN,
-                         "%-*s[%d]: Archived file %s (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         final_filename, __FILE__, __LINE__);
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Archived file <%s>", final_filename);
             }
 
 #ifdef _OUTPUT_LOG
@@ -1406,9 +1396,9 @@ main(int argc, char *argv[])
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
+               *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
                ol_real_size = *ol_file_name_length +
-                              strlen(&ol_file_name[*ol_file_name_length + 1]) +
-                              ol_size;
+                              *ol_archive_name_length + 1 + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1432,10 +1422,12 @@ main(int argc, char *argv[])
          if (db.output_log == YES)
          {
             (void)strcpy(ol_file_name, p_file_name_buffer);
+            *ol_file_name_length = (unsigned short)strlen(ol_file_name);
             *ol_file_size = *p_file_size_buffer;
             *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
             *ol_transfer_time = end_time - start_time;
-            ol_real_size = strlen(p_file_name_buffer) + ol_size;
+            *ol_archive_name_length = 0;
+            ol_real_size = *ol_file_name_length + ol_size;
             if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -1542,7 +1534,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+      if (fsa[db.fsa_pos].debug == YES)
       {
          trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Logged out.");
       }
@@ -1560,14 +1552,14 @@ main(int argc, char *argv[])
       if (rmdir(file_path) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to remove directory %s : %s",
+                    "Failed to remove directory <%s> : %s",
                     file_path, strerror(errno));
       }
    }
    else
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "There are still files for %s. Will NOT remove this job!",
+                 "There are still files for <%s>. Will NOT remove this job!",
                  file_path);
    }
 

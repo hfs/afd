@@ -141,7 +141,6 @@ struct delete_log          dl;
 
 /* Local global variables */
 static time_t              now;
-static unsigned int        fork_counter = 0;
 
 #if defined _BURST_MODE || defined _AGE_LIMIT
 #define START_PROCESS()                                       \
@@ -250,7 +249,6 @@ main(int argc, char *argv[])
    unsigned short    *unique_number;
    time_t            *creation_time,
                      abnormal_term_check_time,
-                     midnight,
                      next_dir_check_time,
                      remote_file_check_time,
                      sleep_time;
@@ -556,7 +554,6 @@ main(int argc, char *argv[])
    remote_file_check_time = ((now / remote_file_check_interval) *
                              remote_file_check_interval) +
                             remote_file_check_interval;
-   midnight = (now / 86400) * 86400 + 86400;
    FD_ZERO(&rset);
 
    /* Now watch and start transfer jobs */
@@ -690,14 +687,6 @@ main(int argc, char *argv[])
          }
 
          abnormal_term_check_time = ((now / 45) * 45) + 45;
-      }
-
-      if (now >= midnight)
-      {
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "FD syscalls        : %u forks\n", fork_counter);
-         fork_counter = 0;
-         midnight = (now / 86400) * 86400 + 86400;
       }
 
       /*
@@ -1951,7 +1940,7 @@ make_process(struct connection *con)
       default :
 
          /* Parent process */
-         fork_counter++;
+         p_afd_status->fd_fork_counter++;
          return(pid);
    }
 }
@@ -2119,6 +2108,7 @@ zombie_check(struct connection *p_con,
             case CHECK_REPLY_ERROR     : /* Did not get a correct reply. */
 #endif
             case REMOVE_LOCKFILE_ERROR : /* */
+            case QUIT_ERROR            : /* Failed to disconnect. */
             case CHDIR_ERROR           : /* Change remote directory */
             case STAT_ERROR            : /* Failed to stat() file/directory */
             case RENAME_ERROR          : /* Rename file locally */
@@ -2144,8 +2134,10 @@ zombie_check(struct connection *p_con,
                   /*
                    * Increase the message number, so that this job
                    * will decrease in priority and resort the queue.
+                   * The number is actually increased by 600 seconds
+                   * (10 minutes).
                    */
-                  qb[*qb_pos].msg_number += 600000.0;
+                  qb[*qb_pos].msg_number += 60000000.0;
                   while ((i < *no_msg_queued) &&
                          (qb[*qb_pos].msg_number > qb[i].msg_number))
                   {
@@ -2789,8 +2781,6 @@ fd_exit(void)
    time_t       now;
    struct stat  stat_buf;
 
-   (void)rec(sys_log_fd, DEBUG_SIGN, "FD syscalls        : %u forks\n",
-             fork_counter);
    now = time(NULL);
 
    /* Kill any job still active with a normal kill (2)! */

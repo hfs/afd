@@ -1,7 +1,7 @@
 /*
  *  next_wmo_counter.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,9 +56,6 @@ DESCR__E_M3
 #include <errno.h>
 #include "wmodefs.h"
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*########################### next_wmo_counter() ########################*/
 int
@@ -71,29 +68,26 @@ next_wmo_counter(int counter_fd)
    /* Try to lock file which holds counter */
    if (fcntl(counter_fd, F_SETLKW, &wlock) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not set write lock. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__, "Could not set write lock.");
       return(INCORRECT);
    }
 
    /* Go to beginning in file */
    if (lseek(counter_fd, 0, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not seek() : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() : %s", strerror(errno));
    }
 
    /* Read the value of counter */
    if (read(counter_fd, &counter, sizeof(int)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not read value of counter : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not read value of counter : %s", strerror(errno));
       if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not unset write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unset write lock : %s", strerror(errno));
       }
       return(INCORRECT);
    }
@@ -101,8 +95,8 @@ next_wmo_counter(int counter_fd)
    /* Go to beginning in file */
    if (lseek(counter_fd, 0, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not seek() : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() : %s", strerror(errno));
    }
 
    /* Ensure that counter does not become larger then MAX_WMO_COUNTER */
@@ -114,14 +108,12 @@ next_wmo_counter(int counter_fd)
    /* Write new value into counter file */
    if (write(counter_fd, &counter, sizeof(int)) != sizeof(int))
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not write value to counter file : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not write value to counter file : %s", strerror(errno));
       if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not unset write lock : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unset write lock : %s", strerror(errno));
       }
       return(INCORRECT);
    }
@@ -129,9 +121,8 @@ next_wmo_counter(int counter_fd)
    /* Unlock file which holds the counter */
    if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not unset write lock : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not unset write lock : %s", strerror(errno));
       return(INCORRECT);
    }
 

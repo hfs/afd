@@ -137,6 +137,7 @@ get_info(int item)
          no_of_job_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          jd = (struct job_id_data *)ptr;
+         (void)close(jd_fd);
       }
       else
       {
@@ -180,13 +181,13 @@ get_info(int item)
          }
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
+         (void)close(dnb_fd);
       }
       else
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
-                    "Job ID database file is empty. (%s %d)",
+                    "Dirname database file is empty. (%s %d)",
                     __FILE__, __LINE__);
-         (void)close(dnb_fd);
          return;
       }
    }
@@ -493,9 +494,11 @@ get_job_data(struct job_id_data *p_jd)
    register int   i;
    register char  *p_file,
                   *p_tmp;
-   int            size;
 
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
+
+   get_dir_options(p_jd->dir_id_pos, &id.d_o);
+
    id.priority = p_jd->priority;
    id.no_of_files = p_jd->no_of_files;
    p_file = p_jd->file_list;
@@ -534,6 +537,8 @@ get_job_data(struct job_id_data *p_jd)
    /* Save all FD (standart) options. */
    if (id.no_of_soptions > 0)
    {
+      size_t size;
+
       size = strlen(p_jd->soptions);
       if ((id.soptions = calloc(size + 1, sizeof(char))) == NULL)
       {

@@ -68,8 +68,7 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* Global variables */
-extern int                        no_of_hosts,
-                                  sys_log_fd;
+extern int                        no_of_hosts;
 extern struct filetransfer_status *fsa;
 
 
@@ -97,9 +96,8 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
          ptr += 3; /* Away with '://' */
          if (*ptr == '\0')
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Just telling me the sheme and nothing else is not of much use! (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Just telling me the sheme and nothing else is not of much use!");
             return(INCORRECT);
          }
          i = 0;
@@ -115,25 +113,23 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
          }
          if (*ptr == '\0')
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Hmm. This does NOT look like URL for me!? (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Hmm. This does NOT look like URL for me!?");
             return(INCORRECT);
          }
          if (i == MAX_USER_NAME_LENGTH)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Unable to store user name. It is longer than %d Bytes! (%s %d)\n",
-                      MAX_USER_NAME_LENGTH, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Unable to store user name. It is longer than %d Bytes!",
+                       MAX_USER_NAME_LENGTH);
             return(INCORRECT);
          }
          p_db->user[i] = '\0';
       }
       else
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "This definitely is GARBAGE! Get a new AFD administrator!!! (%s %d)\n",
-                   __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "This definitely is GARBAGE! Get a new AFD administrator!!!");
          return(INCORRECT);
       }
       if (*ptr == ':')
@@ -153,16 +149,15 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
          }
          if ((i == 0) && (*ptr != '@'))
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Hmmm. How am I suppose to find the hostname? (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Hmmm. How am I suppose to find the hostname?");
             return(INCORRECT);
          }
          if (i == MAX_USER_NAME_LENGTH)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Unable to store password. It is longer than %d Bytes! (%s %d)\n",
-                      MAX_USER_NAME_LENGTH, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Unable to store password. It is longer than %d Bytes!",
+                       MAX_USER_NAME_LENGTH);
             return(INCORRECT);
          }
          p_db->password[i] = '\0';
@@ -180,9 +175,8 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
            }
            else
            {
-              (void)rec(sys_log_fd, ERROR_SIGN,
-                        "Hmmm. How am I suppose to find the hostname? (%s %d)\n",
-                        __FILE__, __LINE__);
+              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Hmmm. How am I suppose to find the hostname?");
               return(INCORRECT);
            }
 
@@ -213,15 +207,15 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
           */
          if (full_msg_path != NULL)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "The message in %s contains a hostname (%s) that is not in the FSA. (%s %d)\n",
-                      full_msg_path, p_db->host_alias, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "The message in %s contains a hostname (%s) that is not in the FSA.",
+                       full_msg_path, p_db->host_alias);
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to locate host %s in the FSA. (%s %d)\n",
-                      p_db->host_alias, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to locate host %s in the FSA.",
+                       p_db->host_alias);
          }
          return(INCORRECT);
       }
@@ -247,7 +241,7 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
               }
       }
 
-      /* Save the destination directory */
+      /* Save the destination directory. */
       if (*ptr == '/')
       {
          ptr++;
@@ -258,6 +252,10 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
             i++; ptr++;
          }
          p_db->target_dir[i] = '\0';
+      }
+      else
+      {
+         p_db->target_dir[0] = '\0';
       }
 
       /* Save the type code (FTP) or the server name (SMTP) */
@@ -283,9 +281,9 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
                    (*(ptr - 3) != 'y') || (*(ptr - 4) != 't'))
                {
                   *ptr = '\0';
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Actually I was expecting <type=> and not <%s=> (%s %d)\n",
-                            ptr_tmp, __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Actually I was expecting <type=> and not <%s=>",
+                             ptr_tmp);
                   *ptr = '=';
                   return(INCORRECT);
                }
@@ -301,9 +299,9 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
                   case 'i': /* Image/binary */
                   case 'I': p_db->transfer_mode = 'I';
                             break;
-                  default : (void)rec(sys_log_fd, ERROR_SIGN,
-                                      "Unknown ftp type (%d). Changing to I. (%s %d)\n",
-                                      *ptr, __FILE__, __LINE__);
+                  default : system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                       "Unknown ftp type (%d). Changing to I.",
+                                       *ptr);
                             p_db->transfer_mode = 'I';
                             break;
                }
@@ -315,9 +313,9 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
                         (*(ptr - 5) != 'e') || (*(ptr - 6) != 's'))
                     {
                        *ptr = '\0';
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "Actually I was expecting <server=> and not <%s=> (%s %d)\n",
-                                 ptr_tmp, __FILE__, __LINE__);
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Actually I was expecting <server=> and not <%s=>",
+                                  ptr_tmp);
                        *ptr = '=';
                        return(INCORRECT);
                     }
@@ -338,9 +336,8 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
    }
    else
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Hmm. This does NOT look like URL for me!? (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Hmm. This does NOT look like URL for me!?");
       return(INCORRECT);
    }
 

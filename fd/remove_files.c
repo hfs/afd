@@ -240,10 +240,21 @@ remove_files(char *del_dir, int fsa_pos)
        * automatically it will not retry to send files.
        */
       if ((fsa[fsa_pos].total_file_size == 0) &&
-          (fsa[fsa_pos].total_file_counter == 0) &&
-          (fsa[fsa_pos].error_counter != 0))
+          (fsa[fsa_pos].total_file_counter == 0))
       {
-         fsa[fsa_pos].error_counter = 0;
+         int i;
+
+         if (fsa[fsa_pos].error_counter != 0)
+         {
+            fsa[fsa_pos].error_counter = 0;
+         }
+         for (i = 0; i < fsa[fsa_pos].allowed_transfers; i++)
+         {
+            if (fsa[fsa_pos].job_status[i].connect_status == NOT_WORKING)
+            {
+               fsa[fsa_pos].job_status[i].connect_status = DISCONNECT;
+            }
+         }
       }
       unlock_region(fsa_fd, (char *)&fsa[fsa_pos].total_file_size - (char *)fsa);
    }

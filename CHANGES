@@ -800,3 +800,38 @@
              under rare conditions thought there is a job without a message
              and created one for an empty directory.
 ------------------------> Released: 06.06.2001 <---------------------------
+
+
+---------------------------> Version 1.2.7 <-------------------------------
+                            ---------------
+14.06.2001 - Failed to initialize file_name_length for output log. This
+             caused some entries to be lost by process output_log. Fixed.
+15.06.2001 - Process dir_check now receives the correct message when
+             HOST_CONFIG is updated with edit_hc.
+           - Build in additional checks when evaluating messages.
+           - Implemented burst2 for FTP.
+17.06.2001 - Process output_log can now handle the situation when the
+             fifo overflows.
+30.06.2001 - Process afdd is now only started if port number is specified
+             in AFD_CONFIG file with the AFD_TCP_PORT identifier.
+           - In show_olog mark archive as deleted when its time is up.
+01.07.2001 - Info clock of show_xlog dialog now show the directory options.
+           - Fixed bug where send dialog of show_olog showed garbage.
+03.07.2001 - Forgot to reset connection field in afd_ctrl dialog when
+             jobs are being removed.
+           - Function copy_file() no longer maps to the whole file but
+             does so in chunks.
+05.07.2001 - In function get_rename_rules() forgot to terminate buffer
+             with a '\0'. Fixed.
+07.07.2001 - Function eval_recipient() did not initialze target_dir when
+             none was specified in recipient string.
+08.07.2001 - Most function in common now use system_log() instead of rec().
+           - All sf_xxx process now use function trans_db_log() instead
+             of rec().
+09.07.2001 - show_olog did not show correct total time when size and
+             recipient are specified. Fixed.
+10.07.2001 - Reduce priority of a "not working" job by 600 seconds instead
+             of 6 seconds.
+11.07.2001 - Evaluating the afd.users file could end up in an endless loop
+             when there are empty spaces behind the last entry. Fixed.
+------------------------> Released: 12.07.2001 <---------------------------

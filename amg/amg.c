@@ -971,17 +971,19 @@ notify_dir_check(void)
    }
    else
    {
-      if (write(fd, " ", 1) < 0)
+      pid_t pid = -1;
+
+      if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          (void)rec(sys_log_fd, WARN_SIGN,
                    "Could not write() to fifo %s : %s (%s %d)\n",
                    fifo_name, strerror(errno), __FILE__, __LINE__);
       }
-   }
-   if (close(fd) == -1)
-   {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      if (close(fd) == -1)
+      {
+         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
    }
 
    return;

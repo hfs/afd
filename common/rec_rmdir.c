@@ -55,8 +55,6 @@ DESCR__E_M3
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */
 #include <errno.h>
 
-extern int  sys_log_fd;
-
 
 /*############################ rec_rmdir() ##############################*/
 int
@@ -70,9 +68,8 @@ rec_rmdir(char *dirname)
 
    if (stat(dirname, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to stat() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to stat() <%s> : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
 
@@ -81,9 +78,8 @@ rec_rmdir(char *dirname)
    {
       if (unlink(dirname) < 0)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to delete %s : %s (%s %d)\n",
-                   dirname, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to delete <%s> : %s", dirname, strerror(errno));
          return(INCORRECT);
       }
       return(0);
@@ -96,9 +92,8 @@ rec_rmdir(char *dirname)
 
    if ((dp = opendir(dirname)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to opendir() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to opendir() <%s> : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
 
@@ -120,18 +115,16 @@ rec_rmdir(char *dirname)
    {
       if (rmdir(dirname) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to rmdir() %s : %s (%s %d)\n",
-                   dirname, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to rmdir() <%s> : %s", dirname, strerror(errno));
          (void)closedir(dp);
          return(INCORRECT);
       }
    }
    if (closedir(dp) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to closedir() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to closedir() <%s> : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
 

@@ -1,6 +1,6 @@
 /*
  *  msa_detach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,8 +54,7 @@ DESCR__E_M3
 #include "mondefs.h"
 
 /* Global variables */
-extern int                    sys_log_fd,
-                              msa_fd,
+extern int                    msa_fd,
                               msa_id,
                               no_of_afds;
 #ifndef _NO_MMAP
@@ -83,31 +82,27 @@ msa_detach(void)
 #ifdef _NO_MMAP
       if (msync_emu((void *)((char *)msa - AFD_WORD_OFFSET)) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to msync_emu() MSA : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to msync_emu() MSA : %s", strerror(errno));
          return(INCORRECT);
       }
       if (munmap_emu((void *)((char *)msa - AFD_WORD_OFFSET)) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap_emu() MSA : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap_emu() MSA : %s", strerror(errno));
          return(INCORRECT);
       }
 #else
       if (msync(((char *)msa - AFD_WORD_OFFSET), msa_size, MS_ASYNC) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to msync() MSA : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to msync() MSA : %s", strerror(errno));
          return(INCORRECT);
       }
       if (munmap(((char *)msa - AFD_WORD_OFFSET), msa_size) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap() MSA : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() MSA : %s", strerror(errno));
          return(INCORRECT);
       }
 #endif

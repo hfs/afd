@@ -1,6 +1,6 @@
 /*
  *  check_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,9 +53,6 @@ DESCR__E_M3
 #include <unistd.h>            /* access()                               */
 #include <errno.h>
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*############################ check_dir() ##############################*/
 int
@@ -67,26 +64,25 @@ check_dir(char *directory, int access_mode)
    {
       if (mkdir(directory, DIR_MODE) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to create directory %s : %s (%s %d)\n",
-                   directory, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to create directory <%s> : %s",
+                    directory, strerror(errno));
          return(INCORRECT);
       }
    }
    else if (!S_ISDIR(stat_buf.st_mode))
         {
-           (void)rec(sys_log_fd, ERROR_SIGN,
-                     "There already exists a file %s, thus unable to create the directory. (%s %d)\n",
-                     directory, __FILE__, __LINE__);
+           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "There already exists a file <%s>, thus unable to create the directory.",
+                      directory);
            return(INCORRECT);
         }
         else /* Lets check if the correct permissions are set */
         {
            if (access(directory, access_mode) == -1)
            {
-              (void)rec(sys_log_fd, ERROR_SIGN,
-                        "Incorrect permission for directory %s (%s %d)\n",
-                        directory, __FILE__, __LINE__);
+              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Incorrect permission for directory <%s>", directory);
               return(INCORRECT);
            }
         }

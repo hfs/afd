@@ -471,6 +471,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
                 j,
                 fd;
    unsigned int new_bar_length;
+   time_t       start_time;
    char         *buffer,
                 config_file[MAX_PATH_LENGTH],
                 *perm_buffer,
@@ -739,6 +740,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    step_size = MAX_INTENSITY / max_bar_length;
 
    /* Initialise all display data for each host */
+   start_time = times(&tmsdummy);
    for (i = 0; i < no_of_hosts; i++)
    {
       (void)strcpy(connect_data[i].hostname, fsa[i].host_alias);
@@ -752,7 +754,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       {
          connect_data[i].host_toggle_display = fsa[i].host_dsp_name[(int)fsa[i].toggle_pos];
       }
-      connect_data[i].start_time = times(&tmsdummy);
+      connect_data[i].start_time = start_time;
       connect_data[i].total_file_counter = fsa[i].total_file_counter;
       CREATE_FC_STRING(connect_data[i].str_tfc, connect_data[i].total_file_counter);
       connect_data[i].debug = fsa[i].debug;
@@ -846,6 +848,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    prev_afd_status.amg = p_afd_status->amg;
    prev_afd_status.fd = p_afd_status->fd;
    prev_afd_status.archive_watch = p_afd_status->archive_watch;
+   prev_afd_status.afdd = p_afd_status->afdd;
    if ((prev_afd_status.fd == OFF) ||
        (prev_afd_status.amg == OFF) ||
        (prev_afd_status.archive_watch == OFF))

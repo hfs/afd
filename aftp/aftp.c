@@ -91,6 +91,7 @@ int                  *no_of_listed_files,
 long                 transfer_timeout;
 char                 host_deleted = NO,
                      msg_str[MAX_RET_MSG_LENGTH],
+                     *p_work_dir = NULL,
                      tr_hostname[MAX_HOSTNAME_LENGTH + 1];
 struct data          db;
 struct filename_list *rl;

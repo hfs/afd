@@ -1,6 +1,6 @@
 /*
  *  check_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,8 +58,7 @@ DESCR__E_M3
 #include <errno.h>
 
 /* Global variables */
-extern int                        sys_log_fd,
-                                  fra_id;
+extern int                        fra_id;
 #ifndef _NO_MMAP
 extern off_t                      fra_size;
 #endif
@@ -83,24 +82,23 @@ check_fra(void)
 #ifdef _NO_MMAP
          if (munmap_emu(ptr) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap_emu() from FRA (%d) : %s (%s %d)\n",
-                      fra_id, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap_emu() from FRA (%d) : %s",
+                       fra_id, strerror(errno));
          }
 #else
          if (munmap(ptr, fra_size) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap() from FRA [fra_id = %d fra_size = %d] : %s (%s %d)\n",
-                      fra_id, fra_size, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() from FRA [fra_id = %d fra_size = %d] : %s",
+                       fra_id, fra_size, strerror(errno));
          }
 #endif
 
          if (fra_attach() < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to attach to FRA. (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to attach to FRA.");
             exit(INCORRECT);
          }
 

@@ -52,7 +52,8 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-int sys_log_fd = STDERR_FILENO; /* Needed by get_afd_path() */
+int  sys_log_fd = STDERR_FILENO; /* Needed by get_afd_path() */
+char *p_work_dir = NULL;
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/

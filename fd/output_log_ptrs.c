@@ -30,6 +30,7 @@ DESCR__S_M3
  **                        char           **ol_data,
  **                        char           **ol_file_name,
  **                        unsigned short **ol_file_name_length,
+ **                        unsigned short **ol_archive_name_length,
  **                        off_t          **ol_file_size,
  **                        size_t         *ol_size,
  **                        clock_t        **ol_transfer_time,
@@ -42,19 +43,22 @@ DESCR__S_M3
  **   pointers have to be prepared which point to the right
  **   place in the buffer 'ol_data'. Once the buffer has been
  **   filled with the necessary data it will look as follows:
- **   <TD><FS><JN><FNL><HN>\0<LFN>[ /<RFN>]\0[<AD>\0]
- **     |   |   |   |    |     |       |       |
- **     |   |   |   |    |     |       |       +-> If FNL > 0 this contains
- **     |   |   |   |    |     |       |           a \0 terminated string of
- **     |   |   |   |    |     |       |           the Archive Directory.
- **     |   |   |   |    |     |       +---------> Remote file name.
- **     |   |   |   |    |     +-----------------> Local file name.
- **     |   |   |   |    +-----------------------> \0 terminated string of
- **     |   |   |   |                              the Host Name and protocol.
+ **   <TD><FS><JN><FNL><ANL><HN>\0<LFN>[ /<RFN>]\0[<AD>\0]
+ **     |   |   |   |    |    |     |       |       |
+ **     |   |   |   |    |    |     |       |       V
+ **     |   |   |   |    |    |     |       |      If ANL > 0 this contains
+ **     |   |   |   |    |    |     |       |      a \0 terminated string of
+ **     |   |   |   |    |    |     |       |      the Archive Directory.
+ **     |   |   |   |    |    |     |       +----> Remote file name.
+ **     |   |   |   |    |    |     +------------> Local file name.
+ **     |   |   |   |    |    +------------------> \0 terminated string of
+ **     |   |   |   |    |                         the Host Name and protocol.
+ **     |   |   |   |    +-----------------------> An unsigned short holding
+ **     |   |   |   |                              the Archive Name Length if
+ **     |   |   |   |                              the file has been archived.
+ **     |   |   |   |                              If not, ANL = 0.
  **     |   |   |   +----------------------------> An unsigned short holding
- **     |   |   |                                  the File Name Length if
- **     |   |   |                                  the file has been archived.
- **     |   |   |                                  If not, FNL = 0.
+ **     |   |   |                                  the File Name Length.
  **     |   |   +--------------------------------> Unsigned int holding the
  **     |   |                                      Job Number.
  **     |   +------------------------------------> File Size of type off_t.
@@ -65,8 +69,8 @@ DESCR__S_M3
  **   When successful it opens the fifo to the output log and assigns
  **   memory for the buffer 'ol_data'. The following values are being
  **   returned: ol_fd, *ol_job_number, *ol_data, *ol_file_name,
- **             *ol_file_name_length, *ol_file_size, ol_size,
- **             *ol_transfer_time.
+ **             *ol_file_name_length, *ol_archive_name_length,
+ **             *ol_file_size, ol_size, *ol_transfer_time.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -75,6 +79,7 @@ DESCR__S_M3
  **   08.05.1997 H.Kiehl Created
  **   10.12.1997 H.Kiehl Made ol_file_name_length unsigned short due to
  **                      trans_rename option.
+ **   17.06.2001 H.Kiehl Added archive_name_length.
  **
  */
 DESCR__E_M3
@@ -100,6 +105,7 @@ output_log_ptrs(int            *ol_fd,
                 char           **ol_data,
                 char           **ol_file_name,
                 unsigned short **ol_file_name_length,
+                unsigned short **ol_archive_name_length,
                 off_t          **ol_file_size,
                 size_t         *ol_size,
                 clock_t        **ol_transfer_time,
@@ -146,11 +152,12 @@ output_log_ptrs(int            *ol_fd,
        * <file name length><file name + archive dir>
        */
       *ol_size = offset + offset + offset +
-                 sizeof(unsigned short) +       /* file size length */
+                 sizeof(unsigned short) +       /* file size length    */
+                 sizeof(unsigned short) +       /* archive name length */
                  MAX_HOSTNAME_LENGTH + 2 + 1 +
-                 MAX_FILENAME_LENGTH + 1 +      /* local file name  */
-                 MAX_FILENAME_LENGTH + 2 +      /* remote file name */
-                 MAX_FILENAME_LENGTH + 1;       /* archive dir      */
+                 MAX_FILENAME_LENGTH + 1 +      /* local file name     */
+                 MAX_FILENAME_LENGTH + 2 +      /* remote file name    */
+                 MAX_FILENAME_LENGTH + 1;       /* archive dir         */
       if ((*ol_data = calloc(*ol_size, sizeof(char))) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -160,20 +167,22 @@ output_log_ptrs(int            *ol_fd,
       else
       {
          *ol_size = offset + offset + offset +
-                    sizeof(unsigned short) +
+                    sizeof(unsigned short) + sizeof(unsigned short) +
                     MAX_HOSTNAME_LENGTH + 2 +
-                    1 + 1 + 1;                /* NOTE: + 1 + 1 + 1 is */
+                    1 + 1;                    /* NOTE: + 1 + 1 is     */
                                               /* for '\0' at end      */
-                                              /* of host + file name  */
-                                              /* and archive dir.     */
+                                              /* of host + file name. */
          *ol_transfer_time = (clock_t *)*ol_data;
          *ol_file_size = &(*(off_t *)(*ol_data + offset));
          *ol_job_number = (unsigned int *)(*ol_data + offset + offset);
          *ol_file_name_length = (unsigned short *)(*ol_data + offset +
                                 offset + offset);
+         *ol_archive_name_length = (unsigned short *)(*ol_data + offset +
+                                   offset + offset + sizeof(unsigned short));
          *ol_file_name = (char *)(*ol_data + offset + offset + offset +
-                         sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 2 + 1);
-         (void)sprintf((char *)(*ol_data + offset + offset + offset + sizeof(unsigned short)),
+                         sizeof(unsigned short) + sizeof(unsigned short) +
+                         MAX_HOSTNAME_LENGTH + 2 + 1);
+         (void)sprintf((char *)(*ol_data + offset + offset + offset + sizeof(unsigned short) + sizeof(unsigned short)),
                        "%-*s %x", MAX_HOSTNAME_LENGTH, tr_hostname, protocol);
       }
    }

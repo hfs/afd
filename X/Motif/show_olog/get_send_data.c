@@ -1239,6 +1239,10 @@ send_save_input(Widget w, XtPointer client_data, XtPointer call_data)
          {
             char *ptr = value;
 
+            while ((*ptr == ' ') || (*ptr == '\t'))
+            {
+               ptr++;
+            }
             while (*ptr != '\0')
             {
                if (!isdigit(*ptr))
@@ -1267,6 +1271,10 @@ send_save_input(Widget w, XtPointer client_data, XtPointer call_data)
          {
             char *ptr = value;
 
+            while ((*ptr == ' ') || (*ptr == '\t'))
+            {
+               ptr++;
+            }
             while (*ptr != '\0')
             {
                if (!isdigit(*ptr))

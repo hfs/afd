@@ -1,6 +1,6 @@
 /*
  *  check_burst.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,8 +81,7 @@ DESCR__E_M3
 /* External global variables */
 extern int                        amg_flag,
                                   fsa_fd,
-                                  no_of_hosts,
-                                  sys_log_fd;
+                                  no_of_hosts;
 extern struct filetransfer_status *fsa;
 
 /* Local function prototypes */
@@ -119,12 +118,14 @@ check_burst(char         protocol,
        ((fsa[position].special_flag & NO_BURST_COUNT_MASK) < fsa[position].allowed_transfers))
    {
       int j,
-          burst_connection,
           status,
 #if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
           connect_status,
 #endif
+#ifndef _WITH_BURST_2
+          burst_connection,
           lowest_burst,
+#endif /* !_WITH_BURST_2 */
           no_of_bursts = 0,
           no_of_total_bursts = 0,
           burst_array[MAX_NO_PARALLEL_JOBS],
@@ -204,6 +205,7 @@ check_burst(char         protocol,
       {
          if (no_of_total_bursts >= (fsa[position].allowed_transfers - (fsa[position].special_flag & NO_BURST_COUNT_MASK)))
          {
+#ifndef _WITH_BURST_2
             int burst_array_position;
 
             /*
@@ -242,10 +244,10 @@ check_burst(char         protocol,
                   if (fsa[position].job_status[burst_connection].job_id != job_id)
                   {
                      unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
-                               fsa[position].job_status[burst_connection].job_id,
-                               job_id, __FILE__, __LINE__);
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d]",
+                                fsa[position].job_status[burst_connection].job_id,
+                                job_id);
                   }
                   else
                   {
@@ -267,6 +269,7 @@ check_burst(char         protocol,
                }
                no_of_bursts--;
             }
+#endif /* !_WITH_BURST_2 */
 
             unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
             return(NO);
@@ -296,10 +299,10 @@ check_burst(char         protocol,
                   if (fsa[position].job_status[no_burst_array[j]].job_id != job_id)
                   {
                      unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
-                               fsa[position].job_status[no_burst_array[j]].job_id,
-                               job_id, __FILE__, __LINE__);
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d]",
+                                fsa[position].job_status[no_burst_array[j]].job_id,
+                                job_id);
                   }
                   else
                   {
@@ -316,6 +319,7 @@ check_burst(char         protocol,
                }
             }
 
+#ifndef _WITH_BURST_2
             /*
              * Are there any existing bursts?
              */
@@ -356,10 +360,10 @@ check_burst(char         protocol,
                   if (fsa[position].job_status[burst_connection].job_id != job_id)
                   {
                      unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
-                               fsa[position].job_status[burst_connection].job_id,
-                               job_id, __FILE__, __LINE__);
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d]",
+                                fsa[position].job_status[burst_connection].job_id,
+                                job_id);
                   }
                   else
                   {
@@ -381,6 +385,7 @@ check_burst(char         protocol,
                }
                no_of_bursts--;
             }
+#endif /* !_WITH_BURST_2 */
 
             unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
             return(NO);
@@ -388,11 +393,13 @@ check_burst(char         protocol,
       }
       else
       {
+#ifndef _WITH_BURST_2
          int burst_array_position;
+#endif /* !_WITH_BURST_2 */
 
          /*
           * There is no restriction in bursting. First locate a
-          * connection that is no bursting then try the bursting ones.
+          * connection that is not bursting then try the bursting ones.
           */
          for (j = 0; j < no_of_no_bursts; j++)
          {
@@ -413,10 +420,10 @@ check_burst(char         protocol,
                if (fsa[position].job_status[no_burst_array[j]].job_id != job_id)
                {
                   unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
-                            fsa[position].job_status[no_burst_array[j]].job_id,
-                            job_id, __FILE__, __LINE__);
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d]",
+                             fsa[position].job_status[no_burst_array[j]].job_id,
+                             job_id);
                }
                else
                {
@@ -433,6 +440,7 @@ check_burst(char         protocol,
             }
          }
 
+#ifndef _WITH_BURST_2
          /*
           * Hmm. Failed to create a new burst. Lets try one of
           * the existing bursts.
@@ -468,10 +476,10 @@ check_burst(char         protocol,
                if (fsa[position].job_status[burst_connection].job_id != job_id)
                {
                   unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
-                            fsa[position].job_status[burst_connection].job_id,
-                            job_id, __FILE__, __LINE__);
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d]",
+                             fsa[position].job_status[burst_connection].job_id,
+                             job_id);
                }
                else
                {
@@ -493,6 +501,7 @@ check_burst(char         protocol,
             }
             no_of_bursts--;
          }
+#endif /* !_WITH_BURST_2 */
 
          unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
          return(NO);
@@ -536,9 +545,9 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
          progname[1] = 'D';
          progname[2] = '\0';
       }
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Can't access directory %s : %s [%s] (%s %d)\n",
-                src_dir, strerror(errno), progname, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Can't access directory <%s> : %s [%s]",
+                 src_dir, strerror(errno), progname);
 
       return(INCORRECT);
    }
@@ -554,15 +563,14 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
    (void)strcat(newname, fsa[position].job_status[burst_connection].unique_name);
    if (fsa[position].job_status[burst_connection].unique_name[0] == '\0')
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "Hmmm. No unique name for host %s [%d]. (%s %d)\n",
-                fsa[position].host_dsp_name , burst_connection,
-                __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Hmmm. No unique name for host %s [%d].",
+                 fsa[position].host_dsp_name , burst_connection);
       if (closedir(dp) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not close directory %s : %s (%s %d)\n",
-                   src_dir, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not close directory <%s> : %s",
+                    src_dir, strerror(errno));
       }
       return(INCORRECT);
    }
@@ -592,9 +600,9 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
       {
          if (closedir(dp) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not close directory %s : %s (%s %d)\n",
-                      src_dir, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not close directory <%s> : %s",
+                       src_dir, strerror(errno));
          }
          if (count > 0)
          {
@@ -629,16 +637,35 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
              * The target directory is gone. No need to continue here.
              * How can this happen?!
              */
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Could not rename() file %s to %s : %s [%s] (%s %d)\n",
-                      src_dir, newname, strerror(errno),
-                      progname, __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Could not rename() file %s to %s : %s [%s]",
+                       src_dir, newname, strerror(errno), progname);
 
+            /*
+             * Lets determine what is gone source or target?
+             */
+            if (access(src_dir, R_OK) != 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Source file <%s> does not exist!", src_dir);
+            }
+            *to_ptr = '\0';
+            if (access(newname, R_OK) != 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Target directory <%s> does not exist!", newname);
+            }
+            *from_ptr = '\0';
+            if (access(src_dir, R_OK) != 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Source directory <%s> does not exist!", src_dir);
+            }
             if (closedir(dp) == -1)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Could not close directory %s : %s (%s %d)\n",
-                         src_dir, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not close directory <%s> : %s",
+                          src_dir, strerror(errno));
             }
             if (count > 0)
             {
@@ -648,10 +675,9 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
 
             return(INCORRECT);
          }
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not rename() file %s to %s : %s [%s] (%s %d)\n",
-                   src_dir, newname, strerror(errno),
-                   progname,  __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Could not rename() file <%s> to <%s> : %s [%s]",
+                    src_dir, newname, strerror(errno), progname);
       }
       else
       {
@@ -662,15 +688,13 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
 
    if (errno)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not readdir() %s : %s (%s %d)\n",
-                src_dir, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not readdir() <%s> : %s", src_dir, strerror(errno));
    }
    if (closedir(dp) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not closedir() %s : %s (%s %d)\n",
-                src_dir, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not closedir() <%s> : %s", src_dir, strerror(errno));
    }
    if (count > 0)
    {
@@ -696,9 +720,9 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
          progname[1] = 'D';
          progname[2] = '\0';
       }
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to rmdir() %s : %s [%s] (%s %d)\n",
-                src_dir, strerror(errno), progname, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to rmdir() <%s> : %s [%s]",
+                 src_dir, strerror(errno), progname);
       return(INCORRECT);
    }
 

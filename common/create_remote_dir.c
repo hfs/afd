@@ -1,7 +1,7 @@
 /*
  *  create_remote_dir.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,7 +54,6 @@ DESCR__E_M3
 #include <stdio.h>           /* sprintf()                                */
 
 /* External global variables. */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -148,9 +147,8 @@ create_remote_dir(char *url, char *remote_dir)
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Unable to locate host name in URL %s (%s %d)\n",
-                      url, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Unable to locate host name in URL <%s>", url);
             return(INCORRECT);
          }
       }
@@ -158,24 +156,21 @@ create_remote_dir(char *url, char *remote_dir)
       {
          if (i == 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Unable to locate user name in URL %s (%s %d)\n",
-                      url, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Unable to locate user name in URL <%s>", url);
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Unable to locate host name in URL %s (%s %d)\n",
-                      url, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Unable to locate host name in URL <%s>", url);
          }
          return(INCORRECT);
       }
    }
    else
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "There is no more data after the scheme of the URL %s (%s %d)\n",
-                url, __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "There is no more data after the scheme of the URL <%s>", url);
       return(INCORRECT);
    }
    if (absolute_path == NO)

@@ -1,7 +1,7 @@
 /*
  *  read_file_mask.c - Part of AFD, an automatic file distribution
  *                     program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,7 +59,6 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables. */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -82,16 +81,16 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to fstat() %s : %s (%s %d)\n",
-                file_mask_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to fstat() <%s> : %s",
+                 file_mask_file, strerror(errno));
       return(INCORRECT);
    }
    *nfg = stat_buf.st_size / sizeof(struct file_mask);
    if ((*fml = malloc(stat_buf.st_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       return(INCORRECT);
    }
    ptr = (char *)*fml;
@@ -100,17 +99,18 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
    {
       if (read(fd, ptr, sizeof(struct file_mask)) != sizeof(struct file_mask))
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to read() from %s : %s (%s %d)\n",
-                   file_mask_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to read() from <%s> : %s",
+                    file_mask_file, strerror(errno));
          return(INCORRECT);
       }
       ptr += sizeof(struct file_mask);
    }
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to close() %s : %s (%s %d)\n",
-                file_mask_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to close() <%s> : %s",
+                 file_mask_file, strerror(errno));
    }
 
    return(SUCCESS);

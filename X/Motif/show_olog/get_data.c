@@ -207,118 +207,155 @@ static void   display_data(int, time_t, time_t),
            CONVERT_TIME();                                 \
            (void)memcpy(p_type, (protocol), 4);            \
         }
-#define COMMON_BLOCK()                                                 \
-        {                                                              \
-           ptr++;                                                      \
-           while (*ptr != ' ')                                         \
-           {                                                           \
-              ptr++;                                                   \
-           }                                                           \
-           tmp_ptr = ptr - 1;                                          \
-           j = 0;                                                      \
+#define COMMON_BLOCK()                                     \
+        {                                                  \
+           ptr++;                                          \
+           while (*ptr != ' ')                             \
+           {                                               \
+              ptr++;                                       \
+           }                                               \
+           tmp_ptr = ptr - 1;                              \
+           j = 0;                                          \
            while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_TRANSFER_TIME)) \
-           {                                                           \
-              *(p_tt - j) = *tmp_ptr;                                  \
-              tmp_ptr--; j++;                                          \
-           }                                                           \
-           if (j == MAX_DISPLAYED_TRANSFER_TIME)                       \
-           {                                                           \
-              tmp_ptr = ptr - 4;                                       \
-              j = 0;                                                   \
+           {                                               \
+              *(p_tt - j) = *tmp_ptr;                      \
+              tmp_ptr--; j++;                              \
+           }                                               \
+           if (j == MAX_DISPLAYED_TRANSFER_TIME)           \
+           {                                               \
+              tmp_ptr = ptr - 4;                           \
+              j = 0;                                       \
               while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_TRANSFER_TIME)) \
-              {                                                        \
-                 *(p_tt - j) = *tmp_ptr;                               \
-                 tmp_ptr--; j++;                                       \
-              }                                                        \
+              {                                            \
+                 *(p_tt - j) = *tmp_ptr;                   \
+                 tmp_ptr--; j++;                           \
+              }                                            \
               if ((j == MAX_DISPLAYED_TRANSFER_TIME) && (*tmp_ptr != ' ')) \
-              {                                                        \
-                 *(p_tt - j) = '>';                                    \
-                 while (*tmp_ptr != ' ')                               \
-                 {                                                     \
-                    tmp_ptr--;                                         \
-                 }                                                     \
-              }                                                        \
-              else                                                     \
-              {                                                        \
-                 while (j < MAX_DISPLAYED_TRANSFER_TIME)               \
-                 {                                                     \
-                    *(p_tt - j) = ' ';                                 \
-                    j++;                                               \
-                 }                                                     \
-              }                                                        \
-           }                                                           \
-           tmp_ptr++;                                                  \
-                                                                       \
-           ptr++;                                                      \
+              {                                            \
+                 *(p_tt - j) = '>';                        \
+                 while (*tmp_ptr != ' ')                   \
+                 {                                         \
+                    tmp_ptr--;                             \
+                 }                                         \
+              }                                            \
+              else                                         \
+              {                                            \
+                 while (j < MAX_DISPLAYED_TRANSFER_TIME)   \
+                 {                                         \
+                    *(p_tt - j) = ' ';                     \
+                    j++;                                   \
+                 }                                         \
+              }                                            \
+           }                                               \
+           tmp_ptr++;                                      \
+                                                           \
+           ptr++;                                          \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);\
-                                                                       \
-           if ((search_directory_name[0] != '\0') ||                   \
-               ((current_search_host != -1) &&                         \
-                (search_user[current_search_host][0] != '\0')))        \
-           {                                                           \
-              int  count = 0;                                          \
-              char job_id_str[15];                                     \
-                                                                       \
-              while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))  \
-              {                                                        \
-                 job_id_str[count] = *ptr;                             \
-                 count++; ptr++;                                       \
-              }                                                        \
-              job_id_str[count] = '\0';                                \
-              id.job_no = (unsigned int)strtoul(job_id_str, NULL, 10); \
-                                                                       \
-              if ((current_search_host != -1) &&                       \
-                  (search_user[current_search_host][0] != '\0'))       \
-              {                                                        \
-                 id.user[0] = '\0';                                    \
-                 get_info(GOT_JOB_ID_USER_ONLY);                       \
-                                                                       \
-                 if (sfilter(search_user[current_search_host], id.user) != 0) \
-                 {                                                     \
-                    IGNORE_ENTRY();                                    \
-                 }                                                     \
-              }                                                        \
-              if (search_directory_name[0] != '\0')                    \
-              {                                                        \
-                 id.dir[0] = '\0';                                     \
-                 get_info(GOT_JOB_ID_DIR_ONLY);                        \
-                 count = strlen(id.dir);                               \
-                 id.dir[count] = ' ';                                  \
-                 id.dir[count + 1] = '\0';                             \
-                                                                       \
-                 if (sfilter(search_directory_name, id.dir) != 0)      \
-                 {                                                     \
-                    IGNORE_ENTRY();                                    \
-                 }                                                     \
-              }                                                        \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              while ((*ptr != '\n') && (*ptr != ' '))                  \
-              {                                                        \
-                 ptr++;                                                \
-              }                                                        \
-           }                                                           \
-           trans_time += strtod(tmp_ptr, NULL);                        \
-                                                                       \
-           if (*ptr == ' ')                                            \
-           {                                                           \
-              *p_archive_flag = 'Y';                                   \
-              il[file_no].archived[item_counter] = 1;                  \
-              while (*ptr != '\n')                                     \
-              {                                                        \
-                 ptr++;                                                \
-              }                                                        \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              *p_archive_flag = 'N';                                   \
-           }                                                           \
-           item_counter++;                                             \
-                                                                       \
-           str_list[i] = XmStringCreateLocalized(line);                \
-                                                                       \
-           ptr++;                                                      \
+                                                           \
+           if ((search_directory_name[0] != '\0') ||       \
+               ((current_search_host != -1) &&             \
+                (search_user[current_search_host][0] != '\0')))\
+           {                                               \
+              int  count = 0;                              \
+              char job_id_str[15];                         \
+                                                           \
+              while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))\
+              {                                            \
+                 job_id_str[count] = *ptr;                 \
+                 count++; ptr++;                           \
+              }                                            \
+              job_id_str[count] = '\0';                    \
+              id.job_no = (unsigned int)strtoul(job_id_str, NULL, 10);\
+                                                           \
+              if ((current_search_host != -1) &&           \
+                  (search_user[current_search_host][0] != '\0'))\
+              {                                            \
+                 id.user[0] = '\0';                        \
+                 get_info(GOT_JOB_ID_USER_ONLY);           \
+                                                           \
+                 if (sfilter(search_user[current_search_host], id.user) != 0)\
+                 {                                         \
+                    IGNORE_ENTRY();                        \
+                 }                                         \
+              }                                            \
+              if (search_directory_name[0] != '\0')        \
+              {                                            \
+                 id.dir[0] = '\0';                         \
+                 get_info(GOT_JOB_ID_DIR_ONLY);            \
+                 count = strlen(id.dir);                   \
+                 id.dir[count] = ' ';                      \
+                 id.dir[count + 1] = '\0';                 \
+                                                           \
+                 if (sfilter(search_directory_name, id.dir) != 0)\
+                 {                                         \
+                    IGNORE_ENTRY();                        \
+                 }                                         \
+              }                                            \
+           }                                               \
+           else                                            \
+           {                                               \
+              while ((*ptr != '\n') && (*ptr != ' '))      \
+              {                                            \
+                 ptr++;                                    \
+              }                                            \
+           }                                               \
+           trans_time += strtod(tmp_ptr, NULL);            \
+                                                           \
+           if (*ptr == ' ')                                \
+           {                                               \
+              int  sub_dir_counter = 0;                    \
+              char archive_status = 'Y';                   \
+                                                           \
+              ptr++;                                       \
+              while (*ptr != '\n')                         \
+              {                                            \
+                 if ((*ptr == '/') && (*(ptr - 1) != '\\'))\
+                 {                                         \
+                    sub_dir_counter++;                     \
+                    if (sub_dir_counter == 3)              \
+                    {                                      \
+                       int  cc = 0;                        \
+                       char long_no[MAX_INT_LENGTH];       \
+                                                           \
+                       ptr += 3;                           \
+                       while ((*ptr != '_') && (*ptr != '\n') && (cc < MAX_INT_LENGTH))\
+                       {                                   \
+                          long_no[cc] = *ptr;              \
+                          cc++; ptr++;                     \
+                       }                                   \
+                       if ((*ptr != '\n') && (cc > 0) && (cc < MAX_INT_LENGTH))\
+                       {                                   \
+                          time_t delete_time = atol(long_no);\
+                                                           \
+                          if (now > (delete_time + ARCHIVE_STEP_TIME))\
+                          {                                \
+                             archive_status = 'D';         \
+                          }                                \
+                          else if (now > (delete_time - 5))\
+                               {                           \
+                                  archive_status = '?';    \
+                               }                           \
+                       }                                   \
+                    }                                      \
+                 }                                         \
+                 ptr++;                                    \
+              }                                            \
+              while (*ptr != '\n')                         \
+              {                                            \
+                 ptr++;                                    \
+              }                                            \
+              *p_archive_flag = archive_status;            \
+              il[file_no].archived[item_counter] = 1;      \
+           }                                               \
+           else                                            \
+           {                                               \
+              *p_archive_flag = 'N';                       \
+           }                                               \
+           item_counter++;                                 \
+                                                           \
+           str_list[i] = XmStringCreateLocalized(line);    \
+                                                           \
+           ptr++;                                          \
         }
 
 #define CHECK_LIST_LIMIT()                                          \
@@ -1024,22 +1061,17 @@ no_criteria(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time_t       next_check_time,
+   time_t       time_when_transmitted = 0L,
+                next_check_time,
                 now;
-#endif
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    /* The easiest case! */
    do
@@ -1049,7 +1081,6 @@ no_criteria(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1061,7 +1092,6 @@ no_criteria(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1230,22 +1260,17 @@ file_name_only(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -1254,7 +1279,6 @@ file_name_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1266,7 +1290,6 @@ file_name_only(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1530,22 +1553,17 @@ file_size_only(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -1554,7 +1572,6 @@ file_size_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1566,7 +1583,6 @@ file_size_only(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1743,22 +1759,17 @@ file_name_and_size(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -1767,7 +1778,6 @@ file_name_and_size(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1779,7 +1789,6 @@ file_name_and_size(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1897,6 +1906,15 @@ file_name_and_size(register char *ptr,
             ptr++;
          }
          ptr++;
+         if (*ptr == '/')
+         {
+            /* Ignore  the remote file name */
+            while (*ptr != ' ')
+            {
+               ptr++;
+            }
+            ptr++;
+         }
 
          tmp_file_size = strtod(ptr, NULL);
          if ((gt_lt_sign == EQUAL_SIGN) &&
@@ -2052,22 +2070,17 @@ recipient_only(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -2076,7 +2089,6 @@ recipient_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -2088,7 +2100,6 @@ recipient_only(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;
@@ -2371,22 +2382,17 @@ file_name_and_recipient(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -2395,7 +2401,6 @@ file_name_and_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -2407,7 +2412,6 @@ file_name_and_recipient(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;
@@ -2552,22 +2556,17 @@ file_size_and_recipient(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -2576,7 +2575,6 @@ file_size_and_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -2588,7 +2586,6 @@ file_size_and_recipient(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;
@@ -2708,6 +2705,15 @@ file_size_and_recipient(register char *ptr,
             ptr++;
          }
          ptr++;
+         if (*ptr == '/')
+         {
+            /* Ignore  the remote file name */
+            while (*ptr != ' ')
+            {
+               ptr++;
+            }
+            ptr++;
+         }
 
          /* File size is already stored. */
          while (*ptr != ' ')
@@ -2751,22 +2757,17 @@ file_name_size_recipient(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -2775,7 +2776,6 @@ file_name_size_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -2787,7 +2787,6 @@ file_name_size_recipient(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;

@@ -50,7 +50,7 @@
 
 #define MAX_LINE_COUNTER_DIGITS 6
 #define LOG_START_TIMEOUT       100
-#define LOG_TIMEOUT             1000
+#define LOG_TIMEOUT             2000
 #define FALLING_SAND_SPEED      50
 
 /* Function prototypes */

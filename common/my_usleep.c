@@ -51,8 +51,6 @@ DESCR__E_M3
 #include <unistd.h>                   /* select()                        */
 #include <errno.h>
 
-extern int sys_log_fd;
-
 
 /*############################# my_usleep() #############################*/
 void
@@ -65,8 +63,8 @@ my_usleep(unsigned long msec)
 
    if (select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &timeout) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Select error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Select error : %s", strerror(errno));
       exit(INCORRECT);
    }
 

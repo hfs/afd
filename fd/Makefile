@@ -31,12 +31,14 @@ FDOBJS     = check_file_dir.o\
 SFFTPPROG  = sf_ftp
 SFFTPOBJS  = append.o\
              archive_file.o\
+             check_burst_2.o\
              eval_input_sf.o\
              eval_recipient.o\
              eval_message.o\
              get_file_names.o\
              handle_proxy.o\
              init_sf.o\
+             init_sf_burst2.o\
              output_log_ptrs.o\
              reset_fsa.o\
              sf_ftp.o\
@@ -92,15 +94,17 @@ SFWMOOBJS  = append.o\
 
 SFMAPPROG  = sf_map
 SFMAPOBJS  = append.o\
-             sf_map.o\
+             archive_file.o\
+             eval_input_sf.o\
+             eval_message.o\
+             eval_recipient.o\
+             get_file_names.o\
              init_sf.o\
              output_log_ptrs.o\
-             eval_input_sf.o\
-             eval_recipient.o\
-             eval_message.o\
-             archive_file.o\
              reset_fsa.o\
-             get_file_names.o
+             sf_map.o\
+             trans_db_log.o\
+             trans_log.o
 
 SFLOCPROG  = sf_loc
 SFLOCOBJS  = append.o\

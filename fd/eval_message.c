@@ -76,9 +76,6 @@ DESCR__E_M3
 #include <ctype.h>                /* isascii()                           */
 #include <sys/types.h>
 #include <sys/stat.h>             /* fstat()                             */
-#ifndef _NO_MMAP
-#include <sys/mman.h>             /* mmap(), munmap()                    */
-#endif
 #include <grp.h>                  /* getgrnam()                          */
 #include <pwd.h>                  /* getpwnam()                          */
 #include <unistd.h>               /* read(), close(), setuid()           */
@@ -91,8 +88,7 @@ DESCR__E_M3
 #include "ftpdefs.h"
 
 /* External global variables */
-extern int sys_log_fd,
-           transfer_log_fd;
+extern int transfer_log_fd;
 
 #define ARCHIVE_FLAG              1
 #define AGE_LIMIT_FLAG            2
@@ -165,7 +161,6 @@ eval_message(char *message_name, struct job *p_db)
       exit(INCORRECT);
    }
 
-#ifdef _NO_MMAP
    /* Read message in one hunk. */
    if (read(fd, msg_buf, stat_buf.st_size) != stat_buf.st_size)
    {
@@ -173,22 +168,6 @@ eval_message(char *message_name, struct job *p_db)
                  "Failed to read() %s : %s", message_name, strerror(errno));
       exit(INCORRECT);
    }
-#else
-   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
-                   MAP_SHARED, fd, 0)) == (caddr_t) -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to mmap() to %s : %s", message_name, strerror(errno));
-      exit(INCORRECT);
-   }
-   (void)memcpy(msg_buf, ptr, stat_buf.st_size);
-   if (munmap(ptr, stat_buf.st_size) == -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to munmap() %s : %s", message_name, strerror(errno));
-      exit(INCORRECT);
-   }
-#endif
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -336,8 +315,30 @@ eval_message(char *message_name, struct job *p_db)
 #endif /* _WITH_READY_FILES */
                          else
                          {
-                            p_db->lock = DOT;
-                            (void)strcpy(p_db->lock_notation, ptr);
+                            size_t length;
+
+                            length = strlen(ptr);
+                            if (length > 39)
+                            {
+                               if (length > 127)
+                               {
+                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "Lock notation in message %s is %d Bytes long, it may only be 40 Bytes long.",
+                                             length, message_name);
+                               }
+                               else
+                               {
+                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "Lock notation <%s> in message %s is %d Bytes long, it may only be 40 Bytes long.",
+                                             ptr, length, message_name);
+                               }
+                               p_db->lock = OFF;
+                            }
+                            else
+                            {
+                               p_db->lock = DOT;
+                               (void)strcpy(p_db->lock_notation, ptr);
+                            }
                          }
                     *end_ptr = byte_buf;
                     ptr = end_ptr;

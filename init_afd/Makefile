@@ -29,7 +29,7 @@ $(OBJS): $(HEADERS)
 
 $(IAFDPROG) : $(IAFDOBJS) $(LIB)
 	rm -f $@
-	$(CC) $(CFLAGS) -o $@ $(IAFDOBJS) $(LIB) $(EFENCE) $(CCMALLOC)
+	$(CC) $(CFLAGS) -o $@ $(IAFDOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
 $(AFDPROG) : $(AFDOBJS) $(LIB)
 	rm -f $@

@@ -159,30 +159,31 @@ struct item_list
 /* Structure to hold all data for a single job ID. */
 struct info_data
        {
-          unsigned int job_no;
-          int          no_of_files;
-          time_t       date_send;
-          char         **files;
+          unsigned int       job_no;
+          int                no_of_files;
+          time_t             date_send;
+          char               **files;
 #ifdef _WITH_DYNAMIC_MEMORY
-          int          no_of_loptions;
-          char         **loptions;
-          int          no_of_soptions;
-          char         *soptions;
+          int                no_of_loptions;
+          char               **loptions;
+          int                no_of_soptions;
+          char               *soptions;
 #else
-          int          no_of_loptions;
-          int          no_of_soptions;
-          char         *soptions;
-          char         loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
+          int                no_of_loptions;
+          int                no_of_soptions;
+          char               *soptions;
+          char               loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
 #endif
-          char         recipient[MAX_RECIPIENT_LENGTH];
-          char         user[MAX_RECIPIENT_LENGTH];
-          char         local_file_name[MAX_FILENAME_LENGTH];
-          char         remote_file_name[MAX_FILENAME_LENGTH];
-          char         dir[MAX_PATH_LENGTH];
-          char         archive_dir[MAX_PATH_LENGTH];
-          char         file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
-          char         trans_time[MAX_INT_LENGTH + MAX_INT_LENGTH];
-          char         priority;
+          char               recipient[MAX_RECIPIENT_LENGTH];
+          char               user[MAX_RECIPIENT_LENGTH];
+          char               local_file_name[MAX_FILENAME_LENGTH];
+          char               remote_file_name[MAX_FILENAME_LENGTH];
+          char               dir[MAX_PATH_LENGTH];
+          char               archive_dir[MAX_PATH_LENGTH];
+          char               file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
+          char               trans_time[MAX_INT_LENGTH + MAX_INT_LENGTH];
+          char               priority;
+          struct dir_options d_o;
        };
 
 /* To optimize the resending of files the following structure is needed. */

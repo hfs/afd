@@ -1,6 +1,6 @@
 /*
  *  create_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -78,8 +78,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-extern int  counter_fd,
-            sys_log_fd;
+extern int  counter_fd;
 extern char *p_work_dir;
 
 

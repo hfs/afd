@@ -65,6 +65,7 @@ DESCR__S_M1
  ** HISTORY
  **   14.01.1998 H.Kiehl Created
  **   07.01.2001 H.Kiehl Build in some checks when fifo buffer overflows.
+ **   14.06.2001 H.Kiehl Removed the above unnecessary checks.
  **
  */
 DESCR__E_M1
@@ -312,7 +313,7 @@ main(int argc, char *argv[])
                * even though we are writting in a loop to the delete
                * file.
                */
-              time(&now);
+              now = time(NULL);
 
               /*
                * Aaaah. Some new data has arrived. Lets write this
@@ -327,78 +328,54 @@ main(int argc, char *argv[])
               {
                  n += bytes_buffered;
                  bytes_buffered = 0;
-                 if (n >= check_size)
+                 do
                  {
-                    do
+                    if ((n < (check_size - 2)) ||
+                        (n < (check_size + *file_name_length - 1)))
                     {
-                       if (*file_name_length > 0)
+                       length = n;
+                       bytes_buffered = n;
+                    }
+                    else
+                    {
+                       length = check_size + *file_name_length +
+                                strlen(&p_file_name[*file_name_length + 1]);
+                       if (n < length)
                        {
-                          if (*file_name_length > MAX_FILENAME_LENGTH)
-                          {
-                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                        "Hmmm, assuming that I am reading garbage from fifo since a filename cannot be %d Bytes long! [%d]",
-                                        *file_name_length, n);
-                             break;
-                          }
-                          else
-                          {
-                             (void)fprintf(delete_file, "%-10ld %s %s %lu %d %s\n",
-                                           now,
-                                           p_host_name,
-                                           p_file_name,
-                                           *file_size,
-                                           *job_number,
-                                           &p_file_name[*file_name_length + 1]);
-                             length = check_size + *file_name_length + 1 +
-                                      strlen(&p_file_name[*file_name_length + 1] + 1);
-                          }
+                          length = n;
+                          bytes_buffered = n;
                        }
                        else
                        {
-                          (void)fprintf(delete_file, "%-10ld %s %s %lu %d\n",
+                          (void)fprintf(delete_file, "%-10ld %s %s %lu %d %s\n",
                                         now,
                                         p_host_name,
                                         p_file_name,
                                         *file_size,
-                                        *job_number);
-                          length = check_size + strlen(p_file_name) + 1;
+                                        *job_number,
+                                        &p_file_name[*file_name_length + 1]);
                        }
-                       n -= length;
-                       if (n > 0)
-                       {
-                          (void)memmove(fifo_buffer, &fifo_buffer[length], n);
-                          if ((n < check_size) ||
-                              (*file_name_length > MAX_FILENAME_LENGTH) ||
-                              ((*file_name_length > 0) &&
-                               ((check_size + *file_name_length + 1 + strlen(&p_file_name[*file_name_length + 1] + 1)) > n)) ||
-                              ((*file_name_length == 0) &&
-                               ((check_size + strlen(p_file_name) + 1) > n)))
-                          {
-                             bytes_buffered = n;
-                             no_of_buffered_writes++;
-#ifdef _REPORT_BUFFER_OVERFLOW
-                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                        "Fifo buffer for delete_log overflowed!");
-#endif /* _REPORT_BUFFER_OVERFLOW */
-                             break;
-                          }
-                       }
-                       no_of_buffered_writes++;
-                    } while (n >= check_size);
-
-                    if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_SLOW)
-                    {
-                       (void)fflush(delete_file);
-                       no_of_buffered_writes = 0;
                     }
-                 }
-                 else
+                    n -= length;
+                    if (n > 0)
+                    {
+                       (void)memmove(fifo_buffer, &fifo_buffer[length], n);
+                    }
+                    no_of_buffered_writes++;
+                 } while (n > 0);
+
+                 if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_SLOW)
                  {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "Hmmm. Seems like I am reading garbage from the fifo (%d).",
-                               n);
+                    (void)fflush(delete_file);
+                    no_of_buffered_writes = 0;
                  }
               }
+              else if (n < 0)
+                   {
+                      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                 "read() error (%d) : %s", n, strerror(errno));
+                      exit(INCORRECT);
+                   }
 
               /*
                * Since we can receive a constant stream of data

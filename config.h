@@ -139,18 +139,11 @@
  *                             the log file does not increase. Gives a
  *                             slight performance boost when lots of log
  *                             entries are being made.
- * _WITH_CHECK_TIME_INTERVAL - This option is only used for the program
- *                             viewing the input and output log files.
- *                             On slow systems this option should be
- *                             enabled, otherwise a search can take too
- *                             long and the user cannot interrupt the
- *                             search.
  *-----------------------------------------------------------------------*/
 #define _AUTO_REPOSITION
 #define _SQUARE_LED
 #define _NO_LED_FRAME
 #define _SLOW_COUNTER
-#define _WITH_CHECK_TIME_INTERVAL
 
 
 

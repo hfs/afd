@@ -97,23 +97,18 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
 
    if (timeout_flag == ON)
    {
-      char *tmp_ptr;
-
       if (buf[length - 1] == '.')
       {
-         tmp_ptr = &buf[length - 1];
-      }
-      else
-      {
-         tmp_ptr = &buf[length];
+         length--;
       }
       if ((file == NULL) || (line == 0))
       {
-         length += sprintf(tmp_ptr, " due to timeout (%lds)\n", db->timeout);
+         length += sprintf(&buf[length], " due to timeout (%lds).\n",
+                           db->timeout);
       }
       else
       {
-         length += sprintf(tmp_ptr, " due to timeout (%lds). (%s %d)\n",
+         length += sprintf(&buf[length], " due to timeout (%lds). (%s %d)\n",
                            db->timeout, file, line);
       }
    }
@@ -122,6 +117,7 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       if ((file == NULL) || (line == 0))
       {
          buf[length] = '\n';
+         buf[length + 1] = '\0';
          length += 1;
       }
       else

@@ -55,6 +55,18 @@
 #define MAP_SHARED                 1
 #endif
 
+/*
+ * The definition SIZE_WHEN_TO_MMAP_COPY defines two things:
+ *   - if defined function copy_file() will use mmap() to copy files
+ *   - at which file size we start using mmap() to copy files
+ * It seems that so far only Solaries seems to profit from using mmap()
+ * to copy files. Linux and Irix do better when using a normal read()/
+ * write() loop.
+ */
+#ifdef _SUN
+#define SIZE_WHEN_TO_MMAP_COPY     20480
+#endif
+
 /* Define the names of the program's */
 #ifdef _NO_MMAP
 #define MAPPER                     "mapper"
@@ -395,6 +407,7 @@
 #define DEFAULT_NO_OF_NO_BURSTS    0
 
 /* Definitions to be read from the AFD_CONFIG file. */
+#define AFD_TCP_PORT_DEF               "AFD_TCP_PORT"
 #define DEFAULT_PRINTER_CMD_DEF        "DEFAULT_PRINTER_CMD"
 #define DEFAULT_PRINTER_NAME_DEF       "DEFAULT_PRINTER_NAME"
 #define MAX_CONNECTIONS_DEF            "MAX_CONNECTIONS"
@@ -800,7 +813,7 @@ struct filetransfer_status
                                             /* it is less than 0, it     */
                                             /* means that we do not want */
                                             /* to append files that have */
-					    /* been partly send.         */
+                                            /* been partly send.         */
           int            successful_retries;/* Number of current         */
                                             /* successful retries.       */
           int            max_successful_retries; /* Retries before       */
@@ -1042,6 +1055,8 @@ struct afd_status
                                             /* eval_database() so it     */
                                             /* when it has started the   */
                                             /* first time.               */
+           unsigned int fd_fork_counter;    /* Number of forks() by FD.  */
+           unsigned int amg_fork_counter;   /* Number of forks() by AMG. */
        };
 
 /* Structure that holds all relevant information of */
@@ -1115,18 +1130,16 @@ struct delete_log
                                                                             \
            if ((name = (type **)calloc((rows), sizeof(type *))) == NULL)    \
            {                                                                \
-              (void)rec(sys_log_fd, FATAL_SIGN,                             \
-                        "calloc() error : %s (%s %d)\n",                    \
-                        strerror(errno), __FILE__, __LINE__);               \
+              system_log(FATAL_SIGN, __FILE__, __LINE__,                    \
+                         "calloc() error : %s", strerror(errno));           \
               exit(INCORRECT);                                              \
            }                                                                \
                                                                             \
            if ((name[0] = (type *)calloc(((rows) * (columns)),              \
                                          sizeof(type))) == NULL)            \
            {                                                                \
-              (void)rec(sys_log_fd, FATAL_SIGN,                             \
-                        "calloc() error : %s (%s %d)\n",                    \
-                        strerror(errno), __FILE__, __LINE__);               \
+              system_log(FATAL_SIGN, __FILE__, __LINE__,                    \
+                         "calloc() error : %s", strerror(errno));           \
               exit(INCORRECT);                                              \
            }                                                                \
                                                                             \
@@ -1145,18 +1158,16 @@ struct delete_log
                                                                             \
            if ((name = (type **)realloc((name), (rows) * sizeof(type *))) == NULL) \
            {                                                                \
-              (void)rec(sys_log_fd, FATAL_SIGN,                             \
-                        "realloc() error : %s (%s %d)\n",                   \
-                        strerror(errno), __FILE__, __LINE__);               \
+              system_log(FATAL_SIGN, __FILE__, __LINE__,                    \
+                         "realloc() error : %s", strerror(errno));          \
               exit(INCORRECT);                                              \
            }                                                                \
                                                                             \
            if ((name[0] = (type *)realloc(ptr,                              \
                            (((rows) * (columns)) * sizeof(type)))) == NULL) \
            {                                                                \
-              (void)rec(sys_log_fd, FATAL_SIGN,                             \
-                        "realloc() error : %s (%s %d)\n",                   \
-                        strerror(errno), __FILE__, __LINE__);               \
+              system_log(FATAL_SIGN, __FILE__, __LINE__,                    \
+                         "realloc() error : %s", strerror(errno));          \
               exit(INCORRECT);                                              \
            }                                                                \
                                                                             \
@@ -1171,14 +1182,14 @@ struct delete_log
                                                                             \
            if ((name = (type ***)malloc(rows * sizeof(type **))) == NULL)   \
            {                                                                \
-              (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n", \
-                        strerror(errno), __FILE__, __LINE__);               \
+              system_log(FATAL_SIGN, __FILE__, __LINE__,                    \
+                         "malloc() error : %s", strerror(errno));           \
               exit(INCORRECT);                                              \
            }                                                                \
            if ((name[0] = (type **)malloc(rows * columns * sizeof(type *))) == NULL)  \
            {                                                                \
-              (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n", \
-                        strerror(errno), __FILE__, __LINE__);               \
+              system_log(FATAL_SIGN, __FILE__, __LINE__,                    \
+                         "malloc() error : %s", strerror(errno));           \
               exit(INCORRECT);                                              \
            }                                                                \
            for (i = 0; i < rows; i++)                                       \

@@ -441,7 +441,14 @@ ftp_cd(char *directory)
 {
    int reply;
 
-   (void)fprintf(p_control, "CWD %s\r\n", directory);
+   if (directory[0] == '\0')
+   {
+      (void)fprintf(p_control, "CWD ~\r\n");
+   }
+   else
+   {
+      (void)fprintf(p_control, "CWD %s\r\n", directory);
+   }
 
    if ((reply = get_reply(p_control)) < 0)
    {

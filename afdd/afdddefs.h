@@ -22,7 +22,6 @@
 #define __afdddefs_h
 
 #define HUNK_MAX             4096
-#define AFD_TCP_PORT_DEF     "AFD_TCP_PORT"
 #define DEFAULT_AFD_PORT_NO  "4444"
 #define DEFAULT_FILE_NO      0
 #define STAT_INTERVAL        120   /* in seconds */

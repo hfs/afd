@@ -1,7 +1,7 @@
 /*
  *  rlock_region.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,8 +55,6 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-extern int sys_log_fd;
-
 
 /*########################### rlock_region() ############################*/
 void
@@ -71,8 +69,8 @@ rlock_region(int fd, off_t offset)
 
    if (fcntl(fd, F_SETLKW, &rlock) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "fcntl() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "fcntl() error : %s", strerror(errno));
       exit(LOCK_REGION_ERROR);
    }
 

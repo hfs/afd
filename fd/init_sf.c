@@ -66,9 +66,7 @@ extern int                        counter_fd,
                                   user_rule_pos,
                                   fsa_fd,
                                   no_of_hosts,
-                                  sys_log_fd,
-                                  transfer_log_fd,
-                                  trans_db_log_fd;
+                                  transfer_log_fd;
 extern long                       transfer_timeout;
 extern char                       host_deleted,
                                   *p_work_dir,
@@ -186,31 +184,6 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Could not open fifo %s : %s",
                     TRANSFER_LOG_FIFO, strerror(errno));
-      }
-   }
-   if (fsa[db.fsa_pos].debug == YES)
-   {
-      (void)strcpy(gbuf, p_work_dir);
-      (void)strcat(gbuf, FIFO_DIR);
-      (void)strcat(gbuf, TRANS_DEBUG_LOG_FIFO);
-      if ((trans_db_log_fd = open(gbuf, O_RDWR)) == -1)
-      {
-         if (errno == ENOENT)
-         {
-            if ((make_fifo(gbuf) == SUCCESS) &&
-                ((trans_db_log_fd = open(gbuf, O_RDWR)) == -1))
-            {
-               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Could not open fifo %s : %s",
-                          TRANS_DEBUG_LOG_FIFO, strerror(errno));
-            }
-         }
-         else
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not open fifo %s : %s",
-                       TRANS_DEBUG_LOG_FIFO, strerror(errno));
-         }
       }
    }
 

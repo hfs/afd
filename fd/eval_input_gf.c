@@ -53,7 +53,6 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* Global variables */
-extern int                        sys_log_fd;
 extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
 

@@ -1,6 +1,6 @@
 /*
  *  check_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996, 1997 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -65,9 +65,7 @@ extern Cursor         cursor1,
                       cursor2;
 extern Widget         toplevel,
                       counterbox,
-                      log_scroll_bar,
-                      selectlog,
-                      selectscroll;
+                      log_scroll_bar;
 extern int            toggles_set,
                       current_log_number,
                       line_counter,
@@ -79,7 +77,6 @@ extern ino_t          current_inode_no;
 extern char           log_dir[MAX_PATH_LENGTH],
                       log_name[MAX_FILENAME_LENGTH],
                       **hosts;
-extern DIR            *dp;
 extern FILE           *p_log_file;
 
 
@@ -112,36 +109,6 @@ Widget w;
       {
          while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
          {
-            if ((lock_counter % 10) == 0)
-            {
-               if (locked == 0)
-               {
-                  locked = 1;
-                  attrs.cursor = cursor2;
-                  XChangeWindowAttributes(display, XtWindow(toplevel),
-                                          CWCursor, &attrs);
-               }
-
-               XFlush(display);
-               XmUpdateDisplay(toplevel);
-            }
-            if ((cursor_counter % FALLING_SAND_SPEED) == 0)
-            {
-               if (tflag == 0)
-               {
-                  tflag = 1;
-                  attrs.cursor = cursor1;
-               }
-               else
-               {
-                  tflag = 0;
-                  attrs.cursor = cursor2;
-               }
-               XChangeWindowAttributes(display, XtWindow(toplevel),
-                                       CWCursor, &attrs);
-            }
-            lock_counter++; cursor_counter++;
-
             length = strlen(line);
             total_length += length;
             if ((log_type_flag == TRANSFER_LOG_TYPE) ||
@@ -185,6 +152,35 @@ Widget w;
             {
                if (log_filter(hosts[i], &line[16]) == 0)
                {
+                  if ((lock_counter % 10) == 0)
+                  {
+                     if (locked == 0)
+                     {
+                        locked = 1;
+                        attrs.cursor = cursor2;
+                        XChangeWindowAttributes(display, XtWindow(toplevel),
+                                                CWCursor, &attrs);
+                     }
+                     XFlush(display);
+                     XmUpdateDisplay(toplevel);
+                  }
+                  if ((cursor_counter % FALLING_SAND_SPEED) == 0)
+                  {
+                     if (tflag == 0)
+                     {
+                        tflag = 1;
+                        attrs.cursor = cursor1;
+                     }
+                     else
+                     {
+                        tflag = 0;
+                        attrs.cursor = cursor2;
+                     }
+                     XChangeWindowAttributes(display, XtWindow(toplevel),
+                                             CWCursor, &attrs);
+                  }
+                  lock_counter++; cursor_counter++;
+
                   XmTextInsert(w, wpr_position, line);
                   wpr_position += length;
                   XtVaSetValues(w, XmNcursorPosition, wpr_position, NULL);
@@ -222,36 +218,6 @@ Widget w;
       {
          while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
          {
-            if ((lock_counter % 10) == 0)
-            {
-               if (locked == 0)
-               {
-                  locked = 1;
-                  attrs.cursor = cursor2;
-                  XChangeWindowAttributes(display, XtWindow(toplevel),
-                                          CWCursor, &attrs);
-               }
-
-               XFlush(display);
-               XmUpdateDisplay(toplevel);
-            }
-            if ((cursor_counter % FALLING_SAND_SPEED) == 0)
-            {
-               if (tflag == 0)
-               {
-                  tflag = 1;
-                  attrs.cursor = cursor1;
-               }
-               else
-               {
-                  tflag = 0;
-                  attrs.cursor = cursor2;
-               }
-               XChangeWindowAttributes(display, XtWindow(toplevel),
-                                       CWCursor, &attrs);
-            }
-            lock_counter++; cursor_counter++;
-
             length = strlen(line);
             total_length += length;
             if ((log_type_flag == TRANSFER_LOG_TYPE) ||
@@ -290,6 +256,36 @@ Widget w;
                   continue;
                }
             }
+
+            if ((lock_counter % 10) == 0)
+            {
+               if (locked == 0)
+               {
+                  locked = 1;
+                  attrs.cursor = cursor2;
+                  XChangeWindowAttributes(display, XtWindow(toplevel),
+                                          CWCursor, &attrs);
+               }
+
+               XFlush(display);
+               XmUpdateDisplay(toplevel);
+            }
+            if ((cursor_counter % FALLING_SAND_SPEED) == 0)
+            {
+               if (tflag == 0)
+               {
+                  tflag = 1;
+                  attrs.cursor = cursor1;
+               }
+               else
+               {
+                  tflag = 0;
+                  attrs.cursor = cursor2;
+               }
+               XChangeWindowAttributes(display, XtWindow(toplevel),
+                                       CWCursor, &attrs);
+            }
+            lock_counter++; cursor_counter++;
 
             XmTextInsert(w, wpr_position, line);
             wpr_position += length;

@@ -86,8 +86,11 @@ store_host_names(char **buffer, char *data)
       {
          max_length = length;
       }
-      count++;
-      while ((*ptr == ' ') && (*ptr == '\t') && (*ptr == ','))
+      if (length > 0)
+      {
+         count++;
+      }
+      while ((*ptr == ' ') || (*ptr == '\t') || (*ptr == ','))
       {
          ptr++;
       }
@@ -111,7 +114,11 @@ store_host_names(char **buffer, char *data)
             buffer[i][j] = *ptr;
             j++; ptr++;
          }
-         while ((*ptr == ' ') && (*ptr == '\t') && (*ptr == ','))
+         if (j > 0)
+         {
+            buffer[i][j] = '\0';
+         }
+         while ((*ptr == ' ') || (*ptr == '\t') || (*ptr == ','))
          {
             ptr++;
          }

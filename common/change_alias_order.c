@@ -62,8 +62,7 @@ DESCR__E_M3
 extern int                        fsa_id,
                                   fsa_fd,
                                   no_of_dirs,
-                                  no_of_hosts,
-                                  sys_log_fd;
+                                  no_of_hosts;
 #ifndef _NO_MMAP
 extern off_t                      fsa_size;
 #endif
@@ -123,26 +122,25 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
     */
    if ((fd = lock_file(fsa_id_file, ON)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to lock %s (%s %d)\n",
-                fsa_id_file, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to lock <%s>", fsa_id_file);
       exit(INCORRECT);
    }
 
    /* Read the fsa_id */
    if (read(fd, &current_fsa_id, sizeof(int)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not read the value of the fsa_id : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not read the value of the fsa_id : %s",
+                 strerror(errno));
       (void)close(fd);
       exit(INCORRECT);
    }
 
    if (current_fsa_id != fsa_id)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "AAAaaaarrrrghhhh!!! DON'T CHANGE THE DIR_CONFIG FILE WHILE USING edit_hc!!!! (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "AAAaaaarrrrghhhh!!! DON'T CHANGE THE DIR_CONFIG FILE WHILE USING edit_hc!!!!");
       (void)close(fd);
       exit(INCORRECT);
    }
@@ -161,24 +159,23 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    if ((new_fsa_fd = coe_open(new_fsa_stat,
                               (O_RDWR | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                new_fsa_stat, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to open() <%s> : %s", new_fsa_stat, strerror(errno));
       exit(INCORRECT);
    }
    new_fsa_size = AFD_WORD_OFFSET +
                   (no_of_hosts * sizeof(struct filetransfer_status));
    if (lseek(new_fsa_fd, new_fsa_size - 1, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to lseek() in %s : %s (%s %d)\n",
-                new_fsa_stat, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to lseek() in <%s> : %s",
+                 new_fsa_stat, strerror(errno));
       exit(INCORRECT);
    }
    if (write(new_fsa_fd, "", 1) != 1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "write() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 #ifdef _NO_MMAP
@@ -189,8 +186,8 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                    new_fsa_fd, 0)) == (caddr_t) -1)
 #endif
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "mmap() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "mmap() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -206,8 +203,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
 
    if (fra_attach() < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to attach to FRA. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FRA.");
       exit(INCORRECT);
    }
 
@@ -280,9 +276,9 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
             }
             else
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "AAAaaaarrrrghhhh!!! Could not find hostname %s (%s %d)\n",
-                         p_host_names[i], __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "AAAaaaarrrrghhhh!!! Could not find hostname <%s>",
+                          p_host_names[i]);
                (void)close(fd);
                exit(INCORRECT);
             }
@@ -310,8 +306,8 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
 #ifndef _NO_MMAP
    if (msync(ptr - AFD_WORD_OFFSET, new_fsa_size, MS_SYNC) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "msync() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "msync() error : %s", strerror(errno));
    }
 #endif
    for (i = 0; i < old_no_of_hosts; i++)
@@ -321,14 +317,13 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
 
    if (fra_detach() < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "Failed to detach from FRA (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__, "Failed to detach from FRA.");
    }
 
    if (fsa_detach() < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "Failed to detach from old FSA (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to detach from old FSA.");
    }
 
    /* Now "attach" to the new FSA. */
@@ -342,25 +337,24 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    /* Go to beginning in file */
    if (lseek(fd, 0, SEEK_SET) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not seek() to beginning of %s : %s (%s %d)\n",
-                fsa_id_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() to beginning of <%s> : %s",
+                 fsa_id_file, strerror(errno));
    }
 
    /* Write new value into FSA_ID_FILE file */
    if (write(fd, &fsa_id, sizeof(int)) != sizeof(int))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not write value to FSA ID file : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not write value to FSA ID file : %s", strerror(errno));
       exit(INCORRECT);
    }
 
    /* Release the lock */
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    /* Remove the old FSA file. */
@@ -368,8 +362,8 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, current_fsa_id - 1);
    if (unlink(new_fsa_stat) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "unlink() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "unlink() error : %s", strerror(errno));
    }
 
    return;

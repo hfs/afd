@@ -90,6 +90,7 @@
 #define READ_REMOTE_ERROR        22
 #define SIZE_ERROR               23
 #define DATE_ERROR               24
+#define QUIT_ERROR               25
 #define OPEN_LOCAL_ERROR         30
 #define READ_LOCAL_ERROR         31
 #define STAT_LOCAL_ERROR         32
@@ -245,6 +246,11 @@
 
 #ifdef _WITH_BURST_2
 #define MORE_DATA_FIFO                 "/more_data_"
+
+/* Definition for values that have changed during a burst. */
+#define USER_CHANGED                   1
+#define TYPE_CHANGED                   2
+#define TARGET_DIR_CHANGED             4
 #endif /* _WITH_BURST_2 */
 
 #ifdef _NEW_STUFF
@@ -493,7 +499,7 @@ struct retrieve_list
 
 /* Function prototypes */
 extern int   archive_file(char *, char *, struct job *),
-             check_burst_2(struct job **, char *, int *),
+             check_burst_2(struct job **, char *, int *, unsigned int *),
              check_file_dir(int),
              check_fra_fd(void),
              check_job_name(char *),
@@ -506,7 +512,7 @@ extern int   archive_file(char *, char *, struct job *),
              get_remote_file_names(off_t *),
              init_fifos_fd(void),
              init_sf(int, char **, char *, int),
-             init_sf_burst2(struct job *, char *),
+             init_sf_burst2(struct job *, char *, unsigned int *),
              lookup_job_id(int),
              read_file_mask(char *, int *, struct file_mask **),
              recreate_msg(unsigned int),
@@ -522,8 +528,8 @@ extern void  check_fsa_entries(void),
                            char **, char **),
              log_append(int, char *),
              output_log_ptrs(int *, unsigned int **, char **, char **,
-                             unsigned short **, off_t **, size_t *,
-                             clock_t **, char *, int),
+                             unsigned short **, unsigned short **, off_t **,
+                             size_t *, clock_t **, char *, int),
              remove_all_appends(int),
              remove_append(int, char *),
 #ifdef _DELETE_LOG

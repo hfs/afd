@@ -251,7 +251,7 @@ check_data(long rescan_time)
 #endif
               /* Remember the time when message arrived. */
               prev_msg_time = now;
-              (void)time(&now);
+              now = time(NULL);
 
               /* Now evaluate all data read from fifo, byte after byte. */
               while (count < n)

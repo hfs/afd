@@ -364,6 +364,10 @@ send_files_ftp(int                no_selected,
          trans_log(WARN_SIGN, __FILE__, __LINE__,
                    "Failed to close connection.");
       }
+      else if (db->debug == YES)
+           {
+              trans_log(INFO_SIGN, __FILE__, __LINE__, "Logged out.");
+           }
    }
    else
    {
@@ -580,7 +584,8 @@ send_file_ftp(char *file_name)
    transfer_time = (double)(times(&tmsdummy) - start_time) / (double)clktck;
    msg_str[0] = '\0';
    trans_log(INFO_SIGN, NULL, 0, "%s %.2fs %.0fBytes/s",
-             file_name, transfer_time, stat_buf.st_size / transfer_time);
+             (file_name[0] == '.') ? &file_name[1] : file_name,
+             transfer_time, stat_buf.st_size / transfer_time);
 
    return(SUCCESS);
 }

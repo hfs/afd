@@ -63,7 +63,6 @@ DESCR__E_M3
 #include <errno.h>
 
 /* Global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -89,9 +88,8 @@ get_log_number(int  *log_number,
    (void)strcat(log_dir, LOG_DIR);
    if ((dp = opendir(log_dir)) == NULL)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not opendir() %s : %s (%s %d)\n",
-                log_dir, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not opendir() <%s> : %s", log_dir, strerror(errno));
       exit(INCORRECT);
    }
 
@@ -110,9 +108,9 @@ get_log_number(int  *log_number,
          {
             if (errno != ENOENT)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Can't access file %s : %s (%s %d)\n",
-                         fullname, strerror(errno), __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Can't access file <%s> : %s",
+                          fullname, strerror(errno));
             }
             continue;
          }
@@ -139,16 +137,14 @@ get_log_number(int  *log_number,
                      {
                         if (unlink(fullname) < 0)
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to unlink() %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "Failed to unlink() <%s> : %s",
+                                      fullname, strerror(errno));
                         }
                         else
                         {
-                           (void)rec(sys_log_fd, INFO_SIGN,
-                                     "Removing log file %s (%s %d)\n",
-                                     fullname, __FILE__, __LINE__);
+                           system_log(INFO_SIGN, __FILE__, __LINE__,
+                                      "Removing log file <%s>", fullname);
                         }
                      }
                      else
@@ -165,13 +161,13 @@ get_log_number(int  *log_number,
 
    if (errno)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "readdir() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "readdir() error : %s", strerror(errno));
    }
    if (closedir(dp) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "closedir() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "closedir() error : %s", strerror(errno));
    }
 
    return;

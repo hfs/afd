@@ -51,7 +51,8 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-int sys_log_fd = STDERR_FILENO;
+int  sys_log_fd = STDERR_FILENO;
+char *p_work_dir = NULL;
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/

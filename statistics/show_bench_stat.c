@@ -73,7 +73,8 @@ int            loops,
 unsigned int   interval_time;
 double         nfs = 0.0, nbs = 0.0, nc = 0.0, ne = 0.0, fps, bps,
                tmp_nfs = 0.0, tmp_nbs = 0.0, tmp_nc = 0.0, tmp_ne = 0.0;
-char           **p_afd_stat;
+char           **p_afd_stat,
+               *p_work_dir = NULL;
 struct afdstat *afd_stat;
 
 /* Some local definitions */

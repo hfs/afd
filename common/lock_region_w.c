@@ -1,6 +1,6 @@
 /*
  *  lock_region_w.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,8 +55,6 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-extern int sys_log_fd;
-
 
 /*########################## lock_region_w() ############################*/
 void
@@ -71,8 +69,8 @@ lock_region_w(int fd, off_t offset)
 
    if (fcntl(fd, F_SETLKW, &wlock) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "fcntl() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "fcntl() error : %s", strerror(errno));
       exit(LOCK_REGION_ERROR);
    }
 

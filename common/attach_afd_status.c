@@ -1,6 +1,6 @@
 /*
  *  attach_afd_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,8 +58,7 @@ DESCR__E_M3
 #include <fcntl.h>                     /* O_RDONLY                       */
 #include <errno.h>
 
-/* Global variables */
-extern int               sys_log_fd;
+/* External global variables. */
 extern char              *p_work_dir;
 extern struct afd_status *p_afd_status;
 
@@ -84,15 +83,17 @@ attach_afd_status(void)
       loop_counter++;
       if (loop_counter > 1000) /* => 2 seconds */
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() %s : %s (%s %d)\n",
-                   afd_status_file, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() <%s> : %s",
+                    afd_status_file, strerror(errno));
          return(INCORRECT);
       }
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to fstat() %s : %s (%s %d)\n",
-                afd_status_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to fstat() <%s> : %s",
+                 afd_status_file, strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
@@ -104,15 +105,15 @@ attach_afd_status(void)
                    fd, 0)) == (caddr_t) -1)
 #endif
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "mmap() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "mmap() error : %s", strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
    p_afd_status = (struct afd_status *)ptr;
 

@@ -51,8 +51,6 @@ DESCR__E_M3
 #include <unistd.h>     /* unlink()                                      */
 #include <errno.h>
 
-extern int sys_log_fd;
-
 
 /*############################ move_file() ##############################*/
 int
@@ -71,9 +69,8 @@ move_file(char *from, char *to)
          /* not in the same file system. Thus we have to copy it. */
          if (copy_file(from, to) < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to copy %s to %s (%s %d)\n",
-                      from, to, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to copy %s to %s", from, to);
             return(INCORRECT);
          }
 
@@ -84,18 +81,17 @@ move_file(char *from, char *to)
             /* if we do not delete the file successful we will  */
             /* have a continuous loop (when it is an instant    */
             /* job) trying to copy a file we cannot delete.     */
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not delete file %s : %s (%s %d)\n",
-                      from, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not delete file %s : %s", from, strerror(errno));
 
             return(2);
          }
       }
       else
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Error when renaming %s to %s : %s (%s %d)\n",
-                   from, to, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Error when renaming %s to %s : %s",
+                    from, to, strerror(errno));
          return(INCORRECT);
       }
    }

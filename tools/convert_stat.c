@@ -100,7 +100,7 @@ main(int argc, char *argv[])
    struct old_afdstat *old_stat_db = NULL;
    struct afdstat     *stat_db = NULL;
 
-   /* Evaluate arguments */
+   /* Evaluate arguments. */
    CHECK_FOR_VERSION(argc, argv);
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
@@ -110,11 +110,25 @@ main(int argc, char *argv[])
 
    (void)time(&now);
    p_ts = gmtime(&now);
-   (void)sprintf(new_statistic_file_name, "%s%s%s.%d",
-                 p_work_dir, LOG_DIR, STATISTIC_FILE,
-                 p_ts->tm_year + 1900);
-   (void)sprintf(old_statistic_file_name, "%s%s/afd_status_file",
-                 p_work_dir, FIFO_DIR);
+   if (argc == 3)
+   {
+      (void)strcpy(new_statistic_file_name, argv[2]);
+   }
+   else
+   {
+      (void)sprintf(new_statistic_file_name, "%s%s%s.%d",
+                    p_work_dir, LOG_DIR, STATISTIC_FILE,
+                    p_ts->tm_year + 1900);
+   }
+   if ((argc == 2) || (argc == 3))
+   {
+      (void)strcpy(old_statistic_file_name, argv[1]);
+   }
+   else
+   {
+      (void)sprintf(old_statistic_file_name, "%s%s/afd_status_file",
+                    p_work_dir, FIFO_DIR);
+   }
 
    /*
     * Read old statistic file.

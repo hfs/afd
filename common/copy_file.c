@@ -1,6 +1,6 @@
 /*
  *  copy_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   14.01.1996 H.Kiehl Created
+ **   03.07.2001 H.Kiehl When copying via mmap(), copy in chunks.
  **
  */
 DESCR__E_M3
@@ -52,7 +53,7 @@ DESCR__E_M3
 #include <string.h>     /* memcpy(), strerror()                          */
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifndef _NO_MMAP
+#if defined (SIZE_WHEN_TO_MMAP_COPY) && !defined (_NO_MMAP)
 #include <sys/mman.h>   /* mmap(), munmap()                              */
 #endif
 #include <stdlib.h>     /* malloc(), free()                              */
@@ -63,10 +64,6 @@ DESCR__E_M3
 #define MAP_FILE 0  /* All others do not need it */
 #endif
 
-/* External global variables */
-extern int sys_log_fd,
-           amg_flag;
-
 
 /*############################ copy_file() ##############################*/
 int
@@ -75,264 +72,269 @@ copy_file(char *from, char *to)
    int         from_fd,
                to_fd;
    struct stat stat_buf;
-#ifdef _NO_MMAP
-#define HUNK_MAX 20480
-   size_t      hunk,
-               left;
-   char        *buffer;
 
-   /* Open source file */
+   /* Open source file. */
    if ((from_fd = open(from, O_RDONLY)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open <%s> for copying : %s",
+                 from, strerror(errno));
       return(INCORRECT);
    }
 
+   /* Need size of input file. */
    if (fstat(from_fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to fstat() %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not fstat() on <%s> : %s", from, strerror(errno));
       (void)close(from_fd);
       return(INCORRECT);
    }
 
-   left = hunk = stat_buf.st_size;
-
-   if (hunk > HUNK_MAX)
+   if (stat_buf.st_size > 0)
    {
-      hunk = HUNK_MAX;
-   }
+      size_t hunk;
+#if defined (_NO_MMAP) || !defined (SIZE_WHEN_TO_MMAP_COPY)
+      off_t  left;
+      char   *buffer;
 
-   if ((buffer = (char *)malloc(hunk)) == NULL)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to allocate memory : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-      (void)close(from_fd);
-      return(INCORRECT);
-   }
-
-   /* Open destination file */
-   if ((to_fd = open(to, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR)) == -1)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                to, strerror(errno), __FILE__, __LINE__);
-      free(buffer);
-      (void)close(from_fd);
-      return(INCORRECT);
-   }
-
-   while (left > 0)
-   {
-      /* Try read file in one hunk */
-      if (read(from_fd, buffer, hunk) != hunk)
+      /* Open destination file. */
+      if ((to_fd = open(to, O_WRONLY | O_CREAT | O_TRUNC,
+                        stat_buf.st_mode)) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to read() %s : %s (%s %d)\n",
-                   from, strerror(errno), __FILE__, __LINE__);
-         free(buffer);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not open <%s> for copying : %s",
+                    to, strerror(errno));
          (void)close(from_fd);
-         (void)close(to_fd);
          return(INCORRECT);
       }
 
-      /* Try write file in one hunk */
-      if (write(to_fd, buffer, hunk) != hunk)
+      left = stat_buf.st_size;
+      if (left > stat_buf.st_blksize)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to write() %s : %s (%s %d)\n",
-                   to, strerror(errno), __FILE__, __LINE__);
-         free(buffer);
-         (void)close(from_fd);
-         (void)close(to_fd);
-         return(INCORRECT);
+         hunk = stat_buf.st_blksize;
       }
-      left -= hunk;
-      if (left < hunk)
+      else
       {
          hunk = left;
       }
-   }
-   free(buffer);
-   if (close(from_fd) == -1)
-   {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
-   }
-   if (close(to_fd) == -1)
-   {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                to, strerror(errno), __FILE__, __LINE__);
-   }
-#else
-   char        *src = NULL,
-               *dst = NULL;
-
-   if ((from_fd = open(from, O_RDONLY)) == -1)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open %s for copying : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
-      return(INCORRECT);
-   }
-
-   if (fstat(from_fd, &stat_buf) == -1)   /* need size of input file */
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not fstat() on %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
-      (void)close(from_fd);
-      return(INCORRECT);
-   }
-
-   if ((to_fd = open(to, O_RDWR | O_CREAT | O_TRUNC, stat_buf.st_mode)) == -1)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open %s for copying : %s (%s %d)\n",
-                to, strerror(errno), __FILE__, __LINE__);
-      (void)close(from_fd);
-      return(INCORRECT);
-   }
-
-   if (stat_buf.st_size > 0)
-   {
-      /* set size of output file */
-      if (lseek(to_fd, stat_buf.st_size - 1, SEEK_SET) == -1)
+      if ((buffer = (char *)malloc(hunk)) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not seek() on %s : %s (%s %d)\n",
-                   to, strerror(errno), __FILE__, __LINE__);
-         (void)close(from_fd);
-         (void)close(to_fd);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to allocate memory : %s", strerror(errno));
+         (void)close(from_fd); (void)close(to_fd);
          return(INCORRECT);
       }
-      if (write(to_fd, "", 1) != 1)
-      {
-         if ((errno == ENOSPC) && (amg_flag == YES))
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
-                      DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
 
-            while (errno == ENOSPC)
+      while (left > 0)
+      {
+         /* Try read file in one hunk */
+         if (read(from_fd, buffer, hunk) != hunk)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to read() <%s> : %s", from, strerror(errno));
+            free(buffer);
+            (void)close(from_fd); (void)close(to_fd);
+            return(INCORRECT);
+         }
+
+         /* Try write file in one hunk */
+         if (write(to_fd, buffer, hunk) != hunk)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to write() <%s> : %s", to, strerror(errno));
+            free(buffer);
+            (void)close(from_fd); (void)close(to_fd);
+            return(INCORRECT);
+         }
+         left -= hunk;
+         if (left < hunk)
+         {
+            hunk = left;
+         }
+      }
+      free(buffer);
+#else /* We have mmap() and should use it. */
+      static int mmap_hunk_max = 0;
+
+      if (mmap_hunk_max == 0)
+      {
+         int max_hunk;
+
+         if ((max_hunk = sysconf(_SC_PAGESIZE)) < 1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "sysconf() error for _SC_PAGESIZE : %s",
+                       strerror(errno));
+            max_hunk = 8192;
+         }
+         mmap_hunk_max = max_hunk * 20;
+      }
+
+      if (stat_buf.st_size > SIZE_WHEN_TO_MMAP_COPY)
+      {
+         off_t bytes_done;
+         char  *src, *dst;
+
+         /* Open destination file. */
+         if ((to_fd = open(to, O_RDWR | O_CREAT | O_TRUNC,
+                           stat_buf.st_mode)) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not open <%s> for copying : %s",
+                       to, strerror(errno));
+            (void)close(from_fd);
+            return(INCORRECT);
+         }
+
+         /* Set size of output file. */
+         if (lseek(to_fd, stat_buf.st_size - 1, SEEK_SET) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not seek() on <%s> : %s", to, strerror(errno));
+            (void)close(from_fd); (void)close(to_fd);
+            return(INCORRECT);
+         }
+         if (write(to_fd, "", 1) != 1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not write() to <%s> : %s", to, strerror(errno));
+            (void)close(from_fd); (void)close(to_fd);
+            return(INCORRECT);
+         }
+         if (stat_buf.st_size > mmap_hunk_max)
+         {
+            hunk = mmap_hunk_max;
+         }
+         else
+         {
+            hunk = stat_buf.st_size;
+         }
+         bytes_done = 0;
+
+         do
+         {
+            if ((src = mmap(0, hunk, PROT_READ, (MAP_FILE | MAP_SHARED),
+                            from_fd, bytes_done)) == (caddr_t) -1)
             {
-               (void)sleep(DISK_FULL_RESCAN_TIME);
-               errno = 0;
-               if (write(to_fd, "", 1) != 1)
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not mmap() file <%s> : %s",
+                          from, strerror(errno));
+               (void)close(from_fd); (void)close(to_fd);
+               return(INCORRECT);
+            }
+            if ((dst = mmap(0, hunk, (PROT_READ | PROT_WRITE),
+                            (MAP_FILE | MAP_SHARED),
+                            to_fd, bytes_done)) == (caddr_t) -1)
+            {
+               if (munmap(src, hunk) == -1)
                {
-                  if (errno != ENOSPC)
-                  {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "Could not write() to %s : %s (%s %d)\n",
-                               to, strerror(errno), __FILE__, __LINE__);
-                     (void)close(from_fd);
-                     (void)close(to_fd);
-                     return(INCORRECT);
-                  }
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "munmap() error : %s", strerror(errno));
                }
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not mmap() file <%s> : %s",
+                          to, strerror(errno));
+               (void)close(from_fd); (void)close(to_fd);
+               return(INCORRECT);
             }
 
-            (void)rec(sys_log_fd, INFO_SIGN,
-                      "Continuing after disk was full. (%s %d)\n",
-                      __FILE__, __LINE__);
-         }
-         else
+            /* Copy the chunk. */
+            (void)memcpy(dst, src, hunk);
+
+            /* Unmap areas. */
+            if (munmap(src, hunk) == -1)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "munmap() error : %s", strerror(errno));
+            }
+            if (munmap(dst, hunk) == -1)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "munmap() error : %s", strerror(errno));
+            }
+            bytes_done += hunk;
+            if ((stat_buf.st_size - bytes_done) < hunk)
+            {
+               hunk = stat_buf.st_size - bytes_done;
+            }
+         } while (bytes_done < stat_buf.st_size);
+      }
+      else /* Use normal read()/write() loop, its faster. */
+      {
+         off_t left;
+         char  *buffer;
+
+         /* Open destination file. */
+         if ((to_fd = open(to, O_WRONLY | O_CREAT | O_TRUNC,
+                           stat_buf.st_mode)) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not write() to %s : %s (%s %d)\n",
-                      to, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not open <%s> for copying : %s",
+                       to, strerror(errno));
             (void)close(from_fd);
-            (void)close(to_fd);
             return(INCORRECT);
          }
-      }
 
-      if ((src = mmap(0, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED),
-                      from_fd, 0)) == (caddr_t) -1)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not mmap() file %s : %s (%s %d)\n",
-                   from, strerror(errno), __FILE__, __LINE__);
-         (void)rec(sys_log_fd, INFO_SIGN,
-                   "Will try an ordinary copy.\n");
-         (void)close(from_fd);
-         (void)close(to_fd);
-         if (normal_copy(from, to) == SUCCESS)
+         left = stat_buf.st_size;
+         if (left > stat_buf.st_blksize)
          {
-            return(SUCCESS);
+            hunk = stat_buf.st_blksize;
          }
          else
          {
+            hunk = left;
+         }
+         if ((buffer = (char *)malloc(hunk)) == NULL)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to allocate memory : %s", strerror(errno));
+            (void)close(from_fd); (void)close(to_fd);
             return(INCORRECT);
          }
-      }
 
-      if ((dst = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
-                      (MAP_FILE | MAP_SHARED), to_fd, 0)) == (caddr_t) -1)
+         while (left > 0)
+         {
+            /* Try read file in one hunk. */
+            if (read(from_fd, buffer, hunk) != hunk)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to read() <%s> : %s", from, strerror(errno));
+               free(buffer);
+               (void)close(from_fd); (void)close(to_fd);
+               return(INCORRECT);
+            }
+
+            /* Try write file in one hunk. */
+            if (write(to_fd, buffer, hunk) != hunk)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to write() <%s> : %s", to, strerror(errno));
+               free(buffer);
+               (void)close(from_fd); (void)close(to_fd);
+               return(INCORRECT);
+            }
+            left -= hunk;
+            if (left < hunk)
+            {
+               hunk = left;
+            }
+         }
+         free(buffer);
+      }
+#endif
+      if (close(to_fd) == -1)
       {
-         if (munmap(src, stat_buf.st_size) == -1)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "munmap() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
-         }
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not mmap() file %s : %s (%s %d)\n",
-                   to, strerror(errno), __FILE__, __LINE__);
-         (void)rec(sys_log_fd, INFO_SIGN,
-                   "Will try an ordinary copy.\n");
-         (void)close(from_fd);
-         (void)close(to_fd);
-         if (normal_copy(from, to) == SUCCESS)
-         {
-            return(SUCCESS);
-         }
-         else
-         {
-            return(INCORRECT);
-         }
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to close() <%s> : %s", to, strerror(errno));
       }
-
-      /* Copy the file */
-      memcpy(dst, src, stat_buf.st_size);
    }
 
    if (close(from_fd) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to close() <%s> : %s", from, strerror(errno));
    }
-   if (close(to_fd) == -1)
-   {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                to, strerror(errno), __FILE__, __LINE__);
-   }
-
-   /* Unmap areas!!! */
-   if (stat_buf.st_size > 0)
-   {
-      if (munmap(src, stat_buf.st_size) == -1)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "munmap() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
-      }
-      if (munmap(dst, stat_buf.st_size) == -1)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "munmap() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
-      }
-   }
-#endif
 
    return(SUCCESS);
 }
@@ -345,99 +347,94 @@ normal_copy(char *from, char *to)
    int         from_fd,
                to_fd;
    struct stat stat_buf;
-#define HUNK_MAX 20480
-   size_t      hunk,
-               left;
-   char        *buffer;
 
-   /* Open source file */
+   /* Open source file. */
    if ((from_fd = open(from, O_RDONLY)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to open() <%s> : %s", from, strerror(errno));
       return(INCORRECT);
    }
 
    if (fstat(from_fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to fstat() %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to fstat() <%s> : %s", from, strerror(errno));
       (void)close(from_fd);
       return(INCORRECT);
    }
 
-   left = hunk = stat_buf.st_size;
-
-   if (hunk > HUNK_MAX)
+   /* Open destination file. */
+   if ((to_fd = open(to, O_WRONLY | O_CREAT | O_TRUNC,
+                     stat_buf.st_mode)) == -1)
    {
-      hunk = HUNK_MAX;
-   }
-
-   if ((buffer = (char *)malloc(hunk)) == NULL)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to allocate memory : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to open() <%s> : %s", to, strerror(errno));
       (void)close(from_fd);
       return(INCORRECT);
    }
 
-   /* Open destination file */
-   if ((to_fd = open(to, O_WRONLY|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR)) == -1)
+   if (stat_buf.st_size > 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                to, strerror(errno), __FILE__, __LINE__);
-      free(buffer);
-      (void)close(from_fd);
-      return(INCORRECT);
-   }
+      off_t  left;
+      size_t hunk;
+      char   *buffer;
 
-   while (left > 0)
-   {
-      /* Try read file in one hunk */
-      if (read(from_fd, buffer, hunk) != hunk)
+      left = stat_buf.st_size;
+      if (left > stat_buf.st_blksize)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to read() %s : %s (%s %d)\n",
-                   from, strerror(errno), __FILE__, __LINE__);
-         free(buffer);
-         (void)close(from_fd);
-         (void)close(to_fd);
-         return(INCORRECT);
+         hunk = stat_buf.st_blksize;
       }
-
-      /* Try write file in one hunk */
-      if (write(to_fd, buffer, hunk) != hunk)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to write() %s : %s (%s %d)\n",
-                   to, strerror(errno), __FILE__, __LINE__);
-         free(buffer);
-         (void)close(from_fd);
-         (void)close(to_fd);
-         return(INCORRECT);
-      }
-      left -= hunk;
-      if (left < hunk)
+      else
       {
          hunk = left;
       }
+      if ((buffer = (char *)malloc(hunk)) == NULL)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to allocate memory : %s", strerror(errno));
+         (void)close(from_fd); (void)close(to_fd);
+         return(INCORRECT);
+      }
+
+      while (left > 0)
+      {
+         /* Try read file in one hunk */
+         if (read(from_fd, buffer, hunk) != hunk)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to read() <%s> : %s", from, strerror(errno));
+            free(buffer);
+            (void)close(from_fd); (void)close(to_fd);
+            return(INCORRECT);
+         }
+
+         /* Try write file in one hunk */
+         if (write(to_fd, buffer, hunk) != hunk)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to write() <%s> : %s", to, strerror(errno));
+            free(buffer);
+            (void)close(from_fd); (void)close(to_fd);
+            return(INCORRECT);
+         }
+         left -= hunk;
+         if (left < hunk)
+         {
+            hunk = left;
+         }
+      }
+      free(buffer);
    }
-   free(buffer);
    if (close(from_fd) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                from, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to close() <%s> : %s", from, strerror(errno));
    }
    if (close(to_fd) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                to, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to close() <%s> : %s", to, strerror(errno));
    }
 
    return(SUCCESS);

@@ -183,7 +183,6 @@ char                       *il_file_name,
 #endif /* _INPUT_LOG */
 
 /* Local variables. */
-static unsigned int        fork_counter = 0;
 static int                 in_child = NO;
 
 /* Local functions */
@@ -229,7 +228,6 @@ main(int argc, char *argv[])
    unsigned int     average_diff_time = 0;
 #endif /* REPORT_DIR_TIME_INTERVAL */
    time_t           fd_search_start_time,
-                    midnight,
                     next_time_check,
                     next_search_time,
 #ifdef REPORT_DIR_TIME_INTERVAL
@@ -368,7 +366,6 @@ main(int argc, char *argv[])
                       OLD_FILE_SEARCH_INTERVAL + OLD_FILE_SEARCH_INTERVAL;
    next_rename_rule_check_time = (fd_search_start_time / READ_RULES_INTERVAL) *
                                  READ_RULES_INTERVAL + READ_RULES_INTERVAL;
-   midnight = (fd_search_start_time / 86400) * 86400 + 86400;
 #ifdef REPORT_DIR_TIME_INTERVAL
    next_report_time = (fd_search_start_time / REPORT_DIR_TIME_INTERVAL) *
                       REPORT_DIR_TIME_INTERVAL + REPORT_DIR_TIME_INTERVAL;
@@ -424,13 +421,6 @@ main(int argc, char *argv[])
          search_old_files(now);
          next_search_time = (time(&now) / OLD_FILE_SEARCH_INTERVAL) *
                             OLD_FILE_SEARCH_INTERVAL + OLD_FILE_SEARCH_INTERVAL;
-      }
-      if (now >= midnight)
-      {
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "dir_check syscalls : %u forks\n", fork_counter);
-         fork_counter = 0;
-         midnight = (now / 86400) * 86400 + 86400;
       }
       if (now >= next_time_check)
       {
@@ -500,7 +490,30 @@ main(int argc, char *argv[])
                  do
                  {
                     pid = *(pid_t *)&fifo_buffer[bytes_done];
-                    (void)get_one_zombie(pid);
+                    if (pid == -1)
+                    {
+                       if (check_fsa() == YES)
+                       {
+                          /*
+                           * When edit_hc changes the order in the FSA it will also
+                           * have to change it. Since the database of this program
+                           * depends on the FSA we have reread the shared memory
+                           * section. There should be no change such as a new host
+                           * or a new directory entry.
+                           */
+                          if (create_db(shm_id) != no_of_jobs)
+                          {
+                             (void)rec(sys_log_fd, ERROR_SIGN,
+                                       "Unexpected change in database! Terminating. (%s %d)\n",
+                                       __FILE__, __LINE__);
+                             exit(INCORRECT);
+                          }
+                       }
+                    }
+                    else
+                    {
+                       (void)get_one_zombie(pid);
+                    }
                     bytes_done += sizeof(pid_t);
                  } while ((n > bytes_done) &&
                           ((n - bytes_done) >= sizeof(pid_t)));
@@ -1389,7 +1402,7 @@ handle_dir(int    dir_no,
                                     dcpl[no_of_process].fra_pos = de[dir_no].fra_pos;
                                     fra[de[dir_no].fra_pos].no_of_process++;
                                     no_of_process++;
-                                    fork_counter++;
+                                    p_afd_status->amg_fork_counter++;
                                     break;
                               } /* switch() */
                            }
@@ -1744,8 +1757,6 @@ check_fifo(int read_fd, int write_fd)
                   FREE_RT_ARRAY(p_data[i].file_name_pool);
                }
 #endif
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "dir_check syscalls : %u forks\n", fork_counter);
                (void)rec(sys_log_fd, INFO_SIGN, "Stopped dir_check.\n");
 
                /* Set flag to indicate that the the dir_check is NOT active. */

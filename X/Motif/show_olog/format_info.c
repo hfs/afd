@@ -59,16 +59,20 @@ DESCR__S_M3
  ** HISTORY
  **   04.05.1997 H.Kiehl Created
  **   15.01.1998 H.Kiehl Support for remote file name.
+ **   01.07.2001 H.Kiehl Check if archive is still there.
+ **                      Added directory options.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>                 /* sprintf()                          */
+#include <unistd.h>                /* access()                           */
 #include "show_olog.h"
 
 /* External global variables */
 extern int              max_x,
                         max_y;
+extern char             *p_work_dir;
 extern struct info_data id;
 extern struct sol_perm  perm;
 
@@ -122,6 +126,41 @@ format_info(char *text)
       if (count > max_x)
       {
          max_x = count;
+      }
+      if (id.d_o.url[0] != '\0')
+      {
+         if (perm.view_passwd != YES)
+         {
+            remove_passwd(id.d_o.url);
+         }
+         count = sprintf(text + length, "DIR-URL    : %s\n", id.d_o.url);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+      }
+      if (id.d_o.no_of_dir_options > 0)
+      {
+         count = sprintf(text + length, "DIR-options: %s\n",
+                         id.d_o.aoptions[0]);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+         max_y++;
+         for (i = 1; i < id.d_o.no_of_dir_options; i++)
+         {
+            count = sprintf(text + length, "             %s\n",
+                            id.d_o.aoptions[i]);
+            length += count;
+            if (count > max_x)
+            {
+               max_x = count;
+            }
+            max_y++;
+         }
       }
       count = sprintf(text + length, "Filter     : %s\n", id.files[0]);
       length += count;
@@ -246,7 +285,18 @@ format_info(char *text)
    /* Show archive directory if it is available. */
    if (id.archive_dir[0] != '\0')
    {
-      count = sprintf(text + length, "\nArchive dir: %s", id.archive_dir);
+      char archive_dir[MAX_PATH_LENGTH];
+
+      (void)sprintf(archive_dir, "%s%s/%s",
+                    p_work_dir, AFD_ARCHIVE_DIR, id.archive_dir);
+      if (access(archive_dir, F_OK) == 0)
+      {
+         count = sprintf(text + length, "\nArchive dir: %s", id.archive_dir);
+      }
+      else
+      {
+         count = sprintf(text + length, "\nArchive dir: %s [DELETED]", id.archive_dir);
+      }
       if (count > max_x)
       {
          max_x = count;

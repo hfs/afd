@@ -10,6 +10,9 @@ EPROG    = encode64
 EOBJS    = encode64.o\
            encode_base64.o
 
+CTPROG   = copy_file
+CTOBJS   = copy_file.o
+
 ARGPROG  = arg
 ARGOBJS  = arg.o
 
@@ -18,7 +21,7 @@ SCPOBJS  = ascp1.o\
            trans_log.o
 
 PROGS    = $(EPROG) $(ARGPROG)
-OBJS     = $(EOBJS) $(ARGOBJS)
+OBJS     = $(EOBJS) $(ARGOBJS) $(CTOBJS)
 
 all : $(PROGS)
 
@@ -27,6 +30,9 @@ $(EPROG) : $(EOBJS) $(LIB)
 
 $(ARGPROG) : $(ARGOBJS) $(LIB)
 	$(CC) $(CFLAGS) -o $@ $(ARGOBJS) $(LIB)
+
+$(CTPROG) : $(CTOBJS) $(LIB)
+	$(CC) $(CFLAGS) -o $@ $(CTOBJS) $(LIB)
 
 $(SCPPROG) : $(SCPOBJS) $(LIB) $(PROTOLIB)
 	$(CC) $(CFLAGS) -o $@ $(SCPOBJS) $(PROTOLIB) $(LIB)

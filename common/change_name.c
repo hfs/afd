@@ -77,9 +77,6 @@ DESCR__E_M3
 #include <time.h>
 #include "amgdefs.h"
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*############################# change_name() ###########################*/
 void
@@ -202,17 +199,16 @@ change_name(char *orig_file_name,
    }
 
 #ifdef _DEBUG
-   (void)rec(sys_log_fd, INFO_SIGN, "found %d *\n", count_asterix);
+   system_log(INFO_SIGN, NULL, 0, "found %d *", count_asterix);
    for (i = 0; i < count_asterix; i++)
    {
-      (void)rec(sys_log_fd, INFO_SIGN, "ptr_asterix[%d]=%s\n",
-                i, ptr_asterix[i]);
+      system_log(INFO_SIGN, NULL, 0, "ptr_asterix[%d]=%s", i, ptr_asterix[i]);
    }
-   (void)rec(sys_log_fd, INFO_SIGN, "found %d ?\n", count_questioner);
+   system_log(INFO_SIGN, NULL, 0, "found %d ?", count_questioner);
    for (i = 0; i < count_questioner; i++)
    {
-      (void)rec(sys_log_fd, INFO_SIGN, "ptr_questioner[%d]=%c\n",
-                i, *ptr_questioner[i]);
+      system_log(INFO_SIGN, NULL, 0, "ptr_questioner[%d]=%c",
+                 i, *ptr_questioner[i]);
    }
 #endif
 
@@ -242,9 +238,8 @@ change_name(char *orig_file_name,
                   number = atoi(string) - 1; /* human count from 1 and computer from 0 */
                   if (number >= count_asterix)
                   {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "illegal '*' addressed: %d (%s %d)\n",
-                               number + 1, __FILE__, __LINE__);
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "illegal '*' addressed: %d", number + 1);
                   }
                   else
                   {
@@ -267,9 +262,8 @@ change_name(char *orig_file_name,
                   number = atoi(string) - 1; /* human count from 1 and computer from 0 */
                   if (number >= count_questioner)
                   {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "illegal '?' addressed: %d (%s %d)\n",
-                               number + 1, __FILE__, __LINE__);
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "illegal '?' addressed: %d", number + 1);
 
                   }
                   else
@@ -338,9 +332,9 @@ change_name(char *orig_file_name,
                         number = end - start + 1;  /* including the first and last */
                         if (number < 0)
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "The start (%d) and end (%d) range do not make sense in rule %s. Start must be larger then end! (%s %d)\n",
-                                     rename_to_rule, __FILE__, __LINE__);
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "The start (%d) and end (%d) range do not make sense in rule %s. Start must be larger then end!",
+                                      rename_to_rule);
                         }
                         else
                         {
@@ -351,9 +345,9 @@ change_name(char *orig_file_name,
                   }
                   else
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "There is no end range specified for rule %s (%s %d)\n",
-                               rename_to_rule, __FILE__, __LINE__);
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "There is no end range specified for rule %s",
+                                rename_to_rule);
                   }
                   break;
 
@@ -420,10 +414,9 @@ change_name(char *orig_file_name,
                                            "%S", gmtime(&time_buf));
                         break;
                      default  : /* unknown character - ignore */
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Illegal time option (%c) in rule %s (%s %d)\n",
-                                  *ptr_rule, rename_to_rule,
-                                  __FILE__, __LINE__);
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Illegal time option (%c) in rule %s",
+                                   *ptr_rule, rename_to_rule);
                         number = 0;
                         break;
                   }
@@ -440,9 +433,9 @@ change_name(char *orig_file_name,
 
                default  : /* no action be specified, write an error message */
 
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Illegal option (%d) in rule %s (%s %d)\n",
-                            *ptr_rule, rename_to_rule, __FILE__, __LINE__);
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Illegal option (%d) in rule %s",
+                             *ptr_rule, rename_to_rule);
                   ptr_rule++;
                   break;
             }
@@ -451,11 +444,11 @@ change_name(char *orig_file_name,
          case '*' : /* locate the '*' -> insert the next 'ptr_asterix' */
             if (act_asterix == count_asterix)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "can not paste more '*' as defined before -> ignored\n");
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s\n",
-                         orig_file_name, filter, rename_to_rule, new_name);
+               system_log(WARN_SIGN, NULL, 0,
+                          "can not paste more '*' as defined before -> ignored");
+               system_log(WARN_SIGN, NULL, 0,
+                          "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
+                          orig_file_name, filter, rename_to_rule, new_name);
             }
             else
             {
@@ -469,11 +462,11 @@ change_name(char *orig_file_name,
          case '?' : /* locate the '?' -> insert the next 'ptr_questioner' */
             if (act_questioner == count_questioner)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "can not paste more '?' as defined before -> ignored\n");
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s\n",
-                         orig_file_name, filter, rename_to_rule, new_name);
+               system_log(WARN_SIGN, NULL, 0,
+                          "can not paste more '?' as defined before -> ignored");
+               system_log(WARN_SIGN, NULL, 0,
+                          "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
+                          orig_file_name, filter, rename_to_rule, new_name);
             }
             else
             {

@@ -120,8 +120,8 @@ main(int argc, char *argv[])
    sigemptyset(&sact.sa_mask);
    if (sigaction(SIGSEGV, &sact, NULL) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "sigaction() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "sigaction() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 #endif
@@ -129,9 +129,8 @@ main(int argc, char *argv[])
    /* Do some cleanups when we exit */
    if (atexit(gf_ftp_exit) != 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not register exit function : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not register exit function : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -150,8 +149,8 @@ main(int argc, char *argv[])
        (signal(SIGHUP, SIG_IGN) == SIG_ERR) ||
        (signal(SIGPIPE, sig_pipe) == SIG_ERR))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "signal() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "signal() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -361,8 +360,8 @@ main(int argc, char *argv[])
       /* Allocate buffer to read data from the source file. */
       if ((buffer = malloc(blocksize + 4)) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "malloc() error : %s", strerror(errno));
          (void)ftp_quit();
          reset_values(files_retrieved, file_size_retrieved,
                       files_to_retrieve, file_size_to_retrieve);
@@ -373,9 +372,9 @@ main(int argc, char *argv[])
       /* prepare some pointers for the file names.      */
       if (create_remote_dir(fra[db.fra_pos].url, local_file) == INCORRECT)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to determine local incoming directory for %s. (%s %d)\n",
-                   fra[db.fra_pos].dir_alias, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to determine local incoming directory for <%s>.",
+                    fra[db.fra_pos].dir_alias);
          (void)ftp_quit();
          reset_values(files_retrieved, file_size_retrieved,
                       files_to_retrieve, file_size_to_retrieve);
@@ -644,11 +643,10 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
                      if (fsa[db.fsa_pos].total_file_counter < 0)
                      {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Total file counter for host %s less then zero. Correcting to %d. (%s %d)\n",
-                                  fsa[db.fsa_pos].host_dsp_name,
-                                  files_to_retrieve - (files_retrieved + 1),
-                                  __FILE__, __LINE__);
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Total file counter for host <%s> less then zero. Correcting to %d.",
+                                   fsa[db.fsa_pos].host_dsp_name,
+                                   files_to_retrieve - (files_retrieved + 1));
                         fsa[db.fsa_pos].total_file_counter = files_to_retrieve - (files_retrieved + 1);
                      }
 #endif
@@ -670,19 +668,17 @@ main(int argc, char *argv[])
                               new_size = 0;
                            }
                            fsa[db.fsa_pos].total_file_size = new_size;
-                           (void)rec(sys_log_fd, DEBUG_SIGN,
-                                     "Total file size for host %s overflowed. Correcting to %lu. (%s %d)\n",
-                                     fsa[db.fsa_pos].host_dsp_name,
-                                     fsa[db.fsa_pos].total_file_size,
-                                     __FILE__, __LINE__);
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      "Total file size for host <%s> overflowed. Correcting to %lu.",
+                                      fsa[db.fsa_pos].host_dsp_name,
+                                      fsa[db.fsa_pos].total_file_size);
                         }
                         else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
                                  (fsa[db.fsa_pos].total_file_size > 0))
                              {
-                                (void)rec(sys_log_fd, DEBUG_SIGN,
-                                          "fc for host %s is zero but fs is not zero. Correcting. (%s %d)\n",
-                                          fsa[db.fsa_pos].host_dsp_name,
-                                          __FILE__, __LINE__);
+                                system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                           "fc for host <%s> is zero but fs is not zero. Correcting.",
+                                           fsa[db.fsa_pos].host_dsp_name);
                                 fsa[db.fsa_pos].total_file_size = 0;
                              }
 #endif
@@ -713,10 +709,9 @@ main(int argc, char *argv[])
                                       FIFO_DIR, FD_WAKE_UP_FIFO);
                         if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to open() FIFO %s : %s (%s %d)\n",
-                                     fd_wake_up_fifo, strerror(errno),
-                                     __FILE__, __LINE__);
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "Failed to open() FIFO <%s> : %s",
+                                      fd_wake_up_fifo, strerror(errno));
                         }
                         else
                         {
@@ -724,17 +719,15 @@ main(int argc, char *argv[])
 
                            if (write(fd, &dummy, 1) != 1)
                            {
-                              (void)rec(sys_log_fd, WARN_SIGN,
-                                        "Failed to write() to FIFO %s : %s (%s %d)\n",
-                                        fd_wake_up_fifo, strerror(errno),
-                                        __FILE__, __LINE__);
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         "Failed to write() to FIFO <%s> : %s",
+                                         fd_wake_up_fifo, strerror(errno));
                            }
                            if (close(fd) == -1)
                            {
-                              (void)rec(sys_log_fd, DEBUG_SIGN,
-                                        "Failed to close() FIFO %s : %s (%s %d)\n",
-                                        fd_wake_up_fifo, strerror(errno),
-                                        __FILE__, __LINE__);
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to close() FIFO <%s> : %s",
+                                         fd_wake_up_fifo, strerror(errno));
                            }
                         }
 
@@ -759,9 +752,9 @@ main(int argc, char *argv[])
                         if (fsa[db.fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT)
                         {
                            fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
-                           (void)rec(sys_log_fd, INFO_SIGN,
-                                     "Starting queue for %s that was stopped by init_afd. (%s %d)\n",
-                                     fsa[db.fsa_pos].host_alias, __FILE__, __LINE__);
+                           system_log(INFO_SIGN, __FILE__, __LINE__,
+                                      "Starting queue for <%s> that was stopped by init_afd.",
+                                      fsa[db.fsa_pos].host_alias);
                         }
                      }
                   }
@@ -865,9 +858,9 @@ reset_values(int files_retrieved,
 #ifdef _VERIFY_FSA
             if (fsa[db.fsa_pos].total_file_counter < 0)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Total file counter for host %s less then zero. Correcting to 0. (%s %d)\n",
-                         fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Total file counter for host <%s> less then zero. Correcting to 0.",
+                          fsa[db.fsa_pos].host_dsp_name);
                fsa[db.fsa_pos].total_file_counter = 0;
             }
 #endif
@@ -883,17 +876,16 @@ reset_values(int files_retrieved,
             if (fsa[db.fsa_pos].total_file_size > ui_variable)
             {
                fsa[db.fsa_pos].total_file_size = 0;
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Total file size for host %s overflowed. Correcting to 0. (%s %d)\n",
-                         fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Total file size for host <%s> overflowed. Correcting to 0.",
+                          fsa[db.fsa_pos].host_dsp_name);
             }
             else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
                      (fsa[db.fsa_pos].total_file_size > 0))
                  {
-                    (void)rec(sys_log_fd, DEBUG_SIGN,
-                              "fc for host %s is zero but fs is not zero. Correcting. (%s %d)\n",
-                              fsa[db.fsa_pos].host_dsp_name,
-                              __FILE__, __LINE__);
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                               "fc for host <%s> is zero but fs is not zero. Correcting.",
+                               fsa[db.fsa_pos].host_dsp_name);
                     fsa[db.fsa_pos].total_file_size = 0;
                  }
 #endif
@@ -920,9 +912,9 @@ gf_ftp_exit(void)
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                sf_fin_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo <%s> : %s",
+                 sf_fin_fifo, strerror(errno));
    }
    else
    {
@@ -937,13 +929,15 @@ gf_ftp_exit(void)
 #endif
       if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "write() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "write() error : %s", strerror(errno));
       }
       (void)close(fd);
    }
-   (void)close(sys_log_fd);
+   if (sys_log_fd != STDERR_FILENO)
+   {
+      (void)close(sys_log_fd);
+   }
 
    return;
 }
@@ -956,8 +950,8 @@ sig_pipe(int signo)
    /* Ignore any future signals of this kind. */
    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "signal() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "signal() error : %s", strerror(errno));
    }
    sigpipe_flag = ON;
 
@@ -970,9 +964,8 @@ static void
 sig_segv(int signo)
 {
    reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this! (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(DEBUG_SIGN, __FILE__, __LINE__,
+              "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
 }
 
@@ -982,9 +975,7 @@ static void
 sig_bus(int signo)
 {
    reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Uuurrrggh! Received SIGBUS. (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }
 

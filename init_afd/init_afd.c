@@ -52,6 +52,8 @@ DESCR__S_M1
  **   23.02.1998 H.Kiehl Clear pool directory before starting AMG.
  **   16.10.1998 H.Kiehl Added parameter -nd so we do NOT start as
  **                      daemon.
+ **   30.06.2001 H.Kiehl Starting afdd process is now only done when
+ **                      this is configured in AFD_CONFIG file.
  **
  */
 DESCR__E_M1
@@ -108,21 +110,21 @@ struct proc_table          proc_table[NO_OF_PROCESS];
 static pid_t               make_process(char *, char *);
 static void                afd_exit(void),
                            check_dirs(char *),
+                           get_afd_config_value(int *, int *),
                            log_pid(pid_t, int),
                            sig_exit(int),
                            sig_bus(int),
                            sig_segv(int),
                            zombie_check(void);
 
-/* Local constant definitions */
-#define DANGER_NO_OF_FILES (2 * MAX_COPIED_FILES)
-
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
-   int            current_month,
+   int            afdd_port = -1,
+                  danger_no_of_files,
+                  current_month,
                   status,
                   i,
                   fd,
@@ -324,30 +326,30 @@ main(int argc, char *argv[])
    }
    else
    {
-      p_afd_status->amg = 0;
-      p_afd_status->amg_jobs = 0;
-      p_afd_status->fd = 0;
-      p_afd_status->sys_log = 0;
-      p_afd_status->receive_log = 0;
-      p_afd_status->trans_log = 0;
-      p_afd_status->trans_db_log = 0;
-      p_afd_status->archive_watch = 0;
-      p_afd_status->afd_stat = 0;
-      p_afd_status->afdd = 0;
+      p_afd_status->amg             = 0;
+      p_afd_status->amg_jobs        = 0;
+      p_afd_status->fd              = 0;
+      p_afd_status->sys_log         = 0;
+      p_afd_status->receive_log     = 0;
+      p_afd_status->trans_log       = 0;
+      p_afd_status->trans_db_log    = 0;
+      p_afd_status->archive_watch   = 0;
+      p_afd_status->afd_stat        = 0;
+      p_afd_status->afdd            = 0;
 #ifdef _NO_MMAP
-      p_afd_status->mapper = 0;
+      p_afd_status->mapper          = 0;
 #endif
 #ifdef _INPUT_LOG
-      p_afd_status->input_log = 0;
+      p_afd_status->input_log       = 0;
 #endif
 #ifdef _OUTPUT_LOG
-      p_afd_status->output_log = 0;
+      p_afd_status->output_log      = 0;
 #endif
 #ifdef _DELETE_LOG
-      p_afd_status->delete_log = 0;
+      p_afd_status->delete_log      = 0;
 #endif
       p_afd_status->no_of_transfers = 0;
-      p_afd_status->start_time = 0L;
+      p_afd_status->start_time      = 0L;
    }
    for (i = 0; i < NO_OF_PROCESS; i++)
    {
@@ -422,6 +424,7 @@ main(int argc, char *argv[])
                           exit(INCORRECT);
       }
    }
+   get_afd_config_value(&afdd_port, &danger_no_of_files);
 
    /* Do some cleanups when we exit */
    if (atexit(afd_exit) != 0)
@@ -514,9 +517,17 @@ main(int argc, char *argv[])
    *proc_table[AMG_NO].status = ON;
 
    /* Start TCP info daemon of AFD */
-   proc_table[AFDD_NO].pid = make_process(AFDD, work_dir);
-   log_pid(proc_table[AFDD_NO].pid, AFDD_NO + 1);
-   *proc_table[AFDD_NO].status = ON;
+   if (afdd_port > 0)
+   {
+      proc_table[AFDD_NO].pid = make_process(AFDD, work_dir);
+      log_pid(proc_table[AFDD_NO].pid, AFDD_NO + 1);
+      *proc_table[AFDD_NO].status = ON;
+   }
+   else
+   {
+      proc_table[AFDD_NO].pid = -1;
+      *proc_table[AFDD_NO].status = NEITHER;
+   }
 
    /*
     * Before starting the FD lets initialise all critical values
@@ -563,6 +574,14 @@ main(int argc, char *argv[])
        */
       if (time(&now) > month_check_time)
       {
+         (void)rec(sys_log_fd, DEBUG_SIGN,
+                   "fork() syscalls AMG : %u    FD : %u   => %u\n",
+                   p_afd_status->amg_fork_counter,
+                   p_afd_status->fd_fork_counter,
+                   p_afd_status->amg_fork_counter +
+                   p_afd_status->fd_fork_counter);
+         p_afd_status->amg_fork_counter = 0;
+         p_afd_status->fd_fork_counter = 0;
          bd_time = localtime(&now);
          if (bd_time->tm_mon != current_month)
          {
@@ -710,7 +729,7 @@ main(int argc, char *argv[])
                }
                if ((stat_buf.st_nlink >= DANGER_NO_OF_JOBS) &&
                    ((fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT) == 0) &&
-                   (fsa[i].total_file_counter > DANGER_NO_OF_FILES))
+                   (fsa[i].total_file_counter > danger_no_of_files))
                {
                   fsa[i].host_status ^= DANGER_PAUSE_QUEUE_STAT;
                   (void)rec(sys_log_fd, WARN_SIGN,
@@ -718,7 +737,7 @@ main(int argc, char *argv[])
                             fsa[i].host_alias, __FILE__, __LINE__);
                }
                else if ((fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT) &&
-                        ((fsa[i].total_file_counter < (DANGER_NO_OF_FILES / 2)) ||
+                        ((fsa[i].total_file_counter < (danger_no_of_files / 2)) ||
                         (stat_buf.st_nlink < (DANGER_NO_OF_JOBS - 10))))
                     {
                        fsa[i].host_status ^= DANGER_PAUSE_QUEUE_STAT;
@@ -1026,6 +1045,54 @@ main(int argc, char *argv[])
    } /* for (;;) */
    
    exit(SUCCESS);
+}
+
+
+/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+static void
+get_afd_config_value(int *afdd_port, int *danger_no_of_files)
+{
+   char *buffer,
+        config_file[MAX_PATH_LENGTH];
+
+   (void)sprintf(config_file, "%s%s%s",
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   if ((access(config_file, F_OK) == 0) &&
+       (read_file(config_file, &buffer) != INCORRECT))
+   {
+      char value[MAX_INT_LENGTH];
+
+      if (get_definition(buffer, AFD_TCP_PORT_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *afdd_port = atoi(value);
+         if ((*afdd_port < 1024) ||
+             (*afdd_port > 8192))
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Port number for %s in %s out of range (>1024 and < 8192).\n",
+                      AFD_TCP_PORT_DEF, config_file);
+            *afdd_port = -1;
+         }
+      }
+      else
+      {
+         *afdd_port = -1;
+      }
+      if (get_definition(buffer, MAX_COPIED_FILES_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *danger_no_of_files = atoi(value);
+         if (*danger_no_of_files < 1)
+         {
+            *danger_no_of_files = MAX_COPIED_FILES;
+         }
+         *danger_no_of_files = *danger_no_of_files + *danger_no_of_files;
+      }
+      free(buffer);
+   }
+
+   return;
 }
 
 
@@ -1338,7 +1405,8 @@ afd_exit(void)
        */
       for (i = 0; i < NO_OF_PROCESS; i++)
       {
-         if (i != DC_NO)
+         if ((i != DC_NO) &&
+             ((i != AFDD_NO) || (*proc_table[i].status != NEITHER)))
          {
             *proc_table[i].status = STOPPED;
          }

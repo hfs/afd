@@ -112,8 +112,8 @@ static unsigned int  counter = 0;
 void
 draw_label_line(void)
 {
-   int  i,
-        x = 0;
+   int i,
+       x = 0;
 
    for (i = 0; i < no_of_columns; i++)
    {
@@ -312,8 +312,8 @@ draw_line_status(int pos, signed char delta)
 void
 draw_mon_blank_line(int pos)
 {
-   int   x,
-         y;
+   int x,
+       y;
 
    locate_xy(pos, &x, &y);
 
@@ -328,7 +328,7 @@ draw_mon_blank_line(int pos)
 void
 draw_afd_identifier(int pos, int x, int y)
 {
-   XGCValues  gc_values;
+   XGCValues gc_values;
 
    /* Change color of letters when background color is to dark */
    if ((connect_data[pos].connect_status == CONNECTING) ||
@@ -358,9 +358,9 @@ draw_afd_identifier(int pos, int x, int y)
 void
 draw_mon_proc_led(int led_no, signed char led_status, int x, int y)
 {
-   int        x_offset,
-              y_offset;
-   XGCValues  gc_values;
+   int       x_offset,
+             y_offset;
+   XGCValues gc_values;
 
    x_offset = x + x_offset_led + (led_no * (glyph_width + PROC_LED_SPACING));
    y_offset = y + SPACE_ABOVE_LINE + y_offset_led;
@@ -456,8 +456,8 @@ draw_remote_log_status(int pos, int si_pos, int x, int y)
 void
 draw_remote_history(int pos, int type, int x, int y)
 {
-   int        i, x_offset, y_offset;
-   XGCValues  gc_values;
+   int       i, x_offset, y_offset;
+   XGCValues gc_values;
 
    x_offset = x + x_offset_log_history;
    y_offset = y + SPACE_ABOVE_LINE;
@@ -481,10 +481,10 @@ draw_remote_history(int pos, int type, int x, int y)
 void
 draw_mon_chars(int pos, char type, int x, int y)
 {
-   int        length;
-   char       *ptr = NULL;
-   XGCValues  gc_values;
-   GC         tmp_gc;
+   int       length;
+   char      *ptr = NULL;
+   XGCValues gc_values;
+   GC        tmp_gc;
 
    switch(type)
    {
@@ -590,7 +590,6 @@ draw_mon_chars(int pos, char type, int x, int y)
                     y + text_offset + SPACE_ABOVE_LINE,
                     ptr,
                     length);
-
 
    return;
 }

@@ -60,7 +60,6 @@ DESCR__E_M3
 extern int                        exitflag,
                                   *no_of_listed_files,
                                   rl_fd,
-                                  sys_log_fd,
                                   timeout_flag,
                                   trans_db_log_fd;
 extern char                       *p_work_dir;
@@ -140,9 +139,8 @@ get_remote_file_names(off_t *file_size_to_retrieve)
    /* Get all file masks for this directory. */
    if (read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml) == INCORRECT)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to get the file masks. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to get the file masks.");
       (void)ftp_quit();
       exit(INCORRECT);
    }
@@ -260,9 +258,8 @@ get_remote_file_names(off_t *file_size_to_retrieve)
             ptr = (char *)rl - AFD_WORD_OFFSET;
             if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "mmap_resize() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "mmap_resize() error : %s", strerror(errno));
                (void)ftp_quit();
                exit(INCORRECT);
             }
@@ -297,8 +294,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
                    AFD_WORD_OFFSET;
          if ((ptr = malloc(rl_size)) == NULL)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "malloc() error : %s", strerror(errno));
             (void)ftp_quit();
             exit(INCORRECT);
          }
@@ -318,8 +315,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
               ptr = (char *)rl - AFD_WORD_OFFSET;
               if ((ptr = realloc(ptr, rl_size)) == NULL)
               {
-                 (void)rec(sys_log_fd, ERROR_SIGN, "realloc() error : %s (%s %d)\n",
-                           strerror(errno), __FILE__, __LINE__);
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "realloc() error : %s", strerror(errno));
                  (void)ftp_quit();
                  exit(INCORRECT);
               }
@@ -346,17 +343,17 @@ check_list(char *file, off_t *file_size_to_retrieve)
                        INCOMING_DIR, LS_DATA_DIR, fra[db.fra_pos].dir_alias);
          if ((rl_fd = open(list_file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      list_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() <%s> : %s",
+                       list_file, strerror(errno));
             (void)ftp_quit();
             exit(INCORRECT);
          }
          if (fstat(rl_fd, &stat_buf) == -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to fstat() %s : %s (%s %d)\n",
-                      list_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to fstat() <%s> : %s",
+                       list_file, strerror(errno));
             (void)ftp_quit();
             exit(INCORRECT);
          }
@@ -366,17 +363,17 @@ check_list(char *file, off_t *file_size_to_retrieve)
                       AFD_WORD_OFFSET;
             if (lseek(rl_fd, rl_size - 1, SEEK_SET) == -1)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to lseek() in %s : %s (%s %d)\n",
-                         list_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to lseek() in <%s> : %s",
+                          list_file, strerror(errno));
                (void)ftp_quit();
                exit(INCORRECT);
             }
             if (write(rl_fd, "", 1) != 1)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to write() to %s : %s (%s %d)\n",
-                         list_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to write() to <%s> : %s",
+                          list_file, strerror(errno));
                (void)ftp_quit();
                exit(INCORRECT);
             }
@@ -388,9 +385,9 @@ check_list(char *file, off_t *file_size_to_retrieve)
          if ((ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
                          MAP_SHARED, rl_fd, 0)) == (caddr_t) -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to mmap() to %s : %s (%s %d)\n",
-                      list_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to mmap() to <%s> : %s",
+                       list_file, strerror(errno));
             (void)ftp_quit();
             exit(INCORRECT);
          }
@@ -495,9 +492,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
          ptr = (char *)rl - AFD_WORD_OFFSET;
          if ((ptr = mmap_resize(rl_fd, ptr, new_size)) == (caddr_t) -1)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "mmap_resize() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "mmap_resize() error : %s", strerror(errno));
             (void)ftp_quit();
             exit(INCORRECT);
          }
@@ -591,18 +587,18 @@ remove_ls_data()
       {
          if ((unlink(list_file) == -1) && (errno != ENOENT))
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to unlink() %s : %s (%s %d)\n",
-                      list_file, strerror(errno), __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to unlink() <%s> : %s",
+                       list_file, strerror(errno));
          }
       }
       else
       {
          if (errno != ENOENT)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Failed to stat() %s : %s (%s %d)\n",
-                      list_file, strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Failed to stat() <%s> : %s",
+                       list_file, strerror(errno));
          }
       }
    }

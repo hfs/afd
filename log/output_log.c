@@ -31,19 +31,22 @@ DESCR__S_M1
  **   This function reads from the fifo OUTPUT_LOG_FIFO any file name
  **   that was distributed by sf_xxx(). The data in the fifo has the
  **   following structure:
- **   <TD><FS><JN><FNL><HN>\0<LFN>[ /<RFN>]\0[<AD>\0]
- **     |   |   |   |    |     |       |       |
- **     |   |   |   |    |     |       |       +-> If FNL > 0 this contains
- **     |   |   |   |    |     |       |           a \0 terminated string of
- **     |   |   |   |    |     |       |           the Archive Directory.
- **     |   |   |   |    |     |       +---------> Remote file name.
- **     |   |   |   |    |     +-----------------> Local file name.
- **     |   |   |   |    +-----------------------> \0 terminated string of
- **     |   |   |   |                              the Host Name and protocol.
+ **   <TD><FS><JN><FNL><ANL><HN>\0<LFN>[ /<RFN>]\0[<AD>\0]
+ **     |   |   |   |    |    |     |       |       |
+ **     |   |   |   |    |    |     |       |       V
+ **     |   |   |   |    |    |     |       |      If ANL > 0 this contains
+ **     |   |   |   |    |    |     |       |      a \0 terminated string of
+ **     |   |   |   |    |    |     |       |      the Archive Directory.
+ **     |   |   |   |    |    |     |       +----> Remote file name.
+ **     |   |   |   |    |    |     +------------> Local file name.
+ **     |   |   |   |    |    +------------------> \0 terminated string of
+ **     |   |   |   |    |                         the Host Name and protocol.
+ **     |   |   |   |    +-----------------------> An unsigned short holding
+ **     |   |   |   |                              the Archive Name Length if
+ **     |   |   |   |                              the file has been archived.
+ **     |   |   |   |                              If not, ANL = 0.
  **     |   |   |   +----------------------------> An unsigned short holding
- **     |   |   |                                  the File Name Length if
- **     |   |   |                                  the file has been archived.
- **     |   |   |                                  If not, FNL = 0.
+ **     |   |   |                                  the File Name Length.
  **     |   |   +--------------------------------> Unsigned int holding the
  **     |   |                                      Job Number.
  **     |   +------------------------------------> File Size of type off_t.
@@ -72,6 +75,7 @@ DESCR__S_M1
  **   08.05.1997 H.Kiehl Added reading archive directory.
  **   14.02.1998 H.Kiehl Support for local and remote file name.
  **   07.01.2001 H.Kiehl Build in some checks when fifo buffer overflows.
+ **   14.06.2001 H.Kiehl Removed the above unnecessary checks.
  **
  */
 DESCR__E_M1
@@ -95,6 +99,10 @@ DESCR__E_M1
 int  sys_log_fd = STDERR_FILENO;
 char *p_work_dir = NULL;
 
+/* #define _TEST_FIFO_BUFFER */
+#ifdef _TEST_FIFO_BUFFER
+static void show_buffer(char *, int);
+#endif
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
@@ -125,7 +133,8 @@ main(int argc, char *argv[])
                   work_dir[MAX_PATH_LENGTH],
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH];
-   unsigned short *file_name_length;
+   unsigned short *archive_name_length,
+                  *file_name_length;
    fd_set         rset;
    struct timeval timeout;
    struct stat    stat_buf;
@@ -273,9 +282,11 @@ main(int argc, char *argv[])
    file_size = (off_t *)(fifo_buffer + offset);
    job_number = (unsigned int *)(fifo_buffer + offset + offset);
    file_name_length = (unsigned short *)(fifo_buffer + offset + offset + offset);
-   p_host_name = (char *)(fifo_buffer + offset + offset + offset + sizeof(unsigned short));
-   p_file_name = (char *)(fifo_buffer + offset + offset + offset + sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 2 + 1);
-   check_size = offset + offset + offset + sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 2 + 1 + 1 + 1;
+   archive_name_length = (unsigned short *)(fifo_buffer + offset + offset + offset + sizeof(unsigned short));
+   p_host_name = (char *)(fifo_buffer + offset + offset + offset + sizeof(unsigned short) + sizeof(unsigned short));
+   p_file_name = (char *)(fifo_buffer + offset + offset + offset + sizeof(unsigned short)  + sizeof(unsigned short)+ MAX_HOSTNAME_LENGTH + 2 + 1);
+   check_size = offset + offset + offset + sizeof(unsigned short) +
+                sizeof(unsigned short) + MAX_HOSTNAME_LENGTH + 2 + 1 + 1;
 
    /* Ignore any SIGHUP signal */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
@@ -346,82 +357,83 @@ main(int argc, char *argv[])
                             fifo_size - bytes_buffered)) > 0)
               {
                  n += bytes_buffered;
-                 bytes_buffered = 0;
-                 if (n >= check_size)
+#ifdef _TEST_FIFO_BUFFER
+                 if (bytes_buffered > 0)
                  {
-                    do
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                               "After output_log buffer overflow (n = %d)", n);
+                    show_buffer(fifo_buffer, n);
+                 }
+#endif /* _TEST_FIFO_BUFFER */
+                 bytes_buffered = 0;
+                 do
+                 {
+                    /*
+                     * Lets check that we have everything in the
+                     * buffer.
+                     */
+                    if ((n < (check_size - 1)) ||
+                        (n < (check_size + *file_name_length)) ||
+                        ((*archive_name_length != 0) &&
+                         (n < (check_size + *file_name_length + *archive_name_length + 1))))
                     {
-                       if (*file_name_length > 0)
+#ifdef _TEST_FIFO_BUFFER
+                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                  "Output_log buffer overflow (n = %d)", n);
+                       show_buffer(fifo_buffer, n);
+#endif /* _TEST_FIFO_BUFFER */
+                       length = n;
+                       bytes_buffered = n;
+                    }
+                    else
+                    {
+                       if (*archive_name_length > 0)
                        {
-                          if (*file_name_length > MAX_FILENAME_LENGTH)
-                          {
-                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                        "Hmmm, assuming that I am reading garbage from fifo since a filename cannot be %d Bytes long! [%d]",
-                                        *file_name_length, n);
-                             break;
-                          }
-                          else
-                          {
-                             (void)fprintf(output_file,
-                                           "%-10ld %s %s %lu %.2f %u %s\n",
-                                           now,
-                                           p_host_name,
-                                           p_file_name,
-                                           (unsigned long)*file_size,
-                                           *transfer_duration / (double)clktck,
-                                           *job_number,
-                                           &p_file_name[*file_name_length + 1]);
-                             length = check_size + *file_name_length +
-                                      strlen(&p_file_name[*file_name_length + 1]);
-                          }
+                          (void)fprintf(output_file,
+                                        "%-10ld %s %s %lu %.2f %u %s\n",
+                                        now,
+                                        p_host_name,
+                                        p_file_name,
+                                        (unsigned long)*file_size,
+                                        *transfer_duration / (double)clktck,
+                                        *job_number,
+                                        &p_file_name[*file_name_length + 1]);
+                          length = check_size + *file_name_length +
+                                   *archive_name_length + 1;
                        }
                        else
                        {
-                          (void)fprintf(output_file, "%-10ld %s %s %lu %.2f %u\n",
+                          (void)fprintf(output_file,
+                                        "%-10ld %s %s %lu %.2f %u\n",
                                         now,
                                         p_host_name,
                                         p_file_name,
                                         (unsigned long)*file_size,
                                         *transfer_duration / (double)clktck,
                                         *job_number);
-                          length = check_size + strlen(p_file_name);
+                          length = check_size + *file_name_length;
                        }
-                       n -= length;
-                       if (n > 0)
-                       {
-                          (void)memmove(fifo_buffer, &fifo_buffer[length], n);
-                          if ((n < check_size) ||
-                              (*file_name_length > MAX_FILENAME_LENGTH) ||
-                              ((*file_name_length > 0) &&
-                               ((check_size + *file_name_length + strlen(&p_file_name[*file_name_length + 1])) > n)) ||
-                              ((*file_name_length == 0) &&
-                               ((check_size + strlen(p_file_name)) > n)))
-                          {
-                             bytes_buffered = n;
-                             no_of_buffered_writes++;
-#ifdef _REPORT_BUFFER_OVERFLOW
-                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                        "Fifo buffer for output_log overflowed!");
-#endif /* _REPORT_BUFFER_OVERFLOW */
-                             break;
-                          }
-                       }
-                       no_of_buffered_writes++;
-                    } while (n >= check_size);
-
-                    if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_SLOW)
-                    {
-                       (void)fflush(output_file);
-                       no_of_buffered_writes = 0;
                     }
-                 }
-                 else
+                    n -= length;
+                    if (n > 0)
+                    {
+                       (void)memmove(fifo_buffer, &fifo_buffer[length], n);
+                    }
+                    no_of_buffered_writes++;
+                 } while (n > 0);
+
+                 if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_SLOW)
                  {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "Hmmm. Seems like I am reading garbage from the fifo (%d).",
-                               n);
+                    (void)fflush(output_file);
+                    no_of_buffered_writes = 0;
                  }
               }
+              else if (n < 0)
+                   {
+                      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                 "read() error (%d) : %s", n, strerror(errno));
+                      exit(INCORRECT);
+                   }
 
               /*
                * Since we can receive a constant stream of data
@@ -457,3 +469,45 @@ main(int argc, char *argv[])
    /* Should never come to this point. */
    exit(SUCCESS);
 }
+
+
+#ifdef _TEST_FIFO_BUFFER
+#define MAX_CHARS_IN_LINE 60
+/*++++++++++++++++++++++++++++++ show_buffer() ++++++++++++++++++++++++++*/
+static void
+show_buffer(char *buffer, int buffer_length)
+{
+   int  line_length;
+   char *ptr = buffer,
+        line[MAX_CHARS_IN_LINE + 10];
+
+   do
+   {
+      line_length = 0;
+      do
+      {
+         if (*ptr < ' ')
+         {
+            /* Yuck! Not printable. */
+#ifdef _SHOW_HEX
+            line_length += sprintf(&line[line_length], "<%x>", (int)*ptr);
+#else
+            line_length += sprintf(&line[line_length], "<%d>", (int)*ptr);
+#endif
+         }
+         else
+         {
+            line[line_length] = *ptr;
+            line_length++;
+         }
+
+         ptr++; buffer_length--;
+      } while ((line_length <= MAX_CHARS_IN_LINE) && (buffer_length > 0));
+
+      line[line_length] = '\0';
+      system_log(DEBUG_SIGN, NULL, 0, "%s", line);
+   } while (buffer_length > 0);
+
+   return;
+}
+#endif

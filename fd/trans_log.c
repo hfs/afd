@@ -48,6 +48,8 @@ DESCR__E_M3
 #include <time.h>                     /* time(), localtime()             */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
+#include <fcntl.h>
+#include <errno.h>
 #include "fddefs.h"
 
 extern int                        timeout_flag,
@@ -55,6 +57,7 @@ extern int                        timeout_flag,
                                   transfer_log_fd;
 extern long                       transfer_timeout;
 extern char                       msg_str[],
+                                  *p_work_dir,
                                   tr_hostname[];
 extern struct job                 db;
 extern struct filetransfer_status *fsa;
@@ -123,8 +126,7 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       }
       if ((file == NULL) || (line == 0))
       {
-         length += sprintf(&buf[length], " due to timeout (%lds).\n",
-                           transfer_timeout);
+         /* Don't write anything. */;
       }
       else if (fsa[db.fsa_pos].protocol & SEND_FLAG)
            {
@@ -167,9 +169,39 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
 
    (void)write(transfer_log_fd, buf, length);
 
-   if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+   if (fsa[db.fsa_pos].debug == YES)
    {
-      (void)write(trans_db_log_fd, buf, length);
+      if ((trans_db_log_fd == STDERR_FILENO) && (p_work_dir != NULL))
+      {
+         char trans_db_log_fifo[MAX_PATH_LENGTH];
+
+         (void)strcpy(trans_db_log_fifo, p_work_dir);
+         (void)strcat(trans_db_log_fifo, FIFO_DIR);
+         (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
+         if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1)
+         {
+            if (errno == ENOENT)
+            {
+               if ((make_fifo(trans_db_log_fifo) == SUCCESS) &&
+                   ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1))
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Could not open fifo <%s> : %s",
+                             TRANS_DEBUG_LOG_FIFO, strerror(errno));
+               }
+            }
+            else
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not open fifo %s : %s",
+                          TRANS_DEBUG_LOG_FIFO, strerror(errno));
+            }
+         }
+      }
+      if (trans_db_log_fd != -1)
+      {
+         (void)write(trans_db_log_fd, buf, length);
+      }
    }
 
    return;

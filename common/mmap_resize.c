@@ -1,6 +1,6 @@
 /*
  *  mmap_resize.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,9 +50,6 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*############################ mmap_resize() ############################*/
 void *
@@ -62,8 +59,8 @@ mmap_resize(int fd, void *area, size_t new_size)
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "fstat() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "fstat() error : %s", strerror(errno));
       return((void *)-1);
    }
 
@@ -72,14 +69,14 @@ mmap_resize(int fd, void *area, size_t new_size)
    {
       if (msync(area, stat_buf.st_size, MS_ASYNC) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, "msync() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "msync() error : %s", strerror(errno));
          return((void *)-1);
       }
       if (munmap(area, stat_buf.st_size) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, "munmap() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "munmap() error : %s", strerror(errno));
          return((void *)-1);
       }
    }
@@ -88,14 +85,14 @@ mmap_resize(int fd, void *area, size_t new_size)
    {
       if (lseek(fd, new_size - 1, SEEK_SET) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, "lseek() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "lseek() error : %s", strerror(errno));
          return((void *)-1);
       }
       if (write(fd, "", 1) != 1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "write() error : %s", strerror(errno));
          return((void *)-1);
       }
    }
@@ -103,9 +100,8 @@ mmap_resize(int fd, void *area, size_t new_size)
         {
            if (ftruncate(fd, new_size) == -1)
            {
-              (void)rec(sys_log_fd, FATAL_SIGN,
-                        "ftruncate() error : %s (%s %d)\n",
-                        strerror(errno), __FILE__, __LINE__);
+              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                         "ftruncate() error : %s", strerror(errno));
               return((void *)-1);
            }
         }

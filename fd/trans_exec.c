@@ -61,6 +61,7 @@ extern struct job                 db;
 void
 trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
 {
+#ifdef _WITH_TRANS_EXEC
    char *p_command,
         tmp_connect_status;
 
@@ -240,6 +241,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
       *p_tmp_dir = '\0';
    }
    fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = tmp_connect_status;
+#endif /* _WITH_TRANS_EXEC */
 
    return;
 }

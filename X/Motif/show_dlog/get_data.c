@@ -949,22 +949,17 @@ no_criteria(register char *ptr,
    int          type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    /* The easiest case! */
    do
@@ -974,7 +969,6 @@ no_criteria(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -986,7 +980,6 @@ no_criteria(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1182,22 +1175,17 @@ file_name_only(register char *ptr,
    int          type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -1206,7 +1194,6 @@ file_name_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1218,7 +1205,6 @@ file_name_only(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1418,22 +1404,17 @@ file_size_only(register char *ptr,
    int          type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -1442,7 +1423,6 @@ file_size_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1454,7 +1434,6 @@ file_size_only(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1585,22 +1564,17 @@ file_name_and_size(register char *ptr,
    int          type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -1609,7 +1583,6 @@ file_name_and_size(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1621,7 +1594,6 @@ file_name_and_size(register char *ptr,
                break;
             }
          }
-#endif
 
          ptr_start_line = ptr;
 
@@ -1827,22 +1799,17 @@ recipient_only(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -1851,7 +1818,6 @@ recipient_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -1863,7 +1829,6 @@ recipient_only(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;
@@ -2079,22 +2044,17 @@ file_name_and_recipient(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    char         *tmp_ptr,
                 *p_size,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -2103,7 +2063,6 @@ file_name_and_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -2115,7 +2074,6 @@ file_name_and_recipient(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;
@@ -2241,22 +2199,17 @@ file_size_and_recipient(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -2265,7 +2218,6 @@ file_size_and_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -2277,7 +2229,6 @@ file_size_and_recipient(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;
@@ -2404,22 +2355,17 @@ file_name_size_recipient(register char *ptr,
                 type,
                 item_counter = 0,
                 loops = 0;
-   time_t       time_when_transmitted = 0L;
-#ifdef _WITH_CHECK_TIME_INTERVAL
    time_t       next_check_time,
-                now;
-#endif
+                now,
+                time_when_transmitted = 0L;
    double       tmp_file_size;
    char         *tmp_ptr,
                 *ptr_start_line,
                 time_buf[MAX_INT_LENGTH];
    struct tm    *p_ts;
 
-#ifdef _WITH_CHECK_TIME_INTERVAL
-   time(&now);
-   next_check_time = ((now / CHECK_TIME_INTERVAL) * CHECK_TIME_INTERVAL) +
-                     CHECK_TIME_INTERVAL;
-#endif
+   next_check_time = ((time(&now) / CHECK_TIME_INTERVAL) *
+                      CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
 
    do
    {
@@ -2428,7 +2374,6 @@ file_name_size_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-#ifdef _WITH_CHECK_TIME_INTERVAL
          if (time(&now) > next_check_time)
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
@@ -2440,7 +2385,6 @@ file_name_size_recipient(register char *ptr,
                break;
             }
          }
-#endif
 
          current_search_host = -1;
          ptr_start_line = ptr;

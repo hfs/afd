@@ -1,6 +1,6 @@
 /*
  *  delete_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,7 +74,6 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int        sys_log_fd;
 extern char       *p_work_dir;
 
 
@@ -90,9 +89,9 @@ delete_log_ptrs(struct delete_log *dl)
    (void)strcat(delete_log_fifo, DELETE_LOG_FIFO);
    if ((dl->fd = coe_open(delete_log_fifo, O_RDWR)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                delete_log_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo <%s> : %s",
+                 delete_log_fifo, strerror(errno));
    }
    else
    {
@@ -127,9 +126,8 @@ delete_log_ptrs(struct delete_log *dl)
                  MAX_FILENAME_LENGTH + 1;       /* User/process name */
       if ((dl->data = calloc(dl->size, sizeof(char))) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "calloc() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "calloc() error : %s", strerror(errno));
       }
       else
       {
