@@ -659,7 +659,7 @@ int
 ftp_keepalive(void)
 {
    int           reply;
-   time_t        tmp_transfer_timeout;
+   long          tmp_transfer_timeout;
    unsigned char telnet_cmd[2];
    fd_set        wset;
 
@@ -1273,6 +1273,12 @@ ftp_data(char *filename, off_t seek, int mode, int type)
 
       if ((reply = get_reply(p_control)) < 0)
       {
+         if (timeout_flag == OFF)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "ftp_data(): Failed to get reply after sending PASV command (%d).",
+                      reply);         
+         }
          return(INCORRECT);
       }
 
@@ -1925,16 +1931,6 @@ ftp_write(char *block, char *buffer, int size)
                         "ftp_write(): write() error (%d) : %s",
                         status, strerror(errno));
               return(errno);
-           }
-#endif
-#ifdef _FLUSH_FTP_WRITE
-           if (fflush(p_data) == EOF)
-           {
-              msg_str[0] = '\0';
-              trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "ftp_write(): Failed to fflush() data buffer : %s",
-                        strerror(errno));
-              return(INCORRECT);
            }
 #endif
         }

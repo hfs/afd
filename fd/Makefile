@@ -65,8 +65,8 @@ SFSMTPOBJS = append.o\
              trans_exec.o\
              trans_log.o
 
-SFSCP1PROG = sf_scp1
-SFSCP1OBJS = append.o\
+SFSCPPROG  = sf_scp
+SFSCPOBJS  = append.o\
              archive_file.o\
              eval_input_sf.o\
              eval_recipient.o\
@@ -76,7 +76,7 @@ SFSCP1OBJS = append.o\
              init_sf.o\
              output_log_ptrs.o\
              reset_fsa.o\
-             sf_scp1.o\
+             sf_scp.o\
              trans_db_log.o\
              trans_exec.o\
              trans_log.o
@@ -144,8 +144,8 @@ GFFTPOBJS  = eval_input_gf.o\
              trans_db_log.o\
              trans_log.o
 
-PROGS      = $(FDPROG)$(EXE_EXT) $(SFFTPPROG)$(EXE_EXT) $(SFSMTPPROG)$(EXE_EXT) $(SFSCP1PROG)$(EXE_EXT) $(SFWMOPROG)$(EXE_EXT) $(SFMAPPROG)$(EXE_EXT) $(SFLOCPROG)$(EXE_EXT) $(GFFTPPROG)$(EXE_EXT)
-OBJS       = $(FDOBJS) $(SFFTPOBJS) $(SFSMTPOBJS) $(SFSCP1OBJS) $(SFWMOOBJS) $(SFMAPOBJS) $(SFLOCOBJS) $(GFFTPOBJS)
+PROGS      = $(FDPROG)$(EXE_EXT) $(SFFTPPROG)$(EXE_EXT) $(SFSMTPPROG)$(EXE_EXT) $(SFSCPPROG)$(EXE_EXT) $(SFWMOPROG)$(EXE_EXT) $(SFMAPPROG)$(EXE_EXT) $(SFLOCPROG)$(EXE_EXT) $(GFFTPPROG)$(EXE_EXT)
+OBJS       = $(FDOBJS) $(SFFTPOBJS) $(SFSMTPOBJS) $(SFSCPOBJS) $(SFWMOOBJS) $(SFMAPOBJS) $(SFLOCOBJS) $(GFFTPOBJS)
 HEADERS    = ../init_afd/afddefs.h ../config.h fddefs.h
 
 all : $(PROGS)
@@ -164,9 +164,9 @@ $(SFSMTPPROG)$(EXE_EXT) : $(SFSMTPOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SFSMTPOBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
-$(SFSCP1PROG)$(EXE_EXT) : $(SFSCP1OBJS) $(LIB) $(PROTOLIB)
+$(SFSCPPROG)$(EXE_EXT) : $(SFSCPOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@
-	$(CC) $(CFLAGS) -o $@ $(SFSCP1OBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
+	$(CC) $(CFLAGS) -o $@ $(SFSCPOBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
 $(SFWMOPROG)$(EXE_EXT) : $(SFWMOOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@
@@ -205,6 +205,6 @@ fd.o sf_ftp.o sf_loc.o sf_smtp.o sf_map.o sf_wmo.o gf_ftp.o : ../version.h
 fd.o : ../log/logdefs.h
 sf_ftp.o init_sf.o init_gf.o eval_message.o : ../protocols/ftpdefs.h
 sf_ftp.o : ../misc/eumetsat_header_defs.h
-sf_scp1.o init_sf.o eval_message.o : ../protocols/scp1defs.h
+sf_scp.o init_sf.o eval_message.o : ../protocols/scpdefs.h
 sf_smtp.o init_sf.o init_gf.o : ../protocols/smtpdefs.h
 sf_wmo.o init_sf.o init_gf.o : ../protocols/wmodefs.h

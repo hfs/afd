@@ -241,8 +241,8 @@ init_sf_burst2(struct job   *p_new_db,
 #ifdef _WITH_WMO_SUPPORT
        || (db.protocol & WMO_FLAG)
 #endif /* _WITH_WMO_SUPPORT */
-#ifdef _WITH_SCP1_SUPPORT
-       || (db.protocol & SCP1_FLAG))
+#ifdef _WITH_SCP_SUPPORT
+       || (db.protocol & SCP_FLAG))
 #else
        )
 #endif
@@ -257,8 +257,8 @@ init_sf_burst2(struct job   *p_new_db,
 #ifdef _WITH_WMO_SUPPORT
           || (db.protocol & WMO_FLAG)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-          || (db.protocol & SCP1_FLAG))
+#ifdef _WITH_SCP_SUPPORT
+          || (db.protocol & SCP_FLAG))
 #else
           )
 #endif
@@ -309,8 +309,8 @@ init_sf_burst2(struct job   *p_new_db,
 #ifdef _WITH_WMO_SUPPORT
                 || (db.protocol & WMO_FLAG)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-                || (db.protocol & SCP1_FLAG))
+#ifdef _WITH_SCP_SUPPORT
+                || (db.protocol & SCP_FLAG))
 #else
                 )
 #endif

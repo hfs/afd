@@ -53,8 +53,8 @@ DESCR__E_M3
 #include "fddefs.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
-#ifdef _WITH_SCP1_SUPPORT
-#include "scp1defs.h"
+#ifdef _WITH_SCP_SUPPORT
+#include "scpdefs.h"
 #endif
 #ifdef _WITH_WMO_SUPPORT
 #include "wmodefs.h"
@@ -107,8 +107,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
            db.from = NULL;
            db.charset = NULL;
         }
-#ifdef _WITH_SCP1_SUPPORT
-   else if (protocol & SCP1_FLAG)
+#ifdef _WITH_SCP_SUPPORT
+   else if (protocol & SCP_FLAG)
         {
            db.port = DEFAULT_SSH_PORT;
            db.chmod = FILE_MODE;
@@ -149,6 +149,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.chmod_str[0] = '\0';
    db.trans_rename_rule[0] = '\0';
    db.user_rename_rule[0] = '\0';
+   db.rename_file_busy = '\0';
    db.no_of_restart_files = 0;
    db.restart_file = NULL;
    db.user_id = -1;
@@ -263,8 +264,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #ifdef _WITH_WMO_SUPPORT
        || (protocol & WMO_FLAG)
 #endif /* _WITH_WMO_SUPPORT */
-#ifdef _WITH_SCP1_SUPPORT
-       || (protocol & SCP1_FLAG))
+#ifdef _WITH_SCP_SUPPORT
+       || (protocol & SCP_FLAG))
 #else
        )
 #endif
@@ -279,8 +280,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #ifdef _WITH_WMO_SUPPORT
           || (protocol & WMO_FLAG)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-          || (protocol & SCP1_FLAG))
+#ifdef _WITH_SCP_SUPPORT
+          || (protocol & SCP_FLAG))
 #else
           )
 #endif
@@ -356,8 +357,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #ifdef _WITH_WMO_SUPPORT
              || (protocol & WMO_FLAG)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-             || (protocol & SCP1_FLAG))
+#ifdef _WITH_SCP_SUPPORT
+             || (protocol & SCP_FLAG))
 #else
              )
 #endif

@@ -348,7 +348,7 @@ o       Dialog to view and delete any files in
 o       Store active/passive mode in HOST_CONFIG. *    [DONE]
 o       Store host status in HOST_CONFIG.         *    [DONE]
 o       Port to AIX.                              *    [DONE]
-o       Support for the SCP1 protocol (SSH1).    **    [UNDER CONSTRUCTION]
+o       Support for the SCP protocol (SSH1+2).   **    [UNDER CONSTRUCTION]
 o       Rename log, so it is possible to trace
         files.                                   **    [UNDER CONSTRUCTION]
 o       Use GNU autoconfig and automake to build

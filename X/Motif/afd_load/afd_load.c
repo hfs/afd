@@ -375,7 +375,7 @@ init_afd_load(int  *argc,
    }
 
    /* Attach to FSA to get values for chart. */
-   if (fsa_attach() < 0)
+   if (fsa_attach_passive() < 0)
    {
       (void)fprintf(stderr, "Failed to attach to FSA.\n");
       exit(INCORRECT);

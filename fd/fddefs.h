@@ -138,6 +138,7 @@
 #define DOT                      1
 #define DOT_VMS                  2
 #define LOCKFILE                 3
+#define POSTFIX                  4
 #ifdef _WITH_READY_FILES
 #define READY_FILE_ASCII         "RDYA"
 #define LOCK_READY_A_FILE        "RDY A"
@@ -150,9 +151,6 @@
 /* Default definitions */
 #define DEFAULT_ERROR_REPEAT     1
 #define DEFAULT_LOCK             DOT
-#ifdef _AGE_LIMIT
-#define DEFAULT_AGE_LIMIT        0
-#endif
 #define DEFAULT_TRANSFER_MODE    'I'
 
 /* Definitions of identifiers in options */
@@ -162,8 +160,8 @@
 #define ARCHIVE_ID_LENGTH              7
 #define LOCK_ID                        "lock"
 #define LOCK_ID_LENGTH                 4
-#define AGE_LIMIT_ID                   "age-limit"
-#define AGE_LIMIT_ID_LENGTH            9
+#define LOCK_POSTFIX_ID                "lockp"
+#define LOCK_POSTFIX_ID_LENGTH         5
 #define RESTART_FILE_ID                "restart"
 #define RESTART_FILE_ID_LENGTH         7
 #define TRANS_RENAME_ID                "trans_rename"
@@ -214,6 +212,8 @@
 #define SUBJECT_ID_LENGTH              7
 #define FORCE_COPY_ID                  "force copy"
 #define FORCE_COPY_ID_LENGTH           10
+#define RENAME_FILE_BUSY_ID            "file busy rename"
+#define RENAME_FILE_BUSY_ID_LENGTH     16
 #define ACTIVE_FTP_MODE                "mode active"
 #define ACTIVE_FTP_MODE_LENGTH         11
 #define PASSIVE_FTP_MODE               "mode passive"
@@ -271,7 +271,6 @@ struct append_data
 #endif /* _NEW_STUFF */
 
 /* Structure that holds the data for one internal messages of the FD */
-#define MSG_QUEUE_FILE   "/fd_msg_queue"
 #define MSG_QUE_BUF_SIZE 10000
 struct queue_buf
        {
@@ -286,7 +285,6 @@ struct queue_buf
           char         in_error_dir;
        };
 
-#define MSG_CACHE_FILE "/fd_msg_cache"
 struct msg_cache_buf
        {
           char         host_name[MAX_HOSTNAME_LENGTH + 1];
@@ -400,6 +398,10 @@ struct job
                                          /*              file and after  */
                                          /*              transfer delete */
                                          /*              lock file.      */
+          char          rename_file_busy;/* Character to append to file  */
+                                         /* name when we get file busy   */
+                                         /* error when trying to open    */
+                                         /* remote file.                 */
           int           no_listed;       /* No. of elements in a group.  */
           char          **group_list;    /* List of elements found in    */
                                          /* the group file.              */
@@ -516,7 +518,7 @@ extern int   append_compare(char *, char *),
              check_fra_fd(void),
              eval_input_gf(int, char **, struct job *),
              eval_input_sf(int, char **, struct job *),
-             eval_recipient(char *, struct job *, char *),
+             eval_recipient(char *, struct job *, char *, time_t),
              eval_message(char *, struct job *),
              fd_check_fsa(void),
              get_file_names(char *, off_t *),

@@ -65,7 +65,7 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
    if (fra_fd == -1)
    {
       /* Attach to FRA to get directory options. */
-      if (fra_attach() < 0)
+      if (fra_attach_passive() < 0)
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
                     "Failed to attach to FRA. (%s %d)", __FILE__, __LINE__);

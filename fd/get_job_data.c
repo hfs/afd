@@ -181,10 +181,11 @@ retry:
       {
          if (CHECK_STRCMP(p_start, LOC_SHEME) != 0)
          {
-#ifdef _WITH_SCP1_SUPPORT
-            if (CHECK_STRCMP(p_start, SCP1_SHEME) != 0)
+#ifdef _WITH_SCP_SUPPORT
+            if ((CHECK_STRCMP(p_start, SCP_SHEME) != 0) &&
+                (CHECK_STRCMP(p_start, SCP1_SHEME) != 0))
             {
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
                if (CHECK_STRCMP(p_start, WMO_SHEME) != 0)
                {
@@ -226,13 +227,13 @@ retry:
                   sheme = WMO;
                }
 #endif
-#ifdef _WITH_SCP1_SUPPORT
+#ifdef _WITH_SCP_SUPPORT
             }
             else
             {
-               sheme = SCP1;
+               sheme = SCP;
             }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
          }
          else
          {

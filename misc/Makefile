@@ -36,6 +36,7 @@ MISCLIB = libmisc.a
 MISCOBJS = afw2wmo.o\
            assemble.o\
            bin_file_chopper.o\
+           convert.o\
            convert_grib2wmo.o\
            create_eumetsat_header.o\
            extract.o\

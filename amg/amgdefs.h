@@ -71,8 +71,6 @@
 #define JOB_ID_DATA_STEP_SIZE      50   /* Buffers allocated for the     */
                                         /* job_id_data structure.        */
 #define TIME_JOB_STEP_SIZE         1
-#define JOB_ID_FILE                "/jid_number"
-#define DIR_ID_FILE                "/did_number"
 
 /* Definitions of identifiers in options */
 #define TIME_NO_COLLECT_ID         "time no collect"
@@ -111,12 +109,16 @@
 #define ASSEMBLE_ID_LENGTH         8
 #define WMO2ASCII_ID               "wmo2ascii"
 #define WMO2ASCII_ID_LENGTH        9
+#define DELETE_ID                  "delete"
+#define DELETE_ID_LENGTH           6
+#define CONVERT_ID                 "convert"
+#define CONVERT_ID_LENGTH          7
 #ifdef _WITH_AFW2WMO
 #define AFW2WMO_ID                 "afw2wmo"
 #define AFW2WMO_ID_LENGTH          7
-#define LOCAL_OPTION_POOL_SIZE     17
+#define LOCAL_OPTION_POOL_SIZE     19
 #else
-#define LOCAL_OPTION_POOL_SIZE     16
+#define LOCAL_OPTION_POOL_SIZE     18
 #endif
 
 /* Definitions for types of time options. */
@@ -130,7 +132,7 @@
                                          /* will NOT be stored and will  */
                                          /* be deleted!                  */
 
-/* Definitions for assembling and extracting WMO bulletins */
+/* Definitions for assembling, converting and extracting WMO bulletins/files */
 #define TWO_BYTE                   1
 #define FOUR_BYTE_LBF              2
 #define FOUR_BYTE_HBF              3
@@ -140,6 +142,8 @@
 #define WMO_STANDARD               7
 #define ASCII_STANDARD             8
 #define FOUR_BYTE_DWD              9
+#define SOHETX2WMO0                10
+#define SOHETX2WMO1                11
 
 /* Definition of fifos for the AMG to communicate */
 /* with the above jobs.                           */
@@ -177,7 +181,6 @@
                                               /* NOTE: Must be larger    */
                                               /*       than 5!           */
 
-#define MESSAGE_BUF_FILE           "/tmp_msg_buffer"
 #define MESSAGE_BUF_STEP_SIZE      500
 
 #define OLD_FILE_TIME              24         /* Hours.                  */
@@ -189,10 +192,11 @@
 /* Structure that holds data to be send passed to a function. */
 struct data_t
        {
-          int   i;
-          char  **file_name_pool;
-          off_t *file_size_pool;
-          char  afd_file_dir[MAX_PATH_LENGTH];
+          int    i;
+          char   **file_name_pool;
+          off_t  *file_size_pool;
+          time_t *file_mtime_pool;
+          char   afd_file_dir[MAX_PATH_LENGTH];
        };
 #endif /* _WITH_PTHREAD */
 
@@ -320,6 +324,7 @@ struct dir_data
 #define GO_PARALLEL         8
 #define SPLIT_FILE_LIST     16
 #define DO_NOT_LINK_FILES   32
+#define DELETE_ALL_FILES    64
 
 /* Structure that holds a single job for process dir_check */
 struct instant_db
@@ -336,7 +341,7 @@ struct instant_db
           char    *dir;                /* Directory that has to be       */
                                        /* monitored.                     */
           int     dir_no;              /* Contains the directory ID!!!   */
-          char    lfs;                 /* Flag to indicate if this       */
+          unsigned char lfs;           /* Flag to indicate if this       */
                                        /* directory belongs to the same  */
                                        /* filesystem as the working      */
                                        /* directory of the AFD, i.e if   */
@@ -361,6 +366,7 @@ struct instant_db
           char    host_alias[MAX_HOSTNAME_LENGTH + 1];
                                        /* Alias of hostname of recipient.*/
           unsigned int protocol;
+          unsigned int age_limit;
           char    dup_paused_dir;      /* Flag to indicate that this     */
                                        /* paused directory is already    */
                                        /* in the list and does not have  */
@@ -431,25 +437,27 @@ struct dc_proc_list
 /* Function prototypes */
 extern int    amg_zombie_check(pid_t *, int),
               com(char),
+              convert(char *, char *, int, off_t *),
 #ifdef _WITH_PTHREAD
               check_files(struct directory_entry *, char *, char *,
                           char *, int, time_t, off_t *, char **, off_t *),
-              count_pool_files(int *, char *, off_t *, char **),
-              link_files(char *, char *, off_t *, char **,
+              count_pool_files(int *, char *, off_t *, time_t *, char **),
+              link_files(char *, char *, time_t, off_t *, time_t *, char **,
                          struct directory_entry *, struct instant_db *,
                          time_t *, unsigned short *, int, int,
                          char *, off_t *),
-              save_files(char *, char *, off_t *, char **,
-                         struct directory_entry *, int, int, char, int),
+              save_files(char *, char *, time_t, unsigned int, off_t *,
+                         time_t *, char **, struct directory_entry *,
+                         int, int, char, int),
 #else
               check_files(struct directory_entry *, char *, char *,
                           char *, int, time_t, off_t *),
               count_pool_files(int *, char *),
-              link_files(char *, char *, struct directory_entry *,
+              link_files(char *, char *, time_t, struct directory_entry *,
                          struct instant_db *, time_t *, unsigned short *,
                          int, int, char *, off_t *),
-              save_files(char *, char *, struct directory_entry *,
-                         int, int, char, int),
+              save_files(char *, char *, time_t, unsigned int,
+                         struct directory_entry *, int, int, char, int),
 #endif
               check_process_list(int),
               create_db(void),

@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ DESCR__S_M3
  ** HISTORY
  **   27.05.1997 H.Kiehl Created
  **   11.02.1998 H.Kiehl Adapted to new message format.
+ **   22.09.2003 H.Kiehl get_recipient_only() now gets all recipients.
  **
  */
 DESCR__E_M3
@@ -575,6 +576,8 @@ get_recipient_only(int dir_pos)
    register char  *ptr;
    int            size,
                   gotcha;
+   char           *p_file,
+                  recipient[MAX_RECIPIENT_LENGTH];
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
    size = strlen(id.dir);
@@ -582,38 +585,9 @@ get_recipient_only(int dir_pos)
    id.dir[size + 1] = '\0';
 
    id.count = 0;
-   for (i = (*no_of_job_ids - 1); i > -1; i--)
+   for (i = 0; i < *no_of_job_ids; i++)
    {
       if (jd[i].dir_id_pos == dir_pos)
-      {
-         while (jd[i].dir_id_pos == dir_pos)
-         {
-            i--;
-            if (i < 0)
-            {
-               i = 0;
-               break;
-            }
-         }
-         if (jd[i].dir_id_pos != dir_pos)
-         {
-            i++;
-         }
-         break;
-      }
-   }
-
-   if (i == -1)
-   {
-      /* Could not find directory in current JID structure. */
-      return;
-   }
-   else
-   {
-      char *p_file,
-           recipient[MAX_RECIPIENT_LENGTH];
-
-      while ((jd[i].dir_id_pos == dir_pos) && (i < *no_of_job_ids))
       {
          /*
           * Only show those entries that really match the current
@@ -716,8 +690,7 @@ get_recipient_only(int dir_pos)
             }
             id.count++;
          } /* if (gotcha == YES) */
-         i++;
-      } /* while (jd[i].dir_id_pos == dir_pos) */
+      }
    }
 
    return;

@@ -38,7 +38,7 @@ DESCR__S_M3
  **    function adds new files to this job. This can only be done under
  **    the following condition:
  **
- **        - This is an FTP (or WMO or SCP1 when enabled) job.
+ **        - This is an FTP (or WMO or SCP when enabled) job.
  **        - All connections for this host are in use.
  **        - The active job is currently transmitting files.
  **        - The job ID's are the same.
@@ -116,8 +116,8 @@ check_burst(char         protocol,
 #ifdef _WITH_WMO_SUPPORT
        || (protocol == WMO)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-       || (protocol == SCP1)) &&
+#ifdef _WITH_SCP_SUPPORT
+       || (protocol == SCP)) &&
 #else
        ) &&
 #endif
@@ -126,7 +126,7 @@ check_burst(char         protocol,
    {
       int           j,
                     status,
-#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
+#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP_SUPPORT)
                     connect_status,
 #endif
                     burst_connection,
@@ -142,15 +142,15 @@ check_burst(char         protocol,
       int           lowest_burst;
 #endif
 
-#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
+#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP_SUPPORT)
       if (protocol == FTP)
       {
          connect_status = FTP_BURST_TRANSFER_ACTIVE;
       }
-#if defined (_WITH_WMO_SUPPORT) && defined (_WITH_SCP1_SUPPORT)
-      else if (protocol == SCP1)
+#if defined (_WITH_WMO_SUPPORT) && defined (_WITH_SCP_SUPPORT)
+      else if (protocol == SCP)
            {
-              connect_status = SCP1_BURST_TRANSFER_ACTIVE;
+              connect_status = SCP_BURST_TRANSFER_ACTIVE;
            }
            else
            {
@@ -159,8 +159,8 @@ check_burst(char         protocol,
 #else
       else
       {
-#ifdef _WITH_SCP1_SUPPORT
-         connect_status = SCP1_BURST_TRANSFER_ACTIVE;
+#ifdef _WITH_SCP_SUPPORT
+         connect_status = SCP_BURST_TRANSFER_ACTIVE;
 #else
          connect_status = WMO_BURST_TRANSFER_ACTIVE;
 #endif
@@ -177,7 +177,7 @@ check_burst(char         protocol,
 
       for (j = 0; j < fsa[position].allowed_transfers; j++)
       {
-#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
+#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP_SUPPORT)
          if ((fsa[position].job_status[j].connect_status == connect_status) ||
 #else
          if ((fsa[position].job_status[j].connect_status == FTP_BURST_TRANSFER_ACTIVE) ||
@@ -258,8 +258,8 @@ check_burst(char         protocol,
 #ifdef _WITH_WMO_SUPPORT
                     || (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-                    || (fsa[position].job_status[burst_connection].connect_status == SCP1_BURST_TRANSFER_ACTIVE)) &&
+#ifdef _WITH_SCP_SUPPORT
+                    || (fsa[position].job_status[burst_connection].connect_status == SCP_BURST_TRANSFER_ACTIVE)) &&
 #else
                    ) &&
 #endif
@@ -310,8 +310,8 @@ check_burst(char         protocol,
 #ifdef _WITH_WMO_SUPPORT
                     || (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-                    || (fsa[position].job_status[no_burst_array[j]].connect_status == SCP1_ACTIVE)) &&
+#ifdef _WITH_SCP_SUPPORT
+                    || (fsa[position].job_status[no_burst_array[j]].connect_status == SCP_ACTIVE)) &&
 #else
                    ) &&
 #endif
@@ -386,8 +386,8 @@ check_burst(char         protocol,
 #ifdef _WITH_WMO_SUPPORT
                     || (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-                    || (fsa[position].job_status[burst_connection].connect_status == SCP1_BURST_TRANSFER_ACTIVE)) &&
+#ifdef _WITH_SCP_SUPPORT
+                    || (fsa[position].job_status[burst_connection].connect_status == SCP_BURST_TRANSFER_ACTIVE)) &&
 #else
                    ) &&
 #endif
@@ -443,8 +443,8 @@ check_burst(char         protocol,
 #ifdef _WITH_WMO_SUPPORT
                  || (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-                 || (fsa[position].job_status[no_burst_array[j]].connect_status == SCP1_ACTIVE)) &&
+#ifdef _WITH_SCP_SUPPORT
+                 || (fsa[position].job_status[no_burst_array[j]].connect_status == SCP_ACTIVE)) &&
 #else
                 ) &&
 #endif
@@ -514,8 +514,8 @@ check_burst(char         protocol,
 #ifdef _WITH_WMO_SUPPORT
                  || (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-                 || (fsa[position].job_status[burst_connection].connect_status == SCP1_BURST_TRANSFER_ACTIVE)) &&
+#ifdef _WITH_SCP_SUPPORT
+                 || (fsa[position].job_status[burst_connection].connect_status == SCP_BURST_TRANSFER_ACTIVE)) &&
 #else
                 ) &&
 #endif

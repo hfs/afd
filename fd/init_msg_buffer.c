@@ -134,8 +134,8 @@ init_msg_buffer(void)
       char   fullname[MAX_PATH_LENGTH];
 
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_CACHE_FILE);
-      if ((ptr = attach_buf(fullname, &mdb_fd,
-                            new_size, "FD")) == (caddr_t) -1)
+      if ((ptr = attach_buf(fullname, &mdb_fd, new_size, "FD",
+                            FILE_MODE)) == (caddr_t) -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to mmap() to %s : %s (%s %d)\n",
@@ -154,8 +154,8 @@ init_msg_buffer(void)
       char   fullname[MAX_PATH_LENGTH];
 
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
-      if ((ptr = attach_buf(fullname, &qb_fd,
-                            new_size, "FD")) == (caddr_t) -1)
+      if ((ptr = attach_buf(fullname, &qb_fd, new_size, "FD",
+                            FILE_MODE)) == (caddr_t) -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to mmap() to %s : %s (%s %d)\n",

@@ -1,6 +1,6 @@
 /*
  *  archive_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,6 +52,9 @@ DESCR__S_M3
  **   20.03.1999 H.Kiehl Removed unique number from archive name and
  **                      introduced ARCHIVE_STEP_TIME to reduce the
  **                      number of archive directories.
+ **   28.03.2003 H.Kiehl If there is no username insert 'none'
+ **                      otherwise archive_watch will NOT remove
+ **                      any files from here.
  **
  */
 DESCR__E_M3
@@ -134,6 +137,14 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
             *ptr = p_db->user[i];
          }
          ptr++; i++;
+      }
+      if (i == 0)
+      {
+         *ptr = 'n';
+         *(ptr + 1) = 'o';
+         *(ptr + 2) = 'n';
+         *(ptr + 3) = 'e';
+         ptr += 4;
       }
       *ptr = '/';
       *(ptr + 1) = '0';

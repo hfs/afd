@@ -98,6 +98,7 @@ DESCR__S_M3
  **                      directories.
  **   26.03.2000 H.Kiehl Addition of new header field DIR_OPTION_IDENTIFIER.
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
+ **   03.06.2003 H.Kiehl Directories may now also contain spaces.
  **
  */
 DESCR__E_M3
@@ -228,6 +229,9 @@ eval_dir_config(size_t db_size)
                                  /* destination name.             */
    char     *ptr,                /* Main pointer that walks       */
                                  /* through buffer.               */
+            last_char,           /* Storage for last character in */
+                                 /* directory name. If that is a  */
+                                 /* / spaces are ignored.         */
             *tmp_ptr = NULL,     /* */
             *search_ptr = NULL,  /* Pointer used in conjunction   */
                                  /* with the posi() function.     */
@@ -300,7 +304,7 @@ eval_dir_config(size_t db_size)
       (void)strcat(id_file, DIR_ID_FILE);
       (void)strcat(dir_name_file, DIR_NAME_FILE);
       if ((p_dir_buf = attach_buf(dir_name_file, &dnb_fd,
-                            size, "AMG")) == (caddr_t) -1)
+                                  size, "AMG", FILE_MODE)) == (caddr_t) -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to mmap() to %s : %s (%s %d)\n",
@@ -461,7 +465,8 @@ eval_dir_config(size_t db_size)
       /* Store directory name. */
       i = 0;
       dir->option[0] = '\0';
-      while ((*ptr != '\n') && (*ptr != '\0'))
+      last_char = '\0';
+      while ((*ptr != '\n') && (*ptr != '\0') && (i < (MAX_PATH_LENGTH - 1)))
       {
          if ((*ptr == '\\') && (*(ptr + 1) == '#'))
          {
@@ -471,34 +476,70 @@ eval_dir_config(size_t db_size)
          }
          else
          {
-            if ((*ptr == ' ') || (*ptr == '\t'))
+            if (((*ptr == ' ') || (*ptr == '\t')) && (last_char != '/'))
             {
-               tmp_ptr = ptr;
-               while ((*tmp_ptr == ' ') || (*tmp_ptr == '\t'))
+               if (last_char == '\0')
                {
-                  tmp_ptr++;
-               }
-               switch (*tmp_ptr)
-               {
-                  case '#' :  /* Found comment */
-                     while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0'))
+                  char *p_last_char = ptr;
+
+                  while ((*p_last_char != '\n') && (*p_last_char != '\0') &&
+                         (*p_last_char != '#'))
+                  {
+                     if (*p_last_char == '\\')
                      {
-                        tmp_ptr++;
+                        p_last_char++;
                      }
-                     ptr = tmp_ptr;
-                     continue;
-                  case '\0':  /* Found end for this entry */
-                     ptr = tmp_ptr;
-                     continue;
-                  case '\n':  /* End of line reached */
-                     ptr = tmp_ptr;
-                     continue;
-                  default  :  /* option goes on */
-                     ptr = tmp_ptr;
-                     break;
+                     p_last_char++;
+                  }
+                  if (*p_last_char == '#')
+                  {
+                     p_last_char--;
+                     while ((p_last_char > ptr) &&
+                            ((*p_last_char == ' ') || (*p_last_char == '\t')))
+                     {
+                        p_last_char--;
+                     }
+                     last_char = *p_last_char;
+                  }
+                  else
+                  {
+                     last_char = *(p_last_char - 1);
+                  }
+               }
+               if (last_char == '/')
+               {
+                  dir->location[i] = *ptr;
+                  i++; ptr++;
+               }
+               else
+               {
+                  tmp_ptr = ptr;
+                  while ((*tmp_ptr == ' ') || (*tmp_ptr == '\t'))
+                  {
+                     tmp_ptr++;
+                  }
+                  switch (*tmp_ptr)
+                  {
+                     case '#' :  /* Found comment */
+                        while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0'))
+                        {
+                           tmp_ptr++;
+                        }
+                        ptr = tmp_ptr;
+                        continue;
+                     case '\0':  /* Found end for this entry */
+                        ptr = tmp_ptr;
+                        continue;
+                     case '\n':  /* End of line reached */
+                        ptr = tmp_ptr;
+                        continue;
+                     default  :  /* option goes on */
+                        ptr = tmp_ptr;
+                        break;
+                  }
                }
             }
-            if ((i > 0) &&
+            if ((i > 0) && (last_char != '/') &&
                 (((*(ptr - 1) == '\t') || (*(ptr - 1) == ' ')) &&
                   ((i < 2) || (*(ptr - 2) != '\\'))))
             {
@@ -533,6 +574,14 @@ eval_dir_config(size_t db_size)
       {
          ptr++;
       }
+      else if (i >= (MAX_PATH_LENGTH - 1))
+           {
+              (void)rec(sys_log_fd, WARN_SIGN,
+                        "At line %d, directory entry longer then %d, unable to store it. (%s %d)\n",
+                        count_new_lines(database, search_ptr),
+                        (MAX_PATH_LENGTH - 1), __FILE__, __LINE__);
+              continue;
+           }
 
       /* Lets resolve any tilde signs ~. */
       if (dir->location[0] == '~')
@@ -666,7 +715,7 @@ eval_dir_config(size_t db_size)
                while (dir_length > 0)
                {
                   dir_ptr[ii]--; dir_length--;
-                  if (*dir_ptr[ii] == '/')
+                  if ((*dir_ptr[ii] == '/') && (*(dir_ptr[ii] + 1) != '\0'))
                   {
                      *dir_ptr[ii] = '\0';
                      dir_counter++; ii++;
@@ -1193,6 +1242,12 @@ eval_dir_config(size_t db_size)
 
                while ((*ptr != '\n') && (*ptr != '\0'))
                {
+                  /* Take away empty spaces from begining. */
+                  while ((*ptr == ' ') || (*ptr == '\t'))
+                  {
+                     ptr++;
+                  }
+
                   /* Check if this is a comment line. */
                   if (*ptr == '#')
                   {
@@ -1236,9 +1291,15 @@ eval_dir_config(size_t db_size)
                               ptr = tmp_ptr;
                               continue;
 
-                           default  : /* We are at begining of a recipient */
-                                      /* line, so let us continue.         */
-                              search_ptr = ptr = tmp_ptr;
+                           default  : /* Assume the recipient string */
+                                      /* contains spaces.            */
+                              (void)memmove(&dir->file[dir->fgc].\
+                                             dest[dir->file[dir->fgc].dgc].\
+                                             recipient[dir->file[dir->fgc].\
+                                             dest[dir->file[dir->fgc].dgc].rc][i],
+                                            ptr, tmp_ptr - ptr);  
+                              i += (tmp_ptr - ptr);
+                              ptr = tmp_ptr;
                               break;
                         }
                      }
@@ -1302,10 +1363,11 @@ eval_dir_config(size_t db_size)
                            {
                               if (CHECK_STRCMP(search_ptr - j, LOC_SHEME) != 0)
                               {
-#ifdef _WITH_SCP1_SUPPORT
-                                 if (CHECK_STRCMP(search_ptr - j, SCP1_SHEME) != 0)
+#ifdef _WITH_SCP_SUPPORT
+                                 if ((CHECK_STRCMP(search_ptr - j, SCP_SHEME) != 0) &&
+                                     (CHECK_STRCMP(search_ptr - j, SCP1_SHEME) != 0))
                                  {
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
                                     if (CHECK_STRCMP(search_ptr - j, WMO_SHEME) != 0)
                                     {
@@ -1363,7 +1425,7 @@ eval_dir_config(size_t db_size)
                                        }
                                     }
 #endif
-#ifdef _WITH_SCP1_SUPPORT
+#ifdef _WITH_SCP_SUPPORT
                                  }
                                  else
                                  {
@@ -1377,7 +1439,7 @@ eval_dir_config(size_t db_size)
                                                         new_size, MAX_RECIPIENT_LENGTH, char);
                                     }
                                  }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
                               }
                               else
                               {
@@ -1587,11 +1649,13 @@ check_dummy_line:
                /* Read each option line by line, until */
                /* we encounter an empty line.          */
                dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc = 0;
-               while ((*ptr != '\n') && (*ptr != '\0'))
+               while ((*ptr != '\n') && (*ptr != '\0') &&
+                      (dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc < MAX_NO_OPTIONS))
                {
                   /* Store option. */
                   i = 0;
-                  while ((*ptr != '\n') && (*ptr != '\0'))
+                  while ((*ptr != '\n') && (*ptr != '\0') &&
+                         (i < MAX_OPTION_LENGTH))
                   {
                      CHECK_SPACE();
                      if ((i > 0) &&
@@ -1602,6 +1666,10 @@ check_dummy_line:
                                 options[dir->file[dir->fgc].\
                                 dest[dir->file[dir->fgc].dgc].oc][i] = ' ';
                         i++;
+                        if (i >= MAX_OPTION_LENGTH)
+                        {
+                           break;
+                        }
                      }
                      dir->file[dir->fgc].\
                              dest[dir->file[dir->fgc].dgc].\
@@ -1610,13 +1678,30 @@ check_dummy_line:
                      ptr++; i++;
                   }
 
-                  ptr++;
-
-                  /* Make sure that we did read a line. */
-                  if (i != 0)
+                  if (i >= MAX_OPTION_LENGTH)
                   {
-                     dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc++;
+                     while ((*ptr != '\n') && (*ptr != '\0'))
+                     {
+                        ptr++;
+                     }
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "Option at line %d longer then %d, ignoring this option. (%s %d)\n",
+                               count_new_lines(database, ptr),
+                               MAX_OPTION_LENGTH, __FILE__, __LINE__);
                   }
+                  else
+                  {
+                     /* Make sure that we did read a line. */
+                     if (i != 0)
+                     {
+                        dir->file[dir->fgc].\
+                                dest[dir->file[dir->fgc].dgc].\
+                                options[dir->file[dir->fgc].\
+                                dest[dir->file[dir->fgc].dgc].oc][i] = '\0';
+                        dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc++;
+                     }
+                  }
+                  ptr++;
 
                   /* Check for a dummy empty line. */
                   if (*ptr != '\n')
@@ -1629,6 +1714,14 @@ check_dummy_line:
                      ptr = search_ptr;
                   }
                } /* while ((*ptr != '\n') && (*ptr != '\0')) */
+
+               if (dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc >= MAX_NO_OPTIONS)
+               {
+                  (void)rec(sys_log_fd, WARN_SIGN,
+                            "Exceeded the number of total options (%d) at line %d. Ignoring. (%s %d)\n",
+                            MAX_NO_OPTIONS, count_new_lines(database, ptr),
+                            __FILE__, __LINE__);
+               }
             }
 
             /* To read the next destination entry, put back the */
@@ -2023,16 +2116,17 @@ check_hostname_list(char *recipient, int flag)
               protocol |= SEND_SMTP_FLAG;
            }
         }
-#ifdef _WITH_SCP1_SUPPORT
-   else if (memcmp(recipient, SCP1_SHEME, SCP1_SHEME_LENGTH) == 0)
+#ifdef _WITH_SCP_SUPPORT
+   else if ((memcmp(recipient, SCP_SHEME, SCP_SHEME_LENGTH) == 0) ||
+            (memcmp(recipient, SCP1_SHEME, SCP1_SHEME_LENGTH) == 0))
         {
-           protocol = SCP1_FLAG;
+           protocol = SCP_FLAG;
            if (flag & SEND_FLAG)
            {
-              protocol |= SEND_SCP1_FLAG;
+              protocol |= SEND_SCP_FLAG;
            }
         }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    else if (memcmp(recipient, WMO_SHEME, WMO_SHEME_LENGTH) == 0)
         {
@@ -2205,7 +2299,9 @@ copy_job(int              file_no,
                      GRIB2WMO_ID_LENGTH,
                      EXTRACT_ID_LENGTH,
                      ASSEMBLE_ID_LENGTH,
-                     WMO2ASCII_ID_LENGTH
+                     WMO2ASCII_ID_LENGTH,
+                     DELETE_ID_LENGTH,
+                     CONVERT_ID_LENGTH
                   };
    size_t         new_size;
    char           buffer[MAX_INT_LENGTH],
@@ -2233,7 +2329,9 @@ copy_job(int              file_no,
                      GRIB2WMO_ID,
                      EXTRACT_ID,
                      ASSEMBLE_ID,
-                     WMO2ASCII_ID
+                     WMO2ASCII_ID,
+                     DELETE_ID,
+                     CONVERT_ID
                   };
    struct p_array *p_ptr = NULL;
 

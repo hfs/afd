@@ -156,8 +156,7 @@ create_fsa(void)
    }
    else
    {
-      if ((fsa_id_fd = open(fsa_id_file, (O_RDWR | O_CREAT),
-                     (S_IRUSR | S_IWUSR))) < 0)
+      if ((fsa_id_fd = open(fsa_id_file, (O_RDWR | O_CREAT), FILE_MODE)) < 0)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Could not open %s : %s (%s %d)\n",
@@ -1046,6 +1045,7 @@ create_fsa(void)
    /* Reposition fsa pointer after no_of_hosts */
    ptr = (char *)fsa;
    ptr -= AFD_WORD_OFFSET;
+   *(ptr + 4 + 1 + 1) = 0; /* Not used. */
    *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_FSA_VERSION; /* FSA version number */
    if (fsa_size > 0)
    {

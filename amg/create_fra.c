@@ -147,8 +147,7 @@ create_fra(int no_of_dirs)
    }
    else
    {
-      if ((fd = open(fra_id_file, (O_RDWR | O_CREAT),
-                     (S_IRUSR | S_IWUSR))) < 0)
+      if ((fd = open(fra_id_file, (O_RDWR | O_CREAT), FILE_MODE)) < 0)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Could not open %s : %s (%s %d)\n",
@@ -488,6 +487,9 @@ create_fra(int no_of_dirs)
    /* Reposition fra pointer after no_of_dirs */
    ptr = (char *)fra;
    ptr -= AFD_WORD_OFFSET;
+   *(ptr + 4) = 0;          /* Not used. */
+   *(ptr + 4 + 1) = 0;      /* Not used. */
+   *(ptr + 4 + 1 + 1) = 0;  /* Not used. */
    *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_FRA_VERSION; /* FRA version number */
    if (fra_size > 0)
    {

@@ -7,16 +7,18 @@
 #include <errno.h>
 #include "afddefs.h"
 #include "fddefs.h"
-#include "scp1defs.h"
+#include "scpdefs.h"
 
-int    timeout_flag;
-long   transfer_timeout = 30L;
-char   msg_str[MAX_RET_MSG_LENGTH],
-       tr_hostname[MAX_HOSTNAME_LENGTH + 1];
+int        sys_log_fd = STDERR_FILENO,
+           timeout_flag;
+long       transfer_timeout = 30L;
+char       msg_str[MAX_RET_MSG_LENGTH],
+           *p_work_dir,
+           tr_hostname[MAX_HOSTNAME_LENGTH + 1];
 struct job db;
 
 
-/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ ascp1 $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ ascp $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
@@ -27,15 +29,26 @@ main(int argc, char *argv[])
    char        block[1024];
    struct stat stat_buf;
 
-   if (argc != 2)
+   if ((argc != 2) && (argc != 5))
    {
-      (void)fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+      (void)fprintf(stderr, "Usage: %s <filename> [<user> <passwd> <host>]\n", argv[0]);
       exit(-1);
    }
-   if (scp1_connect("localhost", 22, NULL, NULL, ".") == -1)
+   if (argc == 5)
    {
-      (void)fprintf(stderr, "scp1_connect() failed\n");
-      exit(-1);
+      if (scp_connect(argv[4], 22, argv[2], argv[3], ".") == -1)
+      {
+         (void)fprintf(stderr, "scp_connect() failed\n");
+         exit(-1);
+      }
+   }
+   else
+   {
+      if (scp_connect("localhost", 22, NULL, NULL, ".") == -1)
+      {
+         (void)fprintf(stderr, "scp_connect() failed\n");
+         exit(-1);
+      }
    }
    if ((fd = open(argv[1], O_RDONLY)) == -1)
    {
@@ -49,9 +62,9 @@ main(int argc, char *argv[])
                     argv[1], strerror(errno));
       exit(-1);
    }
-   if (scp1_open_file(argv[1], stat_buf.st_size, stat_buf.st_mode) == -1)
+   if (scp_open_file(argv[1], stat_buf.st_size, stat_buf.st_mode) == -1)
    {
-      (void)fprintf(stderr, "scp1_open_file() %s failed\n", argv[1]);
+      (void)fprintf(stderr, "scp_open_file() %s failed\n", argv[1]);
       exit(-1);
    }
    loops = stat_buf.st_size / 1024;
@@ -65,9 +78,9 @@ main(int argc, char *argv[])
                        argv[1], strerror(errno));
          exit(-1);
       }
-      if (scp1_write(block, 1024) == -1)
+      if (scp_write(block, 1024) == -1)
       {
-         (void)fprintf(stderr, "scp1_write() %s failed\n", argv[1]);
+         (void)fprintf(stderr, "scp_write() %s failed\n", argv[1]);
          exit(-1);
       }
       fprintf(stdout, "*");
@@ -81,21 +94,21 @@ main(int argc, char *argv[])
                        argv[1], strerror(errno));
          exit(-1);
       }
-      if (scp1_write(block, rest) == -1)
+      if (scp_write(block, rest) == -1)
       {
-         (void)fprintf(stderr, "scp1_write() %s failed\n", argv[1]);
+         (void)fprintf(stderr, "scp_write() %s failed\n", argv[1]);
          exit(-1);
       }
    }
    fprintf(stdout, "*\n");
    fflush(stdout);
    (void)close(fd);
-   if (scp1_close_file() == -1)
+   if (scp_close_file() == -1)
    {
-      (void)fprintf(stderr, "scp1_close_file() %s failed\n", argv[1]);
+      (void)fprintf(stderr, "scp_close_file() %s failed\n", argv[1]);
       exit(-1);
    }
-   scp1_quit();
+   scp_quit();
 
    return(0);
 }

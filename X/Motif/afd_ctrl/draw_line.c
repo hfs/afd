@@ -927,8 +927,8 @@ draw_proc_stat(int pos, int job_no, int x, int y)
 
    /* Change color of letters when background color is to dark */
    if ((connect_data[pos].connect_status[job_no] == FTP_ACTIVE) ||
-#ifdef _WITH_SCP1_SUPPORT
-       (connect_data[pos].connect_status[job_no] == SCP1_ACTIVE) ||
+#ifdef _WITH_SCP_SUPPORT
+       (connect_data[pos].connect_status[job_no] == SCP_ACTIVE) ||
 #endif
        (connect_data[pos].connect_status[job_no] == CONNECTING))
    {

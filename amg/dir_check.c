@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,6 +73,7 @@ DESCR__S_M1
  **   12.04.2001 H.Kiehl Check pool directory for unfinished jobs.
  **   09.02.2002 H.Kiehl Wait for all children to terminate before exiting.
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
+ **   18.09.2003 H.Kiehl Check if time goes backward.
  **
  */
 DESCR__E_M1
@@ -132,6 +133,7 @@ int                        fra_id,         /* ID of FRA.                 */
                            receive_log_fd = STDERR_FILENO,
                            sys_log_fd = STDERR_FILENO,
                            *time_job_list = NULL;
+unsigned int               default_age_limit;
 size_t                     msg_fifo_buf_size;
 off_t                      amg_data_size,
                            max_copied_file_size;
@@ -143,6 +145,7 @@ off_t                      fra_size,
 pthread_mutex_t            fsa_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_t                  *thread;
 #else
+time_t                     *file_mtime_pool;
 off_t                      *file_size_pool;
 #endif
 uid_t                      afd_uid;
@@ -195,7 +198,7 @@ static void                check_fifo(int, int),
 static pid_t               get_one_zombie(pid_t);
 static int                 get_process_pos(pid_t),
 #ifdef _WITH_PTHREAD
-                           handle_dir(int, time_t, char *, char *, char *, off_t *, char **);
+                           handle_dir(int, time_t, char *, char *, char *, off_t *, time_t *, char **);
 #else
                            handle_dir(int, time_t, char *, char *, char *, int *);
 #endif
@@ -372,11 +375,11 @@ main(int argc, char *argv[])
 
    /* Tell user we are starting dir_check. */
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting dir_check (%d.%d.%d-pre%d)\n",
-             MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d-pre%d)\n",
+             DIR_CHECK, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting dir_check (%d.%d.%d)\n",
-             MAJOR, MINOR, BUG_FIX);
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
+             DIR_CHECK, MAJOR, MINOR, BUG_FIX);
 #endif
 
    /*
@@ -688,8 +691,13 @@ main(int argc, char *argv[])
                           {
                              /* The directory time has changed. New files */
                              /* have arrived!                             */
-                             if (handle_dir(i, start_time, NULL, NULL,
-                                            afd_file_dir, &pdf) == YES)
+                             /* NOTE: Directories where we may not remove */
+                             /*       are NOT counted as full. If we do   */
+                             /*       so we might end up in an endless    */
+                             /*       loop.                               */
+                             if ((handle_dir(i, start_time, NULL, NULL,
+                                             afd_file_dir, &pdf) == YES) &&
+                                 (fra[de[i].fra_pos].remove == YES))
                              {
                                 full_dir[fdc] = i;
                                 fdc++;
@@ -763,8 +771,22 @@ main(int argc, char *argv[])
                     }
                  } /* for (i = 0; i < no_of_local_dirs; i++) */
 
-#ifdef REPORT_DIR_TIME_INTERVAL
+                 /* Check if time went backwards. */
                  now = time(NULL);
+                 if ((now < start_time) && ((start_time - now) > 10))
+                 {
+                    for (i = 0; i < no_of_local_dirs; i++)
+                    {
+                       if (de[i].search_time > now)
+                       {
+                          de[i].search_time = now - 1;
+                       }
+                    }
+                    (void)rec(sys_log_fd, WARN_SIGN,
+                              "Time went backwards %d seconds. (%s %d)\n",
+                              (start_time - now), __FILE__, __LINE__);
+                 }
+#ifdef REPORT_DIR_TIME_INTERVAL
                  diff_time = now - start_time;
                  if (diff_time > max_diff_time)
                  {
@@ -1036,7 +1058,8 @@ do_one_dir(void *arg)
       /* The directory time has changed. New files */
       /* have arrived!                             */
       while (handle_dir(data->i, now, NULL, NULL, data->afd_file_dir,
-                        data->file_size_pool, data->file_name_pool) == YES)
+                        data->file_size_pool,
+                        data->file_mtime_pool, data->file_name_pool) == YES)
       {
          /*
           * There are still files left in the directory
@@ -1071,7 +1094,7 @@ do_one_dir(void *arg)
          now = time(NULL);
          while (handle_dir(data->i, now, p_paused_host, NULL,
                            data->afd_file_dir, data->file_size_pool,
-                           data->file_name_pool) == YES)
+                           data->file_mtime_pool, data->file_name_pool) == YES)
          {
             /*
              * There are still files left in the directory
@@ -1130,7 +1153,8 @@ check_pool_dir(time_t now)
             (void)strcat(work_ptr, "/");
 #ifdef _WITH_PTHREAD
             (void)handle_dir(-1, now, NULL, pool_dir, afd_file_dir,
-                             data->file_size_pool, data->file_name_pool);
+                             data->file_size_pool, data->file_mtime_pool,
+                             data->file_name_pool);
 #else
             (void)handle_dir(-1, now, NULL, pool_dir, afd_file_dir, NULL);
 #endif
@@ -1159,6 +1183,7 @@ check_pool_dir(time_t now)
                    dir_counter);
       }
    }
+   return;
 }
 
 
@@ -1171,6 +1196,7 @@ handle_dir(int    dir_no,
            char   *pool_dir,
            char   *afd_file_dir,
            off_t  *file_size_pool,
+           time_t *file_mtime_pool,
            char   **file_name_pool)
 #else
 handle_dir(int    dir_no,
@@ -1234,7 +1260,7 @@ handle_dir(int    dir_no,
                                    (host_name == NULL) ? YES : NO,
                                    current_time,
 #ifdef _WITH_PTHREAD
-                                   file_size_pool, file_name_pool,
+                                   file_size_pool, file_mtime_pool, file_name_pool,
 #endif
                                    &total_file_size);
       }
@@ -1243,7 +1269,7 @@ handle_dir(int    dir_no,
          (void)strcpy(orig_file_path, pool_dir);
 #ifdef _WITH_PTHREAD
          files_moved = count_pool_files(&dir_no, pool_dir,
-                                        file_size_pool, file_name_pool);
+                                        file_size_pool, file_mtime_pool, file_name_pool);
 #else
          files_moved = count_pool_files(&dir_no, pool_dir);
 #endif
@@ -1286,8 +1312,10 @@ handle_dir(int    dir_no,
                      {
                         if ((files_linked = link_files(orig_file_path,
                                                        afd_file_dir,
+                                                       current_time,
 #ifdef _WITH_PTHREAD
                                                        file_size_pool,
+                                                       file_mtime_pool,
                                                        file_name_pool,
 #endif
                                                        &de[dir_no],
@@ -1322,6 +1350,12 @@ handle_dir(int    dir_no,
                                                  unique_number,
                                                  creation_time,
                                                  de[dir_no].fme[j].pos[k],
+#ifdef _DELETE_LOG
+#ifdef _WITH_PTHREAD
+                                                 file_size_pool,
+                                                 file_name_pool,
+#endif
+#endif
                                                  files_linked,
                                                  file_size_linked);
                                     break;
@@ -1394,6 +1428,12 @@ handle_dir(int    dir_no,
                                                              tmp_unique_number,
                                                              tmp_creation_time,
                                                              de[dir_no].fme[j].pos[k],
+#ifdef _DELETE_LOG
+#ifdef _WITH_PTHREAD
+                                                             file_size_pool,
+                                                             file_name_pool,
+#endif
+#endif
                                                              split_files_renamed,
                                                              split_file_size_renamed);
                                              } /* if (split_files_linked > 0) */
@@ -1416,6 +1456,12 @@ handle_dir(int    dir_no,
                                                           unique_number,
                                                           creation_time,
                                                           de[dir_no].fme[j].pos[k],
+#ifdef _DELETE_LOG
+#ifdef _WITH_PTHREAD
+                                                          file_size_pool,
+                                                          file_name_pool,
+#endif
+#endif
                                                           files_linked,
                                                           file_size_linked);
                                           }
@@ -1431,6 +1477,12 @@ handle_dir(int    dir_no,
                                                        unique_number,
                                                        creation_time,
                                                        de[dir_no].fme[j].pos[k],
+#ifdef _DELETE_LOG
+#ifdef _WITH_PTHREAD
+                                                       file_size_pool,
+                                                       file_name_pool,
+#endif
+#endif
                                                        files_linked,
                                                        file_size_linked);
                                        }
@@ -1479,6 +1531,12 @@ handle_dir(int    dir_no,
                                            unique_number,
                                            creation_time,
                                            de[dir_no].fme[j].pos[k],
+#ifdef _DELETE_LOG
+#ifdef _WITH_PTHREAD
+                                           file_size_pool,
+                                           file_name_pool,
+#endif
+#endif
                                            files_linked,
                                            file_size_linked);
 #ifndef _WITH_PTHREAD
@@ -1504,8 +1562,11 @@ handle_dir(int    dir_no,
                            (void)strcpy(p_time_dir, db[de[dir_no].fme[j].pos[k]].str_job_id);
                            if (save_files(orig_file_path,
                                           time_dir,
+                                          current_time,
+                                          db[de[dir_no].fme[j].pos[k]].age_limit,
 #ifdef _WITH_PTHREAD
                                           file_size_pool,
+                                          file_mtime_pool,
                                           file_name_pool,
 #endif
                                           &de[dir_no],
@@ -1531,8 +1592,11 @@ handle_dir(int    dir_no,
                         /* files somewhere snug and save.                  */
                         if (save_files(orig_file_path,
                                        db[de[dir_no].fme[j].pos[k]].paused_dir,
+                                       current_time,
+                                       db[de[dir_no].fme[j].pos[k]].age_limit,
 #ifdef _WITH_PTHREAD
                                        file_size_pool,
+                                       file_mtime_pool,
                                        file_name_pool,
 #endif
                                        &de[dir_no],
@@ -1884,6 +1948,7 @@ check_fifo(int read_fd, int write_fd)
                          buffer[0], DC_CMD_FIFO, __FILE__, __LINE__);
                exit(INCORRECT);
          }
+         count++;
       } /* while (count < n) */
    }
 

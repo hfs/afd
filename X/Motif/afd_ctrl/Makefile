@@ -55,7 +55,10 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDCPROG)$(EXE_EXT)
+	@if [ "`find $(INSTDIR)/bin -user 0 -name $(AFDCPROG)$(EXE_EXT) -print`" = "" ] ; \
+	then \
+		chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDCPROG)$(EXE_EXT) ; \
+	fi
 
 sinstall :
 	strip $(PROGS)

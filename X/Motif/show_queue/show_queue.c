@@ -113,7 +113,7 @@ char                       *p_work_dir,
                            search_directory_name[MAX_PATH_LENGTH],
                            **search_recipient,
                            **search_user,
-                           user[MAX_FILENAME_LENGTH];
+                           user[MAX_FULL_USER_ID_LENGTH];
 struct sol_perm            perm;
 #ifdef _DELETE_LOG
 struct delete_log          dl;

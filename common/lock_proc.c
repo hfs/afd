@@ -68,7 +68,7 @@ char *
 lock_proc(int proc_id, int test_lock)
 {
    off_t        offset;
-   static char  user_str[100];
+   static char  user_str[MAX_FULL_USER_ID_LENGTH];
    char         file[MAX_PATH_LENGTH];
    struct stat  stat_buf;
    struct flock wlock;
@@ -104,7 +104,7 @@ lock_proc(int proc_id, int test_lock)
         }
 
    /* Position file desciptor over user */
-   offset = NO_OF_LOCK_PROC + ((proc_id + 1) * 100);
+   offset = NO_OF_LOCK_PROC + ((proc_id + 1) * MAX_FULL_USER_ID_LENGTH);
    if (lseek(fd, offset, SEEK_SET) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -134,7 +134,7 @@ lock_proc(int proc_id, int test_lock)
          return(NULL);
       }
 
-      if (read(fd, user_str, 100) != 100)
+      if (read(fd, user_str, MAX_FULL_USER_ID_LENGTH) != MAX_FULL_USER_ID_LENGTH)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "read() error : %s", strerror(errno));
@@ -155,7 +155,7 @@ lock_proc(int proc_id, int test_lock)
          if ((errno == EACCES) || (errno == EAGAIN))
          {
             /* The file is already locked. */
-            if (read(fd, user_str, 100) != 100)
+            if (read(fd, user_str, MAX_FULL_USER_ID_LENGTH) != MAX_FULL_USER_ID_LENGTH)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "read() error : %s", strerror(errno));
@@ -178,7 +178,7 @@ lock_proc(int proc_id, int test_lock)
       }
 
       get_user(user_str);
-      if (write(fd, user_str, 100) != 100)
+      if (write(fd, user_str, MAX_FULL_USER_ID_LENGTH) != MAX_FULL_USER_ID_LENGTH)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));

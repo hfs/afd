@@ -69,7 +69,7 @@ shutdown_mon(int silent_shutdown)
    char           buffer[DEFAULT_BUFFER_SIZE],
                   mon_cmd_fifo[MAX_PATH_LENGTH],
                   mon_resp_fifo[MAX_PATH_LENGTH],
-                  user[MAX_FILENAME_LENGTH];
+                  user[MAX_FULL_USER_ID_LENGTH];
    struct timeval timeout;
 
    /* Initialise variables */

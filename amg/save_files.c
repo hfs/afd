@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int save_files(char                   *src_path,
  **                  char                   *dest_path,
+ **                  time_t                 current_time,
+ **                  unsigned int           age_limit,
  **                  struct directory_entry *p_de,
  **                  int                    pos_in_fm,
  **                  int                    no_of_files,
@@ -56,6 +58,8 @@ DESCR__S_M3
  **                      saved.
  **   28.01.2002 H.Kiehl Forgot to update files and bytes received and
  **                      reverted above change.
+ **   13.07.2003 H.Kiehl Don't link/copy files that are older then the value
+ **                      specified in 'age-limit' option.
  **
  */
 DESCR__E_M3
@@ -75,17 +79,24 @@ extern int                        fra_fd,
                                   sys_log_fd;
 #ifndef _WITH_PTHREAD
 extern off_t                      *file_size_pool;
+extern time_t                     *file_mtime_pool;
 extern char                       **file_name_pool;
 #endif
 extern struct fileretrieve_status *fra;
+#ifdef _DELETE_LOG
+extern struct delete_log          dl;
+#endif
 
 
 /*########################### save_files() ##############################*/
 int
 save_files(char                   *src_path,
            char                   *dest_path,
+           time_t                 current_time,
+           unsigned int           age_limit,
 #ifdef _WITH_PTHREAD
            off_t                  *file_size_pool,
+           time_t                 *file_mtime_pool,
            char                   **file_name_pool,
 #endif
            struct directory_entry *p_de,
@@ -149,32 +160,154 @@ save_files(char                   *src_path,
          if ((retstat = pmatch(p_de->fme[pos_in_fm].file_mask[j],
                                file_name_pool[i])) == 0)
          {
-            (void)strcpy(p_src, file_name_pool[i]);
-            (void)strcpy(p_dest, file_name_pool[i]);
+            int diff_time = current_time - file_mtime_pool[i];
 
-            if (link_flag & IN_SAME_FILESYSTEM)
+            if (diff_time < 0)
             {
+               diff_time = 0;
+            }
+            (void)strcpy(p_src, file_name_pool[i]);
+            if ((age_limit > 0) && (diff_time > age_limit))
+            {
+#ifdef _DELETE_LOG
+               size_t dl_real_size;
+
+               (void)strcpy(dl.file_name, file_name_pool[i]);
+               (void)sprintf(dl.host_name, "%-*s %x",
+                             MAX_HOSTNAME_LENGTH, "-", AGE_INPUT);
+               *dl.file_size = file_size_pool[i];
+               *dl.job_number = p_de->dir_no;
+               *dl.file_name_length = strlen(file_name_pool[i]);
+               dl_real_size = *dl.file_name_length + dl.size +
+                              sprintf((dl.file_name + *dl.file_name_length + 1),
+                                      "%s >%d (%s %d)", DIR_CHECK,
+                                      diff_time, __FILE__, __LINE__);
+               if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+               {
+                  (void)rec(sys_log_fd, ERROR_SIGN,
+                            "write() error : %s (%s %d)\n",
+                            strerror(errno), __FILE__, __LINE__);
+               }
+#endif /* _DELETE_LOG */
                if (p_de->flag & RENAME_ONE_JOB_ONLY)
                {
-                  if (stat(dest_path, &stat_buf) != -1)
+                  if (unlink(src_path) == -1)
                   {
-                     if (unlink(dest_path) == -1)
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "Failed to unlink() file `%s' : %s (%s %d)\n",
+                               src_path, strerror(errno), __FILE__, __LINE__);
+                  }
+               }
+            }
+            else
+            {
+               (void)strcpy(p_dest, file_name_pool[i]);
+
+               if (link_flag & IN_SAME_FILESYSTEM)
+               {
+                  if (p_de->flag & RENAME_ONE_JOB_ONLY)
+                  {
+                     if (stat(dest_path, &stat_buf) != -1)
+                     {
+                        if (unlink(dest_path) == -1)
+                        {
+                           (void)rec(sys_log_fd, WARN_SIGN,
+                                     "Failed to unlink() file <%s> : %s (%s %d)\n",
+                                     dest_path, strerror(errno),
+                                     __FILE__, __LINE__);
+                        }
+                        else
+                        {
+                           files_deleted++;
+                           file_size_deleted += stat_buf.st_size;
+                        }
+                     }
+                     if ((retstat = rename(src_path, dest_path)) == -1)
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to unlink() file <%s> : %s (%s %d)\n",
-                                  dest_path, strerror(errno),
-                                  __FILE__, __LINE__);
+                                  "Failed to rename() file <%s> to <%s> (%s %d)\n",
+                                  src_path, dest_path, __FILE__, __LINE__);
+                        errno = 0;
                      }
                      else
                      {
-                        files_deleted++;
-                        file_size_deleted += stat_buf.st_size;
+                        files_saved++;
+                        file_size_saved += file_size_pool[i];
                      }
                   }
-                  if ((retstat = rename(src_path, dest_path)) == -1)
+                  else
+                  {
+                     if ((retstat = link(src_path, dest_path)) == -1)
+                     {
+                        if (errno == EEXIST)
+                        {
+                           off_t del_file_size = 0;
+
+                           if (stat(dest_path, &stat_buf) == -1)
+                           {
+                              (void)rec(sys_log_fd, WARN_SIGN,
+                                        "Failed to stat() %s : %s (%s %d)\n",
+                                        dest_path, strerror(errno),
+                                        __FILE__, __LINE__);
+                           }
+                           else
+                           {
+                              del_file_size = stat_buf.st_size;
+                           }
+
+                           /*
+                            * A file with the same name already exists. Remove
+                            * this file and try to link again.
+                            */
+                           if (unlink(dest_path) == -1)
+                           {
+                              (void)rec(sys_log_fd, WARN_SIGN,
+                                        "Failed to unlink() file <%s> : %s (%s %d)\n",
+                                        dest_path, strerror(errno),
+                                        __FILE__, __LINE__);
+                              errno = 0;
+                           }
+                           else
+                           {
+                              files_deleted++;
+                              file_size_deleted += del_file_size;
+                              if ((retstat = link(src_path, dest_path)) == -1)
+                              {
+                                 (void)rec(sys_log_fd, WARN_SIGN,
+                                           "Failed to link file <%s> to <%s> : %s (%s %d)\n",
+                                           src_path, dest_path, strerror(errno),
+                                           __FILE__, __LINE__);
+                                 errno = 0;
+                              }
+                              else
+                              {
+                                 files_saved++;
+                                 file_size_saved += file_size_pool[i];
+                              }
+                           }
+                        }
+                        else
+                        {
+                           (void)rec(sys_log_fd, WARN_SIGN,
+                                     "Failed to link file <%s> to <%s> : %s (%s %d)\n",
+                                     src_path, dest_path, strerror(errno),
+                                     __FILE__, __LINE__);
+                           errno = 0;
+                        }
+                     }
+                     else
+                     {
+                        files_saved++;
+                        file_size_saved += file_size_pool[i];
+                     }
+                  }
+               }
+               else
+               {
+                  if ((retstat = copy_file(src_path, dest_path, NULL)) < 0)
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to rename() file <%s> to <%s> (%s %d)\n",
+                               "Failed to copy file <%s> to <%s> (%s %d)\n",
                                src_path, dest_path, __FILE__, __LINE__);
                      errno = 0;
                   }
@@ -182,97 +315,16 @@ save_files(char                   *src_path,
                   {
                      files_saved++;
                      file_size_saved += file_size_pool[i];
-                  }
-               }
-               else
-               {
-                  if ((retstat = link(src_path, dest_path)) == -1)
-                  {
-                     if (errno == EEXIST)
+                     if (p_de->flag & RENAME_ONE_JOB_ONLY)
                      {
-                        off_t del_file_size = 0;
-
-                        if (stat(dest_path, &stat_buf) == -1)
-                        {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to stat() %s : %s (%s %d)\n",
-                                     dest_path, strerror(errno),
-                                     __FILE__, __LINE__);
-                        }
-                        else
-                        {
-                           del_file_size = stat_buf.st_size;
-                        }
-
-                        /*
-                         * A file with the same name already exists. Remove
-                         * this file and try to link again.
-                         */
-                        if (unlink(dest_path) == -1)
+                        if (unlink(src_path) == -1)
                         {
                            (void)rec(sys_log_fd, WARN_SIGN,
                                      "Failed to unlink() file <%s> : %s (%s %d)\n",
-                                     dest_path, strerror(errno),
+                                     src_path, strerror(errno),
                                      __FILE__, __LINE__);
                            errno = 0;
                         }
-                        else
-                        {
-                           files_deleted++;
-                           file_size_deleted += del_file_size;
-                           if ((retstat = link(src_path, dest_path)) == -1)
-                           {
-                              (void)rec(sys_log_fd, WARN_SIGN,
-                                        "Failed to link file <%s> to <%s> : %s (%s %d)\n",
-                                        src_path, dest_path, strerror(errno),
-                                        __FILE__, __LINE__);
-                              errno = 0;
-                           }
-                           else
-                           {
-                              files_saved++;
-                              file_size_saved += file_size_pool[i];
-                           }
-                        }
-                     }
-                     else
-                     {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to link file <%s> to <%s> : %s (%s %d)\n",
-                                  src_path, dest_path, strerror(errno),
-                                  __FILE__, __LINE__);
-                        errno = 0;
-                     }
-                  }
-                  else
-                  {
-                     files_saved++;
-                     file_size_saved += file_size_pool[i];
-                  }
-               }
-            }
-            else
-            {
-               if ((retstat = copy_file(src_path, dest_path, NULL)) < 0)
-               {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to copy file <%s> to <%s> (%s %d)\n",
-                            src_path, dest_path, __FILE__, __LINE__);
-                  errno = 0;
-               }
-               else
-               {
-                  files_saved++;
-                  file_size_saved += file_size_pool[i];
-                  if (p_de->flag & RENAME_ONE_JOB_ONLY)
-                  {
-                     if (unlink(src_path) == -1)
-                     {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to unlink() file <%s> : %s (%s %d)\n",
-                                  src_path, strerror(errno),
-                                  __FILE__, __LINE__);
-                        errno = 0;
                      }
                   }
                }

@@ -655,9 +655,9 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       last_select = cur_pos;
 
       if ((fsa[cur_pos].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-          (fsa[cur_pos].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+          (fsa[cur_pos].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
           (fsa[cur_pos].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
@@ -669,7 +669,6 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(host_switch_toggle_w, True);
          XtSetSensitive(real_hostname_1_w, True);
          XtSetSensitive(transfer_timeout_w, True);
-         XtSetSensitive(retry_interval_w, True);
 
          /* Activate/Deactivate 2nd host name string. */
          if (fsa[cur_pos].host_toggle_str[0] == '\0')
@@ -754,16 +753,6 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          }
          XtVaSetValues(transfer_timeout_w, XmNvalue, numeric_str, NULL);
 
-         if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
-         {
-            (void)sprintf(numeric_str, "%d", ce[cur_pos].retry_interval);
-         }
-         else
-         {
-            (void)sprintf(numeric_str, "%d", fsa[cur_pos].retry_interval);
-         }
-         XtVaSetValues(retry_interval_w, XmNvalue, numeric_str, NULL);
-
          if (fsa[cur_pos].auto_toggle == ON)
          {
             XtSetSensitive(successful_retries_label_w, True);
@@ -801,7 +790,6 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(real_hostname_1_w, False);
          XtSetSensitive(real_hostname_2_w, False);
          XtSetSensitive(transfer_timeout_w, False);
-         XtSetSensitive(retry_interval_w, False);
          XtSetSensitive(successful_retries_label_w, False);
          XtSetSensitive(successful_retries_w, False);
       }
@@ -861,6 +849,16 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(ftp_keepalive_w, False);
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
       }
+
+      if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
+      {
+         (void)sprintf(numeric_str, "%d", ce[cur_pos].retry_interval);
+      }
+      else
+      {
+         (void)sprintf(numeric_str, "%d", fsa[cur_pos].retry_interval);
+      }
+      XtVaSetValues(retry_interval_w, XmNvalue, numeric_str, NULL);
 
       if (ce[cur_pos].value_changed & MAX_ERRORS_CHANGED)
       {
@@ -1017,8 +1015,8 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
 #ifdef _WITH_WMO_SUPPORT
           || (fsa[cur_pos].protocol & WMO_FLAG)
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-          || (fsa[cur_pos].protocol & SCP1_FLAG))
+#ifdef _WITH_SCP_SUPPORT
+          || (fsa[cur_pos].protocol & SCP_FLAG))
 #else
          )
 #endif
@@ -1071,7 +1069,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
    /* Ensure that the FSA we are mapped to is up to date */
    if (check_fsa() == YES)
    {
-      char user[MAX_FILENAME_LENGTH];
+      char user[MAX_FULL_USER_ID_LENGTH];
 
       get_user(user);
       (void)rec(sys_log_fd, DEBUG_SIGN,
@@ -1117,7 +1115,9 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          if (ce[i].value_changed & REAL_HOSTNAME_2_CHANGED)
          {
-            if (ce[i].real_hostname[1][0] != '\0')
+            if ((ce[i].real_hostname[1][0] != '\0') ||
+                ((ce[i].real_hostname[1][0] == '\0') &&
+                 (ce[i].host_switch_toggle != ON)))
             {
                (void)strcpy(fsa[i].real_hostname[1], ce[i].real_hostname[1]);
                ce[i].real_hostname[1][0] = -1;
@@ -1401,7 +1401,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
            }
            else
            {
-              char user[100];
+              char user[MAX_FULL_USER_ID_LENGTH];
 
               (void)sprintf(msg, "Changed alias order in FSA");
               get_user(user);
@@ -1427,7 +1427,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
    if (changes != 0)
    {
       int  line_length;
-      char user[100];
+      char user[MAX_FULL_USER_ID_LENGTH];
 
       get_user(user);
       (void)rec(sys_log_fd, CONFIG_SIGN, "%s (%s)\n", msg, user);

@@ -77,6 +77,7 @@ DESCR__S_M3
  **                      regardless if they are to be retrieved or not.
  **   12.07.2002 H.Kiehl Check if we can already delete any old files that
  **                      have no distribution rule.
+ **   13.07.2003 H.Kiehl Store mtime of file.
  **
  */
 DESCR__E_M3
@@ -114,6 +115,7 @@ extern char                       *il_file_name,
 #endif /* _INPUT_LOG */
 #ifndef _WITH_PTHREAD
 extern off_t                      *file_size_pool;
+extern time_t                     *file_mtime_pool;
 extern char                       **file_name_pool;
 #endif
 #ifdef _WITH_PTHREAD
@@ -141,6 +143,7 @@ check_files(struct directory_entry *p_de,
             time_t                 current_time,
 #ifdef _WITH_PTHREAD
             off_t                  *file_size_pool,
+            time_t                 *file_mtime_pool,
             char                   **file_name_pool,
 #endif
             off_t                  *total_file_size)
@@ -286,6 +289,7 @@ check_files(struct directory_entry *p_de,
                   (void)strcpy(ptr, p_dir->d_name);
 
                   if ((fra[p_de->fra_pos].remove == YES) ||
+                      (count_files == NO) ||  /* Paused directory. */
                       (fra[p_de->fra_pos].protocol != LOC))
                   {
                      if (p_de->flag & IN_SAME_FILESYSTEM)
@@ -346,6 +350,7 @@ check_files(struct directory_entry *p_de,
                      /* are available. Hope this will reduce the    */
                      /* system time of the process dir_check.       */
                      (void)strcpy(file_name_pool[files_copied], p_dir->d_name);
+                     file_mtime_pool[files_copied] = stat_buf.st_mtime;
                      file_size_pool[files_copied] = stat_buf.st_size;
 
                      *total_file_size += stat_buf.st_size;
@@ -487,6 +492,7 @@ check_files(struct directory_entry *p_de,
                            /* Generate name for the new file. */
                            (void)strcpy(ptr, p_dir->d_name);
                            if ((fra[p_de->fra_pos].remove == YES) ||
+                               (count_files == NO) ||  /* Paused directory. */
                                (fra[p_de->fra_pos].protocol != LOC))
                            {
                               if (p_de->flag & IN_SAME_FILESYSTEM)
@@ -547,6 +553,7 @@ check_files(struct directory_entry *p_de,
                               /* are available. Hope this will reduce the    */
                               /* system time of the process dir_check.       */
                               (void)strcpy(file_name_pool[files_copied], p_dir->d_name);
+                              file_mtime_pool[files_copied] = stat_buf.st_mtime;
                               file_size_pool[files_copied] = stat_buf.st_size;
 
                               *total_file_size += stat_buf.st_size;

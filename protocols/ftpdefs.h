@@ -20,9 +20,6 @@
 #ifndef __ftpdefs_h
 #define __ftpdefs_h
 
-/* Define to flush every FTP write command. */
-#define _FLUSH_FTP_WRITE
-
 #ifndef MAX_FILENAME_LENGTH
 #define MAX_FILENAME_LENGTH       256
 #endif

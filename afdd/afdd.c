@@ -83,7 +83,7 @@ off_t                      fsa_size;
 clock_t                    clktck;
 char                       afd_config_file[MAX_PATH_LENGTH],
                            afd_name[MAX_AFD_NAME_LENGTH],
-                           hostname[50],
+                           hostname[MAX_FULL_USER_ID_LENGTH],
                            *p_work_dir,
                            *p_work_dir_end,
                            **trusted_host = NULL;
@@ -144,18 +144,58 @@ main(int argc, char *argv[])
    (void)memset(pid, 0, MAX_AFDD_CONNECTIONS * sizeof(pid_t));
    if ((ptr = getenv("LOGNAME")) != NULL)
    {
-      (void)strcat(hostname, ptr);
-      (void)strcat(hostname, "@");
+      length = strlen(ptr);
+      if (length > 0)
+      {
+         if ((length + 1) < MAX_FULL_USER_ID_LENGTH)
+         {
+            (void)strcpy(hostname, ptr);
+            (void)strcat(hostname, "@");
+            length++;
+         }
+         else
+         {
+            memcpy(hostname, ptr, MAX_FULL_USER_ID_LENGTH - 1);
+            hostname[MAX_FULL_USER_ID_LENGTH - 1] = '\0';
+            length = MAX_FULL_USER_ID_LENGTH;
+         }
+      }
+      else
+      {
+         if (8 < MAX_FULL_USER_ID_LENGTH)
+         {
+            (void)strcpy(hostname, "unknown@");
+            length = 8;
+         }
+         else
+         {
+            hostname[0] = '\0';
+            length = 0;
+         }
+      }
    }
    else
    {
-      (void)strcat(hostname, "unknown");
-      (void)strcat(hostname, "@");
+      if (8 < MAX_FULL_USER_ID_LENGTH)
+      {
+         (void)strcpy(hostname, "unknown@");
+         length = 8;
+      }
+      else
+      {
+         hostname[0] = '\0';
+         length = 0;
+      }
    }
-   length = strlen(hostname);
-   if (gethostname(&hostname[length], 21) != 0)
+   if (length < MAX_FULL_USER_ID_LENGTH)
    {
-      (void)strcat(hostname, "unknown");
+      if (gethostname(&hostname[length], MAX_FULL_USER_ID_LENGTH - length) != 0)
+      {
+         if ((length + 7) < MAX_FULL_USER_ID_LENGTH)
+         {
+            (void)strcpy(&hostname[length], "unknown");
+         }
+      }
    }
    (void)strcpy(port_no, DEFAULT_AFD_PORT_NO);
    get_afd_config_value(port_no);
@@ -210,6 +250,15 @@ main(int argc, char *argv[])
                 "Could not set signal handlers : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
+   }
+
+   if ((ptr = lock_proc(AFDD_LOCK_ID, NO)) != NULL)
+   {
+      (void)fprintf(stderr, "Process AFDD already started by %s : (%s %d)\n",
+                    ptr, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Process AFDD already started by %s", ptr);
+      _exit(INCORRECT);
    }
 
    /*

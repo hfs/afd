@@ -1,6 +1,6 @@
 /*
  *  lookup_job_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   20.01.1998 H.Kiehl Created
+ **   26.08.2003 H.Kiehl Ensure that the options are not to long.
  **
  */
 DESCR__E_M3
@@ -156,7 +157,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
          (void)sprintf(p_db->str_job_id, "%d", jd[i].job_id);
 
          /* Touch the message file so FD knows this is a new file */
-         (void)sprintf(p_msg_dir, "%d", p_db->job_id);
+         (void)strcpy(p_msg_dir, p_db->str_job_id);
          if (utime(msg_dir, NULL) == -1)
          {
             if (errno == ENOENT)
@@ -255,17 +256,48 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
    (void)strcpy(jd[*no_of_job_ids].recipient, p_db->recipient);
    if (p_db->loptions != NULL)
    {
+      size_t length = 0;
+
       ptr = p_db->loptions;
-      for (i = 0; i < p_db->no_of_loptions; i++)
+      for (i = 0; ((i < p_db->no_of_loptions) && (length < MAX_OPTION_LENGTH)); i++)
       {
-         NEXT(ptr);
+         while ((*ptr != '\0') && ((length + 1) < MAX_OPTION_LENGTH))
+         {
+            ptr++; length++;
+         }
+         ptr++; length++;
       }
-      (void)memcpy(jd[*no_of_job_ids].loptions, p_db->loptions,
-                   (ptr - p_db->loptions));
+      if (length >= MAX_OPTION_LENGTH)
+      {
+         (void)rec(sys_log_fd, WARN_SIGN,
+                   "Unable to store all AMG options in job data structure [%d > %d]. (%s %d)\n",
+                   length, MAX_OPTION_LENGTH, __FILE__, __LINE__);
+         length = MAX_OPTION_LENGTH;
+         (void)memcpy(jd[*no_of_job_ids].loptions, p_db->loptions, length - 1);
+         jd[*no_of_job_ids].loptions[length - 1] = '\0';
+      }
+      else
+      {
+         (void)memcpy(jd[*no_of_job_ids].loptions, p_db->loptions, length);
+      }
    }
    if (p_db->soptions != NULL)
    {
-      (void)strcpy(jd[*no_of_job_ids].soptions, p_db->soptions);
+      size_t length;
+
+      length = strlen(p_db->soptions);
+      if (length >= (MAX_OPTION_LENGTH - 1))
+      {
+         (void)rec(sys_log_fd, WARN_SIGN,
+                   "Unable to store all FD options in job data structure [%d > %d]. (%s %d)\n",
+                   length, MAX_OPTION_LENGTH, __FILE__, __LINE__);
+         (void)memcpy(jd[*no_of_job_ids].soptions, p_db->soptions, MAX_OPTION_LENGTH);
+         jd[*no_of_job_ids].soptions[MAX_OPTION_LENGTH - 1] = '\0';
+      }
+      else
+      {
+         (void)memcpy(jd[*no_of_job_ids].soptions, p_db->soptions, length);
+      }
    }
    (void)memcpy(jd[*no_of_job_ids].host_alias, p_db->host_alias, MAX_HOSTNAME_LENGTH + 1);
    p_db->job_id = *jid_number;

@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -263,32 +263,6 @@ Widget   w;
                }
             }
             no_of_long_lines++;
-
-            /*
-             * If this line has been selected in the old
-             * connect_data structure, we have to make sure
-             * that this host has not been deleted. If it
-             * is deleted reduce the select counter!
-             */
-            if (i < prev_no_of_hosts)
-            {
-               if (check_fsa_data(connect_data[i].hostname) == INCORRECT)
-               {
-                  if (connect_data[i].long_pos == -1)
-                  {
-                     no_of_short_lines--;
-                  }
-                  else
-                  {
-                     no_of_long_lines--;
-                  }
-                  if (connect_data[i].inverse == ON)
-                  {
-                     /* Host has been deleted */
-                     no_selected--;
-                  }
-               }
-            }
          }
       }
 
@@ -296,27 +270,23 @@ Widget   w;
        * Ensure that we really have checked all hosts in old
        * structure.
        */
-      if (prev_no_of_hosts > no_of_hosts)
+      for (i = 0; i < prev_no_of_hosts; i++)
       {
-         while (i < prev_no_of_hosts)
+         if (check_fsa_data(connect_data[i].hostname) == INCORRECT)
          {
-            if (check_fsa_data(connect_data[i].hostname) == INCORRECT)
+            if (connect_data[i].long_pos == -1)
             {
-               if (connect_data[i].long_pos == -1)
-               {
-                  no_of_short_lines--;
-               }
-               else
-               {
-                  no_of_long_lines--;
-               }
-               if (connect_data[i].inverse == ON)
-               {
-                  /* Host has been deleted */
-                  no_selected--;
-               }
+               no_of_short_lines--;
             }
-            i++;
+            else
+            {
+               no_of_long_lines--;
+            }
+            if (connect_data[i].inverse == ON)
+            {
+               /* Host has been deleted */
+               no_selected--;
+            }
          }
       }
 

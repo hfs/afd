@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -88,9 +88,11 @@ extern int                    max_process,
                               sys_log_fd;
 extern size_t                 msg_fifo_buf_size;
 extern off_t                  max_copied_file_size;
+extern unsigned int           default_age_limit;
 #ifdef _WITH_PTHREAD
 extern pthread_t              *thread;
 #else
+extern time_t                 *file_mtime_pool;
 extern off_t                  *file_size_pool;
 #endif
 extern uid_t                  afd_uid;
@@ -228,6 +230,12 @@ init_dir_check(int    argc,
    {
       p_data[i].i = i;
       RT_ARRAY(p_data[i].file_name_pool, max_copied_files, MAX_FILENAME_LENGTH, char);
+      if ((p_data[i].file_mtime_pool = malloc(max_copied_files * sizeof(off_t))) == NULL)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
       if ((p_data[i].file_size_pool = malloc(max_copied_files * sizeof(off_t))) == NULL)
       {
          (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
@@ -243,6 +251,12 @@ init_dir_check(int    argc,
       de[i].fme = NULL;
    }
    RT_ARRAY(file_name_pool, max_copied_files, MAX_FILENAME_LENGTH, char);
+   if ((file_mtime_pool = malloc(max_copied_files * sizeof(off_t))) == NULL)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
    if ((file_size_pool = malloc(max_copied_files * sizeof(off_t))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
@@ -488,6 +502,15 @@ get_afd_config_value(void)
          dir_check_timeout = DIR_CHECK_TIMEOUT;
       }
 #endif
+      if (get_definition(buffer, DEFAULT_AGE_LIMIT_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         default_age_limit = (unsigned int)atoi(value);
+      }
+      else
+      {
+         default_age_limit = DEFAULT_AGE_LIMIT;
+      }
       free(buffer);
    }
    else
@@ -498,6 +521,7 @@ get_afd_config_value(void)
 #ifndef _WITH_PTHREAD
       dir_check_timeout = DIR_CHECK_TIMEOUT;
 #endif
+      default_age_limit = DEFAULT_AGE_LIMIT;
    }
 
    return;

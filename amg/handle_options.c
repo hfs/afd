@@ -82,6 +82,16 @@ DESCR__S_M3
  **                    structures that the option 'extract' can handle,
  **                    except for MRZ. In addition it can generate the
  **                    ASCII format.
+ **   convert XXX    - Converts a file from one format into another.
+ **                    Currently the following is implemented:
+ **                    sohetx2wmo0 - converts a file that contains many ascii
+ **                                  bulletins starting with SOH and ending
+ **                                  with ETX to the WMO standart (8 byte
+ **                                  ascii length and 2 bytes type
+ **                                  indicators). The SOH and ETX will NOT be
+ **                                  copied to the new file.
+ **                    sohetx2wmo1 - same as above only that here the SOH and
+ **                                  ETX will copied to the new file.
  **
  ** RETURN VALUES
  **   Returns INCORRECT when it fails to perform the action. Otherwise
@@ -106,6 +116,7 @@ DESCR__S_M3
  **                      in the job directory.
  **   29.06.2002 H.Kiehl Added options toupper and tolower.
  **   28.02.2003 H.Kiehl Added grib2wmo.
+ **   01.10.2003 H.Kiehl Added convert.
  **
  */
 DESCR__E_M3
@@ -1882,6 +1893,70 @@ search_again:
                *files_to_send = restore_files(file_path, file_size);
             }
 #else
+         }
+
+         free(file_name_buffer);
+#endif
+         NEXT(options);
+         continue;
+      }
+
+      /* Check if we want convert a file from one format to another. */
+      if (strncmp(options, CONVERT_ID, CONVERT_ID_LENGTH) == 0)
+      {
+#ifdef _WITH_PTHREAD
+         int file_counter = 0;
+
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
+         {
+#else
+            int  file_counter = *files_to_send;
+#endif
+            int  convert_type;
+            char *p_convert_id;
+
+            p_convert_id = options + CONVERT_ID_LENGTH + 1;
+            if ((*p_convert_id == 's') && (*(p_convert_id + 1) == 'o') &&
+                (*(p_convert_id + 2) == 'h') && (*(p_convert_id + 3) == 'e') &&
+                (*(p_convert_id + 4) == 't') && (*(p_convert_id + 5) == 'x') &&
+                (*(p_convert_id + 6) == '2') && (*(p_convert_id + 7) == 'w') &&
+                (*(p_convert_id + 8) == 'm') && (*(p_convert_id + 9) == 'o') &&
+                (*(p_convert_id + 10) == '0'))
+            {
+               convert_type = SOHETX2WMO0;
+            }
+            else if ((*p_convert_id == 's') && (*(p_convert_id + 1) == 'o') &&
+                     (*(p_convert_id + 2) == 'h') &&
+                     (*(p_convert_id + 3) == 'e') &&
+                     (*(p_convert_id + 4) == 't') &&
+                     (*(p_convert_id + 5) == 'x') &&
+                     (*(p_convert_id + 6) == '2') &&
+                     (*(p_convert_id + 7) == 'w') &&
+                     (*(p_convert_id + 8) == 'm') &&
+                     (*(p_convert_id + 9) == 'o') &&
+                     (*(p_convert_id + 10) == '1'))
+                 {
+                    convert_type = SOHETX2WMO1;
+                 }
+                 else
+                 {
+                    receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                "Unknown convert ID (%s) in DIR_CONFIG file.",
+                                p_convert_id);
+                    NEXT(options);
+                    continue;
+                 }
+            for (j = 0; j < file_counter; j++)
+            {
+               if ((convert(file_path, p_file_name, convert_type, file_size)) < 0)
+               {
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                              "Unable to convert file %s", p_file_name);
+               }
+               p_file_name += MAX_FILENAME_LENGTH;
+            }
+#ifdef _WITH_PTHREAD
          }
 
          free(file_name_buffer);

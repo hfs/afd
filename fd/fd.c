@@ -559,9 +559,6 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, DEBUG_SIGN,
              "FD configuration: FD rescan interval         %d (sec)\n",
              FD_RESCAN_TIME);
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "FD configuration: Default age limit          %d (sec)\n",
-             default_age_limit);
    abnormal_term_check_time = (time(&now) / 45) * 45 + 45;
    next_dir_check_time = ((now / DIR_CHECK_TIME) * DIR_CHECK_TIME) +
                          DIR_CHECK_TIME;
@@ -2163,12 +2160,12 @@ make_process(struct connection *con)
         {
            args[0] = SEND_FILE_LOC;
         }
-#ifdef _WITH_SCP1_SUPPORT
-   else if (con->protocol == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+   else if (con->protocol == SCP)
         {
-           args[0] = SEND_FILE_SCP1;
+           args[0] = SEND_FILE_SCP;
         }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    else if (con->protocol == WMO)
         {

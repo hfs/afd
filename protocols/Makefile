@@ -9,7 +9,7 @@ LIB     = libprotocols.a
 HEADERS = ../init_afd/afddefs.h ../config.h ../fd/fddefs.h
 OBJS    = encode_base64.o\
           ftpcmd.o\
-          scp1cmd.o\
+          scpcmd.o\
           smtpcmd.o\
           wmocmd.o
 

@@ -214,7 +214,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            *ptr_ping_cmd,
                            *traceroute_cmd = NULL,
                            *ptr_traceroute_cmd,
-                           user[MAX_FILENAME_LENGTH];
+                           user[MAX_FULL_USER_ID_LENGTH];
 clock_t                    clktck;
 struct apps_list           *apps_list = NULL;
 struct coord               coord[3][LOG_FIFO_SIZE];
@@ -900,16 +900,60 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    }
 
    /* Locate positions for long and short version of line in dialog. */
-   for (i = 0; i < no_of_short_lines; i++)
+   if (no_of_short_lines > 0)
    {
-      for (j = 0; j < no_of_hosts; j++)
+      int gotcha,
+          stale_short_lines = NO;
+
+      /*
+       * We must first make shure that all hosts in our short host list
+       * are still in the FSA. It could be that they have been removed.
+       * In that case we must remove those hosts from the list.
+       */
+      for (i = 0; i < no_of_short_lines; i++)
       {
-         if ((connect_data[j].short_pos == -1) &&
-             (strcmp(connect_data[j].hostname, hosts[i]) == 0))
+         gotcha = NO;
+         for (j = 0; j < no_of_hosts; j++)
          {
-            connect_data[j].short_pos = i;
-            connect_data[j].long_pos = -1;
-            break;
+            if (strcmp(connect_data[j].hostname, hosts[i]) == 0)
+            {
+               gotcha = YES;
+               break;
+            }
+         }
+         if (gotcha == NO)
+         {
+            if (no_of_short_lines > 1)
+            {
+               for (j = i; j < (no_of_short_lines - 1); j++)
+               {
+                  memcpy(hosts[j], hosts[j + 1], MAX_HOSTNAME_LENGTH + 1);
+               }
+            }
+            no_of_short_lines--;
+            stale_short_lines = YES;
+            i--;
+         }
+      }
+      if (stale_short_lines == YES)
+      {
+         /* We must update the setup file or else these stale */
+         /* entries always remain there.                      */
+         write_setup(filename_display_length, -1, hosts,
+                     no_of_short_lines, MAX_HOSTNAME_LENGTH);
+      }
+
+      for (i = 0; i < no_of_short_lines; i++)
+      {
+         for (j = 0; j < no_of_hosts; j++)
+         {
+            if ((connect_data[j].short_pos == -1) &&
+                (strcmp(connect_data[j].hostname, hosts[i]) == 0))
+            {
+               connect_data[j].short_pos = i;
+               connect_data[j].long_pos = -1;
+               break;
+            }
          }
       }
    }

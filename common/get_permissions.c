@@ -56,9 +56,7 @@ DESCR__E_M3
 #include <unistd.h>             /* read(), close(), getuid()             */
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef _WITH_UID_CHECK
 #include <pwd.h>                /* getpwuid()                            */
-#endif
 #include <fcntl.h>
 #include <errno.h>
 
@@ -76,22 +74,13 @@ get_permissions(char **perm_buffer)
                  user[256],
                  afd_user_file[MAX_PATH_LENGTH];
    struct stat   stat_buf;
-#ifdef _WITH_UID_CHECK
    struct passwd *pwd;
-#endif
 
    user[0] = '\n';
-#ifdef _WITH_UID_CHECK
    if ((pwd = getpwuid(getuid())) != NULL)
    {
       (void)strcpy(&user[1], pwd->pw_name);
    }
-#else
-   if ((ptr = getenv("LOGNAME")) != NULL)
-   {
-      (void)strcpy(&user[1], ptr);
-   }
-#endif
    else
    {
       (void)strcpy(&user[1], "unknown");

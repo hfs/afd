@@ -122,7 +122,7 @@ main(int argc, char *argv[])
    char             host_config_file[MAX_PATH_LENGTH],
                     *perm_buffer,
                     *ptr,
-                    user[128],
+                    user[MAX_FULL_USER_ID_LENGTH],
                     sys_log_fifo[MAX_PATH_LENGTH],
                     work_dir[MAX_PATH_LENGTH];
    struct stat      stat_buf;

@@ -601,15 +601,15 @@ main(int argc, char *argv[])
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_FILE);
-#ifdef _WITH_SCP1_SUPPORT
-   toggle_w = XtVaCreateManagedWidget("SCP1",
+#ifdef _WITH_SCP_SUPPORT
+   toggle_w = XtVaCreateManagedWidget("SCP",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
                                 XmNset,                    True,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggled, (XtPointer)SHOW_SCP1);
-#endif /* _WITH_SCP1_SUPPORT */
+                 (XtCallbackProc)toggled, (XtPointer)SHOW_SCP);
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    toggle_w = XtVaCreateManagedWidget("WMO",
                                 xmToggleButtonGadgetClass, togglebox_w,
@@ -632,8 +632,8 @@ main(int argc, char *argv[])
 
    toggles_set = SHOW_FTP |
                  SHOW_SMTP |
-#ifdef _WITH_SCP1_SUPPORT
-                 SHOW_SCP1 |
+#ifdef _WITH_SCP_SUPPORT
+                 SHOW_SCP |
 #endif
 #ifdef _WITH_WMO_SUPPORT
                  SHOW_WMO |

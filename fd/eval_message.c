@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -71,6 +71,7 @@ DESCR__S_M3
  **   03.07.2002 H.Kiehl Added charset option.
  **   30.07.2002 H.Kiehl Check if subject string contains a %t to insert
  **                      a date.
+ **   15.07.2003 H.Kiehl Added option "rename file busy".
  **
  */
 DESCR__E_M3
@@ -128,6 +129,8 @@ extern int transfer_log_fd;
 #ifdef _WITH_TRANS_EXEC
 #define TRANS_EXEC_FLAG           67108864
 #endif /* _WITH_TRANS_EXEC */
+#define RENAME_FILE_BUSY_FLAG     134217728
+#define LOCK_POSTFIX_FLAG         268435456
 
 #define MAX_HUNK                  4096
 
@@ -215,7 +218,7 @@ eval_message(char *message_name, struct job *p_db)
    byte_buf = *end_ptr;
    *end_ptr = '\0';
 
-   if (eval_recipient(ptr, p_db, message_name) < 0)
+   if (eval_recipient(ptr, p_db, message_name, 0) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Message %s has a faulty recipient.", message_name);
@@ -280,7 +283,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                     byte_buf = *end_ptr;
                     *end_ptr = '\0';
-                    p_db->age_limit = atoi(ptr);
+                    p_db->age_limit = (unsigned int)atoi(ptr);
                     *end_ptr = byte_buf;
                     ptr = end_ptr;
                     while (*ptr == '\n')
@@ -289,6 +292,52 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
 #endif
+            else if (((used & LOCK_POSTFIX_FLAG) == 0) &&
+                     (strncmp(ptr, LOCK_POSTFIX_ID, LOCK_POSTFIX_ID_LENGTH) == 0))
+                 {
+                    size_t length = 0;
+
+                    used |= LOCK_POSTFIX_FLAG;
+                    ptr += LOCK_POSTFIX_ID_LENGTH;
+                    while ((*ptr == ' ') || (*ptr == '\t'))
+                    {
+                       ptr++;
+                    }
+                    end_ptr = ptr;
+                    while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                    {
+                       end_ptr++;
+                       length++;
+                    }
+                    if (length > 0)
+                    {
+                       if (length > 39)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Lock postfix notation `%s' in message `%s' is %d Bytes long, it may only be 40 Bytes long.",
+                                     LOCK_POSTFIX_ID, message_name, length);
+                          p_db->lock = OFF;
+                       }
+                       else
+                       {
+                          p_db->lock = POSTFIX;
+                          memcpy(p_db->lock_notation, ptr, length);
+                          p_db->lock_notation[length] = '\0';
+                       }
+                    }
+                    else
+                    {
+                       p_db->lock = OFF;
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "No postfix found for option `%s' in message `%s'.",
+                                  LOCK_POSTFIX_ID, message_name);
+                    }
+                    ptr = end_ptr;
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
             else if (((used & LOCK_FLAG) == 0) &&
                      (strncmp(ptr, LOCK_ID, LOCK_ID_LENGTH) == 0))
                  {
@@ -301,7 +350,7 @@ eval_message(char *message_name, struct job *p_db)
                     end_ptr = ptr;
                     while ((*end_ptr != '\n') && (*end_ptr != '\0'))
                     {
-                      end_ptr++;
+                       end_ptr++;
                     }
                     byte_buf = *end_ptr;
                     *end_ptr = '\0';
@@ -338,18 +387,9 @@ eval_message(char *message_name, struct job *p_db)
                             length = strlen(ptr);
                             if (length > 39)
                             {
-                               if (length > 127)
-                               {
-                                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                                             "Lock notation in message %s is %d Bytes long, it may only be 40 Bytes long.",
-                                             length, message_name);
-                               }
-                               else
-                               {
-                                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                                             "Lock notation <%s> in message %s is %d Bytes long, it may only be 40 Bytes long.",
-                                             ptr, length, message_name);
-                               }
+                               system_log(WARN_SIGN, __FILE__, __LINE__,
+                                          "Lock notation `%s' in message `%s' is %d Bytes long, it may only be 40 Bytes long.",
+                                          LOCK_ID, message_name, length);
                                p_db->lock = OFF;
                             }
                             else
@@ -1646,6 +1686,25 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
 #endif /* _RADAR_CHECK */
+            else if (((used & RENAME_FILE_BUSY_FLAG) == 0) &&
+                     (strncmp(ptr, RENAME_FILE_BUSY_ID, RENAME_FILE_BUSY_ID_LENGTH) == 0))
+                 {
+                    used |= RENAME_FILE_BUSY_FLAG;
+                    ptr += RENAME_FILE_BUSY_ID_LENGTH;
+                    while ((*ptr == ' ') || (*ptr == '\t'))
+                    {
+                       ptr++;
+                    }
+                    if (isascii(*ptr))
+                    {
+                      p_db->rename_file_busy = *ptr;
+                      ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
             else if (((used & CHANGE_FTP_MODE_FLAG) == 0) &&
                      (strncmp(ptr, PASSIVE_FTP_MODE, PASSIVE_FTP_MODE_LENGTH) == 0))
                  {

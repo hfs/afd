@@ -158,7 +158,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            line_style,
                            font_name[20],
                            blink_flag,
-                           user[MAX_FILENAME_LENGTH],
+                           user[MAX_FULL_USER_ID_LENGTH],
                            username[MAX_USER_NAME_LENGTH];
 clock_t                    clktck;
 struct tms                 tmsdummy;

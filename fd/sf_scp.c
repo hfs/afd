@@ -1,6 +1,6 @@
 /*
- *  sf_scp1.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  sf_scp.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 2001 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,10 +22,10 @@
 DESCR__S_M1
 /*
  ** NAME
- **   sf_scp1 - send files via the SCP1 protocol
+ **   sf_scp - send files via the SCP protocol
  **
  ** SYNOPSIS
- **   sf_scp1 [options]
+ **   sf_scp [options]
  **
  **   options
  **       --version               - Version
@@ -33,8 +33,8 @@ DESCR__S_M1
  **                                 AFD
  **
  ** DESCRIPTION
- **   sf_scp1 sends the given files to the defined recipient via the
- **   SCP1 protocol by using the ssh program.
+ **   sf_scp sends the given files to the defined recipient via the
+ **   SCP protocol by using the ssh program.
  **
  **   In the message file will be the data it needs about the
  **   remote host in the following format:
@@ -56,6 +56,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   04.05.2001 H.Kiehl Created
+ **   10.03.2003 F.Olivie (Alf) Added more proper exit status.
  **
  */
 DESCR__E_M1
@@ -74,7 +75,7 @@ DESCR__E_M1
 #include <unistd.h>                    /* unlink(), close()              */
 #include <errno.h>
 #include "fddefs.h"
-#include "scp1defs.h"
+#include "scpdefs.h"
 #include "version.h"
 
 /* Global variables */
@@ -97,7 +98,6 @@ off_t                      fsa_size;
 off_t                      *file_size_buffer = NULL;
 long                       transfer_timeout;
 char                       host_deleted = NO,
-                           initial_filename[MAX_FILENAME_LENGTH],
                            msg_str[MAX_RET_MSG_LENGTH],
                            *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
@@ -110,9 +110,9 @@ struct rule                *rule;
 struct delete_log          dl;
 #endif
 
-#ifdef _WITH_SCP1_SUPPORT
+#ifdef _WITH_SCP_SUPPORT
 /* Local functions */
-static void sf_scp1_exit(void),
+static void sf_scp_exit(void),
             sig_bus(int),
             sig_segv(int),
             sig_kill(int),
@@ -124,7 +124,7 @@ static void sf_scp1_exit(void),
 int
 main(int argc, char *argv[])
 {
-#ifdef _WITH_SCP1_SUPPORT
+#ifdef _WITH_SCP_SUPPORT
 #ifdef _VERIFY_FSA
    unsigned int     ui_variable;
 #endif
@@ -162,6 +162,7 @@ main(int argc, char *argv[])
 #endif
                     *buffer,
                     final_filename[MAX_FILENAME_LENGTH],
+                    initial_filename[MAX_FILENAME_LENGTH],
                     remote_filename[MAX_PATH_LENGTH],
                     fullname[MAX_PATH_LENGTH],
                     file_path[MAX_PATH_LENGTH],
@@ -189,16 +190,21 @@ main(int argc, char *argv[])
 #endif
 
    /* Do some cleanups when we exit */
-   if (atexit(sf_scp1_exit) != 0)
+   if (atexit(sf_scp_exit) != 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not register exit function : %s", strerror(errno));
       exit(INCORRECT);
    }
 
+#ifdef LINUX
+   /* Unset DISPLAY if exists. */
+   unsetenv("DISPLAY");
+#endif
+
    /* Initialise variables */
    p_work_dir = work_dir;
-   files_to_send = init_sf(argc, argv, file_path, SCP1_FLAG);
+   files_to_send = init_sf(argc, argv, file_path, SCP_FLAG);
    p_db = &db;
    blocksize = fsa[db.fsa_pos].block_size;
 
@@ -228,7 +234,7 @@ main(int argc, char *argv[])
                       &ol_size,
                       &ol_transfer_time,
                       db.host_alias,
-                      SCP1);
+                      SCP);
    }
 #endif
 
@@ -255,12 +261,18 @@ main(int argc, char *argv[])
    }
 
    /* Connect to remote SSH-server via local SSH-client. */
-   if ((status = scp1_connect(db.hostname, db.port, db.user,
-                              db.password, db.target_dir)) != SUCCESS)
+   if (fsa[db.fsa_pos].debug == YES)
+   {
+      msg_str[0] = '\0';
+      trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                   "Trying to make scp connect at port %d.", db.port);
+   }
+   if ((status = scp_connect(db.hostname, db.port, db.user,
+                             db.password, db.target_dir)) != SUCCESS)
    {
       msg_str[0] = '\0';
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "SCP1 connection to %s at port %d failed (%d).",
+                "SCP connection to %s at port %d failed (%d).",
                 db.hostname, db.port, status);
       exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
    }
@@ -268,21 +280,29 @@ main(int argc, char *argv[])
    {
       if (fsa[db.fsa_pos].debug == YES)
       {
+         msg_str[0] = '\0';
          trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                       "Connected to port %d.", db.port);
       }
    }
 
    /*
-    * Since there is no way to rename files under SCP1, lets try
+    * Since there is no way to rename files under SCP, lets try
     * and open another normal ssh connection via which we will
     * do the renaming.
     */
    if ((db.lock == DOT) || (db.lock == DOT_VMS) ||
        (db.trans_rename_rule[0] != '\0') || (db.chmod_str[0] != '\0'))
    {
-      if ((status = scp1_cmd_connect(db.hostname, db.port, db.user,
-                                     db.password, db.target_dir)) < 0)
+      if (fsa[db.fsa_pos].debug == YES)
+      {
+         msg_str[0] = '\0';
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                      "Trying to open a command connection at port %d.",
+                      db.port);
+      }
+      if ((status = scp_cmd_connect(db.hostname, db.port, db.user,
+                                    db.password, db.target_dir)) < 0)
       {
          msg_str[0] = '\0';
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -320,7 +340,7 @@ main(int argc, char *argv[])
       }
       if (host_deleted == NO)
       {
-         fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = SCP1_ACTIVE;
+         fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = SCP_ACTIVE;
          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = files_to_send;
 
          /* Number of connections. */
@@ -407,7 +427,7 @@ main(int argc, char *argv[])
             }
             if (host_deleted == NO)
             {
-               fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = SCP1_BURST_TRANSFER_ACTIVE;
+               fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = SCP_BURST_TRANSFER_ACTIVE;
                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done + files_to_send;
                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size = fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done + file_size_to_send;
             }
@@ -460,6 +480,10 @@ main(int argc, char *argv[])
          else
          {
             (void)strcpy(initial_filename, p_file_name_buffer);
+            if (db.lock == POSTFIX)
+            {
+               (void)strcat(initial_filename, db.lock_notation);
+            }
          }
 
 #ifdef _OUTPUT_LOG
@@ -470,8 +494,14 @@ main(int argc, char *argv[])
 #endif
 
          /* Open file on remote site. */
-         if ((status = scp1_open_file(initial_filename, *p_file_size_buffer,
-                                      db.chmod)) == INCORRECT)
+         if (fsa[db.fsa_pos].debug == YES)
+         {
+            msg_str[0] = '\0';
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                         "Trying to open remote file %s.", initial_filename);
+         }
+         if ((status = scp_open_file(initial_filename, *p_file_size_buffer,
+                                     db.chmod)) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to open remote file <%s> (%d).",
@@ -480,7 +510,7 @@ main(int argc, char *argv[])
             trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                       fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                       fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-            scp1_quit();
+            scp_quit();
             exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
          }
          else
@@ -504,7 +534,7 @@ main(int argc, char *argv[])
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               scp1_quit();
+               scp_quit();
                exit(OPEN_LOCAL_ERROR);
             }
             if (fsa[db.fsa_pos].debug == YES)
@@ -547,7 +577,7 @@ main(int argc, char *argv[])
                buffer[header_length + 2] = '\012'; /* LF */
                header_length += 3;
 
-               if ((status = scp1_write(buffer, header_length)) != SUCCESS)
+               if ((status = scp_write(buffer, header_length)) != SUCCESS)
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to write WMO header to remote file <%s> [%d]",
@@ -557,7 +587,7 @@ main(int argc, char *argv[])
                             "%d Bytes send in %d file(s).",
                             fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                             fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                  scp1_quit();
+                  scp_quit();
                   exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
                if (host_deleted == NO)
@@ -595,12 +625,12 @@ main(int argc, char *argv[])
                             "%d Bytes send in %d file(s).",
                             fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                             fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                  scp1_quit();
+                  scp_quit();
                   exit(READ_LOCAL_ERROR);
                }
                if (bytes_buffered > 0)
                {
-                  if ((status = scp1_write(buffer, bytes_buffered)) != SUCCESS)
+                  if ((status = scp_write(buffer, bytes_buffered)) != SUCCESS)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                "Failed to write block from file <%s> to remote port %d [%d].",
@@ -610,7 +640,7 @@ main(int argc, char *argv[])
                                "%d Bytes send in %d file(s).",
                                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                     scp1_quit();
+                     scp_quit();
                      exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
 
@@ -660,7 +690,7 @@ main(int argc, char *argv[])
                          p_file_name_buffer, strerror(errno));
                /*
                 * Since we usually do not send more then 100 files and
-                * sf_scp1() will exit(), there is no point in stopping
+                * sf_scp() will exit(), there is no point in stopping
                 * the transmission.
                 */
             }
@@ -671,7 +701,7 @@ main(int argc, char *argv[])
                buffer[1] = '\015';
                buffer[2] = '\012';
                buffer[3] = 3;  /* ETX */
-               if ((status = scp1_write(buffer, 4)) != SUCCESS)
+               if ((status = scp_write(buffer, 4)) != SUCCESS)
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to write <CR><CR><LF><ETX> to remote file <%s> [%d]",
@@ -681,7 +711,7 @@ main(int argc, char *argv[])
                             "%d Bytes send in %d file(s).",
                             fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                             fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                  scp1_quit();
+                  scp_quit();
                   exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
 
@@ -704,7 +734,13 @@ main(int argc, char *argv[])
             }
          }
 
-         if ((status = scp1_close_file()) == INCORRECT)
+         if (fsa[db.fsa_pos].debug == YES)
+         {
+            msg_str[0] = '\0';
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                         "Trying to close remote file %s.", initial_filename);
+         }
+         if ((status = scp_close_file()) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to close remote file <%s>", initial_filename);
@@ -712,13 +748,14 @@ main(int argc, char *argv[])
             trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                       fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                       fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-            scp1_quit();
+            scp_quit();
             exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
          }
          else
          {
             if (fsa[db.fsa_pos].debug == YES)
             {
+               msg_str[0] = '\0';
                trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                             "Closed data connection for file <%s>.",
                             initial_filename);
@@ -733,7 +770,14 @@ main(int argc, char *argv[])
 #endif
          if (db.chmod_str[0] != '\0')
          {
-            if ((status = scp1_chmod(initial_filename,
+            if (fsa[db.fsa_pos].debug == YES)
+            {
+               msg_str[0] = '\0';
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Trying to chmod %s to %s.",
+                            initial_filename, db.chmod_str);
+            }
+            if ((status = scp_chmod(initial_filename,
                                     db.chmod_str)) != SUCCESS)
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__,
@@ -753,7 +797,7 @@ main(int argc, char *argv[])
          }
 
          /* If we used dot notation, don't forget to rename */
-         if ((db.lock == DOT) || (db.lock == DOT_VMS) ||
+         if ((db.lock == DOT) || (db.lock == POSTFIX) || (db.lock == DOT_VMS) ||
              (db.trans_rename_rule[0] != '\0'))
          {
             remote_filename[0] = '\0';
@@ -782,8 +826,15 @@ main(int argc, char *argv[])
             {
                (void)strcpy(remote_filename, final_filename);
             }
-            if ((status = scp1_move(initial_filename,
-                                    remote_filename)) != SUCCESS)
+            if (fsa[db.fsa_pos].debug == YES)
+            {
+               msg_str[0] = '\0';
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Trying to move %s to %s.",
+                            initial_filename, remote_filename);
+            }
+            if ((status = scp_move(initial_filename,
+                                   remote_filename)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
                          "Failed to move remote file <%s> to <%s> (%d)",
@@ -792,13 +843,14 @@ main(int argc, char *argv[])
                trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               (void)scp1_quit();
+               (void)scp_quit();
                exit((timeout_flag == ON) ? TIMEOUT_ERROR : MOVE_REMOTE_ERROR);
             }
             else
             {
                if (fsa[db.fsa_pos].debug == YES)
                {
+                  msg_str[0] = '\0';
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                                "Renamed remote file <%s> to <%s>",
                                initial_filename, remote_filename);
@@ -1121,9 +1173,16 @@ main(int argc, char *argv[])
    (void)rec(transfer_log_fd, INFO_SIGN, "%s\n", line_buffer);
 
    /* Disconnect from remote port */
-   scp1_quit();
-   if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+   if (fsa[db.fsa_pos].debug == YES)
    {
+      msg_str[0] = '\0';
+      trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                   "Trying to disconnect after successful transmission.");
+   }
+   scp_quit();
+   if (fsa[db.fsa_pos].debug == YES)
+   {
+      msg_str[0] = '\0';
       trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                    "Disconnected from host %s.", db.hostname);
    }
@@ -1147,20 +1206,27 @@ main(int argc, char *argv[])
                  "There are still %d files for <%s>. Will NOT remove this job!",
                  files_to_send - files_send, file_path);
    }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 
    exitflag = 0;
    exit(TRANSFER_SUCCESS);
 }
 
 
-#ifdef _WITH_SCP1_SUPPORT
-/*++++++++++++++++++++++++++++ sf_scp1_exit() +++++++++++++++++++++++++++*/
+#ifdef _WITH_SCP_SUPPORT
+/*++++++++++++++++++++++++++++ sf_scp_exit() ++++++++++++++++++++++++++++*/
 static void
-sf_scp1_exit(void)
+sf_scp_exit(void)
 {
    int  fd;
    char sf_fin_fifo[MAX_PATH_LENGTH];
+
+   /*
+    * Try to exit properly if possible
+    * (we might have gotten interrupted).
+    * Nothing will happen over there if scp_quit has already been called.
+    */
+   scp_quit();
 
    reset_fsa((struct job *)&db, exitflag);
 
@@ -1243,4 +1309,4 @@ sig_exit(int signo)
    reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */

@@ -21,22 +21,24 @@
 #define __smtpdefs_h
 
 #define SMTP_HOST_NAME      "localhost"
-#define DEFAULT_SMTP_PORT   25
+#define DEFAULT_SMTP_PORT       25
 
 #ifndef MAX_RET_MSG_LENGTH
-#define MAX_RET_MSG_LENGTH  1024
+#define MAX_RET_MSG_LENGTH      1024
 #endif
+#define MAX_CONTENT_TYPE_LENGTH 25
 
 /* Function prototypes */
-extern int encode_base64(unsigned char *, int, unsigned char *),
-           smtp_connect(char *, int),
-           smtp_helo(char *),
-           smtp_user(char *),
-           smtp_rcpt(char *),
-           smtp_open(void),
-           smtp_write(char *, char *, int),
-           smtp_write_iso8859(char *, char *, int),
-           smtp_close(void),
-           smtp_quit(void);
+extern int  encode_base64(unsigned char *, int, unsigned char *),
+            smtp_connect(char *, int),
+            smtp_helo(char *),
+            smtp_user(char *),
+            smtp_rcpt(char *),
+            smtp_open(void),
+            smtp_write(char *, char *, int),
+            smtp_write_iso8859(char *, char *, int),
+            smtp_close(void),
+            smtp_quit(void);
+extern void get_content_type(char *, char *);
 
 #endif /* __smtpdefs_h */

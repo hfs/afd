@@ -429,7 +429,7 @@ write_setup(int  filename_display_length,
    }
    if (hosts != NULL)
    {
-      buf_length += ((strlen(UNIMPORTANT_ID) + 1 + max_hostname_length) *
+      buf_length += ((strlen(UNIMPORTANT_ID) + 1 + max_hostname_length + 1) *
                      max_no_hosts);
    }
    if ((buffer = malloc(buf_length)) == NULL)

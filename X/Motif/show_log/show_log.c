@@ -646,7 +646,7 @@ main(int argc, char *argv[])
    argcount = 0;
    XtSetArg(args[argcount], XmNrows,                   9);
    argcount++;
-   XtSetArg(args[argcount], XmNcolumns,                80);
+   XtSetArg(args[argcount], XmNcolumns,                DEFAULT_SHOW_LOG_WIDTH);
    argcount++;
    XtSetArg(args[argcount], XmNeditable,               False);
    argcount++;

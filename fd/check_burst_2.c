@@ -66,8 +66,8 @@ DESCR__E_M3
 #include "fddefs.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
-#ifdef _WITH_SCP1_SUPPORT
-#include "scp1defs.h"
+#ifdef _WITH_SCP_SUPPORT
+#include "scpdefs.h"
 #endif
 #ifdef _WITH_WMO_SUPPORT
 #include "wmodefs.h"
@@ -203,7 +203,7 @@ retry:
                      p_new_db->mode_flag            = 0;
                      p_new_db->archive_time         = DEFAULT_ARCHIVE_TIME;
 #ifdef _AGE_LIMIT
-                     p_new_db->age_limit            = DEFAULT_AGE_LIMIT;
+                     p_new_db->age_limit            = db.age_limit;
 #endif
 #ifdef _OUTPUT_LOG
                      p_new_db->output_log           = YES;
@@ -213,6 +213,7 @@ retry:
                      p_new_db->chmod_str[0]         = '\0';
                      p_new_db->trans_rename_rule[0] = '\0';
                      p_new_db->user_rename_rule[0]  = '\0';
+                     p_new_db->rename_file_busy     = '\0';
                      p_new_db->no_of_restart_files  = 0;
                      p_new_db->restart_file         = NULL;
                      p_new_db->user_id              = -1;
@@ -221,8 +222,8 @@ retry:
                      {
                         p_new_db->port = DEFAULT_FTP_PORT;
                      }
-#ifdef _WITH_SCP1_SUPPORT
-                     else if (db.protocol & SCP1_FLAG)
+#ifdef _WITH_SCP_SUPPORT
+                     else if (db.protocol & SCP_FLAG)
                           {
                              p_new_db->port = DEFAULT_SSH_PORT;
                              p_new_db->chmod = FILE_MODE;

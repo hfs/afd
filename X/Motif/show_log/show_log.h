@@ -34,6 +34,8 @@
 #define MISS                    0
 #define HIT                     1
 
+#define DEFAULT_SHOW_LOG_WIDTH  92
+
 #define SYSTEM_STR              "System"
 #define RECEIVE_STR             "Receive"
 #define TRANSFER_STR            "Transfer"

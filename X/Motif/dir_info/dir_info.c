@@ -710,7 +710,7 @@ init_dir_info(int *argc, char *argv[])
    }
 
    /* Attach to the FRA */
-   if (fra_attach() < 0)
+   if (fra_attach_passive() < 0)
    {
       (void)fprintf(stderr, "Failed to attach to FRA. (%s %d)\n",
                     __FILE__, __LINE__);

@@ -87,7 +87,10 @@ install :
 	cd $(INSTDIR)/bin && rm -f $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT)
 	cp -p $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT) $(INSTDIR)/bin
 	cd $(INSTDIR)/bin && chmod $(BINMODE) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT)
-	cd $(INSTDIR)/bin && chmod $(SUIDMODE) $(MAFDPROG)$(EXE_EXT)
+	@if [ "`find $(INSTDIR)/bin -user 0 -name $(MAFDPROG)$(EXE_EXT) -print`" = "" ] ; \
+	then \
+		cd $(INSTDIR)/bin && chmod $(SUIDMODE) $(MAFDPROG)$(EXE_EXT) ; \
+	fi
 	cd $(INSTDIR)/sbin && rm -f $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(MCMDPROG)$(EXE_EXT)
 	cp -p $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(MCMDPROG)$(EXE_EXT) $(INSTDIR)/sbin
 	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(MCMDPROG)$(EXE_EXT)

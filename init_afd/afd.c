@@ -136,7 +136,7 @@ main(int argc, char *argv[])
                   block_file[MAX_PATH_LENGTH],
                   exec_cmd[MAX_PATH_LENGTH],
                   sys_log_fifo[MAX_PATH_LENGTH],
-                  user[MAX_FILENAME_LENGTH],
+                  user[MAX_FULL_USER_ID_LENGTH],
                   buffer[2];
    fd_set         rset;
    struct timeval timeout;

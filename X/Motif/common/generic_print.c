@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ DESCR__S_M3
  **   void print_data(void)
  **   int  prepare_printer(int *)
  **   int  prepare_file(int *)
+ **   void send_mail_cmd(char *)
  **
  ** DESCRIPTION
  **
@@ -38,6 +39,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   18.03.2000 H.Kiehl Created
+ **   11.08.2003 H.Kiehl Added option to send data as mail.
  **
  */
 DESCR__E_M3
@@ -47,6 +49,7 @@ DESCR__E_M3
 #include <stdlib.h>              /* exit()                               */
 #include <signal.h>              /* signal()                             */
 #include <sys/types.h>
+#include <unistd.h>              /* unlink(), getpid()                   */
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <Xm/Xm.h>
@@ -81,8 +84,11 @@ extern char    font_name[];
 static Widget  printer_text_w,
                printer_radio_w,
                file_text_w,
-               file_radio_w;
-static char    printer_cmd[PRINTER_INFO_LENGTH + 1],
+               file_radio_w,
+               mail_text_w,
+               mail_radio_w;
+static char    mailto[MAX_RECIPIENT_LENGTH],
+               printer_cmd[PRINTER_INFO_LENGTH + 1],
                printer_name[PRINTER_INFO_LENGTH + 1];
 
 /* Local function prototypes. */
@@ -90,7 +96,8 @@ static void    cancel_print_button(Widget, XtPointer, XtPointer),
                device_select(Widget, XtPointer, XtPointer),
                range_select(Widget, XtPointer, XtPointer),
                save_file_name(Widget, XtPointer, XtPointer),
-               save_printer_name(Widget, XtPointer, XtPointer);
+               save_printer_name(Widget, XtPointer, XtPointer),
+               save_mail_address(Widget, XtPointer, XtPointer);
 
 
 /*############################# print_data() ############################*/
@@ -332,6 +339,7 @@ print_data(void)
                         XmNmarginWidth,      1,
                         XmNshadowThickness,  1,
                         XmNcolumns,          20,
+                        XmNmaxLength,        PRINTER_INFO_LENGTH,
                         XmNvalue,            printer_name,
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNleftAttachment,   XmATTACH_WIDGET,
@@ -342,6 +350,7 @@ print_data(void)
                         NULL);
       XtAddCallback(printer_text_w, XmNlosingFocusCallback, save_printer_name, 0);
       XtManageChild(inputline_w);
+      device_type = PRINTER_TOGGLE;
 
       /* Create selection line to select a file to store the data. */
       inputline_w = XtVaCreateWidget("input_line",
@@ -364,7 +373,6 @@ print_data(void)
                         NULL);
       XtAddCallback(file_radio_w, XmNvalueChangedCallback,
                     (XtCallbackProc)device_select, (XtPointer)FILE_TOGGLE);
-      device_type = PRINTER_TOGGLE;
 
       /* A text box to enter the files name. */
       file_text_w = XtVaCreateManagedWidget("file_name",
@@ -374,6 +382,7 @@ print_data(void)
                         XmNmarginWidth,      1,
                         XmNshadowThickness,  1,
                         XmNcolumns,          20,
+                        XmNmaxLength,        MAX_PATH_LENGTH - 1,
                         XmNvalue,            file_name,
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNleftAttachment,   XmATTACH_WIDGET,
@@ -385,6 +394,50 @@ print_data(void)
       XtAddCallback(file_text_w, XmNlosingFocusCallback, save_file_name, 0);
       XtSetSensitive(file_text_w, False);
       XtManageChild(inputline_w);
+
+      /* Create selection line to mail the data. */
+      inputline_w = XtVaCreateWidget("input_line",
+                        xmFormWidgetClass,  form_w,
+                        XmNtopAttachment,   XmATTACH_WIDGET,
+                        XmNtopWidget,       inputline_w,
+                        XmNtopOffset,       5,
+                        XmNrightAttachment, XmATTACH_FORM,
+                        XmNleftAttachment,  XmATTACH_FORM,
+                        NULL);
+
+      mail_radio_w = XtVaCreateManagedWidget("Mailto ",
+                        xmToggleButtonGadgetClass, inputline_w,
+                        XmNindicatorType,          XmONE_OF_MANY,
+                        XmNfontList,               p_fontlist,
+                        XmNset,                    False,
+                        XmNtopAttachment,          XmATTACH_FORM,
+                        XmNleftAttachment,         XmATTACH_FORM,
+                        XmNbottomAttachment,       XmATTACH_FORM,
+                        NULL);
+      XtAddCallback(mail_radio_w, XmNvalueChangedCallback,
+                    (XtCallbackProc)device_select, (XtPointer)MAIL_TOGGLE);
+
+      /* A text box to enter the mailto address. */
+      mail_text_w = XtVaCreateManagedWidget("mailto",
+                        xmTextWidgetClass,   inputline_w,
+                        XmNfontList,         p_fontlist,
+                        XmNmarginHeight,     1,
+                        XmNmarginWidth,      1,
+                        XmNshadowThickness,  1,
+                        XmNcolumns,          20,
+                        XmNmaxLength,        MAX_RECIPIENT_LENGTH - 1,
+                        XmNvalue,            mailto,
+                        XmNtopAttachment,    XmATTACH_FORM,
+                        XmNleftAttachment,   XmATTACH_WIDGET,
+                        XmNleftWidget,       mail_radio_w,
+                        XmNrightAttachment,  XmATTACH_FORM,
+                        XmNrightOffset,      5,
+                        XmNbottomAttachment, XmATTACH_FORM,
+                        NULL);
+      XtAddCallback(mail_text_w, XmNlosingFocusCallback, save_mail_address, 0);
+      XtSetSensitive(mail_text_w, False);
+      XtManageChild(inputline_w);
+
       XtManageChild(form_w);
       XtManageChild(criteriabox_w);
       XtManageChild(main_form_w);
@@ -443,6 +496,40 @@ prepare_file(int *fd)
 }
 
 
+/*########################## send_mail_cmd() ############################*/
+void
+send_mail_cmd(char *message)
+{
+   int  ret;
+   char buffer[MAX_PATH_LENGTH + MAX_PATH_LENGTH],
+        cmd[MAX_PATH_LENGTH];
+
+   (void)sprintf(cmd, "%s -a %s -s \"AFD log data\" -t 20 %s",
+                 ASMTP, mailto, file_name);
+   if ((ret = exec_cmd(cmd, buffer)) != 0)
+   {
+      (void)xrec(toplevel_w, ERROR_DIALOG,
+                 "Failed to send mail command `%s' [%d] : %s (%s %d)",
+                 cmd, ret, buffer, __FILE__, __LINE__);
+      XtPopdown(printshell);
+      if (message != NULL)
+      {
+         (void)sprintf(message, "Failed to send mail (%d).", ret);
+      }
+   }
+   else
+   {
+      if (message != NULL)
+      {
+         (void)sprintf(message, "Send mail to %s.", mailto);
+      }
+   }
+   (void)unlink(file_name);
+
+   return;
+}
+
+
 /*+++++++++++++++++++++++ cancel_print_button() +++++++++++++++++++++++++*/
 static void
 cancel_print_button(Widget w, XtPointer client_data, XtPointer call_data)
@@ -471,18 +558,31 @@ device_select(Widget w, XtPointer client_data, XtPointer call_data)
 
    if (device_type == PRINTER_TOGGLE)
    {
+      XtVaSetValues(mail_radio_w, XmNset, False, NULL);
+      XtSetSensitive(mail_text_w, False);
       XtVaSetValues(file_radio_w, XmNset, False, NULL);
       XtSetSensitive(file_text_w, False);
       XtVaSetValues(printer_radio_w, XmNset, True, NULL);
       XtSetSensitive(printer_text_w, True);
    }
-   else
-   {
-      XtVaSetValues(printer_radio_w, XmNset, False, NULL);
-      XtSetSensitive(printer_text_w, False);
-      XtVaSetValues(file_radio_w, XmNset, True, NULL);
-      XtSetSensitive(file_text_w, True);
-   }
+   else if (device_type == FILE_TOGGLE)
+        {
+           XtVaSetValues(mail_radio_w, XmNset, False, NULL);
+           XtSetSensitive(mail_text_w, False);
+           XtVaSetValues(printer_radio_w, XmNset, False, NULL);
+           XtSetSensitive(printer_text_w, False);
+           XtVaSetValues(file_radio_w, XmNset, True, NULL);
+           XtSetSensitive(file_text_w, True);
+        }
+        else
+        {
+           XtVaSetValues(file_radio_w, XmNset, False, NULL);
+           XtSetSensitive(file_text_w, False);
+           XtVaSetValues(printer_radio_w, XmNset, False, NULL);
+           XtSetSensitive(printer_text_w, False);      
+           XtVaSetValues(mail_radio_w, XmNset, True, NULL);
+           XtSetSensitive(mail_text_w, True);
+        }
 
    return;
 }
@@ -509,6 +609,20 @@ save_file_name(Widget w, XtPointer client_data, XtPointer call_data)
 
    (void)strcpy(file_name, value);
    XtFree(value);
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++ save_mail_address() ++++++++++++++++++++++++++*/
+static void
+save_mail_address(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   char *value = XmTextGetString(w);
+
+   (void)strcpy(mailto, value);
+   XtFree(value);
+   (void)sprintf(file_name, "mail_log_file_%d", getpid());
 
    return;
 }

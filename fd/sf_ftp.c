@@ -176,9 +176,7 @@ main(int argc, char *argv[])
                     no_of_bytes;
 #ifdef _WITH_BURST_2
    int              disconnect = NO;
-   unsigned int     burst_2_counter = 0,
-                    total_append_count = 0,
-                    values_changed = 0;
+   unsigned int     values_changed = 0;
 #endif /* _WITH_BURST_2 */
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
@@ -775,24 +773,8 @@ main(int argc, char *argv[])
       {
          off_t file_size_to_send = 0;
 
-         lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
-         rlock_region(fsa_fd, lock_offset);
-         if (check_fsa() == YES)
-         {
-            if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
-                                                no_of_hosts)) == INCORRECT)
-            {
-               host_deleted = YES;
-               lock_offset = -1;
-            }
-            else
-            {
-               lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
-               rlock_region(fsa_fd, lock_offset);
-               lock_region_w(fsa_fd,
-                             (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
-            }
-         }
+         lock_region_w(fsa_fd,
+                       (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
          if ((files_to_send = get_file_names(file_path,
                                              &file_size_to_send)) < 1)
          {
@@ -809,10 +791,6 @@ main(int argc, char *argv[])
                           files_to_send, file_path, db.my_pid, (int)db.job_no);
             }
             fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
-            if (lock_offset != -1)
-            {
-               unlock_region(fsa_fd, lock_offset);
-            }
             break;
          }
          burst_counter = fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter;
@@ -821,6 +799,8 @@ main(int argc, char *argv[])
          /* Tell user we are bursting. */
          if (host_deleted == NO)
          {
+            lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
+            rlock_region(fsa_fd, lock_offset);
             if (check_fsa() == YES)
             {
                if ((db.fsa_pos = get_host_position(fsa,
@@ -841,17 +821,13 @@ main(int argc, char *argv[])
                fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = FTP_BURST_TRANSFER_ACTIVE;
                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done + files_to_send;
                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size = fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done + file_size_to_send;
+               unlock_region(fsa_fd, lock_offset);
             }
             if (fsa[db.fsa_pos].debug == YES)
             {
                msg_str[0] = '\0';
                trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Bursting.");
             }
-         }
-
-         if (lock_offset != -1)
-         {
-            unlock_region(fsa_fd, lock_offset);
          }
       }
 #endif
@@ -1012,6 +988,10 @@ main(int argc, char *argv[])
          else
          {
             (void)strcpy(initial_filename, final_filename);
+            if (db.lock == POSTFIX)
+            {
+               (void)strcat(initial_filename, db.lock_notation);
+            }
          }
 
          /*
@@ -1166,11 +1146,43 @@ main(int argc, char *argv[])
             if ((status = ftp_data(initial_filename, append_offset,
                                    db.mode_flag, DATA_WRITE)) != SUCCESS)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to open remote file <%s> (%d).",
-                         initial_filename, status);
-               (void)ftp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
+               if ((db.rename_file_busy != '\0') && (timeout_flag != ON) &&
+                   (posi(msg_str, "Cannot open or remove a file containing a running program.") != NULL))
+               {
+                  size_t length = strlen(initial_filename);
+
+                  initial_filename[length] = db.rename_file_busy;
+                  initial_filename[length + 1] = '\0';
+                  if ((status = ftp_data(initial_filename, 0,
+                                         db.mode_flag, DATA_WRITE)) != SUCCESS)
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to open remote file <%s> (%d).",
+                               initial_filename, status);
+                     (void)ftp_quit();
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
+                  }
+                  else
+                  {
+                     trans_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Internal rename to `%s' due to remote error.",
+                               initial_filename);
+                     if (fsa[db.fsa_pos].debug == YES)
+                     {
+                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                     "Open remote file <%s>.",
+                                     initial_filename);
+                     }
+                  }
+               }
+               else
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to open remote file <%s> (%d).",
+                            initial_filename, status);
+                  (void)ftp_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
+               }
             }
             else
             {
@@ -1692,7 +1704,7 @@ main(int argc, char *argv[])
          } /* if (append_offset < p_file_size_buffer) */
 
          /* If we used dot notation, don't forget to rename */
-         if ((db.lock == DOT) || (db.lock == DOT_VMS) ||
+         if ((db.lock == DOT) || (db.lock == POSTFIX) || (db.lock == DOT_VMS) ||
              (db.trans_rename_rule[0] != '\0'))
          {
             remote_filename[0] = '\0';
@@ -1945,8 +1957,9 @@ main(int argc, char *argv[])
                         (fsa[db.fsa_pos].total_file_size > 0))
                     {
                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                  "fc for host %s is zero but fs is not zero. Correcting.",
-                                  fsa[db.fsa_pos].host_dsp_name);
+                                  "fc for host %s is zero but fs is not zero (%d). Correcting.",
+                                  fsa[db.fsa_pos].host_dsp_name,
+                                  fsa[db.fsa_pos].total_file_size);
                        fsa[db.fsa_pos].total_file_size = 0;
                     }
 #endif

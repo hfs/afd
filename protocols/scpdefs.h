@@ -1,5 +1,5 @@
 /*
- *  scp1defs.h - Part of AFD, an automatic file distribution program.
+ *  scpdefs.h - Part of AFD, an automatic file distribution program.
  *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -17,20 +17,20 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#ifndef __scp1defs_h
-#define __scp1defs_h
+#ifndef __scpdefs_h
+#define __scpdefs_h
 
 #define DEFAULT_SSH_PORT   22
 #define SSH_COMMAND        "ssh"
 
 /* Function prototypes */
-extern int  scp1_connect(char *, int, char *, char *, char *),
-            scp1_close_file(void),
-            scp1_cmd_connect(char *, int, char *, char *, char *),
-            scp1_open_file(char *, off_t, mode_t),
-            scp1_write(char *, int),
-            scp1_chmod(char *, char *),
-            scp1_move(char *, char *);
-extern void scp1_quit(void);
+extern int  scp_connect(char *, int, char *, char *, char *),
+            scp_close_file(void),
+            scp_cmd_connect(char *, int, char *, char *, char *),
+            scp_open_file(char *, off_t, mode_t),
+            scp_write(char *, int),
+            scp_chmod(char *, char *),
+            scp_move(char *, char *);
+extern void scp_quit(void);
 
-#endif /* __scp1defs_h */
+#endif /* __scpdefs_h */

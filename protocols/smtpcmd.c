@@ -25,14 +25,15 @@ DESCR__S_M3
  **   smtpcmd - commands to send data via SMTP
  **
  ** SYNOPSIS
- **   int smtp_connect(char *hostname, int port)
- **   int smtp_user(char *user)
- **   int smtp_rcpt(char *recipient)
- **   int smtp_open(void)
- **   int smtp_write(char *block, char *buffer, int size)
- **   int smtp_write_iso8859(char *block, char *buffer, int size)
- **   int smtp_close(void)
- **   int smtp_quit(void)
+ **   int  smtp_connect(char *hostname, int port)
+ **   int  smtp_user(char *user)
+ **   int  smtp_rcpt(char *recipient)
+ **   int  smtp_open(void)
+ **   int  smtp_write(char *block, char *buffer, int size)
+ **   int  smtp_write_iso8859(char *block, char *buffer, int size)
+ **   int  smtp_close(void)
+ **   int  smtp_quit(void)
+ **   void get_content_type(char *filename, char *content_type)
  **
  ** DESCRIPTION
  **   smtpcmd provides a set of commands to communicate with an SMTP
@@ -648,6 +649,67 @@ smtp_quit(void)
    }
 
    return(SUCCESS);
+}
+
+
+/*######################### get_content_type() ##########################*/
+void
+get_content_type(char *filename, char *content_type)
+{
+   content_type[0] = '\0';
+   if (filename != NULL)
+   {
+      char *ptr;
+
+      ptr = filename + strlen(filename);
+      while ((ptr > filename) && (*ptr != '.'))
+      {
+         ptr--;
+      }
+      if ((*ptr == '.') && (*(ptr + 1) != '\0'))
+      {
+         ptr++;
+         if (((*ptr == 'j') || (*ptr == 'J')) &&
+             ((((*(ptr + 1) == 'p') || (*(ptr + 1) == 'P')) &&
+               ((*(ptr + 2) == 'g') || (*(ptr + 2) == 'G')) &&
+               (*(ptr + 3) == '\0')) ||
+              (((*(ptr + 1) == 'e') || (*(ptr + 1) == 'E')) &&
+               ((*(ptr + 2) == 'p') || (*(ptr + 2) == 'P')) &&
+               ((*(ptr + 3) == 'g') || (*(ptr + 3) == 'G')) &&
+               (*(ptr + 4) == '\0'))))
+         {
+            (void)strcpy(content_type, "IMAGE/jpeg");
+         }
+         else if (((*ptr == 'p') || (*ptr == 'P')) &&
+                  ((*(ptr + 1) == 'n') || (*(ptr + 1) == 'N')) &&
+                  ((*(ptr + 2) == 'g') || (*(ptr + 2) == 'G')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "IMAGE/png");
+              }
+         else if (((*ptr == 't') || (*ptr == 'T')) &&
+                  ((*(ptr + 1) == 'i') || (*(ptr + 1) == 'I')) &&
+                  ((*(ptr + 2) == 'f') || (*(ptr + 2) == 'F')) &&
+                  ((((*(ptr + 3) == 'f') || (*(ptr + 3) == 'F')) &&
+                   (*(ptr + 4) == '\0')) ||
+                   (*(ptr + 3) == '\0')))
+              {
+                 (void)strcpy(content_type, "IMAGE/tiff");
+              }
+         else if (((*ptr == 'g') || (*ptr == 'G')) &&
+                  ((*(ptr + 1) == 'i') || (*(ptr + 1) == 'I')) &&
+                  ((*(ptr + 2) == 'f') || (*(ptr + 2) == 'F')) &&
+                  (*(ptr + 3) == '\0'))
+              {
+                 (void)strcpy(content_type, "IMAGE/gif");
+              }
+      }
+   }
+   if (content_type[0] == '\0')
+   {
+      (void)strcpy(content_type, "APPLICATION/octet-stream");
+   }
+   return;
 }
 
 

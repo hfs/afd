@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,6 +75,7 @@ void
 init_gf(int argc, char *argv[], int protocol)
 {
    int        status;
+   time_t     next_check_time;
    char       gbuf[MAX_PATH_LENGTH];      /* Generic buffer.         */
    struct job *p_db;
 
@@ -126,7 +127,15 @@ init_gf(int argc, char *argv[], int protocol)
       system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
       exit(INCORRECT);
    }
-   if (eval_recipient(fra[db.fra_pos].url, &db, NULL) == INCORRECT)
+   if ((db.error_file == YES) && (fra[db.fra_pos].time_option == YES))
+   {
+      next_check_time = fra[db.fra_pos].next_check_time;
+   }
+   else
+   {
+      next_check_time = 0;
+   }
+   if (eval_recipient(fra[db.fra_pos].url, &db, NULL, next_check_time) == INCORRECT)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to evaluate recipient for directory alias <%s>.",

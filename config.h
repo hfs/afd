@@ -59,9 +59,6 @@
  *                          it has another job which it can handle. This
  *                          should reduce the number of forks by FD
  *                          considerably. [Very experimental!]
- * _WITH_UID_CHECK        - Checks the user by checking his user ID. If this
- *                          is not set this check is done by checking the
- *                          environment name LOGNAME.
  * _LOG_REMOVE_INFO       - If set, every time an archive is removed a log
  *                          entry is made in the system log. This can be very
  *                          annoying if you have lots of files in the archive.
@@ -88,7 +85,7 @@
  *                          per bulletin it can happen that some bulletins
  *                          are over written. To eliminate this set this
  *                          option.
- * _WITH_SCP1_SUPPORT     - Support for copying files via the SCP1 protocol.
+ * _WITH_SCP_SUPPORT      - Support for copying files via the SCP protocol.
  *                          This requires a local ssh client.
  * _WITH_TRANS_EXEC       - With option to execute a command after each
  *                          file was send.
@@ -100,7 +97,6 @@
 #define _VERIFY_FSA
 #define _BURST_MODE
 #define _WITH_BURST_2
-#define _WITH_UID_CHECK
 /* #define _LOG_REMOVE_INFO */
 #define _WITH_SHUTDOWN
 /* #define _WITH_SEND */
@@ -112,7 +108,7 @@
 /* #define _WITH_READY_FILES */
 /* #define _WITH_EUMETSAT_HEADERS */
 #define _WITH_UNIQUE_NUMBERS
-#define _WITH_SCP1_SUPPORT
+#define _WITH_SCP_SUPPORT
 #define _WITH_TRANS_EXEC
 #define FTP_CTRL_KEEP_ALIVE_INTERVAL 1200L
 
@@ -265,6 +261,11 @@
  *-----------------------------------------------------------------------*/
 #define HISTORY_LOG_INTERVAL 3600
 #define MAX_LOG_HISTORY      24
+
+/*-----------------------------------------------------------------------*
+ * How old (in seconds) a file my be before it gets deleted. DEFAULT 0
+ *-----------------------------------------------------------------------*/
+#define DEFAULT_AGE_LIMIT 0
 
 
 

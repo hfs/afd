@@ -296,7 +296,7 @@ get_dc_data(void)
                 strerror(errno), __FILE__, __LINE__);
    }
 
-   if (fsa_attach() == INCORRECT)
+   if (fsa_attach_passive() == INCORRECT)
    {
       (void)xrec(toplevel_w, ERROR_DIALOG,
                  "Failed to attach to FSA. (%s %d)", __FILE__, __LINE__);
@@ -312,7 +312,7 @@ get_dc_data(void)
     * Go through current job list and search the JID structure for
     * the host we are looking for.
     */
-   if (fra_attach() == INCORRECT)
+   if (fra_attach_passive() == INCORRECT)
    {
       (void)xrec(toplevel_w, ERROR_DIALOG,
                  "Failed to attach to FRA. (%s %d)", __FILE__, __LINE__);

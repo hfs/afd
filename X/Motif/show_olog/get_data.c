@@ -1152,19 +1152,19 @@ no_criteria(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 if (toggles_set & SHOW_SCP1)
+                 if (toggles_set & SHOW_SCP)
                  {
-                    INSERT_TIME_TYPE(SCP1_ID_STR);
+                    INSERT_TIME_TYPE(SCP_ID_STR);
                  }
                  else
                  {
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1395,16 +1395,16 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 if (toggles_set & SHOW_SCP1)
+                 if (toggles_set & SHOW_SCP)
                  {
                     SET_FILE_NAME_POINTER();
                     if (sfilter(search_file_name, ptr) == 0)
                     {
                        il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
-                       INSERT_TIME_TYPE(SCP1_ID_STR);
+                       INSERT_TIME_TYPE(SCP_ID_STR);
                        j = 0;
                        while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                        {
@@ -1422,7 +1422,7 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1643,19 +1643,19 @@ file_size_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 if (toggles_set & SHOW_SCP1)
+                 if (toggles_set & SHOW_SCP)
                  {
-                    FILE_SIZE_ONLY(SCP1_ID_STR);
+                    FILE_SIZE_ONLY(SCP_ID_STR);
                  }
                  else
                  {
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1861,10 +1861,10 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 if (toggles_set & SHOW_SCP1)
+                 if (toggles_set & SHOW_SCP)
                  {
                     SET_FILE_NAME_POINTER();
                     if (sfilter(search_file_name, ptr) != 0)
@@ -1877,7 +1877,7 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1980,12 +1980,12 @@ file_name_and_size(register char *ptr,
               {
                  (void)memcpy(p_type, FILE_ID_STR, 4);
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 (void)memcpy(p_type, SCP1_ID_STR, 4);
+                 (void)memcpy(p_type, SCP_ID_STR, 4);
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2212,10 +2212,10 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 if (toggles_set & SHOW_SCP1)
+                 if (toggles_set & SHOW_SCP)
                  {
                     int ii;
 
@@ -2229,7 +2229,7 @@ recipient_only(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       INSERT_TIME_TYPE(SCP1_ID_STR);
+                       INSERT_TIME_TYPE(SCP_ID_STR);
                     }
                     else
                     {
@@ -2241,7 +2241,7 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2622,12 +2622,12 @@ file_name_and_recipient(register char *ptr,
               {
                  FILE_NAME_AND_RECIPIENT(SHOW_FILE, FILE_ID_STR);
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 FILE_NAME_AND_RECIPIENT(SHOW_SCP1, SCP1_ID_STR);
+                 FILE_NAME_AND_RECIPIENT(SHOW_SCP, SCP_ID_STR);
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2817,19 +2817,19 @@ file_size_and_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 if (toggles_set & SHOW_SCP1)
+                 if (toggles_set & SHOW_SCP)
                  {
-                    FILE_SIZE_AND_RECIPIENT(SCP1_ID_STR);
+                    FILE_SIZE_AND_RECIPIENT(SCP_ID_STR);
                  }
                  else
                  {
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -3081,10 +3081,10 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 if (toggles_set & SHOW_SCP1)
+                 if (toggles_set & SHOW_SCP)
                  {
                     int ii;
 
@@ -3114,7 +3114,7 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -3268,10 +3268,10 @@ file_name_size_recipient(register char *ptr,
               {
                  (void)memcpy(p_type, FILE_ID_STR, 4);
               }
-#ifdef _WITH_SCP1_SUPPORT
-         else if (type == SCP1)
+#ifdef _WITH_SCP_SUPPORT
+         else if (type == SCP)
               {
-                 (void)memcpy(p_type, SCP1_ID_STR, 4);
+                 (void)memcpy(p_type, SCP_ID_STR, 4);
               }
 #endif
 #ifdef _WITH_WMO_SUPPORT

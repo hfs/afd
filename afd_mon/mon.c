@@ -258,6 +258,7 @@ main(int argc, char *argv[])
    for (;;)
    {
       msa[afd_no].connect_status = CONNECTING;
+      timeout_flag = OFF;
       if ((status = tcp_connect(msa[afd_no].hostname, msa[afd_no].port)) != SUCCESS)
       {
          if (timeout_flag == OFF)
@@ -717,8 +718,8 @@ evaluate_message(int *bytes_done)
               }
               ahl_size = new_no_of_hosts * sizeof(struct afd_host_list);
               msa[afd_no].no_of_hosts = new_no_of_hosts;
-              if ((ahl_ptr = attach_buf(ahl_file_name, &fd,
-                                        ahl_size, NULL)) == (caddr_t) -1)
+              if ((ahl_ptr = attach_buf(ahl_file_name, &fd, ahl_size,
+                                        NULL, FILE_MODE)) == (caddr_t) -1)
               {
                  (void)rec(sys_log_fd, ERROR_SIGN,
                            "Failed to mmap() %s : %s (%s %d)\n",

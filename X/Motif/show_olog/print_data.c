@@ -182,7 +182,14 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                   (void)fprintf(stderr, "close() error : %s (%s %d)\n",
                                 strerror(errno), __FILE__, __LINE__);
                }
-               (void)sprintf(message, "Send job to file %s.", file_name);
+               if (device_type == MAIL_TOGGLE)
+               {
+                  send_mail_cmd(message);
+               }
+               else
+               {
+                  (void)sprintf(message, "Send job to file %s.", file_name);
+               }
             }
          }
          XtFree((char *)select_list);
@@ -263,7 +270,14 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                (void)fprintf(stderr, "close() error : %s (%s %d)\n",
                              strerror(errno), __FILE__, __LINE__);
             }
-            (void)sprintf(message, "Send job to file %s.", file_name);
+            if (device_type == MAIL_TOGGLE)
+            {
+               send_mail_cmd(message);
+            }
+            else
+            {
+               (void)sprintf(message, "Send job to file %s.", file_name);
+            }
          }
       }
    }
@@ -373,19 +387,19 @@ write_header(int fd)
          length += sprintf(&buffer[length], ", %s", FILE_ID_STR);
       }
    }
-#ifdef _WITH_SCP1_SUPPORT
-   if (toggles_set & SHOW_SCP1)
+#ifdef _WITH_SCP_SUPPORT
+   if (toggles_set & SHOW_SCP)
    {
       if (length == tmp_length)
       {
-         length += sprintf(&buffer[length], "                Protocol      : SCP1");
+         length += sprintf(&buffer[length], "                Protocol      : SCP");
       }
       else
       {
-         length += sprintf(&buffer[length], ", SCP1");
+         length += sprintf(&buffer[length], ", SCP");
       }
    }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    if (toggles_set & SHOW_WMO)
    {

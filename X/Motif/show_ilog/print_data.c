@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -180,7 +180,14 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                   (void)fprintf(stderr, "close() error : %s (%s %d)\n",
                                 strerror(errno), __FILE__, __LINE__);
                }
-               (void)sprintf(message, "Send job to file %s.", file_name);
+               if (device_type == MAIL_TOGGLE)
+               {
+                  send_mail_cmd(message);
+               }
+               else
+               {
+                  (void)sprintf(message, "Send job to file %s.", file_name);
+               }
             }
          }
          XtFree((char *)select_list);
@@ -261,7 +268,14 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
                (void)fprintf(stderr, "close() error : %s (%s %d)\n",
                              strerror(errno), __FILE__, __LINE__);
             }
-            (void)sprintf(message, "Send job to file %s.", file_name);
+            if (device_type == MAIL_TOGGLE)
+            {
+               send_mail_cmd(message);
+            }
+            else
+            {
+               (void)sprintf(message, "Send job to file %s.", file_name);
+            }
          }
       }
    }

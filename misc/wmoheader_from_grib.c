@@ -621,7 +621,8 @@ wmoheader_from_grib(char *grib_buffer,
                      break;
                   default : /* Unknown */
                      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                 "Impossible forecast %d [A2 = Z]", tr);
+                                 "Impossible forecast %d [A2 = Z] [unit = %d]",
+                                 tr, *(ptr + 21));
                      AA[1] = 'Z';
                      break;
                }

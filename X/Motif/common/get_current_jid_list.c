@@ -73,7 +73,7 @@ get_current_jid_list(void)
    struct stat stat_buf;
 
    (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, CURRENT_MSG_LIST_FILE);
-   if ((fd = open(file, O_RDWR)) == -1)
+   if ((fd = open(file, O_RDONLY)) == -1)
    {
       (void)xrec(toplevel_w, ERROR_DIALOG,
                  "Failed to open() %s. Will not be able to get all information. : %s (%s %d)",
@@ -90,7 +90,7 @@ get_current_jid_list(void)
       return(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)xrec(toplevel_w, ERROR_DIALOG,

@@ -12,6 +12,7 @@ CFLAGS     = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../amg
 IAFDPROG   = init_afd
 IAFDOBJS   = init_afd.o\
              check_afd.o\
+             check_permissions.o\
              count_files.o\
              init_fifos_afd.o
 
@@ -47,8 +48,14 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(SUIDMODE) $(INSTDIR)/bin/$(IAFDPROG)$(EXE_EXT)
-	chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDPROG)$(EXE_EXT)
+	@if [ "`find $(INSTDIR)/bin -user 0 -name $(IAFDPROG)$(EXE_EXT) -print`" = "" ] ; \
+	then \
+		chmod $(SUIDMODE) $(INSTDIR)/bin/$(IAFDPROG)$(EXE_EXT) ; \
+	fi
+	@if [ "`find $(INSTDIR)/bin -user 0 -name $(AFDPROG)$(EXE_EXT) -print`" = "" ] ; \
+	then \
+		chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDPROG)$(EXE_EXT) ; \
+	fi
 
 sinstall :
 	strip $(PROGS)

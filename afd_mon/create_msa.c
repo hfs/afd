@@ -518,6 +518,7 @@ create_msa(void)
    /* Reposition msa pointer after no_of_afds */
    ptr = (char *)msa;
    ptr -= AFD_WORD_OFFSET;
+   *(ptr + sizeof(int) + 1 + 1 + 1) = 0;
    if (msa_size > 0)
    {
 #ifdef _NO_MMAP

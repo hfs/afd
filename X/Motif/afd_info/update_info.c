@@ -117,12 +117,12 @@ Widget w;
       {
          length += sprintf(&protocol_label_str[length], "SMTP ");
       }
-#ifdef _WITH_SCP1_SUPPORT
-      if (fsa[host_position].protocol & SCP1_FLAG)
+#ifdef _WITH_SCP_SUPPORT
+      if (fsa[host_position].protocol & SCP_FLAG)
       {
-         length += sprintf(&protocol_label_str[length], "SCP1 ");
+         length += sprintf(&protocol_label_str[length], "SCP ");
       }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
       if (fsa[host_position].protocol & WMO_FLAG)
       {
@@ -255,9 +255,9 @@ Widget w;
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-             (fsa[host_position].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+             (fsa[host_position].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
@@ -344,9 +344,9 @@ Widget w;
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-             (fsa[host_position].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+             (fsa[host_position].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
@@ -421,9 +421,9 @@ Widget w;
 
          /* Get IP for the second host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-             (fsa[host_position].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+             (fsa[host_position].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_MAP_SUPPORT                          
              (fsa[host_position].protocol & MAP_FLAG) ||
 #endif /* _WITH_MAP_SUPPORT */
@@ -517,9 +517,9 @@ Widget w;
       {
          prev.host_file_time = stat_buf.st_mtime;
          if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-             (fsa[host_position].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+             (fsa[host_position].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
@@ -539,9 +539,9 @@ Widget w;
          if (fsa[host_position].toggle_pos != 0)
          {
             if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-                (fsa[host_position].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+                (fsa[host_position].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
                 (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */

@@ -1140,6 +1140,7 @@ start_remote_prog(Widget    w,
          }
       }
    }
+   free(args);
 
    return;
 }
@@ -1409,6 +1410,7 @@ start_remote_prog(Widget    w,
          }
       }
    }
+   free(args);
 
    return;
 }

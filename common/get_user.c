@@ -1,6 +1,6 @@
 /*
  *  get_user.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   14.04.1996 H.Kiehl Created
+ **   18.08.2003 H.Kiehl Build in length checks.
  **
  */
 DESCR__E_M3
@@ -49,49 +50,76 @@ DESCR__E_M3
 #include <stdio.h>              /* NULL                                  */
 #include <string.h>             /* strcat()                              */
 #include <stdlib.h>             /* getenv()                              */
-#ifdef _WITH_UID_CHECK
 #include <sys/types.h>
 #include <pwd.h>                /* getpwuid()                            */
 #include <unistd.h>             /* getuid()                              */
-#endif
 
 
 /*############################ get_user() ###############################*/
 void
 get_user(char *user)
 {
-#ifdef _WITH_UID_CHECK
+   size_t        length;
+   char          *ptr;
    struct passwd *pwd;
-#endif
-   char          *ptr = NULL;
 
-   user[0] = '\0';
-#ifdef _WITH_UID_CHECK
    if ((pwd = getpwuid(getuid())) != NULL)
    {
-      (void)strcpy(user, pwd->pw_name);
-      (void)strcat(user, "@");
+      length = strlen(pwd->pw_name);
+      if (length > 0)
+      {
+         if ((length + 1) < MAX_FULL_USER_ID_LENGTH)
+         {
+            (void)strcpy(user, pwd->pw_name);
+            (void)strcat(user, "@");
+            length++;
+         }
+         else
+         {
+            memcpy(user, pwd->pw_name, MAX_FULL_USER_ID_LENGTH - 1);
+            user[MAX_FULL_USER_ID_LENGTH - 1] = '\0';
+            length = MAX_FULL_USER_ID_LENGTH;
+         }
+      }
+      else
+      {
+         length = 0;
+         user[0] = '\0';
+      }
    }
-#else
-   if ((ptr = getenv("LOGNAME")) != NULL)
-   {
-      (void)strcat(user, ptr);
-      (void)strcat(user, "@");
-   }
-#endif
    else
    {
-      (void)strcat(user, "unknown");
-      (void)strcat(user, "@");
+      if (8 < MAX_FULL_USER_ID_LENGTH)
+      {
+         (void)strcpy(user, "unknown@");
+         length = 8;
+      }
+      else
+      {
+         length = 0;
+         user[0] = '\0';
+      }
    }
 
-   if ((ptr = getenv("DISPLAY")) != NULL)
+   if (length < MAX_FULL_USER_ID_LENGTH)
    {
-      (void)strcat(user, ptr);
-   }
-   else
-   {
-      (void)strcat(user, "unknown");
+      if ((ptr = getenv("DISPLAY")) != NULL)
+      {
+         size_t display_length;
+
+         display_length = strlen(ptr);
+         if ((length + display_length) < MAX_FULL_USER_ID_LENGTH)
+         {
+            (void)strcpy(&user[length], ptr);
+         }
+      }
+      else
+      {
+         if ((length + 7) < MAX_FULL_USER_ID_LENGTH)
+         {
+            (void)strcpy(&user[length], "unknown");
+         }
+      }
    }
 
    return;

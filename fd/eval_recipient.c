@@ -1,6 +1,6 @@
 /*
  *  eval_recipient.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,7 +28,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int eval_recipient(char       *recipient,
  **                      struct job *p_db,
- **                      char       *full_msg_path)
+ **                      char       *full_msg_path
+ **                      time_t     next_check_time)
  **
  ** DESCRIPTION
  **   Here we evaluate the recipient string which must have the
@@ -77,7 +78,10 @@ extern struct filetransfer_status *fsa;
 
 /*########################## eval_recipient() ###########################*/
 int
-eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
+eval_recipient(char       *recipient,
+               struct job *p_db,
+               char       *full_msg_path,
+               time_t     next_check_time)
 {
    char *ptr,
         *ptr_tmp;
@@ -255,16 +259,19 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
          {
             ptr++;
          }
-         if (*ptr == '/')
+         if (ptr != ptr_tmp) /* Ensure that port number is there. */
          {
-            *ptr = '\0';
-            p_db->port = atoi(ptr_tmp);
-            *ptr = '/';
+            if (*ptr == '/')
+            {
+               *ptr = '\0';
+               p_db->port = atoi(ptr_tmp);
+               *ptr = '/';
+            }
+            else if (*ptr == '\0')
+                 {
+                    p_db->port = atoi(ptr_tmp);
+                 }
          }
-         else if (*ptr == '\0')
-              {
-                 p_db->port = atoi(ptr_tmp);
-              }
       }
 
       /* Save the destination directory. */
@@ -287,7 +294,14 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
                   int    number;
                   time_t time_buf;
 
-                  time_buf = time(NULL);
+                  if ((next_check_time > 0) && (p_db->error_file == YES))
+                  {
+                     time_buf = next_check_time;
+                  }
+                  else
+                  {
+                     time_buf = time(NULL);
+                  }
                   switch(*(ptr + 2))
                   {
                      case 'a': /* short day of the week 'Tue' */

@@ -59,6 +59,7 @@ DESCR__S_M3
  **   30.10.2002 H.Kiehl Take afd_file_dir as the directory to determine
  **                      if we can just move a file.
  **   28.02.2003 H.Kiehl Added option grib2wmo.
+ **   13.07.2003 H.Kiehl Option "age-limit" is now used by AMG as well.
  **
  */
 DESCR__E_M3
@@ -91,6 +92,7 @@ extern int                        no_of_hosts,
                                                   /* AFD counter file.   */
                                   sys_log_fd,
                                   *time_job_list;
+extern unsigned int               default_age_limit;
 extern off_t                      amg_data_size;
 extern char                       afd_file_dir[],
                                   *p_mmap,
@@ -579,6 +581,11 @@ create_db(void)
          p_loptions = db[i].loptions;
          for (j = 0; j < db[i].no_of_loptions; j++)
          {
+            if (strncmp(p_loptions, DELETE_ID, DELETE_ID_LENGTH) == 0)
+            {
+               db[i].lfs = DELETE_ALL_FILES;
+               break;
+            }
             if (strncmp(p_loptions, EXEC_ID, EXEC_ID_LENGTH) == 0)
             {
                db[i].lfs |= GO_PARALLEL;
@@ -671,13 +678,37 @@ create_db(void)
       /* Store number of standard options */
       db[i].no_of_soptions = atoi((int)(p_ptr[i].ptr[7]) + p_offset);
 
-      /* Store pointer to first local option */
+      /* Store pointer to first local option and age limit. */
       if (db[i].no_of_soptions > 0)
       {
+         char *sptr;
+
          db[i].soptions = (int)(p_ptr[i].ptr[8]) + p_offset;
+         if ((sptr = posi(db[i].soptions, AGE_LIMIT_ID)) != NULL)
+         {
+            int  count = 0;
+            char str_number[MAX_INT_LENGTH];
+
+            while ((*sptr == ' ') || (*sptr == '\t'))
+            {
+               sptr++;
+            }
+            while ((*sptr != '\n') && (*sptr != '\0'))
+            {
+               str_number[count] = *sptr;
+               count++; sptr++;
+            }
+            str_number[count] = '\0';
+            db[i].age_limit = (unsigned int)atoi(str_number);
+         }
+         else
+         {
+            db[i].age_limit = default_age_limit;
+         }
       }
       else
       {
+         db[i].age_limit = default_age_limit;
          db[i].soptions = NULL;
       }
 
@@ -760,10 +791,11 @@ create_db(void)
       {
          if (CHECK_STRCMP(db[i].recipient, LOC_SHEME) != 0)
          {
-#ifdef _WITH_SCP1_SUPPORT
-            if (CHECK_STRCMP(db[i].recipient, SCP1_SHEME) != 0)
+#ifdef _WITH_SCP_SUPPORT
+            if ((CHECK_STRCMP(db[i].recipient, SCP_SHEME) != 0) &&
+                (CHECK_STRCMP(db[i].recipient, SCP1_SHEME) != 0))
             {
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
                if (CHECK_STRCMP(db[i].recipient, WMO_SHEME) != 0)
                {
@@ -805,13 +837,13 @@ create_db(void)
                   db[i].protocol = WMO;
                }
 #endif
-#ifdef _WITH_SCP1_SUPPORT
+#ifdef _WITH_SCP_SUPPORT
             }
             else
             {
-               db[i].protocol = SCP1;
+               db[i].protocol = SCP;
             }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
          }
          else
          {
@@ -920,20 +952,20 @@ create_db(void)
 static void
 write_current_msg_list(int no_of_jobs)
 {
-   int         i,
-               *int_buf,
-               fd;
-   size_t      buf_size;
-   char        current_msg_list_file[MAX_PATH_LENGTH];
-   struct stat stat_buf;
+   int          i,
+                fd;
+   unsigned int *int_buf;
+   size_t       buf_size;
+   char         current_msg_list_file[MAX_PATH_LENGTH];
+   struct stat  stat_buf;
 
    (void)strcpy(current_msg_list_file, p_work_dir);
    (void)strcat(current_msg_list_file, FIFO_DIR);
    (void)strcat(current_msg_list_file, CURRENT_MSG_LIST_FILE);
 
    /* Overwrite current message list file. */
-   if ((fd = open(current_msg_list_file, (O_WRONLY | O_CREAT),
-                  (S_IRUSR | S_IWUSR))) == -1)
+   if ((fd = open(current_msg_list_file, (O_WRONLY | O_CREAT | O_TRUNC),
+                  FILE_MODE)) == -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to open() %s : %s (%s %d)\n",
                 current_msg_list_file, strerror(errno), __FILE__, __LINE__);
@@ -942,7 +974,7 @@ write_current_msg_list(int no_of_jobs)
    lock_region_w(fd, (off_t)0);
 
    /* Create buffer to write ID's in one hunk. */
-   buf_size = (no_of_jobs + 1) * sizeof(int);
+   buf_size = (no_of_jobs + 1) * sizeof(unsigned int);
    if ((int_buf = malloc(buf_size)) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",

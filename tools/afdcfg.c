@@ -87,7 +87,7 @@ main(int argc, char *argv[])
    int         action;
    char        *perm_buffer,
                *ptr,
-               user[128],
+               user[MAX_FULL_USER_ID_LENGTH],
                sys_log_fifo[MAX_PATH_LENGTH],
                work_dir[MAX_PATH_LENGTH];
    struct stat stat_buf;

@@ -342,9 +342,9 @@ main(int argc, char *argv[])
    }
    prev.host_file_time = stat_buf.st_mtime;
    if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-       (fsa[host_position].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+       (fsa[host_position].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
        (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
@@ -484,9 +484,9 @@ main(int argc, char *argv[])
    if (prev.toggle_pos != 0)
    {
       if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_SCP1_SUPPORT
-          (fsa[host_position].protocol & SCP1_FLAG) ||
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+          (fsa[host_position].protocol & SCP_FLAG) ||
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
           (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
@@ -526,12 +526,12 @@ main(int argc, char *argv[])
    {
       length += sprintf(&protocol_label_str[length], "SMTP ");
    }
-#ifdef _WITH_SCP1_SUPPORT
-   if (fsa[host_position].protocol & SCP1_FLAG)
+#ifdef _WITH_SCP_SUPPORT
+   if (fsa[host_position].protocol & SCP_FLAG)
    {
-      length += sprintf(&protocol_label_str[length], "SCP1 ");
+      length += sprintf(&protocol_label_str[length], "SCP ");
    }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    if (fsa[host_position].protocol & WMO_FLAG)
    {
@@ -716,7 +716,7 @@ init_afd_info(int *argc, char *argv[])
    }
 
    /* Attach to the FSA */
-   if (fsa_attach() < 0)
+   if (fsa_attach_passive() < 0)
    {
       (void)fprintf(stderr, "Failed to attach to FSA. (%s %d)\n",
                     __FILE__, __LINE__);

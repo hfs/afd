@@ -79,7 +79,8 @@ init_msg_buffer(void)
    /* Attach to message buffer. */
    new_size = (MESSAGE_BUF_STEP_SIZE * sizeof(struct message_buf)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(message_buf_file, &mb_fd, new_size, NULL)) == (caddr_t) -1)
+   if ((ptr = attach_buf(message_buf_file, &mb_fd, new_size, NULL,
+                         (S_IRUSR | S_IWUSR))) == (caddr_t) -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to mmap() to %s : %s (%s %d)\n",

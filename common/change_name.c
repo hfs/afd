@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2003 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,6 +52,14 @@ DESCR__S_M3
  **             Y - year 1997,                 H - hour [00,23],
  **             M - minute [00,59],            S - second [00,60],
  **             U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
+ **     %T[+|-|*|/|%]xS|M|H|d - Time modifier
+ **            |     |   |
+ **            |     |   +----> Time unit: S - second
+ **            |     |                     M - minute
+ **            |     |                     H - hour
+ **            |     |                     d - day
+ **            |     +--------> Time modifier
+ **            +--------------> How time modifier should be applied.
  **     %h    - insert the hostname
  **     %%    - the '%' sign   
  **     \     - are ignored
@@ -68,6 +76,7 @@ DESCR__S_M3
  **   07.03.2001 H.Kiehl    Put in some more syntax checks.
  **   09.10.2001 H.Kiehl    Insert option for inserting hostname.
  **   16.06.2002 H.Kiehl    Insert option Unix time.
+ **   28.06.2003 H.Kiehl    Added time modifier.
  **
  */
 DESCR__E_M3
@@ -108,7 +117,8 @@ change_name(char *orig_file_name,
           *ptr_filter,
           *ptr_filter_tmp,
           *ptr_rule = NULL,
-          *ptr_newname = NULL;
+          *ptr_newname = NULL,
+          time_mod_sign = '+';
    int    count_asterix = 0,
           count_questioner = 0,
           tmp_count_questioner,
@@ -119,7 +129,8 @@ change_name(char *orig_file_name,
           start = 0,
           end,
           pattern_found = NO;
-   time_t time_buf;
+   time_t time_buf,
+          time_modifier = 0;
 
    /* copy original filename to a temporary buffer */
    (void)strcpy(buffer, orig_file_name);
@@ -237,7 +248,6 @@ change_name(char *orig_file_name,
             switch (*ptr_rule)
             {
                case '*' : /* insert the addressed ptr_asterix */
-
                   ptr_rule++;
 
                   /* test for number */
@@ -261,7 +271,6 @@ change_name(char *orig_file_name,
                   break;
 
                case '?' : /* insert the addressed ptr_questioner */
-
                   ptr_rule++;
 
                   /* test for a number */
@@ -286,7 +295,6 @@ change_name(char *orig_file_name,
                   break;
 
                case 'o' : /* insert the addressed character from orig_file_name */
-
                   ptr_rule++;
 
                   /* test for a number */
@@ -301,7 +309,6 @@ change_name(char *orig_file_name,
                   break;
 
                case 'O' : /* insert the addressed range of characters from orig_file_name */
-
                   ptr_rule++;
 
                   /* read the begin */
@@ -364,7 +371,6 @@ change_name(char *orig_file_name,
                   break;
 
                case 'n' : /* generate a unique number 4 characters */
-
                   ptr_rule++;
                   next_counter(&number);
                   (void)sprintf(ptr_newname, "%04d", number);
@@ -372,7 +378,6 @@ change_name(char *orig_file_name,
                   break;
 
                case 'h' : /* Insert local hostname. */
-
                   {
                      char hostname[40];
 
@@ -393,9 +398,104 @@ change_name(char *orig_file_name,
                   }
                   break;
 
-               case 't' : /* insert the actual time like strftime */
+               case 'T' : /* Time modifier */
+                  {
+                     int time_unit;
 
+                     ptr_rule++;
+                     switch (*ptr_rule)
+                     {
+                        case '+' :
+                        case '-' :
+                        case '*' :
+                        case '/' :
+                        case '%' :
+                           time_mod_sign = *ptr_rule;
+                           ptr_rule++;
+                           break;
+                        default  :
+                           time_mod_sign = '+';
+                           break;
+                     }
+                     i = 0;
+                     while ((isdigit(*ptr_rule)) && (i < MAX_INT_LENGTH))
+                     {
+                        string[i++] = *ptr_rule++;
+                     }
+                     if ((i > 0) && (i < MAX_INT_LENGTH))
+                     {
+                        string[i] = '\0';
+                        time_modifier = atoi(string);
+                     }
+                     else
+                     {
+                        if (i == MAX_INT_LENGTH)
+                        {
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "The time modifier specified for rule %s is to large.",
+                                      rename_to_rule);
+                        }
+                        else
+                        {
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "There is no time modifier specified for rule %s",
+                                      rename_to_rule);
+                        }
+                        time_modifier = 0;
+                     }
+                     switch (*ptr_rule)
+                     {
+                        case 'S' : /* Second */
+                           time_unit = 1;
+                           ptr_rule++;
+                           break;
+                        case 'M' : /* Minute */
+                           time_unit = 60;
+                           ptr_rule++;
+                           break;
+                        case 'H' : /* Hour */
+                           time_unit = 3600;
+                           ptr_rule++;
+                           break;
+                        case 'd' : /* Day */
+                           time_unit = 86400;
+                           ptr_rule++;
+                           break;
+                        default :
+                           time_unit = 1;
+                           break;
+                     }
+                     if (time_modifier > 0)
+                     {
+                        time_modifier = time_modifier * time_unit;
+                     }
+                  }
+                  break;
+
+               case 't' : /* insert the actual time like strftime */
                   time_buf = time(NULL);
+                  if (time_modifier > 0)
+                  {
+                     switch (time_mod_sign)
+                     {
+                        case '-' :
+                           time_buf = time_buf - time_modifier;
+                           break;
+                        case '*' :
+                           time_buf = time_buf * time_modifier;
+                           break;
+                        case '/' :
+                           time_buf = time_buf / time_modifier;
+                           break;
+                        case '%' :
+                           time_buf = time_buf % time_modifier;
+                           break;
+                        case '+' :
+                        default :
+                           time_buf = time_buf + time_modifier;
+                           break;
+                     }
+                  }
                   ptr_rule++;
                   switch (*ptr_rule)
                   {
@@ -462,14 +562,12 @@ change_name(char *orig_file_name,
                   break;
 
                case '%' : /* insert the '%' sign */
-
                   *ptr_newname = '%';
                   ptr_newname++;
                   ptr_rule++;
                   break;
 
                default  : /* no action be specified, write an error message */
-
                   system_log(WARN_SIGN, __FILE__, __LINE__,
                              "Illegal option (%d) in rule %s",
                              *ptr_rule, rename_to_rule);
@@ -515,7 +613,6 @@ change_name(char *orig_file_name,
             break;
 
          case '\\' : /* ignore */
-
             ptr_rule++;
             break;
 

@@ -91,7 +91,10 @@ eval_input_sf(int        argc,
             {   
                if (isdigit(*(argv + 1)[0]) == 0)
                {
-                  p_db->job_no = -1;
+                  (void)fprintf(stderr,
+                                "ERROR   : None nummeric value behind -a (age-limit) option : %s.\n",
+                                *(argv + 1));
+                  correct = NO;
                }
                else
                {

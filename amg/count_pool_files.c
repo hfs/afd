@@ -1,6 +1,6 @@
 /*
  *  clear_pool_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,14 +58,15 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables */
-extern int   sys_log_fd;
+extern int    sys_log_fd;
 #ifndef _WITH_PTHREAD
-extern off_t *file_size_pool;
-extern char  **file_name_pool;
+extern off_t  *file_size_pool;
+extern time_t *file_mtime_pool;
+extern char   **file_name_pool;
 #endif
 
 /* Local function prototypes */
-static int   get_dir_no(char *);
+static int    get_dir_no(char *);
 
 
 /*######################### count_pool_files() #########################*/
@@ -73,7 +74,11 @@ int
 #ifndef _WITH_PTHREAD
 count_pool_files(int *dir_no, char *pool_dir)
 #else
-count_pool_files(int *dir_no, char *pool_dir, off_t *file_size_pool, char **file_name_pool)
+count_pool_files(int    *dir_no,
+                 char   *pool_dir,
+                 off_t  *file_size_pool,
+                 time_t *file_mtime_pool,
+                 char   **file_name_pool)
 #endif
 {
    int file_counter = 0;
@@ -113,6 +118,7 @@ count_pool_files(int *dir_no, char *pool_dir, off_t *file_size_pool, char **file
                {
                   (void)strcpy(file_name_pool[file_counter], p_dir->d_name);
                   file_size_pool[file_counter] = stat_buf.st_size;
+                  file_mtime_pool[file_counter] = stat_buf.st_mtime;
                   file_counter++;
                }
             }

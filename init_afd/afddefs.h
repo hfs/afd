@@ -81,10 +81,10 @@ typedef socklen_t my_socklen_t;
 #define SEND_FILE_SMTP             "sf_smtp"
 #define GET_FILE_SMTP              "gf_smtp"
 #define SEND_FILE_LOC              "sf_loc"
-#ifdef _WITH_SCP1_SUPPORT
-#define SEND_FILE_SCP1             "sf_scp1"
-#define GET_FILE_SCP1              "gf_scp1"
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+#define SEND_FILE_SCP              "sf_scp"
+#define GET_FILE_SCP               "gf_scp"
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
 #define SEND_FILE_WMO              "sf_wmo"
 #define GET_FILE_WMO               "gf_wmo"
@@ -128,7 +128,10 @@ typedef socklen_t my_socklen_t;
 #define VIEW_DC                    "view_dc"
 #define DIR_CTRL                   "dir_ctrl"
 #define DIR_INFO                   "dir_info"
+#define DIR_CHECK                  "dir_check"
 #define MAX_PROCNAME_LENGTH        14
+#define AFTP                       "aftp"
+#define ASMTP                      "asmtp"
 #define AFD_USER_NAME              "afd"
 #define AFD_ACTIVE_FILE            "/AFD_ACTIVE"
 
@@ -155,12 +158,13 @@ typedef socklen_t my_socklen_t;
 #define FD_LOCK_ID                 3    /* FD                           */
 #define AW_LOCK_ID                 4    /* Archive watch                */
 #define AS_LOCK_ID                 5    /* AFD statistics               */
-#define NO_OF_LOCK_PROC            6
+#define AFDD_LOCK_ID               6    /* AFD TCP Daemon               */
+#define NO_OF_LOCK_PROC            7
 
 /* Definitions for options needed both for AMG and FD. */
 #ifdef _WITH_TRANS_EXEC
 #define TRANS_EXEC_ID              "pexec"
-#define TRANS_EXEC_ID_LENGTH       5
+#define TRANS_EXEC_ID_LENGTH       (sizeof(TRANS_EXEC_ID)-1)
 #endif /* _WITH_TRANS_EXEC */
 
 /* Commands that can be send to DB_UPDATE_FIFO of the AMG */
@@ -359,10 +363,10 @@ typedef socklen_t my_socklen_t;
 #define MAP                        3
 #define MAP_FLAG                   8
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-#define SCP1                       4
-#define SCP1_FLAG                  16
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+#define SCP                        4
+#define SCP_FLAG                   16
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
 #define WMO                        5
 #define WMO_FLAG                   32
@@ -380,8 +384,8 @@ typedef socklen_t my_socklen_t;
 #ifdef _WITH_MAP_SUPPORT
 #define SEND_MAP_FLAG              524288
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-#define SEND_SCP1_FLAG             1048576
+#ifdef _WITH_SCP_SUPPORT
+#define SEND_SCP_FLAG              1048576
 #endif
 #ifdef _WITH_WMO_SUPPORT
 #define SEND_WMO_FLAG              2097152
@@ -389,56 +393,62 @@ typedef socklen_t my_socklen_t;
 #define GET_FTP_FLAG               16777216
 
 #define FTP_SHEME                  "ftp"
-#define FTP_SHEME_LENGTH           3
+#define FTP_SHEME_LENGTH           (sizeof(FTP_SHEME)-1)
 #define LOC_SHEME                  "file"
-#define LOC_SHEME_LENGTH           4
-#ifdef _WITH_SCP1_SUPPORT
+#define LOC_SHEME_LENGTH           (sizeof(LOC_SHEME)-1)
+#ifdef _WITH_SCP_SUPPORT
+#define SCP_SHEME                  "scp"
+#define SCP_SHEME_LENGTH           (sizeof(SCP_SHEME)-1)
 #define SCP1_SHEME                 "scp1"
-#define SCP1_SHEME_LENGTH          4
-#endif /* _WITH_SCP1_SUPPORT */
+#define SCP1_SHEME_LENGTH          (sizeof(SCP1_SHEME)-1)
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
 #define WMO_SHEME                  "wmo"
-#define WMO_SHEME_LENGTH           3
+#define WMO_SHEME_LENGTH           (sizeof(WMO_SHEME)-1)
 #endif
 #ifdef _WITH_MAP_SUPPORT
 #define MAP_SHEME                  "map"
-#define MAP_SHEME_LENGTH           3
+#define MAP_SHEME_LENGTH           (sizeof(MAP_SHEME)-1)
 #endif
 #define SMTP_SHEME                 "mailto"
-#define SMTP_SHEME_LENGTH          6
+#define SMTP_SHEME_LENGTH          (sizeof(SMTP_SHEME)-1)
 
 
 /* Definitions for [dir options] */
 #define DEL_UNKNOWN_FILES_ID             "delete unknown files"
-#define DEL_UNKNOWN_FILES_ID_LENGTH      20
+#define DEL_UNKNOWN_FILES_ID_LENGTH      (sizeof(DEL_UNKNOWN_FILES_ID)-1)
 #define DEL_QUEUED_FILES_ID              "delete queued files"
-#define DEL_QUEUED_FILES_ID_LENGTH       19
+#define DEL_QUEUED_FILES_ID_LENGTH       (sizeof(DEL_QUEUED_FILES_ID)-1)
 #define OLD_FILE_TIME_ID                 "old file time"
-#define OLD_FILE_TIME_ID_LENGTH          13
+#define OLD_FILE_TIME_ID_LENGTH          (sizeof(OLD_FILE_TIME_ID)-1)
 #define DONT_REP_UNKNOWN_FILES_ID        "do not report unknown files"
-#define DONT_REP_UNKNOWN_FILES_ID_LENGTH 27
+#define DONT_REP_UNKNOWN_FILES_ID_LENGTH (sizeof(DONT_REP_UNKNOWN_FILES_ID)-1)
 #define END_CHARACTER_ID                 "end character"
-#define END_CHARACTER_ID_LENGTH          13
+#define END_CHARACTER_ID_LENGTH          (sizeof(END_CHARACTER_ID)-1)
 #define TIME_ID                          "time"
-#define TIME_ID_LENGTH                   4
+#define TIME_ID_LENGTH                   (sizeof(TIME_ID)-1)
 #define MAX_PROCESS_ID                   "max process"
-#define MAX_PROCESS_ID_LENGTH            11
+#define MAX_PROCESS_ID_LENGTH            (sizeof(MAX_PROCESS_ID)-1)
 #define DO_NOT_REMOVE_ID                 "do not remove"
-#define DO_NOT_REMOVE_ID_LENGTH          13
+#define DO_NOT_REMOVE_ID_LENGTH          (sizeof(DO_NOT_REMOVE_ID)-1)
 #define STORE_REMOTE_LIST                "store remote list"
-#define STORE_REMOTE_LIST_LENGTH         17
+#define STORE_REMOTE_LIST_LENGTH         (sizeof(STORE_REMOTE_LIST)-1)
 #define DONT_DEL_UNKNOWN_FILES_ID        "do not delete unknown files"
-#define DONT_DEL_UNKNOWN_FILES_ID_LENGTH 20
+#define DONT_DEL_UNKNOWN_FILES_ID_LENGTH (sizeof(DONT_DEL_UNKNOWN_FILES_ID)-1)
 #define REP_UNKNOWN_FILES_ID             "report unknown files"
-#define REP_UNKNOWN_FILES_ID_LENGTH      20
+#define REP_UNKNOWN_FILES_ID_LENGTH      (sizeof(REP_UNKNOWN_FILES_ID)-1)
 #define FORCE_REREAD_ID                  "force reread"
-#define FORCE_REREAD_ID_LENGTH           12
+#define FORCE_REREAD_ID_LENGTH           (sizeof(FORCE_REREAD_ID)-1)
 #define IMPORTANT_DIR_ID                 "important dir"
-#define IMPORTANT_DIR_ID_LENGTH          13
+#define IMPORTANT_DIR_ID_LENGTH          (sizeof(IMPORTANT_DIR_ID)-1)
 #define IGNORE_SIZE_ID                   "ignore size"
-#define IGNORE_SIZE_ID_LENGTH            11
+#define IGNORE_SIZE_ID_LENGTH            (sizeof(IGNORE_SIZE_ID)-1)
 #define UNKNOWN_FILES                    1
 #define QUEUED_FILES                     2
+
+/* Definitions for [options] */
+#define AGE_LIMIT_ID               "age-limit"
+#define AGE_LIMIT_ID_LENGTH        (sizeof(AGE_LIMIT_ID) - 1)
 
 /* Default definitions */
 #define AFD_CONFIG_FILE            "/AFD_CONFIG"
@@ -503,6 +513,8 @@ typedef socklen_t my_socklen_t;
 #define MAX_TOGGLE_STR_LENGTH      5
 #define MAX_USER_NAME_LENGTH       80    /* Maximum length of the user   */
                                          /* name and password.           */
+#define MAX_FULL_USER_ID_LENGTH    80    /* Max length for user name and */
+                                         /* display.                     */
 #define MAX_COPIED_FILES           100   /* The maximum number of files  */
                                          /* that the AMG may collect     */
                                          /* before it creates a message  */
@@ -549,14 +561,14 @@ typedef socklen_t my_socklen_t;
 #define CLOSING_CONNECTION         2  /* Closing an active connection.   */
 /*############################ SaddleBrown ##############################*/
 #define PAUSE_QUEUE                3
-#ifdef _WITH_SCP1_SUPPORT
-#define SCP1_ACTIVE                3
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+#define SCP_ACTIVE                 3
+#endif /* _WITH_SCP_SUPPORT */
 /*############################## brown3 #################################*/
 #define AUTO_PAUSE_QUEUE           4
-#ifdef _WITH_SCP1_SUPPORT
-#define SCP1_BURST_TRANSFER_ACTIVE 4
-#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_SCP_SUPPORT
+#define SCP_BURST_TRANSFER_ACTIVE  4
+#endif /* _WITH_SCP_SUPPORT */
 /*############################### Blue ##################################*/
 #define CONNECTING                 5  /* Open connection to remote host, */
                                       /* sending user and password,      */
@@ -641,7 +653,7 @@ typedef socklen_t my_socklen_t;
                                             /* files of jobs that could  */
                                             /* not be transfered.        */
 
-#define ERROR_DIR_LENGTH           6
+#define ERROR_DIR_LENGTH           (sizeof(ERROR_DIR)-1)
 #define INCOMING_DIR               "/incoming"
 #define FILE_MASK_DIR              "/file_mask"
 #define LS_DATA_DIR                "/ls_data"
@@ -652,6 +664,11 @@ typedef socklen_t my_socklen_t;
 #define STATUS_SHMID_FILE          "/afd.status"
 #define BLOCK_FILE                 "/NO_AUTO_RESTART"
 #define COUNTER_FILE               "/amg_counter"
+#define JOB_ID_FILE                "/jid_number"
+#define DIR_ID_FILE                "/did_number"
+#define MESSAGE_BUF_FILE           "/tmp_msg_buffer"
+#define MSG_CACHE_FILE             "/fd_msg_cache"
+#define MSG_QUEUE_FILE             "/fd_msg_queue"
 
 /* Definitions for the AFD name */
 #define AFD_NAME                   "afd.name"
@@ -674,7 +691,6 @@ typedef socklen_t my_socklen_t;
 #define IP_FIN_FIFO                "/ip_fin.fifo"
 #define SF_FIN_FIFO                "/sf_fin.fifo"
 #define RETRY_FD_FIFO              "/retry_fd.fifo"
-#define RETRY_FR_FIFO              "/retry_fr.fifo"
 #define DELETE_JOBS_FIFO           "/delete_jobs.fifo"
 #define DELETE_JOBS_HOST_FIFO      "/delete_jobs_host.fifo"
 #define FD_WAKE_UP_FIFO            "/fd_wake_up.fifo"
@@ -696,7 +712,6 @@ typedef socklen_t my_socklen_t;
 #define JOB_ID_DATA_FILE           "/job_id_data"
 #define MSG_FIFO                   "/msg.fifo"
 #define CURRENT_MSG_LIST_FILE      "/current_job_id_list"
-#define TIME_JOB_FILE              "/time_jobs"
 #define AMG_DATA_FILE              "/amg_data"
 
 #define MSG_CACHE_BUF_SIZE         10000
@@ -902,7 +917,7 @@ struct filetransfer_status
                                             /*| 25   | GET_FTP          |*/
                                             /*| 23-24| Not used.        |*/
                                             /*| 22   | SEND_WMO         |*/
-                                            /*| 21   | SEND_SCP1        |*/
+                                            /*| 21   | SEND_SCP         |*/
                                             /*| 20   | SEND_MAP         |*/
                                             /*| 19   | SEND_SMTP        |*/
                                             /*| 18   | SEND_LOC         |*/
@@ -915,7 +930,7 @@ struct filetransfer_status
                                             /*| 9    | SEND             |*/
                                             /*| 7 - 8| Not used.        |*/
                                             /*| 6    | WMO              |*/
-                                            /*| 5    | SCP1             |*/
+                                            /*| 5    | SCP              |*/
                                             /*| 4    | MAP              |*/
                                             /*| 3    | SMTP             |*/
                                             /*| 2    | LOC              |*/
@@ -1421,8 +1436,10 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                exec_cmd(char *, char *),
                extract(char *, char *, int, int *, off_t *),
                fra_attach(void),
+               fra_attach_passive(void),
                fra_detach(void),
                fsa_attach(void),
+               fsa_attach_passive(void),
                fsa_detach(int),
                get_afd_name(char *),
                get_afd_path(int *, char **, char *),
@@ -1457,12 +1474,13 @@ extern pid_t   start_log(char *);
 extern ssize_t readn(int, void *, int);
 extern time_t  calc_next_time(struct bd_time_entry *),
                write_host_config(int, char *, struct host_list *);
-extern void    *attach_buf(char *, int *, size_t, char *),
+extern void    *attach_buf(char *, int *, size_t, char *, mode_t),
                bitset(unsigned char *, int),
                lock_region_w(int, off_t),
                change_alias_order(char **, int),
                clr_fl(int, int),
                count_files(char *, unsigned int *, off_t *),
+               check_permissions(void),
                daemon_init(char *),
                delete_log_ptrs(struct delete_log *),
                get_log_number(int *, int, char *, int),

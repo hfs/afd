@@ -76,6 +76,14 @@ extern struct instant_db          *db;
 extern struct message_buf         *mb;
 #ifdef _WITH_PTHREAD
 extern pthread_mutex_t            fsa_mutex;
+#else
+# ifdef _DELETE_LOG
+extern off_t                      *file_size_pool;
+extern char                       **file_name_pool;
+# endif /* _DELETE_LOG */
+#endif
+#ifdef _DELETE_LOG
+extern struct delete_log          dl;
 #endif
 
 /* Local function prototypes. */
@@ -89,22 +97,60 @@ send_message(char           *afd_file_dir,
              unsigned short unique_number,
              time_t         creation_time,
              int            position,
+#ifdef _DELETE_LOG
+#ifdef _WITH_PTHREAD
+             off_t          *file_size_pool,
+             char           **file_name_pool,
+#endif
+#endif
              int            files_to_send,
              off_t          file_size_to_send)
 {
-   off_t lock_offset;
-   char  fifo_buffer[MAX_BIN_MSG_LENGTH],
-         file_path[MAX_PATH_LENGTH];
+   char fifo_buffer[MAX_BIN_MSG_LENGTH],
+        file_path[MAX_PATH_LENGTH];
 
    (void)strcpy(file_path, afd_file_dir);
    (void)strcat(file_path, p_unique_name);
 
-   if (handle_options(db[position].no_of_loptions, db[position].loptions,
-                      file_path, &files_to_send, &file_size_to_send) != 0)
+   if (db[position].lfs & DELETE_ALL_FILES)
    {
-      /* The function reported the error, so */
-      /* no need to do it here again.        */
-      return;
+#ifdef _DELETE_LOG
+      int    i;
+      size_t dl_real_size;
+
+      for (i = 0; i < files_to_send; i++)
+      {
+         (void)strcpy(dl.file_name, file_name_pool[i]);
+         (void)sprintf(dl.host_name, "%-*s %x",
+                       MAX_HOSTNAME_LENGTH, db[position].host_alias, OTHER_DEL);
+         *dl.file_size = file_size_pool[i];
+         *dl.job_number = db[position].job_id;
+         *dl.file_name_length = strlen(file_name_pool[i]);
+         dl_real_size = *dl.file_name_length + dl.size +
+                        sprintf((dl.file_name + *dl.file_name_length + 1),
+                                "%s delete option (%s %d)",
+                                DIR_CHECK, __FILE__, __LINE__);
+         if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN, "write() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }                                           
+      }
+#endif /* _DELETE_LOG */
+      files_to_send = 0;
+   }
+   else
+   {
+      if (db[position].no_of_loptions > 0)
+      {
+         if (handle_options(db[position].no_of_loptions, db[position].loptions,
+                            file_path, &files_to_send, &file_size_to_send) != 0)
+         {
+            /* The function reported the error, so */
+            /* no need to do it here again.        */
+            return;
+         }
+      }
    }
 
    if (files_to_send > 0)
@@ -120,9 +166,6 @@ send_message(char           *afd_file_dir,
       }
 #endif
 
-      lock_offset = (char *)&fsa[db[position].position] - (char *)fsa;
-      rlock_region(fsa_fd, lock_offset);
-
       /* Total file counter */
       lock_region_w(fsa_fd, (char *)&fsa[db[position].position].total_file_counter - (char *)fsa);
       fsa[db[position].position].total_file_counter += files_to_send;
@@ -130,7 +173,6 @@ send_message(char           *afd_file_dir,
       /* Total file size */
       fsa[db[position].position].total_file_size += file_size_to_send;
       unlock_region(fsa_fd, (char *)&fsa[db[position].position].total_file_counter - (char *)fsa);
-      unlock_region(fsa_fd, lock_offset);
 
 #ifdef _WITH_PTHREAD
       if ((rtn = pthread_mutex_unlock(&fsa_mutex)) != 0)

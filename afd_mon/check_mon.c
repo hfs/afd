@@ -99,6 +99,9 @@ check_mon(long wait_time)
        */
       if ((mon_cmd_fd = open(mon_cmd_fifo, O_RDWR)) < 0)
       {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Failed to open() `%s' : %s (%s %d)\n",
+                   mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
          /* Now we have no way to determine if another */
          /* AFD is still running. Lets kill ALL jobs   */
          /* which appear in the 'mon_active_file'.     */

@@ -1,6 +1,6 @@
 /*
  *  fsa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int fsa_attach(void)
+ **   int fsa_attach_passive(void)
  **
  ** DESCRIPTION
  **   Attaches to the memory mapped area of the FSA (File Transfer
@@ -49,6 +50,7 @@ DESCR__S_M3
  **   24.12.1995 H.Kiehl Created
  **   15.08.1997 H.Kiehl When failing to open() the FSA file don't just
  **                      exit. Give it another try.
+ **   29.04.2003 H.Kiehl Added function fsa_attach_passive().
  **
  */
 DESCR__E_M3
@@ -240,6 +242,8 @@ fsa_attach(void)
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to stat() %s : %s",
                     fsa_stat_file, strerror(errno));
+         (void)close(fsa_fd);
+         fsa_fd = -1;
          return(INCORRECT);
       }
 
@@ -253,6 +257,8 @@ fsa_attach(void)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "mmap() error : %s", strerror(errno));
+         (void)close(fsa_fd);
+         fsa_fd = -1;
          return(INCORRECT);
       }
 
@@ -265,6 +271,108 @@ fsa_attach(void)
       fsa_size = stat_buf.st_size;
 #endif
    } while (no_of_hosts <= 0);
+
+   return(SUCCESS);
+}
+
+
+/*######################## fsa_attach_passive() #########################*/
+int
+fsa_attach_passive(void)
+{
+   int         fd;
+   char        *ptr = NULL,
+               *p_fsa_stat_file,
+               fsa_id_file[MAX_PATH_LENGTH],
+               fsa_stat_file[MAX_PATH_LENGTH];
+   struct stat stat_buf;
+
+   /* Get absolute path of FSA_ID_FILE */
+   (void)strcpy(fsa_id_file, p_work_dir);
+   (void)strcat(fsa_id_file, FIFO_DIR);
+   (void)strcpy(fsa_stat_file, fsa_id_file);
+   (void)strcat(fsa_stat_file, FSA_STAT_FILE);
+   p_fsa_stat_file = fsa_stat_file + strlen(fsa_stat_file);
+   (void)strcat(fsa_id_file, FSA_ID_FILE);
+
+   /* Read the FSA ID. */
+   if ((fd = coe_open(fsa_id_file, O_RDONLY)) == -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to open() <%s> : %s", fsa_id_file, strerror(errno));
+      return(INCORRECT);
+   }
+   if (read(fd, &fsa_id, sizeof(int)) < 0)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not read the value of the fsa_id : %s",
+                 strerror(errno));
+      (void)close(fd);
+      return(INCORRECT);
+   }
+   if (close(fd) == -1)
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Could not close() <%s> : %s", fsa_id_file, strerror(errno));
+   }
+   (void)sprintf(p_fsa_stat_file, ".%d", fsa_id);
+
+   if (fsa_fd > 0)
+   {
+      if (close(fsa_fd) == -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
+      }
+   }
+
+   if ((fsa_fd = coe_open(fsa_stat_file, O_RDONLY)) == -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to open() <%s> : %s", fsa_stat_file, strerror(errno));
+      return(INCORRECT);
+   }
+
+   if (fstat(fsa_fd, &stat_buf) == -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to stat() <%s> : %s", fsa_stat_file, strerror(errno));
+      (void)close(fsa_fd);
+      fsa_fd = -1;
+      return(INCORRECT);
+   }
+   if (stat_buf.st_size < AFD_WORD_OFFSET)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "FSA not large enough to contain any meaningful data.");
+      (void)close(fsa_fd);
+      fsa_fd = -1;
+      return(INCORRECT);
+   }
+
+#ifdef _NO_MMAP
+   if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
+                       MAP_SHARED, fsa_stat_file, 0)) == (caddr_t) -1)
+#else
+   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+                   MAP_SHARED, fsa_fd, 0)) == (caddr_t) -1)
+#endif
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "mmap() error : %s", strerror(errno));
+      (void)close(fsa_fd);
+      fsa_fd = -1;
+      return(INCORRECT);
+   }
+
+   /* Read number of current FSA */
+   no_of_hosts = *(int *)ptr;
+
+   ptr += AFD_WORD_OFFSET;
+   fsa = (struct filetransfer_status *)ptr;
+#ifndef _NO_MMAP
+   fsa_size = stat_buf.st_size;
+#endif
 
    return(SUCCESS);
 }

@@ -227,12 +227,12 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "MAP ");
       }
 #endif
-#ifdef _WITH_SCP1_SUPPORT
-      if (fsa[j].protocol & SCP1_FLAG)
+#ifdef _WITH_SCP_SUPPORT
+      if (fsa[j].protocol & SCP_FLAG)
       {
-         (void)fprintf(stdout, "SCP1 ");
+         (void)fprintf(stdout, "SCP ");
       }
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
       if (fsa[j].protocol & WMO_FLAG)
       {
@@ -406,15 +406,15 @@ main(int argc, char *argv[])
                (void)fprintf(stdout, "|  MAILING  ");
                break;
 
-#ifdef _WITH_SCP1_SUPPORT
-            case SCP1_BURST_TRANSFER_ACTIVE :
-               (void)fprintf(stdout, "| SCP1 BURST");
+#ifdef _WITH_SCP_SUPPORT
+            case SCP_BURST_TRANSFER_ACTIVE :
+               (void)fprintf(stdout, "| SCP BURST");
                break;
 
-            case SCP1_ACTIVE :
-               (void)fprintf(stdout, "| SCP1 ACTIV");
+            case SCP_ACTIVE :
+               (void)fprintf(stdout, "| SCP ACTIV");
                break;
-#endif /* _WITH_SCP1_SUPPORT */
+#endif /* _WITH_SCP_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
             case WMO_BURST_TRANSFER_ACTIVE :
                (void)fprintf(stdout, "| WMO BURST ");

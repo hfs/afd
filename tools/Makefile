@@ -267,7 +267,15 @@ real_clobber :
 install :
 	cd $(INSTDIR)/sbin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/sbin
-	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(PROGS) && chmod $(SUIDMODE) $(UDBPROG)$(EXE_EXT) $(ACMDPROG)$(EXE_EXT)
+	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(PROGS)
+	@if [ "`find $(INSTDIR)/sbin -user 0 -name $(UDBPROG)$(EXE_EXT) -print`" = "" ] ; \
+	then \
+		cd $(INSTDIR)/sbin && chmod $(SUIDMODE) $(UDBPROG)$(EXE_EXT) ; \
+	fi
+	@if [ "`find $(INSTDIR)/sbin -user 0 -name $(ACMDPROG)$(EXE_EXT) -print`" = "" ] ; \
+	then \
+		cd $(INSTDIR)/sbin && chmod $(SUIDMODE) $(ACMDPROG)$(EXE_EXT) ; \
+	fi
 	@if [ ! -r $(INSTDIR)/sbin/uhc$(EXE_EXT) ] ; \
 	then \
            cd $(INSTDIR)/sbin ; \

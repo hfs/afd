@@ -120,7 +120,7 @@ struct proc_table          proc_table[NO_OF_PROCESS];
 static pid_t               make_process(char *, char *);
 static void                afd_exit(void),
                            check_dirs(char *),
-                           get_afd_config_value(int *, int *),
+                           get_afd_config_value(int *, int *, unsigned int *),
                            init_afd_check_fsa(void),
                            log_pid(pid_t, int),
                            sig_exit(int),
@@ -133,7 +133,7 @@ static void                afd_exit(void),
 int
 main(int argc, char *argv[])
 {
-   int            afdd_port = -1,
+   int            afdd_port,
                   danger_no_of_files,
                   current_month,
                   status,
@@ -141,7 +141,8 @@ main(int argc, char *argv[])
                   fd,
                   auto_amg_stop = NO,
                   old_afd_stat;
-   unsigned int   *heartbeat;
+   unsigned int   default_age_limit,
+                  *heartbeat;
    off_t          offset;
    time_t         full_dir_check_time,
                   month_check_time,
@@ -453,7 +454,7 @@ main(int argc, char *argv[])
                           exit(INCORRECT);
       }
    }
-   get_afd_config_value(&afdd_port, &danger_no_of_files);
+   get_afd_config_value(&afdd_port, &danger_no_of_files, &default_age_limit);
 
    /* Do some cleanups when we exit */
    if (atexit(afd_exit) != 0)
@@ -540,6 +541,9 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
              AFD, MAJOR, MINOR, BUG_FIX);
 #endif
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "AFD configuration: Default age limit         %d (sec)\n",
+             default_age_limit);
 
    /* Start the process AMG */
    proc_table[AMG_NO].pid = make_process(AMG, work_dir);
@@ -1145,6 +1149,8 @@ main(int argc, char *argv[])
                                   log_pid(proc_table[FD_NO].pid, FD_NO + 1);
                                   *proc_table[FD_NO].status = ON;
                                   stop_typ = NONE_ID;
+
+                                  check_permissions();
                                }
                           else if (stop_typ != NONE_ID)
                                {
@@ -1219,7 +1225,9 @@ main(int argc, char *argv[])
 
 /*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
 static void
-get_afd_config_value(int *afdd_port, int *danger_no_of_files)
+get_afd_config_value(int          *afdd_port,
+                     int          *danger_no_of_files,
+                     unsigned int *default_age_limit)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
@@ -1258,7 +1266,26 @@ get_afd_config_value(int *afdd_port, int *danger_no_of_files)
          }
          *danger_no_of_files = *danger_no_of_files + *danger_no_of_files;
       }
+      else
+      {
+         *danger_no_of_files = MAX_COPIED_FILES + MAX_COPIED_FILES;
+      }
+      if (get_definition(buffer, DEFAULT_AGE_LIMIT_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *default_age_limit = (unsigned int)atoi(value);
+      }
+      else
+      {
+         *default_age_limit = DEFAULT_AGE_LIMIT;
+      }
       free(buffer);
+   }
+   else
+   {
+      *afdd_port = -1;
+      *danger_no_of_files = MAX_COPIED_FILES + MAX_COPIED_FILES;
+      *default_age_limit = DEFAULT_AGE_LIMIT;
    }
 
    return;

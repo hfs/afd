@@ -175,7 +175,7 @@ char                    work_dir[MAX_PATH_LENGTH],
                         *ptr_ping_cmd,
                         *traceroute_cmd = NULL,
                         *ptr_traceroute_cmd,
-                        user[MAX_FILENAME_LENGTH],
+                        user[MAX_FULL_USER_ID_LENGTH],
                         username[MAX_USER_NAME_LENGTH];
 clock_t                 clktck;
 struct apps_list        *apps_list = NULL;

@@ -89,7 +89,8 @@ init_job_data(int *jid_number)
    /* Attach job ID data. */
    new_size = (JOB_ID_DATA_STEP_SIZE * sizeof(struct job_id_data)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(job_id_data_file, &jd_fd, new_size, "AMG")) == (caddr_t) -1)
+   if ((ptr = attach_buf(job_id_data_file, &jd_fd, new_size, "AMG",
+                         FILE_MODE)) == (caddr_t) -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to mmap() to %s : %s (%s %d)\n",
@@ -97,6 +98,7 @@ init_job_data(int *jid_number)
       exit(INCORRECT);
    }
    no_of_job_ids = (int *)ptr;
+   *(ptr + sizeof(int) + 1 + 1 + 1) = 0;   /* Current struct version. */
    ptr += AFD_WORD_OFFSET;
    jd = (struct job_id_data *)ptr;
    lock_region_w(jd_fd, (off_t)1);
@@ -104,7 +106,8 @@ init_job_data(int *jid_number)
    /* Attach directory names. */
    new_size = (DIR_NAME_BUF_SIZE * sizeof(struct dir_name_buf)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(dir_name_file, &dnb_fd, new_size, "AMG")) == (caddr_t) -1)
+   if ((ptr = attach_buf(dir_name_file, &dnb_fd, new_size, "AMG",
+                         FILE_MODE)) == (caddr_t) -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to mmap() to %s : %s (%s %d)\n",
@@ -112,6 +115,7 @@ init_job_data(int *jid_number)
       exit(INCORRECT);
    }
    no_of_dir_names = (int *)ptr;
+   *(ptr + sizeof(int) + 1 + 1 + 1) = 0;   /* Current struct version. */
    ptr += AFD_WORD_OFFSET;
    dnb = (struct dir_name_buf *)ptr;
 

@@ -1,6 +1,6 @@
 /*
  *  x_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@
 #define ALL_TOGGLE                      2
 #define PRINTER_TOGGLE                  3
 #define FILE_TOGGLE                     4
+#define MAIL_TOGGLE                     5
 #define CONTROL_D                       '\004'
 
 /* Definitions for all X programs of the AFD */
@@ -644,6 +645,7 @@ extern void check_nummeric(Widget, XtPointer, XtPointer),
             read_setup(char *, int *, int *, char **, int, int),
             remove_passwd(char *),
             reset_message(Widget),                /* show_?log */
+            send_mail_cmd(char *),
             show_info(char *),                    /* show_?log */
             show_message(Widget, char *),         /* show_?log */
             update_time(XtPointer, XtIntervalId), /* show_?log */

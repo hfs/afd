@@ -69,7 +69,7 @@ main(int argc, char *argv[])
    int         db_update_fd;
    char        db_update_fifo[MAX_PATH_LENGTH],
                sys_log_fifo[MAX_PATH_LENGTH],
-               user[128],
+               user[MAX_FULL_USER_ID_LENGTH],
                work_dir[MAX_PATH_LENGTH];
    struct stat stat_buf;
 

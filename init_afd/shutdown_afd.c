@@ -71,7 +71,7 @@ shutdown_afd(void)
    char           buffer[DEFAULT_BUFFER_SIZE],
                   afd_cmd_fifo[MAX_PATH_LENGTH],
                   afd_resp_fifo[MAX_PATH_LENGTH],
-                  user[MAX_FILENAME_LENGTH];
+                  user[MAX_FULL_USER_ID_LENGTH];
    struct timeval timeout;
 
    /* Initialise variables */

@@ -1,6 +1,6 @@
 /*
  *  search_old_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -51,6 +51,8 @@ DESCR__S_M3
  **                      this was WRONGLY done with the "delete unknown files"
  **                      option!
  **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
+ **   22.09.2003 H.Kiehl If old_file_time is 0, do not delete incoming dot
+ **                      files.
  **
  */
 DESCR__E_M3
@@ -146,7 +148,10 @@ search_old_files(time_t current_time)
                    * leading dot.
                    */
                   diff_time = current_time - stat_buf.st_mtime;
-                  if (diff_time > fra[de[i].fra_pos].unknown_file_time)
+                  if (((p_dir->d_name[0] == '.') &&
+                       (fra[de[i].fra_pos].unknown_file_time == 0) &&
+                       (diff_time > 3600)) ||
+                      (diff_time > fra[de[i].fra_pos].unknown_file_time))
                   {
                      if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) ||
                          (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))

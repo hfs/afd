@@ -174,13 +174,6 @@ main(int argc, char *argv[])
    (void)strcat(afd_mon_db_file, AFD_MON_CONFIG_FILE);
    own_pid = getpid();
 
-   /* Make sure that no other afd_monitor is running in this directory */
-   if (check_mon(10L) == 1)
-   {
-      exit(0);
-   }
-   mon_active();
-
    /* Open (create) system log fifo. */
    if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
    {
@@ -206,6 +199,14 @@ main(int argc, char *argv[])
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+   /* Make sure that no other afd_monitor is running in this directory */
+   if (check_mon(10L) == 1)
+   {
+      (void)fprintf(stderr, "Another %s is active, terminating.\n", AFD_MON);
+      exit(0);
+   }
+   mon_active();
 
    /* Do some cleanups when we exit */
    if (atexit(afd_mon_exit) != 0)

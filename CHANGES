@@ -1184,3 +1184,59 @@
 05.03.2003 - Fixed a bug in transfer log that sometimes did not show
              the number of files and bytes when an error occured.
 ------------------------> Released: 04.03.2003 <---------------------------
+
+
+---------------------------> Version 1.2.18 <------------------------------
+                            ----------------
+13.03.2003 - If a host was removed it was not shown correctly in the
+             afd_ctrl dialog. Fixed.
+19.03.2003 - Removed some unnecessary locking from send_message().
+21.03.2003 - If the recipient contained a space, it was ignored.
+28.03.2003 - If no username was given and archive was set, the archive
+             was never deleted.
+02.04.2003 - When a file is attached it tries to automatically detect
+             what type it is by looking at the extension.
+03.04.2003 - Made the scp code work with both SSH1 and SSH2, thanks to
+             Frederic Olivie.
+04.04.2003 - sf_ftp now again shows appends and burst in log file.
+30.04.2003 - Added function to check if files in fifodir have the
+             correct permissions.
+05.05.2003 - In edit_hc dialog it was not possible to change the retry
+             interval if the scheme was file only. Fixed.
+03.06.2003 - Source and target directories may now also contain spaces.
+17.06.2003 - In afd_ctrl dialog, when a host is deleted and it was marked
+             as a short line, it did not recognise that this host no
+             longer exist.
+28.06.2003 - Added time modifier for renaming.
+06.07.2003 - When the directory option "do not remove" is set, the
+             directory is local and the maximum number of files or size
+             is reached, process dir_check could end up in an endless
+             loop.
+10.07.2003 - Minor bug in edit_hc that did not allow to update a host
+             when host switching is turned off and the second hostname
+             is removed. Fixed.
+           - Fix memory leak in mon_ctrl dialog.
+13.07.2003 - The option age-limit is now also evaluated on input (AMG).
+14.07.2003 - Added delete option.
+15.07.2003 - Added option "file busy rename" to rename the initial file
+             when we file to open the remote file due to some process
+             locking it.
+19.07.2003 - Handle case when in the recipient there is no port number
+             specified behind the ':'.
+11.08.2003 - Option to send log output to a mail address.
+17.08.2003 - New option lockp to do postfix type of locking.
+19.08.2003 - Function get_user() now does a length check.
+           - afd_mon and afdd can no longer be started twice.
+24.08.2003 - Failed to check if number of options or the option length
+             exceeded the maximum possible. Fixed.
+28.08.2003 - Put in check for directory length in DIR_CONFIG.
+18.09.2003 - Dir_check now checks if time goes backwards.
+22.09.2003 - If old_file_time is 0, do not delete incoming dot files.
+           - Specifying the recipient in show_ilog should now also work
+             when there are more then one job per directory.
+           - Do not install binaries with SUID flag when the files
+             belong to root.
+01.10.2003 - New option convert to convert ASCII bulletins starting
+             with SOH and ending with ETX to WMO standart 8 byte length
+             and 2 byte type indicator.
+------------------------> Released: 07.10.2003 <---------------------------

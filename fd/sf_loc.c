@@ -360,6 +360,12 @@ main(int argc, char *argv[])
             (void)strcat(if_name, db.lock_notation);
             (void)strcat(if_name, p_file_name_buffer);
          }
+         else if (db.lock == POSTFIX)
+              {
+                 *p_if_name = '\0';
+                 (void)strcat(if_name, p_file_name_buffer);
+                 (void)strcat(if_name, db.lock_notation);
+              }
          (void)strcpy(p_source_file, p_file_name_buffer);
 
          /* Write status to FSA? */

@@ -1,6 +1,6 @@
 /*
  *  attach_buf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,8 @@ DESCR__S_M3
  **   void *attach_buf(char   *file,
  **                    int    *fd,
  **                    size_t new_size,
- **                    char   *prog_name)
+ **                    char   *prog_name,
+ **                    mode_t mode)
  **
  ** DESCRIPTION
  **   The function attach_buf() attaches to the file 'file'. If
@@ -44,6 +45,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   21.01.1998 H.Kiehl Created
+ **   30.04.2003 H.Kiehl Added mode parameter.
  **
  */
 DESCR__E_M3
@@ -60,7 +62,7 @@ DESCR__E_M3
 
 /*############################ attach_buf() #############################*/
 void *
-attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
+attach_buf(char *file, int *fd, size_t new_size, char *prog_name, mode_t mode)
 {
    struct stat stat_buf;
 
@@ -70,7 +72,7 @@ attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
     * first time that the this process is started and no buffer
     * exists, then we need to create it.
     */
-   if ((*fd = coe_open(file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
+   if ((*fd = coe_open(file, O_RDWR | O_CREAT, mode)) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to open() and create <%s> : %s",

@@ -744,7 +744,7 @@ main(int argc, char *argv[])
          /* Send file name as subject if wanted. */
          if (db.special_flag & MAIL_SUBJECT)
          {
-            length = sprintf(buffer, "Subject : %s\r\n", db.subject);
+            length = sprintf(buffer, "Subject: %s\r\n", db.subject);
             if (smtp_write(buffer, NULL, length) < 0)
             {
                (void)rec(transfer_log_fd, INFO_SIGN,
@@ -761,7 +761,7 @@ main(int argc, char *argv[])
          }
          else if (db.special_flag & FILE_NAME_IS_SUBJECT)
               {
-                 length = sprintf(buffer, "Subject : %s\r\n", final_filename);
+                 length = sprintf(buffer, "Subject: %s\r\n", final_filename);
                  if (smtp_write(buffer, NULL, length) < 0)
                  {
                     (void)rec(transfer_log_fd, INFO_SIGN,
@@ -811,16 +811,19 @@ main(int argc, char *argv[])
             }
             else
             {
+               char content_type[MAX_CONTENT_TYPE_LENGTH];
+
+               get_content_type(final_filename, content_type);
 #ifdef PRE_RELEASE
                length = sprintf(encode_buffer,
-                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d-pre%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d-pre%d)\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
                                 MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
-                                final_filename, final_filename);
+                                content_type, final_filename, final_filename);
 #else
                length = sprintf(encode_buffer,
-                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
-                                MAJOR, MINOR, BUG_FIX, final_filename,
-                                final_filename);
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                MAJOR, MINOR, BUG_FIX, content_type,
+                                final_filename, final_filename);
 #endif
                buffer_ptr = encode_buffer;
             }
@@ -945,7 +948,8 @@ main(int argc, char *argv[])
                if (db.trans_rename_rule[0] != '\0')
                {
                   int  k;
-                  char new_filename[MAX_FILENAME_LENGTH];
+                  char content_type[MAX_CONTENT_TYPE_LENGTH],
+                       new_filename[MAX_FILENAME_LENGTH];
 
                   new_filename[0] = '\0';
                   for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
@@ -964,15 +968,21 @@ main(int argc, char *argv[])
                   {
                      (void)strcpy(new_filename, final_filename);
                   }
+                  get_content_type(new_filename, content_type);
                   length = sprintf(encode_buffer,
-                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
-                                   multipart_boundary, new_filename, new_filename);
+                                   "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                   multipart_boundary, content_type,
+                                   new_filename, new_filename);
                }
                else
                {
+                  char content_type[MAX_CONTENT_TYPE_LENGTH];
+
+                  get_content_type(final_filename, content_type);
                   length = sprintf(encode_buffer,
-                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
-                                   multipart_boundary, final_filename, final_filename);
+                                   "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                   multipart_boundary, content_type,
+                                   final_filename, final_filename);
                }
 
                if (smtp_write(encode_buffer, NULL, length) < 0)
@@ -983,7 +993,7 @@ main(int argc, char *argv[])
                             fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                             fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to write the Content-Type (APPLICATION/octet-stream) to SMTP-server.");
+                            "Failed to write the Content-Type to SMTP-server.");
                   (void)smtp_quit();
                   exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
@@ -1012,7 +1022,8 @@ main(int argc, char *argv[])
       if ((db.special_flag & ATTACH_ALL_FILES) &&
           ((mail_header_buffer == NULL) || (files_send != 0)))
       {
-         int length = 0;
+         int  length = 0;
+         char content_type[MAX_CONTENT_TYPE_LENGTH];
 
          /* Write boundary */
          if (db.trans_rename_rule[0] != '\0')
@@ -1037,32 +1048,38 @@ main(int argc, char *argv[])
             {
                (void)strcpy(new_filename, final_filename);
             }
+            get_content_type(new_filename, content_type);
             if (files_send == 0)
             {
                length = sprintf(encode_buffer,
-                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
-                                multipart_boundary, new_filename, new_filename);
+                                "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, content_type,
+                                new_filename, new_filename);
             }
             else
             {
                length = sprintf(encode_buffer,
-                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
-                                multipart_boundary, new_filename, new_filename);
+                                "\r\n\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, content_type,
+                                new_filename, new_filename);
             }
          }
          else
          {
+            get_content_type(final_filename, content_type);
             if (files_send == 0)
             {
                length = sprintf(encode_buffer,
-                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
-                                multipart_boundary, final_filename, final_filename);
+                                "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, content_type,
+                                final_filename, final_filename);
             }
             else
             {
                length = sprintf(encode_buffer,
-                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
-                                multipart_boundary, final_filename, final_filename);
+                                "\r\n\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, content_type,
+                                final_filename, final_filename);
             }
          }
 
@@ -1074,7 +1091,7 @@ main(int argc, char *argv[])
                       fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                       fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to write the Content-Type (APPLICATION/octet-stream) to SMTP-server.");
+                      "Failed to write the Content-Type to SMTP-server.");
             (void)smtp_quit();
             exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
          }
