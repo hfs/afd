@@ -72,7 +72,7 @@ get_host_position(struct filetransfer_status *fsa,
 
    for (position = 0; position < no_of_hosts; position++)
    {
-      if (strcmp(fsa[position].host_alias, host_alias) == 0)
+      if (CHECK_STRCMP(fsa[position].host_alias, host_alias) == 0)
       {
          return(position);
       }
@@ -93,7 +93,7 @@ get_dir_position(struct fileretrieve_status *fra,
 
    for (position = 0; position < no_of_dirs; position++)
    {
-      if (strcmp(fra[position].dir_alias, dir_alias) == 0)
+      if (CHECK_STRCMP(fra[position].dir_alias, dir_alias) == 0)
       {
          return(position);
       }

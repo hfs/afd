@@ -165,7 +165,7 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
             }
             tmp_char = *end_ptr;
             *end_ptr = '\0';
-            if (strcmp(tmp_ptr, file_name) == 0)
+            if (CHECK_STRCMP(tmp_ptr, file_name) == 0)
             {
                if (tmp_char == '|')
                {

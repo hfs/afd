@@ -43,7 +43,6 @@ DESCR__E_M1
 
 #include <stdio.h>               /* fopen(), NULL                        */
 #include <string.h>              /* strcpy(), strcat(), strcmp()         */
-#include <ctype.h>               /* toupper()                            */
 #include <time.h>                /* strftime(), localtime()              */
 #include <sys/types.h>
 #include <sys/stat.h>

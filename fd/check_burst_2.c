@@ -135,7 +135,7 @@ retry:
                {
                   break;
                }
-            } while (sleep_time < 60000000L); /* Wait 60 seconds. */
+            } while (sleep_time < 120000000L); /* Wait 120 seconds. */
 
             if ((fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[1] != '\0') &&
                 (fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[0] != '\0'))
@@ -239,11 +239,11 @@ retry:
             }
             else
             {
-               if (sleep_time >= 60000000L)
+               if (sleep_time >= 120000000L)
                {
                   fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[2] = 1;
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Hmmm, failed to get a message from FD for <%s> after 60 seconds!",
+                             "Hmmm, failed to get a message from FD for <%s> after 120 seconds!",
                              fsa[db.fsa_pos].host_alias);
                }
 #ifdef _DEBUG_BURST2

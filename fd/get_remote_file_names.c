@@ -438,7 +438,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
       /* Check if this file is in the list. */
       for (i = 0; i < *no_of_listed_files; i++)
       {
-         if (strcmp(rl[i].file_name, file) == 0)
+         if (CHECK_STRCMP(rl[i].file_name, file) == 0)
          {
             /* Try to get remote date. */
             if (check_date == YES)

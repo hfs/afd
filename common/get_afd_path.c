@@ -58,7 +58,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>             /* fprintf(), NULL                        */
-#include <string.h>            /* strcmp(), strcpy(), strcat()           */
+#include <string.h>            /* strcpy()                               */
 #include <stdlib.h>            /* getenv()                               */
 #include <unistd.h>            /* R_OK, X_OK                             */
 

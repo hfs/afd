@@ -45,7 +45,6 @@ DESCR__E_M1
 
 #include <stdio.h>               /* fopen(), NULL                        */
 #include <string.h>              /* strcpy(), strcat(), strcmp()         */
-#include <ctype.h>               /* toupper()                            */
 #include <signal.h>              /* signal()                             */
 #include <sys/types.h>
 #include <sys/wait.h>            /* wait()                               */

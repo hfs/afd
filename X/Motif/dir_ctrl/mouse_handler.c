@@ -976,6 +976,10 @@ change_dir_rows_cb(Widget    w,
          no_of_rows_set = atoi(ROW_12);
          break;
 
+      case 13  :
+         no_of_rows_set = atoi(ROW_13);
+         break;
+
       default  :
          (void)xrec(appshell, WARN_DIALOG, "Impossible row selection (%d).",
                     item_no);

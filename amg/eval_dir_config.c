@@ -462,60 +462,70 @@ eval_dir_config(size_t db_size, int *dc)
       dir->option[0] = '\0';
       while ((*ptr != '\n') && (*ptr != '\0'))
       {
-         if ((*ptr == ' ') || (*ptr == '\t'))
+         if (*ptr == '\\')
          {
-            tmp_ptr = ptr;
-            while ((*tmp_ptr == ' ') || (*tmp_ptr == '\t'))
-            {
-               tmp_ptr++;
-            }
-            switch (*tmp_ptr)
-            {
-               case '#' :  /* Found comment */
-                  while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0'))
-                  {
-                     tmp_ptr++;
-                  }
-                  ptr = tmp_ptr;
-                  continue;
-               case '\0':  /* Found end for this entry */
-                  ptr = tmp_ptr;
-                  continue;
-               case '\n':  /* End of line reached */
-                  ptr = tmp_ptr;
-                  continue;
-               default  :  /* option goes on */
-                  ptr = tmp_ptr;
-                  break;
-            }
-         }
-         if ((i > 0) &&
-             ((*(ptr - 1) == '\t') || (*(ptr - 1) == ' ')))
-         {
-            int ii = 0;
-
-            while ((*ptr != '\n') && (*ptr != '\0') &&
-                   (ii < MAX_DIR_OPTION_LENGTH))
-            {
-               CHECK_SPACE();
-               if ((ii > 0) &&
-                   ((*(ptr - 1) == '\t') || (*(ptr - 1) == ' ')))
-               {
-                  dir->option[ii] = ' ';
-                  ii++;
-               }
-               dir->option[ii] = *ptr;
-               ii++; ptr++;
-            }
-            if (ii > 0)
-            {
-               dir->option[ii] = '\0';
-            }
+            dir->location[i] = *(ptr + 1);
+            i++;
+            ptr += 2;
          }
          else
          {
-            dir->location[i] = *ptr;
-            i++; ptr++;
+            if ((*ptr == ' ') || (*ptr == '\t'))
+            {
+               tmp_ptr = ptr;
+               while ((*tmp_ptr == ' ') || (*tmp_ptr == '\t'))
+               {
+                  tmp_ptr++;
+               }
+               switch (*tmp_ptr)
+               {
+                  case '#' :  /* Found comment */
+                     while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0'))
+                     {
+                        tmp_ptr++;
+                     }
+                     ptr = tmp_ptr;
+                     continue;
+                  case '\0':  /* Found end for this entry */
+                     ptr = tmp_ptr;
+                     continue;
+                  case '\n':  /* End of line reached */
+                     ptr = tmp_ptr;
+                     continue;
+                  default  :  /* option goes on */
+                     ptr = tmp_ptr;
+                     break;
+               }
+            }
+            if ((i > 0) &&
+                (((*(ptr - 1) == '\t') || (*(ptr - 1) == ' ')) &&
+                  ((i < 2) || (*(ptr - 2) != '\\'))))
+            {
+               int ii = 0;
+
+               while ((*ptr != '\n') && (*ptr != '\0') &&
+                      (ii < MAX_DIR_OPTION_LENGTH))
+               {
+                  CHECK_SPACE();
+                  if ((ii > 0) &&
+                      ((*(ptr - 1) == '\t') || (*(ptr - 1) == ' ')))
+                  {
+                     dir->option[ii] = ' ';
+                     ii++;
+                  }
+                  dir->option[ii] = *ptr;
+                  ii++; ptr++;
+               }
+               if (ii > 0)
+               {
+                  dir->option[ii] = '\0';
+               }
+            }
+            else
+            {
+               dir->location[i] = *ptr;
+               i++; ptr++;
+            }
          }
       }
       if ((*ptr == '\n') && (i > 0))
@@ -2484,7 +2494,7 @@ copy_to_shm(void)
 
       /* First calculate the size for each region. */
       size_ptr_array = job_no * sizeof(struct p_array);
-      size = sizeof(int) + data_length + size_ptr_array + 1;
+      size = sizeof(int) + data_length + size_ptr_array + sizeof(char);
 
       /* Create shared memory regions. */
       while (((shm_id = shmget(IPC_PRIVATE, size,

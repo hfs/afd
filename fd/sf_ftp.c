@@ -879,7 +879,7 @@ main(int argc, char *argv[])
                   {
                      if ((j != db.job_no) &&
                          (fsa[db.fsa_pos].job_status[j].job_id == fsa[db.fsa_pos].job_status[(int)db.job_no].job_id) &&
-                         (strcmp(fsa[db.fsa_pos].job_status[j].file_name_in_use, p_file_name_buffer) == 0))
+                         (CHECK_STRCMP(fsa[db.fsa_pos].job_status[j].file_name_in_use, p_file_name_buffer) == 0))
                      {
 #ifdef _DELETE_LOG
                         int    prog_name_length;
@@ -1017,7 +1017,7 @@ main(int argc, char *argv[])
 
             for (ii = 0; ii < db.no_of_restart_files; ii++)
             {
-               if ((strcmp(db.restart_file[ii], initial_filename) == 0) &&
+               if ((CHECK_STRCMP(db.restart_file[ii], initial_filename) == 0) &&
                    (append_compare(db.restart_file[ii], fullname) == YES))
                {
                   append_file_number = ii;

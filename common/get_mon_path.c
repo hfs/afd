@@ -72,7 +72,7 @@ get_mon_path(int *argc, char *argv[], char *work_dir)
    ptr = work_dir;
 
    /* See if directory is passed as argument */
-   if ((*argc > 2) && (strcmp(argv[1], WORK_DIR_ID) == 0))
+   if ((*argc > 2) && (CHECK_STRCMP(argv[1], WORK_DIR_ID) == 0))
    {
       (void)strcpy(work_dir, argv[2]);
       if (*argc > 3)
@@ -95,17 +95,17 @@ get_mon_path(int *argc, char *argv[], char *work_dir)
         {
            (void)strcpy(work_dir, ptr);
         }
-        else if ((ptr = getenv(WD_ENV_NAME)) != NULL)
-             {
-                (void)strcpy(work_dir, ptr);
-             }
-             else
-             {
-                (void)fprintf(stderr,
-                              "ERROR   : Failed to determine woking directory. (%s %d)\n",
-                              __FILE__, __LINE__);
-                return(INCORRECT);
-             }
+   else if ((ptr = getenv(WD_ENV_NAME)) != NULL)
+        {
+           (void)strcpy(work_dir, ptr);
+        }
+        else
+        {
+           (void)fprintf(stderr,
+                         "ERROR   : Failed to determine woking directory. (%s %d)\n",
+                         __FILE__, __LINE__);
+           return(INCORRECT);
+        }
 
    if (check_dir(work_dir, R_OK | X_OK) == SUCCESS)
    {

@@ -29,6 +29,7 @@
 
 #include "config.h"
 #include <stdio.h>
+#include <string.h>
 #include <limits.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1279,6 +1280,9 @@ struct delete_log
            }                    \
            ptr++;               \
         }
+
+/* Macro to check if we can avoid a strcmp. */
+#define CHECK_STRCMP(a, b)  (*(a) != *(b) ? (int)((unsigned char) *(a) - (unsigned char) *(b)) : strcmp((a), (b)))
 
 /* Function prototypes */
 extern void    change_name(char *, char *, char *, char *),

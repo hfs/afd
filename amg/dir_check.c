@@ -293,16 +293,16 @@ main(int argc, char *argv[])
    }
 
 #ifdef _INPUT_LOG
-   il_size = sizeof(off_t) + sizeof(unsigned int) + MAX_FILENAME_LENGTH + 1;
+   il_size = sizeof(off_t) + sizeof(unsigned int) +
+             MAX_FILENAME_LENGTH + sizeof(char);
    if ((il_data = malloc(il_size)) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   il_size = sizeof(off_t) + sizeof(unsigned int) + 1; /* NOTE: + 1 is for */
-                                                       /* '\0' at end of   */
-                                                       /* file name!!!!    */
+   il_size = sizeof(off_t) + sizeof(unsigned int) + sizeof(char);
+   /* NOTE: + sizeof(char) is for '\0' at end of file name!!!! */
    il_file_size = (off_t *)(il_data);
    il_dir_number = (unsigned int *)(il_data + sizeof(off_t));
    il_file_name = (char *)(il_data + sizeof(off_t) + sizeof(unsigned int));

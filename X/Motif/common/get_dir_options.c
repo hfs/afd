@@ -127,6 +127,12 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
                          STORE_REMOTE_LIST);
             d_o->no_of_dir_options++;
          }
+         if (fra[i].remove == NO)
+         {
+            (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                         DO_NOT_REMOVE_ID);
+            d_o->no_of_dir_options++;
+         }
          if (fra[i].force_reread == YES)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options], "force reread");

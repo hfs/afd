@@ -121,15 +121,14 @@ Widget                     active_mode_w,
                            host_2_label_w,
                            host_list_w,
                            host_switch_toggle_w,
-                           idle_time_w,
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                            ftp_keepalive_w,
-                           keepalive_w,
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                            max_errors_w,
                            mode_label_w,
                            no_source_icon_w,
                            passive_mode_w,
+                           proxy_box_w,
                            proxy_name_w,
                            real_hostname_1_w,
                            real_hostname_2_w,
@@ -1063,47 +1062,31 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
    argcount++;
    box_w = XmCreateForm(form_w, "protocol_specific2_box_w", args, argcount);
-   ftp_idle_time_w = XtVaCreateWidget("ftp_idle_time_togglebox",
-                                xmRowColumnWidgetClass, box_w,
-                                XmNorientation,      XmHORIZONTAL,
-                                XmNpacking,          XmPACK_TIGHT,
-                                XmNnumColumns,       1,
-                                XmNtopAttachment,    XmATTACH_FORM,
-                                XmNleftAttachment,   XmATTACH_FORM,
-                                XmNbottomAttachment, XmATTACH_FORM,
-                                XmNresizable,        False,
-                                NULL);
-   idle_time_w = XtVaCreateManagedWidget("Set idle time ",
-                                xmToggleButtonGadgetClass, ftp_idle_time_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    False,
-                                NULL);
-   XtAddCallback(idle_time_w, XmNvalueChangedCallback,
+   ftp_idle_time_w = XtVaCreateManagedWidget("Set idle time ",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_FORM,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(ftp_idle_time_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button,
                  (XtPointer)FTP_SET_IDLE_TIME_CHANGED);
-   XtManageChild(ftp_idle_time_w);
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-   ftp_keepalive_w = XtVaCreateWidget("ftp_keepalive_togglebox",
-                                xmRowColumnWidgetClass, box_w,
-                                XmNorientation,      XmHORIZONTAL,
-                                XmNpacking,          XmPACK_TIGHT,
-                                XmNnumColumns,       1,
-                                XmNtopAttachment,    XmATTACH_FORM,
-                                XmNleftAttachment,   XmATTACH_WIDGET,
-                                XmNleftWidget,       idle_time_w,
-                                XmNbottomAttachment, XmATTACH_FORM,
-                                XmNresizable,        False,
-                                NULL);
-   keepalive_w = XtVaCreateManagedWidget("Keepalive ",
-                                xmToggleButtonGadgetClass, ftp_keepalive_w,
-                                XmNfontList,               fontlist,
-                                XmNset,                    False,
-                                NULL);
-   XtAddCallback(keepalive_w, XmNvalueChangedCallback,
+   ftp_keepalive_w = XtVaCreateManagedWidget("Keepalive ",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             ftp_idle_time_w,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(ftp_keepalive_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button, 
                  (XtPointer)FTP_KEEPALIVE_CHANGED);
-   XtManageChild(ftp_keepalive_w);
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
    XtManageChild(box_w);
 
 /*-----------------------------------------------------------------------*/
@@ -1149,10 +1132,10 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
    argcount++;
-   box_w = XmCreateForm(form_w, "proxy_name_box_w", args, argcount);
+   proxy_box_w = XmCreateForm(form_w, "proxy_name_box_w", args, argcount);
 
    label_w = XtVaCreateManagedWidget("Proxy Name:",
-                           xmLabelGadgetClass,  box_w,
+                           xmLabelGadgetClass,  proxy_box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_FORM,
                            XmNleftAttachment,   XmATTACH_FORM,
@@ -1161,7 +1144,7 @@ main(int argc, char *argv[])
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    proxy_name_w = XtVaCreateManagedWidget("",
-                           xmTextWidgetClass,   box_w,
+                           xmTextWidgetClass,   proxy_box_w,
                            XmNfontList,         fontlist,
                            XmNmarginHeight,     1,
                            XmNmarginWidth,      1,
@@ -1178,7 +1161,7 @@ main(int argc, char *argv[])
                  NULL);
    XtAddCallback(proxy_name_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)PROXY_NAME);
-   XtManageChild(box_w);
+   XtManageChild(proxy_box_w);
    XtManageChild(form_w);
 
    /* Free font list */

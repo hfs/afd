@@ -262,10 +262,6 @@ main(int argc, char *argv[])
    /* Initialise global values */
    init_afd_ctrl(&argc, argv, window_title);
 
-#ifdef _X_DEBUG
-   XSynchronize(display, 1);
-#endif
-
    /* Create the top-level shell widget and initialise the toolkit */
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
@@ -280,6 +276,10 @@ main(int argc, char *argv[])
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+#ifdef _X_DEBUG
+   XSynchronize(display, 1);
+#endif
 
    mainwindow = XtVaCreateManagedWidget("Main_window",
                                         xmMainWindowWidgetClass, appshell,

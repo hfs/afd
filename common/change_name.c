@@ -154,7 +154,8 @@ change_name(char *orig_file_name,
                /* position the orig_file_name pointer to the next      */
                /* place where filter pointer and orig_file_name pointer*/
                /* are equal                                            */
-               while (*ptr_oldname != *ptr_filter_tmp)
+               while ((*ptr_oldname != *ptr_filter_tmp) &&
+                      (*ptr_oldname != '\0'))
                {
                   ptr_oldname++;
                }
@@ -164,7 +165,8 @@ change_name(char *orig_file_name,
                /* test the rest of the pattern */
                while ((*ptr_filter_tmp != '*') && (*ptr_filter_tmp != '\0'))
                {
-                  if ((*ptr_filter_tmp == *ptr_oldname_tmp) || (*ptr_filter_tmp == '?'))
+                  if ((*ptr_filter_tmp == *ptr_oldname_tmp) ||
+                      (*ptr_filter_tmp == '?'))
                   {
                      if (*ptr_filter_tmp == '?')
                      {
@@ -194,10 +196,9 @@ change_name(char *orig_file_name,
                else
                {
                   ptr_filter_tmp = ptr_filter;
-                  ptr_oldname = ptr_oldname_tmp;
+                  ptr_oldname++;
                   if (count_questioner > 0)
                   {
-                     ptr_oldname -= count_questioner;
                      count_questioner = 0;
                   }
                }

@@ -209,7 +209,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 
                for (ii = 0; ii < db.no_of_restart_files; ii++)
                {
-                  if ((strcmp(db.restart_file[ii], initial_filename) == 0) &&
+                  if ((CHECK_STRCMP(db.restart_file[ii], initial_filename) == 0) &&
                       (append_compare(db.restart_file[ii], fullname) == YES))
                   {
                      remove_append(db.job_id, db.restart_file[ii]);
@@ -249,7 +249,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 
                      for (ii = 0; ii < db.no_of_restart_files; ii++)
                      {
-                        if (strcmp(db.restart_file[ii], p_dir->d_name) == 0)
+                        if (CHECK_STRCMP(db.restart_file[ii], p_dir->d_name) == 0)
                         {
                            append_file_number = ii;
                            break;

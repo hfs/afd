@@ -942,3 +942,19 @@
              does not work and displaying logs with show_log is still
              problematic.
 ------------------------> Released: 29.10.2001 <---------------------------
+
+
+---------------------------> Version 1.2.11 <------------------------------
+                            ----------------
+07.11.2001 - Fixed another rename bug in function change_name().
+12.11.2001 - Process fd uses less system calls when DIR_CONFIG is reread.
+13.11.2001 - Failed to set rows correctly in dir_ctrl dialog. Fixed.
+           - With the help of a \ one can enter directories with spaces.
+16.11.2001 - In function init_msg_buffer() when we remove a connection
+             queued, check if it is in connection structure and only then
+             remove it from the structure.
+08.12.2001 - When jobs are removed with the show_queue dialog it did not
+             remove the entries in the queue of FD. Fixed.
+11.12.2001 - FD initilizes all connection variables every time it starts
+             to ensure a sane state when it starts.
+------------------------> Released: 12.12.2001 <---------------------------

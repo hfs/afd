@@ -74,13 +74,12 @@ extern Widget                     active_mode_w,
                                   host_switch_toggle_w,
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                                   ftp_keepalive_w,
-                                  keepalive_w,
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
-                                  idle_time_w,
                                   max_errors_w,
                                   mode_label_w,
                                   no_source_icon_w,
                                   passive_mode_w,
+                                  proxy_box_w,
                                   proxy_name_w,
                                   real_hostname_1_w,
                                   real_hostname_2_w,
@@ -807,7 +806,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
 
       if (fsa[cur_pos].protocol & FTP_FLAG)
       {
-         XtSetSensitive(proxy_name_w, True);
+         XtSetSensitive(proxy_box_w, True);
          if (ce[cur_pos].value_changed & PROXY_NAME_CHANGED)
          {
             tmp_ptr = ce[cur_pos].proxy_name;
@@ -832,27 +831,27 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(ftp_idle_time_w, True);
          if (fsa[cur_pos].protocol & SET_IDLE_TIME)
          {
-            XtVaSetValues(idle_time_w, XmNset, True, NULL);
+            XtVaSetValues(ftp_idle_time_w, XmNset, True, NULL);
          }
          else
          {
-            XtVaSetValues(idle_time_w, XmNset, False, NULL);
+            XtVaSetValues(ftp_idle_time_w, XmNset, False, NULL);
          }
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
          XtSetSensitive(ftp_keepalive_w, True);
          if (fsa[cur_pos].protocol & STAT_KEEPALIVE)
          {
-            XtVaSetValues(keepalive_w, XmNset, True, NULL);
+            XtVaSetValues(ftp_keepalive_w, XmNset, True, NULL);
          }
          else
          {
-            XtVaSetValues(keepalive_w, XmNset, False, NULL);
+            XtVaSetValues(ftp_keepalive_w, XmNset, False, NULL);
          }
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
       }
       else
       {
-         XtSetSensitive(proxy_name_w, False);
+         XtSetSensitive(proxy_box_w, False);
          XtSetSensitive(mode_label_w, False);
          XtSetSensitive(ftp_mode_w, False);
          XtSetSensitive(ftp_idle_time_w, False);

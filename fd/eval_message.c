@@ -296,28 +296,28 @@ eval_message(char *message_name, struct job *p_db)
                     }
                     byte_buf = *end_ptr;
                     *end_ptr = '\0';
-                    if (strcmp(ptr, LOCK_DOT) == 0)
+                    if (CHECK_STRCMP(ptr, LOCK_DOT) == 0)
                     {
                        p_db->lock = DOT;
                     }
-                    else if (strcmp(ptr, LOCK_DOT_VMS) == 0)
+                    else if (CHECK_STRCMP(ptr, LOCK_DOT_VMS) == 0)
                          {
                             p_db->lock = DOT_VMS;
                          }
-                    else if (strcmp(ptr, LOCK_FILE) == 0)
+                    else if (CHECK_STRCMP(ptr, LOCK_FILE) == 0)
                          {
                             p_db->lock = LOCKFILE;
                          }
-                    else if  (strcmp(ptr, LOCK_OFF) == 0)
+                    else if (CHECK_STRCMP(ptr, LOCK_OFF) == 0)
                          {
                             p_db->lock = OFF;
                          }
 #ifdef _WITH_READY_FILES
-                    else if  (strcmp(ptr, LOCK_READY_A_FILE) == 0)
+                    else if (CHECK_STRCMP(ptr, LOCK_READY_A_FILE) == 0)
                          {
                             p_db->lock = READY_A_FILE;
                          }
-                    else if  (strcmp(ptr, LOCK_READY_B_FILE) == 0)
+                    else if (CHECK_STRCMP(ptr, LOCK_READY_B_FILE) == 0)
                          {
                             p_db->lock = READY_B_FILE;
                          }

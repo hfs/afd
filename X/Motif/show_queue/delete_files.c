@@ -319,7 +319,7 @@ delete_files(int no_selected, int *select_list)
                      {
                         size_t length;
 
-                        length = strlen(qfl[select_list[i] - 1].msg_name);
+                        length = strlen(qfl[select_list[i] - 1].msg_name) + 1;
                         if (write(fd, qfl[select_list[i] - 1].msg_name, length) != length)
                         {
                            (void)xrec(toplevel_w, INFO_DIALOG,

@@ -52,7 +52,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                 /* fprintf(), sprintf(), rename()     */
-#include <string.h>                /* strcmp(), strncmp(), strerror()    */
+#include <string.h>                /* strncmp(), strerror()              */
 #include <stdlib.h>                /* atoi()                             */
 #include <ctype.h>                 /* isdigit()                          */
 #include <sys/types.h>

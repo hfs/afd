@@ -54,6 +54,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>   /* mmap(), msync(), munmap()                     */
+#include <sys/wait.h>   /* waitpid()                                     */
 #include <signal.h>     /* kill(), SIGKILL                               */
 #include <fcntl.h>
 #include <dirent.h>     /* opendir(), closedir(), readdir(), DIR         */
@@ -320,15 +321,15 @@ stat_again:
     * the cache. All messages that are in the current message list
     * are marked.
     */
-   for (i = 0; i < *no_msg_cached; i++)
-   {
-      mdb[i].in_current_fsa = NO;
-   }
    if (*no_msg_cached > 0)
    {
       register int gotcha,
                    j;
 
+      for (i = 0; i < *no_msg_cached; i++)
+      {
+         mdb[i].in_current_fsa = NO;
+      }
       for (i = 0; i < no_of_current_msg; i++)
       {
          gotcha = NO;
@@ -362,7 +363,7 @@ stat_again:
          }
          if (gotcha == NO)
          {
-            if (get_job_data(cml[i], -1) == SUCCESS)
+            if (get_job_data(cml[i], -1, 0L, 0) == SUCCESS)
             {
                mdb[*no_msg_cached - 1].in_current_fsa = YES;
             }
@@ -370,8 +371,7 @@ stat_again:
             {
                (void)rec(sys_log_fd, DEBUG_SIGN,
                          "Added job %d to cache. (%s %d)\n",
-                         mdb[*no_msg_cached - 1].job_id,
-                         __FILE__, __LINE__);
+                         mdb[*no_msg_cached - 1].job_id, __FILE__, __LINE__);
             }
          }
       }
@@ -380,7 +380,7 @@ stat_again:
    {
       for (i = 0; i < no_of_current_msg; i++)
       {
-         if (get_job_data(cml[i], -1) == SUCCESS)
+         if (get_job_data(cml[i], -1, 0L, 0) == SUCCESS)
          {
             mdb[*no_msg_cached - 1].in_current_fsa = YES;
          }
@@ -388,8 +388,7 @@ stat_again:
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Added job %d to cache. (%s %d)\n",
-                      mdb[*no_msg_cached - 1].job_id,
-                      __FILE__, __LINE__);
+                      mdb[*no_msg_cached - 1].job_id, __FILE__, __LINE__);
          }
       }
    }
@@ -633,7 +632,7 @@ stat_again:
 
             if ((mdb[i].fsa_pos < no_of_hosts) && (mdb[i].fsa_pos > -1))
             {
-               if (strcmp(mdb[i].host_name, fsa[mdb[i].fsa_pos].host_alias) != 0)
+               if (CHECK_STRCMP(mdb[i].host_name, fsa[mdb[i].fsa_pos].host_alias) != 0)
                {
                   int new_pos;
 
@@ -970,6 +969,71 @@ remove_job(int                cache_pos,
                             strerror(errno), __FILE__, __LINE__);
                }
             }
+            else
+            {
+               int status;
+
+               /* Remove the zombie. */
+               if (waitpid(qb[j].pid, &status, 0) == qb[j].pid)
+               {
+                  qb[j].pid = PENDING;
+                  if (qb[j].connect_pos != -1)
+                  {
+                     /* Decrease the number of active transfers. */
+                     if (p_afd_status->no_of_transfers > 0)
+                     {
+                        p_afd_status->no_of_transfers--;
+                     }
+                     else
+                     {
+                        (void)rec(sys_log_fd, DEBUG_SIGN,
+                                  "Huh?! Whats this trying to reduce number of transfers although its zero??? (%s %d)\n",
+                                  __FILE__, __LINE__);
+                     }
+
+                     if (connection[qb[j].connect_pos].fsa_pos != -1)
+                     {
+                        if (fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers > fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers)
+                        {
+                           (void)rec(sys_log_fd, DEBUG_SIGN,
+                                     "Active transfers > allowed transfers %d!? [%d] (%s %d)\n",
+                                     fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers,
+                                     fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers,
+                                     __FILE__, __LINE__);
+                           fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers = fsa[connection[qb[j].connect_pos].fsa_pos].allowed_transfers;
+                        }
+                        fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers -= 1;
+                        if (fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers < 0)
+                        {
+                           (void)rec(sys_log_fd, DEBUG_SIGN,
+                                     "Active transfers for FSA position %d < 0!? [%d] (%s %d)\n",
+                                     connection[qb[j].connect_pos].fsa_pos, fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers,
+                                     __FILE__, __LINE__);
+                           fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers = 0;
+                        }
+                        if (fsa[connection[qb[j].connect_pos].fsa_pos].special_flag & ERROR_FILE_UNDER_PROCESS)
+                        {
+                           /* Error job is no longer under process. */
+                           fsa[connection[qb[j].connect_pos].fsa_pos].special_flag ^= ERROR_FILE_UNDER_PROCESS;
+                        }
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].proc_id = -1;
+#ifdef _BURST_MODE
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].unique_name[0] = '\0';
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].burst_counter = 0;
+#endif
+#if defined (_BURST_MODE) || defined (_OUTPUT_LOG)
+                        fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].job_id = NO_ID;
+#endif
+                        connection[qb[j].connect_pos].fsa_pos = -1;
+                     }
+                     connection[qb[j].connect_pos].hostname[0] = '\0';
+                     connection[qb[j].connect_pos].job_no = -1;
+                     connection[qb[j].connect_pos].fra_pos = -1;
+                     connection[qb[j].connect_pos].msg_name[0] = '\0';
+                     connection[qb[j].connect_pos].pid = 0;
+                  }
+               }
+            }
          }
 
          /*
@@ -1002,7 +1066,6 @@ remove_job(int                cache_pos,
 #endif
             *ptr = '\0';
          }
-         remove_connection(&connection[qb[j].connect_pos], NO, time(NULL));
          remove_msg(j);
          j--;
       }

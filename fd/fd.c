@@ -207,15 +207,16 @@ static time_t              now;
            if (fsa[(value)].jobs_queued > tmp_value)          \
            {                                                  \
               (void)rec(sys_log_fd, DEBUG_SIGN,               \
-                        "Overflow from <%u>. Trying to correct. (%s %d)\n", \
-                        tmp_value, __FILE__, __LINE__);       \
+                        "Overflow from <%u> for %s. Trying to correct. (%s %d)\n", \
+                        tmp_value, fsa[(value)].host_dsp_name,\
+                        __FILE__, __LINE__);                  \
               fsa[(value)].jobs_queued = recount_jobs_queued((value)); \
            }                                                  \
         }
 #ifdef FTX
-#define WAIT_LOOPS 100
+#define WAIT_LOOPS 150 /* 15 seconds */
 #else
-#define WAIT_LOOPS 50
+#define WAIT_LOOPS 50  /*  5 seconds */
 #endif
 
 /* Local functions prototypes */
@@ -393,6 +394,23 @@ main(int argc, char *argv[])
                 __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+   /* Initialize all connections in case FD crashes. */
+   p_afd_status->no_of_transfers = 0;
+   for (i = 0; i < no_of_hosts; i++)
+   {
+      int j;
+
+      fsa[i].active_transfers = 0;
+      for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
+      {
+         fsa[i].job_status[j].no_of_files = 0;
+         fsa[i].job_status[j].proc_id = -1;
+         fsa[i].job_status[j].connect_status = DISCONNECT;
+         fsa[i].job_status[j].file_name_in_use[0] = '\0';
+      }
+   }
+
    if (p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE)
    {
       p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
@@ -788,7 +806,7 @@ main(int argc, char *argv[])
                gotcha = YES;
                break;
             }
-            (void)my_usleep(100000);
+            (void)my_usleep(100000L);
          } while (loops++ < WAIT_LOOPS);
          if (gotcha == NO)
          {
@@ -886,7 +904,7 @@ main(int argc, char *argv[])
                   exit(SUCCESS);
 
                default :
-                  /* Most properly we are reading garbage */
+                  /* Most properly we are reading garbage. */
                   (void)rec(sys_log_fd, WARN_SIGN, 
                             "Reading garbage (%d) on fifo %s. (%s %d)\n",
                             (int)buffer, FD_CMD_FIFO, __FILE__, __LINE__);
@@ -1129,7 +1147,6 @@ main(int argc, char *argv[])
                      pos;
 
                  now = time(NULL);
-
                  do
                  {
                     (void)memcpy(msg_buffer, &fifo_buffer[bytes_done],
@@ -1180,7 +1197,6 @@ main(int argc, char *argv[])
                                          sizeof(struct queue_buf);
                              (void)memmove(&qb[i + 1], &qb[i], move_size);
                              qb_pos = i;
-
                              break;
                           }
                        }
@@ -1291,7 +1307,7 @@ main(int argc, char *argv[])
                        {
                           p_host_stored = fra[qb[i].pos].host_alias;
                        }
-                       if (strcmp(p_host_stored, p_host_name) == 0)
+                       if (CHECK_STRCMP(p_host_stored, p_host_name) == 0)
                        {
                           /*
                            * Kill the job when it is currently distributing
@@ -1411,7 +1427,7 @@ main(int argc, char *argv[])
                  {
                     for (i = 0; i < *no_msg_queued; i++)
                     {
-                       if (strcmp(qb[i].msg_name, p_msg_name) == 0)
+                       if (CHECK_STRCMP(qb[i].msg_name, p_msg_name) == 0)
                        {
                           char *p_job_dir,
                                *ptr;
@@ -1710,7 +1726,7 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                        if (i != qb_pos)
                        {
                           if ((qb[qb_pos].msg_name[0] > qb[i].msg_name[0]) &&
-                              (strcmp(mdb[qb[qb_pos].pos].host_name, mdb[qb[i].pos].host_name) == 0))
+                              (CHECK_STRCMP(mdb[qb[qb_pos].pos].host_name, mdb[qb[i].pos].host_name) == 0))
                           {
                              limit = YES;
                              break;

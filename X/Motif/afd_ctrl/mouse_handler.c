@@ -358,9 +358,15 @@ input(Widget      w,
                      if (no_of_jobs_selected == 0)
                      {
                         XtRemoveTimeOut(interval_id_tv);
-                        free(jd);
-                        jd = NULL;
-                        XtPopdown(transviewshell);
+                        if (jd != NULL)
+                        {
+                           free(jd);
+                           jd = NULL;
+                        }
+                        if (transviewshell != (Widget)NULL)
+                        {
+                           XtPopdown(transviewshell);
+                        }
                         tv_window = OFF;
                      }
                      else
@@ -1124,9 +1130,11 @@ popup_cb(Widget      w,
                                "%s: STARTED transfer (%s).\n",
                                connect_data[i].host_display_str, user);
                      hl[i].host_status &= ~STOP_TRANSFER_STAT;
+                     fsa[i].host_status ^= STOP_TRANSFER_STAT;
                   }
                   else
                   {
+                     fsa[i].host_status ^= STOP_TRANSFER_STAT;
                      if (fsa[i].active_transfers > 0)
                      {
                         int m;
@@ -1152,7 +1160,6 @@ popup_cb(Widget      w,
                                user);
                      hl[i].host_status |= STOP_TRANSFER_STAT;
                   }
-                  fsa[i].host_status ^= STOP_TRANSFER_STAT;
                }
                break;
 

@@ -63,9 +63,7 @@ extern struct msg_cache_buf       *mdb;
 void
 check_fsa_entries(void)
 {
-   int gotcha,
-       i,
-       j;
+   register int gotcha, i, j;
 
    for (i = 0; i < no_of_hosts; i++)
    {
@@ -129,6 +127,18 @@ check_fsa_entries(void)
                       fsa[i].host_dsp_name, fsa[i].error_counter,
                       __FILE__, __LINE__);
             fsa[i].error_counter = 0;
+         }
+         for (j = 0; j < fsa[i].allowed_transfers; j++)
+         {
+            if (fsa[i].job_status[j].connect_status != DISCONNECT)
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "Connect status %d for host %s is %d. It should be %d. Correcting. (%s %d)\n",
+                         j, fsa[i].host_dsp_name,
+                         fsa[i].job_status[j].connect_status,
+                         DISCONNECT, __FILE__, __LINE__);
+               fsa[i].job_status[j].connect_status = DISCONNECT;
+            }
          }
       } /* if (gotcha == NO) */
    } /* for (i = 0; i < no_of_hosts; i++) */

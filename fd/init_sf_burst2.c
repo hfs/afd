@@ -99,11 +99,11 @@ init_sf_burst2(struct job   *p_new_db,
       if (values_changed != NULL)
       {
          *values_changed = 0;
-         if (strcmp(db.user, p_new_db->user) != 0)
+         if (CHECK_STRCMP(db.user, p_new_db->user) != 0)
          {
             *values_changed |= USER_CHANGED;
          }
-         if (strcmp(db.target_dir, p_new_db->target_dir) != 0)
+         if (CHECK_STRCMP(db.target_dir, p_new_db->target_dir) != 0)
          {
             *values_changed |= TARGET_DIR_CHANGED;
          }

@@ -55,7 +55,7 @@ get_rule(char *wanted_rule, int no_of_rule_headers)
 
    for (i = 0; i < no_of_rule_headers; i++)
    {
-      if (strcmp(rule[i].header, wanted_rule) == 0)
+      if (CHECK_STRCMP(rule[i].header, wanted_rule) == 0)
       {
          return(i);
       }

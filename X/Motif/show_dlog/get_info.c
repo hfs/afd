@@ -432,20 +432,18 @@ get_all(int item, char *input_id)
 static void
 get_job_data(struct job_id_data *p_jd)
 {
-   register int   i;
-   register char  *p_file,
-                  *p_tmp;
-   int            size;
-   size_t         new_size;
+   register int  i;
+   register char *p_file,
+                 *p_tmp;
+   int           size;
 
-   /* Calculate new size */
    id.count = 1;
-   new_size = 1 * sizeof(struct db_entry);
 
    /* Create or increase the space for the buffer */
-   if ((id.dbe = (struct db_entry *)realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
+   if ((id.dbe = (struct db_entry *)realloc(id.dbe,
+                                            sizeof(struct db_entry))) == (struct db_entry *)NULL)
    {
-      (void)xrec(toplevel_w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
+      (void)xrec(toplevel_w, FATAL_DIALOG, "realloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }

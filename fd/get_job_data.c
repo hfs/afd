@@ -25,7 +25,10 @@ DESCR__S_M3
  **   get_job_data - appends a message to the msg_cache_buf structure
  **
  ** SYNOPSIS
- **   int get_job_data(unsigned int job_id, int mdb_position)
+ **   int get_job_data(unsigned int job_id,
+ **                    int          mdb_position,
+ **                    time_t       mtime,,
+ **                    off_t        mdb_size)
  **
  ** DESCRIPTION
  **
@@ -50,6 +53,7 @@ DESCR__E_M3
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 #include <unistd.h>          /* fstat(), read(), close(), unlink()       */
 #include <fcntl.h>           /* open()                                   */
 #include <errno.h>
@@ -68,7 +72,10 @@ extern struct msg_cache_buf       *mdb;
 
 /*########################### get_job_data() ############################*/
 int
-get_job_data(unsigned int job_id, int mdb_position)
+get_job_data(unsigned int job_id,
+             int          mdb_position,
+             time_t       mtime,
+             off_t        mdb_size)
 {
    int         fd,
                pos;
@@ -77,7 +84,6 @@ get_job_data(unsigned int job_id, int mdb_position)
                *ptr,
                *p_start,
                host_name[MAX_HOSTNAME_LENGTH + 1];
-   struct stat stat_buf;
 
    (void)sprintf(p_msg_dir, "%u", job_id);
 
@@ -103,21 +109,28 @@ retry:
          return(INCORRECT);
       }
    }
-   if (fstat(fd, &stat_buf) == -1)
+   if (mdb_position == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "Failed to fstat() %s : %s (%s %d)\n",
-                msg_dir, strerror(errno), __FILE__, __LINE__);
-      (void)close(fd);
-      return(INCORRECT);
+      struct stat stat_buf;
+
+      if (fstat(fd, &stat_buf) == -1)
+      {
+         (void)rec(sys_log_fd, WARN_SIGN, "Failed to fstat() %s : %s (%s %d)\n",
+                   msg_dir, strerror(errno), __FILE__, __LINE__);
+         (void)close(fd);
+         return(INCORRECT);
+      }
+      mdb_size = stat_buf.st_size;
+      mtime = stat_buf.st_mtime;
    }
-   if ((file_buf = malloc(stat_buf.st_size + 1)) == NULL)
+   if ((file_buf = malloc(mdb_size + 1)) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       exit(INCORRECT);
    }
-   if (read(fd, file_buf, stat_buf.st_size) != stat_buf.st_size)
+   if (read(fd, file_buf, mdb_size) != mdb_size)
    {
       (void)rec(sys_log_fd, WARN_SIGN, "Failed to read() %s : %s (%s %d)\n",
                 msg_dir, strerror(errno), __FILE__, __LINE__);
@@ -125,7 +138,7 @@ retry:
       free(file_buf);
       return(INCORRECT);
    }
-   file_buf[stat_buf.st_size] = '\0';
+   file_buf[mdb_size] = '\0';
    if (close(fd) == -1)
    {
       (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
@@ -163,23 +176,23 @@ retry:
    if (*ptr == ':')
    {
       *ptr = '\0';
-      if (strcmp(p_start, FTP_SHEME) != 0)
+      if (CHECK_STRCMP(p_start, FTP_SHEME) != 0)
       {
-         if (strcmp(p_start, LOC_SHEME) != 0)
+         if (CHECK_STRCMP(p_start, LOC_SHEME) != 0)
          {
 #ifdef _WITH_SCP1_SUPPORT
-            if (strcmp(p_start, SCP1_SHEME) != 0)
+            if (CHECK_STRCMP(p_start, SCP1_SHEME) != 0)
             {
 #endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
-               if (strcmp(p_start, WMO_SHEME) != 0)
+               if (CHECK_STRCMP(p_start, WMO_SHEME) != 0)
                {
 #endif
 #ifdef _WITH_MAP_SUPPORT
-                  if (strcmp(p_start, MAP_SHEME) != 0)
+                  if (CHECK_STRCMP(p_start, MAP_SHEME) != 0)
                   {
 #endif
-                     if (strcmp(p_start, SMTP_SHEME) != 0)
+                     if (CHECK_STRCMP(p_start, SMTP_SHEME) != 0)
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
                                   "Removing %s because of unknown sheme [%s]. (%s %d)\n",
@@ -353,7 +366,7 @@ retry:
       }
 #endif
       mdb[*no_msg_cached - 1].type = sheme;
-      mdb[*no_msg_cached - 1].msg_time = stat_buf.st_mtime;
+      mdb[*no_msg_cached - 1].msg_time = mtime;
       mdb[*no_msg_cached - 1].last_transfer_time = 0L;
    }
    else
@@ -392,7 +405,7 @@ retry:
       }
 #endif
       mdb[mdb_position].type = sheme;
-      mdb[mdb_position].msg_time = stat_buf.st_mtime;
+      mdb[mdb_position].msg_time = mtime;
       /*
        * NOTE: Do NOT initialize last_transfer_time! This could
        *       lead to a to early deletion of a job.

@@ -67,7 +67,8 @@ check_msg_time(void)
       {
          if (stat_buf.st_mtime > mdb[i].msg_time)
          {
-            (void)get_job_data(mdb[i].job_id, i);
+            (void)get_job_data(mdb[i].job_id, i,
+                               stat_buf.st_mtime, stat_buf.st_size);
          }
       }
    }

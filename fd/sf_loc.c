@@ -53,8 +53,7 @@ DESCR__S_M1
 DESCR__E_M1
 
 #include <stdio.h>                     /* fprintf(), sprintf()           */
-#include <string.h>                    /* strcpy(), strcat(), strcmp(),  */
-                                       /* strerror()                     */
+#include <string.h>                    /* strcpy(), strcat(), strerror() */
 #include <stdlib.h>                    /* getenv(), abort()              */
 #include <sys/types.h>
 #include <sys/stat.h>

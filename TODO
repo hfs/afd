@@ -348,14 +348,15 @@ o       Dialog to view and delete any files in
 o       Store active/passive mode in HOST_CONFIG. *    [DONE]
 o       Store host status in HOST_CONFIG.         *    [DONE]
 o       Port to AIX.                              *    [DONE]
+o       Support for the SCP1 protocol (SSH1).    **    [UNDER CONSTRUCTION]
 o       Rename log, so it is possible to trace
         files.                                   **    [UNDER CONSTRUCTION]
-o       Support for the SCP1 protocol (SSH1).    **    [UNDER CONSTRUCTION]
 o       Use GNU autoconfig and automake to build
-        AFD.                                      *    [TODO]
+        AFD.                                      *    [UNDER CONSTRUCTION]
 o       Convert all dialogs to gtk+.             **    [TODO]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
 o       Support for IP6.                        ***    [TODO]
+o       Support for the HTTP protocol.            *    [TODO]
 o       Implement tar/un-tar command.            **    [TODO]
 o       A SSL FTP client (sf_sftp).              **    [TODO]
 o       Write process sf_sql to send files to

@@ -245,7 +245,7 @@ check_fra_fd(void)
 
                   for (j = 0; j < no_remote_queued; j++)
                   {
-                     if (strcmp(ord[i].dir_alias, rql[j].dir_alias) == 0)
+                     if (CHECK_STRCMP(ord[i].dir_alias, rql[j].dir_alias) == 0)
                      {
                         if (qb[rql[j].qb_pos].pid > 0)
                         {
@@ -271,7 +271,7 @@ check_fra_fd(void)
                {
                   for (j = 0; j < no_remote_queued; j++)
                   {
-                     if (strcmp(ord[i].dir_alias, rql[j].dir_alias) == 0)
+                     if (CHECK_STRCMP(ord[i].dir_alias, rql[j].dir_alias) == 0)
                      {
                         qb[rql[j].qb_pos].pos = pos;
                      }
@@ -305,10 +305,10 @@ get_url_pos(char *url, char *dir_alias, int *pos)
    for (i = 0; i < no_of_dirs; i++)
    {
       if ((fra[i].host_alias[0] != '\0') &&
-          (strcmp(fra[i].dir_alias, dir_alias) == 0))
+          (CHECK_STRCMP(fra[i].dir_alias, dir_alias) == 0))
       {
          *pos = i;
-         if (strcmp(fra[i].url, url) == 0)
+         if (CHECK_STRCMP(fra[i].url, url) == 0)
          {
             return(SUCCESS);
          }

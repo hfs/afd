@@ -294,7 +294,7 @@ check_data(long rescan_time)
                            * time when we print the message when dup_msg is
                            * one.
                            */
-                          (void)strcpy(prev_msg_str, msg_str);
+                          (void)memcpy(prev_msg_str, msg_str, length + 1);
                        }
                        else if ((now - dup_msg_start_time) > rescan_time)
                             {
@@ -335,7 +335,7 @@ check_data(long rescan_time)
 
                        total_length += fprintf(p_log_file, "%s", msg_str);
                        (void)fflush(p_log_file);
-                       (void)strcpy(prev_msg_str, msg_str);
+                       (void)memcpy(prev_msg_str, msg_str, length + 1);
                        prev_length = length;
                     }
                  }
@@ -360,7 +360,7 @@ check_data(long rescan_time)
 
                     total_length += fprintf(p_log_file, "%s", msg_str);
                     (void)fflush(p_log_file);
-                    (void)strcpy(prev_msg_str, msg_str);
+                    (void)memcpy(prev_msg_str, msg_str, length + 1);
                     prev_length = length;
                  }
 

@@ -344,7 +344,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                for (k = 0; k < no_of_dirs; k++)
                {
                   if ((fra[k].host_alias[0] != '\0') &&
-                      (strcmp(fra[k].host_alias, fsa[position].host_alias) == 0))
+                      (CHECK_STRCMP(fra[k].host_alias, fsa[position].host_alias) == 0))
                   {
                      fra[k].fsa_pos = i;
                   }

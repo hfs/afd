@@ -60,7 +60,7 @@ get_arg(int *argc, char *argv[], char *arg, char *buffer, int buf_length)
 
    for (i = 1; i < *argc; i++)
    {
-      if (strcmp(argv[i], arg) == 0)
+      if (CHECK_STRCMP(argv[i], arg) == 0)
       {
          if (buffer != NULL)
          {

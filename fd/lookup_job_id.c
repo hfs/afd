@@ -71,7 +71,7 @@ lookup_job_id(int job_id)
     * message directory. If we find it store it into the
     * cache.
     */
-   if (get_job_data(job_id, -1) == SUCCESS)
+   if (get_job_data(job_id, -1, 0L, 0) == SUCCESS)
    {
       i = *no_msg_cached - 1;
    }

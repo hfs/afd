@@ -1114,8 +1114,8 @@ eval_host_config(int              *hosts_found,
                {
                   for (i = 0; i < no_of_hosts; i++)
                   {
-                     if (strcmp(fsa[i].host_alias,
-                                (*hl)[host_counter].host_alias) == 0)
+                     if (CHECK_STRCMP(fsa[i].host_alias,
+                                      (*hl)[host_counter].host_alias) == 0)
                      {
                         if (fsa[i].special_flag & HOST_DISABLED)
                         {
@@ -1139,8 +1139,8 @@ eval_host_config(int              *hosts_found,
             {
                for (i = 0; i < no_of_hosts; i++)
                {
-                  if (strcmp(fsa[i].host_alias,
-                             (*hl)[host_counter].host_alias) == 0)
+                  if (CHECK_STRCMP(fsa[i].host_alias,
+                                   (*hl)[host_counter].host_alias) == 0)
                   {
                      if (fsa[i].special_flag & HOST_DISABLED)
                      {

@@ -69,7 +69,7 @@ extern struct filetransfer_status *fsa;
 
 /* Local function prototypes */
 static void                       add_message_to_queue(char *, char);
-static int                        check_jobs(char, int);
+static int                        check_jobs(char, int, nlink_t);
 
 
 /*########################## check_file_dir() ###########################*/
@@ -80,9 +80,18 @@ check_file_dir(int force_check)
    char          *p_start;
    DIR           *dp = NULL;
    struct dirent *dirp;
+   struct stat   stat_buf;
+
+   if (stat(file_dir, &stat_buf) == -1)
+   {
+      (void)rec(sys_log_fd, WARN_SIGN,
+                "Failed to stat() %s : %s (%s %d)\n",
+                file_dir, strerror(errno), __FILE__, __LINE__);
+      return(INCORRECT);
+   }
 
    /* First check only the file directory. */
-   if (check_jobs(NO, force_check) == SUCCESS)
+   if (check_jobs(NO, force_check, stat_buf.st_nlink) == SUCCESS)
    {
       all_checked = YES;
    }
@@ -102,8 +111,7 @@ check_file_dir(int force_check)
    }
    else
    {
-      char        *ptr;
-      struct stat stat_buf;
+      char *ptr;
 
       ptr = file_dir + strlen(file_dir);
       *(ptr++) = '/';
@@ -112,26 +120,25 @@ check_file_dir(int force_check)
       errno = 0;
       while ((dirp = readdir(dp)) != NULL)
       {
-         if (dirp->d_name[0] == '.')
+         if (dirp->d_name[0] != '.')
          {
-            continue;
-         }
-         (void)strcpy(ptr, dirp->d_name);
-
-         if (stat(file_dir, &stat_buf) == -1)
-         {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to stat() %s : %s (%s %d)\n",
-                      file_dir, strerror(errno), __FILE__, __LINE__);
-            continue;
-         }
-
-         /* Test if it is a directory. */
-         if (S_ISDIR(stat_buf.st_mode))
-         {
-            if (check_jobs(YES, force_check) != SUCCESS)
+            (void)strcpy(ptr, dirp->d_name);
+            if (stat(file_dir, &stat_buf) == -1)
             {
-               all_checked = NO;
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "Failed to stat() %s : %s (%s %d)\n",
+                         file_dir, strerror(errno), __FILE__, __LINE__);
+            }
+            else
+            {
+               /* Test if it is a directory. */
+               if (S_ISDIR(stat_buf.st_mode))
+               {
+                  if (check_jobs(YES, force_check, stat_buf.st_nlink) != SUCCESS)
+                  {
+                     all_checked = NO;
+                  }
+               }
             }
          }
          errno = 0;
@@ -157,23 +164,14 @@ check_file_dir(int force_check)
 
 /*++++++++++++++++++++++++++++++ check_jobs() +++++++++++++++++++++++++++*/
 static int
-check_jobs(char in_error_dir, int force_check)
+check_jobs(char in_error_dir, int force_check, nlink_t st_nlink)
 {
-   struct stat stat_buf;
-
-   if (stat(file_dir, &stat_buf) == -1)
-   {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to stat() %s : %s (%s %d)\n",
-                file_dir, strerror(errno), __FILE__, __LINE__);
-      return(INCORRECT);
-   }
-
-   if ((stat_buf.st_nlink < MAX_FD_DIR_CHECK) || (force_check == YES))
+   if ((st_nlink < MAX_FD_DIR_CHECK) || (force_check == YES))
    {
       char          *ptr;
       DIR           *dp = NULL;
       struct dirent *dirp;
+      struct stat   stat_buf;
 
       /*
        * Check file directory for files that do not have a message.
@@ -195,53 +193,53 @@ check_jobs(char in_error_dir, int force_check)
       errno = 0;
       while ((dirp = readdir(dp)) != NULL)
       {
-         if (dirp->d_name[0] == '.')
+         if (dirp->d_name[0] != '.')
          {
-            continue;
-         }
-         (void)strcpy(ptr, dirp->d_name);
+            (void)strcpy(ptr, dirp->d_name);
 
-         if (stat(file_dir, &stat_buf) == -1)
-         {
-            /*
-             * Be silent when there is no such file or directory, since
-             * it could be that a sf_xxx just has deleted its own job.
-             */
-            if (errno != ENOENT)
+            if (stat(file_dir, &stat_buf) == -1)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to stat() %s : %s (%s %d)\n",
-                         file_dir, strerror(errno), __FILE__, __LINE__);
-            }
-            continue;
-         }
-
-         /* Test if it is a directory. */
-         if (S_ISDIR(stat_buf.st_mode))
-         {
-            /* Make sure this is a job. */
-            if (check_job_name(dirp->d_name) == SUCCESS)
-            {
-               int gotcha = NO,
-                   i;
-
-               for (i = 0; i < *no_msg_queued; i++)
+               /*
+                * Be silent when there is no such file or directory, since
+                * it could be that a sf_xxx just has deleted its own job.
+                */
+               if (errno != ENOENT)
                {
-                  if (strcmp(qb[i].msg_name, dirp->d_name) == 0)
-                  {
-                     gotcha = YES;
-                     break;
-                  }
-               }
-               if (gotcha == NO)
-               {
-                  /*
-                   * Message is NOT in queue. Add message to queue.
-                   */
                   (void)rec(sys_log_fd, WARN_SIGN,
-                            "Message %s not in queue, adding message. (%s %d)\n",
-                            dirp->d_name, __FILE__, __LINE__);
-                  add_message_to_queue(dirp->d_name, in_error_dir);
+                            "Failed to stat() %s : %s (%s %d)\n",
+                            file_dir, strerror(errno), __FILE__, __LINE__);
+               }
+            }
+            else
+            {
+               /* Test if it is a directory. */
+               if (S_ISDIR(stat_buf.st_mode))
+               {
+                  /* Make sure this is a job. */
+                  if (check_job_name(dirp->d_name) == SUCCESS)
+                  {
+                     int gotcha = NO,
+                         i;
+
+                     for (i = 0; i < *no_msg_queued; i++)
+                     {
+                        if (CHECK_STRCMP(qb[i].msg_name, dirp->d_name) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
+                     if (gotcha == NO)
+                     {
+                        /*
+                         * Message is NOT in queue. Add message to queue.
+                         */
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Message %s not in queue, adding message. (%s %d)\n",
+                                  dirp->d_name, __FILE__, __LINE__);
+                        add_message_to_queue(dirp->d_name, in_error_dir);
+                     }
+                  }
                }
             }
          }
@@ -261,7 +259,7 @@ check_jobs(char in_error_dir, int force_check)
                    "Failed to closedir() %s : %s (%s %d)\n",
                    file_dir, strerror(errno), __FILE__, __LINE__);
       }
-   } /* if ((stat_buf.st_nlink < MAX_FD_DIR_CHECK) || (force_check == YES)) */
+   } /* if ((st_nlink < MAX_FD_DIR_CHECK) || (force_check == YES)) */
    else
    {
       return(INCORRECT);
@@ -350,7 +348,6 @@ add_message_to_queue(char *dir_name, char in_error_dir)
                         sizeof(struct queue_buf);
             (void)memmove(&qb[i + 1], &qb[i], move_size);
             qb_pos = i;
-
             break;
          }
       }

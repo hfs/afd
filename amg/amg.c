@@ -1019,7 +1019,7 @@ get_afd_config_value(int    *rescan_time,
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Invalid mode %u set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
-                      *create_source_dir_mode, AMG_DIR_RESCAN_TIME_DEF,
+                      *create_source_dir_mode, CREATE_SOURCE_DIR_MODE_DEF,
                       DIR_MODE, __FILE__, __LINE__);
             *create_source_dir_mode = DIR_MODE;
          }
