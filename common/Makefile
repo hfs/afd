@@ -1,0 +1,90 @@
+#
+# Makefile to build the AFD library
+#
+
+include ../Include.mk
+
+CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../amg -I../fd -I../misc -I../log -I../afd_mon
+LIB     = libafd.a
+HEADERS = ../init_afd/afddefs.h ../config.h
+OBJS    = attach_afd_status.o\
+          attach_buf.o\
+          bitstuff.o\
+          change_alias_order.o\
+          change_name.o\
+          check_lock.o\
+          coe_open.o\
+          create_message.o\
+          create_name.o\
+          check_burst.o\
+          check_dir.o\
+          check_fsa.o\
+          check_msa.o\
+          clr_fl.o\
+          copy_file.o\
+          daemon_init.o\
+          delete_log_ptrs.o\
+          filter.o\
+          fprint_dup_msg.o\
+          fsa_attach.o\
+          fsa_detach.o\
+          get_afd_name.o\
+          get_afd_path.o\
+          get_definition.o\
+          get_log_number.o\
+          get_mon_path.o\
+          get_permissions.o\
+          get_position.o\
+          get_rename_rules.o\
+          get_rule.o\
+          get_user.o\
+          lock_file.o\
+          lock_proc.o\
+          lock_region.o\
+          lock_region_w.o\
+          logger.o\
+          make_fifo.o\
+          map_file.o\
+          mmap_emu.o\
+          mmap_resize.o\
+          move_file.o\
+          msa_attach.o\
+          msa_detach.o\
+          msync_emu.o\
+          munmap_emu.o\
+          my_usleep.o\
+          next_counter.o\
+          open_counter_file.o\
+          posi.o\
+          read_file.o\
+          readn.o\
+          rec.o\
+          rec_rmdir.o\
+          reshuffel_log_files.o\
+          rlock_region.o\
+          send_cmd.o\
+          set_fl.o\
+          show_fifo_data.o\
+          t_hostname.o\
+          unlock_region.o
+
+
+all : $(LIB)
+
+$(OBJS) : $(HEADERS)
+
+$(LIB) : $(OBJS)
+	$(AR) $(ARFLAGS) $@ $?
+
+clean :
+	rm -f $(OBJS)
+
+clobber :
+	make clean
+	rm -f $(LIB)
+
+# Other Dependencies
+create_name.o next_counter.o open_counter_file.o : ../amg/amgdefs.h
+lock_region.o unlock_region.o : ../fd/fddefs.h
+mmap_emu.o msync_emu.o munmap_emu.o : ../misc/mmap_emu.h
+get_mon_path.o : ../afd_mon/mondefs.h

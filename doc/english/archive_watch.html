@@ -1,0 +1,59 @@
+<HTML>
+<HEAD>
+<TITLE>AFD (archive_watch.html)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<H1 ALIGN=center><A NAME="archive_watch">Archive Watch</A></H1>
+<HR SIZE=3 NOSHADE>
+<P>
+This process traverses through the archive directories and checks if
+the archive is old enough to be deleted. The process init_afd will
+automatically restart it when it terminates for whatever reason. When
+files are archived by the process sf_xxx, they are stored in the
+following directory structure (beginning at $AFD_WORK_DIR):
+</P>
+<PRE>
+archive/hollywood/donald/n/archive_name/
+            |       |    |       |
+            |       |    |       +-------> This unique directory name
+            |       |    |                 is created when files are
+            |       |    |                 being archived.
+            |       |    +---------------> Due to the restriction that
+            |       |                      some unix system allow for
+            |       |                      only 1000 directories, sub-
+            |       |                      directories starting with
+            |       |                      zero are being created.
+            |       +--------------------> Remote user name.
+            +----------------------------> Remote host name.
+</PRE>
+<P>
+The time when the archive should be deleted is in the archive name,
+which has the following format:
+</P>
+<PRE>
+     x_nnnnnnnnnn_jjjj
+     |     |       |
+     |     |       +-------> Job Identifier
+     |     +---------------> time when archive should be
+     |                       deleted. The format is unix
+     |                       time in seconds.
+     +---------------------> priority of the job
+</PRE>
+<P>
+Archive watch will walk through this directory structure every hour
+(ARCHIVE_RESCAN_TIME) and see if any archive has reached its deletion time.
+</P>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy; 1997 - 1999 by H.Kiehl<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 21.03.1999
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

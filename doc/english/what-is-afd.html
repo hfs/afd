@@ -1,0 +1,77 @@
+<HTML>
+<HEAD>
+<TITLE>AFD (what-is-afd.html)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<H1 ALIGN=center><A NAME="what-is-afd">What is AFD?</A></H1>
+<HR SIZE=3 NOSHADE>
+<P>
+AFD is a program to automatically distributes files either locally
+or to remote hosts. AFD stands for Automatic File Distributor.
+</P>
+<P>
+The most common technique used to distribute data is for each individual
+to fetch the data from one common place. This place can be a database,
+FTP-server or even the WWW (World Wide Web). However, this is not always
+the most user or customer friendly way for a company or organization to
+distribute its products. For this reason AFD (Automatic File Distributor)
+was developed, to provide a better service to users or customers in
+transporting the required data directly to the location where it is required.
+</P>
+<P>
+When distributing files to a remote host it does so via the FTP or SMTP
+protocol. Local distribution is done by simply copying files from one
+directory to another. To distribute files, the AFD has one central
+configuration file (DIR_CONFIG), where the system administrator can
+specify which files are to be distributed and where they are to be send.
+</P>
+<P>
+Here follows a list of features of the AFD:
+</P>
+<UL>
+   <LI>The AFD can send any type of file, regardless of contents
+       and the name of the file.</LI>
+   <LI>Only the files are being distributed, no other additional
+       information is send with the file.</LI>
+   <LI>The AFD has a very sophisticated and compact X11 interface to
+       monitor and control the distribution of files. It
+       has the ability to do extensive logging of all activities, even
+       down to tracing each individual FTP/SMTP command.</LI>
+   <LI>Files can be send to places where no AFD is installed.</LI>
+   <LI>There can be more than one process distributing files to
+       a single host. This has the advantage that when a large
+       file is currently being distributed, other files don't
+       have to wait until the large file is done.</LI>
+   <LI>Where net capacity is limited, it is possible to distribute
+       files with priority.</LI>
+</UL>
+<P>
+The AFD requires X11R5 and Motif 1.2.x (or higher). Currently it has
+been ported to the following systems:
+</P>
+<UL>
+   <LI>Linux  1.3.x&nbsp; - &nbsp;2.2.x</LI>
+   <LI>Sun-OS 5.3</LI>
+   <LI>HP-UX  10.x</LI>
+   <LI>IRIX   5.3&nbsp;&nbsp;6.x</LI>
+   <LI>FTX    3.0.x&nbsp;&nbsp;3.2.x</LI>
+   <LI>SCO    OpenServer Release 5</LI>
+</UL>
+<P>
+The AFD is now for more than four years in operational use at the DWD at
+over 76 installations distributing two million files (120 Gbytes) daily
+and is administrated by a single person.
+</P>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy; 1997 - 2000 by H.Kiehl<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 01.02.2000
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

@@ -1,0 +1,150 @@
+<HTML>
+<HEAD>
+<TITLE>AFD (edit_hc.html)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<H1 ALIGN=center><A NAME="edit_hc">Edit Host Configuration</A></H1>
+<HR SIZE=3 NOSHADE>
+<P>
+This dialog is used to configure the destination host. It will also
+allow one to change the ordering of the host names in the afd_ctrl
+dialog by simply dragging and dropping a selected host name. It is
+only possible to have one of this dialog open at the same time.
+</P>
+<CENTER><IMG SRC="../images/edit_hc_numbered.gif"></CENTER>
+<CENTER>
+<TABLE BORDER>
+<TR>
+   <TD>&nbsp<B>1</B>&nbsp</TD>
+   <TD>Alias Hostname</TD>
+   <TD>In this list widget, all host alias names found in the DIR_CONFIG
+       are listed in the order that they are found there. In order to make a
+       change for any host it must first be selected by clicking on it. By
+       dragging the host name with the middle mouse button, one can change
+       the ordering in the afd_ctrl dialog. When dragging the cursor will
+       turn into a <IMG SRC="../images/bee.gif">, the feelers at the top
+       left are the hot spot of the cursor. The changes will only become
+       effective when the update button was pressed.</TD>
+</TR>
+<TR>
+   <TD>&nbsp<B>2</B>&nbsp</TD>
+   <TD>Host Switching</TD>
+   <TD>When the toggle button for Host switching is turned on (inserted)
+       it is possible to have two addresses for a single host. The
+       second host is always regarded as the secondary host. The user
+       may can change to the secondary host or main host by pressing
+       the <A HREF="afd_ctrl.html#Switch host">Switch host button</A>.
+       In the Host 1 and Host 2 fields characters can be entered that
+       distinguish the two hosts from each other. The character will
+       be appended to the end of the alias host name.</TD>
+</TR>
+<TR>
+   <TD>&nbsp<B>3</B>&nbsp</TD>
+   <TD>Real Hostname</TD>
+   <TD>Here you may specify the real host name or IP number. This has the
+       advantage that you can give remote hosts names that are not in
+       the local /etc/hosts file or the name server. If a secondary host
+       is available, the second host field will be active.</TD>
+</TR>
+<TR>
+   <TD>&nbsp<B>4</B>&nbsp</TD>
+   <TD>Text Fields</TD>
+   <TD><TABLE BORDER>
+       <TR>
+          <TD>Transfer timeout</TD>
+          <TD>The time how long the AFD should wait for a reply from the
+              remote site.</TD>
+       </TR>
+       <TR>
+          <TD>Retry interval</TD>
+          <TD>If an error occurs, this is the delay (in seconds) before
+              another transfer is initiated.</TD>
+       </TR>
+       <TR>
+          <TD>Maximum errors</TD>
+          <TD>If max. errors is reached the destination identifier turns
+              'red'. If error retries reaches twice max. errors the queue
+              of this host will be paused.</TD>
+       </TR>
+       <TR>
+          <TD><A NAME="successful_retries">Successful retries</A></TD>
+          <TD>This is only used when there is a secondary host and
+              automatic switch over is active. It is the number of
+              successful transfers to the secondary host, before it tries
+              to switch back to the main host to see if it is alive
+              again.</TD>
+       </TR>
+       </TABLE>
+   </TD>
+</TR>
+<TR>
+   <TD>&nbsp<B>5</B>&nbsp</TD>
+   <TD>Options</TD>
+   <TD><TABLE BORDER>
+       <TR>
+          <TD>Max. parallel transfers</TD>
+          <TD>The maximum number of parallel transfers for this host.</TD>
+       </TR>
+       <TR>
+          <TD>Transfer Blocksize</TD>
+          <TD>The size of the blocks being used to send files to the
+              remote host (in Bytes).</TD>
+       </TR>
+       <TR>
+          <TD>File size offset</TD>
+          <TD>When transmitting large files and the transfer gets interrupted,
+              the AFD can append a file on the remote site. For this it needs
+              to know the file size on the remote site. And to get the size it
+              does a dir 'filename' at the remote site. Due to different
+              replies of the FTP servers, the position of the file size is
+              needed. You can easily determine this value simply doing an FTP
+              to the remote site and a dir and count the spaces to the file size.
+              For example:
+              <PRE>
+             -rw-r--r--   1 afd      mts-soft   14971 Jan  3 17:16
+                       ^^^ ^   ^^^^^^        ^^^
+                        |  |     |            |
+                        |  |     |            |
+                        1  2     3            4
+              </PRE>
+              i.e. the file size offset is 4.</TD>
+       </TR>
+       <TR>
+          <TD>Number of no bursts</TD>
+          <TD>The number of connections that may not burst. This is useful
+              for connections where there is lots of files which are being
+              send with the same low priority and only a few files that do
+              have a very high priority. Without this option (ie. it is
+              set to zero), files with lower priority are constantly
+              appended to current jobs (bursting) without the higher
+              priority jobs ever getting a chance.</TD>
+       </TR>
+       </TABLE>
+   </TD>
+</TR>
+<TR>
+   <TD>&nbsp<B>6</B>&nbsp</TD>
+   <TD>Proxy</TD>
+   <TD>If the remote server is a proxy, enter the name of the proxy here.</TD>
+</TR>
+<TR>
+   <TD>&nbsp<B>7</B>&nbsp</TD>
+   <TD>Status Line</TD>
+   <TD>Reports what edit_hc did when the user presses the update button.</TD>
+</TR>
+</TABLE>
+</CENTER>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy; 1997 - 1998 by H.Kiehl<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 16.08.1998
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

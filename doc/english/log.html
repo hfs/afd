@@ -1,0 +1,210 @@
+<HTML>
+<HEAD>
+<TITLE>AFD (log.html)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<H1 ALIGN=center><A NAME="log_files">Log Files</A></H1>
+<HR SIZE=3 NOSHADE>
+<P>
+There are five different types of log files used by the AFD: system,
+transfer, transfer debug, input and output log. All these files are
+written in ASCII notation, so they can be evaluated with standard Unix
+tools.
+</P>
+
+<H3 ALIGN=CENTER><A NAME="system_log"><U>System Log</U></A></H3>
+<CENTER><IMG SRC="../images/system_log_small.gif"></CENTER>
+<P>
+This is the most important log file for the AFD system administrator.
+Here all errors encountered by the AFD are logged. It also gives
+the following information:
+</P>
+<UL>
+   <LI>When archives are being removed.</LI>
+   <LI>The start/stop of any main process of the AFD.</LI>
+   <LI>Any manipulation of the remote host, such as enabling
+       debugging, start/stop transfer, start/stop queue,
+       switching hosts either by hand or automatically, etc.</LI>
+   <LI>If any process terminates abnormally.</LI>
+   <LI>Debug information for the programmer.</LI>
+</UL>
+
+<H3 ALIGN=CENTER><A NAME="transfer_log"><U>Transfer Log</U></A></H3>
+<CENTER><IMG SRC="../images/transfer_log_small.gif"></CENTER>
+<P>
+The transfer log tells how many files and bytes are being send to a
+particular host and the time when they where send. The general form
+of such an entry is as follows:
+</P>
+<A NAME="general_form"></A>
+<PRE>
+26 12:17:11 &lt;I&gt; ducktown[0]: 1568 Bytes send in 3 file(s).
+|     |      |    |      |     |           |
+|     |      |    |      |     |           +---- General message saying how
+|     |      |    |      |     |                 many files have been send.
+|     |      |    |      |     +---------------- Sum of the size send.
+|     |      |    |      +---------------------- The job number.
+|     |      |    +----------------------------- Remote Host Name
+|     |      +---------------------------------- Type of information.
+|     +----------------------------------------- hh:mm:ss
++----------------------------------------------- Day of the month.
+</PRE>
+<P>
+More important are the warnings/errors that get logged here that may
+have occurred during the distribution. Below is an example of an error
+that occurred while distributing files via FTP:
+</P>
+<PRE>
+26 07:51:09 &lt;E&gt; ducktown[0]: Failed to open remote file .PAXX82_EDZW_J0570749 (-1). (sf_ftp.c 783)
+26 07:51:09 &lt;E&gt; ducktown[0]: 150-Opening BINARY mode data connection for '.PAXX82_EDZW_J0570749'.
+</PRE>
+<P>
+The second line is the reply that was received from the remote FTP
+server. This makes the finding of errors very easy, since the user
+immediately sees what type of error it was and what the reason was
+for this error.
+</P>
+
+<H3 ALIGN=CENTER><A NAME="transfer_debug_log"><U>Transfer Debug Log</U></A></H3>
+<CENTER><IMG SRC="../images/transfer_debug_log_small.gif"></CENTER>
+<P>
+If the information in the transfer log is not enough, to evaluate
+an error the user has the possibility to enable debugging. Here
+all activities of the FD are being logged. The form of the output
+is the same as <A HREF="#general_form">above</A>. Below is an example
+of a debug log output:
+</P>
+<PRE>
+13 07:29:51 &lt;I&gt; ducktown[0]: Connected. (sf_ftp.c 204)
+13 07:29:51 &lt;I&gt; ducktown[0]: 220-hollywood FTP proxy (Version V1.3) ready.
+13 07:29:52 &lt;I&gt; ducktown[0]: Entered user name daisy@hollywood. (sf_ftp.c 253)
+13 07:29:52 &lt;I&gt; ducktown[0]: 331-Password required for daisy.
+13 07:29:53 &lt;I&gt; ducktown[0]: Logged in as daisy@hollywood. (sf_ftp.c 302)
+13 07:29:53 &lt;I&gt; ducktown[0]: 230-User daisy logged in.
+13 07:29:53 &lt;I&gt; ducktown[0]: Changed transfer mode to I. (sf_ftp.c 351)
+13 07:29:53 &lt;I&gt; ducktown[0]: 200-Type set to I.
+13 07:29:53 &lt;E&gt; ducktown[0]: Failed to change directory to /duck_tales (550). (sf_ftp.c 367)
+13 07:29:53 &lt;I&gt; ducktown[0]: 550-/duck_tales: Not a directory.
+</PRE>
+<P>
+The lines containing the numbers 220, 331, 230, 200 and 550 are always
+the reply from the remote FTP server. If you want to know the exact meaning
+of these numbers see <A HREF="ftp-reply-code.html">FTP reply codes</A>
+or for a more detailed description see <A HREF="../txt/rfc959.txt">RFC 959</A>.
+In the above example we see that we have failed to change the remote
+directory to /duck_tales and that the remote server says that it is not a
+directory, but a file or link.
+</P>
+<P>
+The Sytem, Transfer and Transfer Debug Log can all be viewed with the X
+program <A HREF="show_log.html">show_log</A>.
+</P>
+
+<H3 ALIGN=CENTER><A NAME="input_log"><U>Input Log</U></A></H3>
+<CENTER><IMG SRC="../images/show_ilog_small.gif"></CENTER>
+<P>
+Here all file names of files that are picked up by the AFD get logged in
+the INPUT_LOG.x file. Data for this file is collected for one day
+(SWITCH_FILE_TIME). This file is then kept for 7 (MAX_INPUT_LOG_FILES)
+days. Everytime a new log file is created, the x for all old logfiles
+is incremented by one. Thus the newes log file is always INPUT_LOG.0.
+</P>
+<P>
+An entry might look as follows:
+</P>
+<PRE>
+856915275  RADAR_PASW42_LSSW_J0570001 9214 110
+   |                   |               |    |
+   |                   |               |    +----- Directory Identifier
+   |                   |               +---------- File Size
+   |                   +-------------------------- File Name
+   +---------------------------------------------- Unix Time
+</PRE>
+<P>
+The time is not entered in a human readable form, so that we do not need
+to convert back to the UNIX time when we show the time in the
+<A HREF="show_ilog.html">Input Log Window</A>.
+</P>
+
+<H3 ALIGN=CENTER><A NAME="output_log"><U>Output Log</U></A></H3>
+<CENTER><IMG SRC="../images/show_olog_small.gif"></CENTER>
+<P>
+All file names that have been distributed successfully are shown in
+this file. The log files are stored as described for the Input Log Files
+except that they are called OUTPUT_LOG.x. In the DIR_CONFIG the system
+administrator can specify with the option <A HREF="amg.html#no_log_output">
+no log output</A> that these files are not to be logged. This is usefull
+when sending lots of small unimportant files, it helps to reduce the CPU
+and disk usage.
+</P>
+<P>
+It has a slightly different form then the <A HREF="#input_log">
+input log file</A> as shown below:
+</P>
+<PRE>
+856915278  ducktown 1 PASW42_LSSW_J0570001 /data/PASW42 9214 0.27 179 [archive directory]
+   |           |    |           |               |        |    |    |    |
+   |           |    |           |               |        |    |    |   Directory where file
+   |           |    |           |               |        |    |    |   is being archived.
+   |           |    |           |               |        |    |    +-- Job Identifier
+   |           |    |           |               |        |    +------- Transmission time in
+   |           |    |           |               |        |             seconds.
+   |           |    |           |               |        +------------ File Size
+   |           |    |           |               +--------------------- When trans_rename was
+   |           |    |           |                                      specified this is the
+   |           |    |           |                                      remote name. NOTE:
+   |           |    |           |                                      This is optional.
+   |           |    |           +------------------------------------- File Name
+   |           |    +------------------------------------------------- Transfer Type
+   |           +------------------------------------------------------ Remote Host Name
+   +------------------------------------------------------------------ Unix Time
+</PRE>
+<P>
+To view these log files, use <A HREF="show_olog.html">show_olog</A>.
+</P>
+
+<H3 ALIGN=CENTER><A NAME="delete_log"><U>Delete Log</U></A></H3>
+<CENTER><IMG SRC="../images/show_dlog_small.gif"></CENTER>
+<P>
+All file names that have been deleted are shown in this file. The log files
+are stored as described for the Input Log Files except that they are called
+DELETE_LOG.x. There are lots of ways how files can be deleted by the AFD.
+The most common way is when the administrator specifies this in the
+DIR_CONFIG file, by either setting the ageing option for the <A HREF=
+"amg.html#directory_entry">directory entry</A> or by setting the <A HREF=
+"amg.html#age-limit">age-limit</A> option in the option part. Other
+possibilities are that the administrator removes them from the system,
+or the AFD deletes them because the message for this job ID is no longer
+available.
+</P>
+<P>
+An entry in the DELETE_LOG.x file is described below:
+</P>
+<PRE>
+856915278  ducktown 1 PASW42_LSSW_J0570001 46 sf_ftp
+   |           |    |           |           |   |
+   |           |    |           |           |   +---- User/process that
+   |           |    |           |           |         deleted the file.
+   |           |    |           |           +-------- Job ID.
+   |           |    |           +-------------------- File Name deleted.
+   |           |    +-------------------------------- Deleteion Type.
+   |           +------------------------------------- Destination Host Name.
+   +------------------------------------------------- Unix Time when deleted.
+</PRE>
+<P>
+To view these log files, use <A HREF="show_dlog.html">show_dlog</A>.
+</P>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy; 1997 - 1999 by H.Kiehl<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 23.05.1999
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

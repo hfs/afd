@@ -1,0 +1,37 @@
+WARN_OPTIONS         = -Wall \
+                       -Wstrict-prototypes \
+                       -Wmissing-prototypes \
+                       -Wmissing-declarations \
+                       -Wbad-function-cast \
+                       -Wpointer-arith \
+                       -Wnested-externs \
+                       -Wcomment \
+                       -Wcast-align
+#                       -pedantic-errors
+OPTIMIZATION_OPTIONS = -O2 \
+                       -fomit-frame-pointer \
+                       -fno-strength-reduce \
+                       -pipe \
+                       -m486
+BINMODE              = 4755
+SBINMODE             = 755
+MAKE                 = make -j3
+AR                   = ar
+ARFLAGS              = rsv
+MMAP_FLAG            = 
+#COMPILER_FLAGS       = ${WARN_OPTIONS} ${OPTIMIZATION_OPTIONS} ${MMAP_FLAG} -DLINUX -D_WITH_SETUID_CHECK
+COMPILER_FLAGS       = ${WARN_OPTIONS} ${MMAP_FLAG} -DLINUX -D_WITH_SETUID_CHECK -g
+#DEBUG_FLAGS          = -D_DEBUG -D_FIFO_DEBUG
+DEBUG_FLAGS          = 
+#EFENCE               = -lefence
+#CCMALLOC             = -lccmalloc -ldl
+XLIBPATH             = -L/usr/X11R6/lib
+XMLIBS               = -lXm -lXpm
+XAWLIBS              = -lXaw
+XLIBS                = -lXmu -lXt -lXext -lX11 -lSM -lICE
+MATHSLIB             = -lm
+XSTATIC_FLAG         =
+#XSTATIC_FLAG         = -static
+#THREAD_LIB           = -lpthread
+#MAP_LIB              = -lmfse2
+THREAD_LIB           = 

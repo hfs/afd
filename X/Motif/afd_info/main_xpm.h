@@ -1,0 +1,22 @@
+/* XPM */
+static char * main_xpm[] = {
+"15 15 4 1",
+"       c #EFBECF3CA699",
+".      c #000000000000",
+"X      c #FFFFFFFFFFFF",
+"o      c #FFFFFFFF0000",
+"               ",
+"       .       ",
+"      .X.      ",
+"     .XXX.     ",
+"    .XXoXX.    ",
+"   .XXoooXX.   ",
+"  .XXoooooXX.  ",
+" .XXoooooooXX. ",
+"  .XXoooooXX.  ",
+"   .XXoooXX.   ",
+"    .XXoXX.    ",
+"     .XXX.     ",
+"      .X.      ",
+"       .       ",
+"               "};

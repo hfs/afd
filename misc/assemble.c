@@ -1,0 +1,404 @@
+/*
+ *  assemble.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ */
+
+#include "afddefs.h"
+
+DESCR__S_M3
+/*
+ ** NAME
+ **   assemble - files stored as one file per bulletin are assembled
+ **              into a single file
+ **
+ ** SYNOPSIS
+ **   int assemble(char  *source_dir,
+ **                char  *dest_file,
+ **                int   file_counter,
+ **                int   type,
+ **                int   *files_to_send,
+ **                off_t *file_size)
+ **
+ ** DESCRIPTION
+ **   The function assembles all WMO bulletin files found in the source_dir
+ **   into one file. Before each bulletin a length indicator is written,
+ **   to simplify later extraction.
+ **
+ **       <length indicator><SOH><CR><CR><LF>nnn<CR><CR><LF>
+ **       WMO header<CR><CR><LF>WMO message<CR><CR><LF><ETX>
+ **
+ **   Five length indicators with the following length are currently
+ **   created by assemble():
+ **
+ **                   2 Byte - Vax standard
+ **                   4 Byte - Low byte first
+ **                   4 Byte - High byte first
+ **                   4 Byte - MSS standard
+ **                   8 Byte - WMO standard (plus 2 Bytes type indicator)
+ **
+ **   In addition it is possible to generate the file without a length
+ **   indicator with the help of the ASCII standard method.
+ **
+ **   The file name of the new file will be dest_file.
+ **
+ ** RETURN VALUES
+ **   Returns INCORRECT when it fails to read any valid data from the
+ **   file. On success SUCCESS will be returned and the file size of
+ **   the new assembled file will be returned.
+ **
+ ** AUTHOR
+ **   H.Kiehl
+ **
+ ** HISTORY
+ **   16.05.1999 H.Kiehl Created
+ **
+ */
+DESCR__E_M3
+
+#include <stdio.h>
+#include <string.h>           /* strerror()                              */
+#include <stdlib.h>           /* realloc(), free()                       */
+#include <unistd.h>           /* read(), write(), close()                */
+#include <sys/types.h>
+#include <sys/stat.h>         /* stat(), S_ISDIR()                       */
+#include <dirent.h>           /* opendir(), readdir(), closedir()        */
+#include <fcntl.h>
+#include <errno.h>
+#include "amgdefs.h"
+
+/* External global variables */
+extern int sys_log_fd;
+
+/* Local function prototypes. */
+static int write_length_indicator(int, int, int);
+
+/* #define _WITH_SOH_ETX_CHECK */
+
+
+/*############################## assemble() #############################*/
+int
+assemble(char  *source_dir,
+         char  *p_file_name,
+         int   file_counter,
+         char  *dest_file,
+         int   type,
+         int   *files_to_send,
+         off_t *file_size)
+{
+   int         buffer_size = 0,
+               fd,
+               i,
+               length,
+               to_fd = -1;
+   char        *buffer = NULL,
+               *p_src;
+   struct stat stat_buf;
+
+   p_src = source_dir + strlen(source_dir);
+   *p_src++ = '/';
+   *file_size = 0;
+
+   for (i = 0; i < file_counter; i++)
+   {
+      (void)strcpy(p_src, p_file_name);
+      if ((fd = open(source_dir, O_RDONLY)) == -1)
+      {
+         (void)rec(sys_log_fd, WARN_SIGN,
+                   "Failed to open() %s : %s (%s %d)\n",
+                   source_dir, strerror(errno),
+                   __FILE__, __LINE__);
+      }
+      else
+      {
+         if (fstat(fd, &stat_buf) == -1)
+         {
+            (void)close(fd);
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Failed to stat() : %s (%s %d)\n",
+                      source_dir, strerror(errno),
+                      __FILE__, __LINE__);
+         }
+         else
+         {
+            if (stat_buf.st_size > 0)
+            {
+               if (buffer_size < stat_buf.st_size)
+               {
+                  if ((buffer = realloc(buffer, stat_buf.st_size)) == NULL)
+                  {
+                     (void)close(fd);
+                     (void)rec(sys_log_fd, FATAL_SIGN,
+                               "realloc() error : %s (%s %d)\n",
+                               strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
+                  }
+                  else
+                  {
+                     buffer_size = stat_buf.st_size;
+                  }
+               }
+
+               if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+               {
+                  (void)close(fd);
+                  (void)rec(sys_log_fd, WARN_SIGN,
+                            "Failed to read() %s : %s (%s %d)\n",
+                            source_dir, strerror(errno),
+                            __FILE__, __LINE__);
+               }
+               else
+               {
+#ifdef _WITH_SOH_ETX_CHECK
+                  int additional_length = 0;
+#endif
+
+                  if (close(fd) == -1)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "close() error : %s (%s %d)\n",
+                               strerror(errno), __FILE__, __LINE__);
+                  }
+                  if (to_fd == -1)
+                  {
+                     if ((to_fd = open(dest_file, O_CREAT | O_RDWR,
+                                       FILE_MODE)) == -1)
+                     {
+                        free(buffer);
+                        (void)rec(sys_log_fd, ERROR_SIGN,
+                                  "Failed to open() %s : %s (%s %d)\n",
+                                  dest_file, strerror(errno),
+                                  __FILE__, __LINE__);
+                        return(INCORRECT);
+                     }
+                  }
+#ifdef _WITH_SOH_ETX_CHECK
+                  if (type != ASCII_STANDARD)
+                  {
+                     if (buffer[0] != 1)
+                     {
+                        additional_length += 4;
+                     }
+                     if (buffer[stat_buf.st_size - 1] != 3)
+                     {
+                        additional_length += 4;
+                     }
+                     if ((length = write_length_indicator(to_fd,
+                                                          type,
+                                                          stat_buf.st_size + additional_length)) < 0)
+#else
+                  if (type != ASCII_STANDARD)
+                  {
+                     if ((length = write_length_indicator(to_fd,
+                                                          type,
+                                                          stat_buf.st_size)) < 0)
+#endif
+                     {
+                        if (length == -1)
+                        {
+                           (void)rec(sys_log_fd, WARN_SIGN,
+                                     "write() error : %s (%s %d)\n",
+                                     strerror(errno), __FILE__, __LINE__);
+                        }
+                        continue;
+                     }
+                     *file_size += length;
+                  }
+
+#ifdef _WITH_SOH_ETX_CHECK
+                  /* Check for SOH */
+                  if (buffer[0] != 1)
+                  {
+                     if (write(to_fd, "\001\015\015\012", 4) != 4)
+                     {
+                        (void)rec(sys_log_fd, ERROR_SIGN,
+                                  "Failed to write() SOH<CR><CR><LF> : %s (%s %d)\n",
+                                  strerror(errno), __FILE__, __LINE__);
+                     }
+                     else
+                     {
+                        *file_size += 4;
+                     }
+                  }
+#endif
+
+                  /* Write data */
+                  if (write(to_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+                  {
+                      (void)rec(sys_log_fd, ERROR_SIGN,
+                                "Failed to write() data part : %s (%s %d)\n",
+                                strerror(errno), __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     *file_size += stat_buf.st_size;
+                  }
+
+#ifdef _WITH_SOH_ETX_CHECK
+                  /* Check for ETX */
+                  if (buffer[stat_buf.st_size - 1] != 3)
+                  {
+                     if (write(to_fd, "\015\015\012\003", 4) != 4)
+                     {
+                        (void)rec(sys_log_fd, ERROR_SIGN,
+                                  "Failed to write() <CR><CR><LF>ETX : %s (%s %d)\n",
+                                  strerror(errno), __FILE__, __LINE__);
+                     }
+                     else
+                     {
+                        *file_size += 4;
+                     }
+                  }
+#endif
+               } /* read() == successful */
+            }
+            else
+            {
+               if (close(fd) == -1)
+               {
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "close() error : %s (%s %d)\n",
+                            strerror(errno), __FILE__, __LINE__);
+               }
+            }
+         }
+         if (remove(source_dir) == -1)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Failed to remove() %s : %s (%s %d)\n",
+                      source_dir, strerror(errno),
+                      __FILE__, __LINE__);
+         }
+      }
+      p_file_name += MAX_FILENAME_LENGTH;
+   } /* for (i = 0; i < file_counter; i++) */
+
+   *(p_src - 1) = '\0';
+   if (buffer != NULL)
+   {
+      free(buffer);
+   }
+   *files_to_send = 1;
+
+   return(SUCCESS);
+}
+
+
+/*+++++++++++++++++++++++ write_length_indicator() ++++++++++++++++++++++*/
+static int
+write_length_indicator(int fd, int type, int length)
+{
+   int  byte_order = 1,
+        write_length;
+   char buffer[10];
+
+   switch (type)
+   {
+      case TWO_BYTE      : /* Vax Standard */
+         {
+            unsigned short short_length = (unsigned short)length;
+
+            if (*(char *)&byte_order == 1)
+            {
+               /* little-endian */
+               buffer[0] = ((char *)&short_length)[0];
+               buffer[1] = ((char *)&short_length)[1];
+            }
+            else
+            {
+               /* big-endian */
+               buffer[0] = ((char *)&short_length)[1];
+               buffer[1] = ((char *)&short_length)[0];
+            }
+            write_length = 2;
+         }
+         break;
+
+      case FOUR_BYTE_LBF : /* Low byte first */
+         if (*(char *)&byte_order == 1)
+         {
+            /* little-endian */
+            buffer[0] = ((char *)&length)[0];
+            buffer[1] = ((char *)&length)[1];
+            buffer[2] = ((char *)&length)[2];
+            buffer[3] = ((char *)&length)[3];
+         }
+         else
+         {
+            /* big-endian */
+            buffer[0] = ((char *)&length)[3];
+            buffer[1] = ((char *)&length)[2];
+            buffer[2] = ((char *)&length)[1];
+            buffer[3] = ((char *)&length)[0];
+         }
+         write_length = 4;
+         break;
+
+      case FOUR_BYTE_HBF : /* High byte first */
+         if (*(char *)&byte_order == 1)
+         {
+            /* little-endian */
+            buffer[0] = ((char *)&length)[3];
+            buffer[1] = ((char *)&length)[2];
+            buffer[2] = ((char *)&length)[1];
+            buffer[3] = ((char *)&length)[0];
+         }
+         else
+         {
+            /* big-endian */
+            buffer[0] = ((char *)&length)[0];
+            buffer[1] = ((char *)&length)[1];
+            buffer[2] = ((char *)&length)[2];
+            buffer[3] = ((char *)&length)[3];
+         }
+         write_length = 4;
+         break;
+
+      case FOUR_BYTE_MSS : /* MSS Standard */
+         if (*(char *)&byte_order == 1)
+         {
+            /* little-endian */
+            buffer[0] = ((char *)&length)[3];
+            buffer[1] = ((char *)&length)[2];
+            buffer[2] = ((char *)&length)[1];
+            buffer[3] = 0;
+         }
+         else
+         {
+            /* big-endian */
+            buffer[0] = 0;
+            buffer[1] = ((char *)&length)[1];
+            buffer[2] = ((char *)&length)[2];
+            buffer[3] = ((char *)&length)[3];
+         }
+         write_length = 4;
+         break;
+
+      case WMO_STANDARD  : /* WMO Standard */
+         (void)sprintf(buffer, "%08lu", (unsigned long)length);
+         write_length = 10;
+         break;
+
+      default            : /* Impossible! */
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Unknown length type (%d) for assembling bulletins. (%s %d)\n",
+                   type, __FILE__, __LINE__);
+         return(-2);
+
+   }
+
+   return(write(fd, buffer, write_length));
+}

@@ -1,0 +1,15 @@
+MMAP_FLAG       = -D_NO_MMAP
+AR              = ar
+ARFLAGS         = rsv
+BINMODE         = 4755
+SBINMODE        = 755
+MAKE            = make
+COMPILER_FLAGS  = -O2 ${MMAP_FLAG}
+#DEBUG_FLAGS     = -g -D_DEBUG -D_FIFO_DEBUG
+DEBUG_FLAGS     = 
+XLIBPATH        =
+XMLIBS          = -lXm
+XAWLIBS         = -lXaw
+XLIBS           = -lXt -lX11
+MATHSLIB        = -lm
+THREAD_LIB      = 

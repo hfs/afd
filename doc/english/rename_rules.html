@@ -1,0 +1,142 @@
+<HTML>
+<HEAD>
+<TITLE>AFD rename rules</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<H1 ALIGN=center><A NAME="Rename Rule">Rename Rules</A></H1>
+<HR SIZE=3 NOSHADE>
+<P>
+In the file "$AFD_WORK_DIR/etc/rename.rule" all rules on how to rename a
+file are listed. This file is automatically read again when the date of
+the file has been changed. There are three different options in the
+DIR_CONFIG file which can use the rename.rule: <A HREF="amg.html#rename">
+rename</A>, <A HREF= "amg.html#trans_rename">trans_rename</A> and
+<A HREF="amg.html#file_name_is_user"> file name is user</A>.
+The first one is explained as an example below:
+<P>
+<PRE>
+[directory]
+/the/directory/where/the/files/come/in
+
+   [files]
+   *
+
+      [destination]
+
+         [recipient]
+         ftp://recipient_1:password@hostname/destination/directory
+
+         [options]
+         lock OFF
+         rename rule_1
+         priority 5
+
+         [recipient]
+         ftp://recipient_2:password@hostname/destination/directory
+
+         [options]
+         lock DOT
+         rename rule_2
+         priority 2
+</PRE>
+<P>
+In file "$AFD_WORK_DIR/etc/rename.rule" these two rules must be defined:
+<P>
+<PRE>
+[rule_1]
+abc*.*     new_filename*.new.*.test
+*123*      *new_filename*
+
+[rule_2]
+*          file.dat
+</PRE>
+<P>
+The result of these entries would be that all files for recipient_2 would
+be renamed to file.dat. For recipient_1 the file abcdef.txt would renamed
+to new_filenamedef.new.txt.test and file AB123CD.txt would be renamed to
+ABnew_filenameCD.txt.
+<P>
+<BR><BR>
+<CENTER><H3><U>Features of the rename rule</U></H3></CENTER>
+<P>
+<UL>
+   <LI>Define as many rename groups as needed.</LI>
+   <LI>Unlimited number of filters.</LI>
+   <LI>In one filter you can use up to 10 ´*´ and 50 ´?´.</LI>
+</UL>
+<P>
+<TABLE BORDER>
+<TR>
+   <TH>Feature</TH>
+   <TH>Description</TH>
+   <TH>Example Rule</TH>
+   <TH>Result for file abcde</TH>
+</TR>
+<TR>
+   <TD><B>* and ?</B></TD>
+   <TD>You can use the same ´*´ and ´?´ in the rename rule.</TD>
+   <TD><PRE>??*   ?-?-*        </PRE></TD>
+   <TD>a-b-cde</TD>
+</TR>
+<TR>
+   <TD><B>%*n and %?n</B></TD>
+   <TD>To address a specific * or ?.</TD>
+   <TD><PRE>??*   %?2-*-%?1    </PRE></TD>
+   <TD>b-cde-a</TD>
+</TR>
+<TR>
+   <TD><B>%on and %On-m</B></TD>
+   <TD>To address a specific character or character range. There are two
+       special characters: ^ for the first character and $ for the last
+       character.</TD>
+   <TD><PRE>*     %o1-%o2-%o3-$</PRE></TD>
+   <TD>a-b-cde</TD>
+</TR>
+<TR>
+   <TD><B>%tx</B></TD>
+   <TD>Insert the actual time in any form. The character x determines the
+       time format which can be one of the following:<BR>
+       <PRE>
+            a - short day "Tue",           A - long day "Tuesday",
+            b - short month "Jan",         B - long month "January",
+            d - day of month [01,31],      m - month [01,12],
+            j - day of the year [001,366], y - year [01,99],
+            Y - year 1997,                 H - hour [00,23],
+            M - minute [00,59],            S - second [00,60]</PRE></TD>
+   <TD><PRE>*     %ta-*-%tA    </PRE></TD>
+   <TD>Mon-abcde-Monday</TD>
+</TR>
+<TR>
+   <TD><B>%n</B></TD>
+   <TD>Insert a unique number four characters long.</TD>
+   <TD><PRE>*     *.%n         </PRE></TD>
+   <TD>abcde.2864</TD>
+</TR>
+<TR>
+   <TD><B>%%</B></TD>
+   <TD>Insert a %.</TD>
+   <TD><PRE>*     *%           </PRE></TD>
+   <TD>abcde%</TD>
+</TR>
+<TR>
+   <TD><B>\</B></TD>
+   <TD>End of a number.</TD>
+   <TD><PRE>*     %o1\234      </PRE></TD>
+   <TD>a234</TD>
+</TR>
+</TABLE>
+<BR>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy; 1997 - 1998 by DWD<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 16.08.1998
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

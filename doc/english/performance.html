@@ -1,0 +1,42 @@
+<HTML>
+<HEAD>
+<TITLE>AFD (performance.html)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<BR>
+<CENTER><IMG SRC="../images/undrcons.gif"></CENTER>
+<P>
+<BR>
+<H1 ALIGN=center>AFD Performance</H1>
+<HR SIZE=3 NOSHADE>
+<P>
+In the DWD lots of small files are being tranported to its custumors.
+So the following performance test where done with linking lots of
+small from one directory to the other. The test scenario looks as
+follows: three AFD's, all in the same file system, send 20000 files
+in a loop. The following results where achived:
+<UL>
+   <LI>Conf. 1:
+   <LI>Latest operational release : Version 0.9.15 (03rd March 1998)
+   <LI>Top number of files transmitted : 33 Files/second<BR>
+       (This was measured when doing test between an SGI
+        workstation (ixt1) and a P133 running Linux.)
+       In another test where files where copied localy, the AFD managed
+       to handle 90 Files/seconds.
+   <LI>On the 28th May 1997 the DWD has decided to use the AFD for
+       transmitting its national files.
+</UL>
+<P>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy 1997 - 1998 by H.Kiehl<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 12.04.1998
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

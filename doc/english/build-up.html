@@ -1,0 +1,82 @@
+<HTML>
+<HEAD>
+<TITLE>AFD (~/doc/html/build-up.html)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<H1 ALIGN=center><A NAME="build-up">BUILD-UP</A></H1>
+<HR SIZE=3 NOSHADE>
+<P>
+To send files the AFD always looks in certain user defined directories
+for files which will then be send via FTP, e-mail, or some other service.
+These can be specified by using wildcards in a special configuration
+file.
+</P>
+<CENTER><IMG SRC="../images/build-up.gif"></CENTER>
+<P>
+The AFD consists mainly of two programs: AMG (Automatic Message Generator)
+and the FD (File Distributor). These two programs communicate over a
+fifo and a directory as shown below:
+</P>
+<CENTER><IMG SRC="../images/amg-fd.gif"></CENTER>
+<P>
+Every time the AMG finds files to be send, it copies the files into the
+files directory and then generates a message which is then send via
+the fifo to the FD. The FD just needs to watch the fifo
+to see if it has to send any files. The message together with the file(s)
+is called a job. Such a job can consist of one or more files. For each
+job the AMG must create a directory in the files directory. Since some
+Unix implementations limit the number of directories (links) in one
+directory to 1000 (System V), it is necessary to monitor this number
+carefully.
+</P>
+<P>
+This setup has the advantage that when a system crash occurs, no
+data is lost. After a crash we can start off from where we left before
+the crash. No data is lost and the worst thing that can happen is that
+a file gets send twice.
+</P>
+<P>
+The <A HREF="afd_ctrl.html">afd_ctrl</A> is the user interface, which can
+be used to monitor and control the AFD. With this interface it is possible
+to start/stop the AMG or the FD on a per host basis or turn on/off the
+AMG or FD.
+</P>
+<P>
+There are currently six types of <A HREF="log.html">log files</A>: system,
+transfer, transfer debug, input, output and delete. In the system log file
+only information regarding the AFD system is being logged. The transfer log
+shows how many files and bytes have been transfered on a per host basis.
+Errors that might occur during or be for the transfer are also logged here
+in a very short form. If more information is wanted, the debug mode must be
+turned on and this information is then logged in the transfer debug log
+file.
+</P>
+<P>
+When the FD has send a file successfully this file gets archived in the
+archive directory. The process <A HREF="archive_watch.html">archive_watch</A>
+checks this directory for old archives and removes them when it finds one.
+</P>
+<P>
+All the above process are controlled by a single process called init_afd.
+This process keeps track of all running jobs of the AFD and restarts them
+if any of the critical process terminate abnormally. It also checks
+that all shared memory regions are released.
+</P>
+<P>
+The directories that the AFD needs are listed as follows:
+</P>
+<CENTER><IMG SRC="../images/dir-struct.gif"></CENTER>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy; 1997 - 1998 by H.Kiehl<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 12.04.98
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>

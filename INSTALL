@@ -1,0 +1,81 @@
+
+                      INSTALLING THE AFD
+                      ==================
+
+
+Compilation
+-----------
+
+1.) Link Include.mk to Include.mk.XXX where XXX is the name of
+    the operating system. For example if your operating system
+    is Linux do the following steps:
+
+           cd src
+           rm Include.mk
+           ln -s Include.mk.linux Include.mk
+
+2.) Edit 'config.h' to meet your requirements.
+
+3.) Enter the following commands and hope that everything compiles
+    correctly:
+
+          make
+          make install
+
+
+Setting up the AFD
+------------------
+
+The AFD can be configured in two files, DIR_CONFIG and HOST_CONFIG, these
+can be found in the directory etc. Of these only the DIR_CONFIG file
+is absolutely necessary, otherwise the AFD will not start up.
+
+The following is an example entry in the DIR_CONFIG:
+
+[directory]
+/home/afd/data
+
+        [files]
+        *
+
+                [destination]
+
+                        [recipient]
+                        ftp://user:passwd@test1//dir1/dir2
+
+                        [options]
+                        archive 3
+                        lock DOT
+                        priority 0
+
+This tells the AFD to send any files (*) via FTP in the directory
+/home/afd/data to the user 'user' at host test1 with the password
+'passwd' into the directory '/dir1/dir2'. It also tells the AFD to
+archive these files for three days and to send them with the priority
+0 (very high). The option 'lock DOT' tells to send the files in dot
+notation, i.e. the file name is first written with a dot at the beg-
+ining. When the file has been transmitted it is renamed to its original
+name.
+
+
+Starting the AFD
+----------------
+
+To run the AFD ensure that the path of the binaries is in the
+environment variable PATH. Set the environment variable AFD_WORK_DIR
+to where you want the AFD to be running (ie. where it put its log files,
+statistics, fifos, etc).  Make certain that you have valid entries in the
+DIR_CONFIG, otherwise it will not run.
+
+There are two possible ways to start the AFD. If you are running X you
+just need to enter 'afd'. This will start all process needed to run the
+AFD and the 'afd_ctrl' window. If you do not want to have the 'afd_ctrl'
+window you can start the AFD only by entering 'afd -a'.
+
+
+Stopping the AFD
+----------------
+
+Stopping the AFD is always done by entering 'afd -s'. This will stop
+all process and remove all shared memory areas. Even when the AFD
+fails to start properly, always use this command to stop it again.

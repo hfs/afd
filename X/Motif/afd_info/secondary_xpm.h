@@ -1,0 +1,23 @@
+/* XPM */
+static char * secondary_xpm[] = {
+"15 15 5 1",
+"       c #EFBECF3CA699",
+".      c #71C671C671C6",
+"X      c #000000000000",
+"o      c #FFFF00000000",
+"O      c #FFFFFFFFFFFF",
+"               ",
+"    .XXXXX.    ",
+"   XoooooooX   ",
+"  XoooooooooX  ",
+" .ooooooooooo. ",
+" XoooooooooooX ",
+" XoOOOOOOOOOoX ",
+" XoOOOOOOOOOoX ",
+" XoOOOOOOOOOoX ",
+" XoooooooooooX ",
+" .ooooooooooo. ",
+"  XoooooooooX  ",
+"   XoooooooX   ",
+"    .XXXXX.    ",
+"               "};

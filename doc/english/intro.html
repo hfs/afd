@@ -1,0 +1,68 @@
+<HTML>
+<HEAD>
+<TITLE>AFD (intro.html)</TITLE>
+</HEAD>
+<BODY bgcolor=#F0ECD6>
+<H1 ALIGN=center><A NAME="intro">INTRODUCTION</A></H1>
+<HR SIZE=3 NOSHADE>
+<P>
+Today, file transfer is becoming more and more important because of the
+increasing demand of sending data from one computer to another. File
+transfer is a very efficient and portable way to send data across a WAN
+(Wide Area Network). Efficient because only the data that needs to be
+transported is sent across the network and no extra information (as
+database programs do). And portable because today most computers are
+able to receive files from another computer without the need of special
+hardware and software. One of the most popular software package is FTP
+(File Transfer Protocol) which is supported across all platforms.
+</P>
+<H3 ALIGN=center><A NAME="aim">AIM</A></H3>
+<P>
+The aim of an automatic file distributor is as follows in no particular
+order of importance:
+</P>
+<UL>
+   <LI>It must be able to handle any form of files. The sole duty
+       of the AFD is to send a file from one computer to another
+       (or locally from one directory to another).
+       The contents of the file and the file name must be left
+       unchanged.</LI>
+
+   <LI>The management of the AFD can be done by a single person.</LI>
+
+   <LI>Existing applications do not have to be changed. By this it
+       is meant that it is not necessary for them to have a special
+       interface to the AFD.</LI>
+
+   <LI>It must be able to send files parallel. If currently a very large
+       file is being transfered, other files do not have to wait and can
+       be transfered too.</LI>
+
+   <LI>Net capacity is always limited. To overcome this limit files must
+       be send with a priority.</LI>
+
+   <LI>The AFD must be able to send files to other end points where no
+       AFD is installed.</LI>
+
+   <LI>No time should be wasted when collecting files to be distributed.
+       The AFD should start transmission as early as possible and use
+       the whole bandwidth of the network by making full use of local
+       CPU power (<A HREF="glossary.html#SMP">SMP</A>).</LI>
+
+   <LI>When you have many active file transfers it must be easy to monitor
+       and to control every single transfer.</LI>
+</UL>
+<HR SIZE=3 NOSHADE>
+<TABLE>
+<TR>
+   <TD WIDTH=600><SMALL><ADDRESS>
+   Copyright &copy; 1997 by H.Kiehl<BR>
+   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+   Last updated: 14.03.1997
+   </ADDRESS></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
+   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
+</TR>
+</TABLE>
+</BODY>
+</HTML>
