@@ -286,6 +286,15 @@ assemble(char  *source_dir,
       p_file_name += MAX_FILENAME_LENGTH;
    } /* for (i = 0; i < file_counter; i++) */
 
+   if (to_fd != -1)
+   {
+      if (close(to_fd) == -1)
+      {
+         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
+   }
+
    *(p_src - 1) = '\0';
    if (buffer != NULL)
    {

@@ -613,6 +613,128 @@ main(int argc, char *argv[])
       } /* if (status != 230) */
    } /* if (!db.special_flag & NO_LOGIN) */
 
+   if (db.pproxy != NULL)
+   {
+      /* Send user name */
+      if (((status = ftp_user(db.pproxy)) != SUCCESS) && (status != 230))
+      {
+         if (fsa[(int)db.position].debug == YES)
+         {
+            if (timeout_flag == OFF)
+            {
+               (void)rec(trans_db_log_fd, ERROR_SIGN,
+                         "%-*s[%d]: Failed to send user %s (%d). (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname,
+                         (int)db.job_no, db.pproxy, status, __FILE__, __LINE__);
+               (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname,
+                         (int)db.job_no, msg_str);
+            }
+            else
+            {
+               (void)rec(trans_db_log_fd, ERROR_SIGN,
+                         "%-*s[%d]: Failed to send user %s due to timeout. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname,
+                         (int)db.job_no, db.pproxy, __FILE__, __LINE__);
+            }
+         }
+         if (timeout_flag == OFF)
+         {
+            (void)rec(transfer_log_fd, ERROR_SIGN,
+                      "%-*s[%d]: Failed to send user %s (%d). #%d (%s %d)\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname,
+                      (int)db.job_no, db.pproxy, status,
+                      db.job_id, __FILE__, __LINE__);
+            (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no, msg_str);
+         }
+         else
+         {
+            (void)rec(transfer_log_fd, ERROR_SIGN,
+                      "%-*s[%d]: Failed to send user %s due to timeout. #%d (%s %d)\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname,
+                      (int)db.job_no, db.pproxy,
+                      db.job_id, __FILE__, __LINE__);
+         }
+         (void)ftp_quit();
+         reset_fsa(p_db, YES, NO_OF_FILES_VAR | CONNECT_STATUS_VAR);
+         exit(USER_ERROR);
+      }
+      else
+      {
+         if (fsa[(int)db.position].debug == YES)
+         {
+            (void)rec(trans_db_log_fd, INFO_SIGN,
+                      "%-*s[%d]: Entered user name %s. (%s %d)\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname,
+                      (int)db.job_no, db.pproxy, __FILE__, __LINE__);
+            (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no, msg_str);
+         }
+      }
+
+      /* Send password */
+      if (status != 230)
+      {
+         if ((status = ftp_pass(db.password)) != SUCCESS)
+         {
+            if (fsa[(int)db.position].debug == YES)
+            {
+               if (timeout_flag == OFF)
+               {
+                  (void)rec(trans_db_log_fd, ERROR_SIGN,
+                            "%-*s[%d]: Failed to send password for user %s (%d). (%s %d)\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname,
+                            (int)db.job_no, db.pproxy, status, __FILE__, __LINE__);
+                  (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname,
+                            (int)db.job_no, msg_str);
+               }
+               else
+               {
+                  (void)rec(trans_db_log_fd, ERROR_SIGN,
+                            "%-*s[%d]: Failed to send password for user %s due to timeout. (%s %d)\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname,
+                            (int)db.job_no, db.pproxy, __FILE__, __LINE__);
+               }
+            }
+            if (timeout_flag == OFF)
+            {
+               (void)rec(transfer_log_fd, ERROR_SIGN,
+                         "%-*s[%d]: Failed to send password for user %s (%d). #%d (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname,
+                         (int)db.job_no, db.pproxy, status,
+                         db.job_id, __FILE__, __LINE__);
+               (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no, msg_str);
+            }
+            else
+            {
+               (void)rec(transfer_log_fd, ERROR_SIGN,
+                         "%-*s[%d]: Failed to send password for user %s due to timeout. #%d (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname,
+                         (int)db.job_no, db.pproxy,
+                         db.job_id, __FILE__, __LINE__);
+            }
+            (void)ftp_quit();
+            reset_fsa(p_db, YES, NO_OF_FILES_VAR | CONNECT_STATUS_VAR);
+            exit(PASSWORD_ERROR);
+         }
+         else
+         {
+            if (fsa[(int)db.position].debug == YES)
+            {
+               (void)rec(trans_db_log_fd, INFO_SIGN,
+                         "%-*s[%d]: Logged in as %s. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname,
+                         (int)db.job_no, db.pproxy, __FILE__, __LINE__);
+               (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no, msg_str);
+            }
+         }
+      } /* if (status != 230) */
+   } /* if (db.pproxy != NULL) */
+
 #ifdef _CHECK_BEFORE_EXIT
 #endif
 

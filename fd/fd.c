@@ -1522,20 +1522,25 @@ zombie_check(int qb_pos, int options)
          {
             case TRANSFER_SUCCESS      : /* Ordinary end of process. */
                faulty = NO;
-               if (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos == fsa[connection[qb[qb_pos].connect_pos].position].host_toggle)
+               if (((connection[qb[qb_pos].connect_pos].temp_toggle == ON) &&
+                   (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos != fsa[connection[qb[qb_pos].connect_pos].position].host_toggle)) ||
+                   (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos == fsa[connection[qb[qb_pos].connect_pos].position].host_toggle))
                {
                   /*
                    * Do not forget to toggle back to the original
                    * host and deactivate original_toggle_pos!
                    */
                   connection[qb[qb_pos].connect_pos].temp_toggle = OFF;
-                  fsa[connection[qb[qb_pos].connect_pos].position].host_toggle = fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos;
-                  fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos = NONE;
                   fsa[connection[qb[qb_pos].connect_pos].position].successful_retries = 0;
-                  (void)rec(sys_log_fd, INFO_SIGN,
-                            "Switching back to host %s%c after successful transfer.\n",
-                            fsa[connection[qb[qb_pos].connect_pos].position].host_alias,
-                            fsa[connection[qb[qb_pos].connect_pos].position].host_toggle_str[(int)fsa[connection[qb[qb_pos].connect_pos].position].host_toggle]);
+                  if (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos != NONE)
+                  {
+                     fsa[connection[qb[qb_pos].connect_pos].position].host_toggle = fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos;
+                     fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos = NONE;
+                     (void)rec(sys_log_fd, INFO_SIGN,
+                               "Switching back to host %s%c after successful transfer.\n",
+                               fsa[connection[qb[qb_pos].connect_pos].position].host_alias,
+                               fsa[connection[qb[qb_pos].connect_pos].position].host_toggle_str[(int)fsa[connection[qb[qb_pos].connect_pos].position].host_toggle]);
+                  }
                }
                fsa[connection[qb[qb_pos].connect_pos].position].last_connection = time(NULL);
                break;

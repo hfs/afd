@@ -190,9 +190,10 @@ main(int argc, char *argv[])
    }
 
    /* Initialize sec_counter, hour_counter and day_counter. */
+   test_sec_counter = (((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME) + 1;
    for (i = 0; i < no_of_hosts; i++)
    {
-      stat_db[i].sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME;
+      stat_db[i].sec_counter = test_sec_counter;
       stat_db[i].hour_counter = p_ts->tm_hour;
       stat_db[i].day_counter = p_ts->tm_yday;
    }
@@ -204,12 +205,52 @@ main(int argc, char *argv[])
       timeout.tv_usec = 0;
       timeout.tv_sec = ((now / STAT_RESCAN_TIME) * STAT_RESCAN_TIME) +
                        STAT_RESCAN_TIME - now;
-
       status = select(0, NULL, NULL, NULL, &timeout);
 
       /* Did we get a timeout? */
       if (status == 0)
       {
+         now += timeout.tv_sec;
+         p_ts = gmtime(&now);
+         test_sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) /
+                            STAT_RESCAN_TIME;
+         test_hour_counter = p_ts->tm_hour;
+         if (test_sec_counter != stat_db[0].sec_counter)
+         {
+            if ((((stat_db[0].sec_counter - test_sec_counter) == 1) &&
+                 (test_hour_counter == stat_db[0].hour_counter)) ||
+                ((stat_db[0].sec_counter == 0) && (test_sec_counter == 719)))
+            {
+               (void)sleep(STAT_RESCAN_TIME);
+            }
+            else
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "Hmmm..., second counter wrong [%d -> %d]. Correcting. (%s %d)\n",
+                         stat_db[0].sec_counter, test_sec_counter,
+                         __FILE__, __LINE__);
+               for (i = 0; i < no_of_hosts; i++)
+               {
+                  stat_db[i].sec_counter = test_sec_counter;
+               }
+            }
+         }
+         if (test_hour_counter != stat_db[0].hour_counter)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Hmmm..., hour counter wrong [%d -> %d]. Correcting. (%s %d)\n",
+                      stat_db[0].hour_counter, test_hour_counter,
+                      __FILE__, __LINE__);
+            for (i = 0; i < no_of_hosts; i++)
+            {
+               stat_db[i].hour_counter = test_hour_counter;
+               stat_db[i].day[stat_db[i].hour_counter].nfs = 0;
+               stat_db[i].day[stat_db[i].hour_counter].nbs = 0.0;
+               stat_db[i].day[stat_db[i].hour_counter].ne  = 0;
+               stat_db[i].day[stat_db[i].hour_counter].nc  = 0;
+            }
+         }
+
          /*
           * If the FSA canges we have to reread everything. This
           * is easier then trying to find out where the change took
@@ -264,7 +305,7 @@ main(int argc, char *argv[])
             stat_db[i].prev_nfs = ui_value;
 
             /* Store number of bytes send. */
-            d_value = fsa[i].bytes_send;
+            d_value = (double)fsa[i].bytes_send;
             if (d_value >= stat_db[i].prev_nbs)
             {
                stat_db[i].hour[stat_db[i].sec_counter].nbs = d_value - stat_db[i].prev_nbs;
@@ -309,85 +350,39 @@ main(int argc, char *argv[])
             stat_db[i].day[stat_db[i].hour_counter].nc += stat_db[i].hour[stat_db[i].sec_counter].nc;
             stat_db[i].prev_nc = ui_value;
             stat_db[i].sec_counter++;
+         } /* for (i = 0; i < no_of_hosts; i++) */
 
-            if (stat_db[i].sec_counter == SECS_PER_HOUR)
+         /* Did we reach another hour? */
+         if (stat_db[0].sec_counter == SECS_PER_HOUR)
+         {
+            for (i = 0; i < no_of_hosts; i++)
             {
-               int missed_time = NO;
-
                /* Reset the counter for the day structure */
                stat_db[i].sec_counter = 0;
                stat_db[i].hour_counter++;
 
-               /* Check if we have missed any second interval. */
-               time(&now);
-               p_ts = gmtime(&now);
-               test_sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME;
-               test_hour_counter = p_ts->tm_hour;
-               if (test_sec_counter != 0)
+               if (stat_db[i].hour_counter == HOURS_PER_DAY)
                {
-                  stat_db[i].sec_counter = test_sec_counter;
-                  if (i == (no_of_hosts - 1))
+                  stat_db[i].hour_counter = 0;
+                  stat_db[i].year[stat_db[i].day_counter].nfs = 0;
+                  stat_db[i].year[stat_db[i].day_counter].nbs = 0.0;
+                  stat_db[i].year[stat_db[i].day_counter].ne  = 0;
+                  stat_db[i].year[stat_db[i].day_counter].nc  = 0;
+                  for (j = 0; j < HOURS_PER_DAY; j++)
                   {
-                     if (test_hour_counter < stat_db[i].hour_counter)
-                     {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Have missed %d seconds! (%s %d)\n",
-                                  3600 - (test_sec_counter * STAT_RESCAN_TIME),
-                                  __FILE__, __LINE__);
-                     }
-                     else
-                     {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Have missed %d seconds! (%s %d)\n",
-                                  test_sec_counter * STAT_RESCAN_TIME,
-                                  __FILE__, __LINE__);
-                     }
+                     stat_db[i].year[stat_db[i].day_counter].nfs += stat_db[i].day[j].nfs;
+                     stat_db[i].year[stat_db[i].day_counter].nbs += stat_db[i].day[j].nbs;
+                     stat_db[i].year[stat_db[i].day_counter].ne  += stat_db[i].day[j].ne;
+                     stat_db[i].year[stat_db[i].day_counter].nc  += stat_db[i].day[j].nc;
                   }
-                  if (test_hour_counter < stat_db[i].hour_counter)
-                  {
-                     stat_db[i].hour_counter--;
-                     missed_time = YES;
-                  }
+                  stat_db[i].day_counter++;
                }
-               if ((stat_db[i].hour_counter < HOURS_PER_DAY) &&
-                   (test_hour_counter != stat_db[i].hour_counter))
-               {
-                  if (i == (no_of_hosts - 1))
-                  {
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "Have missed %d hour(s)! (%s %d)\n",
-                               test_hour_counter - stat_db[i].hour_counter,
-                               __FILE__, __LINE__);
-                  }
-                  stat_db[i].hour_counter = test_hour_counter;
-                  missed_time = NO;
-               }
-
-               if (missed_time == NO)
-               {
-                  if (stat_db[i].hour_counter == HOURS_PER_DAY)
-                  {
-                     stat_db[i].hour_counter = 0;
-                     stat_db[i].year[stat_db[i].day_counter].nfs = 0;
-                     stat_db[i].year[stat_db[i].day_counter].nbs = 0.0;
-                     stat_db[i].year[stat_db[i].day_counter].ne  = 0;
-                     stat_db[i].year[stat_db[i].day_counter].nc  = 0;
-                     for (j = 0; j < HOURS_PER_DAY; j++)
-                     {
-                        stat_db[i].year[stat_db[i].day_counter].nfs += stat_db[i].day[j].nfs;
-                        stat_db[i].year[stat_db[i].day_counter].nbs += stat_db[i].day[j].nbs;
-                        stat_db[i].year[stat_db[i].day_counter].ne  += stat_db[i].day[j].ne;
-                        stat_db[i].year[stat_db[i].day_counter].nc  += stat_db[i].day[j].nc;
-                     }
-                     stat_db[i].day_counter++;
-                  }
-                  stat_db[i].day[stat_db[i].hour_counter].nfs = 0;
-                  stat_db[i].day[stat_db[i].hour_counter].nbs = 0.0;
-                  stat_db[i].day[stat_db[i].hour_counter].ne  = 0;
-                  stat_db[i].day[stat_db[i].hour_counter].nc  = 0;
-               }
-            } /* if (stat_db[i].sec_counter == SECS_PER_HOUR) */
-         } /* for (i = 0; i < no_of_hosts; i++) */
+               stat_db[i].day[stat_db[i].hour_counter].nfs = 0;
+               stat_db[i].day[stat_db[i].hour_counter].nbs = 0.0;
+               stat_db[i].day[stat_db[i].hour_counter].ne  = 0;
+               stat_db[i].day[stat_db[i].hour_counter].nc  = 0;
+            }
+         } /* if (stat_db[i].sec_counter == SECS_PER_HOUR) */
 
          /* Did we reach another year? */
          if (current_year != (p_ts->tm_year + 1900))
@@ -401,9 +396,11 @@ main(int argc, char *argv[])
             /*
              * Reset all values in current memory mapped file.
              */
+            test_sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) /
+                               STAT_RESCAN_TIME;
             for (i = 0; i < no_of_hosts; i++)
             {
-               stat_db[i].sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME;
+               stat_db[i].sec_counter = test_sec_counter;
                stat_db[i].hour_counter = p_ts->tm_hour;
                stat_db[i].day_counter = p_ts->tm_yday;
                (void)memset(&stat_db[i].year, 0, (DAYS_PER_YEAR * sizeof(struct statistics)));

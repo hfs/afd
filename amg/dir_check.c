@@ -525,7 +525,6 @@ main(int argc, char *argv[])
                                  "Can't access directory %s : %s (%s %d)\n",
                                  de[i].dir, strerror(errno),
                                  __FILE__, __LINE__);
-                       return(NO);
                     }
 
                     /*

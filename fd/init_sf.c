@@ -138,6 +138,7 @@ init_sf(int  argc,
    db.msg_type = protocol;
    db.smtp_server[0] = '\0';
    db.special_ptr = NULL;
+   db.pproxy = NULL;
    db.user_id = -1;
    db.group_id = -1;
    (void)strcpy(db.lock_notation, DOT_NOTATION);

@@ -109,7 +109,7 @@
 /* #define _WITH_MAP_SUPPORT */
 /* #define _WITH_READY_FILES */
 /* #define _WITH_EUMETSAT_HEADERS */
-/* #define _WITH_UNIQUE_NUMBERS */
+#define _WITH_UNIQUE_NUMBERS
 
 /*-----------------------------------------------------------------------*
  * These following options are only for the dialogs of the AFD.

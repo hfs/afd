@@ -27,7 +27,7 @@ DESCR__S_M1
  **              host
  **
  ** SYNOPSIS
- **   fsa_view [working directory] hostname|position
+ **   fsa_view [--version] [-w working directory] hostname|position
  **
  ** DESCRIPTION
  **   This program shows all information about a specific host in the
@@ -48,7 +48,7 @@ DESCR__S_M1
  */
 DESCR__E_M1
 
-#include <stdio.h>                       /* fprintf(), stderr            */
+#include <stdio.h>                       /* fprintf(), stderr, stdout    */
 #include <string.h>                      /* strcpy(), strerror()         */
 #include <stdlib.h>                      /* atoi()                       */
 #include <ctype.h>                       /* isdigit()                    */
@@ -76,7 +76,8 @@ struct filetransfer_status *fsa;
 int
 main(int argc, char *argv[])
 {
-   int  i,
+   int  i, j,
+        last,
         position = -1;
    char hostname[MAX_HOSTNAME_LENGTH + 1],
         work_dir[MAX_PATH_LENGTH];
@@ -94,17 +95,22 @@ main(int argc, char *argv[])
       if (isdigit(argv[1][0]) != 0)
       {
          position = atoi(argv[1]);
+         last = position + 1;
       }
       else
       {
          t_hostname(argv[1], hostname);
       }
    }
-   else
-   {
-      usage();
-      exit(INCORRECT);
-   }
+   else if (argc == 1)
+        {
+           position = -2;
+        }
+        else
+        {
+           usage();
+           exit(INCORRECT);
+        }
 
    if (fsa_attach() < 0)
    {
@@ -113,7 +119,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (position < 0)
+   if (position == -1)
    {
       if ((position = get_position(fsa, hostname, no_of_hosts)) < 0)
       {
@@ -121,232 +127,342 @@ main(int argc, char *argv[])
                        hostname, __FILE__, __LINE__);
          exit(INCORRECT);
       }
+      last = position + 1;
    }
+   else if (position == -2)
+        {
+           last = no_of_hosts;
+           position = 0;
+        }
+   else if (position >= no_of_hosts)
+        {
+           (void)fprintf(stderr,
+                         "WARNING : There are only %d directories in the FSA. (%s %d)\n",
+                         no_of_hosts, __FILE__, __LINE__);
+           exit(INCORRECT);
+        }
 
-   (void)fprintf(stderr, "=============================> %s <=============================\n",
-                 fsa[position].host_alias);
-   (void)fprintf(stderr, "            (Number of hosts: %d   FSA ID: %d)\n\n",
+   (void)fprintf(stdout, "            Number of hosts: %d   FSA ID: %d\n\n",
                  no_of_hosts, fsa_id);
-   (void)fprintf(stderr, "Real hostname 1    : %s\n", fsa[position].real_hostname[0]);
-   (void)fprintf(stderr, "Real hostname 2    : %s\n", fsa[position].real_hostname[1]);
-   (void)fprintf(stderr, "Hostname (display) : >%s<\n", fsa[position].host_dsp_name);
-   if (fsa[position].host_toggle == HOST_ONE)
+   for (j = position; j < last; j++)
    {
-      (void)fprintf(stderr, "Host toggle        : HOST_ONE\n");
-   }
-   else if (fsa[position].host_toggle == HOST_TWO)
-        {
-           (void)fprintf(stderr, "Host toggle        : HOST_TWO\n");
-        }
-        else
-        {
-           (void)fprintf(stderr, "Host toggle        : HOST_???\n");
-        }
-   if (fsa[position].auto_toggle == ON)
-   {
-      (void)fprintf(stderr, "Auto toggle        : ON\n");
-   }
-   else
-   {
-      (void)fprintf(stderr, "Auto toggle        : OFF\n");
-   }
-   if (fsa[position].original_toggle_pos == HOST_ONE)
-   {
-      (void)fprintf(stderr, "Original toggle    : HOST_ONE\n");
-   }
-   else if (fsa[position].original_toggle_pos == HOST_TWO)
-        {
-           (void)fprintf(stderr, "Original toggle    : HOST_TWO\n");
-        }
-        else if (fsa[position].original_toggle_pos == NONE)
-             {
-                (void)fprintf(stderr, "Original toggle    : NONE\n");
-             }
-             else
-             {
-                (void)fprintf(stderr, "Original toggle    : HOST_???\n");
-             }
-   (void)fprintf(stderr, "Toggle position    : %d\n", fsa[position].toggle_pos);
-   (void)fprintf(stderr, "Protocol (%4d)    : ", fsa[position].protocol);
-   if (fsa[position].protocol & FTP_FLAG)
-   {
-      (void)fprintf(stderr, "FTP ");
-   }
-   if (fsa[position].protocol & LOC_FLAG)
-   {
-      (void)fprintf(stderr, "LOC ");
-   }
-   if (fsa[position].protocol & SMTP_FLAG)
-   {
-      (void)fprintf(stderr, "SMTP ");
-   }
-#ifdef _WITH_MAP_SUPPORT
-   if (fsa[position].protocol & MAP_FLAG)
-   {
-      (void)fprintf(stderr, "MAP ");
-   }
-#endif
-#ifdef _WITH_WMO_SUPPORT
-   if (fsa[position].protocol & WMO_FLAG)
-   {
-      (void)fprintf(stderr, "WMO ");
-   }
-#endif
-   (void)fprintf(stderr, "\n");
-   if (fsa[position].proxy_name[0] != '\0')
-   {
-      (void)fprintf(stderr, "Proxy name         : >%s<\n", fsa[position].proxy_name);
-   }
-   else
-   {
-      (void)fprintf(stderr, "Proxy name         : NONE\n");
-   }
-   if (fsa[position].debug == NO)
-   {
-      (void)fprintf(stderr, "Debug mode         : NO\n");
-   }
-   else
-   {
-      (void)fprintf(stderr, "Debug mode         : YES\n");
-   }
-   (void)fprintf(stderr, "Host status (%4d) : ", fsa[position].host_status);
-   if (fsa[position].host_status & PAUSE_QUEUE_STAT)
-   {
-      (void)fprintf(stderr, "PAUSE_QUEUE ");
-   }
-   if (fsa[position].host_status & AUTO_PAUSE_QUEUE_STAT)
-   {
-      (void)fprintf(stderr, "AUTO_PAUSE_QUEUE ");
-   }
-   if (fsa[position].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT)
-   {
-      (void)fprintf(stderr, "AUTO_PAUSE_QUEUE_LOCK ");
-   }
-   if (fsa[position].host_status & STOP_TRANSFER_STAT)
-   {
-      (void)fprintf(stderr, "STOP_TRANSFER ");
-   }
-   if (fsa[position].error_counter >= fsa[position].max_errors)
-   {
-      if (fsa[position].error_counter >= (2 * fsa[position].max_errors))
+      (void)fprintf(stdout, "=============================> %s <=============================\n",
+                    fsa[j].host_alias);
+      (void)fprintf(stdout, "Real hostname 1    : %s\n", fsa[j].real_hostname[0]);
+      (void)fprintf(stdout, "Real hostname 2    : %s\n", fsa[j].real_hostname[1]);
+      (void)fprintf(stdout, "Hostname (display) : >%s<\n", fsa[j].host_dsp_name);
+      if (fsa[j].host_toggle == HOST_ONE)
       {
-         (void)fprintf(stderr, "NOT_WORKING2 ");
+         (void)fprintf(stdout, "Host toggle        : HOST_ONE\n");
+      }
+      else if (fsa[j].host_toggle == HOST_TWO)
+           {
+              (void)fprintf(stdout, "Host toggle        : HOST_TWO\n");
+           }
+           else
+           {
+              (void)fprintf(stdout, "Host toggle        : HOST_???\n");
+           }
+      if (fsa[j].auto_toggle == ON)
+      {
+         (void)fprintf(stdout, "Auto toggle        : ON\n");
       }
       else
       {
-         (void)fprintf(stderr, "NOT_WORKING ");
+         (void)fprintf(stdout, "Auto toggle        : OFF\n");
       }
-   }
-   if (fsa[position].active_transfers > 0)
-   {
-      (void)fprintf(stderr, "TRANSFER_ACTIVE");
-   }
-   else
-   {
-      (void)fprintf(stderr, "NORMAL_STATUS");
-   }
-   (void)fprintf(stderr, "\n");
-
-   (void)fprintf(stderr, "Transfer timeout   : %ld\n", fsa[position].transfer_timeout);
-   (void)fprintf(stderr, "File size offset   : %d\n", fsa[position].file_size_offset);
-   (void)fprintf(stderr, "Successful retries : %d\n", fsa[position].successful_retries);
-   (void)fprintf(stderr, "MaxSuccessful ret. : %d\n", fsa[position].max_successful_retries);
-   (void)fprintf(stderr, "Special flag       : %d\n", fsa[position].special_flag);
-   (void)fprintf(stderr, "Error counter      : %d\n", fsa[position].error_counter);
-   (void)fprintf(stderr, "Total errors       : %u\n", fsa[position].total_errors);
-   (void)fprintf(stderr, "Max. errors        : %d\n", fsa[position].max_errors);
-   (void)fprintf(stderr, "Retry interval     : %d\n", fsa[position].retry_interval);
-   (void)fprintf(stderr, "Transfer block size: %d\n", fsa[position].block_size);
-   (void)fprintf(stderr, "Time of last retry : %s", ctime(&fsa[position].last_retry_time));
-   (void)fprintf(stderr, "Last connection    : %s", ctime(&fsa[position].last_connection));
-   (void)fprintf(stderr, "Total file counter : %d\n", fsa[position].total_file_counter);
-   (void)fprintf(stderr, "Total file size    : %lu\n", fsa[position].total_file_size);
-   (void)fprintf(stderr, "File counter done  : %u\n", fsa[position].file_counter_done);
-   (void)fprintf(stderr, "Bytes send         : %lu\n", fsa[position].bytes_send);
-   (void)fprintf(stderr, "Connections        : %u\n", fsa[position].connections);
-   (void)fprintf(stderr, "Active transfers   : %d\n", fsa[position].active_transfers);
-   (void)fprintf(stderr, "Allowed transfers  : %d\n", fsa[position].allowed_transfers);
-   (void)fprintf(stderr, "Transfer rate      : %d\n", fsa[position].transfer_rate);
-
-   (void)fprintf(stderr, "                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   \n");
-   (void)fprintf(stderr, "--------------------+-----------+-----------+-----------+-----------+-----------\n");
-   (void)fprintf(stderr, "PID                 | %9d | %9d | %9d | %9d | %9d \n", fsa[position].job_status[0].proc_id, fsa[position].job_status[1].proc_id, fsa[position].job_status[2].proc_id, fsa[position].job_status[3].proc_id, fsa[position].job_status[4].proc_id);
-   (void)fprintf(stderr, "Connect status      ");
-   for (i = 0; i < MAX_NO_PARALLEL_JOBS; i++)
-   {
-      switch(fsa[position].job_status[i].connect_status)
+      if (fsa[j].original_toggle_pos == HOST_ONE)
       {
-         case TRANSFER_ACTIVE :
+         (void)fprintf(stdout, "Original toggle    : HOST_ONE\n");
+      }
+      else if (fsa[j].original_toggle_pos == HOST_TWO)
+           {
+              (void)fprintf(stdout, "Original toggle    : HOST_TWO\n");
+           }
+      else if (fsa[j].original_toggle_pos == NONE)
+           {
+              (void)fprintf(stdout, "Original toggle    : NONE\n");
+           }
+           else
+           {
+              (void)fprintf(stdout, "Original toggle    : HOST_???\n");
+           }
+      (void)fprintf(stdout, "Toggle position    : %d\n", fsa[j].toggle_pos);
+      if (fsa[j].host_toggle_str[0] == '\0')
+      {
+         (void)fprintf(stdout, "Host toggle string : NONE\n");
+      }
+      else
+      {
+         (void)fprintf(stdout, "Host toggle string : %s\n", fsa[j].host_toggle_str);
+      }
+      (void)fprintf(stdout, "Protocol (%4d)    : ", fsa[j].protocol);
+      if (fsa[j].protocol & FTP_FLAG)
+      {
+         (void)fprintf(stdout, "FTP ");
+      }
+      if (fsa[j].protocol & LOC_FLAG)
+      {
+         (void)fprintf(stdout, "LOC ");
+      }
+      if (fsa[j].protocol & SMTP_FLAG)
+      {
+         (void)fprintf(stdout, "SMTP ");
+      }
+#ifdef _WITH_MAP_SUPPORT
+      if (fsa[j].protocol & MAP_FLAG)
+      {
+         (void)fprintf(stdout, "MAP ");
+      }
+#endif
+#ifdef _WITH_WMO_SUPPORT
+      if (fsa[j].protocol & WMO_FLAG)
+      {
+         (void)fprintf(stdout, "WMO ");
+      }
+#endif
+      (void)fprintf(stdout, "\n");
+      if (fsa[j].proxy_name[0] != '\0')
+      {
+         (void)fprintf(stdout, "Proxy name         : >%s<\n", fsa[j].proxy_name);
+      }
+      else
+      {
+         (void)fprintf(stdout, "Proxy name         : NONE\n");
+      }
+      if (fsa[j].debug == NO)
+      {
+         (void)fprintf(stdout, "Debug mode         : NO\n");
+      }
+      else
+      {
+         (void)fprintf(stdout, "Debug mode         : YES\n");
+      }
+      (void)fprintf(stdout, "Host status (%4d) : ", fsa[j].host_status);
+      if (fsa[j].host_status & PAUSE_QUEUE_STAT)
+      {
+         (void)fprintf(stdout, "PAUSE_QUEUE ");
+      }
+      if (fsa[j].host_status & AUTO_PAUSE_QUEUE_STAT)
+      {
+         (void)fprintf(stdout, "AUTO_PAUSE_QUEUE ");
+      }
+      if (fsa[j].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT)
+      {
+         (void)fprintf(stdout, "AUTO_PAUSE_QUEUE_LOCK ");
+      }
+      if (fsa[j].host_status & STOP_TRANSFER_STAT)
+      {
+         (void)fprintf(stdout, "STOP_TRANSFER ");
+      }
+      if (fsa[j].error_counter >= fsa[j].max_errors)
+      {
+         if (fsa[j].error_counter >= (2 * fsa[j].max_errors))
+         {
+            (void)fprintf(stdout, "NOT_WORKING2 ");
+         }
+         else
+         {
+            (void)fprintf(stdout, "NOT_WORKING ");
+         }
+      }
+      if (fsa[j].active_transfers > 0)
+      {
+         (void)fprintf(stdout, "TRANSFER_ACTIVE");
+      }
+      else
+      {
+         (void)fprintf(stdout, "NORMAL_STATUS");
+      }
+      (void)fprintf(stdout, "\n");
 
-            (void)fprintf(stderr, "|TRANS ACTIV");
-            break;
+      (void)fprintf(stdout, "Transfer timeout   : %ld\n",
+                    fsa[j].transfer_timeout);
+      (void)fprintf(stdout, "File size offset   : %d\n",
+                    fsa[j].file_size_offset);
+      (void)fprintf(stdout, "Successful retries : %d\n",
+                    fsa[j].successful_retries);
+      (void)fprintf(stdout, "MaxSuccessful ret. : %d\n",
+                    fsa[j].max_successful_retries);
+      (void)fprintf(stdout, "Special flag       : %d\n",
+                    fsa[j].special_flag);
+      (void)fprintf(stdout, "Error counter      : %d\n",
+                    fsa[j].error_counter);
+      (void)fprintf(stdout, "Total errors       : %u\n",
+                    fsa[j].total_errors);
+      (void)fprintf(stdout, "Max. errors        : %d\n",
+                    fsa[j].max_errors);
+      (void)fprintf(stdout, "Retry interval     : %d\n",
+                    fsa[j].retry_interval);
+      (void)fprintf(stdout, "Transfer block size: %d\n",
+                    fsa[j].block_size);
+      (void)fprintf(stdout, "Time of last retry : %s",
+                    ctime(&fsa[j].last_retry_time));
+      (void)fprintf(stdout, "Last connection    : %s",
+                    ctime(&fsa[j].last_connection));
+      (void)fprintf(stdout, "Total file counter : %d\n",
+                    fsa[j].total_file_counter);
+      (void)fprintf(stdout, "Total file size    : %lu\n",
+                    fsa[j].total_file_size);
+      (void)fprintf(stdout, "File counter done  : %u\n",
+                    fsa[j].file_counter_done);
+      (void)fprintf(stdout, "Bytes send         : %lu\n",
+                    fsa[j].bytes_send);
+      (void)fprintf(stdout, "Connections        : %u\n",
+                    fsa[j].connections);
+      (void)fprintf(stdout, "Active transfers   : %d\n",
+                    fsa[j].active_transfers);
+      (void)fprintf(stdout, "Allowed transfers  : %d\n",
+                    fsa[j].allowed_transfers);
+      (void)fprintf(stdout, "Transfer rate      : %d\n",
+                    fsa[j].transfer_rate);
 
-         case CONNECTING :
+      (void)fprintf(stdout, "                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   \n");
+      (void)fprintf(stdout, "--------------------+-----------+-----------+-----------+-----------+-----------\n");
+      (void)fprintf(stdout, "PID                 | %9d | %9d | %9d | %9d | %9d \n", fsa[j].job_status[0].proc_id, fsa[j].job_status[1].proc_id, fsa[j].job_status[2].proc_id, fsa[j].job_status[3].proc_id, fsa[j].job_status[4].proc_id);
+      (void)fprintf(stdout, "Connect status      ");
+      for (i = 0; i < MAX_NO_PARALLEL_JOBS; i++)
+      {
+         switch(fsa[j].job_status[i].connect_status)
+         {
+            case TRANSFER_ACTIVE :
+               (void)fprintf(stdout, "|TRANS ACTIV");
+               break;
 
-            (void)fprintf(stderr, "|CONNECTING ");
-            break;
+            case CONNECTING :
+               (void)fprintf(stdout, "|CONNECTING ");
+               break;
 
-         case DISCONNECT :
+            case DISCONNECT :
+               (void)fprintf(stdout, "|DISCONNECT ");
+               break;
 
-            (void)fprintf(stderr, "|DISCONNECT ");
-            break;
+            case NOT_WORKING :
+               (void)fprintf(stdout, "|NOT WORKING");
+               break;
 
-         case NOT_WORKING :
+            case FTP_BURST_TRANSFER_ACTIVE :
+               (void)fprintf(stdout, "| FTP BURST ");
+               break;
 
-            (void)fprintf(stderr, "|NOT WORKING");
-            break;
-
-         case FTP_BURST_TRANSFER_ACTIVE :
-
-            (void)fprintf(stderr, "| FTP BURST ");
-            break;
-
-         case EMAIL_ACTIVE :
-
-            (void)fprintf(stderr, "|  MAILING  ");
-            break;
+            case EMAIL_ACTIVE :
+               (void)fprintf(stdout, "|  MAILING  ");
+               break;
 
 #ifdef _WITH_WMO_SUPPORT
 
-         case WMO_BURST_TRANSFER_ACTIVE :
+            case WMO_BURST_TRANSFER_ACTIVE :
+               (void)fprintf(stdout, "| WMO BURST ");
+               break;
 
-            (void)fprintf(stderr, "| WMO BURST ");
-            break;
-
-         case WMO_ACTIVE :
-
-            (void)fprintf(stderr, "| WMO ACTIV ");
-            break;
+            case WMO_ACTIVE :
+               (void)fprintf(stdout, "| WMO ACTIV ");
+               break;
 #endif
 
 #ifdef _WITH_MAP_SUPPORT
-         case MAP_ACTIVE :
-
-            (void)fprintf(stderr, "| MAP ACTIV ");
-            break;
+            case MAP_ACTIVE :
+               (void)fprintf(stdout, "| MAP ACTIV ");
+               break;
 #endif
 
-         default :
+            case 15 :
+               (void)fprintf(stdout, "|CLOSING CON");
+               break;
 
-            (void)fprintf(stderr, "|  Unknown  ");
-            break;
+            default :
+               (void)fprintf(stdout, "|  Unknown  ");
+               break;
+         }
       }
-   }
-   (void)fprintf(stderr, "\n");
-   (void)fprintf(stderr, "Number of files     | %9d | %9d | %9d | %9d | %9d \n", fsa[position].job_status[0].no_of_files, fsa[position].job_status[1].no_of_files, fsa[position].job_status[2].no_of_files, fsa[position].job_status[3].no_of_files, fsa[position].job_status[4].no_of_files);
-   (void)fprintf(stderr, "No. of files done   | %9d | %9d | %9d | %9d | %9d \n", fsa[position].job_status[0].no_of_files_done, fsa[position].job_status[1].no_of_files_done, fsa[position].job_status[2].no_of_files_done, fsa[position].job_status[3].no_of_files_done, fsa[position].job_status[4].no_of_files_done);
-   (void)fprintf(stderr, "File size           | %9lu | %9lu | %9lu | %9lu | %9lu \n", fsa[position].job_status[0].file_size, fsa[position].job_status[1].file_size, fsa[position].job_status[2].file_size, fsa[position].job_status[3].file_size, fsa[position].job_status[4].file_size);
-   (void)fprintf(stderr, "File size done      | %9lu | %9lu | %9lu | %9lu | %9lu \n", fsa[position].job_status[0].file_size_done, fsa[position].job_status[1].file_size_done, fsa[position].job_status[2].file_size_done, fsa[position].job_status[3].file_size_done, fsa[position].job_status[4].file_size_done);
-   (void)fprintf(stderr, "Bytes send          | %9lu | %9lu | %9lu | %9lu | %9lu \n", fsa[position].job_status[0].bytes_send, fsa[position].job_status[1].bytes_send, fsa[position].job_status[2].bytes_send, fsa[position].job_status[3].bytes_send, fsa[position].job_status[4].bytes_send);
-   (void)fprintf(stderr, "File name in use    |%11.11s|%11.11s|%11.11s|%11.11s|%11.11s\n", fsa[position].job_status[0].file_name_in_use, fsa[position].job_status[1].file_name_in_use, fsa[position].job_status[2].file_name_in_use, fsa[position].job_status[3].file_name_in_use, fsa[position].job_status[4].file_name_in_use);
-   (void)fprintf(stderr, "File size in use    | %9lu | %9lu | %9lu | %9lu | %9lu \n", fsa[position].job_status[0].file_size_in_use, fsa[position].job_status[1].file_size_in_use, fsa[position].job_status[2].file_size_in_use, fsa[position].job_status[3].file_size_in_use, fsa[position].job_status[4].file_size_in_use);
-   (void)fprintf(stderr, "Filesize in use done| %9lu | %9lu | %9lu | %9lu | %9lu \n", fsa[position].job_status[0].file_size_in_use_done, fsa[position].job_status[1].file_size_in_use_done, fsa[position].job_status[2].file_size_in_use_done, fsa[position].job_status[3].file_size_in_use_done, fsa[position].job_status[4].file_size_in_use_done);
+      (void)fprintf(stdout, "\n");
+      (void)fprintf(stdout,
+                    "Number of files     | %9d | %9d | %9d | %9d | %9d \n",
+                    fsa[j].job_status[0].no_of_files,
+                    fsa[j].job_status[1].no_of_files,
+                    fsa[j].job_status[2].no_of_files,
+                    fsa[j].job_status[3].no_of_files,
+                    fsa[j].job_status[4].no_of_files);
+      (void)fprintf(stdout,
+                    "No. of files done   | %9d | %9d | %9d | %9d | %9d \n",
+                    fsa[j].job_status[0].no_of_files_done,
+                    fsa[j].job_status[1].no_of_files_done,
+                    fsa[j].job_status[2].no_of_files_done,
+                    fsa[j].job_status[3].no_of_files_done,
+                    fsa[j].job_status[4].no_of_files_done);
+      (void)fprintf(stdout,
+                    "File size           | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    fsa[j].job_status[0].file_size,
+                    fsa[j].job_status[1].file_size,
+                    fsa[j].job_status[2].file_size,
+                    fsa[j].job_status[3].file_size,
+                    fsa[j].job_status[4].file_size);
+      (void)fprintf(stdout,
+                    "File size done      | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    fsa[j].job_status[0].file_size_done,
+                    fsa[j].job_status[1].file_size_done,
+                    fsa[j].job_status[2].file_size_done,
+                    fsa[j].job_status[3].file_size_done,
+                    fsa[j].job_status[4].file_size_done);
+      (void)fprintf(stdout,
+                    "Bytes send          | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    fsa[j].job_status[0].bytes_send,
+                    fsa[j].job_status[1].bytes_send,
+                    fsa[j].job_status[2].bytes_send,
+                    fsa[j].job_status[3].bytes_send,
+                    fsa[j].job_status[4].bytes_send);
+      (void)fprintf(stdout,
+                    "File name in use    |%11.11s|%11.11s|%11.11s|%11.11s|%11.11s\n",
+                    fsa[j].job_status[0].file_name_in_use,
+                    fsa[j].job_status[1].file_name_in_use,
+                    fsa[j].job_status[2].file_name_in_use,
+                    fsa[j].job_status[3].file_name_in_use,
+                    fsa[j].job_status[4].file_name_in_use);
+      (void)fprintf(stdout,
+                    "File size in use    | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    fsa[j].job_status[0].file_size_in_use,
+                    fsa[j].job_status[1].file_size_in_use,
+                    fsa[j].job_status[2].file_size_in_use,
+                    fsa[j].job_status[3].file_size_in_use,
+                    fsa[j].job_status[4].file_size_in_use);
+      (void)fprintf(stdout,
+                    "Filesize in use done| %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    fsa[j].job_status[0].file_size_in_use_done,
+                    fsa[j].job_status[1].file_size_in_use_done,
+                    fsa[j].job_status[2].file_size_in_use_done,
+                    fsa[j].job_status[3].file_size_in_use_done,
+                    fsa[j].job_status[4].file_size_in_use_done);
 #ifdef _BURST_MODE
-   (void)fprintf(stderr, "Unique name         |%11.11s|%11.11s|%11.11s|%11.11s|%11.11s\n", fsa[position].job_status[0].unique_name, fsa[position].job_status[1].unique_name, fsa[position].job_status[2].unique_name, fsa[position].job_status[3].unique_name, fsa[position].job_status[4].unique_name);
-   (void)fprintf(stderr, "Burst counter       | %9d | %9d | %9d | %9d | %9d \n", fsa[position].job_status[0].burst_counter, fsa[position].job_status[1].burst_counter, fsa[position].job_status[2].burst_counter, fsa[position].job_status[3].burst_counter, fsa[position].job_status[4].burst_counter);
-   (void)fprintf(stderr, "Job ID              | %9d | %9d | %9d | %9d | %9d \n", (int)fsa[position].job_status[0].job_id, (int)fsa[position].job_status[1].job_id, (int)fsa[position].job_status[2].job_id, (int)fsa[position].job_status[3].job_id, (int)fsa[position].job_status[4].job_id);
-   (void)fprintf(stderr, "Error file (0 = NO) | %9d | %9d | %9d | %9d | %9d \n", fsa[position].job_status[0].error_file, fsa[position].job_status[1].error_file, fsa[position].job_status[2].error_file, fsa[position].job_status[3].error_file, fsa[position].job_status[4].error_file);
+      (void)fprintf(stdout,
+                    "Unique name         |%11.11s|%11.11s|%11.11s|%11.11s|%11.11s\n",
+                    fsa[j].job_status[0].unique_name,
+                    fsa[j].job_status[1].unique_name,
+                    fsa[j].job_status[2].unique_name,
+                    fsa[j].job_status[3].unique_name,
+                    fsa[j].job_status[4].unique_name);
+      (void)fprintf(stdout,
+                    "Burst counter       | %9d | %9d | %9d | %9d | %9d \n",
+                    fsa[j].job_status[0].burst_counter,
+                    fsa[j].job_status[1].burst_counter,
+                    fsa[j].job_status[2].burst_counter,
+                    fsa[j].job_status[3].burst_counter,
+                    fsa[j].job_status[4].burst_counter);
+      (void)fprintf(stdout,
+                    "Job ID              | %9d | %9d | %9d | %9d | %9d \n",
+                    (int)fsa[j].job_status[0].job_id,
+                    (int)fsa[j].job_status[1].job_id,
+                    (int)fsa[j].job_status[2].job_id,
+                    (int)fsa[j].job_status[3].job_id,
+                    (int)fsa[j].job_status[4].job_id);
+      (void)fprintf(stdout,
+                    "Error file (0 = NO) | %9d | %9d | %9d | %9d | %9d \n",
+                    fsa[j].job_status[0].error_file,
+                    fsa[j].job_status[1].error_file,
+                    fsa[j].job_status[2].error_file,
+                    fsa[j].job_status[3].error_file,
+                    fsa[j].job_status[4].error_file);
 #endif
+   }
 
    exit(SUCCESS);
 }
@@ -356,6 +472,7 @@ main(int argc, char *argv[])
 static void
 usage(void)
 {
-   (void)fprintf(stderr, "SYNTAX  : fsa_view [-w working directory] hostname|position\n");
+   (void)fprintf(stderr,
+                 "SYNTAX  : fsa_view [--version] [-w working directory] hostname|position\n");
    return;
 }

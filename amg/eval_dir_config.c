@@ -1728,9 +1728,19 @@ copy_job(int              file_no,
    priority = DEFAULT_PRIORITY;
    for (i = 0; i < dir->file[file_no].dest[dest_no].oc; i++)
    {
-      if (strncmp(dir->file[file_no].dest[dest_no].options[i], PRIORITY_ID, strlen(PRIORITY_ID)) == 0)
+      if (strncmp(dir->file[file_no].dest[dest_no].options[i],
+                  PRIORITY_ID, PRIORITY_ID_LENGTH) == 0)
       {
-         priority = dir->file[file_no].dest[dest_no].options[i][strlen(PRIORITY_ID) + 1];
+         char *tmp_ptr = &dir->file[file_no].dest[dest_no].options[i][PRIORITY_ID_LENGTH];
+
+         while ((*tmp_ptr == ' ') && (*tmp_ptr == '\t'))
+         {
+            tmp_ptr++;
+         }
+         if (isdigit(*tmp_ptr))
+         {
+            priority = *tmp_ptr;
+         }
 
          /* Remove priority, since it is no longer needed */
          for (j = i; j <= dir->file[file_no].dest[dest_no].oc; j++)

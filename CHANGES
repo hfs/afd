@@ -464,3 +464,21 @@
              This can cause havoc in afd_stat!
            - The ftp_list() function failed to close its data connection!
 ------------------------> Released: 08.03.2000 <---------------------------
+
+
+---------------------------> Version 1.1.6 <-------------------------------
+                            ---------------
+11.03.2000 - Switching back automatically did still not work correctly!
+             Hopefully this is fixed now.
+22.03.2000 - Addition of another special proxy case.
+03.04.2000 - dir_check terminates normally when it no longer can access
+             one of the directories that have to be monitored. Fixed.
+04.04.2000 - Specifying "priority1" would result in AMG ignoring this
+             entry without any comment. Fixed by accepting this.
+           - Automatic host switching under heavy load did sometimes
+             not work. Fixed.
+24.04.2000 - Fixed minor error in afd_stat where it could loose data
+             of one hour.
+27.04.2000 - Blush, blush, failed to close() the file when using
+             assemble()! Fixed.
+------------------------> Released: 27.04.2000 <---------------------------

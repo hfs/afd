@@ -221,6 +221,8 @@
 #define SUBJECT_ID_LENGTH              7
 #define FORCE_COPY_ID                  "force copy"
 #define FORCE_COPY_ID_LENGTH           10
+#define PPROXY_ID                      "pproxy"
+#define PPROXY_ID_LENGTH               6
 
 /* Definition for special_flag in structure job */
 #define FILE_NAME_IS_HEADER            1
@@ -372,6 +374,7 @@ struct job
                                          /* is bulletin header.            */
 #endif
           char          *subject;        /* Subject for mail.            */
+          char          *pproxy;         /* Polish proxy server.         */
           char          *special_ptr;    /* Used to point to allocated   */
                                          /* memory, eg for option        */
                                          /* ADD_MAIL_HEADER_ID.          */

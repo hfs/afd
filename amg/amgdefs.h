@@ -81,6 +81,7 @@
 #define TIME_ID                    "time"
 #define TIME_ID_LENGTH             4
 #define PRIORITY_ID                "priority"
+#define PRIORITY_ID_LENGTH         8
 #define RENAME_ID                  "rename"
 #define RENAME_ID_LENGTH           6
 #define EXEC_ID                    "exec"

@@ -107,6 +107,7 @@ extern int sys_log_fd;
 #ifdef _RADAR_CHECK
 #define RADAR_FLAG                2097152
 #endif /* _RADAR_CHECK */
+#define PPROXY_FLAG               4194304
 
 
 /*############################ eval_message() ###########################*/
@@ -1191,6 +1192,51 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
 #endif /* _RADAR_CHECK */
+            else if (((used & PPROXY_FLAG) == 0) &&
+                     (strncmp(ptr, PPROXY_ID, PPROXY_ID_LENGTH) == 0))
+                 {
+                    used |= PPROXY_FLAG;
+                    if (p_db->msg_type == FTP)
+                    {
+                       int length = 1;
+
+                       ptr += PPROXY_ID_LENGTH;
+                       while ((*ptr == ' ') || (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       end_ptr = ptr;
+                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                       {
+                         end_ptr++; length++;
+                       }
+                       if ((p_db->pproxy = malloc(length)) == NULL)
+                       {
+                          (void)rec(sys_log_fd, ERROR_SIGN,
+                                    "malloc() error : %s (%s %d)\n",
+                                    strerror(errno), __FILE__, __LINE__);
+                       }
+                       else
+                       {
+                          byte_buf = *end_ptr;
+                          *end_ptr = '\0';
+                          (void)strcpy(p_db->pproxy, ptr);
+                          *end_ptr = byte_buf;
+                          ptr = end_ptr;
+                       }
+                    }
+                    else
+                    {
+                       while ((*ptr != '\n') && (*ptr != '\0'))
+                       {
+                          ptr++;
+                       }
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
                  else
                  {
                     /* Ignore this option */
