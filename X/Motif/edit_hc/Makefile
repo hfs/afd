@@ -26,6 +26,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(EHCPROG) : $(EHCOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(EHCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
@@ -36,6 +37,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(EHCPROG)
 

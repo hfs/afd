@@ -63,7 +63,7 @@ DESCR__S_M1
  **      - AFD version
  **      - AFD working directory
  **
- **   To view these activities there is an X interface called afd_mon.
+ **   To view these activities there is an X interface called mon_ctrl.
  **
  ** RETURN VALUES
  **   SUCCESS on normal exit and INCORRECT when an error has occurred.
@@ -79,8 +79,9 @@ DESCR__E_M1
 
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>           /* strcpy(), strcat(), strerror()          */
-#include <stdlib.h>           /* atexit(), exit()                        */
+#include <stdlib.h>           /* atexit(), exit(), atoi()                */
 #include <signal.h>           /* kill(), signal()                        */
+#include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>
 #include <sys/wait.h>         /* waitpid()                               */
 #include <sys/time.h>         /* struct timeval                          */
@@ -267,6 +268,14 @@ main(int argc, char *argv[])
              AFD_MON, MAJOR, MINOR, BUG_FIX);
 #endif
 
+   if (msa_attach() != SUCCESS)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Failed to attach to MSA. (%s %d)\n",
+                __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
    /* Start all process */
    start_all();
 
@@ -319,6 +328,71 @@ main(int argc, char *argv[])
                      }
                      break;
 
+                  case DISABLE_MON : /* Disable monitoring of an AFD. */
+                     count++;
+                     if (buffer[count] == ' ')
+                     {
+                        int  n = 0;
+                        char str_num[MAX_INT_LENGTH];
+
+                        count++;
+                        while ((isdigit(buffer[count])) &&
+                               (n < MAX_INT_LENGTH))
+                        {
+                           str_num[n] = buffer[count];
+                           count++; n++;
+                        }
+                        if (n > 0)
+                        {
+                           int pos;
+
+                           str_num[n] = '\0';
+                           pos = atoi(str_num);
+
+                           if ((pos < no_of_afds) && (pl[pos].pid > 0))
+                           {
+                              msa[pos].connect_status = DISABLED;
+                              stop_process(pos, NO);
+                           }
+                        }
+                     }
+                     count--;
+                     break;
+
+                  case ENABLE_MON : /* Enable monitoring of an AFD. */
+                     count++;
+                     if (buffer[count] == ' ')
+                     {
+                        int  n = 0;
+                        char str_num[MAX_INT_LENGTH];
+
+                        count++;
+                        while ((isdigit(buffer[count])) &&
+                               (n < MAX_INT_LENGTH))
+                        {
+                           str_num[n] = buffer[count];
+                           count++; n++;
+                        }
+                        if (n > 0)
+                        {
+                           int pos;
+
+                           str_num[n] = '\0';
+                           pos = atoi(str_num);
+
+                           if ((pos < no_of_afds) && (pl[pos].pid == 0))
+                           {
+                              msa[pos].connect_status = DISCONNECTED;
+                              if ((pl[pos].pid = start_process("mon", pos)) != INCORRECT)
+                              {
+                                 pl[pos].start_time = time(NULL);
+                              }
+                           }
+                        }
+                     }
+                     count--;
+                     break;
+
                   default        : /* Reading garbage from fifo */
 
                      (void)rec(sys_log_fd, WARN_SIGN,
@@ -337,7 +411,8 @@ main(int argc, char *argv[])
               {
                  (void)fprintf(stderr,
                                "ERROR   : Could not stat() %s : %s (%s %d)\n",
-                               afd_mon_db_file, strerror(errno), __FILE__, __LINE__);
+                               afd_mon_db_file, strerror(errno),
+                               __FILE__, __LINE__);
                  exit(INCORRECT);
               }
               if (stat_buf.st_mtime != afd_mon_db_time)
@@ -347,9 +422,24 @@ main(int argc, char *argv[])
                  afd_mon_db_time = stat_buf.st_mtime;
 
                  /* Kill all process */
-                 stop_all(NO);
+                 stop_process(-1, NO);
+
+                 if (msa_detach() != SUCCESS)
+                 {
+                    (void)rec(sys_log_fd, ERROR_SIGN,
+                              "Failed to detach from MSA. (%s %d)\n",
+                              __FILE__, __LINE__);
+                 }
 
                  create_msa();
+
+                 if (msa_attach() != SUCCESS)
+                 {
+                    (void)rec(sys_log_fd, FATAL_SIGN,
+                              "Failed to attach to MSA. (%s %d)\n",
+                              __FILE__, __LINE__);
+                    exit(INCORRECT);
+                 }
 
                  /* Start all process */
                  start_all();
@@ -365,7 +455,7 @@ main(int argc, char *argv[])
                         strerror(errno), __FILE__, __LINE__);
               exit(INCORRECT);
            }
-   }
+   } /* for (;;) */
 
    exit(SUCCESS);
 }
@@ -465,72 +555,75 @@ zombie_check(void)
     */
    for (i = 0; i < no_of_afds; i++)
    {
-      if ((ret = waitpid(pl[i].pid, &status, WNOHANG)) == pl[i].pid)
+      if (pl[i].pid > 0)
       {
-         if (WIFEXITED(status))
+         if ((ret = waitpid(pl[i].pid, &status, WNOHANG)) == pl[i].pid)
          {
-            switch(WEXITSTATUS(status))
+            if (WIFEXITED(status))
             {
-               case SUCCESS :
-                  faulty = NO;
-                  pl[i].pid = 0;
-                  pl[i].start_time = 0;
-                  pl[i].number_of_restarts = 0;
-                  break;
+               switch(WEXITSTATUS(status))
+               {
+                  case SUCCESS :
+                     faulty = NO;
+                     pl[i].pid = 0;
+                     pl[i].start_time = 0;
+                     pl[i].number_of_restarts = 0;
+                     break;
 
-               default   : /* Unkown error */
-                  faulty = YES;
-                  pl[i].pid = 0;
-                  break;
+                  default   : /* Unkown error */
+                     faulty = YES;
+                     pl[i].pid = 0;
+                     break;
+               }
             }
+            else if (WIFSIGNALED(status))
+                 {
+                    /* Abnormal termination. */
+                    (void)rec(sys_log_fd, WARN_SIGN,
+                              "Abnormal termination of process %d monitoring %s. (%s %d)\n",
+                              pl[i].pid, pl[i].afd_alias,
+                              __FILE__, __LINE__);
+                    faulty = YES;
+                    pl[i].pid = 0;
+                 }
          }
-         else if (WIFSIGNALED(status))
+         else if (ret == -1)
               {
-                 /* Abnormal termination. */
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "Abnormal termination of process %d monitoring %s. (%s %d)\n",
-                           pl[i].pid, pl[i].afd_alias,
-                           __FILE__, __LINE__);
-                 faulty = YES;
-                 pl[i].pid = 0;
+                 (void)rec(sys_log_fd, ERROR_SIGN,
+                           "waitpid() error : %s (%s %d)\n",
+                           strerror(errno), __FILE__, __LINE__);
               }
-      }
-      else if (ret == -1)
-           {
-              (void)rec(sys_log_fd, ERROR_SIGN,
-                        "waitpid() error : %s (%s %d)\n",
-                        strerror(errno), __FILE__, __LINE__);
-           }
 
-      if (faulty == YES)
-      {
-         if (pl[i].number_of_restarts < 20)
+         if ((faulty == YES) && (msa[i].connect_status != DISABLED))
          {
-            /* Restart monitor process. */
-            if ((pl[i].pid = start_process("mon", i)) != INCORRECT)
+            if (pl[i].number_of_restarts < 20)
             {
-               time_t current_time;
+               /* Restart monitor process. */
+               if ((pl[i].pid = start_process("mon", i)) != INCORRECT)
+               {
+                  time_t current_time;
 
-               (void)time(&current_time);
-               if (current_time > (pl[i].start_time + 5))
-               {
-                  pl[i].number_of_restarts = 0;
+                  (void)time(&current_time);
+                  if (current_time > (pl[i].start_time + 5))
+                  {
+                     pl[i].number_of_restarts = 0;
+                  }
+                  else
+                  {
+                     pl[i].number_of_restarts++;
+                  }
+                  pl[i].start_time = current_time;
                }
-               else
-               {
-                  pl[i].number_of_restarts++;
-               }
-               pl[i].start_time = current_time;
             }
+            else
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "To many restarts of mon process for %s. Will NOT try to start it again. (%s %d)\n",
+                         pl[i].afd_alias, __FILE__, __LINE__);
+            }
+            faulty = NO;
          }
-         else
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "To many restarts of mon process for %s. Will NOT try to start it again. (%s %d)\n",
-                      pl[i].afd_alias, __FILE__, __LINE__);
-         }
-         faulty = NO;
-      }
+      } /* if (pl[i].pid > 0) */
    } /* for (i = 0; i < no_of_afds; i++) */
 
    return;
@@ -615,7 +708,7 @@ static void
 afd_mon_exit(void)
 {
    /* Kill any job still active! */
-   stop_all(got_shuttdown_message);
+   stop_process(-1, got_shuttdown_message);
 
    (void)rec(sys_log_fd, INFO_SIGN, "Stopped %s.\n", AFD_MON);
    (void)unlink(mon_active_file);
@@ -631,6 +724,13 @@ afd_mon_exit(void)
                       mon_log_pid, strerror(errno), __FILE__, __LINE__);
          }
       }
+   }
+
+   if (msa_detach() != SUCCESS)
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN,
+                "Failed to detach from MSA. (%s %d)\n",
+                __FILE__, __LINE__);
    }
 
    (void)rec(sys_log_fd, INFO_SIGN,

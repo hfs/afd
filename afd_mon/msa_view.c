@@ -1,7 +1,7 @@
 /*
  *  msa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999, 2000 Deutscher Wetterdienst (DWD),
+ *                           Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@ DESCR__S_M1
  **              AFD
  **
  ** SYNOPSIS
- **   msa_view [working directory] afdname|position
+ **   msa_view [-w <working directory>] afdname|position
  **
  ** DESCRIPTION
  **   This program shows all information about a specific AFD in the
@@ -41,6 +41,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   22.01.1999 H.Kiehl Created
+ **   13.09.2000 H.Kiehl Addition of top number of transfers.
  **
  */
 DESCR__E_M1
@@ -142,11 +143,49 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "Status of AW       : %d\n", (int)msa[position].archive_watch);
    (void)fprintf(stdout, "Jobs in queue      : %d\n", msa[position].jobs_in_queue);
    (void)fprintf(stdout, "Active transfers   : %d\n", msa[position].no_of_transfers);
+   (void)fprintf(stdout, "TOP no. process    : %d", msa[position].top_no_of_transfers[0]);
+   for (i = 1; i < STORAGE_TIME; i++)
+   {
+      (void)fprintf(stdout, " %d", msa[position].top_no_of_transfers[i]);
+   }
+   (void)fprintf(stdout, "\n");
+   (void)fprintf(stdout, "Last TOP no process: %s", ctime(&msa[position].top_not_time));
    (void)fprintf(stdout, "Maximum connections: %d\n", msa[position].max_connections);
    (void)fprintf(stdout, "Sys log EC         : %u  |", msa[position].sys_log_ec);
    for (i = 0; i < LOG_FIFO_SIZE; i++)
    {
       switch (msa[position].sys_log_fifo[i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+
+         case CONFIG_ID :
+            (void)fprintf(stdout, " C");
+            break;
+
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
+   }
+   (void)fprintf(stdout, " |\n");
+   (void)fprintf(stdout, "Receive History    :");
+   for (i = 0; i < MAX_LOG_HISTORY; i++)
+   {
+      switch (msa[position].log_history[RECEIVE_HISTORY][i])
       {
          case INFO_ID :
             (void)fprintf(stdout, " I");
@@ -169,7 +208,65 @@ main(int argc, char *argv[])
             break;
       }
    }
-   (void)fprintf(stdout, " |\n");
+   (void)fprintf(stdout, "\n");
+   (void)fprintf(stdout, "System History     :");
+   for (i = 0; i < MAX_LOG_HISTORY; i++)
+   {
+      switch (msa[position].log_history[SYSTEM_HISTORY][i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+
+         case CONFIG_ID :
+            (void)fprintf(stdout, " C");
+            break;
+
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
+   }
+   (void)fprintf(stdout, "\n");
+   (void)fprintf(stdout, "Transfer History   :");
+   for (i = 0; i < MAX_LOG_HISTORY; i++)
+   {
+      switch (msa[position].log_history[TRANSFER_HISTORY][i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
+   }
+   (void)fprintf(stdout, "\n");
    (void)fprintf(stdout, "Host error counter : %d\n", msa[position].host_error_counter);
    (void)fprintf(stdout, "Number of hosts    : %d\n", msa[position].no_of_hosts);
    (void)fprintf(stdout, "fc                 : %u\n", msa[position].fc);
@@ -181,6 +278,7 @@ main(int argc, char *argv[])
       (void)fprintf(stdout, " %u", msa[position].top_tr[i]);
    }
    (void)fprintf(stdout, "\n");
+   (void)fprintf(stdout, "Last TOP tr time   : %s", ctime(&msa[position].top_tr_time));
    (void)fprintf(stdout, "fr                 : %u\n", msa[position].fr);
    (void)fprintf(stdout, "TOP fr             : %u", msa[position].top_fr[0]);
    for (i = 1; i < STORAGE_TIME; i++)
@@ -188,9 +286,26 @@ main(int argc, char *argv[])
       (void)fprintf(stdout, " %u", msa[position].top_fr[i]);
    }
    (void)fprintf(stdout, "\n");
+   (void)fprintf(stdout, "Last TOP fr time   : %s", ctime(&msa[position].top_fr_time));
    (void)fprintf(stdout, "ec                 : %u\n", msa[position].ec);
    (void)fprintf(stdout, "Last data time     : %s", ctime(&msa[position].last_data_time));
-   (void)fprintf(stdout, "Connect status     : %d\n", msa[position].connect_status);
+   switch(msa[position].connect_status)
+   {
+      case CONNECTION_ESTABLISHED :
+         (void)fprintf(stdout, "Connect status     : CONNECTION_ESTABLISHED\n");
+         break;
+      case CONNECTION_DEFUNCT :
+         (void)fprintf(stdout, "Connect status     : CONNECTION_DEFUNCT\n");
+         break;
+      case DISCONNECTED :
+         (void)fprintf(stdout, "Connect status     : DISCONNECTED\n");
+         break;
+      case DISABLED : /* This AFD is disabled, ie should not be monitored. */
+         (void)fprintf(stdout, "Connect status     : DISABLED\n");
+         break;
+      default : /* Should not get here. */
+         (void)fprintf(stdout, "Connect status     : Unknown\n");
+   }
    if (msa[position].convert_username[0][0] != '\0')
    {
       (void)fprintf(stdout, "Convert user name  : %s -> %s\n",
@@ -207,6 +322,6 @@ static void
 usage(void)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : msa_view [-w working directory] afdname|position\n");
+                 "SYNTAX  : msa_view [--version][-w <working directory>] afdname|position\n");
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  expose_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,13 +67,15 @@ extern Window                  button_window,
                                label_window,
                                line_window,
                                tv_label_window;
-extern Widget                  mw[];
-extern Widget                  detailed_window_w,
+extern Widget                  appshell,
+                               detailed_window_w,
+                               mw[],
                                tv_label_window_w;
 extern int                     ft_exposure_tv_line,
+                               magic_value,
+                               no_input,
                                no_of_hosts,
                                no_of_jobs_selected,
-                               window_width,
                                window_height,
                                line_length,
                                tv_line_length,
@@ -84,6 +86,7 @@ extern int                     ft_exposure_tv_line,
                                tv_no_of_rows,
                                redraw_time_host,
                                redraw_time_status;
+extern unsigned int            glyph_height;
 extern struct line             *connect_data;
 extern struct job_data         *jd;
 extern struct afd_control_perm acp;
@@ -207,8 +210,9 @@ expose_handler_line(Widget                      w,
        */
       if (ft_exposure_line == 0)
       {
-         int bs_attribute;
-         Screen *c_screen = ScreenOfDisplay(display, DefaultScreen(display));
+         int       bs_attribute;
+         Dimension height;
+         Screen    *c_screen = ScreenOfDisplay(display, DefaultScreen(display));
 
          interval_id_host = XtAppAddTimeOut(app, redraw_time_host,
                                             (XtTimerCallbackProc)check_host_status,
@@ -227,40 +231,53 @@ expose_handler_line(Widget                      w,
                                     CWBackingStore, &attr);
             XChangeWindowAttributes(display, label_window,
                                     CWBackingStore, &attr);
-            XChangeWindowAttributes(display, XtWindow(mw[HOST_W]),
-                                    CWBackingStore, &attr);
-
-            if ((acp.show_slog != NO_PERMISSION) ||
-                (acp.show_tlog != NO_PERMISSION) ||
-                (acp.show_dlog != NO_PERMISSION) ||
-                (acp.show_ilog != NO_PERMISSION) ||
-                (acp.show_olog != NO_PERMISSION) ||
-                (acp.show_rlog != NO_PERMISSION) ||
-                (acp.view_jobs != NO_PERMISSION))
+            if (no_input == False)
             {
-               XChangeWindowAttributes(display, XtWindow(mw[LOG_W]),
+               XChangeWindowAttributes(display, XtWindow(mw[HOST_W]),
                                        CWBackingStore, &attr);
-            }
 
-            if ((acp.amg_ctrl != NO_PERMISSION) ||
-                (acp.fd_ctrl != NO_PERMISSION) ||
-                (acp.rr_dc != NO_PERMISSION) ||
-                (acp.rr_hc != NO_PERMISSION) ||
-                (acp.edit_hc != NO_PERMISSION) ||
-                (acp.startup_afd != NO_PERMISSION) ||
-                (acp.shutdown_afd != NO_PERMISSION))
-            {
-               XChangeWindowAttributes(display, XtWindow(mw[CONTROL_W]),
+               if ((acp.show_slog != NO_PERMISSION) ||
+                   (acp.show_rlog != NO_PERMISSION) ||
+                   (acp.show_tlog != NO_PERMISSION) ||
+                   (acp.show_dlog != NO_PERMISSION) ||
+                   (acp.show_ilog != NO_PERMISSION) ||
+                   (acp.show_olog != NO_PERMISSION) ||
+                   (acp.show_elog != NO_PERMISSION) ||
+                   (acp.view_jobs != NO_PERMISSION))
+               {
+                  XChangeWindowAttributes(display, XtWindow(mw[LOG_W]),
+                                          CWBackingStore, &attr);
+               }
+
+               if ((acp.amg_ctrl != NO_PERMISSION) ||
+                   (acp.fd_ctrl != NO_PERMISSION) ||
+                   (acp.rr_dc != NO_PERMISSION) ||
+                   (acp.rr_hc != NO_PERMISSION) ||
+                   (acp.edit_hc != NO_PERMISSION) ||
+                   (acp.startup_afd != NO_PERMISSION) ||
+                   (acp.shutdown_afd != NO_PERMISSION) ||
+                   (acp.dir_ctrl != NO_PERMISSION))
+               {
+                  XChangeWindowAttributes(display, XtWindow(mw[CONTROL_W]),
+                                          CWBackingStore, &attr);
+               }
+
+               XChangeWindowAttributes(display, XtWindow(mw[CONFIG_W]),
                                        CWBackingStore, &attr);
-            }
-
-            XChangeWindowAttributes(display, XtWindow(mw[CONFIG_W]),
-                                    CWBackingStore, &attr);
 #ifdef _WITH_HELP_PULLDOWN
-            XChangeWindowAttributes(display, XtWindow(mw[HELP_W]),
-                                    CWBackingStore, &attr);
+               XChangeWindowAttributes(display, XtWindow(mw[HELP_W]),
+                                       CWBackingStore, &attr);
 #endif
+            } /* if (no_input == False) */
          }
+
+         /*
+          * Calculate the magic unkown height factor we need to add to the
+          * height of the widget when it is being resized.
+          */
+         XtVaGetValues(appshell, XmNheight, &height, NULL);
+         magic_value = height - (window_height + line_height +
+                                 line_height + glyph_height);
       }
    }
 

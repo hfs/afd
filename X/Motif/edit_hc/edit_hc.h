@@ -39,7 +39,7 @@
 #define HOST_2_ID             9
 
 #define MAX_TB_BUTTONS        8
-#define MAX_FSO_BUTTONS       13
+#define MAX_FSO_BUTTONS       14
 
 #define HOST_SWITCHING        1
 #define AUTO_SWITCHING        2
@@ -72,7 +72,7 @@ struct changed_entry
           unsigned int  value_changed;
           char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
           char          host_toggle[2][1];
-          char          proxy_name[MAX_HOSTNAME_LENGTH + 1];
+          char          proxy_name[MAX_PROXY_NAME_LENGTH + 1];
           long          transfer_timeout;
           int           retry_interval;
           int           max_errors;

@@ -321,6 +321,7 @@ Widget w;
 
    /* Has a new log file been created? */
    if ((log_type_flag != TRANSFER_LOG_TYPE) &&
+       (log_type_flag != RECEIVE_LOG_TYPE) &&
        (total_length > MAX_LOGFILE_SIZE) &&
        (current_log_number == 0))
    {

@@ -82,13 +82,13 @@ extern struct delete_log          dl;
 int
 get_file_names(char *file_path, off_t *file_size_to_send)
 {
-   static int    files_to_send;
 #ifdef _AGE_LIMIT
    int           files_not_send = 0;
    off_t         file_size_not_send = 0;
    time_t        diff_time;
 #endif /* _AGE_LIMIT */
-   int           new_size,
+   int           files_to_send = 0,
+                 new_size,
                  offset;
    off_t         *p_file_size;
    char          *p_file_name,
@@ -98,9 +98,6 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    struct dirent *p_dir;
    DIR           *dp;
 
-   /* Remember this variable is static, so initialise! */
-   files_to_send = 0;
-
    /*
     * Create directory name in which we can find the files for this job.
     */
@@ -109,7 +106,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    if (db.error_file == YES)
    {
 #ifdef _BURST_MODE
-      fsa[(int)db.position].job_status[(int)db.job_no].error_file = YES;
+      fsa[db.fsa_pos].job_status[(int)db.job_no].error_file = YES;
 #endif
       (void)strcat(file_path, ERROR_DIR);
       (void)strcat(file_path, "/");
@@ -118,7 +115,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #ifdef _BURST_MODE
    else
    {
-      fsa[(int)db.position].job_status[(int)db.job_no].error_file = NO;
+      fsa[db.fsa_pos].job_status[(int)db.job_no].error_file = NO;
    }
 #endif
    (void)strcat(file_path, "/");
@@ -193,12 +190,12 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                (void)strcpy(dl.file_name, p_dir->d_name);
                (void)sprintf(dl.host_name, "%-*s %x",
                              MAX_HOSTNAME_LENGTH,
-                             fsa[(int)db.position].host_dsp_name,
+                             fsa[db.fsa_pos].host_dsp_name,
                              AGE_OUTPUT);
                *dl.file_size = stat_buf.st_size;
                *dl.job_number = db.job_id;
                *dl.file_name_length = strlen(p_dir->d_name);
-               if (db.msg_type == FTP)
+               if (db.protocol & FTP_FLAG)
                {
                   if (db.no_of_restart_files > 0)
                   {
@@ -224,7 +221,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                                              SEND_FILE_FTP,
                                              diff_time);
                }
-               else if (db.msg_type == LOC)
+               else if (db.protocol & LOC_FLAG)
                     {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
@@ -232,7 +229,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                                                   diff_time);
                     }
 #ifdef _WITH_WMO_SUPPORT
-              else if (db.msg_type == WMO)
+              else if (db.protocol & WMO_FLAG)
                    {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
@@ -241,7 +238,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                    }
 #endif /* _WITH_WMO_SUPPORT */
 #ifdef _WITH_MAP_SUPPORT
-              else if (db.msg_type == MAP)
+              else if (db.protocol & MAP_FLAG)
                    {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
@@ -249,7 +246,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                                                   diff_time);
                    }
 #endif /* _WITH_MAP_SUPPORT */
-               else if (db.msg_type == SMTP)
+               else if (db.protocol & SMTP_FLAG)
                     {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
@@ -309,6 +306,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                             "Could not realloc() memory : %s (%s %d)\n",
                             strerror(errno), __FILE__, __LINE__);
                   free(file_name_buffer);
+                  file_name_buffer = NULL;
                   exit(ALLOC_ERROR);
                }
 
@@ -344,43 +342,43 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #endif
 
       /* Total file counter */
-      lock_region_w(fsa_fd, (char *)&fsa[(int)db.position].total_file_counter - (char *)fsa);
-      fsa[(int)db.position].total_file_counter -= files_not_send;
+      lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
+      fsa[db.fsa_pos].total_file_counter -= files_not_send;
 #ifdef _VERIFY_FSA
-      if (fsa[(int)db.position].total_file_counter < 0)
+      if (fsa[db.fsa_pos].total_file_counter < 0)
       {
          (void)rec(sys_log_fd, INFO_SIGN,
                    "Total file counter for host %s less then zero. Correcting. (%s %d)\n",
-                   fsa[(int)db.position].host_dsp_name, __FILE__, __LINE__);
-         fsa[(int)db.position].total_file_counter = 0;
+                   fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+         fsa[db.fsa_pos].total_file_counter = 0;
       }
 #endif
-      unlock_region(fsa_fd, (char *)&fsa[(int)db.position].total_file_counter - (char *)fsa);
+      unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
 
       /* Total file size */
-      lock_region_w(fsa_fd, (char *)&fsa[(int)db.position].total_file_size - (char *)fsa);
+      lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_size - (char *)fsa);
 #ifdef _VERIFY_FSA
-      ui_variable = fsa[(int)db.position].total_file_size;
+      ui_variable = fsa[db.fsa_pos].total_file_size;
 #endif
-      fsa[(int)db.position].total_file_size -= file_size_not_send;
+      fsa[db.fsa_pos].total_file_size -= file_size_not_send;
 #ifdef _VERIFY_FSA
-      if (fsa[(int)db.position].total_file_size > ui_variable)
+      if (fsa[db.fsa_pos].total_file_size > ui_variable)
       {
          (void)rec(sys_log_fd, INFO_SIGN,
                    "Total file size for host %s overflowed. Correcting. (%s %d)\n",
-                   fsa[(int)db.position].host_dsp_name, __FILE__, __LINE__);
-         fsa[(int)db.position].total_file_size = 0;
+                   fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+         fsa[db.fsa_pos].total_file_size = 0;
       }
-      else if ((fsa[(int)db.position].total_file_counter == 0) &&
-               (fsa[(int)db.position].total_file_size > 0))
+      else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
+               (fsa[db.fsa_pos].total_file_size > 0))
            {
               (void)rec(sys_log_fd, INFO_SIGN,
                         "fc for host %s is zero but fs is not zero. Correcting. (%s %d)\n",
-                        fsa[(int)db.position].host_dsp_name, __FILE__, __LINE__);
-              fsa[(int)db.position].total_file_size = 0;
+                        fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+              fsa[db.fsa_pos].total_file_size = 0;
            }
 #endif
-      unlock_region(fsa_fd, (char *)&fsa[(int)db.position].total_file_size - (char *)fsa);
+      unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_size - (char *)fsa);
 
       (void)rec(transfer_log_fd, INFO_SIGN,
                 "%-*s[%c]: Deleted %d files (%d Bytes) due to age.\n",
@@ -396,6 +394,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                 "Could not closedir() %s : %s (%s %d)\n",
                 file_path, strerror(errno), __FILE__, __LINE__);
       free(file_name_buffer); free(file_size_buffer);
+      file_name_buffer = NULL;
+      file_size_buffer = NULL;
       exit(OPEN_FILE_DIR_ERROR);
    }
 

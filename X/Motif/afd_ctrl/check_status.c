@@ -1,6 +1,6 @@
 /*
  *  check_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ DESCR__S_M3
  ** HISTORY
  **   17.02.1996 H.Kiehl Created
  **   03.09.1997 H.Kiehl Added LED for AFDD.
+ **   12.01.2000 H.Kiehl Added receive log.
  **
  */
 DESCR__E_M3
@@ -307,6 +308,16 @@ Widget   w;
    /*
     * See if there is any activity in the log files.
     */
+   if (prev_afd_status.receive_log_ec != p_afd_status->receive_log_ec)
+   {
+      prev_afd_status.receive_log_ec = p_afd_status->receive_log_ec;
+      (void)memcpy(prev_afd_status.receive_log_fifo,
+                   p_afd_status->receive_log_fifo,
+                   LOG_FIFO_SIZE + 1);
+      draw_log_status(RECEIVE_LOG_INDICATOR,
+                      prev_afd_status.receive_log_ec % LOG_FIFO_SIZE);
+      flush = YES;
+   }
    if (prev_afd_status.sys_log_ec != p_afd_status->sys_log_ec)
    {
       prev_afd_status.sys_log_ec = p_afd_status->sys_log_ec;
@@ -347,7 +358,8 @@ Widget   w;
          redraw_time_status += REDRAW_STEP_TIME;
       }
 #ifdef _DEBUG
-      (void)fprintf(stderr, "count_channels: Redraw time = %d\n", redraw_time_status);
+      (void)fprintf(stderr, "count_channels: Redraw time = %d\n",
+                    redraw_time_status);
 #endif
    }
 

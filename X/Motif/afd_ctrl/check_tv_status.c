@@ -109,14 +109,10 @@ check_tv_status(Widget w)
                    {
                       new_color = TRANSFER_ACTIVE; /* Transferring files */
                    }
-                   else if (fsa[jd[i].fsa_no].host_status == FAULTY_TRANSFERS)
-                        {
-                           new_color = FAULTY_TRANSFERS;
-                        }
-                        else
-                        {
-                           new_color = NORMAL_STATUS; /* Nothing to do but connection active */
-                        }
+                   else
+                   {
+                      new_color = NORMAL_STATUS; /* Nothing to do but connection active */
+                   }
 
          if (jd[i].stat_color_no != new_color)
          {
@@ -322,7 +318,7 @@ check_tv_status(Widget w)
             {
                jd[i].no_of_files = fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files;
             }
-            CREATE_SFC_STRING(jd[i].str_fc, fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files);
+            CREATE_FC_STRING(jd[i].str_fc, fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files);
 
             draw_tv_chars(i, NUMBER_OF_FILES, x, y);
             flush = YES;
@@ -342,7 +338,7 @@ check_tv_status(Widget w)
             {
                jd[i].no_of_files_done = fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files_done;
             }
-            CREATE_SFC_STRING(jd[i].str_fc_done, fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files_done);
+            CREATE_FC_STRING(jd[i].str_fc_done, fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files_done);
 
             draw_tv_chars(i, NUMBER_OF_FILES_DONE, x, y);
             flush = YES;
@@ -598,13 +594,14 @@ check_tv_status(Widget w)
          redraw_time_tv += TV_REDRAW_STEP_TIME;
       }
 #ifdef _DEBUG
-      (void)fprintf(stderr, "count_channels: Redraw time = %d\n", redraw_time_tv);
+      (void)fprintf(stderr, "count_channels: Redraw time = %d\n",
+                    redraw_time_tv);
 #endif
    }
 
    /* Redraw every redraw_time_host ms */
    interval_id_tv = XtAppAddTimeOut(app, redraw_time_tv,
                                     (XtTimerCallbackProc)check_tv_status, w);
- 
+
    return;
 }

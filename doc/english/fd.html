@@ -1,78 +1,100 @@
-<HTML>
-<HEAD>
-<TITLE>AFD (fd.html)</TITLE>
-</HEAD>
-<BODY bgcolor=#F0ECD6>
-<H1 ALIGN=center><A NAME="fd">FD (File Distributor)</A></H1>
-<HR SIZE=3 NOSHADE>
-<P>
-The FD is responsible to send the files via the corresponding
+<html>
+<head>
+<title>AFD (fd.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="fd">FD (File Distributor)</a></h1>
+<hr size=3 noshade>
+<p>
+The FD is responsible to send and retrieve the files via the corresponding
 protocols. Currently only the FTP and SMTP protocol is implemented.
-</P>
-<P>
-It waits for messages to arrive in the message directory to start
-the corresponding process <A HREF="#send_file_local">sf_loc</A>,
-<A HREF="#send_file_smtp">sf_smtp</A> or <A HREF="#send_file_ftp">
-sf_ftp</A>, so that the files can be distributed. Only 20
-(MAX_CONNECTIONS) processes may distribute files at one time. To
-many concurrent process will slow down the transmissions on slow CPU's.
-</P>
-<H3><A NAME="send_file_ftp">Send File FTP</A></H3>
-<P>
+</p>
+<p>
+For sending files (push) FD  waits for messages to arrive in the message
+FIFO ($AFD_WORK_DIR/fifodir/msg.fifo) from the AMG.  It will then check
+if it may start the corresponding process <a href="#send_file_local">
+sf_loc</a>, <a href="#send_file_smtp">sf_smtp</a> or <a href="#send_file_ftp">
+sf_ftp</a>, so that the files can be distributed. Only 30
+(MAX_DEFAULT_CONNECTIONS) processes may distribute files at one time. If
+not it will store  the message in a internal queue where the message will
+stay until a process slot is free. This queue will always be sorted by
+priority and in what order the messages arrive from the AMG.
+</p>
+<p>
+FD is also responsible to collect files (only FTP) from a remote host.
+For this it makes a connection to the remote host at a regular interval
+or at certain configurable times and check if there are any files to
+fetch. Such files will be stored into a internal directory of the AFD
+which is monitored by AMG. Thus giving the full flexibility of the
+DIR_CONFIG file.
+</p>
+<h3 align=center><u><a name="send_file_ftp">Get and Send File FTP</a></u></h3>
+<p>
 'sf_ftp' is the process responsible to transmit files via
-<A HREF="glossary.html#FTP">FTP</A>. It does so by using its own FTP-client
-that has build in a subset of the FTP protocol (<A HREF="../txt/rfc959.txt">
-RFC 959</A>). This has the advantage that the transfer of a file can be
+<a href="glossary.html#FTP">FTP</a>. It does so by using its own FTP-client
+that has build in a subset of the FTP protocol (<a href="../txt/rfc959.txt">
+RFC 959</a>). This has the advantage that the transfer of a file can be
 monitored byte for byte and not file by file, when using the client of the
 implementation. Another advantage is that, since the clients of different
 implementation differ, it makes the AFD more portable.
-</P>
-<P>
-The FTP-client of the AFD currently has the following features:
-</P>
-<UL>
-   <LI>Change the transfer type.</LI>
-   <LI>Change the remote directory.</LI>
-   <LI>Delete files on the remote site. This is useful when
-       sending lock files.</LI>
-   <LI>It appends a file on the remote site when the transmission was
+</p>
+<p>
+The process 'gf_ftp' is very similar to 'sf_ftp', the only difference
+being that it fetches files from a remote FTP-server (pull).
+</p>
+<p>
+The FTP-clients of the AFD currently has the following features:
+</p>
+<ul>
+   <li>Change the transfer type.</li>
+   <li>Change the remote directory.</li>
+   <li>Rename a file.</li>
+   <li>Delete files on the remote site. This is useful when
+       sending lock files.</li>
+   <li>Both active and passive mode are supported.</li>
+   <li>Change the mode of a file that was transmitted.</li>
+   <li>Execute a command on the remote site for each file transmitted.</li>
+   <li>It appends a file on the remote site when the transmission was
        interrupted. This is very useful with very large files and buggy
-       connections.</LI>
-   <LI>Get a 'dir' listing from the remote site.</LI>
-   <LI>Show all commands it sends and receives from the remote server
-       in a log file (see <A HREF="log.html#transfer_debug_log">Transfer
-       Debug Log</A>). This helps to locate errors very quickly when
-       the transfer has failed.</LI>
-</UL>
-<H3><A NAME="send_file_smtp">Send File SMTP</A></H3>
-<P>
-This program is used to send mail via <A HREF="glossary.html#SMTP">SMTP</A>
-according to MIME (<A HREF="../txt/rfc1521.txt">RFC 1521</A> and
-<A HREF="../txt/rfc1522.txt">RFC 1522</A>). With the
-<A HREF="amg.html#attach_file">attach file</A> option it is possible
+       connections.</li>
+   <li>Get a 'dir' listing from the remote site.</li>
+   <li>Show all commands it sends and receives from the remote server
+       in a log file (see <a href="log.html#transfer_debug_log">Transfer
+       Debug Log</a>). This helps to locate errors very quickly when
+       the transfer has failed.</li>
+</ul>
+<h3 align=center><u><a name="send_file_smtp">Send File SMTP</a></u></h3>
+<p>
+This program is used to send mail via <a href="glossary.html#SMTP">SMTP</a>
+(<a href="../txt/rfc821.txt">RFC 821</a>) and according to MIME
+(<a href="../txt/rfc1521.txt">RFC 1521</a> and
+<a href="../txt/rfc1522.txt">RFC 1522</a>). With the
+<a href="amg.html#attach_file">attach file</a> option it is possible
 to send binary files as mail. The encoding will be done in BASE64.
-</P>
-<H3><A NAME="send_file_local">Send File Local</A></H3>
-<P>
+</p>
+<h3 align=center><u><a name="send_file_local">Send File Local</a></u></h3>
+<p>
 This process moves (when in the same file system) or copies the files from
-one directory to another.
-</P>
-<H3><A NAME="send_file_wmo">Send File WMO</A></H3>
-<P>
+one directory to another. It is able to change the mode or owner of each
+file that it has copied.
+</p>
+<h3 align=center><u><a name="send_file_wmo">Send File WMO</a></u></h3>
+<p>
 This program is only useful if files should be send with the WMO-socket
 procedure.
-</P>
-<HR SIZE=3 NOSHADE>
-<TABLE>
-<TR>
-   <TD WIDTH=600><SMALL><ADDRESS>
-   Copyright &copy; 1997 - 1999 by H.Kiehl<BR>
-   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
-   Last updated: 17.10.1999
-   </ADDRESS></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
-</TR>
-</TABLE>
-</BODY>
-</HTML>
+</p>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1997 - 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 04.06.2001
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

@@ -66,8 +66,11 @@ extern XtAppContext            app;
 extern XtIntervalId            interval_id_afd;
 extern Window                  label_window,
                                line_window;
-extern Widget                  mw[];
-extern int                     no_of_afds,
+extern Widget                  appshell,
+                               mw[];
+extern int                     magic_value,
+                               no_input,
+                               no_of_afds,
                                no_of_jobs_selected,
                                window_width,
                                window_height,
@@ -76,6 +79,7 @@ extern int                     no_of_afds,
                                no_of_columns,
                                no_of_rows,
                                redraw_time_line;
+extern unsigned int            glyph_height;
 extern struct mon_line         *connect_data;
 extern struct mon_control_perm mcp;
 
@@ -186,8 +190,9 @@ mon_expose_handler_line(Widget                      w,
        */
       if (ft_exposure_line == 0)
       {
-         int bs_attribute;
-         Screen *c_screen = ScreenOfDisplay(display, DefaultScreen(display));
+         int       bs_attribute;
+         Dimension height;
+         Screen    *c_screen = ScreenOfDisplay(display, DefaultScreen(display));
 
          interval_id_afd = XtAppAddTimeOut(app, redraw_time_line,
                                            (XtTimerCallbackProc)check_afd_status,
@@ -204,39 +209,51 @@ mon_expose_handler_line(Widget                      w,
                                     CWBackingStore | CWSaveUnder, &attr);
             XChangeWindowAttributes(display, label_window,
                                     CWBackingStore, &attr);
-            XChangeWindowAttributes(display, XtWindow(mw[MON_W]),
-                                    CWBackingStore, &attr);
-
-            if ((mcp.show_slog != NO_PERMISSION) ||
-                (mcp.show_tlog != NO_PERMISSION) ||
-                (mcp.show_ilog != NO_PERMISSION) ||
-                (mcp.show_olog != NO_PERMISSION) ||
-                (mcp.show_rlog != NO_PERMISSION) ||
-                (mcp.afd_load != NO_PERMISSION))
+            if (no_input == False)
             {
-               XChangeWindowAttributes(display, XtWindow(mw[LOG_W]),
+               XChangeWindowAttributes(display, XtWindow(mw[MON_W]),
                                        CWBackingStore, &attr);
-            }
 
-            if ((mcp.amg_ctrl != NO_PERMISSION) ||
-                (mcp.fd_ctrl != NO_PERMISSION) ||
-                (mcp.rr_dc != NO_PERMISSION) ||
-                (mcp.rr_hc != NO_PERMISSION) ||
-                (mcp.edit_hc != NO_PERMISSION) ||
-                (mcp.startup_afd != NO_PERMISSION) ||
-                (mcp.shutdown_afd != NO_PERMISSION))
-            {
-               XChangeWindowAttributes(display, XtWindow(mw[CONTROL_W]),
+               if ((mcp.show_slog != NO_PERMISSION) ||
+                   (mcp.show_rlog != NO_PERMISSION) ||
+                   (mcp.show_tlog != NO_PERMISSION) ||
+                   (mcp.show_ilog != NO_PERMISSION) ||
+                   (mcp.show_olog != NO_PERMISSION) ||
+                   (mcp.show_elog != NO_PERMISSION) ||
+                   (mcp.afd_load != NO_PERMISSION))
+               {
+                  XChangeWindowAttributes(display, XtWindow(mw[LOG_W]),
+                                          CWBackingStore, &attr);
+               }
+
+               if ((mcp.amg_ctrl != NO_PERMISSION) ||
+                   (mcp.fd_ctrl != NO_PERMISSION) ||
+                   (mcp.rr_dc != NO_PERMISSION) ||
+                   (mcp.rr_hc != NO_PERMISSION) ||
+                   (mcp.edit_hc != NO_PERMISSION) ||
+                   (mcp.dir_ctrl != NO_PERMISSION) ||
+                   (mcp.startup_afd != NO_PERMISSION) ||
+                   (mcp.shutdown_afd != NO_PERMISSION))
+               {
+                  XChangeWindowAttributes(display, XtWindow(mw[CONTROL_W]),
+                                          CWBackingStore, &attr);
+               }
+
+               XChangeWindowAttributes(display, XtWindow(mw[CONFIG_W]),
                                        CWBackingStore, &attr);
-            }
-
-            XChangeWindowAttributes(display, XtWindow(mw[CONFIG_W]),
-                                    CWBackingStore, &attr);
 #ifdef _WITH_HELP_PULLDOWN
-            XChangeWindowAttributes(display, XtWindow(mw[HELP_W]),
-                                    CWBackingStore, &attr);
+               XChangeWindowAttributes(display, XtWindow(mw[HELP_W]),
+                                       CWBackingStore, &attr);
 #endif
+            } /* if (no_input == False) */
          }
+
+         /*
+          * Calculate the magic unkown height factor we need to add to the
+          * height of the widget when it is being resized.
+          */
+         XtVaGetValues(appshell, XmNheight, &height, NULL);
+         magic_value = height - (window_height + line_height + glyph_height);
       }
    }
 

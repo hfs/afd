@@ -79,9 +79,9 @@ get_job_data(unsigned int job_id, int mdb_position)
                host_name[MAX_HOSTNAME_LENGTH + 1];
    struct stat stat_buf;
 
-retry:
    (void)sprintf(p_msg_dir, "%u", job_id);
 
+retry:
    if ((fd = open(msg_dir, O_RDONLY)) == -1)
    {
       if (errno == ENOENT)
@@ -262,7 +262,7 @@ retry:
       }
       host_name[length] = '\0';
 
-      if ((pos = get_position(fsa, host_name, no_of_hosts)) == -1)
+      if ((pos = get_host_position(fsa, host_name, no_of_hosts)) == -1)
       {
          (void)rec(sys_log_fd, DEBUG_SIGN,
                    "Failed to locate host %s in FSA [%s]. Ignoring! (%s %d)\n",

@@ -1,6 +1,6 @@
 /*
  *  exec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,6 +44,7 @@ DESCR__S_M3
  **   06.02.1997 H.Kiehl Created
  **   03.10.1998 H.Kiehl Try reading from pipe while program is running
  **                      to avoid any deadlocks.
+ **   14.07.2000 H.Kiehl Return the exit status of the process we started.
  **
  */
 DESCR__E_M3
@@ -143,11 +144,6 @@ exec_cmd(char *cmd, char *buffer)
                         {
                            buffer[bytes_read + n] = '\0';
                         }
-                     }
-                     else
-                     {
-                        /* Normal termination of process */
-                        exit_status = SUCCESS;
                      }
                   }
                   else

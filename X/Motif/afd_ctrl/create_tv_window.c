@@ -65,7 +65,8 @@ extern unsigned long           color_pool[];
 extern struct afd_control_perm acp;
 
 /* Local funtion prototype definitions */
-static void                    tv_destroy(Widget, XtPointer, XEvent *);
+static void                    tv_destroy(Widget, XtPointer, XEvent *),
+                               tv_input(Widget, XtPointer, XEvent *);
 
 
 /*########################## create_tv_window() #########################*/
@@ -149,7 +150,7 @@ create_tv_window(void)
 
 
 /*############################# tv_input() ##############################*/
-void
+static void
 tv_input(Widget      w,
          XtPointer   client_data,
          XEvent      *event)

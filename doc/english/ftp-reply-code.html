@@ -1,20 +1,20 @@
-<HTML>
-<HEAD>
-<TITLE>AFD (ftp-reply-code.html)</TITLE>
-</HEAD>
-<BODY bgcolor=#F0ECD6>
-<H3 ALIGN=center>FTP reply code table</H3>
-<HR SIZE=3 NOSHADE>
-<TABLE BORDER>
-<TR>
-   <TH>Reply</TH>
-   <TH>Short Description</TH>
-   <TH>Detailed Description</TH>
-</TR>
-<TR>
-   <TD>1yz</TD>
-   <TD>Positive Preliminary Reply</TD>
-   <TD>The requested action is being initiated; expect another
+<html>
+<head>
+<title>AFD (ftp-reply-code.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h3 align=center>FTP reply code table</h3>
+<hr size=3 noshade>
+<table border>
+<tr>
+   <th>Reply</th>
+   <th>Short Description</th>
+   <th>Detailed Description</th>
+</tr>
+<tr>
+   <td>1yz</td>
+   <td>Positive Preliminary Reply</td>
+   <td>The requested action is being initiated; expect another
        reply before proceeding with a new command.  (The
        user-process sending another command before the
        completion reply would be in violation of protocol; but
@@ -24,27 +24,27 @@
        was accepted and the user-process may now pay attention
        to the data connections, for implementations where
        simultaneous monitoring is difficult.  The server-FTP
-       process may send at most, one 1yz reply per command.</TD>
-</TR>
-<TR>
-   <TD>2yz</TD>
-   <TD>Positive Completion Reply</TD>
-   <TD>The requested action has been successfully completed. A
-       new request may be initiated.</TD>
-</TR>
-<TR>
-   <TD>3yz</TD>
-   <TD>Positive Intermediate Reply</TD>
-   <TD>The command has been accepted, but the requested action
+       process may send at most, one 1yz reply per command.</td>
+</tr>
+<tr>
+   <td>2yz</td>
+   <td>Positive Completion Reply</td>
+   <td>The requested action has been successfully completed. A
+       new request may be initiated.</td>
+</tr>
+<tr>
+   <td>3yz</td>
+   <td>Positive Intermediate Reply</td>
+   <td>The command has been accepted, but the requested action
        is being held in abeyance, pending receipt of further
        information.  The user should send another command
        specifying this information.  This reply is used in
-       command sequence groups.</TD>
-</TR>
-<TR>
-   <TD>4yz</TD>
-   <TD>Transient Negative Completion Reply</TD>
-   <TD>The command was not accepted and the requested action did
+       command sequence groups.</td>
+</tr>
+<tr>
+   <td>4yz</td>
+   <td>Transient Negative Completion Reply</td>
+   <td>The command was not accepted and the requested action did
        not take place, but the error condition is temporary and
        the action may be requested again.  The user should
        return to the beginning of the command sequence, if any.
@@ -61,66 +61,68 @@
        (e.g., the command is spelled the same with the same
        arguments used; the user does not change his file access
        or user name; the server does not put up a new
-       implementation.)</TD>
-</TR>
-<TR>
-   <TD>5yz</TD>
-   <TD>Permanent Negative Completion Reply</TD>
-   <TD>The command was not accepted and the requested action did
+       implementation.)</td>
+</tr>
+<tr>
+   <td>5yz</td>
+   <td>Permanent Negative Completion Reply</td>
+   <td>The command was not accepted and the requested action did
        not take place.  The User-process is discouraged from
        repeating the exact request (in the same sequence).  Even
        some "permanent" error conditions can be corrected, so
        the human user may want to direct his User-process to
        reinitiate the command sequence by direct action at some
        point in the future (e.g., after the spelling has been
-       changed, or the user has altered his directory status.)</TD>
-</TR>
-<TR>
-   <TD>x0z</TD>
-   <TD>Syntax Error</TD>
-   <TD>These replies refer to syntax errors,
+       changed, or the user has altered his directory status.)</td>
+</tr>
+<tr>
+   <td>x0z</td>
+   <td>Syntax Error</td>
+   <td>These replies refer to syntax errors,
        syntactically correct commands that don't fit any
        functional category, unimplemented or superfluous
-       commands.</TD>
-</TR>
-<TR>
-   <TD>x1z</TD>
-   <TD>Information</TD>
-   <TD>These are replies to requests for information, such as status or help.</TD>
-</TR>
-<TR>
-   <TD>x2z</TD>
-   <TD>Connections</TD>
-   <TD>Replies referring to the control and data connections.</TD>
-</TR>
-<TR>
-   <TD>x3z</TD>
-   <TD>Authentication and Accounting</TD>
-   <TD>Replies for the login process and accounting procedures.</TD>
-</TR>
-<TR>
-   <TD>x4z</TD>
-   <TD>Unspecified</TD>
-   <TD>Unspecified</TD>
-</TR>
-<TR>
-   <TD>x5z</TD>
-   <TD>Filesystem status</TD>
-   <TD>These replies indicate the status of the
+       commands.</td>
+</tr>
+<tr>
+   <td>x1z</td>
+   <td>Information</td>
+   <td>These are replies to requests for information, such as
+       status or help.</td>
+</tr>
+<tr>
+   <td>x2z</td>
+   <td>Connections</td>
+   <td>Replies referring to the control and data connections.</td>
+</tr>
+<tr>
+   <td>x3z</td>
+   <td>Authentication and Accounting</td>
+   <td>Replies for the login process and accounting procedures.</td>
+</tr>
+<tr>
+   <td>x4z</td>
+   <td>Unspecified</td>
+   <td>Unspecified</td>
+</tr>
+<tr>
+   <td>x5z</td>
+   <td>Filesystem status</td>
+   <td>These replies indicate the status of the
        Server file system vis-a-vis the requested transfer or
-       other file system action.</TD>
-</TR>
-</TABLE>
-<HR SIZE=3 NOSHADE>
-<TABLE>
-<TR>
-   <TD WIDTH=600><SMALL><ADDRESS>
-   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
+       other file system action.</td>
+</tr>
+</table>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
    Last updated: 15.03.1997
-   </ADDRESS></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
-</TR>
-</TABLE>
-</BODY>
-</HTML>
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

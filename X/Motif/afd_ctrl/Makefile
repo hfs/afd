@@ -31,13 +31,14 @@ AFDCOBJS = afd_ctrl.o\
 
 PROGS    = $(AFDCPROG)
 OBJS     = $(AFDCOBJS)
-HEADERS  = ../../../init_afd/afddefs.h ../../../config.h ../show_log/show_log.h $(XCOMDIR)/x_common_defs.h afd_ctrl.h
+HEADERS  = ../../../init_afd/afddefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h afd_ctrl.h
 
 all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
 $(AFDCPROG) : $(AFDCOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(MATHSLIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
 clean :
@@ -48,9 +49,11 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(AFDCPROG)
 
 # Other dependencies
 afd_ctrl.o : ../../../version.h ../../../init_afd/permission.h
 setup_window.o expose_handler.o mouse_handler.o : ../../../init_afd/permission.h
+mouse_handler.o : ../show_log/show_log.h

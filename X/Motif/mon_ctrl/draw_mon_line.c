@@ -85,9 +85,10 @@ extern float                  max_bar_length;
 extern int                    line_length,
                               line_height,
                               bar_thickness_3,
-                              led_width,
+                              his_log_set,
                               x_center_log_status,
                               x_offset_log_status,
+                              x_offset_log_history,
                               x_offset_led,
                               x_offset_bars,
                               x_offset_characters,
@@ -243,6 +244,14 @@ draw_line_status(int pos, signed char delta)
 
    draw_remote_log_status(pos, connect_data[pos].sys_log_ec % LOG_FIFO_SIZE, x, y);
 
+   if (his_log_set > 0)
+   {
+      draw_remote_history(pos, RECEIVE_HISTORY, x, y);
+      draw_remote_history(pos, SYSTEM_HISTORY, x, y + bar_thickness_3);
+      draw_remote_history(pos, TRANSFER_HISTORY, x,
+                          y + bar_thickness_3 + bar_thickness_3);
+   }
+
    /* Print information for number of files to be send (nf), */
    /* total file size (tfs), transfer rate (tr) and error    */
    /* counter (ec).                                          */
@@ -322,8 +331,8 @@ draw_afd_identifier(int pos, int x, int y)
    XGCValues  gc_values;
 
    /* Change color of letters when background color is to dark */
-   if ((connect_data[pos].connect_status == DISCONNECTED) ||
-       (connect_data[pos].connect_status == CONNECTING))
+   if ((connect_data[pos].connect_status == CONNECTING) ||
+       (connect_data[pos].connect_status == NOT_WORKING2))
    {
       gc_values.foreground = color_pool[WHITE];
    }
@@ -437,6 +446,31 @@ draw_remote_log_status(int pos, int si_pos, int x, int y)
                 y + y_center_log,
                 x + coord[si_pos].x,
                 y + coord[si_pos].y);
+   }
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++ draw_remote_history() ++++++++++++++++++++++++*/
+void
+draw_remote_history(int pos, int type, int x, int y)
+{
+   int        i, x_offset, y_offset;
+   XGCValues  gc_values;
+
+   x_offset = x + x_offset_log_history;
+   y_offset = y + SPACE_ABOVE_LINE;
+
+   for (i = (MAX_LOG_HISTORY - his_log_set); i < MAX_LOG_HISTORY; i++)
+   {
+      gc_values.foreground = color_pool[(int)connect_data[pos].log_history[type][i]];
+      XChangeGC(display, color_gc, GCForeground, &gc_values);
+      XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
+                     bar_thickness_3, bar_thickness_3);
+      XDrawRectangle(display, line_window, default_bg_gc, x_offset, y_offset,
+                     bar_thickness_3, bar_thickness_3);
+      x_offset += bar_thickness_3;
    }
 
    return;

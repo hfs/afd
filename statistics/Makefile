@@ -33,12 +33,15 @@ all : $(PROGS)
 $(STAOBJS) : $(HEADERS)
 
 $(STAPROG) : $(STAOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(STAOBJS) $(LIB) $(EFENCE)
 
 $(SHOPROG) : $(SHOOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SHOOBJS) $(LIB) $(EFENCE)
 
 $(STBPROG) : $(STBOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(STBOBJS) $(LIB) $(EFENCE)
 
 clean :
@@ -49,9 +52,9 @@ clobber :
 	rm -f $(PROGS) show_bench_stat
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(STAPROG)
-	chmod $(BINMODE) $(INSTDIR)/$(SHOPROG)
+	chmod $(BINMODE) $(INSTDIR)/$(STAPROG) $(INSTDIR)/$(SHOPROG)
 
 # Other dependencies
 afd_stat.o show_stat.o : ../version.h

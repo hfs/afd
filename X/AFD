@@ -19,6 +19,9 @@
 !! Modul afd_ctrl
 .afd_ctrl*background                                : NavajoWhite2
 
+!! Modul dir_ctrl
+.dir_ctrl*background                                : NavajoWhite2
+
 !! Modul afd_info
 .afd_info.form*background                           : NavajoWhite2
 .afd_info.form.fsa_box.?.?.?.text_wl.background     : NavajoWhite1
@@ -27,6 +30,16 @@
 .afd_info.form.buttonbox*background                 : PaleVioletRed2
 .afd_info.form.buttonbox*foreground                 : Black
 .afd_info.form.buttonbox*highlightColor             : Black
+
+!! Modul dir_info
+.dir_info.form*background                           : NavajoWhite2
+.dir_info.form.dir_box.?.?.?.text_wl.background     : NavajoWhite1
+.dir_info.form.dir_box.?.?.?.text_wr.background     : NavajoWhite1
+.dir_info.form.dir_box.?.?.dirname_text_w.background : NavajoWhite1
+.dir_info.form.dir_box.?.?.url_text_w.background    : NavajoWhite1
+.dir_info.form.buttonbox*background                 : PaleVioletRed2
+.dir_info.form.buttonbox*foreground                 : Black
+.dir_info.form.buttonbox*highlightColor             : Black
 
 !! Modul edit_hc
 .edit_hc.form_w*background                          : NavajoWhite2
@@ -68,9 +81,14 @@
 .show_olog.show_info*mwmFunctions                   : 4
 .show_olog.Print Data*background                    : NavajoWhite2
 .show_olog.Print Data*XmText.background             : NavajoWhite1
-.show_olog.Print Data.main_form.buttonbox*background  : PaleVioletRed2
-.show_olog.Print Data.main_form.buttonbox*foreground  : Black
+.show_olog.Print Data.main_form.buttonbox*background : PaleVioletRed2
+.show_olog.Print Data.main_form.buttonbox*foreground : Black
 .show_olog.Print Data.main_form.buttonbox*highlightColor : Black
+.show_olog.Send Files*background                    : NavajoWhite2
+.show_olog.Send Files*XmText.background             : NavajoWhite1
+.show_olog.Send Files.main_form.buttonbox*background : PaleVioletRed2
+.show_olog.Send Files.main_form.buttonbox*foreground : Black
+.show_olog.Send Files.main_form.buttonbox*highlightColor : Black
 
 !! Modul show_ilog
 .show_ilog.mainform*background                      : NavajoWhite2

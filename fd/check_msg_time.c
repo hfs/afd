@@ -1,7 +1,7 @@
 /*
  *  check_msg_time.c - Part of AFD, an automatic file distribution program.
  *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                            Holger Kiehl <Holger.Kiehl@dwd.de>
+ *                           Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   check_msg_time - searches message directory for any changes
  **
  ** SYNOPSIS
- **   int check_msg_time(void)
+ **   void check_msg_time(void)
  **
  ** DESCRIPTION
  **

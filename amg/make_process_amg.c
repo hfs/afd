@@ -27,6 +27,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   pid_t make_process_amg(char *work_dir,
+ **                          char *prog_name,
  **                          int  shmid,
  **                          int  rescan_time,
  **                          int  max_process,
@@ -64,6 +65,7 @@ extern int sys_log_fd;
 /*########################## make_process_amg() #########################*/
 pid_t
 make_process_amg(char *work_dir,
+                 char *prog_name,
                  int  shmid,
                  int  rescan_time,
                  int  max_process,
@@ -90,12 +92,12 @@ make_process_amg(char *work_dir,
                exit(INCORRECT);
 
       case  0: /* Child process */
-               if (execlp(IT_PROC_NAME, IT_PROC_NAME, work_dir, shm_str,
+               if (execlp(prog_name, prog_name, work_dir, shm_str,
                           rt_str, mp_str, nd_str, (char *)0) < 0)
                {                                                
                   (void)rec(sys_log_fd, ERROR_SIGN,
                             "Failed to start process %s : %s (%s %d)\n",
-                            IT_PROC_NAME, strerror(errno), __FILE__, __LINE__);
+                            prog_name, strerror(errno), __FILE__, __LINE__);
                   _exit(INCORRECT);
                }
                exit(SUCCESS);

@@ -60,12 +60,10 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        data_length,
-                                  no_of_dir,
                                   no_of_hosts,
                                   shm_id,
                                   sys_log_fd;
-extern pid_t                      pid,
-                                  tmp_pid;
+extern pid_t                      dc_pid;
 extern char                       dir_config_file[],
                                   *pid_list,
                                   *p_work_dir;
@@ -171,55 +169,51 @@ reread_dir_config(time_t           *dc_old_time,
                          no_of_hosts);
             }
          }
-      }
+      } /* if ((*dc_old_time >= stat_buf.st_mtime) && (old_hl != NULL)) */
 
       /* Check if DIR_CONFIG has changed */
       if (*dc_old_time < stat_buf.st_mtime)
       {
-         int i;
+         int   no_of_local_dir,
+               i;
+         pid_t tmp_dc_pid;
 
          /* Tell user we have to reread the new DIR_CONFIG file */
          (void)rec(sys_log_fd, INFO_SIGN,
                    "Rereading DIR_CONFIG...\n");
 
-         /* Stop/Pause running jobs */
-         if ((data_length > 0) && (pid > 0))
+         /* Stop running jobs */
+         if ((data_length > 0) && (dc_pid > 0))
          {
-#ifdef _WITH_PAUSING
-            if (com(HALT) == INCORRECT)
-#else
             if (com(STOP) == INCORRECT)
-#endif
             {
                int status;
 
                /* If the process does not answer, lets assume */
                /* something is really wrong here and lets see */
                /* if the process has died.                    */
-               if ((status = amg_zombie_check(&pid, WNOHANG)) < 0)
+               if ((status = amg_zombie_check(&dc_pid, WNOHANG)) < 0)
                {
-                  pid = status;
+                  dc_pid = status;
                }
                else /* Mark process in unknown state */
                {
-                  tmp_pid = pid;
-                  pid = UNKNOWN_STATE;
+                  tmp_dc_pid = dc_pid;
+                  dc_pid = UNKNOWN_STATE;
                }
             }
-#ifndef _WITH_PAUSING
             else
             {
-               pid = NOT_RUNNING;
+               dc_pid = NOT_RUNNING;
 
                if (pid_list != NULL)
                {
-                  *(pid_t *)(pid_list + ((IT_NO + 1) * sizeof(pid_t))) = 0;
+                  *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = 0;
                }
 
                /* Collect zombie of stopped job. */
-               (void)amg_zombie_check(&pid, 0);
+               (void)amg_zombie_check(&dc_pid, 0);
             }
-#endif
          }
 
          /* Now store the new time */
@@ -230,12 +224,11 @@ reread_dir_config(time_t           *dc_old_time,
          {
             hl[i].in_dir_config = NO;
          }
-         if ((no_of_dir = eval_dir_config(stat_buf.st_size)) < 0)
+         if (eval_dir_config(stat_buf.st_size, &no_of_local_dir) < 0)
          {
             (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not find any valid entries (%d) in database file %s (%s %d)\n",
-                      no_of_dir, dir_config_file,
-                      __FILE__, __LINE__);
+                      "Could not find any valid entries in database file %s (%s %d)\n",
+                      dir_config_file, __FILE__, __LINE__);
             exit(INCORRECT);
          }
 
@@ -258,25 +251,27 @@ reread_dir_config(time_t           *dc_old_time,
          /* Start, restart or stop jobs */
          if (data_length > 0)
          {
-            switch(pid)
+            switch(dc_pid)
             {
                case NOT_RUNNING :
                case DIED :
-                  pid = make_process_amg(p_work_dir, shm_id, rescan_time, max_no_proc, no_of_dir);
+                  dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
+                                            shm_id, rescan_time,
+                                            max_no_proc, no_of_local_dir);
                   if (pid_list != NULL)
                   {
-                     *(pid_t *)(pid_list + ((IT_NO + 1) * sizeof(pid_t))) = pid;
+                     *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
                      *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
                   }
                   break;
 
                case UNKNOWN_STATE :
-                  /* Since we do not no the state, lets just kill it */
-                  if (kill(tmp_pid, SIGINT) < 0)
+                  /* Since we do not know the state, lets just kill it */
+                  if (kill(tmp_dc_pid, SIGINT) < 0)
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "Failed to send kill signal to process %s : %s (%s %d)\n",
-                               IT_PROC_NAME, strerror(errno),
+                               DC_PROC_NAME, strerror(errno),
                                __FILE__, __LINE__);
 
                      /* Don't exit here, since the process might */
@@ -284,27 +279,31 @@ reread_dir_config(time_t           *dc_old_time,
                   }
 
                   /* Eliminate zombie of killed job */
-                  (void)amg_zombie_check(&tmp_pid, 0);
+                  (void)amg_zombie_check(&tmp_dc_pid, 0);
 
-                  pid = make_process_amg(p_work_dir, shm_id, rescan_time, max_no_proc, no_of_dir);
+                  dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
+                                            shm_id, rescan_time,
+                                            max_no_proc, no_of_local_dir);
                   if (pid_list != NULL)
                   {
-                     *(pid_t *)(pid_list + ((IT_NO + 1) * sizeof(pid_t))) = pid;
+                     *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
                      *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
                   }
                   break;
 
                default :
-                  com(START);
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "Hmmm..., whats going on? I should not be here. (%s %d)\n",
+                            __FILE__, __LINE__);
                   break;
             }
          }
          else
          {
-            if (pid > 0)
+            if (dc_pid > 0)
             {
                com(STOP);
-               pid = NOT_RUNNING;
+               dc_pid = NOT_RUNNING;
             }
          }
 

@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -50,6 +50,7 @@ DESCR__S_M3
  **                             - user_rename_rule
  **                             - user_id
  **                             - group_id
+ **                             - FTP transfer mode
  **
  ** AUTHOR
  **   H.Kiehl
@@ -64,6 +65,7 @@ DESCR__S_M3
  **   26.04.1999 H.Kiehl Added option no login
  **   24.08.1999 H.Kiehl Enhanced option "attach file" to support trans-
  **                      renaming.
+ **   18.03.2000 H.Kiehl Added option FTP transfer mode.
  **
  */
 DESCR__E_M3
@@ -76,9 +78,12 @@ DESCR__E_M3
 #include <sys/stat.h>             /* fstat()                             */
 #include <unistd.h>               /* read(), close(), setuid()           */
 #include <fcntl.h>                /* O_RDONLY, etc                       */
+#ifdef _WITH_EUMETSAT_HEADERS
 #include <netdb.h>                /* gethostbyname()                     */
+#endif
 #include <errno.h>
 #include "fddefs.h"
+#include "ftpdefs.h"
 
 /* External global variables */
 extern int sys_log_fd;
@@ -98,16 +103,16 @@ extern int sys_log_fd;
 #define FILE_NAME_IS_USER_FLAG    4096
 #define CHECK_ANSI_FLAG           8192
 #define CHECK_REPLY_FLAG          16384
-#define SECURE_FTP_FLAG           32768
-#define NO_LOGIN_FLAG             65536
-#define WITH_SEQUENCE_NUMBER_FLAG 131072
-#define ATTACH_FILE_FLAG          262144
-#define ADD_MAIL_HEADER_FLAG      524288
-#define EUMETSAT_HEADER_FLAG      1048576
+#define WITH_SEQUENCE_NUMBER_FLAG 32768
+#define ATTACH_FILE_FLAG          131072
+#define ADD_MAIL_HEADER_FLAG      262144
+#ifdef _WITH_EUMETSAT_HEADERS
+#define EUMETSAT_HEADER_FLAG      524288
+#endif /* _WITH_EUMETSAT_HEADERS */
 #ifdef _RADAR_CHECK
-#define RADAR_FLAG                2097152
+#define RADAR_FLAG                1048576
 #endif /* _RADAR_CHECK */
-#define PPROXY_FLAG               4194304
+#define CHANGE_FTP_MODE_FLAG      2097152
 
 
 /*############################ eval_message() ###########################*/
@@ -369,7 +374,7 @@ eval_message(char *message_name, struct job *p_db)
                  {
                     used |= CHMOD_FLAG;
                     ptr += CHMOD_ID_LENGTH;
-                    if (p_db->msg_type == LOC)
+                    if (p_db->protocol & LOC_FLAG)
                     {
                        int chmod_length;
 
@@ -579,7 +584,7 @@ eval_message(char *message_name, struct job *p_db)
                  {
                     used |= CHOWN_FLAG;
                     ptr += CHOWN_ID_LENGTH;
-                    if (p_db->msg_type == LOC)
+                    if (p_db->protocol & LOC_FLAG)
                     {
 #ifdef _WITH_SETUID_CHECK
                        if (setuid(0) != -1)
@@ -742,7 +747,7 @@ eval_message(char *message_name, struct job *p_db)
                      (strncmp(ptr, SUBJECT_ID, SUBJECT_ID_LENGTH) == 0))
                  {
                     used |= SUBJECT_FLAG;
-                    if (p_db->msg_type == SMTP)
+                    if (p_db->protocol & SMTP_FLAG)
                     {
                        ptr += SUBJECT_ID_LENGTH;
                        while ((*ptr == ' ') || (*ptr == '\t'))
@@ -779,8 +784,9 @@ eval_message(char *message_name, struct job *p_db)
                        }
                        else if (*ptr == '/')
                             {
-                               char *file_name = ptr,
-                                    tmp_char;
+                               size_t length;
+                               char   *file_name = ptr,
+                                      tmp_char;
 
                                while ((*ptr != '\n') && (*ptr != '\0') &&
                                       (*ptr != ' ') && (*ptr != '\t'))
@@ -789,10 +795,14 @@ eval_message(char *message_name, struct job *p_db)
                                }
                                tmp_char = *ptr;
                                *ptr = '\0';
-                               if (read_file(file_name,
-                                             &p_db->subject) != INCORRECT)
+                               if ((length = read_file(file_name,
+                                                       &p_db->subject)) != INCORRECT)
                                {
                                   p_db->special_flag |= MAIL_SUBJECT;
+                                  if (p_db->subject[length - 1] == '\n')
+                                  {
+                                     p_db->subject[length - 1] = '\0';
+                                  }
                                }
                                *ptr = tmp_char;
                             }
@@ -810,7 +820,7 @@ eval_message(char *message_name, struct job *p_db)
                      (strncmp(ptr, FORCE_COPY_ID, FORCE_COPY_ID_LENGTH) == 0))
                  {
                     used |= FORCE_COPY_FLAG;
-                    if (p_db->msg_type == LOC)
+                    if (p_db->protocol & LOC_FLAG)
                     {
                        p_db->special_flag |= FORCE_COPY;
                     }
@@ -827,7 +837,7 @@ eval_message(char *message_name, struct job *p_db)
                      (strncmp(ptr, FILE_NAME_IS_SUBJECT_ID, FILE_NAME_IS_SUBJECT_ID_LENGTH) == 0))
                  {
                     used |= FILE_NAME_IS_SUBJECT_FLAG;
-                    if (p_db->msg_type == SMTP)
+                    if (p_db->protocol & SMTP_FLAG)
                     {
                        p_db->special_flag |= FILE_NAME_IS_SUBJECT;
                     }
@@ -844,7 +854,7 @@ eval_message(char *message_name, struct job *p_db)
                      (strncmp(ptr, FILE_NAME_IS_USER_ID, FILE_NAME_IS_USER_ID_LENGTH) == 0))
                  {
                     used |= FILE_NAME_IS_USER_FLAG;
-                    if (p_db->msg_type == SMTP)
+                    if (p_db->protocol & SMTP_FLAG)
                     {
                        p_db->special_flag |= FILE_NAME_IS_USER;
                        ptr += FILE_NAME_IS_USER_ID_LENGTH;
@@ -879,7 +889,7 @@ eval_message(char *message_name, struct job *p_db)
                      (strncmp(ptr, ENCODE_ANSI_ID, ENCODE_ANSI_ID_LENGTH) == 0))
                  {
                     used |= CHECK_ANSI_FLAG;
-                    if (p_db->msg_type == SMTP)
+                    if (p_db->protocol & SMTP_FLAG)
                     {
                        p_db->special_flag |= ENCODE_ANSI;
                     }
@@ -897,7 +907,7 @@ eval_message(char *message_name, struct job *p_db)
                      (strncmp(ptr, CHECK_REPLY_ID, CHECK_REPLY_ID_LENGTH) == 0))
                  {
                     used |= CHECK_REPLY_FLAG;
-                    if (p_db->msg_type == WMO)
+                    if (p_db->protocol & WMO_FLAG)
                     {
                        p_db->special_flag |= WMO_CHECK_ACKNOWLEDGE;
                     }
@@ -910,47 +920,11 @@ eval_message(char *message_name, struct job *p_db)
                        ptr++;
                     }
                  }
-#endif
-            else if (((used & SECURE_FTP_FLAG) == 0) &&
-                     (strncmp(ptr, SECURE_FTP_ID, SECURE_FTP_ID_LENGTH) == 0))
-                 {
-                    used |= SECURE_FTP_FLAG;
-                    if (p_db->msg_type == FTP)
-                    {
-                       p_db->special_flag |= SECURE_FTP;
-                    }
-                    while ((*ptr != '\n') && (*ptr != '\0'))
-                    {
-                       ptr++;
-                    }
-                    while (*ptr == '\n')
-                    {
-                       ptr++;
-                    }
-                 }
-            else if (((used & NO_LOGIN_FLAG) == 0) &&
-                     (strncmp(ptr, NO_LOGIN_ID, NO_LOGIN_ID_LENGTH) == 0))
-                 {
-                    used |= NO_LOGIN_FLAG;
-                    if (p_db->msg_type == FTP)
-                    {
-                       p_db->special_flag |= NO_LOGIN;
-                    }
-                    while ((*ptr != '\n') && (*ptr != '\0'))
-                    {
-                       ptr++;
-                    }
-                    while (*ptr == '\n')
-                    {
-                       ptr++;
-                    }
-                 }
-#ifdef _WITH_WMO_SUPPORT
             else if (((used & WITH_SEQUENCE_NUMBER_FLAG) == 0) &&
                      (strncmp(ptr, WITH_SEQUENCE_NUMBER_ID, WITH_SEQUENCE_NUMBER_ID_LENGTH) == 0))
                  {
                     used |= WITH_SEQUENCE_NUMBER_FLAG;
-                    if (p_db->msg_type == WMO)
+                    if (p_db->protocol & WMO_FLAG)
                     {
                        p_db->special_flag |= WITH_SEQUENCE_NUMBER;
                     }
@@ -963,13 +937,13 @@ eval_message(char *message_name, struct job *p_db)
                        ptr++;
                     }
                  }
-#endif
+#endif /* _WITH_WMO_SUPPORT */
             else if (((used & ATTACH_FILE_FLAG) == 0) &&
                      (strncmp(ptr, ATTACH_FILE_ID, ATTACH_FILE_ID_LENGTH) == 0))
                  {
                     used |= ATTACH_FILE_FLAG;
                     ptr += ATTACH_FILE_ID_LENGTH;
-                    if (p_db->msg_type == SMTP)
+                    if (p_db->protocol & SMTP_FLAG)
                     {
                        p_db->special_flag |= ATTACH_FILE;
 
@@ -1017,7 +991,7 @@ eval_message(char *message_name, struct job *p_db)
             else if (((used & ADD_MAIL_HEADER_FLAG) == 0) &&
                      (strncmp(ptr, ADD_MAIL_HEADER_ID, ADD_MAIL_HEADER_ID_LENGTH) == 0))
                  {
-                    if (p_db->msg_type == SMTP)
+                    if (p_db->protocol & SMTP_FLAG)
                     {
                        int length = 0;
 
@@ -1178,7 +1152,7 @@ eval_message(char *message_name, struct job *p_db)
                      (strncmp(ptr, RADAR_CHECK_ID, RADAR_CHECK_ID_LENGTH) == 0))
                  {
                     used |= RADAR_FLAG;
-                    if (p_db->msg_type == FTP)
+                    if (p_db->protocol & FTP_FLAG)
                     {
                        p_db->special_flag |= RADAR_CHECK_FLAG;
                     }
@@ -1192,45 +1166,34 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
 #endif /* _RADAR_CHECK */
-            else if (((used & PPROXY_FLAG) == 0) &&
-                     (strncmp(ptr, PPROXY_ID, PPROXY_ID_LENGTH) == 0))
+            else if (((used & CHANGE_FTP_MODE_FLAG) == 0) &&
+                     (strncmp(ptr, PASSIVE_FTP_MODE, PASSIVE_FTP_MODE_LENGTH) == 0))
                  {
-                    used |= PPROXY_FLAG;
-                    if (p_db->msg_type == FTP)
+                    used |= CHANGE_FTP_MODE_FLAG;
+                    if (p_db->protocol & FTP_FLAG)
                     {
-                       int length = 1;
-
-                       ptr += PPROXY_ID_LENGTH;
-                       while ((*ptr == ' ') || (*ptr == '\t'))
-                       {
-                          ptr++;
-                       }
-                       end_ptr = ptr;
-                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
-                       {
-                         end_ptr++; length++;
-                       }
-                       if ((p_db->pproxy = malloc(length)) == NULL)
-                       {
-                          (void)rec(sys_log_fd, ERROR_SIGN,
-                                    "malloc() error : %s (%s %d)\n",
-                                    strerror(errno), __FILE__, __LINE__);
-                       }
-                       else
-                       {
-                          byte_buf = *end_ptr;
-                          *end_ptr = '\0';
-                          (void)strcpy(p_db->pproxy, ptr);
-                          *end_ptr = byte_buf;
-                          ptr = end_ptr;
-                       }
+                       p_db->mode_flag = PASSIVE_MODE;
                     }
-                    else
+                    while ((*ptr != '\n') && (*ptr != '\0'))
                     {
-                       while ((*ptr != '\n') && (*ptr != '\0'))
-                       {
-                          ptr++;
-                       }
+                       ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used & CHANGE_FTP_MODE_FLAG) == 0) &&
+                     (strncmp(ptr, ACTIVE_FTP_MODE, ACTIVE_FTP_MODE_LENGTH) == 0))
+                 {
+                    used |= CHANGE_FTP_MODE_FLAG;
+                    if (p_db->protocol & FTP_FLAG)
+                    {
+                       p_db->mode_flag = ACTIVE_MODE;
+                    }
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
                     }
                     while (*ptr == '\n')
                     {

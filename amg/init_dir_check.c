@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   06.04.1999 H.Kiehl Created
+ **   12.01.2000 H.Kiehl Added receive log.
  **
  */
 DESCR__E_M1
@@ -71,23 +72,21 @@ extern int                    shm_id,      /* Shared memory ID of        */
                               max_process,
                               fd_cmd_fd,
                               max_copied_files,
-#ifdef _LIMIT_PROCESS_PER_DIR
-                              check_proc_no_threshold,
-                              max_proc_per_dir,
-#endif
 #ifndef _WITH_PTHREAD
                               dir_check_timeout,
 #endif
                               one_dir_copy_timeout,
                               no_of_jobs,
-                              no_of_dirs,  /* No. of directories in the  */
-                                           /* DIR_CONFIG file.           */
+                              no_of_local_dirs, /* No. of directories in */
+                                                /* the DIR_CONFIG file   */
+                                                /* that are local.       */
                               counter_fd,  /* File descriptor for AFD    */
                                            /* counter file.              */
                               write_fin_fd,
 #ifdef _INPUT_LOG
                               il_fd,
 #endif
+                              receive_log_fd,
                               sys_log_fd;
 extern size_t                 max_copied_file_size,
                               msg_fifo_buf_size;
@@ -100,18 +99,13 @@ extern uid_t                  afd_uid;
 extern gid_t                  afd_gid;
 extern char                   *p_work_dir,
                               fin_fifo[],
-                              ip_resp_fifo[],
                               time_dir[],
                               *p_time_dir,
 #ifndef _WITH_PTHREAD
                               **file_name_pool,
 #endif
                               afd_file_dir[];
-#ifdef _LIMIT_PROCESS_PER_DIR
 extern struct dc_proc_list    *dcpl;       /* Dir Check Process List     */
-#else
-extern pid_t                  *pid;
-#endif
 extern struct directory_entry *de;
 #ifdef _DELETE_LOG
 extern struct delete_log      dl;
@@ -142,7 +136,9 @@ init_dir_check(int    argc,
 #ifdef _INPUT_LOG
                input_log_fifo[MAX_PATH_LENGTH],
 #endif
-               ip_cmd_fifo[MAX_PATH_LENGTH],
+               dc_cmd_fifo[MAX_PATH_LENGTH],
+               dc_resp_fifo[MAX_PATH_LENGTH],
+               receive_log_fifo[MAX_PATH_LENGTH],
                sys_log_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
@@ -154,10 +150,10 @@ init_dir_check(int    argc,
    else
    {
       (void)strcpy(p_work_dir, argv[1]);
-      shm_id      = atoi(argv[2]);
+      shm_id = atoi(argv[2]);
       *rescan_time = atoi(argv[3]);
       max_process = atoi(argv[4]);
-      no_of_dirs  = atoi(argv[5]);
+      no_of_local_dirs = atoi(argv[5]);
    }
 
    /* User and group ID */
@@ -166,7 +162,7 @@ init_dir_check(int    argc,
 
    /* Allocate memory for the array containing all file names to  */
    /* be send for every directory section in the DIR_CONFIG file. */
-   if ((de = (struct directory_entry *)malloc(no_of_dirs * sizeof(struct directory_entry))) == NULL)
+   if ((de = (struct directory_entry *)malloc(no_of_local_dirs * sizeof(struct directory_entry))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
@@ -181,23 +177,25 @@ init_dir_check(int    argc,
    (void)strcat(time_dir, "/");
    p_time_dir = time_dir + strlen(time_dir);
    (void)strcat(afd_file_dir, "/");
-   (void)strcpy(ip_cmd_fifo, p_work_dir);
-   (void)strcat(ip_cmd_fifo, FIFO_DIR);
-   (void)strcpy(fin_fifo, ip_cmd_fifo);
+   (void)strcpy(dc_cmd_fifo, p_work_dir);
+   (void)strcat(dc_cmd_fifo, FIFO_DIR);
+   (void)strcpy(fin_fifo, dc_cmd_fifo);
    (void)strcat(fin_fifo, IP_FIN_FIFO);
 #ifdef _INPUT_LOG
-   (void)strcpy(input_log_fifo, ip_cmd_fifo);
+   (void)strcpy(input_log_fifo, dc_cmd_fifo);
    (void)strcat(input_log_fifo, INPUT_LOG_FIFO);
 #endif
-   (void)strcpy(ip_resp_fifo, ip_cmd_fifo);
-   (void)strcat(ip_resp_fifo, IP_RESP_FIFO);
-   (void)strcpy(del_time_job_fifo, ip_cmd_fifo);
+   (void)strcpy(dc_resp_fifo, dc_cmd_fifo);
+   (void)strcat(dc_resp_fifo, DC_RESP_FIFO);
+   (void)strcpy(del_time_job_fifo, dc_cmd_fifo);
    (void)strcat(del_time_job_fifo, DEL_TIME_JOB_FIFO);
-   (void)strcpy(sys_log_fifo, ip_cmd_fifo);
+   (void)strcpy(sys_log_fifo, dc_cmd_fifo);
    (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
-   (void)strcpy(fd_cmd_fifo, ip_cmd_fifo);
+   (void)strcpy(receive_log_fifo, dc_cmd_fifo);
+   (void)strcat(receive_log_fifo, RECEIVE_LOG_FIFO);
+   (void)strcpy(fd_cmd_fifo, dc_cmd_fifo);
    (void)strcat(fd_cmd_fifo, FD_CMD_FIFO);
-   (void)strcat(ip_cmd_fifo, IP_CMD_FIFO);
+   (void)strcat(dc_cmd_fifo, DC_CMD_FIFO);
    msg_fifo_buf_size = 1 + sizeof(time_t) + sizeof(unsigned short) +
                        sizeof(int);
    init_msg_buffer();
@@ -222,19 +220,19 @@ init_dir_check(int    argc,
    get_afd_config_value();
 
 #ifdef _WITH_PTHREAD
-   if ((thread = (pthread_t *)malloc(no_of_dirs * sizeof(pthread_t))) == NULL)
+   if ((thread = (pthread_t *)malloc(no_of_local_dirs * sizeof(pthread_t))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((p_data = (struct data_t *)malloc(no_of_dirs * sizeof(struct data_t))) == NULL)
+   if ((p_data = (struct data_t *)malloc(no_of_local_dirs * sizeof(struct data_t))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   for (i = 0; i < no_of_dirs; i++)
+   for (i = 0; i < no_of_local_dirs; i++)
    {
       p_data[i].i = i;
       RT_ARRAY(p_data[i].file_name_pool, max_copied_files, MAX_FILENAME_LENGTH, char);
@@ -248,7 +246,7 @@ init_dir_check(int    argc,
       de[i].fme = NULL;
    }
 #else
-   for (i = 0; i < no_of_dirs; i++)
+   for (i = 0; i < no_of_local_dirs; i++)
    {
       de[i].fme = NULL;
    }
@@ -261,12 +259,30 @@ init_dir_check(int    argc,
    }
 #endif
 
-   /* Open system log fifo */
+   /* Open system and receive log fifo */
    if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) == -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not open fifo %s : %s (%s %d)\n",
                 sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   if ((stat(receive_log_fifo, &stat_buf) < 0) ||
+       (!S_ISFIFO(stat_buf.st_mode)))
+   {
+      if (make_fifo(receive_log_fifo) < 0)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Failed to create fifo %s. (%s %d)\n",
+                   receive_log_fifo, __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+   }
+   if ((receive_log_fd = coe_open(receive_log_fifo, O_RDWR)) == -1)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Could not open fifo %s : %s (%s %d)\n",
+                receive_log_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
@@ -281,6 +297,14 @@ init_dir_check(int    argc,
       exit(INCORRECT);
    }
 
+   /* Get the fra_id and no of directories of the FRA */
+   if (fra_attach() < 0)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to attach to FRA. (%s %d)\n",
+                __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
    /* Get the fsa_id and no of host of the FSA */
    if (fsa_attach() < 0)
    {
@@ -290,20 +314,20 @@ init_dir_check(int    argc,
    }
 
    /* Open fifos to communicate with AMG */
-   if ((*write_fd = coe_open(ip_resp_fifo, O_RDWR)) == -1)
+   if ((*write_fd = coe_open(dc_resp_fifo, O_RDWR)) == -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not open fifo %s : %s (%s %d)\n",
-                ip_resp_fifo, strerror(errno), __FILE__, __LINE__);
+                dc_resp_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    /* Open fifo to wait for answer from job */
-   if ((*read_fd = coe_open(ip_cmd_fifo, O_RDWR | O_NONBLOCK)) == -1)
+   if ((*read_fd = coe_open(dc_cmd_fifo, O_RDWR | O_NONBLOCK)) == -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not open fifo %s : %s (%s %d)\n",
-                ip_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+                dc_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
@@ -376,7 +400,6 @@ init_dir_check(int    argc,
    no_of_jobs = create_db(shm_id);
 
    /* Allocate space for process ID array. */
-#ifdef _LIMIT_PROCESS_PER_DIR
    if ((dcpl = malloc(max_process * sizeof(struct dc_proc_list))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
@@ -386,28 +409,9 @@ init_dir_check(int    argc,
    }
    for (i = 0; i < max_process; i++)
    {
-      dcpl[i].dir_no = -1;
+      dcpl[i].fra_pos = -1;
       dcpl[i].pid = -1;
    }
-   max_proc_per_dir = max_process / no_of_dirs;
-   if (max_proc_per_dir < 2)
-   {
-      max_proc_per_dir = 2;
-   }
-   check_proc_no_threshold = max_process / 2;
-   if (check_proc_no_threshold < 1)
-   {
-      check_proc_no_threshold = 1;
-   }
-#else
-   if ((pid = calloc(max_process, sizeof(int))) == NULL)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Not enough memory to calloc() : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-#endif /* _LIMIT_PROCESS_PER_DIR */
 
 #ifdef _INPUT_LOG
    if ((stat(input_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))

@@ -198,44 +198,7 @@ format_output_info(char *text)
       /* Print recipient */
       if (perm.view_passwd != YES)
       {
-         char *ptr = id.dbe[0].recipient;
-
-         /*
-          * The user may not see the password. Lets cut it out and
-          * replace it with DEFAULT_VIEW_PASSWD.
-          */
-         while (*ptr != ':')
-         {
-            ptr++;
-         }
-         ptr++;
-         while ((*ptr != ':') && (*ptr != '@'))
-         {
-            if (*ptr == '\\')
-            {
-               ptr++;
-            }
-            ptr++;
-         }
-         if (*ptr == ':')
-         {
-            char *p_end = ptr + 1,
-                 tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-            ptr++;
-            while (*ptr != '@')
-            {
-               if (*ptr == '\\')
-               {
-                  ptr++;
-               }
-               ptr++;
-            }
-            (void)strcpy(tmp_buffer, ptr);
-            *p_end = '\0';
-            (void)strcat(id.dbe[0].recipient, "XXXXX");
-            (void)strcat(id.dbe[0].recipient, tmp_buffer);
-         }
+         remove_passwd(id.dbe[0].recipient);
       }
       count = sprintf(text + length, "Recipient  : %s\n", id.dbe[0].recipient);
       length += count;
@@ -464,44 +427,7 @@ format_input_info(char *text)
          /* Print recipient */
          if (perm.view_passwd != YES)
          {
-            char *ptr = id.dbe[j].recipient;
-
-            /*
-             * The user may not see the password. Lets cut it out and
-             * replace it with DEFAULT_VIEW_PASSWD.
-             */
-            while (*ptr != ':')
-            {
-               ptr++;
-            }
-            ptr++;
-            while ((*ptr != ':') && (*ptr != '@'))
-            {
-               if (*ptr == '\\')
-               {
-                  ptr++;
-               }
-               ptr++;
-            }
-            if (*ptr == ':')
-            {
-               char *p_end = ptr + 1,
-                    tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-               ptr++;
-               while (*ptr != '@')
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  ptr++;
-               }
-               (void)strcpy(tmp_buffer, ptr);
-               *p_end = '\0';
-               (void)strcat(id.dbe[j].recipient, "XXXXX");
-               (void)strcat(id.dbe[j].recipient, tmp_buffer);
-            }
+            remove_passwd(id.dbe[j].recipient);
          }
          count = sprintf(text + length, "Recipient  : %s\n", id.dbe[j].recipient);
          length += count;

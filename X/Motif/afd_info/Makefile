@@ -26,6 +26,7 @@ $(OBJS) : $(HEADERS)
 afd_info.o : main_xpm.h secondary_xpm.h
 
 $(AFDIPROG) : $(AFDIOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDIOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
@@ -36,6 +37,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(AFDIPROG)
 

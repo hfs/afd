@@ -82,7 +82,7 @@ static struct dir_name_buf *dnb = NULL;
 /* Local function prototypes. */
 static unsigned int        get_all(int);
 static void                get_dir_data(int),
-                           get_recipient_only(int, int);
+                           get_recipient_only(int);
 
 
 /*############################### get_info() ############################*/
@@ -94,8 +94,7 @@ get_info(int item)
    current_jid_list = NULL;
    no_of_current_jobs = 0;
    if ((item != GOT_JOB_ID_DIR_ONLY) &&
-       (item != GOT_JOB_ID_DIR_AND_RECIPIENT) &&
-       (item != GOT_JOB_ID_USER_ONLY))
+       (item != GOT_JOB_ID_DIR_AND_RECIPIENT))
    {
       id.dir_no = get_all(item - 1);
       if (get_current_jid_list() == INCORRECT)
@@ -250,11 +249,7 @@ get_info(int item)
          }
          else if (item == GOT_JOB_ID_DIR_AND_RECIPIENT)
               {
-                 get_recipient_only(i, GOT_JOB_ID_DIR_AND_RECIPIENT);
-              }
-         else if (item == GOT_JOB_ID_USER_ONLY)
-              {
-                 get_recipient_only(i, GOT_JOB_ID_USER_ONLY);
+                 get_recipient_only(i);
               }
               else
               {
@@ -271,6 +266,7 @@ get_info(int item)
    }
    return;
 }
+
 
 /*############################ get_sum_data() ###########################*/
 int
@@ -454,7 +450,8 @@ get_dir_data(int dir_pos)
          {
             if (current_jid_list[j] == jd[i].job_id)
             {
-               int k;
+               int  k;
+               char *p_file;
 
                /* Allocate memory to hold all data. */
                if ((id.count % 10) == 0)
@@ -478,11 +475,20 @@ get_dir_data(int dir_pos)
 
                id.dbe[id.count].priority = jd[i].priority;
                id.dbe[id.count].no_of_files = jd[i].no_of_files;
+               p_file = jd[i].file_list;
+               if ((id.dbe[id.count].files = malloc((jd[i].no_of_files * sizeof(char *)))) == NULL)
+               {
+                  (void)xrec(toplevel_w, FATAL_DIALOG,
+                             "realloc() error : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
+                  return;
+               }
 
                /* Save all file/filter names */
                for (k = 0; k < id.dbe[id.count].no_of_files; k++)
                {
-                  (void)strcpy(id.dbe[id.count].files[k], jd[i].file_list[k]);
+                  id.dbe[id.count].files[k] = p_file;
+                  NEXT(p_file);
                }
 
                /*
@@ -520,7 +526,7 @@ get_dir_data(int dir_pos)
                   if (id.dbe[id.count].no_of_soptions > 0)
                   {
                      size = strlen(jd[i].soptions);
-                     if ((id.dbe[id.count].soptions = calloc(size,
+                     if ((id.dbe[id.count].soptions = calloc(size + 1,
                                                              sizeof(char))) == NULL)
                      {
                         (void)xrec(toplevel_w, FATAL_DIALOG,
@@ -558,14 +564,13 @@ get_dir_data(int dir_pos)
 /*               global structure 'info_data'.                           */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 static void
-get_recipient_only(int dir_pos, int type)
+get_recipient_only(int dir_pos)
 {
    register int   i,
                   j;
    register char  *ptr;
    int            size,
                   gotcha;
-   char           recipient[100];
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
    size = strlen(id.dir);
@@ -601,149 +606,112 @@ get_recipient_only(int dir_pos, int type)
    }
    else
    {
+      char *p_file,
+           recipient[MAX_RECIPIENT_LENGTH];
+
       while ((jd[i].dir_id_pos == dir_pos) && (i < *no_of_job_ids))
       {
-         /* Allocate memory to hold all data. */
-         if ((id.count % 10) == 0)
-         {
-            size_t new_size;
-
-            /* Calculate new size */
-            new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
-
-            /* Create or increase the space for the buffer */
-            if ((id.dbe = (struct db_entry *)realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
-            {
-               (void)xrec(toplevel_w, FATAL_DIALOG,
-                          "realloc() error : %s (%s %d)",
-                          strerror(errno), __FILE__, __LINE__);
-               return;
-            }
-         }
-
-         id.dbe[id.count].no_of_files = jd[i].no_of_files;
-
-         /* Save all file/filter names */
-         for (j = 0; j < id.dbe[id.count].no_of_files; j++)
-         {
-            (void)strcpy(id.dbe[id.count].files[j], jd[i].file_list[j]);
-         }
-
          /*
           * Only show those entries that really match the current
           * file name. For this it is necessary to filter the file
           * names through all the filters.
           */
          gotcha = NO;
-         for (j = 0; j < id.dbe[id.count].no_of_files; j++)
+         p_file = jd[i].file_list;
+         for (j = 0; j < jd[i].no_of_files; j++)
          {
-            if (sfilter(id.dbe[id.count].files[j], id.file_name) == 0)
+            if (sfilter(p_file, id.file_name) == 0)
             {
                gotcha = YES;
                break;
             }
+            NEXT(p_file);
          }
          if (gotcha == YES)
          {
-            (void)strcpy(recipient, jd[i].recipient);
+            /* Allocate memory to hold all data. */
+            if ((id.count % 10) == 0)
+            {
+               size_t new_size;
 
+               /* Calculate new size */
+               new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
+
+               /* Create or increase the space for the buffer */
+               if ((id.dbe = (struct db_entry *)realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
+               {
+                  (void)xrec(toplevel_w, FATAL_DIALOG,
+                             "realloc() error : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
+                  return;
+               }
+            }
+            (void)strcpy(recipient, jd[i].recipient);
             ptr = recipient;
 
-            if (type == GOT_JOB_ID_USER_ONLY)
+            while ((*ptr != '/') && (*ptr != '\0'))
             {
-               while ((*ptr != '/') && (*ptr != '\0'))
+               if (*ptr == '\\')
                {
                   ptr++;
                }
-               if ((*ptr == '/') && (*(ptr + 1) == '/'))
-               {
-                  int count = 0;
+               ptr++;
+            }
+            if ((*ptr == '/') && (*(ptr + 1) == '/'))
+            {
+               int count = 0;
 
-                  ptr += 2;
-                  while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     id.dbe[id.count].user[count] = *ptr;
-                     ptr++; count++;
-                  }
-                  id.dbe[id.count].user[count] = ' ';
-                  id.dbe[id.count].user[count + 1] = '\0';
-               }
-               else
+               ptr += 2;
+               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
                {
-                  id.dbe[id.count].user[0] = '\0';
+                  if (*ptr == '\\')
+                  {
+                     ptr++;
+                  }
+                  id.dbe[id.count].user[count] = *ptr;
+                  ptr++; count++;
                }
+               id.dbe[id.count].user[count] = ' ';
+               id.dbe[id.count].user[count + 1] = '\0';
             }
             else
             {
-               while ((*ptr != '/') && (*ptr != '\0'))
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  ptr++;
-               }
-               if ((*ptr == '/') && (*(ptr + 1) == '/'))
-               {
-                  int count = 0;
-
-                  ptr += 2;
-                  while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     id.dbe[id.count].user[count] = *ptr;
-                     ptr++; count++;
-                  }
-                  id.dbe[id.count].user[count] = ' ';
-                  id.dbe[id.count].user[count + 1] = '\0';
-               }
-               else
-               {
-                  id.dbe[id.count].user[0] = '\0';
-               }
-               while ((*ptr != '@') && (*ptr != '\0'))
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  ptr++;
-               }
-               if (*ptr == '@')
-               {
-                  int j = 0;
-
-                  ptr++;
-                  while ((*ptr != '\0') &&
-                         (*ptr != '/') &&
-                         (*ptr != ':') &&
-                         (*ptr != '.'))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     id.dbe[id.count].recipient[j] = *ptr;
-                     j++; ptr++;
-                  }
-                  id.dbe[id.count].recipient[j] = ' ';
-                  id.dbe[id.count].recipient[j + 1] = '\0';
-               }
-               else
-               {
-                  id.dbe[id.count].recipient[0] = '\0';
-               }
+               id.dbe[id.count].user[0] = '\0';
             }
+            while ((*ptr != '@') && (*ptr != '\0'))
+            {
+               if (*ptr == '\\')
+               {
+                  ptr++;
+               }
+               ptr++;
+            }
+            if (*ptr == '@')
+            {
+               int j = 0;
 
+               ptr++;
+               while ((*ptr != '\0') &&
+                      (*ptr != '/') &&
+                      (*ptr != ':') &&
+                      (*ptr != '.'))
+               {
+                  if (*ptr == '\\')
+                  {
+                     ptr++;
+                  }
+                  id.dbe[id.count].recipient[j] = *ptr;
+                  j++; ptr++;
+               }
+               id.dbe[id.count].recipient[j] = ' ';
+               id.dbe[id.count].recipient[j + 1] = '\0';
+            }
+            else
+            {
+               id.dbe[id.count].recipient[0] = '\0';
+            }
             id.count++;
-         }
+         } /* if (gotcha == YES) */
          i++;
       } /* while (jd[i].dir_id_pos == dir_pos) */
    }

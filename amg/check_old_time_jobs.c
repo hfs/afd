@@ -1,5 +1,6 @@
 /*
- *  check_old_time_jobs.c - Part of AFD, an automatic file distribution program.
+ *  check_old_time_jobs.c - Part of AFD, an automatic file distribution
+ *                          program.
  *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -205,17 +206,19 @@ check_old_time_jobs(int no_of_jobs)
                                   (jd[jid_pos].no_of_files == db[i].no_of_files))
                               {
                                  int  j;
-                                 char *p_file = db[i].files;
+                                 char *p_file_db = db[i].files,
+                                      *p_file_jd = jd[jid_pos].file_list;
 
                                  gotcha = NO;
                                  for (j = 0; j < jd[jid_pos].no_of_files; j++)
                                  {
-                                    if (strcmp(jd[jid_pos].file_list[j], p_file) != 0)
+                                    if (strcmp(p_file_jd, p_file_db) != 0)
                                     {
                                        gotcha = YES;
                                        break;
                                     }
-                                    NEXT(p_file);
+                                    NEXT(p_file_db);
+                                    NEXT(p_file_jd);
                                  }
                                  if (gotcha == NO)
                                  {

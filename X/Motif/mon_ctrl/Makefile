@@ -29,6 +29,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(MONCPROG) : $(MONCOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MONCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(MATHSLIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
 clean :
@@ -39,9 +40,10 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(MONCPROG)
 
 # Other dependencies
 mon_ctrl.o : ../../../version.h ../../../init_afd/permission.h
-setup_window.o mon_expose_handler.o mouse_handler.o : ../../../init_afd/permission.h
+setup_mon_window.o mon_expose_handler.o mouse_handler.o : ../../../init_afd/permission.h

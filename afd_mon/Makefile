@@ -5,6 +5,7 @@
 include ../Include.mk
 
 INSTDIR  = ../../bin
+SBINDIR  = ../../sbin
 COMDIR   = ../common
 AFDLIB   = $(COMDIR)/libafd.a
 CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../afdd
@@ -22,10 +23,13 @@ AMONOBJS = afd_mon.o\
            init_fifos_mon.o\
            start_all.o\
            start_process.o\
-           stop_all.o
+           stop_process.o
 
 MSAVPROG = msa_view
 MSAVOBJS = msa_view.o
+
+TOPVPROG = topview
+TOPVOBJS = topview.o
 
 VHSTPROG = view_hosts
 VHSTOBJS = view_hosts.o
@@ -34,8 +38,8 @@ MONPROG  = mon
 MONOBJS  = mon.o\
            tcpcmd.o
 
-PROGS    = $(MAFDPROG) $(AMONPROG) $(MONPROG) $(MSAVPROG) $(VHSTPROG)
-OBJS     = $(MAFDOBJS) $(AMONOBJS) $(MONOBJS) $(MSAVOBJS) $(VHSTOBJS)
+PROGS    = $(MAFDPROG) $(AMONPROG) $(MONPROG) $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
+OBJS     = $(MAFDOBJS) $(AMONOBJS) $(MONOBJS) $(MSAVOBJS) $(TOPVOBJS) $(VHSTOBJS)
 HEADERS  = ../init_afd/afddefs.h ../config.h mondefs.h
 
 all : $(PROGS)
@@ -43,18 +47,27 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(MAFDPROG) : $(MAFDOBJS) $(AFDLIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MAFDOBJS) $(AFDLIB) $(EFENCE) 
 
 $(AMONPROG) : $(AMONOBJS) $(AFDLIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AMONOBJS) $(AFDLIB) $(EFENCE) 
 
 $(MONPROG) : $(MONOBJS) $(AFDLIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MONOBJS) $(AFDLIB) $(SPECIAL_LIBS) $(EFENCE) 
 
 $(MSAVPROG) : $(MSAVOBJS) $(AFDLIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MSAVOBJS) $(AFDLIB) $(EFENCE)
 
+$(TOPVPROG) : $(TOPVOBJS) $(AFDLIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(TOPVOBJS) $(AFDLIB) $(EFENCE)
+
 $(VHSTPROG) : $(VHSTOBJS) $(AFDLIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(VHSTOBJS) $(AFDLIB) $(EFENCE)
 
 clean :
@@ -65,11 +78,12 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(MAFDPROG) $(AMONPROG) $(MONPROG)
 	cp -p $(MAFDPROG) $(AMONPROG) $(MONPROG) $(INSTDIR)
-	cp -p $(MSAVPROG) ../../sbin
-	cp -p $(VHSTPROG) ../../sbin
-	cd $(INSTDIR) ; chmod $(BINMODE) $(MAFDPROG) $(AMONPROG) $(MONPROG)
-	cd ../../sbin ; chmod $(SBINMODE) $(MSAVPROG) $(VHSTPROG)
+	cd $(INSTDIR) && chmod $(BINMODE) $(MAFDPROG) $(AMONPROG) $(MONPROG)
+	cd $(SBINDIR) && rm -f $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
+	cp -p $(MSAVPROG) $(TOPVPROG) $(VHSTPROG) $(SBINDIR)
+	cd $(SBINDIR) && chmod $(SBINMODE) $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
 
 # Other depnedencies
 afd_mon.o mafd.o : ../version.h ../init_afd/permission.h

@@ -85,11 +85,10 @@ extern int                    afd_no,
                               timeout_flag;
 extern char                   msg_str[];
 #ifdef LINUX
-extern char                   *h_errlist[];  /* for gethostbyname()          */
-extern int                    h_nerr;        /* for gethostbyname()          */
+extern char                   *h_errlist[];  /* for gethostbyname()      */
+extern int                    h_nerr;        /* for gethostbyname()      */
 #endif
-extern int                    h_errno,       /* for gethostbyname()          */
-                              sock_fd,
+extern int                    sock_fd,
                               sys_log_fd,
                               mon_log_fd;
 extern long                   tcp_timeout;
@@ -403,7 +402,7 @@ read_msg(void)
    }
    else
    {
-      memmove(msg_str, read_ptr + 1, bytes_read);
+      (void)memmove(msg_str, read_ptr + 1, bytes_read);
       bytes_buffered = bytes_read;
       read_ptr = msg_str;
    }

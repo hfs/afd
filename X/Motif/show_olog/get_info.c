@@ -409,26 +409,31 @@ get_all(int item)
       id.remote_file_name[i] = '\0';
 
       /* Away with the file size. */
+      i = 0;
       while (*ptr != ' ')
       {
-         ptr++;
-      }
-      ptr++;
-      if (*ptr == '/')
-      {
-         /* Ignore  the remote file name */
-         while (*ptr != ' ')
+         if (i < (MAX_INT_LENGTH + MAX_INT_LENGTH))
          {
-            ptr++;
+            id.file_size[i] = *ptr;
+            i++;
          }
          ptr++;
       }
+      id.file_size[i] = '\0';
+      ptr++;
 
       /* Away with the transfer time. */
+      i = 0;
       while (*ptr != ' ')
       {
+         if (i < (MAX_INT_LENGTH + MAX_INT_LENGTH))
+         {
+            id.trans_time[i] = *ptr;
+            i++;
+         }
          ptr++;
       }
+      id.trans_time[i] = '\0';
       ptr++;
 
       /* Get the job ID. */
@@ -474,22 +479,26 @@ static void
 get_job_data(struct job_id_data *p_jd)
 {
    register int   i;
-   register char  *p_tmp;
+   register char  *p_file,
+                  *p_tmp;
    int            size;
 
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
    id.priority = p_jd->priority;
    id.no_of_files = p_jd->no_of_files;
-
-#ifdef _WITH_DYNAMIC_MEMORY
-   /* Allocate memory to buffer all file names. */
-   RT_ARRAY(id.files, id.no_of_files, MAX_FILENAME_LENGTH, char);
-#endif
+   p_file = p_jd->file_list;
+   if ((id.files = malloc((id.no_of_files * sizeof(char *)))) == NULL)
+   {
+      (void)xrec(toplevel_w, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+                 strerror(errno), __FILE__, __LINE__);
+      return;
+   }
 
    /* Save all file/filter names */
    for (i = 0; i < id.no_of_files; i++)
    {
-      (void)strcpy(id.files[i], p_jd->file_list[i]);
+      id.files[i] = p_file;
+      NEXT(p_file);
    }
 
    id.no_of_loptions = p_jd->no_of_loptions;
@@ -514,7 +523,7 @@ get_job_data(struct job_id_data *p_jd)
    if (id.no_of_soptions > 0)
    {
       size = strlen(p_jd->soptions);
-      if ((id.soptions = calloc(size, sizeof(char))) == NULL)
+      if ((id.soptions = calloc(size + 1, sizeof(char))) == NULL)
       {
          (void)xrec(toplevel_w, FATAL_DIALOG,
                     "calloc() error : %s (%s %d)",

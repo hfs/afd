@@ -165,7 +165,7 @@ get_dc_data(char *host_name)
    struct dir_name_buf *dnb = NULL;
 
    /* First check if the host is in the FSA */
-   if ((position = get_position(fsa, host_name, no_of_hosts)) == INCORRECT)
+   if ((position = get_host_position(fsa, host_name, no_of_hosts)) == INCORRECT)
    {
       (void)fprintf(stderr, "Host alias %s is not in FSA. (%s %d)\n",
                     host_name, __FILE__, __LINE__);
@@ -389,15 +389,18 @@ static void
 show_data(struct job_id_data *p_jd, char *dir_name, int position)
 {
    int  i;
-   char value[MAX_PATH_LENGTH];
+   char *p_file = p_jd->file_list,
+        value[MAX_PATH_LENGTH];
 
    (void)fprintf(stdout, "Directory     : %s\n", dir_name);
 
    /* Show file filters. */
-   (void)fprintf(stdout, "Filter        : %s\n", p_jd->file_list[0]);
+   (void)fprintf(stdout, "Filter        : %s\n", p_file);
+   NEXT(p_file);
    for (i = 1; i < p_jd->no_of_files; i++)
    {
-      (void)fprintf(stdout, "                %s\n", p_jd->file_list[i]);
+      (void)fprintf(stdout, "                %s\n", p_file);
+      NEXT(p_file);
    }
 
    /* Print recipient */

@@ -1,7 +1,7 @@
 /*
  *  check_afd_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,15 +39,15 @@ DESCR__S_M3
  **
  ** HISTORY
  **   04.10.1998 H.Kiehl Created
+ **   10.09.2000 H.Kiehl Addition of log history.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>               /* sprintf()                            */
-#include <string.h>              /* strcmp(), strcpy(), memmove()        */
+#include <string.h>              /* strcmp(), strcpy(), memcpy()         */
 #include <stdlib.h>              /* calloc(), realloc(), free()          */
 #include <math.h>                /* log10()                              */
-#include <sys/times.h>           /* times()                              */
 #include <errno.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -59,35 +59,19 @@ DESCR__E_M3
 extern Display                *display;
 extern XtAppContext           app;
 extern XtIntervalId           interval_id_afd;
-extern GC                     color_gc;
-extern Widget                 transviewshell;
-extern Window                 line_window;
 extern char                   line_style,
                               *p_work_dir;
 extern float                  max_bar_length;
-extern int                    no_of_afds,
-                              no_of_jobs_selected,
-                              glyph_height,
+extern int                    bar_thickness_3,
                               glyph_width,
-                              led_width,
-                              redraw_time_line,
-                              bar_thickness_3,
-                              no_selected,
+                              his_log_set,
+                              no_of_afds,
                               no_of_columns,
-                              msa_id,
-                              x_offset_proc;
-#ifndef _NO_MMAP
-extern off_t                  msa_size;
-#endif
-extern unsigned int           text_offset;
+                              no_selected,
+                              redraw_time_line;
 extern unsigned short         step_size;
-extern unsigned long          color_pool[];
-extern clock_t                clktck;
 extern struct mon_line        *connect_data;
 extern struct mon_status_area *msa;
-
-/* local global variables */
-struct tms                    tmsdummy;
 
 /* Local function prototypes */
 static int                    check_msa_data(char *),
@@ -139,8 +123,8 @@ Widget   w;
       {
          if (strcmp(connect_data[i].afd_alias, msa[i].afd_alias) == 0)
          {
-            memmove(&new_connect_data[i], &connect_data[i],
-                    sizeof(struct mon_line));
+            (void)memcpy(&new_connect_data[i], &connect_data[i],
+                         sizeof(struct mon_line));
          }
          else
          {
@@ -153,8 +137,8 @@ Widget   w;
          if ((pos = check_disp_data(msa[i].afd_alias,
                                     prev_no_of_afds)) != INCORRECT)
          {
-            (void)memmove(&new_connect_data[i], &connect_data[pos],
-                          sizeof(struct mon_line));
+            (void)memcpy(&new_connect_data[i], &connect_data[pos],
+                         sizeof(struct mon_line));
          }
          else /* A new host has been added */
          {
@@ -164,6 +148,11 @@ Widget   w;
                           MAX_AFDNAME_LENGTH, new_connect_data[i].afd_alias);
             (void)memcpy(new_connect_data[i].sys_log_fifo,
                          msa[i].sys_log_fifo, LOG_FIFO_SIZE + 1);
+            if (his_log_set > 0)
+            {
+               (void)memcpy(new_connect_data[i].log_history, msa[i].log_history,
+                            (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
+            }
             new_connect_data[i].sys_log_ec = msa[i].sys_log_ec;
             new_connect_data[i].amg = msa[i].amg;
             new_connect_data[i].fd = msa[i].fd;
@@ -260,7 +249,7 @@ Widget   w;
              * that this host has not been deleted. If it
              * is deleted reduce the select counter!
              */
-            if (connect_data[i].inverse == ON)
+            if ((i < prev_no_of_afds) && (connect_data[i].inverse == ON))
             {
                if ((pos = check_msa_data(connect_data[i].afd_alias)) == INCORRECT)
                {
@@ -299,8 +288,8 @@ Widget   w;
       }
 
       /* Activate the new connect_data structure */
-      memmove(&connect_data[0], &new_connect_data[0],
-              no_of_afds * sizeof(struct mon_line));
+      (void)memcpy(&connect_data[0], &new_connect_data[0],
+                   no_of_afds * sizeof(struct mon_line));
 
       free(new_connect_data);
 
@@ -360,7 +349,7 @@ Widget   w;
             locate_xy(i, &x, &y);
          }
 
-         if (connect_data[i].amg == OFF)
+         if (msa[i].amg == OFF)
          {
             connect_data[i].blink_flag = ON;
          }
@@ -382,7 +371,7 @@ Widget   w;
             locate_xy(i, &x, &y);
          }
 
-         if (connect_data[i].fd == OFF)
+         if (msa[i].fd == OFF)
          {
             connect_data[i].blink_flag = ON;
          }
@@ -403,18 +392,6 @@ Widget   w;
          {
             locate_xy(i, &x, &y);
          }
-
-         if (connect_data[i].archive_watch == OFF)
-         {
-            connect_data[i].blink_flag = ON;
-         }
-         else if ((msa[i].archive_watch == ON) &&
-                  (connect_data[i].archive_watch != ON) &&
-                  (connect_data[i].amg != OFF) &&
-                  (connect_data[i].fd != OFF))
-              {
-                 connect_data[i].blink_flag = OFF;
-              }
          connect_data[i].archive_watch = msa[i].archive_watch;
          draw_mon_proc_led(AW_LED, connect_data[i].archive_watch, x, y);
          flush = YES;
@@ -467,6 +444,51 @@ Widget   w;
                                 connect_data[i].sys_log_ec % LOG_FIFO_SIZE,
                                 x, y);
          flush = YES;
+      }
+
+      /*
+       * HISTORY LOG INFORMATION
+       * =======================
+       */
+      if (his_log_set > 0)
+      {
+         if (memcmp(connect_data[i].log_history[RECEIVE_HISTORY],
+                    msa[i].log_history[RECEIVE_HISTORY], MAX_LOG_HISTORY) != 0)
+         {
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+            (void)memcpy(connect_data[i].log_history[RECEIVE_HISTORY],
+                         msa[i].log_history[RECEIVE_HISTORY], MAX_LOG_HISTORY);
+            draw_remote_history(i, RECEIVE_HISTORY, x, y);
+            flush = YES;
+         }
+         if (memcmp(connect_data[i].log_history[SYSTEM_HISTORY],
+                    msa[i].log_history[SYSTEM_HISTORY], MAX_LOG_HISTORY) != 0)
+         {
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+            (void)memcpy(connect_data[i].log_history[SYSTEM_HISTORY],
+                         msa[i].log_history[SYSTEM_HISTORY], MAX_LOG_HISTORY);
+            draw_remote_history(i, SYSTEM_HISTORY, x, y + bar_thickness_3);
+            flush = YES;
+         }
+         if (memcmp(connect_data[i].log_history[TRANSFER_HISTORY],
+                    msa[i].log_history[TRANSFER_HISTORY], MAX_LOG_HISTORY) != 0)
+         {
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+            (void)memcpy(connect_data[i].log_history[TRANSFER_HISTORY],
+                         msa[i].log_history[TRANSFER_HISTORY], MAX_LOG_HISTORY);
+            draw_remote_history(i, TRANSFER_HISTORY, x,
+                                y + bar_thickness_3 + bar_thickness_3);
+            flush = YES;
+         }
       }
 
       /*
@@ -673,6 +695,16 @@ Widget   w;
                               x + (30 * glyph_width), y);
                flush = YES;
             }
+         }
+      }
+      else
+      {
+         /*
+          * Transfer rate.
+          */
+         if (connect_data[i].tr != msa[i].tr)
+         {
+            connect_data[i].tr = msa[i].tr;
          }
       }
 
@@ -890,7 +922,7 @@ Widget   w;
 static int
 check_msa_data(char *afd_alias)
 {
-   static int i;
+   register int i;
 
    for (i = 0; i < no_of_afds; i++)
    {
@@ -908,7 +940,7 @@ check_msa_data(char *afd_alias)
 static int
 check_disp_data(char *afd_alias, int prev_no_of_afds)
 {
-   static int i;
+   register int i;
 
    for (i = 0; i < prev_no_of_afds; i++)
    {

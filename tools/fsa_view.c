@@ -121,7 +121,7 @@ main(int argc, char *argv[])
 
    if (position == -1)
    {
-      if ((position = get_position(fsa, hostname, no_of_hosts)) < 0)
+      if ((position = get_host_position(fsa, hostname, no_of_hosts)) < 0)
       {
          (void)fprintf(stderr, "WARNING : Could not find host %s in FSA. (%s %d)\n",
                        hostname, __FILE__, __LINE__);
@@ -188,15 +188,7 @@ main(int argc, char *argv[])
               (void)fprintf(stdout, "Original toggle    : HOST_???\n");
            }
       (void)fprintf(stdout, "Toggle position    : %d\n", fsa[j].toggle_pos);
-      if (fsa[j].host_toggle_str[0] == '\0')
-      {
-         (void)fprintf(stdout, "Host toggle string : NONE\n");
-      }
-      else
-      {
-         (void)fprintf(stdout, "Host toggle string : %s\n", fsa[j].host_toggle_str);
-      }
-      (void)fprintf(stdout, "Protocol (%4d)    : ", fsa[j].protocol);
+      (void)fprintf(stdout, "Protocol (%8d): ", fsa[j].protocol);
       if (fsa[j].protocol & FTP_FLAG)
       {
          (void)fprintf(stdout, "FTP ");
@@ -221,6 +213,16 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "WMO ");
       }
 #endif
+      (void)fprintf(stdout, "\n");
+      (void)fprintf(stdout, "Direction          : ");
+      if (fsa[j].protocol & SEND_FLAG)
+      {
+         (void)fprintf(stdout, "SEND ");
+      }
+      if (fsa[j].protocol & RETRIEVE_FLAG)
+      {
+         (void)fprintf(stdout, "RETRIEVE ");
+      }
       (void)fprintf(stdout, "\n");
       if (fsa[j].proxy_name[0] != '\0')
       {
@@ -314,8 +316,6 @@ main(int argc, char *argv[])
                     fsa[j].active_transfers);
       (void)fprintf(stdout, "Allowed transfers  : %d\n",
                     fsa[j].allowed_transfers);
-      (void)fprintf(stdout, "Transfer rate      : %d\n",
-                    fsa[j].transfer_rate);
 
       (void)fprintf(stdout, "                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   \n");
       (void)fprintf(stdout, "--------------------+-----------+-----------+-----------+-----------+-----------\n");
@@ -366,7 +366,7 @@ main(int argc, char *argv[])
                break;
 #endif
 
-            case 15 :
+            case CLOSING_CONNECTION :
                (void)fprintf(stdout, "|CLOSING CON");
                break;
 

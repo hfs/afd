@@ -81,8 +81,6 @@ main(int argc, char *argv[])
                   *p_end,
                   *fifo_buffer,
                   work_dir[MAX_PATH_LENGTH],
-                  monitor_log_fifo[MAX_PATH_LENGTH],
-                  sys_log_fifo[MAX_PATH_LENGTH],
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH],
                   msg_str[MAX_LINE_LENGTH],
@@ -97,46 +95,52 @@ main(int argc, char *argv[])
    {
       exit(INCORRECT);
    }
-   p_work_dir = work_dir;
-
-   /* Create and open fifos that we need */
-   (void)strcpy(monitor_log_fifo, work_dir);
-   (void)strcat(monitor_log_fifo, FIFO_DIR);
-   (void)strcpy(sys_log_fifo, monitor_log_fifo);
-   (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
-   (void)strcat(monitor_log_fifo, MON_LOG_FIFO);
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+   else
    {
-      if (make_fifo(sys_log_fifo) < 0)
+      char monitor_log_fifo[MAX_PATH_LENGTH],
+           sys_log_fifo[MAX_PATH_LENGTH];
+
+      p_work_dir = work_dir;
+
+      /* Create and open fifos that we need */
+      (void)strcpy(monitor_log_fifo, work_dir);
+      (void)strcat(monitor_log_fifo, FIFO_DIR);
+      (void)strcpy(sys_log_fifo, monitor_log_fifo);
+      (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
+      (void)strcat(monitor_log_fifo, MON_LOG_FIFO);
+      if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "Failed to create fifo %s. (%s %d)\n",
-                   sys_log_fifo, __FILE__, __LINE__);
+         if (make_fifo(sys_log_fifo) < 0)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN, "Failed to create fifo %s. (%s %d)\n",
+                      sys_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() fifo %s : %s (%s %d)\n",
+                   sys_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() fifo %s : %s (%s %d)\n",
-                sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   if ((stat(monitor_log_fifo, &stat_buf) < 0) ||
-       (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(monitor_log_fifo) < 0)
+      if ((stat(monitor_log_fifo, &stat_buf) < 0) ||
+          (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(monitor_log_fifo) < 0)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to create fifo %s. (%s %d)\n",
+                      monitor_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if ((monitor_fd = open(monitor_log_fifo, O_RDWR)) < 0)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   monitor_log_fifo, __FILE__, __LINE__);
+                   "Failed to open() fifo %s : %s (%s %d)\n",
+                   monitor_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((monitor_fd = open(monitor_log_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() fifo %s : %s (%s %d)\n",
-                monitor_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
    
    /*
@@ -297,7 +301,7 @@ main(int argc, char *argv[])
                                 (void)fprint_dup_msg(monitor_file,
                                                      dup_msg,
                                                      &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                     &prev_msg_str[LOG_SIGN_POSITION + 2],
+                                                     &prev_msg_str[LOG_SIGN_POSITION + 3],
                                                      now);
                              }
                              dup_msg = 0;
@@ -328,7 +332,7 @@ main(int argc, char *argv[])
                              (void)fprint_dup_msg(monitor_file,
                                                   dup_msg,
                                                   &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                  &prev_msg_str[LOG_SIGN_POSITION + 2],
+                                                  &prev_msg_str[LOG_SIGN_POSITION + 3],
                                                   now);
                           }
                           dup_msg = 0;

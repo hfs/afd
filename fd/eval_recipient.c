@@ -204,29 +204,26 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
        * Find position of this hostname in FSA.
        */
       t_hostname(p_db->hostname, p_db->host_alias);
-      if (((p_db->position = get_position(fsa, p_db->host_alias, no_of_hosts)) < 0) &&
-          (full_msg_path != NULL))
+      if ((p_db->fsa_pos = get_host_position(fsa, p_db->host_alias, no_of_hosts)) < 0)
       {
          /*
           * Uups. What do we do now? Host not in the FSA!
           * Lets put this message into the faulty directory.
           * Hmm. Maybe somebody has a better idea?
           */
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "The message in %s contains a hostname (%s) that is not in the FSA. (%s %d)\n",
-                   full_msg_path, p_db->host_alias, __FILE__, __LINE__);
+         if (full_msg_path != NULL)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "The message in %s contains a hostname (%s) that is not in the FSA. (%s %d)\n",
+                      full_msg_path, p_db->host_alias, __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to locate host %s in the FSA. (%s %d)\n",
+                      p_db->host_alias, __FILE__, __LINE__);
+         }
          return(INCORRECT);
-      }
-
-      /*
-       * If proxy name is specified, add this to the user
-       * name. We do this here because this is the point
-       * where we know the position in the FSA.
-       */
-      if (fsa[p_db->position].proxy_name[0] != '\0')
-      {
-         (void)strcat(p_db->user, "@");
-         (void)strcat(p_db->user, fsa[p_db->position].proxy_name);
       }
 
       /* Save TCP port number */

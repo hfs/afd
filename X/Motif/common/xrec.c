@@ -181,9 +181,6 @@ xrec(Widget parent, char type, char *fmt, ...)
          }
 
       default             : /* Undefined. Should not happen! */
-         XtVaSetValues(dialog,
-                       XmNdialogType, XmDIALOG_MESSAGE,
-                       NULL);
          break;
    }
 

@@ -96,7 +96,8 @@ shutdown_afd(void)
 
    /* Tell user what we are doing */
    get_user(user);
-   (void)rec(sys_log_fd, WARN_SIGN, "Starting AFD shutdown (%s) ...\n", user);
+   (void)rec(sys_log_fd, CONFIG_SIGN, "Starting AFD shutdown (%s) ...\n",
+             user);
 
    /* Send SHUTDOWN command */
    if (send_cmd(SHUTDOWN, afd_cmd_fd) < 0)

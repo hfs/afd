@@ -61,6 +61,7 @@ int               sys_log_fd = STDERR_FILENO;
 unsigned int      *p_log_counter,
                   total_length;
 char              *p_log_fifo,
+                  *p_log_his,
                   *p_work_dir;
 struct afd_status *p_afd_status;
 
@@ -78,8 +79,7 @@ main(int argc, char *argv[])
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
                log_file[MAX_PATH_LENGTH],
-               current_log_file[MAX_PATH_LENGTH],
-               system_log_fifo[MAX_PATH_LENGTH];
+               current_log_file[MAX_PATH_LENGTH];
    FILE        *p_log_file;
    struct stat stat_buf;
 
@@ -101,16 +101,20 @@ main(int argc, char *argv[])
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-
-   /* Initialise variables for fifo stuff */
-   (void)strcpy(system_log_fifo, work_dir);
-   (void)strcat(system_log_fifo, FIFO_DIR);
-   (void)strcat(system_log_fifo, SYSTEM_LOG_FIFO);
-   if ((sys_log_fd = open(system_log_fifo, O_RDWR)) < 0)
+   else
    {
-      (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    system_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      char system_log_fifo[MAX_PATH_LENGTH];
+
+      /* Initialise variables for fifo stuff */
+      (void)strcpy(system_log_fifo, work_dir);
+      (void)strcat(system_log_fifo, FIFO_DIR);
+      (void)strcat(system_log_fifo, SYSTEM_LOG_FIFO);
+      if ((sys_log_fd = open(system_log_fifo, O_RDWR)) < 0)
+      {
+         (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
+                       system_log_fifo, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
 
    /* Attach to the AFD Status Area */
@@ -131,10 +135,9 @@ main(int argc, char *argv[])
 
    p_log_counter = (unsigned int *)&p_afd_status->sys_log_ec;
    p_log_fifo = &p_afd_status->sys_log_fifo[0];
-   get_log_number(&log_number,
-                  (MAX_SYSTEM_LOG_FILES - 1),
-                  SYSTEM_LOG_NAME,
-                  strlen(SYSTEM_LOG_NAME));
+   p_log_his = &p_afd_status->sys_log_history[0];
+   get_log_number(&log_number, (MAX_SYSTEM_LOG_FILES - 1),
+                  SYSTEM_LOG_NAME, strlen(SYSTEM_LOG_NAME));
    (void)sprintf(current_log_file, "%s%s/%s0",
                  p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
    p_end = log_file;
@@ -144,11 +147,13 @@ main(int argc, char *argv[])
    {
       if (stat(current_log_file, &stat_buf) < 0)
       {
-         /* The log file does not yet exist */
+         /* The log file does not yet exist. */
          total_length = 0;
       }
       else
       {
+         /* Check if we have to start a new log file */
+         /* because the current one is large enough. */
          if (stat_buf.st_size > MAX_LOGFILE_SIZE)
          {
             if (log_number < (MAX_SYSTEM_LOG_FILES - 1))
@@ -164,7 +169,7 @@ main(int argc, char *argv[])
          }
       }
 
-      /* Open debug file for writing */
+      /* Open system log file for writing. */
       if ((p_log_file = fopen(current_log_file, "a+")) == NULL)
       {
          (void)fprintf(stderr, "ERROR   : Could not open %s : %s (%s %d)\n",

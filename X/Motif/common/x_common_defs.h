@@ -38,6 +38,14 @@
 #define MEGABYTE                        1048576
 #define GIGABYTE                        1073741824
 #define DEFAULT_FILENAME_DISPLAY_LENGTH 25
+#define DEFAULT_NO_OF_HISTORY_LOGS      0
+
+/* Definitions for the printer interface. */
+#define SELECTION_TOGGLE                1
+#define ALL_TOGGLE                      2
+#define PRINTER_TOGGLE                  3
+#define FILE_TOGGLE                     4
+#define CONTROL_D                       '\004'
 
 /* Definitions for all X programs of the AFD */
 #define MAX_MESSAGE_LENGTH              80
@@ -123,6 +131,7 @@
 #define ROW_ID                          "Number of rows:"
 #define STYLE_ID                        "Line style:"
 #define FILENAME_DISPLAY_LENGTH_ID      "Filename display length:"
+#define NO_OF_HISTORY_LENGTH_ID         "History log length:"
 
 #define NO_INFO_AVAILABLE               "No information available for this host."
 
@@ -229,10 +238,10 @@
 #define LABEL_BG_COLOR_1                "NavajoWhite"
 #define LABEL_BG_COLOR_2                "moccasin"
 #define LABEL_BG_COLOR_3                "bisque"
-#define FAULTY_TRANSFERS_COLOR          "SteelBlue1"
-#define FAULTY_TRANSFERS_COLOR_1        "LightSkyBlue"
-#define FAULTY_TRANSFERS_COLOR_2        "DeepSkyBlue1"
-#define FAULTY_TRANSFERS_COLOR_3        "SteelBlue2"
+#define BUTTON_BACKGROUND_COLOR         "SteelBlue1"
+#define BUTTON_BACKGROUND_COLOR_1       "LightSkyBlue"
+#define BUTTON_BACKGROUND_COLOR_2       "DeepSkyBlue1"
+#define BUTTON_BACKGROUND_COLOR_3       "SteelBlue2"
 #define EMAIL_ACTIVE_COLOR              "pink"
 #define EMAIL_ACTIVE_COLOR_1            "LightPink"
 #define EMAIL_ACTIVE_COLOR_2            "MistyRose1"
@@ -337,7 +346,7 @@ struct coord
                    (str)[1] = ' ';                          \
                    (str)[2] = ((value) / 10) + '0';         \
                    (str)[3] = ((value) % 10) + '0';         \
-           }                                                \
+                }                                           \
            else if ((value) < 1000)                         \
                 {                                           \
                    (str)[0] = ' ';                          \
@@ -351,6 +360,46 @@ struct coord
                    (str)[1] = (((value) / 100) % 10) + '0'; \
                    (str)[2] = (((value) / 10) % 10) + '0';  \
                    (str)[3] = ((value) % 10) + '0';         \
+                }                                           \
+        }
+
+#define CREATE_FR_STRING(str, value)                        \
+        {                                                   \
+           (str)[4] = '\0';                                 \
+           if ((value) < 1.0)                               \
+           {                                                \
+              (str)[0] = ' ';                               \
+              (str)[1] = '0';                               \
+              (str)[2] = '.';                               \
+              (str)[3] = ((int)((value) * 10.0) % 10) + '0';\
+           }                                                \
+           else if ((value) < 10.0)                         \
+                {                                           \
+                   (str)[0] = ' ';                          \
+                   (str)[1] = (int)(value) + '0';           \
+                   (str)[2] = '.';                          \
+                   (str)[3] = ((int)((value) * 10.0) % 10) + '0';\
+                }                                           \
+           else if ((value) < 100.0)                        \
+                {                                           \
+                   (str)[0] = ((int)(value) / 10) + '0';    \
+                   (str)[1] = ((int)(value) % 10) + '0';    \
+                   (str)[2] = '.';                          \
+                   (str)[3] = ((int)((value) * 10.0) % 10) + '0';\
+                }                                           \
+           else if ((value) < 1000.0)                       \
+                {                                           \
+                   (str)[0] = ' ';                          \
+                   (str)[1] = ((int)(value) / 100) + '0';   \
+                   (str)[2] = ((int)((value) / 10) % 10) + '0';\
+                   (str)[3] = ((int)(value) % 10) + '0';    \
+                }                                           \
+                else                                        \
+                {                                           \
+                   (str)[0] = ((int)((value) / 1000) % 10) + '0';\
+                   (str)[1] = ((int)((value) / 100) % 10) + '0'; \
+                   (str)[2] = (((int)(value) / 10) % 10) + '0';  \
+                   (str)[3] = ((int)(value) % 10) + '0';    \
                 }                                           \
         }
 
@@ -532,6 +581,8 @@ struct coord
 /* Function Prototypes */
 extern int  check_info_file(void),
             get_current_jid_list(void),
+            prepare_printer(int *),
+            prepare_file(int *),
             sfilter(char *, char *),      /* show_?log */
             store_host_names(char **, char *),
             xrec(Widget, char, char *, ...);
@@ -541,12 +592,15 @@ extern void check_nummeric(Widget, XtPointer, XtPointer),
             init_color(Display *),
             locate_xy(int, int *, int *),
             make_xprocess(char *, char *, char **, int),
-            read_setup(char *),
-            reset_message(void),                  /* show_?log */
+            print_data(void),
+            print_data_button(Widget, XtPointer, XtPointer),
+            read_setup(char *, int *, int *),
+            remove_passwd(char *),
+            reset_message(Widget),                /* show_?log */
             show_info(char *),                    /* show_?log */
-            show_message(char *),                 /* show_?log */
+            show_message(Widget, char *),         /* show_?log */
             update_time(XtPointer, XtIntervalId), /* show_?log */
             wait_visible(Widget),
-            write_setup(void);
+            write_setup(int, int);
 
 #endif /* __x_common_defs_h */

@@ -76,6 +76,7 @@ extern Widget           listbox_w,
                         scrollbar_w,
                         statusbox_w,
                         special_button_w,
+                        statusbox_w,
                         summarybox_w,
                         toplevel_w;
 extern int              file_name_toggle_set,
@@ -252,7 +253,7 @@ static void   display_data(int, time_t, time_t),
                                                                        \
               (void)sprintf(msg_buffer, "List limit (%d) reached!",    \
                             perm.list_limit);                          \
-              show_message(msg_buffer);                                \
+              show_message(statusbox_w, msg_buffer);                   \
               break;                                                   \
            }                                                           \
         }
@@ -306,6 +307,10 @@ static void   display_data(int, time_t, time_t),
                     *(p_file_size - j) = *tmp_ptr;                     \
                     tmp_ptr--; j++;                                    \
                  }                                                     \
+                 if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                 {                                                     \
+                    *(p_file_size - j) = '>';                          \
+                 }                                                     \
               }                                                        \
               else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
                        (tmp_file_size < search_file_size))             \
@@ -325,6 +330,10 @@ static void   display_data(int, time_t, time_t),
                          *(p_file_size - j) = *tmp_ptr;                \
                          tmp_ptr--; j++;                               \
                       }                                                \
+                      if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                      {                                                \
+                         *(p_file_size - j) = '>';                     \
+                      }                                                \
                    }                                                   \
               else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
                        (tmp_file_size > search_file_size))             \
@@ -343,6 +352,10 @@ static void   display_data(int, time_t, time_t),
                       {                                                \
                          *(p_file_size - j) = *tmp_ptr;                \
                          tmp_ptr--; j++;                               \
+                      }                                                \
+                      if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                      {                                                \
+                         *(p_file_size - j) = '>';                     \
                       }                                                \
                    }                                                   \
                    else                                                \
@@ -437,6 +450,10 @@ static void   display_data(int, time_t, time_t),
                  *(p_file_size - j) = *tmp_ptr;                        \
                  tmp_ptr--; j++;                                       \
               }                                                        \
+              if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+              {                                                        \
+                 *(p_file_size - j) = '>';                             \
+              }                                                        \
            }                                                           \
            else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
                     (tmp_file_size < search_file_size))                \
@@ -456,6 +473,10 @@ static void   display_data(int, time_t, time_t),
                       *(p_file_size - j) = *tmp_ptr;                   \
                       tmp_ptr--; j++;                                  \
                    }                                                   \
+                   if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                   {                                                   \
+                      *(p_file_size - j) = '>';                        \
+                   }                                                   \
                 }                                                      \
            else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
                     (tmp_file_size > search_file_size))                \
@@ -474,6 +495,10 @@ static void   display_data(int, time_t, time_t),
                    {                                                   \
                       *(p_file_size - j) = *tmp_ptr;                   \
                       tmp_ptr--; j++;                                  \
+                   }                                                   \
+                   if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                   {                                                   \
+                      *(p_file_size - j) = '>';                        \
                    }                                                   \
                 }                                                      \
                 else                                                   \
@@ -1032,6 +1057,7 @@ no_criteria(register char *ptr,
          ptr++;
 
          /* Write file size. */
+         p_size = ptr;
          while (*ptr != ' ')
          {
             ptr++;
@@ -1043,8 +1069,10 @@ no_criteria(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         tmp_ptr++;
-         p_size = tmp_ptr;
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+         }
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -1326,6 +1354,7 @@ file_name_only(register char *ptr,
          ptr++;
 
          /* Write file size. */
+         p_size = ptr;
          while (*ptr != ' ')
          {
             ptr++;
@@ -1337,8 +1366,10 @@ file_name_only(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         tmp_ptr++;
-         p_size = tmp_ptr;
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+         }
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -1743,6 +1774,10 @@ file_name_and_size(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+         }
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -1984,6 +2019,7 @@ recipient_only(register char *ptr,
          ptr++;
 
          /* Write file size. */
+         p_size = ptr;
          while (*ptr != ' ')
          {
             ptr++;
@@ -1995,8 +2031,10 @@ recipient_only(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         tmp_ptr++;
-         p_size = tmp_ptr;
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+         }
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -2143,6 +2181,7 @@ file_name_and_recipient(register char *ptr,
          ptr++;
 
          /* Write file size. */
+         p_size = ptr;
          while (*ptr != ' ')
          {
             ptr++;
@@ -2154,8 +2193,10 @@ file_name_and_recipient(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         tmp_ptr++;
-         p_size = tmp_ptr;
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+         }
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -2637,6 +2678,10 @@ file_name_size_recipient(register char *ptr,
          {
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
+         }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
          }
 
          /* Write transfer duration, job ID and additional reason. */

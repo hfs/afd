@@ -67,8 +67,9 @@ encode_base64(unsigned char *src, int src_length, unsigned char *dst)
       if (line_length > 71)
       {
          line_length = 0;
-         *(dst_ptr + 4) = '\n';
-         dst_ptr += 5;
+         *(dst_ptr + 4) = '\r';
+         *(dst_ptr + 5) = '\n';
+         dst_ptr += 6;
       }
       else
       {

@@ -62,6 +62,7 @@ extern Widget                  mw[],
                                sw[],
                                hw[],
                                rw[],
+                               hlw[],
                                lw[],
                                lsw[];
 extern GC                      letter_gc,
@@ -83,12 +84,13 @@ extern float                   max_bar_length;
 extern int                     no_of_afds,
                                line_length,
                                line_height,
-                               led_width,
+                               his_log_set,
                                log_angle,
                                no_of_columns,
                                bar_thickness_3,
                                x_center_log_status,
                                x_offset_log_status,
+                               x_offset_log_history,
                                x_offset_led,
                                x_offset_bars,
                                x_offset_characters,
@@ -111,6 +113,8 @@ void
 setup_mon_window(char *font_name)
 {
    int             i,
+                   his_log_length,
+                   led_width,
                    new_max_bar_length;
    XmFontListEntry entry;
 
@@ -141,7 +145,8 @@ setup_mon_window(char *font_name)
       if ((mcp.show_ms_log != NO_PERMISSION) ||
           (mcp.show_mm_log != NO_PERMISSION) ||
           (mcp.info != NO_PERMISSION) ||
-          (mcp.retry != NO_PERMISSION))
+          (mcp.retry != NO_PERMISSION) ||
+          (mcp.disable != NO_PERMISSION))
       {
          if (mcp.show_ms_log != NO_PERMISSION)
          {
@@ -159,16 +164,21 @@ setup_mon_window(char *font_name)
          {
             XtVaSetValues(ow[MON_RETRY_W], XmNfontList, fontlist, NULL);
          }
+         if (mcp.disable != NO_PERMISSION)
+         {
+            XtVaSetValues(ow[MON_DISABLE_W], XmNfontList, fontlist, NULL);
+         }
       }
       XtVaSetValues(ow[MON_EXIT_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the RAFD pulldown */
       if ((mcp.afd_ctrl != NO_PERMISSION) ||
           (mcp.show_slog != NO_PERMISSION) ||
+          (mcp.show_rlog != NO_PERMISSION) ||
           (mcp.show_tlog != NO_PERMISSION) ||
           (mcp.show_ilog != NO_PERMISSION) ||
           (mcp.show_olog != NO_PERMISSION) ||
-          (mcp.show_rlog != NO_PERMISSION) ||
+          (mcp.show_elog != NO_PERMISSION) ||
           (mcp.afd_load != NO_PERMISSION))
       {
          XtVaSetValues(mw[LOG_W], XmNfontList, fontlist, NULL);
@@ -179,6 +189,10 @@ setup_mon_window(char *font_name)
          if (mcp.show_slog != NO_PERMISSION)
          {
             XtVaSetValues(vw[MON_SYSTEM_W], XmNfontList, fontlist, NULL);
+         }
+         if (mcp.show_rlog != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[MON_RECEIVE_W], XmNfontList, fontlist, NULL);
          }
          if (mcp.show_tlog != NO_PERMISSION)
          {
@@ -192,7 +206,7 @@ setup_mon_window(char *font_name)
          {
             XtVaSetValues(vw[MON_OUTPUT_W], XmNfontList, fontlist, NULL);
          }
-         if (mcp.show_rlog != NO_PERMISSION)
+         if (mcp.show_elog != NO_PERMISSION)
          {
             XtVaSetValues(vw[MON_DELETE_W], XmNfontList, fontlist, NULL);
          }
@@ -212,6 +226,7 @@ setup_mon_window(char *font_name)
           (mcp.rr_dc != NO_PERMISSION) ||
           (mcp.rr_hc != NO_PERMISSION) ||
           (mcp.edit_hc != NO_PERMISSION) ||
+          (mcp.dir_ctrl != NO_PERMISSION) ||
           (mcp.startup_afd != NO_PERMISSION) ||
           (mcp.shutdown_afd != NO_PERMISSION))
       {
@@ -236,6 +251,10 @@ setup_mon_window(char *font_name)
          {
             XtVaSetValues(cw[EDIT_HC_W], XmNfontList, fontlist, NULL);
          }
+         if (mcp.dir_ctrl != NO_PERMISSION)
+         {
+            XtVaSetValues(cw[DIR_CTRL_W], XmNfontList, fontlist, NULL);
+         }
          if (mcp.startup_afd != NO_PERMISSION)
          {
             XtVaSetValues(cw[STARTUP_AFD_W], XmNfontList, fontlist, NULL);
@@ -251,6 +270,7 @@ setup_mon_window(char *font_name)
       XtVaSetValues(sw[FONT_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[ROWS_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[STYLE_W], XmNfontList, fontlist, NULL);
+      XtVaSetValues(sw[HISTORY_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(sw[SAVE_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the Help pulldown */
@@ -371,13 +391,20 @@ setup_mon_window(char *font_name)
    y_offset_led    = (glyph_height - glyph_width) / 2;
    led_width       = glyph_height / 3;
    y_center_log    = SPACE_ABOVE_LINE + (glyph_height / 2);
+   if (his_log_set > 0)
+   {
+      his_log_length  = (his_log_set * bar_thickness_3) + DEFAULT_FRAME_SPACE;
+   }
+   else
+   {
+      his_log_length  = 0;
+   }
    line_length     = DEFAULT_FRAME_SPACE +
                      (MAX_AFDNAME_LENGTH * glyph_width) +
                      DEFAULT_FRAME_SPACE +
                      (3 * (led_width + PROC_LED_SPACING)) +
-                     glyph_width + DEFAULT_FRAME_SPACE +
-                     glyph_height + (glyph_width / 2) +
-                     DEFAULT_FRAME_SPACE;
+                     glyph_height + (glyph_height / 2) + DEFAULT_FRAME_SPACE +
+                     his_log_length + DEFAULT_FRAME_SPACE;
 
    if (line_style == BARS_ONLY)
    {
@@ -393,13 +420,13 @@ setup_mon_window(char *font_name)
                            (int)max_bar_length + DEFAULT_FRAME_SPACE;
          }
 
-   x_offset_led = DEFAULT_FRAME_SPACE +
-                  (MAX_AFDNAME_LENGTH * glyph_width) +
+   x_offset_led = DEFAULT_FRAME_SPACE + (MAX_AFDNAME_LENGTH * glyph_width) +
                   DEFAULT_FRAME_SPACE;
-   x_offset_log_status = x_offset_led + glyph_width +
-                         DEFAULT_FRAME_SPACE +
-                         (3 * (led_width + PROC_LED_SPACING));
+   x_offset_log_status = x_offset_led + (3 * (led_width + PROC_LED_SPACING)) +
+                         (glyph_height / 2) + DEFAULT_FRAME_SPACE;
    x_center_log_status = x_offset_log_status + (glyph_height / 2);
+   x_offset_log_history = x_offset_log_status + glyph_height +
+                          DEFAULT_FRAME_SPACE;
    for (i = 0; i < LOG_FIFO_SIZE; i++)
    {
       coord[i].x = x_center_log_status +
@@ -411,18 +438,15 @@ setup_mon_window(char *font_name)
    }
    if (line_style == BARS_ONLY)
    {
-      x_offset_bars = x_offset_log_status + glyph_height +
-                      (glyph_width / 2) + DEFAULT_FRAME_SPACE;
+      x_offset_bars = x_offset_log_history + his_log_length;
    }
    else  if (line_style == CHARACTERS_ONLY)
          {
-            x_offset_characters = x_offset_log_status + glyph_height +
-                                  (glyph_width / 2) + DEFAULT_FRAME_SPACE;
+            x_offset_characters = x_offset_log_history + his_log_length;
          }
          else
          {
-            x_offset_characters = x_offset_log_status + glyph_height +
-                                  (glyph_width / 2) + DEFAULT_FRAME_SPACE;
+            x_offset_characters = x_offset_log_history + his_log_length;
             x_offset_bars = x_offset_characters + (32 * glyph_width) +
                             DEFAULT_FRAME_SPACE;
          }

@@ -236,7 +236,7 @@ static void   display_data(int, time_t, time_t),
                                                                             \
               (void)sprintf(msg_buffer, "List limit (%d) reached!",         \
                             perm.list_limit);                               \
-              show_message(msg_buffer);                                     \
+              show_message(statusbox_w, msg_buffer);                        \
               break;                                                        \
            }                                                                \
         }
@@ -739,6 +739,14 @@ no_criteria(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+            while (*tmp_ptr != ' ')
+            {
+               tmp_ptr--;
+            }
+         }
          tmp_ptr++;
 
          /* Write transfer duration, job ID and archive directory. */
@@ -902,6 +910,14 @@ file_name_only(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+            while (*tmp_ptr != ' ')
+            {
+               tmp_ptr--;
+            }
+         }
          tmp_ptr++;
 
          /* Write transfer duration, job ID and archive directory. */
@@ -1005,8 +1021,12 @@ file_size_only(register char *ptr,
             j = 0;
             while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE))
             {
-            *(p_file_size - j) = *tmp_ptr;
-                  tmp_ptr--; j++;
+               *(p_file_size - j) = *tmp_ptr;
+               tmp_ptr--; j++;
+            }
+            if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+            {
+               *(p_file_size - j) = '>';
             }
          }
          else if ((gt_lt_sign == LESS_THEN_SIGN) &&
@@ -1026,6 +1046,10 @@ file_size_only(register char *ptr,
                     *(p_file_size - j) = *tmp_ptr;
                     tmp_ptr--; j++;
                  }
+                 if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+                 {
+                    *(p_file_size - j) = '>';
+                 }
               }
          else if ((gt_lt_sign == GREATER_THEN_SIGN) &&
                   (tmp_file_size > search_file_size))
@@ -1043,6 +1067,10 @@ file_size_only(register char *ptr,
                  {
                     *(p_file_size - j) = *tmp_ptr;
                     tmp_ptr--; j++;
+                 }
+                 if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+                 {
+                    *(p_file_size - j) = '>';
                  }
               }
               else
@@ -1219,6 +1247,10 @@ file_name_and_size(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+         }
 
          /* Write transfer duration, job ID and archive directory. */
          /* Also check if we have to check for directory name.     */
@@ -1334,6 +1366,14 @@ recipient_only(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+            while (*tmp_ptr != ' ')
+            {
+               tmp_ptr--;
+            }
+         }
          tmp_ptr++;
 
          ptr++;
@@ -1350,31 +1390,37 @@ recipient_only(register char *ptr,
          get_info(GOT_JOB_ID_DIR_AND_RECIPIENT);
 
          gotcha = NO;
-         for (ii = 0; ii < no_of_search_hosts; ii++)
+         if (id.count > 0)
          {
-            for (j = 0; j < id.count; j++)
+            for (ii = 0; ii < no_of_search_hosts; ii++)
             {
-               if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
+               for (j = 0; j < id.count; j++)
                {
-                  if (search_user[ii][0] == '\0')
+                  if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
                   {
-                     gotcha = YES;
-                     break;
-                  }
-                  else
-                  {
-                     if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                     if (search_user[ii][0] == '\0')
                      {
                         gotcha = YES;
                         break;
                      }
+                     else
+                     {
+                        if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
+               if (gotcha == YES)
+               {
+                  break;
+               }
             }
-            if (gotcha == YES)
-            {
-               break;
-            }
+            free(id.dbe);
+            id.dbe = NULL;
+            id.count = 0;
          }
          if (gotcha == NO)
          {
@@ -1516,6 +1562,14 @@ file_name_and_recipient(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+            while (*tmp_ptr != ' ')
+            {
+               tmp_ptr--;
+            }
+         }
          tmp_ptr++;
 
          ptr++;
@@ -1532,31 +1586,37 @@ file_name_and_recipient(register char *ptr,
          get_info(GOT_JOB_ID_DIR_AND_RECIPIENT);
 
          gotcha = NO;
-         for (ii = 0; ii < no_of_search_hosts; ii++)
+         if (id.count > 0)
          {
-            for (j = 0; j < id.count; j++)
+            for (ii = 0; ii < no_of_search_hosts; ii++)
             {
-               if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
+               for (j = 0; j < id.count; j++)
                {
-                  if (search_user[ii][0] == '\0')
+                  if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
                   {
-                     gotcha = YES;
-                     break;
-                  }
-                  else
-                  {
-                     if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                     if (search_user[ii][0] == '\0')
                      {
                         gotcha = YES;
                         break;
                      }
+                     else
+                     {
+                        if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
+               if (gotcha == YES)
+               {
+                  break;
+               }
             }
-            if (gotcha == YES)
-            {
-               break;
-            }
+            free(id.dbe);
+            id.dbe = NULL;
+            id.count = 0;
          }
          if (gotcha == NO)
          {
@@ -1685,6 +1745,10 @@ file_size_and_recipient(register char *ptr,
                *(p_file_size - j) = *tmp_ptr;
                tmp_ptr--; j++;
             }
+            if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+            {
+               *(p_file_size - j) = '>';
+            }
          }
          else if ((gt_lt_sign == LESS_THEN_SIGN) &&
                   (tmp_file_size < search_file_size))
@@ -1703,6 +1767,10 @@ file_size_and_recipient(register char *ptr,
                     *(p_file_size - j) = *tmp_ptr;
                     tmp_ptr--; j++;
                  }
+                 if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+                 {
+                    *(p_file_size - j) = '>';
+                 }
               }
          else if ((gt_lt_sign == GREATER_THEN_SIGN) &&
                   (tmp_file_size > search_file_size))
@@ -1720,6 +1788,10 @@ file_size_and_recipient(register char *ptr,
                  {
                     *(p_file_size - j) = *tmp_ptr;
                     tmp_ptr--; j++;
+                 }
+                 if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+                 {
+                    *(p_file_size - j) = '>';
                  }
               }
               else
@@ -1772,31 +1844,37 @@ file_size_and_recipient(register char *ptr,
          get_info(GOT_JOB_ID_DIR_AND_RECIPIENT);
 
          gotcha = NO;
-         for (ii = 0; ii < no_of_search_hosts; ii++)
+         if (id.count > 0)
          {
-            for (j = 0; j < id.count; j++)
+            for (ii = 0; ii < no_of_search_hosts; ii++)
             {
-               if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
+               for (j = 0; j < id.count; j++)
                {
-                  if (search_user[ii][0] == '\0')
+                  if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
                   {
-                     gotcha = YES;
-                     break;
-                  }
-                  else
-                  {
-                     if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                     if (search_user[ii][0] == '\0')
                      {
                         gotcha = YES;
                         break;
                      }
+                     else
+                     {
+                        if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
+               if (gotcha == YES)
+               {
+                  break;
+               }
             }
-            if (gotcha == YES)
-            {
-               break;
-            }
+            free(id.dbe);
+            id.dbe = NULL;
+            id.count = 0;
          }
          if (gotcha == NO)
          {
@@ -1959,6 +2037,10 @@ file_name_size_recipient(register char *ptr,
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         {
+            *(p_file_size - j) = '>';
+         }
 
          ptr++;
          count = 0;
@@ -1974,31 +2056,37 @@ file_name_size_recipient(register char *ptr,
          get_info(GOT_JOB_ID_DIR_AND_RECIPIENT);
 
          gotcha = NO;
-         for (ii = 0; ii < no_of_search_hosts; ii++)
+         if (id.count > 0)
          {
-            for (j = 0; j < id.count; j++)
+            for (ii = 0; ii < no_of_search_hosts; ii++)
             {
-               if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
+               for (j = 0; j < id.count; j++)
                {
-                  if (search_user[ii][0] == '\0')
+                  if (sfilter(search_recipient[ii], id.dbe[j].recipient) == 0)
                   {
-                     gotcha = YES;
-                     break;
-                  }
-                  else
-                  {
-                     if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                     if (search_user[ii][0] == '\0')
                      {
                         gotcha = YES;
                         break;
                      }
+                     else
+                     {
+                        if (sfilter(search_user[ii], id.dbe[j].user) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
                   }
                }
+               if (gotcha == YES)
+               {
+                  break;
+               }
             }
-            if (gotcha == YES)
-            {
-               break;
-            }
+            free(id.dbe);
+            id.dbe = NULL;
+            id.count = 0;
          }
          if (gotcha == NO)
          {

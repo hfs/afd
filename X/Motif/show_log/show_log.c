@@ -1,6 +1,6 @@
 /*
  *  show_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,8 +28,8 @@ DESCR__S_M1
  **   show_log [--version]
  **                OR
  **   show_log [-w <AFD working directory>] 
- **            [font name]
- **            System|Transfer|Debug|Monitor|Monsystem
+ **            [-f <font name>]
+ **            System|Receive|Transfer|Debug|Monitor|Monsystem
  **            [hostname 1 hostname 2 ... hostname n]
  **
  ** DESCRIPTION
@@ -133,7 +133,8 @@ FILE           *p_log_file;
 static void    init_log_file(int *, char **),
                create_cursors(void),
                sig_bus(int),
-               sig_segv(int);
+               sig_segv(int),
+               usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -179,9 +180,6 @@ main(int argc, char *argv[])
 
    p_work_dir = work_dir;
    init_log_file(&argc, argv);
-   line_counter = 0;
-   wpr_position = 0;
-   total_length = 0;
 
    (void)strcpy(window_title, log_type);
    (void)strcat(window_title, " Log ");
@@ -201,6 +199,18 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    toplevel = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   line_counter = 0;
+   wpr_position = 0;
+   total_length = 0;
+
+   /* Get display pointer */
+   if ((display = XtDisplay(toplevel)) == NULL)
+   {
+      (void)fprintf(stderr,
+                    "ERROR   : Could not open Display : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
 
    /* Create managing widget */
    form = XmCreateForm(toplevel, "form", NULL, 0);
@@ -724,50 +734,25 @@ init_log_file(int *argc, char *argv[])
 {
    char log_file[MAX_PATH_LENGTH];
 
-   /* Get display pointer */
-   if ((display = XOpenDisplay(NULL)) == NULL)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
-      (void)fprintf(stderr, "ERROR   : Could not open Display.\n");
-      exit(INCORRECT);
+      usage(argv[0]);
+      exit(SUCCESS);
    }
-
-   /* First get working directory for the AFD */
    if (get_afd_path(argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
    }
-   if (*argc < 2)
-   {
-      (void)fprintf(stderr,
-                    "Usage: %s [nummeric font name] System|Transfer|Debug|Monitor|Monsystem [hostname 1..n]\n",
-                    argv[0]);
-      exit(INCORRECT);
-   }
-   if ((*argc > 1) && (isdigit(argv[1][0]) != 0))
-   {
-      (void)strcpy(font_name, argv[1]);
-      (*argc)--; argv++;
-   }
-   else
+   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
    {
       (void)strcpy(font_name, "fixed");
    }
-   (void)strcpy(log_type, argv[1]);
-   (*argc)--; argv++;
-
-   /* Collect all hostnames */
-   no_of_hosts = *argc - 1;
-   if (no_of_hosts > 0)
+   if (get_arg(argc, argv, "-l", log_type, MAX_FILENAME_LENGTH) == INCORRECT)
    {
-      int i = 0;
-
-      RT_ARRAY(hosts, no_of_hosts, (MAX_AFDNAME_LENGTH + 1), char);
-      while (*argc > 1)
-      {
-         (void)strcpy(hosts[i], argv[1]);
-         (*argc)--; argv++;
-         i++;
-      }
+      usage(argv[0]);
+      exit(INCORRECT);
    }
 
    /* Initialise log directory */
@@ -785,6 +770,12 @@ init_log_file(int *argc, char *argv[])
       max_log_number = (MAX_SYSTEM_LOG_FILES - 1);
       log_type_flag = SYSTEM_LOG_TYPE;
    }
+   else if (strcmp(log_type, RECEIVE_STR) == 0)
+        {
+           (void)strcpy(log_name, RECEIVE_LOG_NAME);
+           max_log_number = (MAX_RECEIVE_LOG_FILES - 1);
+           log_type_flag = RECEIVE_LOG_TYPE;
+        }
    else if (strcmp(log_type, TRANSFER_STR) == 0)
         {
            (void)strcpy(log_name, TRANSFER_LOG_NAME);
@@ -826,6 +817,32 @@ init_log_file(int *argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Collect all hostnames */
+   no_of_hosts = *argc - 1;
+   if (no_of_hosts > 0)
+   {
+      int i = 0;
+
+      RT_ARRAY(hosts, no_of_hosts, (MAX_AFDNAME_LENGTH + 1), char);
+      while (*argc > 1)
+      {
+         (void)strcpy(hosts[i], argv[1]);
+         (*argc)--; argv++;
+         i++;
+      }
+   }
+
+   return;
+}
+
+
+/*---------------------------------- usage() ----------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr,
+                 "Usage: %s [-w <work_dir>] [-f <font name>] -l System|Receive|Transfer|Debug|Monitor|Monsystem [hostname 1..n] [X arguments]\n",
+                 progname);
    return;
 }
 

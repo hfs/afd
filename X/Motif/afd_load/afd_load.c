@@ -83,7 +83,8 @@ struct afd_status          *p_afd_status;
 static char                chart_type;
 
 /* Local function prototypes. */
-static void                init_afd_load(int, char **, char *, char *);
+static void                init_afd_load(int *, char **, char *, char *),
+                           usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -140,7 +141,7 @@ main(int argc, char *argv[])
 
    /* Initialize global variables */
    p_work_dir = work_dir;
-   init_afd_load(argc, argv, font_name, window_title);
+   init_afd_load(&argc, argv, font_name, window_title);
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
@@ -332,7 +333,7 @@ main(int argc, char *argv[])
 
 /*+++++++++++++++++++++++++++ init_afd_load() +++++++++++++++++++++++++++*/
 static void
-init_afd_load(int  argc,
+init_afd_load(int  *argc,
               char *argv[],
               char *font_name,
               char *window_title)
@@ -341,7 +342,14 @@ init_afd_load(int  argc,
    char         *perm_buffer,
                 hostname[MAX_AFD_NAME_LENGTH];
 
-   if (get_afd_path(&argc, argv, p_work_dir) < 0)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
+   {
+      usage(argv[0]);
+      exit(SUCCESS);
+   }
+   if (get_afd_path(argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
                     "Failed to get working directory of AFD. (%s %d)\n",
@@ -369,83 +377,62 @@ init_afd_load(int  argc,
                       exit(INCORRECT);
    }
 
-   if (argc > 1)
+   /* Attach to FSA to get values for chart. */
+   if (fsa_attach() < 0)
    {
-      /* Attach to FSA to get values for chart. */
-      if (fsa_attach() < 0)
-      {
-         (void)fprintf(stderr, "Failed to attach to FSA.\n");
-         exit(INCORRECT);
-      }
+      (void)fprintf(stderr, "Failed to attach to FSA.\n");
+      exit(INCORRECT);
+   }
 
-      if (strcmp(argv[1], SHOW_FILE_LOAD) == 0)
+   if (get_arg(argc, argv, SHOW_FILE_LOAD, NULL, 0) == SUCCESS)
+   {
+      chart_type = FILE_CHART;
+      for (i = 0; i < no_of_hosts; i++)
       {
-         chart_type = FILE_CHART;
-         for (i = 0; i < no_of_hosts; i++)
-         {
-            prev_value += (double)fsa[i].file_counter_done;
-         }
+         prev_value += (double)fsa[i].file_counter_done;
       }
-      else if (strcmp(argv[1], SHOW_KBYTE_LOAD) == 0)
+   }
+   else if (get_arg(argc, argv, SHOW_KBYTE_LOAD, NULL, 0) == SUCCESS)
+        {
+           chart_type = KBYTE_CHART;
+           for (i = 0; i < no_of_hosts; i++)
            {
-              chart_type = KBYTE_CHART;
-              for (i = 0; i < no_of_hosts; i++)
-              {
-                 prev_value += (double)fsa[i].bytes_send;
-              }
-              prev_value /= 1024;
+              prev_value += (double)fsa[i].bytes_send;
            }
-      else if (strcmp(argv[1], SHOW_CONNECTION_LOAD) == 0)
+           prev_value /= 1024;
+        }
+   else if (get_arg(argc, argv, SHOW_CONNECTION_LOAD, NULL, 0) == SUCCESS)
+        {
+           chart_type = CONNECTION_CHART;
+           for (i = 0; i < no_of_hosts; i++)
            {
-              chart_type = CONNECTION_CHART;
-              for (i = 0; i < no_of_hosts; i++)
-              {
-                 prev_value += (double)fsa[i].connections;
-              }
+              prev_value += (double)fsa[i].connections;
            }
-      else if (strcmp(argv[1], SHOW_TRANSFER_LOAD) == 0)
+        }
+   else if (get_arg(argc, argv, SHOW_TRANSFER_LOAD, NULL, 0) == SUCCESS)
+        {
+           /* Attach to the AFD Status Area */
+           if (attach_afd_status() < 0)
            {
-              /* Attach to the AFD Status Area */
-              if (attach_afd_status() < 0)
-              {
-                 (void)fprintf(stderr,
-                               "Failed to map to AFD status area. (%s %d)\n",
-                               __FILE__, __LINE__);
-                 exit(INCORRECT);
-              }
-              chart_type = TRANSFER_CHART;
-              prev_value = p_afd_status->no_of_transfers;
-           }
-           else
-           {
-              (void)fsa_detach();
               (void)fprintf(stderr,
-                            "Usage : %s [--version] [-w <working directory>] <Files|KBytes|Connections> [font name]\n",
-                            argv[0]);
+                            "Failed to map to AFD status area. (%s %d)\n",
+                            __FILE__, __LINE__);
               exit(INCORRECT);
            }
-   }
-
-   if (argc == 2)
-   {
-      (void)strcpy(font_name, "fixed");
-   }
-   else if (argc == 3)
-        {
-           (void)strcpy(font_name, argv[2]);
+           chart_type = TRANSFER_CHART;
+           prev_value = p_afd_status->no_of_transfers;
         }
         else
         {
            (void)fsa_detach();
-           (void)fprintf(stderr,
-                         "Usage : %s [--version] [-w <working directory>] <%s|%s|%s|%s> [font name]\n",
-                         argv[0],
-                         SHOW_FILE_LOAD,
-                         SHOW_KBYTE_LOAD,
-                         SHOW_CONNECTION_LOAD,
-                         SHOW_TRANSFER_LOAD);
+           usage(argv[0]);
            exit(INCORRECT);
         }
+
+   if (get_arg(argc, argv, "-f", font_name, 256) == INCORRECT)
+   {
+      (void)strcpy(font_name, "fixed");
+   }
 
    /* Prepare title of this window. */
    (void)strcpy(window_title, "AFD Load ");
@@ -462,5 +449,17 @@ init_afd_load(int  argc,
       (void)strcat(window_title, hostname);
    }
 
+   return;
+}
+
+
+/*-------------------------------- usage() ------------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr,
+                 "Usage : %s [--version] [-w <working directory>] [-f <font name>] <%s|%s|%s|%s>\n",
+                 progname, SHOW_FILE_LOAD, SHOW_KBYTE_LOAD,
+                 SHOW_CONNECTION_LOAD, SHOW_TRANSFER_LOAD);
    return;
 }

@@ -50,7 +50,7 @@ struct prev_values
           char          host_toggle;
 #endif
           char          toggle_pos;
-          unsigned char protocol;
+          unsigned int  protocol;
        };
 
 /* Function prototypes */

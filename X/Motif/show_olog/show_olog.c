@@ -1,6 +1,6 @@
 /*
  *  show_olog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ DESCR__E_M1
 #include <signal.h>            /* signal()                               */
 #include <stdlib.h>            /* free()                                 */
 #include <sys/types.h>
+#include <sys/stat.h>          /* umask()                                */
 #include <unistd.h>            /* gethostname()                          */
 #include <errno.h>
 
@@ -105,8 +106,7 @@ int              amg_flag = NO,
                  no_of_search_hosts,
                  special_button_flag,
                  sys_log_fd = STDERR_FILENO,
-                 toggles_set,
-                 view_passwd;
+                 toggles_set;
 Dimension        button_height;
 time_t           start_time_val,
                  end_time_val;
@@ -121,10 +121,11 @@ struct item_list *il;
 struct sol_perm  perm;
 
 /* Local function prototypes */
-static void      init_show_olog(int, char **, char *, char *),
+static void      init_show_olog(int *, char **),
                  eval_permissions(char *),
                  sig_bus(int),
-                 sig_segv(int);
+                 sig_segv(int),
+                 usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -203,13 +204,20 @@ main(int argc, char *argv[])
 
    /* Initialise global values */
    p_work_dir = work_dir;
-   init_show_olog(argc, argv, font_name, window_title);
+   init_show_olog(&argc, argv);
 
+   (void)strcpy(window_title, "Output Log ");
+   if (get_afd_name(&window_title[11]) == INCORRECT)
+   {
+      if (gethostname(&window_title[11], MAX_AFD_NAME_LENGTH) == 0)
+      {
+         window_title[11] = toupper((int)window_title[11]);
+      }
+   }
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    toplevel_w = XtAppInitialize(&app, "AFD", NULL, 0,
                                 &argc, argv, fallback_res, args, argcount);
-
    display = XtDisplay(toplevel_w);
 
    /* Create managing widget */
@@ -1186,17 +1194,27 @@ main(int argc, char *argv[])
 
 /*+++++++++++++++++++++++++++ init_show_olog() ++++++++++++++++++++++++++*/
 static void
-init_show_olog(int argc, char *argv[], char *font_name, char *window_title)
+init_show_olog(int *argc, char *argv[])
 {
-   char *perm_buffer,
-        hostname[MAX_AFD_NAME_LENGTH];
+   char *perm_buffer;
 
-   if (get_afd_path(&argc, argv, p_work_dir) < 0)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
+   {
+      usage(argv[0]);
+      exit(SUCCESS);
+   }
+   if (get_afd_path(argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
                     "Failed to get working directory of AFD. (%s %d)\n",
                     __FILE__, __LINE__);
       exit(INCORRECT);
+   }
+   if (get_arg(argc, argv, "-f", font_name, 256) == INCORRECT)
+   {
+      (void)strcpy(font_name, "fixed");
    }
 
    /* Now lets see if user may use this program */
@@ -1216,8 +1234,7 @@ init_show_olog(int argc, char *argv[], char *font_name, char *window_title)
                       /* the user have all permissions.                */
                       perm.view_passwd  = NO;
                       perm.resend_limit = NO_LIMIT;
-/*                       perm.send_limit   = NO_LIMIT; */
-perm.send_limit   = NO_PERMISSION;
+                      perm.send_limit   = NO_LIMIT;
                       perm.list_limit   = NO_LIMIT;
                       break;
 
@@ -1225,25 +1242,9 @@ perm.send_limit   = NO_PERMISSION;
                                     "Impossible!! Remove the programmer!\n");
                       exit(INCORRECT);
    }
-   if (argc < 1)
-   {
-      (void)fprintf(stderr,
-                    "Usage : %s [--version] [-w <working directory>] [font name] [host name 1..n]\n",
-                    argv[0]);
-      exit(INCORRECT);
-   }
-   if ((argc > 1) && (isdigit(argv[1][0]) != 0))
-   {
-      (void)strcpy(font_name, argv[1]);
-      argc--; argv++;
-   }
-   else
-   {
-      (void)strcpy(font_name, "fixed");
-   }
 
    /* Collect all hostnames */
-   no_of_search_hosts = argc - 1;
+   no_of_search_hosts = *argc - 1;
    if (no_of_search_hosts > 0)         
    {
       int i = 0;
@@ -1252,35 +1253,20 @@ perm.send_limit   = NO_PERMISSION;
                (MAX_RECIPIENT_LENGTH + 1), char);
       RT_ARRAY(search_user, no_of_search_hosts,
                (MAX_RECIPIENT_LENGTH + 1), char);
-      while (argc > 1)
+      while (*argc > 1)
       {
          (void)strcpy(search_recipient[i], argv[1]);
          if (strlen(search_recipient[i]) == MAX_HOSTNAME_LENGTH)
          {
             (void)strcat(search_recipient[i], "*");
          }
-         argc--; argv++;
+         (*argc)--; argv++;
          i++;
       }
       for (i = 0; i < no_of_search_hosts; i++)
       {
          search_user[i][0] = '\0';
       }
-   }
-
-   /* Prepare title of this window. */
-   (void)strcpy(window_title, "Output Log ");
-   if (get_afd_name(hostname) == INCORRECT)
-   {
-      if (gethostname(hostname, MAX_AFD_NAME_LENGTH) == 0)
-      {
-         hostname[0] = toupper((int)hostname[0]);
-         (void)strcat(window_title, hostname);
-      }
-   }
-   else
-   {
-      (void)strcat(window_title, hostname);
    }
 
    start_time_val = -1;
@@ -1300,6 +1286,17 @@ perm.send_limit   = NO_PERMISSION;
 }
 
 
+/*---------------------------------- usage() ----------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr,
+                 "Usage : %s [-w <working directory>] [-f <font name>] [host name 1..n]\n",
+                 progname);
+   return;
+}
+
+
 /*-------------------------- eval_permissions() -------------------------*/
 static void
 eval_permissions(char *perm_buffer)
@@ -1314,8 +1311,7 @@ eval_permissions(char *perm_buffer)
        (perm_buffer[2] == 'l'))
    {
       perm.resend_limit = NO_LIMIT;
-/*       perm.send_limit   = NO_LIMIT; */
-perm.send_limit = NO_PERMISSION;
+      perm.send_limit   = NO_LIMIT;
       perm.list_limit   = NO_LIMIT;
       perm.view_passwd  = YES;
    }
@@ -1403,7 +1399,7 @@ perm.send_limit = NO_PERMISSION;
       }
 
       /* May he see the password when using info click? */
-      if ((ptr = posi(perm_buffer, VIEW_PASSWD_PERM)) == NULL)
+      if (posi(perm_buffer, VIEW_PASSWD_PERM) == NULL)
       {
          /* The user may NOT view the password. */
          perm.view_passwd = NO;

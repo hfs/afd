@@ -1,0 +1,260 @@
+<html>
+<head>
+<title>AFD_CONFIG (afd_config.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="afd_config">The AFD_CONFIG file</a></h1>
+<hr size=3 noshade>
+<p>
+This file contains some parameter settings that are always read when
+the AFD is started. The following table shows and describes what
+parameters can be set and which programs must be restarted to activate
+the new value:
+</p>
+<table border>
+<tr>
+   <th>Parameter</th>
+   <th>Description</th>
+   <th>Default</th>
+   <th>Restart</th>
+</tr>
+<tr>
+   <td>AFD_TCP_PORT</td>
+   <td>The TCP port number at which the process afdd will listen and
+       wait for remote requests. If that port is currently in use
+       by another program it will add one and see if that works
+       so long until it finds a free port. NOTE: If this option
+       is not set the afdd process will NOT start.</td>
+   <td>4444</td>
+   <td>afdd</td>
+</tr>
+<tr>
+   <td>TRUSTED_REMOTE_IP</td>
+   <td>Trusted IP-number that may connect to AFD_TCP_PORT. To
+       enter more then one IP-number you must have the
+       identifier TRUSTED_REMOTE_IP on a new line for each number.
+       Wildcards may also be used when specifying the IP-number.
+       If TRUSTED_REMOTE_IP is not set, all hosts may connect.</td>
+   <td>None</td>
+   <td>afdd</td>
+</tr>
+<tr>
+   <td>MAX_NO_OF_DIR_CHECKS</td>
+   <td>This is the number of times dir_check my fork itself to
+       copy or exec some command.</td>
+   <td>20</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>MAX_PROCESS_PER_DIR</td>
+   <td>The maximum number of process that may be forked for one
+       directory.</td>
+   <td>10</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>AMG_DIR_RESCAN_TIME</td>
+   <td>The rescan time of the local user directories in the DIR_CONFIG
+       file. This does not effect the rescan time of remote directories,
+       which is set with REMOTE_FILE_CHECK_INTERVAL. Don't pick a small
+       value here if your system shows high system load when working
+       with files or directories (eg. fault tolerant systems). This is
+       also the interval time that the AMG checks if the DIR_CONFIG or
+       HOST_CONFIG file have been changed. The unit is second.</td>
+   <td>5</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>MAX_CONNECTIONS</td>
+   <td>The maximum number of simultaneous connections/transfers that the
+       AFD allows. Don't set this value to high since some environments
+       allow only a limited number of process per user.</td>
+   <td>20</td>
+   <td>FD</td>
+</tr>
+<tr>
+   <td>REMOTE_FILE_CHECK_INTERVAL</td>
+   <td>The interval in second that the FD rescans remote directories for
+       files. Do not set this value to low.</td>
+   <td>60</td>
+   <td>FD</td>
+</tr>
+<tr>
+   <td>DEFAULT_AGE_LIMIT</td>
+   <td>Files older then the given seconds will be deleted by default,
+       unless the age-limit is specified under options, then this
+       value will be taken.</td>
+   <td>0</td>
+   <td>FD</td>
+</tr>
+<tr>
+   <td>MAX_COPIED_FILES</td>
+   <td>The maximum number of files that are copied before they are
+       send to the FD. This value is set so that the AFD starts sending
+       files as soon as possible even when there are thousands of files
+       waiting in the source directory to be send. Otherwise it might
+       take to long to process all the files at once and time is lost
+       that could be used to transmit data.</td>
+   <td>100</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>MAX_COPIED_FILE_SIZE</td>
+   <td>The maximum size in Megabytes that are copied before they are
+       send to the FD.</td>
+   <td>100</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>ONE_DIR_COPY_TIMEOUT</td>
+   <td>When AMG has collected MAX_COPIED_FILES, it will try to continue to
+       copy from this directory until it reaches the timeout set by this
+       option in seconds.</td>
+   <td>10</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>DIR_CHECK_TIMEOUT</td>
+   <td>When the administrator has marked one or more directories as
+       important (with '*'), this is the minimum time that these
+       directories have to wait during one scan of all directories.</td>
+   <td>30</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>CREATE_SOURCE_DIR_MODE</td>
+   <td>The permission of the source directories that found in the DIR_CONFIG
+       and created by AMG if they are not there.</td>
+   <td>775</td>
+   <td>AMG</td>
+</tr>
+<tr>
+   <td>MAX_SYSTEM_LOG_FILES</td>
+   <td>The number of old system logfiles that AFD keeps before they are
+       deleted.</td>
+   <td>4</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_RECEIVE_LOG_FILES</td>
+   <td>The number of old receive logfiles that AFD keeps before they are
+       deleted.</td>
+   <td>7</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_TRANSFER_LOG_FILES</td>
+   <td>The number of old transfer logfiles that AFD keeps before they are
+       deleted.</td>
+   <td>7</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_TRANS_DB_LOG_FILES</td>
+   <td>The number of old transfer debug logfiles that AFD keeps before
+       they are deleted.</td>
+   <td>2</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_MON_SYS_LOG_FILES</td>
+   <td>The number of old monitor system logfiles that AFD keeps before
+       they are deleted.</td>
+   <td>4</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_MON_LOG_FILES</td>
+   <td>The number of old monitor logfiles that AFD keeps before they are
+       deleted.</td>
+   <td>14</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_INPUT_LOG_FILES</td>
+   <td>The number of old input logfiles that AFD keeps before they are
+       deleted.</td>
+   <td>7</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_OUTPUT_LOG_FILES</td>
+   <td>The number of old output logfiles that AFD keeps before they are
+       deleted.</td>
+   <td>7</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>MAX_DELETE_LOG_FILES</td>
+   <td>The number of old delete logfiles that AFD keeps before they are
+       deleted.</td>
+   <td>7</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>DEFAULT_PRINTER_CMD</td>
+   <td>With this option it is possible to set the printer command
+       for your specific environment.</td>
+   <td>&#34lpr -P&#34</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>DEFAULT_PRINTER_NAME</td>
+   <td>This option specifies the default printer for your system.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>PING_CMD</td>
+   <td>Full path of the ping command plus any options. The hostname
+       will be added to the end of the command.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td>AFD_CTRL</td>
+</tr>
+<tr>
+   <td>TRACEROUTE_CMD</td>
+   <td>Full path of the traceroute command plus any options. The hostname
+       will be added to the end of the command.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td>AFD_CTRL</td>
+</tr>
+<tr>
+   <td>FAKE_USER &lt;fake user less&gt;</td>
+   <td>This option allows the administrator to allow certain users
+       to take up another identity, even if they do not exist on the
+       system. This user will then be used to look up the permissions
+       in the <a href="afd_users.html">afd.users</a> file. So if you for
+       example give operators limited permission and do not want to
+       create a new user, you can do the following:
+       <pre>
+             FAKE_USER     afd->operator
+       </pre>
+       If the user afd enters the following command:
+       <pre>
+             afd_ctrl -u operator
+       </pre>
+       the afd_ctrl dialog will come up with the permissions of
+       operator.</td>
+   <td><pre>&nbsp;</pre></td>                                           
+   <td><pre>&nbsp;</pre></td>
+</tr>
+</table>
+<p>
+When one of the above values is changed the appropriate process must be
+restarted.
+</p>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1999 - 2004 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 07.06.2004
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

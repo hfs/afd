@@ -190,7 +190,8 @@ main(int argc, char *argv[])
    }
 
    /* Initialize sec_counter, hour_counter and day_counter. */
-   test_sec_counter = (((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME) + 1;
+   test_sec_counter = (((p_ts->tm_min * 60) + p_ts->tm_sec) /
+                       STAT_RESCAN_TIME) + 1;
    for (i = 0; i < no_of_hosts; i++)
    {
       stat_db[i].sec_counter = test_sec_counter;
@@ -219,7 +220,7 @@ main(int argc, char *argv[])
          {
             if ((((stat_db[0].sec_counter - test_sec_counter) == 1) &&
                  (test_hour_counter == stat_db[0].hour_counter)) ||
-                ((stat_db[0].sec_counter == 0) && (test_sec_counter == 719)))
+                 ((stat_db[0].sec_counter == 0) && (test_sec_counter == 719)))
             {
                (void)sleep(STAT_RESCAN_TIME);
             }
@@ -305,7 +306,7 @@ main(int argc, char *argv[])
             stat_db[i].prev_nfs = ui_value;
 
             /* Store number of bytes send. */
-            d_value = (double)fsa[i].bytes_send;
+            d_value = fsa[i].bytes_send;
             if (d_value >= stat_db[i].prev_nbs)
             {
                stat_db[i].hour[stat_db[i].sec_counter].nbs = d_value - stat_db[i].prev_nbs;
@@ -400,7 +401,7 @@ main(int argc, char *argv[])
                                STAT_RESCAN_TIME;
             for (i = 0; i < no_of_hosts; i++)
             {
-               stat_db[i].sec_counter = test_sec_counter;
+               stat_db[i].sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) / STAT_RESCAN_TIME;
                stat_db[i].hour_counter = p_ts->tm_hour;
                stat_db[i].day_counter = p_ts->tm_yday;
                (void)memset(&stat_db[i].year, 0, (DAYS_PER_YEAR * sizeof(struct statistics)));

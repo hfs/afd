@@ -24,6 +24,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(MONIPROG) : $(MONIOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MONIOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
@@ -34,9 +35,10 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(MONIPROG)
 
 # Other dependencies
 update_info.o : ../afd_ctrl/afd_ctrl.h
-afd_info.o : ../../../version.h
+mon_info.o : ../../../version.h

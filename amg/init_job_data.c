@@ -1,6 +1,6 @@
 /*
  *  init_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   init_job_data - 
  **
  ** SYNOPSIS
- **   void init_job_data(int *jid_number, int did_number)
+ **   void init_job_data(int *jid_number)
  **
  ** DESCRIPTION
  **
@@ -52,8 +52,7 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables. */
-extern int                 did_fd,
-                           dnb_fd,
+extern int                 dnb_fd,
                            jd_fd,
                            jid_fd,
                            *no_of_dir_names,
@@ -68,7 +67,7 @@ extern struct dir_name_buf *dnb;
 
 /*########################### init_job_data() ###########################*/
 void
-init_job_data(int *jid_number, int *did_number)
+init_job_data(int *jid_number)
 {
    char        *ptr,
                job_id_data_file[MAX_PATH_LENGTH],
@@ -246,85 +245,6 @@ init_job_data(int *jid_number, int *did_number)
    if ((*jid_number > 2147483647) || (*jid_number < 0))
    {
       *jid_number = 0;
-   }
-
-   /*
-    * Get the highest current dir ID.
-    */
-   (void)sprintf(id_file, "%s%s%s", p_work_dir, FIFO_DIR, DIR_ID_FILE);
-   *did_number = 0;
-   if (stat(id_file, &stat_buf) == -1)
-   {
-      if (errno == ENOENT)
-      {
-         if ((did_fd = open(id_file, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR)) == -1)
-         {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      id_file, strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-         if (*no_of_dir_names > 0)
-         {
-            int i;
-
-            for (i = 0; i < *no_of_dir_names; i++)
-            {
-               if (dnb[i].dir_id > *did_number)
-               {
-                  *did_number = dnb[i].dir_id;
-               }
-            }
-            (*did_number)++;
-         }
-      }
-      else
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to stat() %s : %s (%s %d)\n",
-                   id_file, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-   else
-   {
-      char str_number[MAX_INT_LENGTH];
-
-      if ((did_fd = open(id_file, O_RDWR)) == -1)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to open() %s : %s (%s %d)\n",
-                   id_file, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      if (stat_buf.st_size > (MAX_INT_LENGTH - 1))
-      {
-         if (read(did_fd, str_number, (MAX_INT_LENGTH - 1)) != (MAX_INT_LENGTH - 1))
-         {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "read() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-         str_number[(MAX_INT_LENGTH - 1)] = '\0';
-      }
-      else
-      {
-         if (read(did_fd, str_number, stat_buf.st_size) != stat_buf.st_size)
-         {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "read() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-         str_number[stat_buf.st_size] = '\0';
-      }
-      *did_number = atoi(str_number);
-   }
-
-   if ((*did_number > 2147483647) || (*did_number < 0))
-   {
-      *did_number = 0;
    }
 
    return;

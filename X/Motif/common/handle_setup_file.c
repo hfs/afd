@@ -1,7 +1,7 @@
 /*
  *  handle_setup_file.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,8 +26,10 @@ DESCR__S_M3
  **   handle_setup_file - reads or writes the initial setup file
  **
  ** SYNOPSIS
- **   void read_setup(char *file_name)
- **   void write_setup(void)
+ **   void read_setup(char *file_name,
+ **                   int  *filename_display_length,
+ **                   int  *his_log_set)
+ **   void write_setup(int filename_display_length)
  **
  ** DESCRIPTION
  **   read_setup() looks in the home directory for the file
@@ -49,6 +51,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   01.06.1997 H.Kiehl Created
+ **   10.09.2000 H.Kiehl Added history log for mon_ctrl dialog.
  **
  */
 DESCR__E_M3
@@ -64,8 +67,7 @@ DESCR__E_M3
 #include "x_common_defs.h"
 
 /* External global variables */
-extern int    filename_display_length,
-              no_of_rows_set;
+extern int    no_of_rows_set;
 extern char   font_name[],
               line_style,
               user[];
@@ -77,7 +79,9 @@ static char setup_file[MAX_PATH_LENGTH] = { 0 };
 
 /*############################## read_setup() ###########################*/
 void
-read_setup(char *file_name)
+read_setup(char *file_name,
+           int  *filename_display_length,
+           int  *his_log_set)
 {
    int         fd;
    char        *ptr,
@@ -212,31 +216,65 @@ read_setup(char *file_name)
    }
 
    /* Get the filename display length. */
-   if ((ptr = posi(buffer, FILENAME_DISPLAY_LENGTH_ID)) != NULL)
+   if (filename_display_length != NULL)
    {
-      int  i = 0;
-      char tmp_buffer[MAX_INT_LENGTH + 1];
+      if ((ptr = posi(buffer, FILENAME_DISPLAY_LENGTH_ID)) != NULL)
+      {
+         int  i = 0;
+         char tmp_buffer[MAX_INT_LENGTH + 1];
 
-      ptr--;
-      while ((*ptr == ' ') || (*ptr == '\t'))
-      {
-         ptr++;
+         ptr--;
+         while ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            ptr++;
+         }
+         while ((*ptr != '\n') && (*ptr != '\0') && (i < MAX_INT_LENGTH))
+         {
+            tmp_buffer[i] = *ptr;
+            i++; ptr++;
+         }
+         tmp_buffer[i] = '\0';
+         *filename_display_length = atoi(tmp_buffer);
+         if (*filename_display_length > MAX_FILENAME_LENGTH)
+         {
+            *filename_display_length = MAX_FILENAME_LENGTH;
+         }
       }
-      while ((*ptr != '\n') && (*ptr != '\0') && (i < MAX_INT_LENGTH))
+      else
       {
-         tmp_buffer[i] = *ptr;
-         i++; ptr++;
-      }
-      tmp_buffer[i] = '\0';
-      filename_display_length = atoi(tmp_buffer);
-      if (filename_display_length > MAX_FILENAME_LENGTH)
-      {
-         filename_display_length = MAX_FILENAME_LENGTH;
+         *filename_display_length = DEFAULT_FILENAME_DISPLAY_LENGTH;
       }
    }
-   else
+
+   /* Get the number of history log entries. */
+   if (his_log_set != NULL)
    {
-      filename_display_length = DEFAULT_FILENAME_DISPLAY_LENGTH;
+      if ((ptr = posi(buffer, NO_OF_HISTORY_LENGTH_ID)) != NULL)
+      {
+         int  i = 0;
+         char tmp_buffer[MAX_INT_LENGTH + 1];
+
+         ptr--;
+         while ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            ptr++;
+         }
+         while ((*ptr != '\n') && (*ptr != '\0') && (i < MAX_INT_LENGTH))
+         {
+            tmp_buffer[i] = *ptr;
+            i++; ptr++;
+         }
+         tmp_buffer[i] = '\0';
+         *his_log_set = atoi(tmp_buffer);
+         if (*his_log_set > MAX_LOG_HISTORY)
+         {
+            *his_log_set = MAX_LOG_HISTORY;
+         }
+      }
+      else
+      {
+         *his_log_set = DEFAULT_NO_OF_HISTORY_LOGS;
+      }
    }
 
    if (buffer != NULL)
@@ -250,7 +288,7 @@ read_setup(char *file_name)
 
 /*############################# write_setup() ###########################*/
 void
-write_setup(void)
+write_setup(int filename_display_length, int his_log_set)
 {
    int         fd = -1,
                length;
@@ -288,11 +326,19 @@ write_setup(void)
       {
          return;
       }
-      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n%s %d\n",
+      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
-                       STYLE_ID, line_style,
-                       FILENAME_DISPLAY_LENGTH_ID,
-                       filename_display_length);
+                       STYLE_ID, line_style);
+      if (filename_display_length != -1)
+      {
+         length += sprintf(&buffer[length], "%s %d\n",
+                           FILENAME_DISPLAY_LENGTH_ID, filename_display_length);
+      }
+      if (his_log_set != -1)
+      {
+         length += sprintf(&buffer[length], "%s %d\n",
+                           NO_OF_HISTORY_LENGTH_ID, his_log_set);
+      }
       if (write(fd, buffer, length) != length)
       {
          (void)xrec(appshell, ERROR_DIALOG,
@@ -311,11 +357,19 @@ write_setup(void)
          (void)close(fd);
          return;
       }
-      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n%s %d\n",
+      length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
-                       STYLE_ID, line_style,
-                       FILENAME_DISPLAY_LENGTH_ID,
-                       filename_display_length);
+                       STYLE_ID, line_style);
+      if (filename_display_length != -1)
+      {
+         length += sprintf(&buffer[length], "%s %d\n",
+                           FILENAME_DISPLAY_LENGTH_ID, filename_display_length);
+      }
+      if (his_log_set != -1)
+      {
+         length += sprintf(&buffer[length], "%s %d\n",
+                           NO_OF_HISTORY_LENGTH_ID, his_log_set);
+      }
       if (write(fd, buffer, length) != length)
       {
          (void)xrec(appshell, ERROR_DIALOG,

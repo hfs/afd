@@ -10,14 +10,17 @@ HEADERS = ../init_afd/afddefs.h ../config.h
 OBJS    = attach_afd_status.o\
           attach_buf.o\
           bitstuff.o\
+          calc_next_time.o\
           change_alias_order.o\
           change_name.o\
           check_lock.o\
           coe_open.o\
           create_message.o\
           create_name.o\
+          create_remote_dir.o\
           check_burst.o\
           check_dir.o\
+          check_fra.o\
           check_fsa.o\
           check_msa.o\
           clr_fl.o\
@@ -25,11 +28,13 @@ OBJS    = attach_afd_status.o\
           daemon_init.o\
           delete_log_ptrs.o\
           filter.o\
-          fprint_dup_msg.o\
+          fra_attach.o\
+          fra_detach.o\
           fsa_attach.o\
           fsa_detach.o\
           get_afd_name.o\
           get_afd_path.o\
+          get_arg.o\
           get_definition.o\
           get_log_number.o\
           get_mon_path.o\
@@ -42,7 +47,6 @@ OBJS    = attach_afd_status.o\
           lock_proc.o\
           lock_region.o\
           lock_region_w.o\
-          logger.o\
           make_fifo.o\
           map_file.o\
           mmap_emu.o\
@@ -88,3 +92,4 @@ create_name.o next_counter.o open_counter_file.o : ../amg/amgdefs.h
 lock_region.o unlock_region.o : ../fd/fddefs.h
 mmap_emu.o msync_emu.o munmap_emu.o : ../misc/mmap_emu.h
 get_mon_path.o : ../afd_mon/mondefs.h
+calc_next_time.o : ../init_afd/bit_array.h

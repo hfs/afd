@@ -23,6 +23,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(ALOGPROG) : $(ALOGOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(ALOGOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XAWLIBS) $(XLIBS) $(SPECIAL_LIBS)
 
 clean :
@@ -33,6 +34,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(ALOGPROG)
 

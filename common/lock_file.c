@@ -64,7 +64,7 @@ extern int sys_log_fd;
 int
 lock_file(char *file, int block_flag)
 {
-   static int   fd;
+   int          fd;
    struct flock wlock = {F_WRLCK, SEEK_SET, 0, 1};
 
    if ((fd = coe_open(file, O_RDWR)) == -1)

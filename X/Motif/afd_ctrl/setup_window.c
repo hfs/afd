@@ -1,6 +1,6 @@
 /*
  *  setup_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -141,10 +141,9 @@ setup_window(char *font_name)
           (acp.switch_host != NO_PERMISSION) ||
           (acp.retry != NO_PERMISSION) ||
           (acp.debug != NO_PERMISSION) ||
-          (acp.info != NO_PERMISSION) ||
-          (acp.view_dc != NO_PERMISSION) ||
           (ping_cmd != NULL) ||
-          (traceroute_cmd != NULL))
+          (traceroute_cmd != NULL) ||
+          (acp.afd_load != NO_PERMISSION))
       {
          if (acp.ctrl_queue != NO_PERMISSION)
          {
@@ -182,31 +181,37 @@ setup_window(char *font_name)
                XtVaSetValues(tw[TRACEROUTE_W], XmNfontList, fontlist, NULL);
             }
          }
-         if (acp.info != NO_PERMISSION)
+         if (acp.afd_load != NO_PERMISSION)
          {
-            XtVaSetValues(ow[INFO_W], XmNfontList, fontlist, NULL);
-         }
-         if (acp.view_dc != NO_PERMISSION)
-         {
-            XtVaSetValues(ow[VIEW_DC_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(ow[VIEW_LOAD_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(lw[FILE_LOAD_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(lw[KBYTE_LOAD_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(lw[CONNECTION_LOAD_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(lw[TRANSFER_LOAD_W], XmNfontList, fontlist, NULL);
          }
       }
       XtVaSetValues(ow[EXIT_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the View pulldown */
       if ((acp.show_slog != NO_PERMISSION) ||
+          (acp.show_rlog != NO_PERMISSION) ||
           (acp.show_tlog != NO_PERMISSION) ||
           (acp.show_dlog != NO_PERMISSION) ||
           (acp.show_ilog != NO_PERMISSION) ||
           (acp.show_olog != NO_PERMISSION) ||
-          (acp.show_rlog != NO_PERMISSION) ||
-          (acp.afd_load != NO_PERMISSION) ||
+          (acp.show_elog != NO_PERMISSION) ||
+          (acp.info != NO_PERMISSION) ||
+          (acp.view_dc != NO_PERMISSION) ||
           (acp.view_jobs != NO_PERMISSION))
       {
          XtVaSetValues(mw[LOG_W], XmNfontList, fontlist, NULL);
          if (acp.show_slog != NO_PERMISSION)
          {
             XtVaSetValues(vw[SYSTEM_W], XmNfontList, fontlist, NULL);
+         }
+         if (acp.show_rlog != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[RECEIVE_W], XmNfontList, fontlist, NULL);
          }
          if (acp.show_tlog != NO_PERMISSION)
          {
@@ -224,17 +229,17 @@ setup_window(char *font_name)
          {
             XtVaSetValues(vw[OUTPUT_W], XmNfontList, fontlist, NULL);
          }
-         if (acp.show_rlog != NO_PERMISSION)
+         if (acp.show_elog != NO_PERMISSION)
          {
             XtVaSetValues(vw[DELETE_W], XmNfontList, fontlist, NULL);
          }
-         if (acp.afd_load != NO_PERMISSION)
+         if (acp.info != NO_PERMISSION)
          {
-            XtVaSetValues(vw[VIEW_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[FILE_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[KBYTE_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[CONNECTION_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[TRANSFER_LOAD_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(vw[INFO_W], XmNfontList, fontlist, NULL);
+         }
+         if (acp.view_dc != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[VIEW_DC_W], XmNfontList, fontlist, NULL);
          }
          if (acp.view_jobs != NO_PERMISSION)
          {
@@ -243,13 +248,12 @@ setup_window(char *font_name)
       }
 
       /* Set the font for the Control pulldown */
-      if ((acp.amg_ctrl != NO_PERMISSION) ||
-          (acp.fd_ctrl != NO_PERMISSION) ||
-          (acp.rr_dc != NO_PERMISSION) ||
-          (acp.rr_hc != NO_PERMISSION) ||
+      if ((acp.amg_ctrl != NO_PERMISSION) || (acp.fd_ctrl != NO_PERMISSION) ||
+          (acp.rr_dc != NO_PERMISSION) || (acp.rr_hc != NO_PERMISSION) ||
           (acp.edit_hc != NO_PERMISSION) ||
           (acp.startup_afd != NO_PERMISSION) ||
-          (acp.shutdown_afd != NO_PERMISSION))
+          (acp.shutdown_afd != NO_PERMISSION) ||
+          (acp.dir_ctrl != NO_PERMISSION))
       {
          XtVaSetValues(mw[CONTROL_W], XmNfontList, fontlist, NULL);
          if (acp.amg_ctrl != NO_PERMISSION)
@@ -271,6 +275,10 @@ setup_window(char *font_name)
          if (acp.edit_hc != NO_PERMISSION)
          {
             XtVaSetValues(cw[EDIT_HC_W], XmNfontList, fontlist, NULL);
+         }
+         if (acp.dir_ctrl != NO_PERMISSION)
+         {
+            XtVaSetValues(cw[DIR_CTRL_W], XmNfontList, fontlist, NULL);
          }
          if (acp.startup_afd != NO_PERMISSION)
          {
@@ -525,7 +533,7 @@ init_gcs(void)
    XSetFunction(display, label_bg_gc, GXcopy);
 
    /* GC for drawing the button background */
-   gc_values.foreground = color_pool[FAULTY_TRANSFERS];
+   gc_values.foreground = color_pool[BUTTON_BACKGROUND];
    button_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, button_bg_gc, GXcopy);

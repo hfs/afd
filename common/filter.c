@@ -41,8 +41,9 @@ DESCR__S_M3
  **   H.Kiehl
  **
  ** HISTORY
- **   03.10.1995 H.Kiehl Created
- **   18.10.1997 H.Kiehl Introduced inverse filtering.
+ **   03.10.1995 H.Kiehl  Created
+ **   18.10.1997 H.Kiehl  Introduced inverse filtering.
+ **   03.02.2000 H.Lepper Fix the case "*xxx*??" sdsfxxxbb
  **
  */
 DESCR__E_M3
@@ -60,11 +61,11 @@ int
 filter(char *p_filter, char *p_file)
 {
    register int  length = 0,
-                 count = 0,
                  inverse = NO;
-   register char *ptr = p_filter,
+   register char *p_gap_file = NULL,
+                 *p_gap_filter,
+                 *ptr = p_filter,
                  *p_tmp = NULL,
-                 *p_buffer = NULL,
                  buffer;
 
    if (*ptr == '!')
@@ -79,86 +80,103 @@ filter(char *p_filter, char *p_file)
       p_tmp = ptr;
       switch(*ptr)
       {
-         case '*' :  ptr++;
-                     while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
-                     {
-                        length++;
-                        ptr++;
-                     }
-                     if (length == 0)
-                     {
-                        return((inverse == NO) ? 0 : 1);
-                     }
-                     buffer = *ptr;
-                     if (*ptr != '\0')
-                     {
-                        *ptr = '\0';
-                     }
-                     if ((buffer == '?') && (*(ptr + 1) == '\0'))
-                     {
-                        count = 0;
-                        while ((p_file = find(p_file, p_tmp + 1, length)) != NULL)
-                        {
-                           p_buffer = p_file;
-                           count++;
-                        }
-                        if (count == 0)
-                        {
-                           *ptr = buffer;
-                           return(-1);
-                        }
-                        else
-                        {
-                           p_file = p_buffer;
-                        }
-                        *ptr = buffer;
-                     }
-                     else if ((p_file = find(p_file, p_tmp + 1, length)) == NULL)
-                          {
-                             *ptr = buffer;
-                             return(-1);
-                          }
-                          else
-                          {
-                             *ptr = buffer;
-                             if ((buffer == '\0') && (*p_file != '\0'))
-                             {
-                                ptr = p_tmp;
-                             }
-                          }
-                     if ((buffer == '\0') && (*p_file == '\0'))
-                     {
-                        return((inverse == NO) ? 0 : 1);
-                     }
-                     break;
-         case '?' :  if (*(p_file++) == '\0')
-                     {
-                        return(-1);
-                     }
-                     if ((*(++ptr) == '\0') && (*p_file == '\0'))
-                     {
-                        return((inverse == NO) ? 0 : 1);
-                     }
-                     break;
-         default  :  while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
-                     {
-                        length++;
-                        ptr++;
-                     }
-                     buffer = *ptr;
-                     *ptr = '\0';
-                     if (strncmp(p_file, p_tmp, length) != 0)
-                     {
-                        *ptr = buffer;
-                        return(-1);
-                     }
-                     *ptr = buffer;
-                     p_file += length;
-                     if ((buffer == '\0') && (*p_file == '\0'))
-                     {
-                        return((inverse == NO) ? 0 : 1);
-                     }
-                     break;
+         case '*' :
+            ptr++;
+            while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
+            {
+               length++;
+               ptr++;
+            }
+            if (length == 0)
+            {
+               p_gap_filter = ptr;
+               while (*ptr == '*')
+               {
+                  ptr++;
+               }
+               if (*ptr != '\0')
+               {
+                  ptr = p_gap_filter;
+               }
+               if ((*ptr == '*') || (*ptr == '?'))
+               {
+                  p_gap_file = p_file + 1;
+                  p_gap_filter = p_tmp;
+                  break;
+               }
+               else
+               {
+                  return((inverse == NO) ? 0 : 1);
+               }
+            }
+            buffer = *ptr;
+            if ((p_file = find(p_file, p_tmp + 1, length)) == NULL)
+            {
+               return(-1);
+            }
+            else
+            {
+               if (*ptr == '?')
+               {
+                  if (length > 1 )
+                  {
+                     p_gap_file = p_file - length + 1;
+                  }
+                  else
+                  {
+                     p_gap_file = p_file + 1;
+                  }
+                  p_gap_filter = p_tmp;
+               }
+               if ((*ptr == '\0') && (*p_file != '\0'))
+               {
+                  ptr = p_tmp;
+               }
+            }
+            if ((buffer == '\0') && (*p_file == '\0'))
+            {
+               return((inverse == NO) ? 0 : 1);
+            }
+            break;
+
+         case '?' :
+            if (*(p_file++) == '\0')
+            {
+               return(-1);
+            }
+            if ((*(++ptr) == '\0') && (*p_file == '\0'))
+            {
+               return((inverse == NO) ? 0 : 1);
+            }
+            if ((*ptr == '\0') && (p_gap_file != NULL))
+            {
+               p_file = p_gap_file;
+               ptr = p_gap_filter;
+            }
+            break;
+
+         default  :
+            while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
+            {
+               length++;
+               ptr++;
+            }
+            if (strncmp(p_file, p_tmp, length) != 0)
+            {
+               if (p_gap_file != NULL)
+               {
+                  p_file = p_gap_file;
+                  ptr = p_gap_filter;
+                  break;
+               }
+               return(-1);
+            }
+            p_file += length;
+            if ((*ptr == '\0') && (*p_file == '\0'))
+            {
+               return((inverse == NO) ? 0 : 1);
+            }
+            break;
       }
    }
 
@@ -182,24 +200,24 @@ find(char          *search_text,
      register char *search_string,
      register int  string_length)
 {
-   register int treffer = 0;
+   register int hit = 0;
 
    while (*search_text != '\0')
    {
       if (*(search_text++) == *(search_string++))
       {
-         if (++treffer == string_length)
+         if (++hit == string_length)
          {
             return(search_text);
          }
       }
       else
       {
-         search_string -= (treffer + 1);
-         if (treffer != 0)
+         search_string -= (hit + 1);
+         if (hit != 0)
          {
-            search_text -= treffer;
-            treffer = 0;
+            search_text -= hit;
+            hit = 0;
          }
       }
    }

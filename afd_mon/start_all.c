@@ -87,27 +87,17 @@ start_all(void)
       proc_list_size = new_size;
    }
 
-   if (msa_attach() != SUCCESS)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to attach to MSA. (%s %d)\n",
-                __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
    for (i = 0; i < no_of_afds; i++)
    {
-      if ((pl[i].pid = start_process("mon", i)) != INCORRECT)
+      if (msa[i].connect_status != DISABLED)
       {
-         pl[i].start_time = time(NULL);
-         pl[i].number_of_restarts = 0;
-         (void)strcpy(pl[i].afd_alias, msa[i].afd_alias);
+         if ((pl[i].pid = start_process("mon", i)) != INCORRECT)
+         {
+            pl[i].start_time = time(NULL);
+            pl[i].number_of_restarts = 0;
+            (void)strcpy(pl[i].afd_alias, msa[i].afd_alias);
+         }
       }
-   }
-   if (msa_detach() != SUCCESS)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to detach from MSA. (%s %d)\n",
-                __FILE__, __LINE__);
    }
 
    return;

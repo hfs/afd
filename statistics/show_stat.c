@@ -176,6 +176,9 @@ main(int argc, char *argv[])
    else
    {
       (void)strcpy(statistic_file, statistic_file_name);
+
+      /* We cannot know from what year this file is, so set to zero. */
+      year = 0;
    }
 
    if (stat(statistic_file, &stat_buf) != 0)

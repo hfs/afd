@@ -62,10 +62,8 @@ extern XtIntervalId               interval_id_host,
                                   interval_id_tv;
 extern GC                         color_gc;
 extern Widget                     transviewshell;
-extern Window                     detailed_window,
-                                  line_window;
+extern Window                     line_window;
 extern char                       line_style,
-                                  *p_work_dir,
                                   tv_window;
 extern float                      max_bar_length;
 extern size_t                     current_jd_size;
@@ -78,14 +76,9 @@ extern int                        no_of_hosts,
                                   bar_thickness_2,
                                   no_selected,
                                   no_of_columns,
-                                  fsa_id,
                                   button_width,
                                   tv_no_of_rows,
                                   x_offset_proc;
-#ifndef _NO_MMAP
-extern off_t                      fsa_size;
-#endif
-extern unsigned int               text_offset;
 extern unsigned short             step_size;
 extern unsigned long              color_pool[];
 extern clock_t                    clktck;
@@ -149,8 +142,8 @@ Widget   w;
       {
          if (strcmp(connect_data[i].hostname, fsa[i].host_alias) == 0)
          {
-            memmove(&new_connect_data[i], &connect_data[i],
-                    sizeof(struct line));
+            (void)memcpy(&new_connect_data[i], &connect_data[i],
+                         sizeof(struct line));
          }
          else
          {
@@ -162,8 +155,8 @@ Widget   w;
       {
          if ((pos = check_disp_data(fsa[i].host_alias, prev_no_of_hosts)) != INCORRECT)
          {
-            (void)memmove(&new_connect_data[i], &connect_data[pos],
-                          sizeof(struct line));
+            (void)memcpy(&new_connect_data[i], &connect_data[pos],
+                         sizeof(struct line));
          }
          else /* A new host has been added */
          {
@@ -187,7 +180,9 @@ Widget   w;
             new_connect_data[i].total_file_size = fsa[i].total_file_size;
             CREATE_FS_STRING(new_connect_data[i].str_tfs, new_connect_data[i].total_file_size);
             new_connect_data[i].bytes_per_sec = 0;
-            (void)strcpy(new_connect_data[i].str_tr, "  0B");
+            new_connect_data[i].str_tr[0] = new_connect_data[i].str_tr[1] = ' ';
+            new_connect_data[i].str_tr[2] = '0'; new_connect_data[i].str_tr[3] = 'B';
+            new_connect_data[i].str_tr[4] = '\0';
             new_connect_data[i].average_tr = 0.0;
             new_connect_data[i].max_average_tr = 0.0;
             new_connect_data[i].max_errors = fsa[i].max_errors;
@@ -252,7 +247,7 @@ Widget   w;
              * that this host has not been deleted. If it
              * is deleted reduce the select counter!
              */
-            if (connect_data[i].inverse == ON)
+            if ((i < prev_no_of_hosts) && (connect_data[i].inverse == ON))
             {
                if ((pos = check_fsa_data(connect_data[i].hostname)) == INCORRECT)
                {
@@ -291,8 +286,8 @@ Widget   w;
       }
 
       /* Activate the new connect_data structure */
-      memmove(&connect_data[0], &new_connect_data[0],
-              no_of_hosts * sizeof(struct line));
+      (void)memcpy(&connect_data[0], &new_connect_data[0],
+                   no_of_hosts * sizeof(struct line));
 
       free(new_connect_data);
 
@@ -586,18 +581,14 @@ Widget   w;
               {
                  new_color = NOT_WORKING2;
               }
-              else if (fsa[i].active_transfers > 0)
-                   {
-                      new_color = TRANSFER_ACTIVE; /* Transferring files */
-                   }
-                   else if (fsa[i].host_status == FAULTY_TRANSFERS)
-                        {
-                           new_color = FAULTY_TRANSFERS;
-                        }
-                        else
-                        {
-                           new_color = NORMAL_STATUS; /* Nothing to do but connection active */
-                        }
+         else if (fsa[i].active_transfers > 0)
+              {
+                 new_color = TRANSFER_ACTIVE; /* Transferring files */
+              }
+              else
+              {
+                 new_color = NORMAL_STATUS; /* Nothing to do but connection active */
+              }
 
          if (connect_data[i].stat_color_no != new_color)
          {
@@ -1097,10 +1088,10 @@ Widget   w;
 static void
 calc_transfer_rate(int i)
 {
-   int          j;
-   unsigned int bytes_send = 0;
-   time_t       end_time,
-                delta_time;
+   int           j;
+   unsigned long bytes_send = 0L;
+   time_t        end_time,
+                 delta_time;
 
    end_time = times(&tmsdummy);
    if ((delta_time = (end_time - connect_data[i].start_time)) == 0)
@@ -1119,7 +1110,8 @@ calc_transfer_rate(int i)
             connect_data[i].bytes_send[j] = 0;
          }
 
-         bytes_send += (fsa[i].job_status[j].bytes_send - connect_data[i].bytes_send[j]);
+         bytes_send += (fsa[i].job_status[j].bytes_send -
+                        connect_data[i].bytes_send[j]);
 
          connect_data[i].bytes_send[j] = fsa[i].job_status[j].bytes_send;
       }
@@ -1127,9 +1119,10 @@ calc_transfer_rate(int i)
 
    if (bytes_send > 0)
    {
-      connect_data[i].bytes_per_sec = (double)(bytes_send) / delta_time * clktck;
+      connect_data[i].bytes_per_sec = (double)(bytes_send) /
+                                      delta_time * clktck;
 
-      /* arithmetischer Mittelwert */
+      /* Arithmetischer Mittelwert */
       connect_data[i].average_tr = (connect_data[i].average_tr +
                                    connect_data[i].bytes_per_sec) / 2.0;
 
@@ -1144,7 +1137,7 @@ calc_transfer_rate(int i)
 
       if (connect_data[i].average_tr > 0.0)
       {
-         /* arithmetischer Mittelwert */
+         /* Arithmetischer Mittelwert */
          connect_data[i].average_tr = (connect_data[i].average_tr +
                                       connect_data[i].bytes_per_sec) / 2.0;
 
@@ -1163,7 +1156,7 @@ calc_transfer_rate(int i)
 static int
 check_fsa_data(char *hostname)
 {
-   static int i;
+   register int i;
 
    for (i = 0; i < no_of_hosts; i++)
    {
@@ -1181,7 +1174,7 @@ check_fsa_data(char *hostname)
 static int
 check_disp_data(char *hostname, int prev_no_of_hosts)
 {
-   static int i;
+   register int i;
 
    for (i = 0; i < prev_no_of_hosts; i++)
    {

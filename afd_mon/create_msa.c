@@ -1,6 +1,6 @@
 /*
  *  create_msa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   29.08.1998 H.Kiehl Created
+ **   13.09.2000 H.Kiehl Addition of top number of process.
  **
  */
 DESCR__E_M3
@@ -213,10 +214,27 @@ create_msa(void)
                                old_msa_stat, __FILE__, __LINE__);
                      old_msa_id = -1;
                   }
-                  else
-                  {
-                     old_msa_size = stat_buf.st_size;
-                  }
+                  else if (stat_buf.st_size != (AFD_WORD_OFFSET + (*(int *)ptr * sizeof(struct mon_status_area))))
+                       {
+                          (void)rec(sys_log_fd, WARN_SIGN,
+                                    "Size of the MSA is not what it should be. Assuming that the structure has changed and will thus not use the old one. (%s %d)\n",
+                                    __FILE__, __LINE__);
+                          old_msa_id = -1;
+#ifdef _NO_MMAP
+                          if (munmap_emu(ptr) == -1)
+#else
+                          if (munmap(ptr, stat_buf.st_size) == -1)
+#endif
+                          {
+                             (void)rec(sys_log_fd, ERROR_SIGN,
+                                       "Failed to munmap() %s : %s (%s %d)\n",
+                                       old_msa_stat, strerror(errno), __FILE__, __LINE__);
+                          }
+                       }
+                       else
+                       {
+                          old_msa_size = stat_buf.st_size;
+                       }
 
                   /*
                    * We actually could remove the old file now. Better
@@ -327,6 +345,8 @@ create_msa(void)
          (void)strcpy(msa[i].hostname, ml[i].hostname);
          (void)strcpy(msa[i].convert_username[0], ml[i].convert_username[0]);
          (void)strcpy(msa[i].convert_username[1], ml[i].convert_username[1]);
+         (void)memset(msa[i].log_history, DEFAULT_BG,
+                      (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
          msa[i].r_work_dir[0]      = '\0';
          msa[i].afd_version[0]     = '\0';
          msa[i].poll_interval      = ml[i].poll_interval;
@@ -336,6 +356,8 @@ create_msa(void)
          msa[i].archive_watch      = 0;
          msa[i].jobs_in_queue      = 0;
          msa[i].no_of_transfers    = 0;
+         msa[i].top_not_time       = 0L;
+         (void)memset(msa[i].top_no_of_transfers, 0, (STORAGE_TIME * sizeof(int)));
          msa[i].max_connections    = MAX_DEFAULT_CONNECTIONS;
          msa[i].sys_log_ec         = 0;
          (void)memset(msa[i].sys_log_fifo, 0, LOG_FIFO_SIZE);
@@ -345,8 +367,10 @@ create_msa(void)
          msa[i].fs                 = 0;
          msa[i].tr                 = 0;
          (void)memset(msa[i].top_tr, 0, (STORAGE_TIME * sizeof(unsigned int)));
+         msa[i].top_tr_time        = 0L;
          msa[i].fr                 = 0;
          (void)memset(msa[i].top_fr, 0, (STORAGE_TIME * sizeof(unsigned int)));
+         msa[i].top_fr_time        = 0L;
          msa[i].ec                 = 0;
          msa[i].last_data_time     = 0;
          msa[i].connect_status     = DISCONNECTED;
@@ -409,11 +433,17 @@ create_msa(void)
 
             (void)strcpy(msa[i].r_work_dir, old_msa[afd_pos].r_work_dir);
             (void)strcpy(msa[i].afd_version, old_msa[afd_pos].afd_version);
+            (void)memcpy(msa[i].log_history, old_msa[afd_pos].log_history,
+                         (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
             msa[i].amg                = old_msa[afd_pos].amg;
             msa[i].fd                 = old_msa[afd_pos].fd;
             msa[i].archive_watch      = old_msa[afd_pos].archive_watch;
             msa[i].jobs_in_queue      = old_msa[afd_pos].jobs_in_queue;
             msa[i].no_of_transfers    = old_msa[afd_pos].no_of_transfers;
+            msa[i].top_not_time       = old_msa[afd_pos].top_not_time;
+            (void)memcpy(msa[i].top_no_of_transfers,
+                         old_msa[afd_pos].top_no_of_transfers,
+                         (STORAGE_TIME * sizeof(int)));
             msa[i].sys_log_ec         = old_msa[afd_pos].sys_log_ec;
             (void)memcpy(msa[i].sys_log_fifo, old_msa[afd_pos].sys_log_fifo,
                          LOG_FIFO_SIZE);
@@ -423,9 +453,11 @@ create_msa(void)
             msa[i].fc                 = old_msa[afd_pos].fc;
             msa[i].fs                 = old_msa[afd_pos].fs;
             msa[i].tr                 = old_msa[afd_pos].tr;
+            msa[i].top_tr_time        = old_msa[afd_pos].top_tr_time;
             (void)memcpy(msa[i].top_tr, old_msa[afd_pos].top_tr,
                          (STORAGE_TIME * sizeof(unsigned int)));
             msa[i].fr                 = old_msa[afd_pos].fr;
+            msa[i].top_fr_time        = old_msa[afd_pos].top_fr_time;
             (void)memcpy(msa[i].top_fr, old_msa[afd_pos].top_fr,
                          (STORAGE_TIME * sizeof(unsigned int)));
             msa[i].ec                 = old_msa[afd_pos].ec;
@@ -438,6 +470,8 @@ create_msa(void)
             (void)strcpy(msa[i].hostname, ml[i].hostname);
             (void)strcpy(msa[i].convert_username[0], ml[i].convert_username[0]);
             (void)strcpy(msa[i].convert_username[1], ml[i].convert_username[1]);
+            (void)memset(msa[i].log_history, DEFAULT_BG,
+                         (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
             msa[i].r_work_dir[0]      = '\0';
             msa[i].afd_version[0]     = '\0';
             msa[i].poll_interval      = ml[i].poll_interval;
@@ -447,6 +481,9 @@ create_msa(void)
             msa[i].archive_watch      = 0;
             msa[i].jobs_in_queue      = 0;
             msa[i].no_of_transfers    = 0;
+            msa[i].top_not_time       = 0L;
+            (void)memset(msa[i].top_no_of_transfers, 0,
+                         (STORAGE_TIME * sizeof(int)));
             msa[i].max_connections    = MAX_DEFAULT_CONNECTIONS;
             msa[i].sys_log_ec         = 0;
             (void)memset(msa[i].sys_log_fifo, 0, LOG_FIFO_SIZE);
@@ -455,9 +492,11 @@ create_msa(void)
             msa[i].fc                 = 0;
             msa[i].fs                 = 0;
             msa[i].tr                 = 0;
+            msa[i].top_tr_time        = 0L;
             (void)memset(msa[i].top_tr, 0,
                          (STORAGE_TIME * sizeof(unsigned int)));
             msa[i].fr                 = 0;
+            msa[i].top_fr_time        = 0L;
             (void)memset(msa[i].top_fr, 0,
                          (STORAGE_TIME * sizeof(unsigned int)));
             msa[i].ec                 = 0;

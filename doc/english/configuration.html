@@ -1,284 +1,70 @@
-<HTML>
-<HEAD>
-<TITLE>AFD (configuration.html)</TITLE>
-</HEAD>
-<BODY bgcolor=#F0ECD6>
-<H1 ALIGN=center><A NAME="configuration">Configuration Files</A></H1>
-<HR SIZE=3 NOSHADE>
-<P>
-The following files can be found in the etc directory:
-<P>
-<H3><A NAME="AFD_CONFIG">AFD Configuration (AFD_CONFIG)</A></H3>
-<P>
-This file contains some parameter settings that are always read when
-the AFD is started. The following table shows and describes what
-parameters can be set and which programs must be restarted to activate
-the new value:
-<TABLE BORDER>
-<TR>
-   <TH>Parameter</TH>
-   <TH>Description</TH>
-   <TH>Default</TH>
-   <TH>Restart</TH>
-</TR>
-<TR>
-   <TD>AFD_TCP_PORT</TD>
-   <TD>The TCP port number at which the process afdd will listen and
-       wait for remote requests. If that port is currently in use
-       by another program it will add one and see if that works
-       so long until it finds a free port</TD>
-   <TD>4444</TD>
-   <TD>afdd</TD>
-</TR>
-<TR>
-   <TD>TRUSTED_REMOTE_IP</TD>
-   <TD>Trusted IP-number that may connect to AFD_TCP_PORT. To
-       enter more then one IP-number you must have the
-       identifier TRUSTED_REMOTE_IP on a new line for each number.
-       Wildcards may also be used when specifying the IP-number.
-       If TRUSTED_REMOTE_IP is not set, all hosts may connect.</TD>
-   <TD>None</TD>
-   <TD>afdd</TD>
-</TR>
-<TR>
-   <TD>MAX_NO_OF_DIR_CHECKS</TD>
-   <TD>This is the number of times dir_check my fork itself to
-       copy or exec some command.</TD>
-   <TD>8</TD>
-   <TD>AMG</TD>
-</TR>
-<TR>
-   <TD>AMG_DIR_RESCAN_TIME</TD>
-   <TD>The rescan time of the user directories in the DIR_CONFIG file.
-       Don't pick a small value here if your system shows high system
-       load when working with files or directories (eg. fault tolerant
-       systems). This is also the interval time that the AMG checks if
-       the DIR_CONFIG or HOST_CONFIG file have been changed. The unit
-       is second.</TD>
-   <TD>5</TD>
-   <TD>AMG</TD>
-</TR>
-<TR>
-   <TD>MAX_CONNECTIONS</TD>
-   <TD>The maximum number of simultaneous connections/transfers that the
-       AFD allows. Don't set this value to high since some environments
-       allow only a limited number of process per user.</TD>
-   <TD>20</TD>
-   <TD>FD</TD>
-</TR>
-<TR>
-   <TD>MAX_COPIED_FILES</TD>
-   <TD>The maximum number of files that are copied before they are
-       send to the FD. This value is set so that the AFD starts sending
-       files as soon as possile even when there are thousands of files
-       waiting in the source directory to be send. Otherwise it might
-       take to long to process all the files at once and time is lost
-       that could be used to transmit data.</TD>
-   <TD>100</TD>
-   <TD>AMG</TD>
-</TR>
-<TR>
-   <TD>MAX_COPIED_FILE_SIZE</TD>
-   <TD>The maximum size in Megabytes that are copied before they are
-       send to the FD.</TD>
-   <TD>100</TD>
-   <TD>AMG</TD>
-</TR>
-<TR>
-   <TD>ONE_DIR_COPY_TIMEOUT</TD>
-   <TD>When AMG has collected MAX_COPIED_FILES, it will try to continue to
-       copy from this directory until it reaches the timeout set by this
-       option in seconds.</TD>
-   <TD>10</TD>
-   <TD>AMG</TD>
-</TR>
-<TR>
-   <TD>DIR_CHECK_TIMEOUT</TD>
-   <TD>When the administrator has marked one or more directories as
-       importent (with '*'), this is the minimum time that these
-       directories have to wait during one scan of all directories.</TD>
-   <TD>30</TD>
-   <TD>AMG</TD>
-</TR>
-<TR>
-   <TD>DEFAULT_PRINTER_CMD</TD>
-   <TD>With this option it is possible to set the printer command
-       for your specific environment.</TD>
-   <TD>&#34lpr -P&#34</TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>DEFAULT_PRINTER_NAME</TD>
-   <TD>This option specifies the default printer for your system.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>PING_CMD</TD>
-   <TD>Full path of the ping command plus any options. The hostname
-       will be added to the end of the command.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD>AFD_CTRL</TD>
-</TR>
-<TR>
-   <TD>TRACEROUTE_CMD</TD>
-   <TD>Full path of the trceroute command plus any options. The hostname
-       will be added to the end of the command.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD>AFD_CTRL</TD>
-</TR>
-</TABLE>
-<P>
-<H3><A NAME="afd_users">AFD Users (afd.users)</A></H3>
-<P>
-If this file does not exist (or AFD fails to read it) every user may do
-everything as soon as he has access to <A HREF="afd_ctrl.html#afd_control">
-afd_ctrl</A>. To restrict access you can enter the users name together
-with the options he is allowed to use. An example entry could be:
-<PRE>
-    operator  startup, afd_ctrl, control_transfer, show_slog
-    afd       all
-</PRE>
-The user operator may startup the AFD, he may call afd_ctrl, start/stop
-a transfer and view the system log, nothing else. Whereas the user afd
-may do everything. The following table list and describes what permissions
-are available.
-<TABLE BORDER>
-<TR>
-   <TH>Permission</TH>
-   <TH>Description</TH>
-</TR>
-<TR>
-   <TD>startup</TD>
-   <TD>Start AFD</TD>
-<TR>
-</TR>
-   <TD>shutdown</TD>
-   <TD>Shutdown AFD</TD>
-</TR>
-<TR>
-   <TD>resend</TD>
-   <TD>Resend files.</TD>
-</TR>
-<TR>
-   <TD>view_passwd</TD>
-   <TD>View the password in the recipient string. If not set you will
-       only see xxxx in place of the password.</TD>
-</TR>
-<TR>
-   <TD>list_limit x</TD>
-   <TD>Limit the number of files in the show_xlog dialog to x. Otherwise
-       these process might consume to much memory since they use the
-       list widget.</TD>
-</TR>
-<TR>
-   <TD>show_slog</TD>
-   <TD>View the <A HREF="show_log.html">system log</A> dialog.</TD>
-</TR>
-<TR>
-   <TD>show_tlog</TD>
-   <TD>View the <A HREF="show_log.html">transfer log</A> dialog.</TD>
-</TR>
-<TR>
-   <TD>show_dlog</TD>
-   <TD>View the <A HREF="show_log.html">transfer debug log</A>
-       dialog.</TD>
-</TR>
-<TR>
-   <TD>show_ilog</TD>
-   <TD>View the <A HREF="show_ilog.html">input log</A> dialog.</TD>
-</TR>
-<TR>
-   <TD>show_olog</TD>
-   <TD>View the <A HREF="show_olog.html">output log</A> dialog.</TD>
-</TR>
-<TR>
-   <TD>show_rlog</TD>
-   <TD>View the delete log.</TD>
-</TR>
-<TR>
-   <TD>edit_hc</TD>
-   <TD>Use the <A HREF="edit_hc.html">edit_hc</A> dialog.</TD>
-</TR>
-<TR>
-   <TD>afd_ctrl</TD>
-   <TD>View the <A HREF="afd_ctrl.html">afd_ctrl</A> dialog.</TD>
-</TR>
-<TR>
-   <TD>AMG_control</TD>
-   <TD>Start/Stop AMG</TD>
-</TR>
-<TR>
-   <TD>FD_control</TD>
-   <TD>Start/Stop FD</TD>
-</TR>
-<TR>
-   <TD>control_queue</TD>
-   <TD>Start/Stop queue</TD>
-</TR>
-<TR>
-   <TD>control_transfer</TD>
-   <TD>Start/Stop transfer</TD>
-</TR>
-<TR>
-   <TD>switch_host</TD>
-   <TD>Switch host if there is a secondary host.</TD>
-</TR>
-<TR>
-   <TD>disable</TD>
-   <TD>Disable a certain host.</TD>
-</TR>
-<TR>
-   <TD>info</TD>
-   <TD>Information about each host.</TD>
-</TR>
-<TR>
-   <TD>debug</TD>
-   <TD>Enable/Disable debug</TD>
-</TR>
-<TR>
-   <TD>retry</TD>
-   <TD>Send retry command for a host.</TD>
-</TR>
-<TR>
-   <TD>view_jobs</TD>
-   <TD>View more detailed information about each current transfer.</TD>
-</TR>
-<TR>
-   <TD>afd_load</TD>
-   <TD>View afd_load dialog.</TD>
-</TR>
-<TR>
-   <TD>reread_dir_config</TD>
-   <TD>Reread DIR_CONFIG to activate any changes.</TD>
-</TR>
-<TR>
-   <TD>reread_host_config</TD>
-   <TD>Reread HOST_CONFIG to activate any changes.</TD>
-</TR>
-<TR>
-   <TD>afdcmd</TD>
-   <TD>Use of the command line program afdcmd to control most of the
-       above.</TD>
-</TR>
-</TABLE>
-<P>
-<H3><A NAME="afd_name">AFD Name (afd.name)</A></H3>
-<P>
-In this file you can give the AFD a name. If this file is not there the
-name will default to the hostname.
-<P>
-<HR SIZE=3 NOSHADE>
-<TABLE>
-<TR>
-   <TD WIDTH=600><SMALL><ADDRESS>
-   Copyright &copy; 1999 by H.Kiehl<BR>
-   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
-   Last updated: 26.12.1999
-   </ADDRESS></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
-</TR>
-</TABLE>
-</BODY>
-</HTML>
+<html>
+<head>
+<title>AFD (configuration.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="configuration">Configuration Files</a></h1>
+<hr size=3 noshade>
+<p>
+There are several configuration files in the $AFD_WORK_DIR/etc which
+can be used to configure the AFD which are listed int the table below:
+</p>
+<center>
+<table border>
+<tr>
+   <th>Configuration file</th>
+   <th>Description</th>
+</tr>
+<tr>
+   <td><a href="dir_config.html">DIR_CONFIG</a></td>
+   <td>This is the main configuration file used to tell AFD which
+       directories are to be monitored and what it has to do with
+       files which appearing in these directories.</td>
+</tr>
+<tr>
+   <td><a href="host_config.html">HOST_CONFIG</a></td>
+   <td>Holds specific configuration for each host to which AFD
+       either sends or retrieves files.</td>
+</tr>
+<tr>
+   <td><a href="rename_rules.html">rename.rule</a></td>
+   <td>Here can be defined the rules to rename files by using the
+       <a href="dir_config.html#rename">rename</a> or
+       <a href="dir_config.html#trans_rename">trans_rename</a> options
+       of the DIR_CONFIG.</td>
+</tr>
+<tr>
+   <td><a href="afd_config.html">AFD_CONFIG</a></td>
+   <td>Configuration file to change some of the default compiled in
+       values of the main process of the AFD.</td>
+</tr>
+<tr>
+   <td><a href="afd_name.html">afd.name</a></td>
+   <td>Contains the name of this AFD.</td>
+</tr>
+<tr>
+   <td><a href="afd_users.html">afd.users</a></td>
+   <td>Permission file that specifies what a user may do.</td>
+</tr>
+<tr>
+   <td>INFO-&lt;hostname&gt;</td>
+   <td>Contains information for this particular host which will be
+       displayed by the <a href="afd_info.html">afd_info</a> dialog.</td>
+</tr>
+</table>
+</center>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1999 - 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 04.06.2001
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

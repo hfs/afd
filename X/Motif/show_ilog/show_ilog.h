@@ -22,25 +22,17 @@
 
 #include "x_common_defs.h"
 
-#define SELECTION_TOGGLE        1
-#define ALL_TOGGLE              2
-#define PRINTER_TOGGLE          3
-#define FILE_TOGGLE             4
-
 #define EQUAL_SIGN              1
 #define LESS_THEN_SIGN          2
 #define GREATER_THEN_SIGN       3
 
 #define GOT_JOB_ID_DIR_ONLY     -3
-#define GOT_JOB_ID_USER_ONLY    -4
 #define GOT_JOB_ID_DIR_AND_RECIPIENT -5
 
 #define F_KILOBYTE              1024.0
 #define F_MEGABYTE              1048576.0
 #define F_GIGABYTE              1073741824.0
 #define F_TERABYTE              1099511627776.0
-
-#define CONTROL_D               "\004"
 
 #define SEARCH_BUTTON           1
 #define STOP_BUTTON             2
@@ -52,8 +44,6 @@
 #define NOT_FOUND               12
 #define NOT_IN_ARCHIVE          13
 /* NOTE: DONE is defined in afddefs.h as 3 */
-
-#define INFO_TEXT_STEP_SIZE     (MAX_NO_FILES * MAX_FILENAME_LENGTH)
 
 /* When saving input lets define some names so we know where */
 /* to store the user input.                                  */
@@ -106,7 +96,7 @@ struct db_entry
           int          no_of_loptions;
           int          no_of_soptions;
           char         *soptions;
-          char         files[MAX_NO_FILES][MAX_FILENAME_LENGTH];
+          char         **files;
           char         loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
           char         recipient[MAX_RECIPIENT_LENGTH];
           char         user[MAX_RECIPIENT_LENGTH];
@@ -187,7 +177,6 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int, double),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),
             print_button(Widget, XtPointer, XtPointer),
-            print_data(void),
             radio_button(Widget, XtPointer, XtPointer),
             save_input(Widget, XtPointer, XtPointer),
             scrollbar_moved(Widget, XtPointer, XtPointer),

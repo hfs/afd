@@ -57,6 +57,7 @@ extern Widget       appshell,
                     line_window_w,
                     label_window_w;
 extern int          line_height,
+                    magic_value,
                     window_width,
                     window_height;
 extern unsigned int glyph_height;
@@ -134,10 +135,10 @@ resize_mon_window(void)
                         new_x,
                         new_y,
                         window_width,
-                        window_height + line_height + glyph_height + 12);
+                        window_height + line_height + glyph_height + magic_value);
 #else
       XResizeWindow(display, XtWindow(appshell), window_width,
-                    window_height + line_height + glyph_height + 12);
+                    window_height + line_height + glyph_height + magic_value);
 #endif
 
       /* If the line_height changed, don't forget to change the */

@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,12 +45,6 @@ DESCR__S_M3
  **                    (eg. file.1 -> XXXfile.1)
  **   prefix del XXX - Removes the prefix from the file name.
  **                    (eg. XXXfile.1 -> file.1)
- **   compress       - Compresses all files with compress.
- **   uncompress     - Uncompresses all files which have been
- **                    compressed with compress.
- **   gzip           - Compresses all files with GNU zip.
- **   gunzip         - Uncompresses all files which have been
- **                    compressed with GNU zip.
  **   rename <rule>  - Files are being renamed by the rule <rule>.
  **                    Where <rule> is a simple string by which
  **                    the AFD can identify which rule to use in the
@@ -99,6 +93,9 @@ DESCR__S_M3
  **   16.09.1997 H.Kiehl Add some more extract options (VAX, LBF, HBF, MSS).
  **   18.10.1997 H.Kiehl Introduced inverse filtering.
  **   05.04.1999 H.Kiehl Added WMO to extract option.
+ **   26.03.2000 H.Kiehl Removed (un)gzip and (un)compress options.
+ **   14.07.2000 H.Kiehl Return the exit status of the process started
+ **                      with exec_cmd() when it has failed.
  **
  */
 DESCR__E_M3
@@ -139,22 +136,17 @@ handle_options(int   no_of_options,
 {
    int         i,
                j,
-               n,
                ext_counter,
                first_time;
    off_t       size;
    char        *ptr = NULL,
-               *p_ext,
                *p_prefix,
                *p_newname,
                *file_name_buffer = NULL,
                *p_file_name,
-               buf[BUFSIZ],
-               cmd[MAX_PATH_LENGTH + MAX_FILENAME_LENGTH],
                filename[MAX_FILENAME_LENGTH],
                fullname[MAX_PATH_LENGTH],
-               newname[MAX_PATH_LENGTH],
-               extension[5];
+               newname[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
    for (i = 0; i < no_of_options; i++)
@@ -176,9 +168,8 @@ handle_options(int   no_of_options,
           */
          if (no_of_rule_headers == 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "You want to do renaming, but there is no valid file with rules for renaming. Ignoring this option. (%s %d)\n",
-                      __FILE__, __LINE__);
+            receive_log(WARN_SIGN, __FILE__, __LINE__,
+                        "You want to do renaming, but there is no valid file with rules for renaming. Ignoring this option.");
          }
          else
          {
@@ -193,9 +184,8 @@ handle_options(int   no_of_options,
             }
             if ((*p_rule == '\n') || (*p_rule == '\0'))
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "No rule specified for renaming. Ignoring this option. (%s %d)\n",
-                         __FILE__, __LINE__);
+               receive_log(WARN_SIGN, __FILE__, __LINE__,
+                           "No rule specified for renaming. Ignoring this option.");
             }
             else
             {
@@ -203,9 +193,9 @@ handle_options(int   no_of_options,
 
                if ((rule_pos = get_rule(p_rule, no_of_rule_headers)) < 0)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Could NOT find rule %s. Ignoring this option. (%s %d)\n",
-                            p_rule, __FILE__, __LINE__);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Could NOT find rule %s. Ignoring this option.",
+                              p_rule);
                }
                else
                {
@@ -266,10 +256,9 @@ handle_options(int   no_of_options,
                               }
                               if (rename(fullname, newname) < 0)
                               {
-                                 (void)rec(sys_log_fd, WARN_SIGN,
-                                           "Failed to rename() %s to %s : %s (%s %d)\n",
-                                           fullname, newname, strerror(errno),
-                                           __FILE__, __LINE__);
+                                 receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "Failed to rename() %s to %s : %s",
+                                             fullname, newname, strerror(errno));
                               }
 
                               break;
@@ -318,9 +307,8 @@ handle_options(int   no_of_options,
          }
          if ((*p_command == '\n') || (*p_command == '\0'))
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "No command specified for executing. Ignoring this option. (%s %d)\n",
-                      __FILE__, __LINE__);
+            receive_log(WARN_SIGN, __FILE__, __LINE__,
+                        "No command specified for executing. Ignoring this option.");
          }
          else
          {
@@ -361,7 +349,8 @@ handle_options(int   no_of_options,
                {
                   int  length,
                        length_start,
-                       mask_file_name;
+                       mask_file_name,
+                       ret;
                   char *fnp;
 
                   tmp_char = *insert_list[0];
@@ -407,11 +396,11 @@ handle_options(int   no_of_options,
                         *insert_list[k] = tmp_char;
                      }
 
-                     if (exec_cmd(command_str, return_str) < 0)
+                     if ((ret = exec_cmd(command_str, return_str)) != 0) /* ie != SUCCESS */
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to execute command %s (%s %d)\n",
-                                  command_str, __FILE__, __LINE__);
+                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                    "Failed to execute command %s [Return code = %d]",
+                                    command_str, ret);
                         if (return_str[0] != '\0')
                         {
                            char *end_ptr = return_str,
@@ -429,7 +418,8 @@ handle_options(int   no_of_options,
                                  *end_ptr = '\0';
                                  end_ptr++;
                               }
-                              (void)rec(sys_log_fd, WARN_SIGN, "%s\n", start_ptr);
+                              receive_log(WARN_SIGN, __FILE__, __LINE__, "%s",
+                                          start_ptr);
                            } while (*end_ptr != '\0');
                         }
                      }
@@ -444,14 +434,16 @@ handle_options(int   no_of_options,
             }
             else
             {
+               int ret;
+
                (void)sprintf(command_str, "cd %s ; %s", file_path, p_command);
 
-               if (exec_cmd(command_str, return_str) < 0)
+               if ((ret = exec_cmd(command_str, return_str)) != 0)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to execute command %s (%s %d)\n",
-                            command_str, __FILE__, __LINE__);
-                  (void)rec(sys_log_fd, WARN_SIGN, "%s\n", return_str);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Failed to execute command %s [Return code = %d]",
+                              command_str, ret);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, "%s", return_str);
                }
             }
          }
@@ -505,10 +497,9 @@ handle_options(int   no_of_options,
 
                if (rename(fullname, newname) == -1)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to rename() %s to %s : %s (%s %d)\n",
-                            fullname, newname, strerror(errno),
-                            __FILE__, __LINE__);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Failed to rename() %s to %s : %s",
+                              fullname, newname, strerror(errno));
                }
 
                p_file_name += MAX_FILENAME_LENGTH;
@@ -566,10 +557,9 @@ handle_options(int   no_of_options,
  
                if (rename(fullname, newname) == -1)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to rename() %s to %s : %s (%s %d)\n",
-                            fullname, newname, strerror(errno),
-                            __FILE__, __LINE__);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Failed to rename() %s to %s : %s",
+                              fullname, newname, strerror(errno));
                }
 
                p_file_name += MAX_FILENAME_LENGTH;
@@ -612,10 +602,9 @@ handle_options(int   no_of_options,
 
                if (rename(fullname, newname) == -1)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to rename() %s to %s : %s (%s %d)\n",
-                            fullname, newname, strerror(errno),
-                            __FILE__, __LINE__);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Failed to rename() %s to %s : %s",
+                              fullname, newname, strerror(errno));
                }
 
                p_file_name += MAX_FILENAME_LENGTH;
@@ -659,10 +648,9 @@ handle_options(int   no_of_options,
 
                   if (rename(fullname, newname) == -1)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to rename() %s to %s : %s (%s %d)\n",
-                               fullname, newname, strerror(errno),
-                               __FILE__, __LINE__);
+                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                 "Failed to rename() %s to %s : %s",
+                                 fullname, newname, strerror(errno));
                   }
                }
 
@@ -709,10 +697,9 @@ handle_options(int   no_of_options,
                                    AFD_FILE_DIR, ERROR_DIR, p_file_name);
                      if (rename(fullname, error_name) == -1)
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to rename file %s to %s : %s (%s %d)\n",
-                                  fullname, error_name, strerror(errno),
-                                  __FILE__, __LINE__);
+                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                    "Failed to rename file %s to %s : %s",
+                                    fullname, error_name, strerror(errno));
                      }
                      else
                      {
@@ -727,16 +714,14 @@ handle_options(int   no_of_options,
 
                         if ((fd = open(fullname, O_WRONLY | O_TRUNC)) == -1)
                         {
-                           (void)rec(sys_log_fd, ERROR_SIGN,
-                                     "Failed to open() %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
+                           receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                                       "Failed to open() %s : %s",
+                                       fullname, strerror(errno));
                            if ((remove(fullname) == -1) && (errno != ENOENT))
                            {
-                              (void)rec(sys_log_fd, ERROR_SIGN,
-                                        "Failed to remove() %s : %s (%s %d)\n",
-                                        p_file_name, strerror(errno),
-                                        __FILE__, __LINE__);
+                              receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                                          "Failed to remove() %s : %s",
+                                          p_file_name, strerror(errno));
                            }
                            else
                            {
@@ -747,16 +732,14 @@ handle_options(int   no_of_options,
                         {
                            if (write(fd, wmo_buffer, length) != length)
                            {
-                              (void)rec(sys_log_fd, ERROR_SIGN,
-                                        "Failed to write() to %s : %s (%s %d)\n",
-                                        p_file_name, strerror(errno),
-                                        __FILE__, __LINE__);
+                              receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                                          "Failed to write() to %s : %s",
+                                          p_file_name, strerror(errno));
                               if ((remove(fullname) == -1) && (errno != ENOENT))
                               {
-                                 (void)rec(sys_log_fd, ERROR_SIGN,
-                                           "Failed to remove() %s : %s (%s %d)\n",
-                                           p_file_name, strerror(errno),
-                                           __FILE__, __LINE__);
+                                 receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                                             "Failed to remove() %s : %s",
+                                             p_file_name, strerror(errno));
                               }
                               else
                               {
@@ -792,10 +775,9 @@ handle_options(int   no_of_options,
                                 AFD_FILE_DIR, ERROR_DIR, p_file_name);
                   if (rename(fullname, error_name) == -1)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to rename file %s to %s : %s (%s %d)\n",
-                               fullname, error_name, strerror(errno),
-                               __FILE__, __LINE__);
+                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                 "Failed to rename file %s to %s : %s",
+                                 fullname, error_name, strerror(errno));
                   }
                   else
                   {
@@ -833,17 +815,15 @@ handle_options(int   no_of_options,
                   {
                      if (errno != ENOENT)
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to delete file %s : %s (%s %d)\n",
-                                  fullname, strerror(errno),
-                                  __FILE__, __LINE__);
+                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                    "Failed to delete file %s : %s",
+                                    fullname, strerror(errno));
                      }
                   }
                   else
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Removing corrupt file %s (%s %d)\n",
-                               p_file_name, __FILE__, __LINE__);
+                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                 "Removing corrupt file %s", p_file_name);
                      (*files_to_send)--;
                   }
                }
@@ -881,17 +861,15 @@ handle_options(int   no_of_options,
                   {
                      if (errno != ENOENT)
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to delete file %s : %s (%s %d)\n",
-                                  fullname, strerror(errno),
-                                  __FILE__, __LINE__);
+                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                    "Failed to delete file %s : %s",
+                                    fullname, strerror(errno));
                      }
                   }
                   else
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Removing corrupt file %s (%s %d)\n",
-                               p_file_name, __FILE__, __LINE__);
+                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                 "Removing corrupt file %s", p_file_name);
                      (*files_to_send)--;
                   }
                }
@@ -953,9 +931,9 @@ handle_options(int   no_of_options,
               }
               else
               {
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "Unknown extract ID (%s) in DIR_CONFIG file. (%s %d)\n",
-                           p_extract_id, __FILE__, __LINE__);
+                 receive_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Unknown extract ID (%s) in DIR_CONFIG file.",
+                             p_extract_id);
                  NEXT(options);
                  continue;
               }
@@ -973,28 +951,26 @@ handle_options(int   no_of_options,
                   (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                   if (bin_file_chopper(fullname, files_to_send, file_size) < 0)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "An error occurred when extracting bulletins from file %s, deleting file! (%s %d)\n",
-                               fullname, __FILE__, __LINE__);
+                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                 "An error occurred when extracting bulletins from file %s, deleting file!",
+                                 fullname);
 
                      if (remove(fullname) == -1)
                      {
                         if (errno != ENOENT)
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to remove() file %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
+                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                       "Failed to remove() file %s : %s",
+                                       fullname, strerror(errno));
                         }
                      }
                      else
                      {
                         if (stat(fullname, &stat_buf) == -1)
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Can't access file %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
+                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                       "Can't access file %s : %s",
+                                       fullname, strerror(errno));
                         }
                         else
                         {
@@ -1013,28 +989,26 @@ handle_options(int   no_of_options,
                   (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                   if (extract(p_file_name, file_path, extract_typ, files_to_send, file_size) < 0)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "An error occurred when extracting bulletins from file %s, deleting file! (%s %d)\n",
-                               fullname, __FILE__, __LINE__);
+                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                 "An error occurred when extracting bulletins from file %s, deleting file!",
+                                 fullname);
 
                      if (remove(fullname) == -1)
                      {
                         if (errno != ENOENT)
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to remove() file %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
+                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                       "Failed to remove() file %s : %s",
+                                       fullname, strerror(errno));
                         }
                      }
                      else
                      {
                         if (stat(fullname, &stat_buf) == -1)
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Can't access file %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
+                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                       "Can't access file %s : %s",
+                                       fullname, strerror(errno));
                         }
                         else
                         {
@@ -1099,9 +1073,9 @@ handle_options(int   no_of_options,
               }
               else
               {
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "Unknown assemble ID (%s) in DIR_CONFIG file. (%s %d)\n",
-                           p_assemble_id, __FILE__, __LINE__);
+                 receive_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Unknown assemble ID (%s) in DIR_CONFIG file.",
+                             p_assemble_id);
                  NEXT(options);
                  continue;
               }
@@ -1147,336 +1121,14 @@ handle_options(int   no_of_options,
                          fullname, assemble_typ, files_to_send,
                          file_size) < 0)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "An error occurred when assembling bulletins! (%s %d)\n",
-                         __FILE__, __LINE__);
+               receive_log(WARN_SIGN, __FILE__, __LINE__,
+                           "An error occurred when assembling bulletins!");
             }
          }
 
          free(file_name_buffer);
          NEXT(options);
          continue;
-      }
-
-      /* Check if it's the tar command */
-      if (strcmp(options, TAR_ID) == 0)
-      {
-         (void)strcpy(cmd, TAR_COMMAND);
-
-         NEXT(options);
-         continue;
-      }
-
-      /* Check if it's the compress command */
-      if ((strcmp(options, COMPRESS_ID) == 0) ||
-          (strcmp(options, GZIP_ID) == 0))
-      {
-         int  file_counter = 0;
-         FILE *p_in_file,
-              *p_out_file;
-
-         if (strcmp(options, COMPRESS_ID) == 0)
-         {
-            (void)strcpy(cmd, COMPRESS_COMMAND);
-            (void)strcpy(extension, COMPRESS_EXTENSION);
-         }
-         else
-         {
-            (void)strcpy(cmd, GZIP_COMMAND);
-            (void)strcpy(extension, GZIP_EXTENSION);
-         }
-         ptr = cmd + strlen(cmd);
-
-         *file_size = 0;
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
-         {
-            for (j = 0; j < file_counter; j++)
-            {
-               (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
-               (void)strcpy(ptr, fullname);
-
-               (void)strcpy(newname, fullname);
-               (void)strcat(newname, extension);
-               if ((p_out_file = fopen(newname, "w")) == NULL)
-               {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to fopen() %s : %s (%s %d)\n",
-                            newname, strerror(errno), __FILE__, __LINE__);
-                  p_file_name += MAX_FILENAME_LENGTH;
-                  continue;
-               }
-
-               if ((p_in_file = popen(cmd, "r")) == NULL)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to popen() %s : %s (%s %d)\n",
-                            cmd, strerror(errno), __FILE__, __LINE__);
-                  (void)fclose(p_out_file);
-                  free(file_name_buffer);
-                  exit(INCORRECT);
-               }
-               while ((n = read(fileno(p_in_file), buf, BUFSIZ)) == BUFSIZ)
-               {
-                  if (write(fileno(p_out_file), buf, n) != n)
-                  {
-                     (void)rec(sys_log_fd, FATAL_SIGN,
-                               "write() error : %s (%s %d)\n",
-                               strerror(errno), __FILE__, __LINE__);
-                     free(file_name_buffer);
-                     exit(INCORRECT);
-                  }
-               }
-               if (n > 0)
-               {
-                  if (write(fileno(p_out_file), buf, n) != n)
-                  {
-                     (void)rec(sys_log_fd, FATAL_SIGN,
-                               "write() error : %s (%s %d)\n",
-                               strerror(errno), __FILE__, __LINE__);
-                     free(file_name_buffer);
-                     exit(INCORRECT);
-                  }
-               }
-               else if (n < 0)
-                    {
-                       (void)rec(sys_log_fd, FATAL_SIGN,
-                                 "read() error : %s (%s %d)\n",
-                                 strerror(errno), __FILE__, __LINE__);
-                       free(file_name_buffer);
-                       exit(INCORRECT);
-                    }
-               if (fclose(p_out_file) == EOF)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to fclose() %s : %s (%s %d)\n",
-                            newname, strerror(errno), __FILE__, __LINE__);
-                  free(file_name_buffer);
-                  exit(INCORRECT);
-               }
-               if (pclose(p_in_file) == -1)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to pclose() %s : %s (%s %d)\n",
-                            fullname, strerror(errno), __FILE__, __LINE__);
-                  free(file_name_buffer);
-                  exit(INCORRECT);
-               }
-
-               /* Remove file we just have compressed */
-               if (unlink(fullname) == -1)
-               {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to unlink() %s : %s (%s %d)\n",
-                            fullname, strerror(errno), __FILE__, __LINE__);
-               }
-
-               if (stat(newname, &stat_buf) == -1)
-               {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Can't access file %s : %s (%s %d)\n",
-                            newname, strerror(errno), __FILE__, __LINE__);
-               }
-               else
-               {
-                   *file_size += stat_buf.st_size;
-               }
-               p_file_name += MAX_FILENAME_LENGTH;
-            }
-         }
-
-         free(file_name_buffer);
-         NEXT(options);
-         continue;
-      }
-
-      /* Check for uncompress or gunzip */
-      if ((strcmp(options, UNCOMPRESS_ID) == 0) ||
-          (strcmp(options, GUNZIP_ID) == 0))
-      {
-         int  file_counter = 0;
-         FILE *p_in_file,
-              *p_out_file;
-
-         if (strcmp(options, UNCOMPRESS_ID) == 0)
-         {
-            (void)strcpy(cmd, UNCOMPRESS_COMMAND);
-         }
-         else
-         {
-            (void)strcpy(cmd, GUNZIP_COMMAND);
-         }
-         ptr = cmd + strlen(cmd);
-
-         *file_size = 0;
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
-         {
-            for (j = 0; j < file_counter; j++)
-            {
-               (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
-
-               /* Make sure that this file is really a compressed file */
-               p_ext = fullname + strlen(fullname);
-               while ((*p_ext != '.') && (p_ext != fullname))
-               {
-                  p_ext--;
-               }
-               if (*p_ext == '.')
-               {
-                  p_ext++;
-                  if (strcmp(options, UNCOMPRESS_ID) == 0)
-                  {
-                     if (*p_ext != 'Z')
-                     {
-                        /* No extension I know. Lets ignore it. */
-                        if (stat(fullname, &stat_buf) == -1)
-                        {
-                           (void)rec(sys_log_fd, ERROR_SIGN,
-                                     "Can't access file %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
-                        }
-                        else
-                        {
-                            *file_size += stat_buf.st_size;
-                        }
-                        p_file_name += MAX_FILENAME_LENGTH;
-                        continue;
-                     }
-                  }
-                  else
-                  {
-                     if ((*p_ext != 'z') && (strcmp(p_ext, "gz") != 0))
-                     {
-                        /* No extension I know. Lets ignore it. */
-                        if (stat(fullname, &stat_buf) == -1)
-                        {
-                           (void)rec(sys_log_fd, ERROR_SIGN,
-                                     "Can't access file %s : %s (%s %d)\n",
-                                     fullname, strerror(errno),
-                                     __FILE__, __LINE__);
-                        }
-                        else
-                        {
-                            *file_size += stat_buf.st_size;
-                        }
-                        p_file_name += MAX_FILENAME_LENGTH;
-                        continue;
-                     }
-                  }
-               }
-               else
-               {
-                  /* Sorry, if there is no extension, then this cannot be a */
-                  /* compressed file.                                       */
-                  if (stat(fullname, &stat_buf) == -1)
-                  {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "Can't access file %s : %s (%s %d)\n",
-                               fullname, strerror(errno),
-                               __FILE__, __LINE__);
-                  }
-                  else
-                  {
-                      *file_size += stat_buf.st_size;
-                  }
-                  p_file_name += MAX_FILENAME_LENGTH;
-                  continue;
-               }
-
-               (void)strcpy(ptr, fullname);
-               *(p_ext - 1) = '\0';
-               (void)strcpy(newname, fullname);
-               *(p_ext - 1) = '.';
-               if ((p_out_file = fopen(newname, "w")) == NULL)
-               {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to fopen() %s : %s (%s %d)\n",
-                            newname, strerror(errno), __FILE__, __LINE__);
-                  p_file_name += MAX_FILENAME_LENGTH;
-                  continue;
-               }
-
-               if ((p_in_file = popen(cmd, "r")) == NULL)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to popen() %s : %s (%s %d)\n",
-                            cmd, strerror(errno), __FILE__, __LINE__);
-                  (void)fclose(p_out_file);
-                  free(file_name_buffer);
-                  exit(INCORRECT);
-               }
-               while ((n = read(fileno(p_in_file), buf, BUFSIZ)) == BUFSIZ)
-               {
-                  if (write(fileno(p_out_file), buf, n) != n)
-                  {
-                     (void)rec(sys_log_fd, FATAL_SIGN,
-                               "write() error : %s (%s %d)\n",
-                               strerror(errno), __FILE__, __LINE__);
-                     free(file_name_buffer);
-                     exit(INCORRECT);
-                  }
-               }
-               if (n > 0)
-               {
-                  if (write(fileno(p_out_file), buf, n) != n)
-                  {
-                     (void)rec(sys_log_fd, FATAL_SIGN,
-                               "write() error : %s (%s %d)\n",
-                               strerror(errno), __FILE__, __LINE__);
-                     free(file_name_buffer);
-                     exit(INCORRECT);
-                  }
-               }
-               else if (n < 0)
-                    {
-                       (void)rec(sys_log_fd, FATAL_SIGN,
-                                 "read() error : %s (%s %d)\n",
-                                 strerror(errno), __FILE__, __LINE__);
-                       free(file_name_buffer);
-                       exit(INCORRECT);
-                    }
-               if (fclose(p_out_file) == EOF)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to fclose() %s : %s (%s %d)\n",
-                            newname, strerror(errno), __FILE__, __LINE__);
-                  free(file_name_buffer);
-                  exit(INCORRECT);
-               }
-               if (pclose(p_in_file) == -1)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to pclose() %s : %s (%s %d)\n",
-                            fullname, strerror(errno), __FILE__, __LINE__);
-                  free(file_name_buffer);
-                  exit(INCORRECT);
-               }
-
-               /* Remove file we just have compressed */
-               if (unlink(fullname) == -1)
-               {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to unlink() %s : %s (%s %d)\n",
-                            fullname, strerror(errno), __FILE__, __LINE__);
-               }
-
-               /* Uncompressed files are usually larger, so get */
-               /* the new size.                                 */
-               if (stat(newname, &stat_buf) == -1)
-               {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Can't access file %s : %s (%s %d)\n",
-                            newname, strerror(errno), __FILE__, __LINE__);
-               }
-               else
-               {
-                   *file_size += stat_buf.st_size;
-               }
-               p_file_name += MAX_FILENAME_LENGTH;
-            } /* for (i = 0; i < file_counter; i++) */
-         }
-
-         free(file_name_buffer);
       }
 
       /*

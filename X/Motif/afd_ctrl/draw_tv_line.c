@@ -150,12 +150,12 @@ draw_tv_label_line(void)
       /* See if we need to extend heading for "Character" display */
       if (line_style != BARS_ONLY)
       {
-         /* Draw string " fs   fsd   fc  fcd   tfs tfsd" */
+         /* Draw string " fs   fsd   fc   fcd   tfs tfsd" */
          XDrawString(display, tv_label_window, letter_gc,
                      x + x_offset_tv_characters,
                      text_offset + SPACE_ABOVE_LINE,
-                     " fs   fsd  fc fcd  tfs tfsd",
-                     27);
+                     " fs   fsd  fc   fcd  tfs tfsd",
+                     29);
       }
 
       x += tv_line_length;
@@ -374,7 +374,8 @@ draw_tv_job_number(int pos, int x, int y)
    gc_values.background = color_pool[(int)jd[pos].connect_status];
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
    XDrawImageString(display, detailed_window, color_letter_gc,
-                    DEFAULT_FRAME_SPACE + x + (MAX_HOSTNAME_LENGTH * glyph_width) + DEFAULT_FRAME_SPACE,
+                    DEFAULT_FRAME_SPACE + x +
+                    (MAX_HOSTNAME_LENGTH * glyph_width) + DEFAULT_FRAME_SPACE,
                     y + text_offset + SPACE_ABOVE_LINE,
                     string,
                     1);
@@ -404,7 +405,8 @@ draw_tv_priority(int pos, int x, int y)
    gc_values.foreground = color_pool[BLACK];
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
    XDrawImageString(display, detailed_window, color_letter_gc,
-                    x + (3 * DEFAULT_FRAME_SPACE) + ((MAX_HOSTNAME_LENGTH + 1) * glyph_width),
+                    x + (3 * DEFAULT_FRAME_SPACE) +
+                    ((MAX_HOSTNAME_LENGTH + 1) * glyph_width),
                     y + text_offset + SPACE_ABOVE_LINE,
                     string,
                     1);
@@ -458,24 +460,24 @@ draw_tv_chars(int pos, char type, int x, int y)
       case NUMBER_OF_FILES :
          ptr = jd[pos].str_fc;
          offset = 10 * glyph_width;
-         length = 3;
+         length = 4;
          break;
          
       case NUMBER_OF_FILES_DONE :
          ptr = jd[pos].str_fc_done;
-         offset = 14 * glyph_width;
-         length = 3;
+         offset = 15 * glyph_width;
+         length = 4;
          break;
          
       case FILE_SIZE :
          ptr = jd[pos].str_fs;
-         offset = 18 * glyph_width;
+         offset = 20 * glyph_width;
          length = 4;
          break;
          
       case FILE_SIZE_DONE :
          ptr = jd[pos].str_fs_done;
-         offset = 23 * glyph_width;
+         offset = 25 * glyph_width;
          length = 4;
          break;
 

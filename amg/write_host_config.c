@@ -148,6 +148,9 @@ extern struct host_list *hl;
 #                        |  |     |            |\n\
 #                        1  2     3            4\n\
 #\n\
+#                         You may also put a -2 here, then AFD will try\n\
+#                         to use the FTP SIZE command to get the size of\n\
+#                         the remote file.\n\
 #                         DEFAULT: -1 (Disabled)\n\
 #\n\
 #   Transfer timeout    - The time how long the AFD should wait for a\n\

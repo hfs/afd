@@ -56,7 +56,7 @@ extern struct filetransfer_status *fsa;
 
 /*############################# reset_fsa() #############################*/
 void
-reset_fsa(struct job *p_db, int faulty, int mode)
+reset_fsa(struct job *p_db, int mode)
 {
    if (fsa == NULL)
    {
@@ -66,56 +66,29 @@ reset_fsa(struct job *p_db, int faulty, int mode)
    {
       if (check_fsa() == YES)
       {
-         if ((p_db->position = get_position(fsa, p_db->host_alias, no_of_hosts)) == INCORRECT)
+         if ((p_db->fsa_pos = get_host_position(fsa, p_db->host_alias,
+                                                no_of_hosts)) == INCORRECT)
          {
             host_deleted = YES;
          }
       }
       if (host_deleted == NO)
       {
-         if (mode & CONNECT_STATUS_VAR)
+         if (mode & IS_FAULTY_VAR)
          {
-            if (faulty == YES)
-            {
-               fsa[(int)p_db->position].job_status[(int)p_db->job_no].connect_status = NOT_WORKING;
-            }
-            else
-            {
-               fsa[(int)p_db->position].job_status[(int)p_db->job_no].connect_status = DISCONNECT;
-            }
+            fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].connect_status = NOT_WORKING;
          }
-         if (mode & NO_OF_FILES_DONE_VAR)
+         else
          {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].no_of_files_done = 0;
+            fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].connect_status = DISCONNECT;
          }
-         if (mode & FILE_SIZE_DONE_VAR)
-         {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].file_size_done = 0;
-         }
-         if (mode & FILE_SIZE_IN_USE_VAR)
-         {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].file_size_in_use = 0;
-         }
-         if (mode & FILE_SIZE_IN_USE_DONE_VAR)
-         {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].file_size_in_use_done = 0;
-         }
-         if (mode & FILE_NAME_IN_USE_VAR)
-         {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].file_name_in_use[0] = '\0';
-         }
-         if (mode & NO_OF_FILES_VAR)
-         {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].no_of_files = 0;
-         }
-         if (mode & FILE_SIZE_VAR)
-         {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].file_size = 0;
-         }
-         if (mode & PROC_ID_VAR)
-         {
-            fsa[(int)p_db->position].job_status[(int)p_db->job_no].proc_id = -1;
-         }
+         fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].no_of_files_done = 0;
+         fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].file_size_done = 0;
+         fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].file_size_in_use = 0;
+         fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].file_size_in_use_done = 0;
+         fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].file_name_in_use[0] = '\0';
+         fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].no_of_files = 0;
+         fsa[p_db->fsa_pos].job_status[(int)p_db->job_no].file_size = 0;
       }
    }
 

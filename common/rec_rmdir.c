@@ -1,7 +1,7 @@
 /*
  *  rec_rmdir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   15.02.1996 H.Kiehl Created
+ **   24.09.2000 H.Kiehl Use rmdir() instead of unlink() for removing
+ **                      directories. Causes problems with Solaris.
  **
  */
 DESCR__E_M3
@@ -116,16 +118,13 @@ rec_rmdir(char *dirname)
    ptr[-1] = 0;
    if (ret == 0)
    {
-      if (unlink(dirname) == -1)
+      if (rmdir(dirname) == -1)
       {
-         if (rmdir(dirname) == -1)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to unlink()/rmdir() %s : %s (%s %d)\n",
-                      dirname, strerror(errno), __FILE__, __LINE__);
-            (void)closedir(dp);
-            return(INCORRECT);
-         }
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Failed to rmdir() %s : %s (%s %d)\n",
+                   dirname, strerror(errno), __FILE__, __LINE__);
+         (void)closedir(dp);
+         return(INCORRECT);
       }
    }
    if (closedir(dp) == -1)

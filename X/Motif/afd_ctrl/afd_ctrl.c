@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M1
  **   afd_ctrl - controls and monitors the AFD
  **
  ** SYNOPSIS
- **   afd_ctrl [--version][-w <AFD working directory>]
+ **   afd_ctrl [--version][-w <AFD working directory>][-no_input][numeric font]
  **
  ** DESCRIPTION
  **
@@ -38,6 +38,7 @@ DESCR__S_M1
  ** HISTORY
  **   17.01.1996 H.Kiehl Created
  **   14.08.1997 H.Kiehl Support for multi-selection of lines.
+ **   12.01.2000 H.Kiehl Added receive log.
  **
  */
 DESCR__E_M1
@@ -105,9 +106,9 @@ Colormap                   default_cmap;
 XFontStruct                *font_struct;
 XmFontList                 fontlist = NULL;
 Widget                     mw[5],        /* Main menu */
-                           ow[10],       /* Host menu */
-                           vw[8],        /* View menu */
-                           cw[7],        /* Control menu */
+                           ow[9],        /* Host menu */
+                           vw[10],       /* View menu */
+                           cw[8],        /* Control menu */
                            sw[4],        /* Setup menu */
                            hw[3],        /* Help menu */
                            fw[13],       /* Select font */
@@ -143,7 +144,9 @@ int                        amg_flag = NO,
                            led_width,
                            line_length,
                            line_height = 0,
+                           magic_value,
                            log_angle,
+                           no_input,
                            no_selected,
                            no_selected_static,
                            no_of_active_process = 0,
@@ -160,6 +163,7 @@ int                        amg_flag = NO,
                            tv_no_of_rows,
                            window_width,
                            window_height,
+                           x_center_receive_log,
                            x_center_sys_log,
                            x_center_trans_log,
                            x_offset_led,
@@ -168,6 +172,7 @@ int                        amg_flag = NO,
                            x_offset_bars,
                            x_offset_characters,
                            x_offset_stat_leds,
+                           x_offset_receive_log,
                            x_offset_sys_log,
                            x_offset_trans_log,
                            x_offset_rotating_dash,
@@ -203,7 +208,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            user[MAX_FILENAME_LENGTH];
 clock_t                    clktck;
 struct apps_list           *apps_list = NULL;
-struct coord               coord[2][LOG_FIFO_SIZE];
+struct coord               coord[3][LOG_FIFO_SIZE];
 struct line                *connect_data;
 struct job_data            *jd = NULL;
 struct afd_status          *p_afd_status,
@@ -260,10 +265,18 @@ main(int argc, char *argv[])
    appshell = XtAppInitialize(&app, "AFD", NULL, 0, &argc, argv,
                               fallback_res, args, argcount);
 
+   /* Get display pointer */
+   if ((display = XtDisplay(appshell)) == NULL)
+   {
+      (void)fprintf(stderr,
+                    "ERROR   : Could not open Display : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
    mainwindow = XtVaCreateManagedWidget("Main_window",
                                         xmMainWindowWidgetClass, appshell,
                                         NULL);
-   display = XtDisplay(mainwindow);
 
    /* setup and determine window parameters */
    setup_window(font_name);
@@ -275,7 +288,10 @@ main(int argc, char *argv[])
    mainform_w = XmCreateForm(mainwindow, "mainform_w", NULL, 0);
    XtManageChild(mainform_w);
 
-   init_menu_bar(mainform_w, &menu_w);
+   if (no_input == False)
+   {
+      init_menu_bar(mainform_w, &menu_w);
+   }
 
    /* Setup colors */
    default_cmap = DefaultColormap(display, DefaultScreen(display));
@@ -289,10 +305,18 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNbackground, color_pool[LABEL_BG]);
    argcount++;
-   XtSetArg(args[argcount], XmNtopAttachment, XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNtopWidget,     menu_w);
-   argcount++;
+   if (no_input == False)
+   {
+      XtSetArg(args[argcount], XmNtopAttachment, XmATTACH_WIDGET);
+      argcount++;
+      XtSetArg(args[argcount], XmNtopWidget,     menu_w);
+      argcount++;
+   }
+   else
+   {
+      XtSetArg(args[argcount], XmNtopAttachment, XmATTACH_FORM);
+      argcount++;
+   }
    XtSetArg(args[argcount], XmNleftAttachment, XmATTACH_FORM);
    argcount++;
    XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
@@ -375,21 +399,24 @@ main(int argc, char *argv[])
    XtAddCallback(button_window_w, XmNexposeCallback,
                  (XtCallbackProc)expose_handler_button, NULL);
 
-   XtAddEventHandler(line_window_w,
-                     ButtonPressMask | Button1MotionMask,
-                     False, (XtEventHandler)input, NULL);
+   if (no_input == False)
+   {
+      XtAddEventHandler(line_window_w,
+                        ButtonPressMask | Button1MotionMask,
+                        False, (XtEventHandler)input, NULL);
 
-   /* Set toggle button for font|row */
-   XtVaSetValues(fw[current_font], XmNset, True, NULL);
-   XtVaSetValues(rw[current_row], XmNset, True, NULL);
-   XtVaSetValues(lsw[current_style], XmNset, True, NULL);
+      /* Set toggle button for font|row */
+      XtVaSetValues(fw[current_font], XmNset, True, NULL);
+      XtVaSetValues(rw[current_row], XmNset, True, NULL);
+      XtVaSetValues(lsw[current_style], XmNset, True, NULL);
 
-   /* Setup popup menu */
-   init_popup_menu(line_window_w);
+      /* Setup popup menu */
+      init_popup_menu(line_window_w);
 
-   XtAddEventHandler(line_window_w,
-                     EnterWindowMask | LeaveWindowMask,
-                     False, (XtEventHandler)focus, NULL);
+      XtAddEventHandler(line_window_w,
+                        EnterWindowMask | LeaveWindowMask,
+                        False, (XtEventHandler)focus, NULL);
+   }
 
 #ifdef _EDITRES
    XtAddEventHandler(appshell, (EventMask)0, True, _XEditResCheckMessages, NULL);
@@ -446,6 +473,17 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    struct tms   tmsdummy;
    struct stat  stat_buf;
 
+   /* See if user wants some help. */
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
+   {
+      (void)fprintf(stdout,
+                    "Usage: %s [-w <work_dir>] [-no_input] [-f <numeric font name>]\n",
+                    argv[0]);
+      exit(SUCCESS);
+   }
+
    /*
     * Determine the working directory. If it is not specified
     * in the command line try read it from the environment else
@@ -457,81 +495,100 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    }
    p_work_dir = work_dir;
 
+   /* Disable all input? */
+   if (get_arg(argc, argv, "-no_input", NULL, 0) == SUCCESS)
+   {
+      no_input = True;
+   }
+   else
+   {
+      no_input = False;
+   }
+   if (get_arg(argc, argv, "-f", font_name, 20) == INCORRECT)
+   {
+      (void)strcpy(font_name, DEFAULT_FONT);
+   }
+
    /* Now lets see if user may use this program */
    switch(get_permissions(&perm_buffer))
    {
-      case NONE     : /* User is not allowed to use this program */
-                      {
-                         char *user;
+      case NONE : /* User is not allowed to use this program */
+         {
+            char *user;
 
-                         if ((user = getenv("LOGNAME")) != NULL)
-                         {
-                            (void)fprintf(stderr,
-                                          "User %s is not permitted to use this program.\n",
-                                          user);
-                         }
-                         else
-                         {
-                            (void)fprintf(stderr, "%s\n",
-                                          PERMISSION_DENIED_STR);
-                         }
-                      }
-                      exit(INCORRECT);
+            if ((user = getenv("LOGNAME")) != NULL)
+            {
+               (void)fprintf(stderr,
+                             "User %s is not permitted to use this program.\n",
+                             user);
+            }
+            else
+            {
+               (void)fprintf(stderr, "%s\n",
+                             PERMISSION_DENIED_STR);
+            }
+         }
+         exit(INCORRECT);
 
-      case SUCCESS  : /* Lets evaluate the permissions and see what */
-                      /* the user may do.                           */
-                      eval_permissions(perm_buffer);
-                      free(perm_buffer);
-                      break;
+      case SUCCESS : /* Lets evaluate the permissions and see what */
+                     /* the user may do.                           */
+         eval_permissions(perm_buffer);
+         free(perm_buffer);
+         break;
 
       case INCORRECT: /* Hmm. Something did go wrong. Since we want to */
                       /* be able to disable permission checking let    */
                       /* the user have all permissions.                */
-                      acp.afd_ctrl_list      = NULL;
-                      acp.amg_ctrl           = YES; /* Start/Stop the AMG    */
-                      acp.fd_ctrl            = YES; /* Start/Stop the FD     */
-                      acp.rr_dc              = YES; /* Reread DIR_CONFIG     */
-                      acp.rr_hc              = YES; /* Reread HOST_CONFIG    */
-                      acp.startup_afd        = YES; /* Startup the AFD       */
-                      acp.shutdown_afd       = YES; /* Shutdown the AFD      */
-                      acp.ctrl_transfer      = YES; /* Start/Stop a transfer */
-                      acp.ctrl_transfer_list = NULL;
-                      acp.ctrl_queue         = YES; /* Start/Stop the queue  */
-                      acp.ctrl_queue_list    = NULL;
-                      acp.switch_host        = YES;
-                      acp.switch_host_list   = NULL;
-                      acp.disable            = YES;
-                      acp.disable_list       = NULL;
-                      acp.info               = YES;
-                      acp.info_list          = NULL;
-                      acp.debug              = YES;
-                      acp.debug_list         = NULL;
-                      acp.retry              = YES;
-                      acp.retry_list         = NULL;
-                      acp.show_slog          = YES; /* View the system log   */
-                      acp.show_slog_list     = NULL;
-                      acp.show_tlog          = YES; /* View the transfer log */
-                      acp.show_tlog_list     = NULL;
-                      acp.show_dlog          = YES; /* View the debug log    */
-                      acp.show_dlog_list     = NULL;
-                      acp.show_ilog          = YES; /* View the input log    */
-                      acp.show_ilog_list     = NULL;
-                      acp.show_olog          = YES; /* View the output log   */
-                      acp.show_olog_list     = NULL;
-                      acp.show_rlog          = YES; /* View the delete log   */
-                      acp.show_rlog_list     = NULL;
-                      acp.afd_load           = YES;
-                      acp.afd_load_list      = NULL;
-                      acp.view_jobs          = YES; /* View jobs             */
-                      acp.view_jobs_list     = NULL;
-                      acp.edit_hc            = YES; /* Edit Host Config      */
-                      acp.edit_hc_list       = NULL;
-                      acp.view_dc            = YES; /* View DIR_CONFIG entry */
-                      acp.view_dc_list       = NULL;
-                      break;
+         acp.afd_ctrl_list      = NULL;
+         acp.amg_ctrl           = YES; /* Start/Stop the AMG    */
+         acp.fd_ctrl            = YES; /* Start/Stop the FD     */
+         acp.rr_dc              = YES; /* Reread DIR_CONFIG     */
+         acp.rr_hc              = YES; /* Reread HOST_CONFIG    */
+         acp.startup_afd        = YES; /* Startup the AFD       */
+         acp.shutdown_afd       = YES; /* Shutdown the AFD      */
+         acp.ctrl_transfer      = YES; /* Start/Stop a transfer */
+         acp.ctrl_transfer_list = NULL;
+         acp.ctrl_queue         = YES; /* Start/Stop the queue  */
+         acp.ctrl_queue_list    = NULL;
+         acp.switch_host        = YES;
+         acp.switch_host_list   = NULL;
+         acp.disable            = YES;
+         acp.disable_list       = NULL;
+         acp.info               = YES;
+         acp.info_list          = NULL;
+         acp.debug              = YES;
+         acp.debug_list         = NULL;
+         acp.retry              = YES;
+         acp.retry_list         = NULL;
+         acp.show_slog          = YES; /* View the system log   */
+         acp.show_slog_list     = NULL;
+         acp.show_rlog          = YES; /* View the receive log  */
+         acp.show_rlog_list     = NULL;
+         acp.show_tlog          = YES; /* View the transfer log */
+         acp.show_tlog_list     = NULL;
+         acp.show_dlog          = YES; /* View the debug log    */
+         acp.show_dlog_list     = NULL;
+         acp.show_ilog          = YES; /* View the input log    */
+         acp.show_ilog_list     = NULL;
+         acp.show_olog          = YES; /* View the output log   */
+         acp.show_olog_list     = NULL;
+         acp.show_elog          = YES; /* View the delete log   */
+         acp.show_elog_list     = NULL;
+         acp.afd_load           = YES;
+         acp.afd_load_list      = NULL;
+         acp.view_jobs          = YES; /* View jobs             */
+         acp.view_jobs_list     = NULL;
+         acp.edit_hc            = YES; /* Edit Host Config      */
+         acp.edit_hc_list       = NULL;
+         acp.view_dc            = YES; /* View DIR_CONFIG entry */
+         acp.view_dc_list       = NULL;
+         acp.dir_ctrl           = YES;
+         break;
 
-      default       : (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
-                      exit(INCORRECT);
+      default : /* Impossible! */
+         (void)fprintf(stderr,
+                      "Impossible!! Remove the programmer!\n");
+         exit(INCORRECT);
    }
 
    (void)strcpy(sys_log_fifo, p_work_dir);
@@ -545,14 +602,16 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    {
       if (make_fifo(sys_log_fifo) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, "Failed to create fifo %s. (%s %d)\n",
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Failed to create fifo %s. (%s %d)\n",
                    sys_log_fifo, __FILE__, __LINE__);
          exit(INCORRECT);
       }
    }
    if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not open fifo %s : %s (%s %d)\n",
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Could not open fifo %s : %s (%s %d)\n",
                 sys_log_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -604,15 +663,6 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       exit(INCORRECT);
    }
 
-   /* Get display pointer */
-   if ((display = XOpenDisplay(NULL)) == NULL)
-   {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open Display : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
    if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
    {
       (void)fprintf(stderr, "Could not get clock ticks per second.\n");
@@ -639,11 +689,12 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       else
       {
 #ifdef _NO_MMAP
-         if ((pid_list = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+         if ((pid_list = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                                  MAP_SHARED,
                                   afd_active_file, 0)) == (caddr_t) -1)
 #else
-         if ((pid_list = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
-                              fd, 0)) == (caddr_t) -1)
+         if ((pid_list = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                              MAP_SHARED, fd, 0)) == (caddr_t) -1)
 #endif
          {
             (void)fprintf(stderr, "WARNING : mmap() error : %s (%s %d)\n",
@@ -676,15 +727,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    filename_display_length = DEFAULT_FILENAME_DISPLAY_LENGTH;
-   if ((*argc > 1) && (isdigit(argv[1][0])))
-   {
-      (void)strcpy(font_name, argv[1]);
-   }
-   else
-   {
-      (void)strcpy(font_name, DEFAULT_FONT);
-   }
-   read_setup("afd_ctrl");
+   read_setup("afd_ctrl", &filename_display_length, NULL);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
@@ -809,8 +852,11 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       blink_flag = OFF;
    }
    prev_afd_status.sys_log = p_afd_status->sys_log;
+   prev_afd_status.receive_log = p_afd_status->receive_log;
    prev_afd_status.trans_log = p_afd_status->trans_log;
    prev_afd_status.trans_db_log = p_afd_status->trans_db_log;
+   prev_afd_status.receive_log_ec = p_afd_status->receive_log_ec;
+   memcpy(prev_afd_status.receive_log_fifo, p_afd_status->receive_log_fifo, LOG_FIFO_SIZE + 1);
    prev_afd_status.sys_log_ec = p_afd_status->sys_log_ec;
    memcpy(prev_afd_status.sys_log_fifo, p_afd_status->sys_log_fifo, LOG_FIFO_SIZE + 1);
    prev_afd_status.trans_log_ec = p_afd_status->trans_log_ec;
@@ -924,10 +970,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
        (acp.switch_host != NO_PERMISSION) ||
        (acp.retry != NO_PERMISSION) ||
        (acp.debug != NO_PERMISSION) ||
-       (acp.info != NO_PERMISSION) ||
-       (acp.view_dc != NO_PERMISSION) ||
        (traceroute_cmd != NULL) ||
-       (ping_cmd != NULL))
+       (ping_cmd != NULL) ||
+       (acp.afd_load != NO_PERMISSION))
    {
       if (acp.ctrl_queue != NO_PERMISSION)
       {
@@ -1001,38 +1046,16 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  NULL);
          create_pullright_test(pullright_test);
       }
-      if (((acp.ctrl_queue != NO_PERMISSION) ||
-           (acp.ctrl_transfer != NO_PERMISSION) ||
-           (acp.disable != NO_PERMISSION) ||
-           (acp.switch_host != NO_PERMISSION) ||
-           (acp.retry != NO_PERMISSION) ||
-           (acp.debug != NO_PERMISSION) ||
-           (traceroute_cmd != NULL) ||
-           (ping_cmd != NULL)) &&
-          ((acp.info != NO_PERMISSION) ||
-           (acp.view_dc != NO_PERMISSION)))
+      if (acp.afd_load != NO_PERMISSION)
       {
-         XtVaCreateManagedWidget("Separator",
-                                 xmSeparatorWidgetClass, host_pull_down_w,
+         pullright_load = XmCreateSimplePulldownMenu(host_pull_down_w,
+                                                     "pullright_load", NULL, 0);
+         ow[VIEW_LOAD_W] = XtVaCreateManagedWidget("Load",
+                                 xmCascadeButtonWidgetClass, host_pull_down_w,
+                                 XmNfontList,                fontlist,
+                                 XmNsubMenuId,               pullright_load,
                                  NULL);
-      }
-      if (acp.info != NO_PERMISSION)
-      {
-         ow[INFO_W] = XtVaCreateManagedWidget("Info",
-                                 xmPushButtonWidgetClass, host_pull_down_w,
-                                 XmNfontList,             fontlist,
-                                 NULL);
-         XtAddCallback(ow[INFO_W], XmNactivateCallback, popup_cb,
-                       (XtPointer)INFO_SEL);
-      }
-      if (acp.view_dc != NO_PERMISSION)
-      {
-         ow[VIEW_DC_W] = XtVaCreateManagedWidget("Configuration",
-                                 xmPushButtonWidgetClass, host_pull_down_w,
-                                 XmNfontList,             fontlist,
-                                 NULL);
-         XtAddCallback(ow[VIEW_DC_W], XmNactivateCallback, popup_cb,
-                       (XtPointer)VIEW_DC_SEL);
+         create_pullright_load(pullright_load);
       }
       XtVaCreateManagedWidget("Separator",
                               xmSeparatorWidgetClass, host_pull_down_w,
@@ -1051,10 +1074,11 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    /**********************************************************************/
    /*                           View Menu                                */
    /**********************************************************************/
-   if ((acp.show_slog != NO_PERMISSION) || (acp.show_tlog != NO_PERMISSION) ||
-       (acp.show_dlog != NO_PERMISSION) || (acp.show_ilog != NO_PERMISSION) ||
-       (acp.show_olog != NO_PERMISSION) || (acp.show_rlog != NO_PERMISSION) ||
-       (acp.view_jobs != NO_PERMISSION))
+   if ((acp.show_slog != NO_PERMISSION) || (acp.show_rlog != NO_PERMISSION) ||
+       (acp.show_tlog != NO_PERMISSION) || (acp.show_dlog != NO_PERMISSION) ||
+       (acp.show_ilog != NO_PERMISSION) || (acp.show_olog != NO_PERMISSION) ||
+       (acp.show_elog != NO_PERMISSION) || (acp.info != NO_PERMISSION) ||
+       (acp.view_dc != NO_PERMISSION) || (acp.view_jobs != NO_PERMISSION))
    {
       view_pull_down_w = XmCreatePulldownMenu(*menu_w,
                                               "View Pulldown", NULL, 0);
@@ -1076,6 +1100,15 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          XtAddCallback(vw[SYSTEM_W], XmNactivateCallback, popup_cb,
                        (XtPointer)S_LOG_SEL);
       }
+      if (acp.show_rlog != NO_PERMISSION)
+      {
+         vw[RECEIVE_W] = XtVaCreateManagedWidget("Receive Log",
+                                 xmPushButtonWidgetClass, view_pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 NULL);
+         XtAddCallback(vw[RECEIVE_W], XmNactivateCallback, popup_cb,
+                       (XtPointer)R_LOG_SEL);
+      }
       if (acp.show_tlog != NO_PERMISSION)
       {
          vw[TRANS_W] = XtVaCreateManagedWidget("Transfer Log",
@@ -1096,7 +1129,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       }
       if ((acp.show_ilog != NO_PERMISSION) ||
           (acp.show_olog != NO_PERMISSION) ||
-          (acp.show_rlog != NO_PERMISSION))
+          (acp.show_elog != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
                                  xmSeparatorWidgetClass, view_pull_down_w,
@@ -1119,29 +1152,39 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             XtAddCallback(vw[OUTPUT_W], XmNactivateCallback, popup_cb,
                           (XtPointer)O_LOG_SEL);
          }
-         if (acp.show_rlog != NO_PERMISSION)
+         if (acp.show_elog != NO_PERMISSION)
          {
             vw[DELETE_W] = XtVaCreateManagedWidget("Delete Log",
                                     xmPushButtonWidgetClass, view_pull_down_w,
                                     XmNfontList,             fontlist,
                                     NULL);
             XtAddCallback(vw[DELETE_W], XmNactivateCallback, popup_cb,
-                          (XtPointer)R_LOG_SEL);
+                          (XtPointer)E_LOG_SEL);
          }
       }
-      if (acp.afd_load != NO_PERMISSION)
+      if ((acp.info != NO_PERMISSION) || (acp.view_dc != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
                                  xmSeparatorWidgetClass, view_pull_down_w,
                                  NULL);
-         pullright_load = XmCreateSimplePulldownMenu(view_pull_down_w,
-                                                     "pullright_load", NULL, 0);
-         vw[VIEW_LOAD_W] = XtVaCreateManagedWidget("Load",
-                                 xmCascadeButtonWidgetClass, view_pull_down_w,
-                                 XmNfontList,                fontlist,
-                                 XmNsubMenuId,               pullright_load,
-                                 NULL);
-         create_pullright_load(pullright_load);
+         if (acp.info != NO_PERMISSION)
+         {
+            vw[INFO_W] = XtVaCreateManagedWidget("Info",
+                                    xmPushButtonWidgetClass, view_pull_down_w,
+                                    XmNfontList,             fontlist,
+                                    NULL);
+            XtAddCallback(vw[INFO_W], XmNactivateCallback, popup_cb,
+                          (XtPointer)INFO_SEL);
+         }
+         if (acp.view_dc != NO_PERMISSION)
+         {
+            vw[VIEW_DC_W] = XtVaCreateManagedWidget("Configuration",
+                                    xmPushButtonWidgetClass, view_pull_down_w,
+                                    XmNfontList,             fontlist,
+                                    NULL);
+            XtAddCallback(vw[VIEW_DC_W], XmNactivateCallback, popup_cb,
+                          (XtPointer)VIEW_DC_SEL);
+         }
       }
       if (acp.view_jobs != NO_PERMISSION)
       {
@@ -1160,13 +1203,10 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    /**********************************************************************/
    /*                          Control Menu                              */
    /**********************************************************************/
-   if ((acp.amg_ctrl != NO_PERMISSION) ||
-       (acp.fd_ctrl != NO_PERMISSION) ||
-       (acp.rr_dc != NO_PERMISSION) ||
-       (acp.rr_hc != NO_PERMISSION) ||
-       (acp.edit_hc != NO_PERMISSION) ||
-       (acp.startup_afd != NO_PERMISSION) ||
-       (acp.shutdown_afd != NO_PERMISSION))
+   if ((acp.amg_ctrl != NO_PERMISSION) || (acp.fd_ctrl != NO_PERMISSION) ||
+       (acp.rr_dc != NO_PERMISSION) || (acp.rr_hc != NO_PERMISSION) ||
+       (acp.edit_hc != NO_PERMISSION) || (acp.startup_afd != NO_PERMISSION) ||
+       (acp.shutdown_afd != NO_PERMISSION) || (acp.dir_ctrl != NO_PERMISSION))
    {
       control_pull_down_w = XmCreatePulldownMenu(*menu_w,
                                                  "Control Pulldown", NULL, 0);
@@ -1232,6 +1272,18 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  NULL);
          XtAddCallback(cw[EDIT_HC_W], XmNactivateCallback,
                        popup_cb, (XtPointer)EDIT_HC_SEL);
+      }
+      if (acp.dir_ctrl != NO_PERMISSION)
+      {
+         XtVaCreateManagedWidget("Separator",
+                                 xmSeparatorWidgetClass, control_pull_down_w,
+                                 NULL);
+         cw[DIR_CTRL_W] = XtVaCreateManagedWidget("Directory Control",
+                                 xmPushButtonWidgetClass, control_pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 NULL);
+         XtAddCallback(cw[DIR_CTRL_W], XmNactivateCallback,
+                       popup_cb, (XtPointer)DIR_CTRL_SEL);
       }
 
       /* Startup/Shutdown of AFD */
@@ -1636,7 +1688,7 @@ create_pullright_row(Widget pullright_row)
    Arg      args[MAXARGS];
    Cardinal argcount;
 
-   for (i = 0; i < NO_OF_FONTS; i++)
+   for (i = 0; i < NO_OF_ROWS; i++)
    {
       if ((current_row == -1) && (no_of_rows_set == atoi(row[i])))
       {
@@ -1744,6 +1796,8 @@ eval_permissions(char *perm_buffer)
       acp.retry_list         = NULL;
       acp.show_slog          = YES;   /* View the system log   */
       acp.show_slog_list     = NULL;
+      acp.show_rlog          = YES;   /* View the receive log */
+      acp.show_rlog_list     = NULL;
       acp.show_tlog          = YES;   /* View the transfer log */
       acp.show_tlog_list     = NULL;
       acp.show_dlog          = YES;   /* View the debug log    */
@@ -1752,14 +1806,15 @@ eval_permissions(char *perm_buffer)
       acp.show_ilog_list     = NULL;
       acp.show_olog          = YES;   /* View the output log   */
       acp.show_olog_list     = NULL;
-      acp.show_rlog          = YES;   /* View the delete log   */
-      acp.show_rlog_list     = NULL;
+      acp.show_elog          = YES;   /* View the delete log   */
+      acp.show_elog_list     = NULL;
       acp.view_jobs          = YES;   /* View jobs             */
       acp.view_jobs_list     = NULL;
       acp.edit_hc            = YES;   /* Edit Host Configuration */
       acp.edit_hc_list       = NULL;
       acp.view_dc            = YES;   /* View DIR_CONFIG entries */
       acp.view_dc_list       = NULL;
+      acp.dir_ctrl           = YES;
    }
    else
    {
@@ -1850,6 +1905,17 @@ eval_permissions(char *perm_buffer)
       else
       {
          acp.shutdown_afd = NO_LIMIT;
+      }
+
+      /* May the user use the dir_ctrl dialog? */
+      if ((ptr = posi(perm_buffer, DIR_CTRL_PERM)) == NULL)
+      {
+         /* The user may NOT use the dir_ctrl dialog. */
+         acp.dir_ctrl = NO_PERMISSION;
+      }
+      else
+      {
+         acp.dir_ctrl = NO_LIMIT;
       }
 
       /* May the user start/stop the queue? */
@@ -2004,6 +2070,25 @@ eval_permissions(char *perm_buffer)
          }
       }
 
+      /* May the user view the receive log? */
+      if ((ptr = posi(perm_buffer, SHOW_RLOG_PERM)) == NULL)
+      {
+         /* The user may NOT view the receive log. */
+         acp.show_rlog = NO_PERMISSION;
+      }
+      else
+      {
+         ptr--;
+         if ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            acp.show_rlog = store_host_names(acp.show_rlog_list, ptr + 1);
+         }
+         else
+         {
+            acp.show_rlog = NO_LIMIT;
+         }
+      }
+
       /* May the user view the transfer log? */
       if ((ptr = posi(perm_buffer, SHOW_TLOG_PERM)) == NULL)
       {
@@ -2081,21 +2166,21 @@ eval_permissions(char *perm_buffer)
       }
 
       /* May the user view the delete log? */
-      if ((ptr = posi(perm_buffer, SHOW_RLOG_PERM)) == NULL)
+      if ((ptr = posi(perm_buffer, SHOW_ELOG_PERM)) == NULL)
       {
          /* The user may NOT view the delete log. */
-         acp.show_rlog = NO_PERMISSION;
+         acp.show_elog = NO_PERMISSION;
       }
       else
       {
          ptr--;
          if ((*ptr == ' ') || (*ptr == '\t'))
          {
-            acp.show_rlog = store_host_names(acp.show_rlog_list, ptr + 1);
+            acp.show_elog = store_host_names(acp.show_elog_list, ptr + 1);
          }
          else
          {
-            acp.show_rlog = NO_LIMIT;
+            acp.show_elog = NO_LIMIT;
          }
       }
 

@@ -1,723 +1,37 @@
-<HTML>
-<HEAD>
-<TITLE>AFD (/home/afd/oper/doc/html/amg.html)</TITLE>
-</HEAD>
-<BODY bgcolor=#F0ECD6>
-<H1 ALIGN=center><A NAME="amg">AMG (Automatic Message Generator)</A></H1>
-<HR SIZE=3 NOSHADE>
-<P>
+<html>
+<head>
+<title>AFD (amg.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="amg">AMG (Automatic Message Generator)</a></h1>
+<hr size=3 noshade>
+<p>
 To send files with the AFD, it must know from which directory and what
 file(s) it has to transmit. This information and that about the remote
-site is found in the file <A HREF="#database">DIR_CONFIG</A>. So all
+site is found in the file <a href="dir_config.html">DIR_CONFIG</a>. So all
 the AMG does is that when files show up it generates a message for the
-<A HREF="fd.html">FD</A>. The message is written in ASCII and stored
+<a href="fd.html">fd</a>. The message is written in ASCII and stored
 in the directory 'messages'. Below is an example of what might be the
 contents of a message:
-</P>
-<P>
-<PRE>
+</p>
+<p>
+<pre>
    [recipient]
    ftp://donald:secret@hollywood//home/user
 
    [options]
    archive 3
    lock DOT
-</PRE>
-</P>
-<P>
+</pre>
+</p>
+<p>
 These messages are generated only ones in the message directory with
 the job ID as there name. At start the FD reads all these messages into
 a cache. When the AMG has created a new job it sends the job ID over
 the fifo to the FD which now knows which message it needs to apply.
-</P>
-<H3 ALIGN=CENTER><U><A NAME="database">The DIR_CONFIG file</A></U></H3>
-<P>
-The AMG expects a configuration file $AFD_HOME_DIR/etc/DIR_CONFIG,
-which should conform to the following rules. All entries are grouped
-in sections, a section begins with the line [section name] and
-continues until the next section starts. Supported sections names
-and the corresponding entries are listed below and must be set in
-this order:
-</P>
-<P>
-Comments start with # and may be placed anywhere except directly
-behind the files and destination identifiers.
-</P>
-<H3><A NAME="directory_entry">The directory entry</A></H3>
-<P>
-The directory in which the AMG has to search for files which have to
-be send. Each directory must begin with / and this directory must
-exists or the AMG must have read and write access so it can create the
-directory recursivly. Otherwise it ignores the complete entry for this
-directory. The number of directory entries in the DIR_CONFIG is unlimited.
-Behind the directory name it is possible to specify what the AFD should
-do with files that are in the directory but are not being distributed.
-Default is to report every hour the number of files and their total size
-older then 24 (OLD_FILE_TIME) hours in the <A HREF="log.html#system_log">
-system log</A>. To change this default see the following examples:
-</P>
-<CENTER><TABLE BORDER>
-<TR>
-   <TH>Example</TH>
-   <TH>Description</TH>
-</TR>
-<TR>
-   <TD>/directory_name 12 D</TD>
-   <TD>Delete all files older then 12 hours.</TD>
-</TR>
-<TR>
-   <TD>/directory_name D</TD>
-   <TD>Delete all files older then 24 hours.</TD>
-</TR>
-<TR>
-   <TD>/directory_name S</TD>
-   <TD>Don't care about any old files in the directory.</TD>
-</TR>
-</TABLE></CENTER>
-<P>
-Another usefull option for the directory entry is the asterix '*'
-after the directory name (there must be a space). This marks the directory
-as important. This is usefull when you have lots of directories that
-are to be monitored by the AMG and/or you have only a slow disk. The
-process dir_check will now check all important directories every
-DIR_CHECK_TIMEOUT (default: 30) second. This ensures that the important
-directories will at least be checked every DIR_CHECK_TIMEOUT second and
-not until all directories have been checked, which could take very long.
-</P>
-<H3><A NAME="files_entry">The files entry</A></H3>
-<P>
-This section may contain up to 20 (MAX_NO_FILES) file names, each be
-256 (MAX_FILENAME_LENGTH) bytes long, that are to be distributed
-from this directory. Each file name may contain the wild cards '*'
-and/or '?' in any order. If the file entry starts with a '!' it
-means NOT this file. It is important to put these entries first
-otherwise the '!' option is meaningless. The number of file groups
-is unlimited.
-</P>
-<H3><A NAME="destination">The destination entry</A></H3>
-<P>
-This marks the beginning of the destination section which contains
-one recipient and one options section. There may be up to 5
-(MAX_NO_DEST_GROUP) per files section.
-</P>
-<H3><A NAME="recipient">The recipient entry</A></H3>
-<P>
-In the recipient section you specify the user name, password,
-remote host and remote directory in the following URL format:
-</P>
-<P>
-<CODE>&lt;scheme&gt;://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;:&lt;port&gt;/&lt;url-path&gt;[;type=&lt;i|a|d&gt;][;server=&lt;server name&gt;]</CODE>
-<P>
-There are currently four schemes supported:
-</P>
-<PRE>
-        ftp    - Normal FTP transfers
-        mailto - Sending files via SMTP
-        file   - Copies files to another directory
-        wmo    - Sends files via TCP according to WMO regulations
-</PRE>
-<P>
-Each recipient section may have up to 10 (MAX_NO_RECIPIENT) recipients and
-each may not be longer then 256 (MAX_RECIPIENT_LENGTH) characters.
-</P>
-<P>
-The type option allows three different types of transfer modes
-</P>
-<PRE>
-        a - ASCII
-        i - Image (binary)
-        d - DOS Image (same as i accept that all CR are converted to CRLF)
-</PRE>
-<H3><A NAME="options">The options entry</A></H3>
-<P>
-For each destination section you may specify one options section and
-may contain up to 10 (MAX_NO_OPTIONS) options each 256
-(MAX_OPTION_LENGTH) characters long. All options specified
-here count for all recipients that are specified in the recipient
-section. Valid options can be taken from the following table:
-</P>
-<TABLE BORDER>
-<TR>
-   <TH>Option name</TH>
-   <TH>Description</TH>
-   <TH>AMG</TH>
-   <TH>ftp</TH>
-   <TH>mailto</TH>
-   <TH>file</TH>
-   <TH>wmo</TH>
-</TR>
-<TR>
-   <TD>priority x</TD>
-   <TD>The priority of this job. Valid entries for x are 0-9. (default 9)</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="time">time &lt;min hour dom month dow&gt;</A></TD>
-   <TD>This option allows to enter cron like time jobs in the AFD.
-       The five time and date fields in the time option specify when
-       files are to be distributed, that is when the minute, hour,
-       and month of year fields match the current time, and when
-       at least one of the two day fields (day of month, or day
-       of  week) match the current time. The time and date fields
-       are as follows:
-       <CENTER>
-       <TABLE BORDER>
-       <TR>
-          <TH>time and date fields</TH>
-          <TD><CENTER>minute</CENTER></TD>
-          <TD><CENTER>hour</CENTER></TD>
-          <TD><CENTER>day of month</CENTER></TD>
-          <TD><CENTER>month</CENTER></TD>
-          <TD><CENTER>day of week</CENTER></TD>
-       </TR>
-       <TR>
-          <TH>allowed values</TH>
-          <TD><CENTER>0-59</CENTER></TD>
-          <TD><CENTER>0-23</CENTER></TD>
-          <TD><CENTER>1-31</CENTER></TD>
-          <TD><CENTER>1-12</CENTER></TD>
-          <TD><CENTER>1-7</CENTER></TD>
-       </TR>
-       </TABLE>
-       </CENTER>
-   </TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>basename</TD>
-   <TD>Sends only the basename of the file. For example if you have the following
-       file name xxxx.yyyy.zzzz, it will rename the file on the remote site to
-       xxxx. NOTE: You may overwrite files when they have the same name.</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>extension</TD>
-   <TD>Removes only the extension from the file name. Taking the example file name
-       from above, the file name on the remote site would be xxxx.yyyy</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>prefix add xx</TD>
-   <TD>Adds a prefix to the file name.</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>prefix del xx</TD>
-   <TD>Remove a prefix from the file name. If  the AMG does not find this prefix, this
-       option is ignored.</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="rename">rename &lt;rule&gt;</A></TD>
-   <TD>Rename files as defined in the 'rule'-section of the 
-       <A HREF="rename_rules.html">etc/rename.rule</A> file.
-   </TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="trans_rename">trans_rename &lt;rule&gt;</A></TD>
-   <TD>Rename files on the remote site after the files have been transmitted,
-       as defined in the 'rule'-section of the
-       <A HREF="rename_rules.html">etc/rename.rule</A> file. This renaming
-       may include directory names, however the directories must exist on
-       the remote site.
-   </TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="force_copy">force copy</A></TD>
-   <TD>Force files to be copied and not linked nor memory mapped
-       (Good for copying files to /dev/null).
-   </TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>chmod mode</TD>
-   <TD>Changes the permission of each file distributed. Only a nummeric
-       mode from one to four octal digits (0-7) is accepted. The first
-       digit selects the set user ID (4), set group ID (2) or the save
-       text image (1) attributes. The second digit selects permissions
-       for the user who owns the file: read (4), write (2) and/or execute
-       (1). The third selects permissions for other users in the files
-       group. The fourth digit is for all other users (world).
-   </TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>chown [user][:.][group]</TD>
-   <TD>Changes the user and group ownership of files. Currently only
-       a nummeric user or group ID is accepted.
-   </TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>tiff2gts</TD>
-   <TD>Converts T4-coded TIFF files to T4-files having a GTS header and end.</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>gts2tiff</TD>
-   <TD>Converts T4-GTS files to TIFF-files.</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>assemble</TD>
-   <TD>This options assembles all files to a single file. The original
-       files will be deleted. To help extraction of the files a length
-       idicator may be inserted. The following types can be assembled:
-      <TABLE>
-      <TR>
-         <TD><B>VAX</B></TD>
-         <TD>Two byte length indicator.</TD>
-      </TR>
-      <TR>
-         <TD><B>LBF</B></TD>
-         <TD>Four byte length indicator with low byte first.</TD>
-      </TR>
-      <TR>
-         <TD><B>HBF</B></TD>
-         <TD>Four byte length indicator with high byte first.</TD>
-      </TR>
-      <TR>
-         <TD><B>MSS</B></TD>
-         <TD>Four byte length indicator MSS standard.</TD>
-      </TR>
-      <TR>
-         <TD><B>WMO</B></TD>
-         <TD>Eight byte ASCII length indicator plus two byte type
-             indicator (00 - no SOH and ETX, 01 - with SOH and ETX) .
-	     This is the current WMO standard.</TD>
-      </TR>
-      <TR>
-         <TD><B>ASCII</B></TD>
-         <TD>No length indicator. The data of the next file is always
-             appended, no matter if it contains binary or ascii data.</TD>
-      </TR>
-      </TABLE>
-   </TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>extract</TD>
-   <TD>This options extracts files with WMO bulletins into one file
-       per bulletin. To indicate the length of the bulletin there is
-       either a two or four byte length indicator at the beginning of
-       the following format:
-   <TABLE>
-   <TR>
-      <TD><B>VAX</B></TD>
-      <TD>Two byte length indicator.</TD>
-   </TR>
-   <TR>
-      <TD><B>LBF</B></TD>
-      <TD>Four byte length indicator with low byte first.</TD>
-   </TR>
-   <TR>
-      <TD><B>HBF</B></TD>
-      <TD>Four byte length indicator with high byte first.</TD>
-   </TR>
-   <TR>
-      <TD><B>MSS</B></TD>
-      <TD>Four byte length indicator MSS standard.</TD>
-   </TR>
-   <TR>
-      <TD><B>WMO</B></TD>
-      <TD>Eight byte ASCII length indicator plus two byte type
-          indicator. This is the current WMO standard.</TD>
-   </TR>
-   <TR>
-      <TD><B>MRZ</B></TD>
-      <TD>Special four byte length indicator used in the DWD.</TD>
-   </TR>
-   </TABLE>
-   The file name of the new file will always be the WMO-header, that is:
-   TTAAii_CCCC_YYGGgg[_BBB]</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>exec &lt;command&gt;</TD>
-   <TD>Executes a command specified in &lt;command&gt; for each file to be
-       distributed. The file name can be supplied with %s. There may be up
-       to 10 places in the command where you can insert the file name.</TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>lock</TD>
-   <TD><TABLE>
-   <TR>
-      <TD><B>DOT</B></TD>
-      <TD>When transmitting file "xxxx.yyyy" it creates the file on the remote
-          site as ".xxxx.yyyy". When the file has been completely transmitted
-          it is renamed to its original name. This ensures that the remote user
-          can read the file when it is complete.</TD>
-   </TR>
-   <TR>
-      <TD><B>DOT_VMS</B></TD>
-      <TD>When transmitting file "xxxx.yyyy" it creates the file on the remote
-          site as ".xxxx.yyyy". After transmission this file is renamed to
-          "xxxx.yyyy.". This ensures that the remote user can read the file
-          when the transfer is complete.</TD>
-   </TR>
-   <TR>
-      <TD><B>OFF</B></TD>
-      <TD>No locking on the remote site.</TD>
-   </TR>
-   <TR>
-      <TD><B>LOCKFILE</B></TD>
-      <TD>Before starting transmission of the actual data files, the lock
-          file "CONNECTED______.LCK" is send. When all files have been send
-          successful this file is removed again.</TD>
-   </TR>
-   <TR>
-      <TD><B>xyz.</B></TD>
-      <TD>When transmitting file "xxxx.yyyy" it creates the file on the
-          remote site as "xyz.xxxx.yyyy". This ensures that the remote user
-          can read the file when the transfer is complete.</TD>
-   </TR>
-   </TABLE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD>archive x</TD>
-   <TD>Tells the AFD to archive files to this user for x days (default 0).</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-</TR>
-<TR>
-   <TD><A NAME="age-limit">age-limit x</A></TD>
-   <TD>Files older then x seconds will not get send. They will be removed.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-</TR>
-<TR>
-   <TD><A NAME="no_log_output">no log output</A></TD>
-   <TD>When set each file name distributed will NOT be logged.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-</TR>
-<TR>
-   <TD><A NAME="file_name_is_subject">file name is subject</A></TD>
-   <TD>The subject of the mail is the file name. This can only be used
-       when sending mails.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="file_name_is_user">file name is user [rename rule]</A></TD>
-   <TD>The user name of the mail is the file name. This can only be used
-       when sending mails. The optional rename rule allows to filter or
-       create the user name from the file name. For a detailed description
-       of the renaming procedure see <A HREF="rename_rules.html">rename rule</A>.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="mail_header">mail header [full path to mail header file]</A></TD>
-   <TD>Is used to insert some default information at the top of the
-       main body of the mail. If the option is used without the optional
-       mail header file, it will take the file MAIL-host_alias in the
-       etc directory as the header file.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="attach_file">attach file [rename rule]</A></TD>
-   <TD>With this option it is possible to attach files to a mail.
-       The encoding will be done in BASE64 according to
-       <A HREF="../txt/rfc1521.txt">RFC 1521</A>. If a rename
-       rule is specified the filename will be renamed in the
-       attachment.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="subject_file">subject &lt;full path to subject file&gt;</A></TD>
-   <TD>Adds the subject in the &lt;subject file&gt; to the mail.
-       </TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="subject_line">subject "xxx"</A></TD>
-   <TD>Adds the line xxx after the subject identifier to the mails subject.
-       </TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="file_name_is_header">file name is header</A></TD>
-   <TD>The file name is send as WMO header. This can only be used when
-       sending files via TCP according to WMO regulations. The file
-       name must then be of the following format: TTAAii_CCCC_YYGGgg[_BBB].</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-</TR>
-<TR>
-   <TD><A NAME="secure_ftp">secure ftp</A></TD>
-   <TD>When logging in on a remote host we first send the user name
-       anonymous and as password user@hostname, where user and hostname
-       are the user name and host name of the sending AFD. After this we
-       login as the user and password as specified in the recipient URL.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-<TR>
-   <TD><A NAME="sequence_numbering">sequence numbering</A></TD>
-   <TD>Puts in a three digit sequence number into the WMO header.</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-</TR>
-<TR>
-   <TD><A NAME="check_reply">check reply</A></TD>
-   <TD>According to the WMO protocol messages are send as a continous
-       stream without any form of handshaking. When this option is set
-       AFD waits for an acknowledge for each message its sends. The
-       acknowledge consists of the following 10 characters: 00000000AK
-       for a positive acknowledge or 00000000NA for a negative acknowledge.
-   </TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-</TR>
-<TR>
-   <TD>restart &lt;file&gt;</TD>
-   <TD>Append file on remote site. This option is for internal use only!</TD>
-   <TD><PRE> </PRE></TD>
-   <TD><CENTER><IMG SRC="../images/ex.gif"></CENTER></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-   <TD><PRE> </PRE></TD>
-</TR>
-</TABLE>
-<P>
-An example entry in the DIR_CONFIG file might look as follows:
-</P>
-<PRE>
-      [directory]
-      /usr/data/tmp
-
-           [files]
-           abc*
-
-                [destination]
-
-                     [recipient]
-                     ftp://donald:secret@hollywood//home/user
-                     mailto://daisy@hollywood
-
-                     [options]
-                     archive 3
-                     lock DOT
-                     priority 1
-</PRE>
-<P>
-The result of this entry would be that all files starting with abc in
-the directory /usr/data/tmp would be send to the user donald via FTP
-with the password secret at hollywood and there stored in the directory
-/home/user. They will also be send to daisy via SMTP. All files will be
-send with the priority 1 and will be archived for three days. The ftp
-files will be send with a dot first and only when a file is completely
-transmitted will it be renamed to its original name.
-</P>
-<H3 ALIGN=CENTER><A NAME="host_config"><U>The HOST_CONFIG file</U></A></H3>
-<P>
-The second configuration file for the AFD is used to do a configuration
-by host name. There can be as many entries as you want and it must
-not always have a corresponding host name in the DIR_CONFIG file or
-visa versa. This file consists of a table with 9 entries for each
-host. See below for a description of each entry.
-</P>
-<PRE>
-        AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB
-        |   |   |   |  |  |  |  |  |  |   |  |  |
-        |   |   |   |  |  |  |  |  |  |   |  |  +--> Number of no bursts
-        |   |   |   |  |  |  |  |  |  |   |  +-----> Transfer timeout
-        |   |   |   |  |  |  |  |  |  |   +--------> File size offset
-        |   |   |   |  |  |  |  |  |  +------------> Successful retries
-        |   |   |   |  |  |  |  |  +---------------> Transfer blocksize
-        |   |   |   |  |  |  |  +------------------> Retry interval
-        |   |   |   |  |  |  +---------------------> Max. errors
-        |   |   |   |  |  +------------------------> Allowed transfers
-        |   |   |   |  +---------------------------> Host toggle
-        |   |   |   +------------------------------> Proxy name
-        |   |   +----------------------------------> Real hostname 2
-        |   +--------------------------------------> Real hostname 1
-        +------------------------------------------> Alias hostname
-</PRE>
-<TABLE>
-<TR>
-   <TH VALIGN=top><A NAME="host_name">Host Name</A></TH>
-   <TD>The full host name. If a secondary host can be specified, ignore
-       the toggling characters, ie. when the host name in the DIR_CONFIG
-       file is specified as 'host{12}' only state 'host' as host name.</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="allowed_transfers">Allowed Transfers</A></TH>
-   <TD>The maximum number of parallel transfers for this host. On very
-       slow connection it is best to allow just one. The default here is
-       two.</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="max_errors">Max. Errors</A></TH>
-   <TD>If max. errors is reached the destination identifier turns 'red'.
-       If error retries reaches twice max. errors the queue of this host
-       will be paused.</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="retry_interval">Retry Interval</A></TH>
-   <TD>If an error occurs, this is the delay (in seconds) before another
-       transfer is initiated.</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="transfer_block_size">Transfer Block Size</A></TH>
-   <TD>The size of the blocks being used to send files to the remote host
-       (in Bytes). Maximum value is 8192 and minimum is 1024 which is also
-       the default value.</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="successful_retries">Successful Retries</A></TH>
-   <TD>This is the number of successful retries to the secondary host
-       before it will try to send to the original host to see if it
-       has become available again. If a value of less then one is specified
-       it will NOT try to go back to the original host. It will from
-       then on always send to the secondary host.</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="file_size_offset">File Size Offset</A></TH>
-   <TD>When transmitting large files and the transfer gets interrupted, the
-       AFD can append a file on the remote site. For this it needs to know
-       the file size on the remote site. And to get the size it does a dir
-       'filename' at the remote site. Due to different replies of the FTP
-       servers, the position of the file size is needed. You can easily
-       determine this value simply doing an FTP to the remote site and a
-       dir and count the spaces to the file size. For example:
-       <PRE>
-     -rw-r--r--   1 afd      mts-soft   14971 Jan  3 17:16
-               ^^^ ^   ^^^^^^        ^^^
-                |  |     |            |
-                |  |     |            |
-                1  2     3            4
-       </PRE>
-       i.e. the file size offset is 4.</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="transfer_timeout">Transfer Timeout</A></TH>
-   <TD>The time (in seconds) how long the AFD should wait for a reply from
-       the remote site (default 120).</TD>
-</TR>
-<TR>
-   <TH VALIGN=top><A NAME="proxy_server">Proxy Server</A></TH>
-   <TD>If remote server is a proxy, enter the name of the proxy here.</TD>
-</TR>
-</TABLE>
-<H3><A NAME="dir_check"><U>Dir Check</U></A></H3>
-<P>
+</p>
+<h3><a name="dir_check"><u>Dir Check</u></a></h3>
+<p>
 This process constantly looks into the directories specified in the
 DIR_CONFIG to see if any files arrive. It scans all directories in
 that order that they have been specified in the DIR_CONFIG every
@@ -730,52 +44,53 @@ conversion time can be very long (at least on some systems). If there
 are lots of files in a directory it will only take the first 100
 (MAX_COPIED_FILES). So it does not take too long to create a job.
 Distribution of files should start as early as possible.
-</P>
-<P>
+</p>
+<p>
 If files are found, a directory of the following format is created in
 the AFD file directory:
-</P>
-<PRE>
+</p>
+<pre>
      x_nnnnnnnnnn_llll_jjjj
      |     |       |    |
-     |     |       |    +--> Job number.
-     |     |       +-------> Counter which is set to zero
+     |     |       |    +--&gt; Job number.
+     |     |       +-------&gt; Counter which is set to zero
      |     |                 after each second. This
      |     |                 ensures that no message can
      |     |                 have the same name in one
      |     |                 second.
-     |     +---------------> creation time in seconds
-     +---------------------> priority of the job
-</PRE>
-<P>
+     |     +---------------&gt; creation time in seconds
+     +---------------------&gt; priority of the job
+</pre>
+<p>
 All files that are found are hard linked into this directory. This
 procedure is continued for each recipient that wants the same files.
 Every time a new directory has been created and all files are linked
 into this directory, a message is send to the message fifo MSG_FIFO.
 The message in the fifo has the following format:
-</P>
-<PRE>
+</p>
+<pre>
    &lt;Priority&gt;&lt;creation time&gt;&lt;unique number&gt;&lt;job ID&gt;
        |            |              |           |
-       |            |              |           +-> int            [jjjj]
-       |            |              +-------------> unsigned short [llll]
-       |            +----------------------------> time_t         [nnnnnnnnnn]
-       +-----------------------------------------> char           [x]
-</PRE>
-<P>
+       |            |              |           +-&gt; int            [jjjj]
+       |            |              +-------------&gt; unsigned short [llll]
+       |            +----------------------------&gt; time_t         [nnnnnnnnnn]
+       +-----------------------------------------&gt; char           [x]
+</pre>
+<p>
 These messages are read by the FD which will distribute the files.
-</P>
-<HR SIZE=3 NOSHADE>
-<TABLE>
-<TR>
-   <TD WIDTH=600><SMALL><ADDRESS>
-   Copyright &copy; 1997 - 2000 by H.Kiehl<BR>
-   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
-   Last updated: 19.01.2000
-   </ADDRESS></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
-</TR>
-</TABLE>
-</BODY>
-</HTML>
+</p>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1997 - 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 04.06.2001
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /*
  *  change_alias_order.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   26.08.1997 H.Kiehl Created
+ **   08.09.2000 H.Kiehl Update FRA as well.
  **
  */
 DESCR__E_M3
@@ -59,6 +60,7 @@ DESCR__E_M3
 /* External global variables */
 extern int                        fsa_id,
                                   fsa_fd,
+                                  no_of_dirs,
                                   no_of_hosts,
                                   sys_log_fd;
 #ifndef _NO_MMAP
@@ -67,6 +69,7 @@ extern off_t                      fsa_size;
 extern char                       *p_work_dir;
 extern struct host_list           *hl;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 
 
 /*######################### change_alias_order() ########################*/
@@ -80,9 +83,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                               loop_no_of_hosts,
                               current_fsa_id,
                               new_fsa_fd;
-#ifdef _NO_MMAP
-   off_t                      fsa_size;
-#endif
+   off_t                      new_fsa_size;
    char                       *ptr,
                               fsa_id_file[MAX_PATH_LENGTH],
                               new_fsa_stat[MAX_PATH_LENGTH];
@@ -164,9 +165,9 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                 new_fsa_stat, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   fsa_size = AFD_WORD_OFFSET +
-              (no_of_hosts * sizeof(struct filetransfer_status));
-   if (lseek(new_fsa_fd, fsa_size - 1, SEEK_SET) == -1)
+   new_fsa_size = AFD_WORD_OFFSET +
+                  (no_of_hosts * sizeof(struct filetransfer_status));
+   if (lseek(new_fsa_fd, new_fsa_size - 1, SEEK_SET) == -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to lseek() in %s : %s (%s %d)\n",
@@ -180,10 +181,10 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
       exit(INCORRECT);
    }
 #ifdef _NO_MMAP
-   if ((ptr = mmap_emu(0, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap_emu(0, new_fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        new_fsa_stat, 0)) == (caddr_t) -1)
 #else
-   if ((ptr = mmap(0, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+   if ((ptr = mmap(0, new_fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    new_fsa_fd, 0)) == (caddr_t) -1)
 #endif
    {
@@ -199,6 +200,13 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    ptr += AFD_WORD_OFFSET;
    new_fsa = (struct filetransfer_status *)ptr;
 
+   if (fra_attach() < 0)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to attach to FRA. (%s %d)\n",
+                __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
    /*
     * Now copy each entry from the old FSA to the new FSA in
     * the order they are found in the host_list_w.
@@ -207,7 +215,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    {
       if (p_host_names[i][0] != '\0')
       {
-         if ((position = get_position(fsa, p_host_names[i], old_no_of_hosts)) < 0)
+         if ((position = get_host_position(fsa, p_host_names[i], old_no_of_hosts)) < 0)
          {
             if (hl != NULL)
             {
@@ -277,13 +285,26 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
          }
          else
          {
+            if ((position != INCORRECT) && (position != i))
+            {
+               int k;
+
+               for (k = 0; k < no_of_dirs; k++)
+               {
+                  if ((fra[k].host_alias[0] != '\0') &&
+                      (strcmp(fra[k].host_alias, fsa[position].host_alias) == 0))
+                  {
+                     fra[k].fsa_pos = i;
+                  }
+               }
+            }
             (void)memcpy(&new_fsa[i], &fsa[position],
                          sizeof(struct filetransfer_status));
          }
       }
    }
 #ifndef _NO_MMAP
-   if (msync(ptr - AFD_WORD_OFFSET, fsa_size, MS_SYNC) == -1)
+   if (msync(ptr - AFD_WORD_OFFSET, new_fsa_size, MS_SYNC) == -1)
    {
       (void)rec(sys_log_fd, WARN_SIGN, "msync() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
@@ -294,14 +315,25 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
       unlock_region(fsa_fd, (char *)&fsa[i] - (char *)fsa);
    }
 
-   if (fsa_detach() < 0)
+   if (fra_detach() < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "Failed to detach from FSA (%s %d)\n",
+      (void)rec(sys_log_fd, WARN_SIGN, "Failed to detach from FRA (%s %d)\n",
                 __FILE__, __LINE__);
    }
+
+   if (fsa_detach() < 0)
+   {
+      (void)rec(sys_log_fd, WARN_SIGN, "Failed to detach from old FSA (%s %d)\n",
+                __FILE__, __LINE__);
+   }
+
+   /* Now "attach" to the new FSA. */
    fsa = new_fsa;
    fsa_fd = new_fsa_fd;
    fsa_id = current_fsa_id;
+#ifndef _NO_MMAP
+   fsa_size = new_fsa_size;
+#endif
 
    /* Go to beginning in file */
    if (lseek(fd, 0, SEEK_SET) < 0)

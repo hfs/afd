@@ -1,7 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +37,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   19.03.1999 H.Kiehl Created
+ **   08.07.2000 H.Kiehl Revised to reduce code size in sf_xxx().
  **
  */
 DESCR__E_M3
@@ -50,24 +50,27 @@ DESCR__E_M3
 #include <unistd.h>                   /* write()                         */
 #include "fddefs.h"
 
-extern int    transfer_log_fd;
-#ifndef _AFTP
-extern char   tr_hostname[];
-extern struct job db;
-#endif
+extern int                        timeout_flag,
+                                  trans_db_log_fd,
+                                  transfer_log_fd;
+extern long                       transfer_timeout;
+extern char                       msg_str[],
+                                  tr_hostname[];
+extern struct job                 db;
+extern struct filetransfer_status *fsa;
+
+#define HOSTNAME_OFFSET 16
 
 
 /*############################ trans_log() ###############################*/
 void
 trans_log(char *sign, char *file, int line, char *fmt, ...)
 {
-#ifndef _AFTP
-   int       i = 0;
-   char      *ptr;
-#endif
-   size_t    length;
+   char      *ptr = tr_hostname;
+   size_t    header_length,
+             length = HOSTNAME_OFFSET;
    time_t    tvalue;
-   char      buf[MAX_LINE_LENGTH];
+   char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
    va_list   ap;
    struct tm *p_ts;
 
@@ -89,39 +92,86 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
    buf[13] = sign[1];
    buf[14] = sign[2];
    buf[15] = ' ';
-   length = 16;
 
-#ifndef _AFTP
-   ptr = tr_hostname;
    while (*ptr != '\0')
    {
-      buf[length + i] = *ptr;
-      ptr++; i++;
+      buf[length] = *ptr;
+      ptr++; length++;
    }
-   while (i < MAX_HOSTNAME_LENGTH)
+   while ((length - HOSTNAME_OFFSET) < MAX_HOSTNAME_LENGTH)
    {
-      buf[length + i] = ' ';
-      i++;
+      buf[length] = ' ';
+      length++;
    }
-   length += i;
    buf[length] = '[';
    buf[length + 1] = db.job_no + 48;
    buf[length + 2] = ']';
    buf[length + 3] = ':';
    buf[length + 4] = ' ';
    length += 5;
-#endif
+   header_length = length;
 
    va_start(ap, fmt);
    length += vsprintf(&buf[length], fmt, ap);
    va_end(ap);
 
-#ifndef _AFTP
-   length += sprintf(&buf[length], " #%d (%s %d)\n",
-                     db.job_id, file, line);
-#endif
+   if (timeout_flag == ON)
+   {
+      if (buf[length - 1] == '.')
+      {
+         length--;
+      }
+      if ((file == NULL) || (line == 0))
+      {
+         length += sprintf(&buf[length], " due to timeout (%lds).\n",
+                           transfer_timeout);
+      }
+      else if (fsa[db.fsa_pos].protocol & SEND_FLAG)
+           {
+              length += sprintf(&buf[length],
+                                " due to timeout (%lds). #%d (%s %d)\n",
+                                transfer_timeout, db.job_id, file, line);
+           }
+           else
+           {
+              length += sprintf(&buf[length], " due to timeout (%lds). (%s %d)\n",
+                                transfer_timeout, file, line);
+           }
+   }
+   else
+   {
+      if ((file == NULL) || (line == 0))
+      {
+         buf[length] = '\n';
+         buf[length + 1] = '\0';
+         length += 1;
+      }
+      else if (fsa[db.fsa_pos].protocol & SEND_FLAG)
+           {
+              length += sprintf(&buf[length], " #%d (%s %d)\n",
+                                db.job_id, file, line);
+           }
+           else
+           {
+              length += sprintf(&buf[length], " (%s %d)\n", file, line);
+           }
+   }
+   if ((msg_str[0] != '\0') && (timeout_flag != ON))
+   {
+      char tmp_char;
+
+      tmp_char = buf[header_length];
+      buf[header_length] = '\0';
+      length += sprintf(&buf[length], "%s%s\n", buf, msg_str);
+      buf[header_length] = tmp_char;
+   }
 
    (void)write(transfer_log_fd, buf, length);
+
+   if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+   {
+      (void)write(trans_db_log_fd, buf, length);
+   }
 
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  bin_file_chopper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -89,7 +89,6 @@ static char bul_format[DATA_TYPES][5] =
             };
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 /* Local functions */
@@ -131,8 +130,8 @@ bin_file_chopper(char  *bin_file,
       }
       else
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "Failed to stat() %s : %s (%s %d)\n",
-                   bin_file, strerror(errno), __FILE__, __LINE__);
+         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "Failed to stat() %s : %s", bin_file, strerror(errno));
          return(INCORRECT);
       }
    }
@@ -148,15 +147,16 @@ bin_file_chopper(char  *bin_file,
 
    if ((fd = open(bin_file, O_RDONLY)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() %s : %s (%s %d)\n",
-                bin_file, strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Failed to open() %s : %s", bin_file, strerror(errno));
       return(INCORRECT);
    }
 
    if ((buffer = (char *)malloc(stat_buf.st_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error (size = %d) : %s (%s %d)\n",
-                stat_buf.st_size, strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "malloc() error (size = %d) : %s",
+                  stat_buf.st_size, strerror(errno));
       return(INCORRECT);
    }
    p_file = buffer;
@@ -167,8 +167,8 @@ bin_file_chopper(char  *bin_file,
     */
    if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "read() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "read() error : %s", strerror(errno));
       free(p_file);
       return(INCORRECT);
    }
@@ -177,8 +177,8 @@ bin_file_chopper(char  *bin_file,
    /* Close the file since we do not need it anymore */
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                  "close() error : %s", strerror(errno));
    }
 
    /* Get directory where files are to be stored. */
@@ -191,8 +191,8 @@ bin_file_chopper(char  *bin_file,
    if (*p_new_file != '/')
    {
       /* Impossible */
-      (void)rec(sys_log_fd, ERROR_SIGN, "Cannot determine directory where to store files! (%s %d)\n",
-                __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Cannot determine directory where to store files!");
       return(INCORRECT);
    }
 
@@ -206,8 +206,8 @@ bin_file_chopper(char  *bin_file,
    if (*ptr != '/')
    {
       /* Impossible */
-      (void)rec(sys_log_fd, ERROR_SIGN, "Cannot determine directory where to store files! (%s %d)\n",
-                __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Cannot determine directory where to store files!");
       return(INCORRECT);
    }
    ptr++;
@@ -225,8 +225,8 @@ bin_file_chopper(char  *bin_file,
     */
    if ((counter_fd = open_counter_file(COUNTER_FILE)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open AFD counter file. (%s %d)\n",
-                __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Failed to open AFD counter file.");
       return(INCORRECT);
    }
 
@@ -261,8 +261,8 @@ bin_file_chopper(char  *bin_file,
                buffer = ptr;
                continue;
 #else
-               (void)rec(sys_log_fd, ERROR_SIGN, "Failed to extract data from %s (%s %d)\n",
-                         bin_file, __FILE__, __LINE__);
+               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                           "Failed to extract data from %s", bin_file);
                (void)close(counter_fd);
                free(p_file);
                return(INCORRECT);
@@ -285,10 +285,10 @@ bin_file_chopper(char  *bin_file,
             {
                if (first_time == YES)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Hey! Whats this? Message length (%u) > then total length (%u) [%s] (%s %d)\n",
-                            message_length, total_length + id_length[i],
-                            bin_file, __FILE__, __LINE__);
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                              "Hey! Whats this? Message length (%u) > then total length (%u) [%s]",
+                              message_length, total_length + id_length[i],
+                              bin_file);
                   first_time = NO;
                }
                buffer = ptr;
@@ -302,9 +302,8 @@ bin_file_chopper(char  *bin_file,
 
                if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Hey! Whats this? End locator not where it should be! (%s %d)\n",
-                            __FILE__, __LINE__);
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                              "Hey! Whats this? End locator not where it should be!");
                   buffer = ptr;
                   continue;
                }
@@ -323,16 +322,16 @@ bin_file_chopper(char  *bin_file,
           */
          if (next_counter(&counter) < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN, "Failed to get the next number. (%s %d)\n",
-                      __FILE__, __LINE__);
+            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "Failed to get the next number.");
             free(p_file);
             (void)close(counter_fd);
             return(INCORRECT);
          }
          if (time(&tvalue) == -1)
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Failed to get time() : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            receive_log(WARN_SIGN, __FILE__, __LINE__,
+                        "Failed to get time() : %s", strerror(errno));
             (void)strcpy(date_str, "YYYYMMDDhhmmss");
          }
          else
@@ -347,10 +346,11 @@ bin_file_chopper(char  *bin_file,
          /*
           * Store data of each bulletin into an extra file.
           */
-         if ((fd = open(new_file, (O_WRONLY | O_CREAT | O_TRUNC), (S_IRUSR | S_IWUSR))) < 0)
+         if ((fd = open(new_file, (O_WRONLY | O_CREAT | O_TRUNC),
+                        (S_IRUSR | S_IWUSR))) < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() %s : %s (%s %d)\n",
-                      new_file, strerror(errno), __FILE__, __LINE__);
+            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "Failed to open() %s : %s", new_file, strerror(errno));
             free(p_file);
             (void)close(counter_fd);
             return(INCORRECT);
@@ -369,8 +369,8 @@ bin_file_chopper(char  *bin_file,
 
          if (write(fd, ptr, data_length) != data_length)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN, "write() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "write() error : %s", strerror(errno));
             free(p_file);
             (void)close(fd);
             (void)remove(new_file); /* End user should not get any junk! */
@@ -379,8 +379,8 @@ bin_file_chopper(char  *bin_file,
          }
          if (close(fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                        "close() error : %s", strerror(errno));
          }
          *file_size += data_length;
          (*files_to_send)++;
@@ -390,9 +390,9 @@ bin_file_chopper(char  *bin_file,
          {
             if ((data_length - total_length) > 5)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Hmmm. data_length (%d) > total_length (%u)? (%s %d)\n",
-                         data_length, total_length, __FILE__, __LINE__);
+               receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                           "Hmmm. data_length (%d) > total_length (%u)?",
+                           data_length, total_length);
             }
             total_length = 0;
          }
@@ -433,8 +433,9 @@ bin_file_chopper(char  *bin_file,
    /* Remove the original file */
    if (remove(bin_file) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "Failed to remove() original file %s : %s (%s %d)\n",
-                bin_file, strerror(errno), __FILE__, __LINE__);
+      receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  "Failed to remove() original file %s : %s",
+                  bin_file, strerror(errno));
    }
    else
    {
@@ -443,8 +444,8 @@ bin_file_chopper(char  *bin_file,
    }
    if (close(counter_fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                  "close() error : %s", strerror(errno));
    }
    free(p_file);
 

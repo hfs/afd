@@ -1,7 +1,7 @@
 /*
  *  check_file_dir.c - Part of AFD, an automatic file distribution program.
  *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                            Holger Kiehl <Holger.Kiehl@dwd.de>
+ *                           Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -282,26 +282,7 @@ add_message_to_queue(char *dir_name, char in_error_dir)
           *p_start,
           *ptr;
 
-   if ((*no_msg_queued != 0) &&
-       ((*no_msg_queued % MSG_QUE_BUF_SIZE) == 0))
-   {
-      size_t new_size;
-
-      new_size = (((*no_msg_queued / MSG_QUE_BUF_SIZE) + 1) *
-                 MSG_QUE_BUF_SIZE * sizeof(struct queue_buf)) +
-                 AFD_WORD_OFFSET;
-      ptr = (char *)qb - AFD_WORD_OFFSET;
-      if ((ptr = mmap_resize(qb_fd, ptr, new_size)) == (caddr_t) -1)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "mmap() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      no_msg_queued = (int *)ptr;
-      ptr += AFD_WORD_OFFSET;
-      qb = (struct queue_buf *)ptr;
-   }
+   check_queue_space();
 
    /*
     * Retrieve priority, creation time, unique number and job ID

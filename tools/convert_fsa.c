@@ -1,6 +1,6 @@
 /*
  *  convert_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997, 1998 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -42,6 +42,7 @@ DESCR__S_M1
  ** HISTORY
  **   08.09.1997 H.Kiehl Created
  **   03.05.1998 H.Kiehl Updated to convert 0.9.x -> 1.0.x
+ **   14.07.2000 H.Kiehl Updated to convert 1.[01].x -> 1.2.x
  **
  */
 DESCR__E_M1
@@ -63,62 +64,45 @@ DESCR__E_M1
 int    sys_log_fd = STDERR_FILENO;
 char   *p_work_dir;
 
-#define OLD_UNIQUE_NAME_LENGTH 19
-struct old_status
-       {
-          pid_t         proc_id;
-#ifdef _BURST_MODE
-          char          error_file;
-          char          unique_name[OLD_UNIQUE_NAME_LENGTH];
-          unsigned char burst_counter;
-          unsigned int  job_id;
-#endif /* _BURST_MODE */
-          char          connect_status;
-          int           no_of_files;
-          int           no_of_files_done;
-          int           file_size;
-          int           file_size_done;
-          unsigned int  bytes_send;
-          char          file_name_in_use[17];
-          size_t        file_size_in_use;
-          size_t        file_size_in_use_done;
-       };
+/* Put the old defines that have changed here. */
+#define OLD_MAX_PROXY_NAME_LENGTH 25
+
 struct old_filetransfer_status
        {
-          char              hostname[MAX_HOSTNAME_LENGTH + 1];
-          char              real_hostname[2][40];
-          char              host_dsp_name[MAX_HOSTNAME_LENGTH + 1];
-          char              proxy_name[MAX_HOSTNAME_LENGTH + 1];
-          char              host_toggle_str[5];
-          char              toggle_pos;
-          char              original_toggle_pos;
-          char              auto_toggle;
-          signed char       file_size_offset;
-          int               successful_retries;
-          int               max_successful_retries;
-          char              special_flag;
-          char              protocol;
-          char              debug;
-          char              host_toggle;
-          int               host_status;
-          int               error_counter;
-          unsigned int      total_errors;
-          int               max_errors;
-          int               retry_interval;
-          int               block_size;
-          time_t            last_retry_time;
-          time_t            last_connection;
-          int               total_file_counter;
-          unsigned int      total_file_size;
-          int               total_connect_time;
-          unsigned int      file_counter_done;
-          unsigned int      bytes_send;
-          unsigned int      connections;
-          int               active_transfers;
-          int               allowed_transfers;
-          int               transfer_rate;
-          long              transfer_timeout;
-          struct old_status job_status[MAX_NO_PARALLEL_JOBS];
+          char          host_alias[MAX_HOSTNAME_LENGTH + 1];
+          char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
+          char          host_dsp_name[MAX_HOSTNAME_LENGTH + 1];
+          char          proxy_name[OLD_MAX_PROXY_NAME_LENGTH];
+          char          host_toggle_str[MAX_TOGGLE_STR_LENGTH];
+          char          toggle_pos;
+          char          original_toggle_pos;
+          char          auto_toggle;
+          signed char   file_size_offset;
+          int           successful_retries;
+          int           max_successful_retries;
+          unsigned char special_flag;
+          unsigned char protocol;
+          char          debug;
+          char          host_toggle;
+          int           host_status;
+          int           error_counter;
+          unsigned int  total_errors;
+          int           max_errors;
+          int           retry_interval;
+          int           block_size;
+          time_t        last_retry_time;
+          time_t        last_connection;
+          int           total_file_counter;
+          unsigned long total_file_size;
+          int           total_connect_time;
+          unsigned int  file_counter_done;
+          unsigned long bytes_send;
+          unsigned int  connections;
+          int           active_transfers;
+          int           allowed_transfers;
+          int           transfer_rate;
+          long          transfer_timeout;
+          struct status job_status[MAX_NO_PARALLEL_JOBS];
        };
 
 
@@ -236,7 +220,7 @@ main(int argc, char *argv[])
    }
 
    old_no_of_hosts = *(int *)ptr;
-   ptr += sizeof(int);
+   ptr += AFD_WORD_OFFSET;
    old_fsa = (struct old_filetransfer_status *)ptr;
 
    /*
@@ -292,7 +276,7 @@ main(int argc, char *argv[])
     */
    for (i = 0; i < old_no_of_hosts; i++)
    {
-      (void)strcpy(fsa[i].host_alias, old_fsa[i].hostname);
+      (void)strcpy(fsa[i].host_alias, old_fsa[i].host_alias);
       (void)strcpy(fsa[i].real_hostname[0], old_fsa[i].real_hostname[0]);
       (void)strcpy(fsa[i].real_hostname[1], old_fsa[i].real_hostname[1]);
       (void)strcpy(fsa[i].host_dsp_name, old_fsa[i].host_dsp_name);
@@ -305,7 +289,7 @@ main(int argc, char *argv[])
       fsa[i].successful_retries = old_fsa[i].successful_retries;
       fsa[i].max_successful_retries = old_fsa[i].max_successful_retries;
       fsa[i].special_flag = old_fsa[i].special_flag;
-      fsa[i].protocol = old_fsa[i].protocol;
+      fsa[i].protocol = (int)old_fsa[i].protocol;
       fsa[i].debug = old_fsa[i].debug;
       fsa[i].host_toggle = old_fsa[i].host_toggle;
       fsa[i].host_status = old_fsa[i].host_status;
@@ -318,13 +302,12 @@ main(int argc, char *argv[])
       fsa[i].last_connection = old_fsa[i].last_connection;
       fsa[i].total_file_counter = old_fsa[i].total_file_counter;
       fsa[i].total_file_size = old_fsa[i].total_file_size;
-      fsa[i].total_connect_time = old_fsa[i].total_connect_time;
+      fsa[i].total_connect_time = (unsigned long)old_fsa[i].total_connect_time;
       fsa[i].file_counter_done = old_fsa[i].file_counter_done;
       fsa[i].bytes_send = old_fsa[i].bytes_send;
       fsa[i].connections = old_fsa[i].connections;
       fsa[i].active_transfers = old_fsa[i].active_transfers;
       fsa[i].allowed_transfers = old_fsa[i].allowed_transfers;
-      fsa[i].transfer_rate = old_fsa[i].transfer_rate;
       fsa[i].transfer_timeout = old_fsa[i].transfer_timeout;
 
       for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
@@ -369,7 +352,7 @@ main(int argc, char *argv[])
     * Unmap from old memory mapped region.
     */
    ptr = (char *)old_fsa;
-   ptr -= sizeof(int);
+   ptr -= AFD_WORD_OFFSET;
 
 #ifdef _NO_MMAP
    if (munmap_emu(ptr) == -1)
@@ -407,7 +390,7 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)fprintf(stdout, "Successfully converted FSA Version 0.9.x -> 1.0.x\n");
+      (void)fprintf(stdout, "Successfully converted FSA Version 1.[01].x -> 1.2.x\n");
    }
 
    exit(SUCCESS);

@@ -155,7 +155,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                   if ((step_size == 1) && (continuous == YES))
                   {
-                     for (i = first_number; i < number; i = i + step_size)
+                     for (i = first_number; i <= number; i = i + step_size)
                      {
 #ifdef _WORKING_LONG_LONG
                         te->continuous_minute |= bit_array_long[i];
@@ -169,7 +169,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                   {
                      if (step_size == 0)
                      {
-                        for (i = first_number; i < number; i++)
+                        for (i = first_number; i <= number; i++)
                         {
 #ifdef _WORKING_LONG_LONG
                            te->minute |= bit_array_long[i];
@@ -180,7 +180,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                      }
                      else
                      {
-                        for (i = first_number; i < number; i = i + step_size)
+                        for (i = first_number; i <= number; i = i + step_size)
                         {
 #ifdef _WORKING_LONG_LONG
                            te->minute |= bit_array_long[i];
@@ -297,7 +297,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                        if ((step_size == 1) && (continuous == YES))
                        {
-                          for (i = first_number; i < number; i = i + step_size)
+                          for (i = first_number; i <= number; i = i + step_size)
                           {
 #ifdef _WORKING_LONG_LONG
                              te->continuous_minute |= bit_array_long[i];
@@ -311,7 +311,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                        {
                           if (step_size == 0)
                           {
-                             for (i = first_number; i < number; i++)
+                             for (i = first_number; i <= number; i++)
                              {
 #ifdef _WORKING_LONG_LONG
                                 te->minute |= bit_array_long[i];
@@ -322,7 +322,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                           }
                           else
                           {
-                             for (i = first_number; i < number; i = i + step_size)
+                             for (i = first_number; i <= number; i = i + step_size)
                              {
 #ifdef _WORKING_LONG_LONG
                                 te->minute |= bit_array_long[i];
@@ -440,14 +440,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                   if (step_size == 0)
                   {
-                     for (i = first_number; i < number; i++)
+                     for (i = first_number; i <= number; i++)
                      {
                         te->hour |= bit_array[i];
                      }
                   }
                   else
                   {
-                     for (i = first_number; i < number; i = i + step_size)
+                     for (i = first_number; i <= number; i = i + step_size)
                      {
                         te->hour |= bit_array[i];
                      }
@@ -524,14 +524,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                        if (step_size == 0)
                        {
-                          for (i = first_number; i < number; i++)
+                          for (i = first_number; i <= number; i++)
                           {
                              te->hour |= bit_array[i];
                           }
                        }
                        else
                        {
-                          for (i = first_number; i < number; i = i + step_size)
+                          for (i = first_number; i <= number; i = i + step_size)
                           {
                              te->hour |= bit_array[i];
                           }
@@ -645,14 +645,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                   if (step_size == 0)
                   {
-                     for (i = first_number; i < number; i++)
+                     for (i = first_number; i <= number; i++)
                      {
                         te->day_of_month |= bit_array[i - 1];
                      }
                   }
                   else
                   {
-                     for (i = first_number; i < number; i = i + step_size)
+                     for (i = first_number; i <= number; i = i + step_size)
                      {
                         te->day_of_month |= bit_array[i - 1];
                      }
@@ -743,14 +743,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                        if (step_size == 0)
                        {
-                          for (i = first_number; i < number; i++)
+                          for (i = first_number; i <= number; i++)
                           {
                              te->day_of_month |= bit_array[i - 1];
                           }
                        }
                        else
                        {
-                          for (i = first_number; i < number; i = i + step_size)
+                          for (i = first_number; i <= number; i = i + step_size)
                           {
                              te->day_of_month |= bit_array[i - 1];
                           }
@@ -863,14 +863,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                   if (step_size == 0)
                   {
-                     for (i = first_number; i < number; i++)
+                     for (i = first_number; i <= number; i++)
                      {
                         te->month |= bit_array[i - 1];
                      }
                   }
                   else
                   {
-                     for (i = first_number; i < number; i = i + step_size)
+                     for (i = first_number; i <= number; i = i + step_size)
                      {
                         te->month |= bit_array[i - 1];
                      }
@@ -959,14 +959,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                        if (step_size == 0)
                        {
-                          for (i = first_number; i < number; i++)
+                          for (i = first_number; i <= number; i++)
                           {
                              te->month |= bit_array[i - 1];
                           }
                        }
                        else
                        {
-                          for (i = first_number; i < number; i = i + step_size)
+                          for (i = first_number; i <= number; i = i + step_size)
                           {
                              te->month |= bit_array[i - 1];
                           }
@@ -1075,14 +1075,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                   if (step_size == 0)
                   {
-                     for (i = first_number; i < number; i++)
+                     for (i = first_number; i <= number; i++)
                      {
                         te->day_of_week |= bit_array[i - 1];
                      }
                   }
                   else
                   {
-                     for (i = first_number; i < number; i = i + step_size)
+                     for (i = first_number; i <= number; i = i + step_size)
                      {
                         te->day_of_week |= bit_array[i - 1];
                      }
@@ -1161,14 +1161,14 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
 
                        if (step_size == 0)
                        {
-                          for (i = first_number; i < number; i++)
+                          for (i = first_number; i <= number; i++)
                           {
                              te->day_of_week |= bit_array[i - 1];
                           }
                        }
                        else
                        {
-                          for (i = first_number; i < number; i = i + step_size)
+                          for (i = first_number; i <= number; i = i + step_size)
                           {
                              te->day_of_week |= bit_array[i - 1];
                           }

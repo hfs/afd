@@ -33,6 +33,8 @@ DESCR__S_M3
  **   to the following form:
  **         Local name : xxxxxxx.xx
  **         Remote name: XXXyyyy.ZZ
+ **         File size  : 34234
+ **         Trans time : 12.05
  **         Directory  : /aaa/bbb/ccc
  **         Filter     : filter_1
  **                      filter_2
@@ -92,6 +94,26 @@ format_info(char *text)
       }
       max_y++;
    }
+   if (id.file_size[0] != '\0')
+   {
+      count = sprintf(text + length, "File size  : %s Bytes\n", id.file_size);
+      length += count;
+      if (count > max_x)
+      {
+         max_x = count;
+      }
+      max_y++;
+   }
+   if (id.trans_time[0] != '\0')
+   {
+      count = sprintf(text + length, "Trans time : %s sec\n", id.trans_time);
+      length += count;
+      if (count > max_x)
+      {
+         max_x = count;
+      }
+      max_y++;
+   }
 
    if (id.no_of_files > 0)
    {
@@ -122,44 +144,7 @@ format_info(char *text)
       /* Print recipient */
       if (perm.view_passwd != YES)
       {
-         char *ptr = id.recipient;
-
-         /*
-          * The user may NOT see the password. Lets cut it out and
-          * replace it with DEFAULT_VIEW_PASSWD.
-          */
-         while (*ptr != ':')
-         {
-            ptr++;
-         }
-         ptr++;
-         while ((*ptr != ':') && (*ptr != '@'))
-         {
-            if (*ptr == '\\')
-            {
-               ptr++;
-            }
-            ptr++;
-         }
-         if (*ptr == ':')
-         {
-            char *p_end = ptr + 1,
-                 tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-            ptr++;
-            while (*ptr != '@')
-            {
-               if (*ptr == '\\')
-               {
-                  ptr++;
-               }
-               ptr++;
-            }
-            (void)strcpy(tmp_buffer, ptr);
-            *p_end = '\0';
-            (void)strcat(id.recipient, "XXXXX");
-            (void)strcat(id.recipient, tmp_buffer);
-         }
+         remove_passwd(id.recipient);
       }
       count = sprintf(text + length, "Recipient  : %s\n", id.recipient);
       length += count;

@@ -1,0 +1,198 @@
+<html>
+<head>
+<title>AFD (show_queue.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="show_queue">View AFD Queue</a></h1>
+<hr size=3 noshade>
+<p>
+<center><img src="../images/show_queue_small.png" alt="[small picture of show_queue dialog]"></center>
+</p>
+<p>
+All files unsend and queued files of AFD, can be viewed with this
+dialog.
+</p>
+<center><img src="../images/show_queue_selection.png" alt="[closeup of selection part]"></center>
+<p>
+<center>
+<table border>
+<tr>
+   <td>&nbsp;<b>1</b>&nbsp;</td>
+   <td>Enter the start and end time of the search. If no value is entered
+       it will always take the earliest or latest entries it finds. There
+       are two time forms. One is the absolute and the other is the
+       relative time format. The following absolute forms are possible:
+       MMDDhhmm, DDhhmm and hhmm (MM = month [01-12], DD = day [01-31],
+       hh = hour [00 - 23], mm = minute [00 - 59]). The relative form
+       always starts with a hyphen '-' and has the following format:
+       -DDHhhmm, -hhmm or -mm.</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>2</b>&nbsp;</td>
+   <td>Shows the current date and time in the following format:
+       DD.MM.YYYY hh:mm</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>3</b>&nbsp;</td>
+   <td>Enter a file name. The name may have any number of the two following
+       wild cards: * and ?. If no file name or wild card is entered it will
+       always search for all file names.</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>4</b>&nbsp;</tD>
+   <td>Here it is possible to enter the length/size of a file. If a &lt; or
+       a &gt; sign it will search for files less then or greater then the
+       given size.</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>5</b>&nbsp;</td>
+   <td>The source directory where the AFD has picked up the file. Even here
+       it is possible to enter wild cards.</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>6</b>&nbsp;</td>
+   <td>Here you can enter a remote host name and only files that where
+       send to this host will be shown. It is also possible to enter more
+       then one host, by separating the hosts with a comma. Wild cards
+       can also be used.</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>7</b>&nbsp;</td>
+   <td>This selection box is for the output part ie files considert by FD.
+       You may select those that are queued, for example if the transfer
+       is stopped and/or there is no process slot free for this job and
+       the files have to wait. When the button Unsent is set all files
+       that are currently being transmitted or those in a job that is
+       sheduled to be transmitted are shown as well. NOTE: It is no
+       possible to remove unsent files.</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>8</b>&nbsp;</td>
+   <td>In this selection box the incoming part (AMG) of files queued
+       (when the queue has been stopped) or files that are in the
+       source directory are shown. Here it is possible to delete all
+       files even those marked as Unsent.</td>
+</tr>
+<tr>
+   <td>&nbsp;<b>9</b>&nbsp;</td>
+   <td>These toggle buttons allow the user to toggle between different length
+       of the file name in the list box. The short one is useful when
+       printing on A4 paper.</td>
+</tr>
+</table>
+</center>
+</p>
+<p>
+It is not necessary to fill in any values, however it might be, depending
+on the number of files in the queue, that the numbers found is very large.
+While the dialog is searching for data, the function of the search button
+changes into a stop button, enabling the user to interrupt the search (this
+does not yet work very well, it depends very much on the speed of the machine).
+This button and the slider of the list widget are the only buttons that are
+active during a search. Thus, the user can search in the list widget by
+using the slider, while the dialog is still searching. Once a search is
+interrupted, the search will always start from the beginning.
+</p>
+<p>
+Here follows a short description of the list widgets and the meaning of
+each item:
+</p>
+<p>
+<center><img src="../images/show_queue_list.png" alt="[closeup of the list field]"></center>
+<p>
+<center>
+<table border>
+<tr>
+   <td>Date</td>
+   <td>The date in the following format: MM.DD. where MM is the month
+       (01-12) and DD is the day of the month (01-31).</td>
+</tr>
+<tr>
+   <td>Time</td>
+   <td>The time in the following format: hh:mm:ss where hh is the hour
+       (00-23), mm is the minute (00-59) and ss is the second (00-59).</td>
+</tr>
+<tr>
+   <td>File name</td>
+   <td>The file name as it was found.</td>
+</tr>
+<tr>
+   <td>Type</td>
+   <td>
+      <table border>
+         <tr>
+            <td align=center>I</td>
+            <td>Input queue</td>
+         </tr>
+         <tr>
+            <td align=center>O</td>
+            <td>Output queue</td>
+         </tr>
+         <tr>
+            <td align=center>U</td>
+            <td>Unsent</td>
+         </tr>
+         <tr>
+            <td align=center>E</td>
+            <td>In error directory. This is only used for files in the
+                output queue.</td>
+         </tr>
+         <tr>
+            <td align=center>0 - 9</td>
+            <td>The priority of this file. This can only by shown for the
+                output queue since in the input queue this is not known.</td>
+         </tr>
+      </table>
+   </td>
+</tr>
+<tr>
+   <td>Hostname</td>
+   <td>The host name of the remote host.</td>
+</tr>
+<tr>
+   <td>File size</td>
+   <td>The size of the file in bytes.</td>
+</tr>
+</table>
+</center>
+</p>
+<p>
+When the file name is longer then it is shown in the list widget it is
+still possible to view it by using the 'AFD info click'. This is done
+by pressing the right mouse button while the cursor is over the wanted
+item in the list widget. The following window will pop up for a file
+in the output queue:
+</p>
+<p>
+<center><img src="../images/show_queue_info1.png" alt="[picture of info dialog output]"></center>
+</p>
+<p>
+And for the input queue it will look as follows:
+</p>
+<p>
+<center><img src="../images/show_queue_info2.png" alt="[picture of info dialog input]"></center>
+</p>
+<p>
+As shown, this window also shows what is configured in the DIR_CONFIG for
+this file.
+</p>
+<p>
+With the delete button at the bottom it is possible to remove selected
+files from the list. However, you cannot delete unsent files in the
+output queue (those marked as OU or OEU).
+</p>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 10.08.2001
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

@@ -8,9 +8,3 @@ Bug   : The file counter (fc) an and the file size (fs) are not set
         correctly during a burst.
 Reason: Unknown
 
-Bug   : During a burst FD sometimes does not find any files to send
-        but when it tries to remove the job directory there are suddenly
-        files in it.
-Reason: Hope 1.1.x will solve this. AMG sometimes does link files to a
-        new job directory, allthough they should be copied.
-

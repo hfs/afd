@@ -1,6 +1,6 @@
 /*
  *  fddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,47 +29,39 @@
 #define MAIL_HEADER_IDENTIFIER   "MAIL-"
 
 /* Miscellaneous definitions */
-#define FAILED_TO_CREATE_ARCHIVE_DIR 1 /* If archive_file() fails to    */
-                                       /* create the archive directory  */
-                                       /* this is set.                  */
+#define FAILED_TO_CREATE_ARCHIVE_DIR 1 /* If archive_file() fails to     */
+                                       /* create the archive directory   */
+                                       /* this is set.                   */
 #ifndef MAX_RET_MSG_LENGTH
 #define MAX_RET_MSG_LENGTH       1024
 #endif
-#define MAX_FD_DIR_CHECK         152           /* FD should only check  */
-                                               /* the file directory if */
-                                               /* it is less then this  */
-                                               /* value. Don't forget   */
-                                               /* to add 2 for "." and  */
-                                               /* "..".                 */
-#define MAX_ERROR_RETRIES        3             /* The number of error   */
-                                               /* messages that my be   */
-                                               /* moved to the message  */
-                                               /* directory.            */
-#define ABORT_TIMEOUT            10            /* This is the time in   */
-                                               /* seconds, that the     */
-                                               /* transferring jobs have*/
-                                               /* before they get       */
-                                               /* killed.               */
-#define FD_QUICK_TIMEOUT         10            /* The timeout when we   */
-                                               /* have done a quick     */
-                                               /* stop of the FD.       */
-#define FD_TIMEOUT               30            /* The timeout when we   */
-                                               /* have done a normal or */
-                                               /* save stop of the FD.  */
-#define CD_TIMEOUT               600           /* Timeout remote change */
-                                               /* directory (10min).    */
-#define DIR_CHECK_TIME           1500          /* Time (every 25min)    */
-                                               /* when to check in file */
-                                               /* directory for jobs    */
-                                               /* without the           */
-                                               /* corresponding message.*/
+#define MAX_FD_DIR_CHECK         152   /* FD should only check the file  */
+                                       /* directory if it is less then   */
+                                       /* this value. Don't forget to    */
+                                       /* add 2 for "." and "..".        */
+#define MAX_ERROR_RETRIES        3     /* The number of error messages   */
+                                       /* that my be moved to the        */
+                                       /* message directory.             */
+#define ABORT_TIMEOUT            10    /* This is the time in seconds,   */
+                                       /* that the transferring jobs     */
+                                       /* have before they get killed.   */
+#define FD_QUICK_TIMEOUT         10    /* The timeout when we have done  */
+                                       /* a quick stop of the FD.        */
+#define FD_TIMEOUT               30    /* The timeout when we have done  */
+                                       /* a normal or save stop of the   */
+                                       /* FD.                            */
+#define CD_TIMEOUT               600   /* Timeout remote change          */
+                                       /* directory (10min).             */
+#define DIR_CHECK_TIME           1500  /* Time (every 25min) when to     */
+                                       /* check in file directory for    */
+                                       /* jobs without the corresponding */
+                                       /* message.                       */
 
 /* Definitions of different exit status */
-#define NO_MESSAGE               -2            /* When there are no     */
-                                               /* more jobs to be done  */
-                                               /* we return this value. */
+#define NO_MESSAGE               -2    /* When there are no more jobs to */
+                                       /* be done we return this value.  */
 
-/* Exit status of sf_xxx */
+/* Exit status of sf_xxx and gf_xxx */
 #define TRANSFER_SUCCESS         0
 #define CONNECT_ERROR            1
 #define USER_ERROR               2
@@ -94,6 +86,7 @@
 #ifdef _WITH_WMO_SUPPORT
 #define CHECK_REPLY_ERROR        21     /* Used by sf_wmo()              */
 #endif
+#define READ_REMOTE_ERROR        22
 #define OPEN_LOCAL_ERROR         30
 #define READ_LOCAL_ERROR         31
 #define STAT_LOCAL_ERROR         32
@@ -103,6 +96,7 @@
                                         /* region in FSA                 */
 #define ALLOC_ERROR              35
 #define SELECT_ERROR             36
+#define WRITE_LOCAL_ERROR        37
 #define OPEN_FILE_DIR_ERROR      40     /* File directory does not exist */
 #define NO_MESSAGE_FILE          41     /* The message file does not     */
                                         /* exist.                        */
@@ -124,19 +118,9 @@
 #define PENDING                  -2
 #define REMOVED                  -3
 
-/* Definitions for functon reset_fsa(). So it knows which */
-/* values it has to reset.                                */
-#define CONNECT_STATUS_VAR        1
-/* #define JOB_ID_VAR                2  NOT USED!!! */
-#define NO_OF_FILES_DONE_VAR      4
-#define FILE_SIZE_DONE_VAR        8
-#define FILE_SIZE_IN_USE_VAR      16
-#define FILE_SIZE_IN_USE_DONE_VAR 32
-#define FILE_NAME_IN_USE_VAR      64
-#define NO_OF_FILES_VAR           128
-#define FILE_SIZE_VAR             256
-#define PROC_ID_VAR               512
-/* Maximum is 2147483648 (2^31) */
+/* Definitions for functon reset_fsa(). So */
+/* it knows which value it has to reset.   */
+#define IS_FAULTY_VAR             2
 
 /* Definition of the different names of locking */
 #define LOCK_DOT                 "DOT"      /* eg. .filename -> filename */
@@ -179,10 +163,6 @@
 #define RESTART_FILE_ID_LENGTH         7
 #define TRANS_RENAME_ID                "trans_rename"
 #define TRANS_RENAME_ID_LENGTH         12
-#define SECURE_FTP_ID                  "secure ftp"
-#define SECURE_FTP_ID_LENGTH           10
-#define NO_LOGIN_ID                    "no login"
-#define NO_LOGIN_ID_LENGTH             8
 #ifdef _WITH_WMO_SUPPORT
 #define WITH_SEQUENCE_NUMBER_ID        "sequence numbering"
 #define WITH_SEQUENCE_NUMBER_ID_LENGTH 18
@@ -221,8 +201,10 @@
 #define SUBJECT_ID_LENGTH              7
 #define FORCE_COPY_ID                  "force copy"
 #define FORCE_COPY_ID_LENGTH           10
-#define PPROXY_ID                      "pproxy"
-#define PPROXY_ID_LENGTH               6
+#define ACTIVE_FTP_MODE                "mode active"
+#define ACTIVE_FTP_MODE_LENGTH         11
+#define PASSIVE_FTP_MODE               "mode passive"
+#define PASSIVE_FTP_MODE_LENGTH        12
 
 /* Definition for special_flag in structure job */
 #define FILE_NAME_IS_HEADER            1
@@ -242,14 +224,25 @@
 #define WMO_CHECK_ACKNOWLEDGE          16
 #define WITH_SEQUENCE_NUMBER           32
 #endif
-#define NO_LOGIN                       32
 #define ENCODE_ANSI                    32
 #define CHANGE_PERMISSION              64
 /* NOTE:  ERROR_FILE_UNDER_PROCESS 128 is defined in afddefs.h!!! */
 #define MAIL_SUBJECT                   256
 #define FORCE_COPY                     256
+#define CHANGE_FTP_MODE                512 /* We might at a latter stage */
+                                           /* change the default mode.   */
 
-/* Structure that hold the data for one internal messages of the FD */
+#ifdef _NEW_STUFF
+/* Structure for holding all append data. */
+struct append_data
+       {
+          char         file_name[MAX_FILENAME_LENGTH];
+          time_t       file_time;
+          unsigned int job_id;
+       };
+#endif /* _NEW_STUFF */
+
+/* Structure that holds the data for one internal messages of the FD */
 #define MSG_QUEUE_FILE   "/fd_msg_queue"
 #define MSG_QUE_BUF_SIZE 10000
 struct queue_buf
@@ -259,6 +252,8 @@ struct queue_buf
           pid_t        pid;
           time_t       creation_time;
           int          pos;                 /* Position in msg_cache_buf */
+                                            /* for sf_xxx or position in */
+                                            /* FRA for gf_xxx.           */
           int          connect_pos;
           char         in_error_dir;
        };
@@ -278,10 +273,12 @@ struct msg_cache_buf
           char         in_current_fsa;
        };
 
-/* Structure that holds all data for one ftp job */
+/* Structure that holds all data for one sf_xxx/gf_xxx job. */
 struct job
        {
-          int           position;        /* Position of host in FSA      */
+          int           fsa_pos;         /* Position of host in FSA      */
+                                         /* structure.                   */
+          int           fra_pos;         /* Position of host in FRA      */
                                          /* structure.                   */
           int           archive_time;    /* The time how long the files  */
                                          /* should be held in the        */
@@ -314,6 +311,7 @@ struct job
                                          /* should have.                 */
           char          **filename;      /* Pointer to array that holds  */
                                          /* all file names.              */
+          char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char          hostname[MAX_FILENAME_LENGTH];
           char          host_alias[MAX_HOSTNAME_LENGTH + 1];
           char          user[MAX_USER_NAME_LENGTH + 1];
@@ -335,9 +333,13 @@ struct job
                                          /* This is useful for large     */
                                          /* files.                       */
           char          trans_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
-                                         /* Renaming files on remote     */
-                                         /* site. This is useful when    */
-                                         /* building in directory names. */
+                                         /* FTP : Renaming files on      */
+                                         /*       remote site. This is   */
+                                         /*       useful when building   */
+                                         /*       in directory names.    */
+                                         /* SMTP: When attaching files   */
+                                         /*       the rename rule will   */
+                                         /*       be stored here.        */
           char          user_rename_rule[MAX_RULE_HEADER_LENGTH + 1];
                                          /* Used in conjunction with     */
                                          /* option 'file name is user'.  */
@@ -350,8 +352,8 @@ struct job
                                          /* the notation of the locking  */
                                          /* on the remote side.          */
           char          archive_dir[MAX_PATH_LENGTH];
-          char          msg_type;        /* Transmission protocol,       */
-                                         /* either FTP, SMTP or LOC.     */
+          unsigned int  protocol;        /* Transmission protocol, eg:   */
+                                         /* FTP, SMTP, LOC, WMO, etc.    */
           char          error_file;      /* Is this an error file?       */
           char          toggle_host;     /* Take the host that is        */
                                          /* currently not the active     */
@@ -370,11 +372,10 @@ struct job
                                          /*              transfer delete */
                                          /*              lock file.      */
 #ifdef _WITH_WMO_SUPPORT
-          char          file_name_is_header; /* Assumes that the file name  */
-                                         /* is bulletin header.            */
+          char          file_name_is_header; /* Assumes that the file name */
+                                         /* is bulletin header.          */
 #endif
           char          *subject;        /* Subject for mail.            */
-          char          *pproxy;         /* Polish proxy server.         */
           char          *special_ptr;    /* Used to point to allocated   */
                                          /* memory, eg for option        */
                                          /* ADD_MAIL_HEADER_ID.          */
@@ -425,13 +426,18 @@ struct job
                                          /* logged, this variable is set */
                                          /* YES.                         */
 #endif
+          char          mode_flag;       /* Currently only used for FTP  */
+                                         /* to indicate either active or */
+                                         /* passive mode.                */
        };
 
-/* Structure that holds all the informations of current connections */
+/* Structure that holds all the informations of current connections. */
 struct connection
        {
           int   job_no;                  /* Job number of this host.       */
-          int   position;                /* Position of host in FSA        */
+          int   fsa_pos;                 /* Position of host in FSA        */
+                                         /* structure.                     */
+          int   fra_pos;                 /* Position of directory in FRA   */
                                          /* structure.                     */
           pid_t pid;                     /* Process ID of job transferring */
                                          /* the files.                     */
@@ -439,6 +445,7 @@ struct connection
                                          /* FTP, SMTP or LOC.              */
           char  hostname[MAX_HOSTNAME_LENGTH + 1];
           char  msg_name[MAX_MSG_NAME_LENGTH];
+          char  dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char  error_file;              /* If this file comes from the    */
                                          /* error directory, define YES.   */
           char  temp_toggle;             /* When host has been toggled     */
@@ -447,25 +454,49 @@ struct connection
                                          /* host is working again.         */
        };
 
+/* Structure holding all filenames that are/have been retrieved. */
+#ifndef MAX_FTP_DATE_LENGTH
+#define MAX_FTP_DATE_LENGTH 15
+#endif
+struct retrieve_list
+       {
+          char  file_name[MAX_FILENAME_LENGTH];
+          char  date[MAX_FTP_DATE_LENGTH];
+          char  retrieved;               /* Has the file already been      */
+                                         /* retrieved?                     */
+          char  in_list;                 /* Used to remove any files from  */
+                                         /* the list that are no longer at */
+                                         /* the remote host.               */
+          off_t size;                    /* Size of the file.              */
+       };
+
 /* Function prototypes */
 extern int   archive_file(char *, char *, struct job *),
              check_file_dir(int),
+             check_fra_fd(void),
              check_job_name(char *),
+             eval_input_gf(int, char **, struct job *),
              eval_input_sf(int, char **, struct job *),
              eval_recipient(char *, struct job *, char *),
              eval_message(char *, struct job *),
              get_file_names(char *, off_t *),
              get_job_data(unsigned int, int),
+             get_remote_file_names(off_t *),
              init_fifos_fd(void),
+             init_sf(int, char **, char *, int),
              lookup_job_id(int),
+             read_file_mask(char *, int *, struct file_mask **),
              recreate_msg(unsigned int),
              send_mail(char *, char *, char *, char *, char *);
 extern void  check_fsa_entries(void),
              check_msg_time(void),
+             check_queue_space(void),
+             handle_proxy(void),
+             init_fra_data(void),
+             init_gf(int, char **, int),
              init_msg_buffer(void),
              init_msg_ptrs(size_t *, time_t **, int **, unsigned short **,
                            char **, char **),
-             init_sf(int, char **, char *, int *, int *, int),
              log_append(int, char *),
              output_log_ptrs(int *, unsigned int **, char **, char **,
                              unsigned short **, off_t **, size_t *,
@@ -478,6 +509,7 @@ extern void  check_fsa_entries(void),
              remove_files(char *, int),
 #endif
              remove_msg(int),
-             reset_fsa(struct job *, int, int),
+             reset_fsa(struct job *, int),
+             trans_db_log(char *, char *, int, char *, ...),
              trans_log(char *, char *, int, char *, ...);
 #endif /* __fddefs_h */

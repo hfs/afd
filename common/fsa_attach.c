@@ -37,11 +37,10 @@ DESCR__S_M3
  **
  ** RETURN VALUES
  **   SUCCESS when attaching to the FSA successful and sets the
- **   global pointer 'fsa' to the start of the FSA. Or when _MMAP_FSA
- **   is set, the size of the memory mapped file is returned. Also
- **   the FSA ID and the number of host in the FSA is returned in
- **   'fsa_id' and 'no_of_hosts' respectively. Otherwise INCORRECT is
- **   returned.
+ **   global pointer 'fsa' to the start of the FSA. Also the FSA ID,
+ **   the size of the FSA and the number of host in the FSA is returned
+ **   in 'fsa_id', 'fsa_size' and 'no_of_hosts' respectively. Otherwise
+ **   INCORRECT is returned.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -147,7 +146,7 @@ fsa_attach(void)
       }
 
       /*
-       * Retrieve the FSA (Filtransfer Status Area) ID from FSA_ID_FILE.
+       * Retrieve the FSA (Filetransfer Status Area) ID from FSA_ID_FILE.
        * Make sure that it is not locked.
        */
       loop_counter = 0;

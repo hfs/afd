@@ -60,6 +60,7 @@ int          *p_log_counter = NULL, /* Disable writing to AFD status area. */
              sys_log_fd = STDERR_FILENO;
 unsigned int total_length;
 char         *p_work_dir,
+             *p_log_his = NULL,
              *p_log_fifo;
 
 
@@ -73,8 +74,7 @@ main(int argc, char *argv[])
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
                log_file[MAX_PATH_LENGTH],
-               current_log_file[MAX_PATH_LENGTH],
-               trans_db_log_fifo[MAX_PATH_LENGTH];
+               current_log_file[MAX_PATH_LENGTH];
    FILE        *p_log_file;
    struct stat stat_buf;
 
@@ -85,17 +85,22 @@ main(int argc, char *argv[])
    {
       exit(INCORRECT);
    }
-   p_work_dir = work_dir;
-
-   /* Initialise variables for fifo stuff */
-   (void)strcpy(trans_db_log_fifo, work_dir);
-   (void)strcat(trans_db_log_fifo, FIFO_DIR);
-   (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
-   if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) < 0)
+   else
    {
-      (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    trans_db_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      char trans_db_log_fifo[MAX_PATH_LENGTH];
+
+      p_work_dir = work_dir;
+
+      /* Initialise variables for fifo stuff */
+      (void)strcpy(trans_db_log_fifo, work_dir);
+      (void)strcat(trans_db_log_fifo, FIFO_DIR);
+      (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
+      if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) < 0)
+      {
+         (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
+                       trans_db_log_fifo, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
 
    /*

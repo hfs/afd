@@ -1,6 +1,6 @@
 /*
  *  exec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ extern int            cmd_fd;
 extern pid_t          cmd_pid;
 extern Display        *display;
 extern Widget         cmd_output,
-                      toplevel;
+                      toplevel_w;
 extern XmTextPosition wpr_position;
 extern XtInputId      cmd_input_id;
 
@@ -121,7 +121,7 @@ exec_cmd(char *cmd)
          (void)close(channels[WRITE]);
 
          cmd_fd = channels[READ];
-         cmd_input_id = XtAppAddInput(XtWidgetToApplicationContext(toplevel),
+         cmd_input_id = XtAppAddInput(XtWidgetToApplicationContext(toplevel_w),
                                       channels[READ],
                                       (XtPointer)XtInputReadMask,
                                       (XtInputCallbackProc)read_data,

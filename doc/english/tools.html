@@ -1,0 +1,256 @@
+<html>
+<head>
+<title>AFD (tools.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="tools">AFD Tools</a></h1>
+<hr size=3 noshade>
+<p>
+AFD has many small programs that can be used to view, control or
+configure it via command line. These files are located in the directory
+$AFD_WORK_DIR/sbin. Here follows a description of some of the tools:
+</p>
+<h3 align=center><a name="afdcmd"><u>AFD commands (afdcmd)</u></a></h3>
+<p>
+With this program you can send many commands that you can also
+issue with the <a href="afd_ctrl.html">afd_ctrl</a> dialog on a per
+host basis. When you call afdcmd without any parameters it will show
+all commands it knows:
+</p>
+<pre>
+   SYNTAX  : afdcmd [-w working directory] options hostname|position
+                                         -q      start queue
+                                         -Q      stop queue
+                                         -t      start transfer
+                                         -T      stop transfer
+                                         -e      enable host
+                                         -E      disable host
+                                         -s      switch host
+                                         -r      retry
+                                         -d      enable/disable debug
+                                         -f      start FD
+                                         -F      stop FD
+                                         -a      start AMG
+                                         -A      stop AMG
+                                         -Z      start/stop FD
+                                         -X      toggle enable/disable host
+                                         -Y      start/stop AMG
+                                         -v      just print Version
+</pre>
+<p>
+In conjunction with cron you can enable/disable certain hosts and control
+when they should receive their data. You may specify more than one hostname
+or position.
+</p>
+<h3 align=center><a name="afdcfg"><u>AFD configuration (afdcfg)</u></a></h3>
+<p>
+The program afdcfg allows you to enable/disable archiving and/or
+retrieving of files from remote hosts. The disabling of archiving
+can be usfull when you notice that your disk space gets to low or
+you want to reduce the load on the node. The other option to enable/
+disable retrieving of files is good when you have two nodes with
+identical configured AFD's and one node is configured as hot standby.
+This will make sure that only the AFD on the active node will retrieve
+data. Otherwise both AFD's will retrieve the data and that can be quit
+annoying. The syntax of afdcfg is as follows:
+</p>
+<pre>
+   SYNTAX  : afdcfg [-w working directory] options
+                                           -a      enable archive
+                                           -A      disable archive
+                                           -r      enable retrieving of files
+                                           -R      disable retrieving of files
+                                           -s      status of the above flags
+</pre>
+<h3 align=center><a name="fsa_view"><u>View FSA (fsa_view)</u></a></h3>
+<p>
+To view the content of the FSA (Filetransfer Status Area) there is a
+program called fsa_view. An example output might look as follows:
+</p>
+<pre>
+afd@r2d2:~/oper/sbin$ fsa_view fiau
+            Number of hosts: 26   FSA ID: 35
+
+=============================&gt; fiau &lt;=============================
+Real hostname 1    : 127.0.0.1
+Real hostname 2    : 
+Hostname (display) : &gt;fiau&lt;
+Host toggle        : HOST_ONE
+Auto toggle        : OFF
+Original toggle    : NONE
+Toggle position    : 4
+Protocol (   65793): FTP 
+Direction          : SEND 
+Proxy name         : &gt;$Udwd@ifu;$Pgtswetter&lt;
+Debug mode         : NO
+Host status (   0) : NORMAL_STATUS
+Transfer timeout   : 120
+File size offset   : -2
+Successful retries : 0
+MaxSuccessful ret. : 0
+Special flag       : 64
+Error counter      : 0
+Total errors       : 7
+Max. errors        : 10
+Retry interval     : 600
+Transfer block size: 1024
+Time of last retry : Sun Dec 10 22:07:05 2000
+Last connection    : Fri Jan  5 20:16:25 2001
+Total file counter : 0
+Total file size    : 0
+File counter done  : 104
+Bytes send         : 3100838
+Connections        : 26
+Active transfers   : 0
+Allowed transfers  : 2
+                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   
+--------------------+-----------+-----------+-----------+-----------+-----------
+PID                 |        -1 |        -1 |        -1 |        -1 |        -1 
+Connect status      |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT 
+Number of files     |         0 |         0 |         0 |         0 |         0 
+No. of files done   |         0 |         0 |         0 |         0 |         0 
+File size           |         0 |         0 |         0 |         0 |         0 
+File size done      |         0 |         0 |         0 |         0 |         0 
+Bytes send          |   3100838 |         0 |         0 |         0 |         0 
+File name in use    |           |           |           |           |           
+File size in use    |         0 |         0 |         0 |         0 |         0 
+Filesize in use done|         0 |         0 |         0 |         0 |         0 
+Unique name         |           |           |           |           |           
+Burst counter       |         0 |         0 |         0 |         0 |         0 
+Job ID              |        -1 |        -1 |        -1 |        -1 |        -1 
+Error file (0 = NO) |         0 |         0 |         0 |         0 |         0
+</pre>
+<h3 align=center><a name="fsa_edit"><u>Edit FSA (fsa_edit)</u></a></h3>
+<p>
+The program fsa_edit can be used to edit the FSA (Filetransfer Status
+Area). When you use this program it will always show the current value
+that you might wish to manipulate as shown below:
+</p>
+<center>
+<pre>
+
+
+
+
+                     FSA Editor (fiau)
+
+        +-----+------------------+----------------+
+        | Key | Description      | current value  |
+        +-----+------------------+----------------+
+        |  1  |total_file_counter|              0 |
+        |  2  |total_file_size   |              0 |
+        |  3  |error counter     |              1 |
+        |  4  |No. of connections|             26 |
+        |  5  |host status       |              0 |
+        |  6  |Max. errors       |             10 |
+        |  7  |Block size        |           1024 |
+        |  8  |Allowed transfers |              2 |
+        |  9  |Transfer timeout  |            120 |
+        |  a  |Real hostname     |      127.0.0.1 |
+        |  b  |Host display name |           fiau |
+        |  c  |No. of no bursts  |              0 |
+        |  d  |Active transfers  |              0 |
+        |  e  |File name         |                |
+        +-----+------------------+----------------+
+
+
+</pre>
+</center>
+<p>
+If you wish to change for example the 'error counter' just press '3'
+and you will be asked to enter a value:
+</p>
+<center>
+<pre>
+
+
+
+
+                     FSA Editor (fiau)
+
+        +-----+------------------+----------------+
+        | Key | Description      | current value  |
+        +-----+------------------+----------------+
+        |  1  |total_file_counter|              0 |
+        |  2  |total_file_size   |              0 |
+        |  3  |error counter     |              1 |
+        |  4  |No. of connections|             26 |
+        |  5  |host status       |              0 |
+        |  6  |Max. errors       |             10 |
+        |  7  |Block size        |           1024 |
+        |  8  |Allowed transfers |              2 |
+        |  9  |Transfer timeout  |            120 |
+        |  a  |Real hostname     |      127.0.0.1 |
+        |  b  |Host display name |           fiau |
+        |  c  |No. of no bursts  |              0 |
+        |  d  |Active transfers  |              0 |
+        |  e  |File name         |                |
+        +-----+------------------+----------------+
+
+
+     Enter value [3] :  _
+
+
+</pre>
+</center>
+<p>
+Now enter the new value and send the new value to the FSA with the
+return key. If you wish to terminate the program just press the q key.
+</p>
+<p>
+Please use this program with caution! Only use it when you know what you
+are doing.
+</p>
+<h3 align=center><a name="udc"><u>Update DIR_CONFIG (udc)</u></a></h3>
+<p>
+When there is a change in the DIR_CONFIG and you do not want to use the
+<a href="afd_ctrl.html">afd_ctrl</a> dialog to activate this DIR_CONFIG
+just use udc.
+</p>
+<h3 align=center><a name="uhc"><u>Update HOST_CONFIG (uhc)</u></a></h3>
+<p>
+When there is a change in the HOST_CONFIG and you do not want to use the
+<a href="afd_ctrl.html">afd_ctrl</a> dialog to activate this HOST_CONFIG
+just use uhc.
+</p>
+<h3 align=center><a name="rm_job"><u>Remove a job (rm_job)</u></a></h3>
+<p>
+To remove a job from the AFD system there is the program rm_job
+&lt;full job name&gt;. To get the full job name just look into the files
+(or error) directory. To delete for example all jobs with the job ID 999
+the following command will do this for you: rm_job `find $AFD_WORK_DIR/files -name "*_999" -print`
+</p>
+</p>
+<h3 align=center><a name="mafdcmd"><u>AFD monitor commands (mafdcmd)</u></a></h3>
+<p>
+With this program you can send many commands that you can also
+issue with the <a href="mon_ctrl.html">mon_ctrl</a> dialog on a per
+AFD basis. When you call mafdcmd without any parameters it will show
+all commands it knows:
+</p>
+<pre>
+   SYNTAX  : ./mafdcmd [-w working directory] options AFD|position
+                                              -e      enable AFD
+                                              -E      disable AFD
+                                              -r      retry
+                                              -X      toggle enable/disable AFD
+                                              -v      just print Version
+</pre>
+<p>
+You may specify more than one AFD or position.
+</p>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 17.11.2002
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

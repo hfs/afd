@@ -1,6 +1,6 @@
 /*
  *  show_log.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,16 +35,18 @@
 #define HIT                     1
 
 #define SYSTEM_STR              "System"
+#define RECEIVE_STR             "Receive"
 #define TRANSFER_STR            "Transfer"
 #define TRANS_DB_STR            "Debug"
 #define MONITOR_STR             "Monitor"
 #define MON_SYSTEM_STR          "Monsystem"
 
 #define SYSTEM_LOG_TYPE         1
-#define TRANSFER_LOG_TYPE       2
-#define TRANS_DB_LOG_TYPE       3
-#define MONITOR_LOG_TYPE        4
-#define MON_SYSTEM_LOG_TYPE     5
+#define RECEIVE_LOG_TYPE        2
+#define TRANSFER_LOG_TYPE       3
+#define TRANS_DB_LOG_TYPE       4
+#define MONITOR_LOG_TYPE        5
+#define MON_SYSTEM_LOG_TYPE     6
 
 #define MAX_LINE_COUNTER_DIGITS 6
 #define LOG_START_TIMEOUT       100

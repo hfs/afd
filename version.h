@@ -29,9 +29,9 @@
  * BUG_FIX  - Bug fix number.
  */
 #define MAJOR          1
-#define MINOR          1
-#define BUG_FIX        8
-/* #define PRE_RELEASE    1 */
+#define MINOR          2
+#define BUG_FIX        0
+/* #define PRE_RELEASE    25 */
 
 #define VERSION_ID     "--version"
 

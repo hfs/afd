@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -102,6 +102,7 @@ DESCR__E_M3
 extern Display          *display;
 extern Widget           listbox_w,
                         headingbox_w,
+                        statusbox_w,
                         summarybox_w;
 extern Window           main_window;
 extern int              file_name_toggle_set,
@@ -446,8 +447,8 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          text[0] = '\0';
          id.no_of_files = 0;
          id.local_file_name[0] = '\0';
-#ifdef _WITH_DYNAMIC_MEMORY
          id.files = NULL;
+#ifdef _WITH_DYNAMIC_MEMORY
          id.loptions = NULL;
 #endif
          id.soptions = NULL;
@@ -463,18 +464,11 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          show_info(text);
 
          /* Free all memory that was allocated in get_info(). */
+         free(id.files);
 #ifdef _WITH_DYNAMIC_MEMORY
-         if (id.files != NULL)
+         if (id.loptions != NULL)
          {
-            FREE_RT_ARRAY(id.files);
-            if (id.loptions != NULL)
-            {
-               FREE_RT_ARRAY(id.loptions);
-            }
-            if (id.soptions != NULL)
-            {
-               free((void *)id.soptions);
-            }
+            FREE_RT_ARRAY(id.loptions);
          }
 #else
          if (id.soptions != NULL)
@@ -559,7 +553,7 @@ resend_button(Widget w, XtPointer client_data, XtPointer call_data)
    int no_selected,
        *select_list;
 
-   reset_message();
+   reset_message(statusbox_w);
    if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
    {
       resend_files(no_selected, select_list);
@@ -610,7 +604,7 @@ resend_button(Widget w, XtPointer client_data, XtPointer call_data)
    }
    else
    {
-      show_message("No file selected!");
+      show_message(statusbox_w, "No file selected!");
    }
 
    return;
@@ -621,80 +615,14 @@ resend_button(Widget w, XtPointer client_data, XtPointer call_data)
 void
 send_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   reset_message();
+   reset_message(statusbox_w);
    if (items_selected == YES)
    {
-/*       show_message("Still to be done! :-("); */
       get_send_data();
    }
    else
    {
-      show_message("No file selected!");
-   }
-
-   return;
-}
-
-
-/*########################## transmit_button() ##########################*/
-void
-transmit_button(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   int no_selected,
-       *select_list;
-
-   reset_message();
-   if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
-   {
-      send_files(no_selected, select_list);
-      XtFree((char *)select_list);
-
-      /*
-       * After resending, see if any items habe been left selected.
-       * If so, create a new summary string or else insert the total
-       * summary string if no items are left selected.
-       */
-      if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
-      {
-         int    i;
-         time_t date,
-                first_date_found,
-                last_date_found;
-         double current_file_size,
-                current_trans_time,
-                file_size = 0.0,
-                trans_time = 0.0;
-
-         first_date_found = -1;
-         for (i = 0; i < no_selected; i++)
-         {
-            if (get_sum_data((select_list[i] - 1),
-                             &date, &current_file_size,
-                             &current_trans_time) == INCORRECT)
-            {
-               return;
-            }
-            if (first_date_found == -1)
-            {
-               first_date_found = date;
-            }
-            file_size += current_file_size;
-            trans_time += current_trans_time;
-         }
-         last_date_found = date;
-         XtFree((char *)select_list);
-         calculate_summary(summary_str, first_date_found, last_date_found,
-                           no_selected, file_size, trans_time);
-      }
-      else
-      {
-         (void)strcpy(summary_str, total_summary_str);
-      }
-      XmTextSetString(summarybox_w, summary_str);
-   }
-   else
-   {
-      show_message("No file selected!");
+      show_message(statusbox_w, "No file selected!");
    }
 
    return;
@@ -705,7 +633,7 @@ transmit_button(Widget w, XtPointer client_data, XtPointer call_data)
 void
 print_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   reset_message();
+   reset_message(statusbox_w);
    print_data();
 
    return;
@@ -738,22 +666,23 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          else if (eval_time(value, w, &start_time_val) < 0)
               {
-                 show_message(TIME_FORMAT);
+                 show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
                  return;
               }
-         reset_message();
+         reset_message(statusbox_w);
          break;
          
       case START_TIME :
          if (eval_time(value, w, &start_time_val) < 0)
          {
-            show_message(TIME_FORMAT);
-            XtFree(value);
-            return;
+            show_message(statusbox_w, TIME_FORMAT);
          }
-         reset_message();
-         XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         else
+         {
+            reset_message(statusbox_w);
+            XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         }
          break;
 
       case END_TIME_NO_ENTER : 
@@ -763,22 +692,23 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          else if (eval_time(value, w, &end_time_val) < 0)
               {
-                 show_message(TIME_FORMAT);
+                 show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
                  return;
               }
-         reset_message();
+         reset_message(statusbox_w);
          break;
          
       case END_TIME :
          if (eval_time(value, w, &end_time_val) < 0)
          {
-            show_message(TIME_FORMAT);
-            XtFree(value);
-            return;
+            show_message(statusbox_w, TIME_FORMAT);
          }
-         reset_message();
-         XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         else
+         {
+            reset_message(statusbox_w);
+            XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         }
          break;
          
       case FILE_NAME_NO_ENTER :
@@ -787,18 +717,18 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          
       case FILE_NAME :
          (void)strcpy(search_file_name, value);
-         reset_message();
+         reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
          
       case DIRECTORY_NAME_NO_ENTER :
          (void)strcpy(search_directory_name, value);
-         reset_message();
+         reset_message(statusbox_w);
          break;
 
       case DIRECTORY_NAME :
          (void)strcpy(search_directory_name, value);
-         reset_message();
+         reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
 
@@ -819,26 +749,26 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                     extra_sign = 1;
                     gt_lt_sign = EQUAL_SIGN;
                  }
-                 else if (value[0] == '<')
-                      {
-                         extra_sign = 1;
-                         gt_lt_sign = LESS_THEN_SIGN;
-                      }
-                      else if (value[0] == '>')
-                           {
-                              extra_sign = 1;
-                              gt_lt_sign = GREATER_THEN_SIGN;
-                           }
-                           else
-                           {
-                              show_message(FILE_SIZE_FORMAT);
-                              XtFree(value);
-                              return;
-                           }
+            else if (value[0] == '<')
+                 {
+                    extra_sign = 1;
+                    gt_lt_sign = LESS_THEN_SIGN;
+                 }
+            else if (value[0] == '>')
+                 {
+                    extra_sign = 1;
+                    gt_lt_sign = GREATER_THEN_SIGN;
+                 }
+                 else
+                 {
+                    show_message(statusbox_w, FILE_SIZE_FORMAT);
+                    XtFree(value);
+                    return;
+                 }
             search_file_size = (size_t)atol(value + extra_sign);
             (void)strcpy(search_file_size_str, value + extra_sign);
          }
-         reset_message();
+         reset_message(statusbox_w);
          if (type == FILE_LENGTH)
          {
             XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
@@ -940,7 +870,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                } /* for (;;) */
             } /* if (no_of_search_hosts > 0) */
          }
-         reset_message();
+         reset_message(statusbox_w);
          break;
 
       case RECIPIENT_NAME : /* Read the recipient */
@@ -1038,7 +968,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                } /* for (;;) */
             } /* if (no_of_search_hosts > 0) */
          }
-         reset_message();
+         reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
 
@@ -1129,42 +1059,42 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
               *value = time_val - (min * 60) - (hour * 3600);
            }
-           else if (length == 7)
-                {
-                   int days;
+      else if (length == 7)
+           {
+              int days;
 
-                   if ((!isdigit(numeric_str[3])) || (!isdigit(numeric_str[4])) ||
-                       (!isdigit(numeric_str[5])) || (!isdigit(numeric_str[6])))
-                   {
-                      return(INCORRECT);
-                   }
+              if ((!isdigit(numeric_str[3])) || (!isdigit(numeric_str[4])) ||
+                  (!isdigit(numeric_str[5])) || (!isdigit(numeric_str[6])))
+              {
+                 return(INCORRECT);
+              }
 
-                   str[0] = numeric_str[1];
-                   str[1] = numeric_str[2];
-                   str[2] = '\0';
-                   days = atoi(str);
-                   str[0] = numeric_str[3];
-                   str[1] = numeric_str[4];
-                   str[2] = '\0';
-                   hour = atoi(str);
-                   if ((hour < 0) || (hour > 23))
-                   {
-                      return(INCORRECT);
-                   }
-                   str[0] = numeric_str[5];
-                   str[1] = numeric_str[6];
-                   min = atoi(str);
-                   if ((min < 0) || (min > 59))
-                   {
-                      return(INCORRECT);
-                   }
+              str[0] = numeric_str[1];
+              str[1] = numeric_str[2];
+              str[2] = '\0';
+              days = atoi(str);
+              str[0] = numeric_str[3];
+              str[1] = numeric_str[4];
+              str[2] = '\0';
+              hour = atoi(str);
+              if ((hour < 0) || (hour > 23))
+              {
+                 return(INCORRECT);
+              }
+              str[0] = numeric_str[5];
+              str[1] = numeric_str[6];
+              min = atoi(str);
+              if ((min < 0) || (min > 59))
+              {
+                 return(INCORRECT);
+              }
 
-                   *value = time_val - (min * 60) - (hour * 3600) - (days * 86400);
-                }
-                else
-                {
-                   return(INCORRECT);
-                }
+              *value = time_val - (min * 60) - (hour * 3600) - (days * 86400);
+           }
+           else
+           {
+              return(INCORRECT);
+           }
 
       return(SUCCESS);
    }

@@ -40,6 +40,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   21.01.1998 H.Kiehl Created
+ **   27.03.2000 H.Kiehl Return position in struct dir_name_buf
+ **                      and not the directory ID.
  **
  */
 DESCR__E_M3
@@ -59,13 +61,13 @@ extern struct dir_name_buf *dnb;
 int
 lookup_dir_no(char *dir_name, int *did_number)
 {
-   int i;
+   register int i;
 
    for (i = 0; i < *no_of_dir_names; i++)
    {
       if (strcmp(dnb[i].dir_name, dir_name) == 0)
       {
-         return(dnb[i].dir_id);
+         return(i);
       }
    }
 
@@ -103,5 +105,5 @@ lookup_dir_no(char *dir_name, int *did_number)
    }
    (*no_of_dir_names)++;
 
-   return(dnb[i].dir_id);
+   return(i);
 }

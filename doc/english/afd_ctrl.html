@@ -1,487 +1,572 @@
-<HTML>
-<HEAD>
-<TITLE>AFD (/home/afd/oper/doc/html/afd_ctrl.html)</TITLE>
-</HEAD>
-<BODY bgcolor=#F0ECD6>
-<H1 ALIGN=center><A NAME="afd_control">AFD Control</A></H1>
-<HR SIZE=3 NOSHADE>
-<P>
+<html>
+<head>
+<title>AFD (afd_ctrl.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="afd_control">AFD Control</a></h1>
+<hr size=3 noshade>
+<p>
 To control and monitor the AFD there is an X11 interface, with the
 following appearance:
-</P>
-<CENTER><IMG SRC="../images/afd_ctrl_labeled.gif"></CENTER>
-<P>
+</p>
+<center><img src="../images/afd_ctrl_labeled.gif" alt="[labeled picture of afd_ctrl dialog]"></center>
+<p>
 As shown this dialog is divided into four main areas: menu, heading, connection
 and status.
-</P>
-<H3><CENTER><A NAME="menu"><U>Menu</U></A></CENTER></H3>
-<P>
+</p>
+<h3><center><a name="menu"><u>Menu</u></a></center></h3>
+<p>
 The menu area has five pull down buttons: Host, View, Control and Setup.
 If your afd_ctrl window does not have all buttons shown and described here,
 then the system administrator did not allow you to use this function.
-</P>
-<IMG ALIGN=LEFT SRC="../images/host_popup.png">
-<UL>
-   <LI><B>Start/Stop queue</B> allows you to start or stop the queue of one
+</p>
+<img align=left src="../images/host_popup.png" alt="[popup of Host button]">
+<ul>
+   <li><b>Start/Stop input queue</b> allows you to start or stop the queue of one
        or more selected hosts. When the queue is stopped the queue led
-       turns brown.</LI>
-   <LI><B>Start/Stop transfer</B> allows you to start or stop the transfer
+       turns brown.</li>
+   <li><b>Start/Stop transfer</b> allows you to start or stop the transfer
        of one or more selected hosts. When the transfer is stopped the
        transfer led will be orange. Stopping the transfer means that
        messages are still being generated, but the FD will not distribute
        the files.
        Care should be taken when choosing this option. Watch the job queue
        number so it does not reach a critical stage. Use start/stop queue
-       if lots of files are being distributed for this alias.</LI>
-   <LI>When you want to stop a host and do not want to collect the data for
-       it, disable it by pressing the <B>Enable/Disable host</B> button.
+       if lots of files are being distributed for this alias.</li>
+   <li>When you want to stop a host and do not want to collect the data for
+       it, disable it by pressing the <b>Enable/Disable host</b> button.
        NOTE: All current jobs for this host will be deleted when disabling
-       a host.</LI>
-   <LI><A NAME="Switch host"><B>Switch host</B></A> allows to change the
+       a host.</li>
+   <li><a NAME="Switch host"><b>Switch host</b></a> allows to change the
        destination address of selected hosts. To see whether a certain host
        has a secondary address look in
-       <A HREF="afd_info.html">afd_info dialog</A>.</LI>
-   <LI><A NAME="Retry"><B>Retry</B></A> can only be used when the error
+       <a HREF="afd_info.html">afd_info dialog</a>.</li>
+   <li><a name="Retry"><b>Retry</b></a> can only be used when the error
        counter (ec) is larger then zero. It is useful when you do not want
        to wait for the automatic retry of the AFD, i.e. you want to speed
-       things up.</LI>
-   <LI>If an error has occurred, or you wish to see what is happening during
-       a transmission, press the <B>Debug</B> button. To watch the output
+       things up.</li>
+   <li>If an error has occurred, or you wish to see what is happening during
+       a transmission, press the <b>Debug</b> button. To watch the output
        you will have to open the Transfer Debug Log window by pressing on
-       the <A HREF="#Transfer_Debug_Log">Transfer Debug Log button</A>. The
-       contents of the output log is described in <A HREF="log.html#transfer_debug_log">
-       Log Files</A>.</LI>
-   <LI><B>Test</B> the connection to the selected host. Currently only
-       the ping and traceroute tests have been implemented.</LI>
-   <LI>The <B>Info</B> button opens the <A HREF="afd_info.html">afd_info
-       dialog</A> for this host.</LI>
-   <LI><B>Configuration</B> shows the DIR_CONFIG configuration of the
-       selected host.</LI>
-   <LI><B>Exit</B> will close the afd_ctrl window and all other windows that
-       have been started from this dialog. It does not effect any of the
-       main process of the AFD running in the background.</LI>
-</UL>
-<BR CLEAR=LEFT>
-<IMG ALIGN=LEFT SRC="../images/view_popup.png">
-<UL>
-   <LI><B>System Log</B> opens the <A HREF="show_log.html#system">
-        system dialog</A>. See <A HREF="log.html#system_log">Log Files</A> for
-        a more detailed description of the output.</LI>
-   <LI><B>Transfer Log</B> opens the <A HREF="show_log.html#transfer">
-        transfer dialog</A>. See <A HREF="log.html#transfer_log">Log Files</A>
-	for a more detailed description of the output. When one or more hosts
-	where selected the output shown will only show data of these hosts.</LI>
-   <LI><A NAME="#Transfer_Debug_Log"><B>Transfer Debug Log</B></A> opens the
-        <A HREF="show_log.html#debug"> transfer debug dialog</A>. See
-	<A HREF="log.html#transfer_debug_log"> Log Files</A> for a more
-	detailed description of the output. When one or more hosts where
-	selected the output shown will only show data of these hosts.</LI>
-   <LI><B>Input Log</B> opens the <A HREF="show_ilog.html">
-        input dialog</A>. See <A HREF="log.html#input_log">Log Files</A> for
-        a more detailed description of the output.</LI>
-   <LI><B>Output Log</B> opens the <A HREF="show_olog.html">
-        output dialog</A>. See <A HREF="log.html#output_log">Log Files</A> for
-        a more detailed description of the output.</LI>
-   <LI><B>Delete Log</B> opens the <A HREF="show_dlog.html">
-        delete dialog</A>. See <A HREF="log.html#delete_log">Log Files</A> for
-        a more detailed description of the output.</LI>
-   <LI><B>Load</B> shows the current load of either: Files send per second,
+       the <a href="#Transfer_Debug_Log">Transfer Debug Log button</a>. The
+       contents of the output log is described in <a href="log.html#transfer_debug_log">
+       Log Files</a>.</li>
+   <li><b>Test</b> the connection to the selected host. Currently only
+       the ping and traceroute tests have been implemented.</li>
+   <li><b>Load</b> shows the current load of either: Files send per second,
         KBytes second per second, Connections done per second and the
-        number of Active-Transfers.</LI>
-</UL>
-<BR CLEAR=LEFT>
-<BR>
-<IMG ALIGN=LEFT SRC="../images/control_popup.gif">
-<UL>
-   <LI><B>Start/Stop AMG</B> starts or stops the <A HREF="amg.html">AMG</A>.
+        number of Active-Transfers.</li>
+   <li><b>Exit</b> will close the afd_ctrl window and all other windows that
+       have been started from this dialog. It does not effect any of the
+       main process of the AFD running in the background.</li>
+</ul>
+<br clear=left>
+<img align=left src="../images/view_popup.png" alt="[popup of View button]">
+<ul>
+   <li><b>System Log</b> opens the <a href="show_log.html#system">
+        system dialog</a>. See <a href="log.html#system_log">Log Files</a> for
+        a more detailed description of the output.</li>
+   <li><b>Transfer Log</b> opens the <a href="show_log.html#transfer">
+        transfer dialog</a>. See <a href="log.html#transfer_log">Log Files</a>
+	for a more detailed description of the output. When one or more hosts
+	where selected the output shown will only show data of these hosts.</li>
+   <li><a name="#Transfer_Debug_Log"><b>Transfer Debug Log</b></a> opens the
+        <a href="show_log.html#debug"> transfer debug dialog</a>. See
+	<a href="log.html#transfer_debug_log"> Log Files</a> for a more
+	detailed description of the output. When one or more hosts where
+	selected the output shown will only show data of these hosts.</li>
+   <li><b>Input Log</b> opens the <a href="show_ilog.html">
+        input dialog</a>. See <a href="log.html#input_log">Log Files</a> for
+        a more detailed description of the output.</li>
+   <li><b>Output Log</b> opens the <a href="show_olog.html">
+        output dialog</a>. See <a href="log.html#output_log">Log Files</a> for
+        a more detailed description of the output.</li>
+   <li><b>Delete Log</b> opens the <a href="show_dlog.html">
+        delete dialog</a>. See <a href="log.html#delete_log">Log Files</a> for
+        a more detailed description of the output.</li>
+   <li>The <b>Info</b> button opens the <a href="afd_info.html">afd_info
+       dialog</a> for this host.</li>
+   <li><b>Configuration</b> shows the DIR_CONFIG configuration of the
+       selected host.</li>
+   <li><b>Job details</b> closes and opens the <a href="afd_ctrl.html#Job Details">
+       Job details</a> dialog when jobs are selected.</li>
+</ul>
+<br clear=left>
+<br>
+<img align=left src="../images/control_popup.png" alt="[popup of Control button]">
+<ul>
+   <li><b>Start/Stop AMG</b> starts or stops the <a href="amg.html">AMG</a>.
        Stopping the AMG means that no more messages will be generated for
-       the FD.</LI>
-   <LI><B>Start/Stop FD</B> starts or stops the <A HREF="fd.html">FD</A>.
+       the FD.</li>
+   <li><b>Start/Stop FD</b> starts or stops the <a href="fd.html">fd</a>.
        Stopping the FD should only be done for a short time on systems with
        lots of traffic. Otherwise the AMG keeps generating messages until
        the file system is full or it cannot create any new directories to
-       store the files.</LI>
-   <LI>When there have been any changes made in the DIR_CONFIG file and
-       these changes should be activated, press <B>Reread DIR_CONFIG</B>.
+       store the files.</li>
+   <li>When there have been any changes made in the DIR_CONFIG file and
+       these changes should be activated, press <b>Reread DIR_CONFIG</b>.
        If there where any changes in the HOST_CONFIG file it will
-       incoperate these changes as well. So it is not necessary to
-       press the Reread HOST_CONFIG button.</LI>
-   <LI>To activate changes made in the HOST_CONFIG file by hand (not
-       using the edit_hc dialog), press the <B>Reread HOST_CONFIG</B>
-       button.</LI>
-   <LI><B>Edit Host</B> opens the <A HREF="edit_hc.html">edit_hc</A> dialog.</LI>
-   <LI><B>Startup AFD</B> allows to start all processes of the AFD.</LI>
-   <LI>Whereas <B>Shutdown AFD</B> will stop all process of the AFD.</LI>
-</UL>
-<BR CLEAR=LEFT>
-<BR>
-<IMG ALIGN=LEFT SRC="../images/setup_popup.gif">
-<UL>
-   <LI>Pressing <B>Font size</B> will give you a list of fonts which,
-       when selected, will be used for the afd_ctrl window and all other
-       windows called from it.</LI>
-   <LI><B>Number of rows</B> allows to change the maximum number of rows
-       to be displayed for one column.</LI>
-   <LI><B>Line Style</B> allows to change the appearance of a single line.
-       You can currently choose three different items: Bars only, Characters
-       only and Characters and bars (default).</LI>
-   <LI><B>Save Setup</B> will save the above settings in the file
-       .afd_ctrl.setup.$DISPLAY in the users home directory. So when you start
-       afd_ctrl again it will start with these settings.</LI>
-</UL>
-<BR CLEAR=LEFT>
-<BR>
-<H3><CENTER><A NAME="heading"><U>Heading</U></A></CENTER></H3>
-<CENTER><IMG SRC="../images/heading.gif"></CENTER>
+       incorporate these changes as well. So it is not necessary to
+       press the Reread HOST_CONFIG button.</li>
+   <li>To activate changes made in the HOST_CONFIG file by hand (not
+       using the edit_hc dialog), press the <b>Reread HOST_CONFIG</b>
+       button.</li>
+   <li>The <b>Directory Control</b> button shows the dir_ctrl dialog.</li>
+   <li><b>Edit Host</b> opens the <a href="edit_hc.html">edit_hc</a> dialog.</li>
+   <li><b>Startup AFD</b> allows to start all processes of the AFD.</li>
+   <li>Whereas <b>Shutdown AFD</b> will stop all process of the AFD.</li>
+</ul>
+<br clear=left>
+<br>
+<img align=left src="../images/setup_popup.gif" alt="[popup of Setup button]">
+<table border>
+   <tr>
+      <td><b>Font size</b></td>
+      <td>Pressing <b>Font size</b> will give you a list of fonts which,
+          when selected, will be used for the afd_ctrl window and all other
+          windows called from it. It might be that your X server does
+          not support all fonts shown on the right hand, then you will
+          be shown less fonts.</td>
+      <td><img src="../images/font_size.png" alt="[Fonts that can be selected]"></td>
+   </tr>
+   <tr>
+      <td><b>Number of rows</b></td>
+      <td><b>Number of rows</b> allows to change the maximum number of rows
+          to be displayed for one column.</td>
+      <td><img src="../images/number_of_rows.png" alt="[list of row numbers that may be selected]"></td>
+   </tr>
+   <tr>
+      <td><b>Line Style</b></td>
+      <td><b>Line Style</b> allows to change the appearance of a single line.
+          You can currently choose four different items: Leds, Process,
+          Characters and Bars. Default will be that all four items will
+          be visible. If you do have a very large number of hosts you can
+          deselect some items to reduce the window size of the afd_ctrl
+          dialog.</td>
+      <td><img src="../images/line_styles.png" alt="[Possible line styles that can be selected]"></td>
+   </tr>
+   <tr>
+      <td><b>Save Setup</b></td>
+      <td><b>Save Setup</b> will save the above settings in the file
+          .afd_ctrl.setup.<user>@<hostname>.<AFD name> in the users home
+          directory. So when you start afd_ctrl again it will start with
+          these settings.</td>
+      <td>&nbsp;</td>
+   </tr>
+</table>
+<br clear=left>
+<br>
+<h3><center><a name="heading"><u>Heading</u></a></center></h3>
+<center><img src="../images/heading.gif" alt="[closeup of the heading]"></center>
+<p>
 The heading is just a quick reminder of what the fields in the
 connection area mean:
-<TABLE>
-<TR>
-   <TH>dest</TH>
-   <TD>The destination alias where the the files are being distributed to.</TD>
-</TR>
-   <TH>fc</TH>
-   <TD>This is the file counter field. It shows the total number files that
-       are still to be distributed for this destination.</TD>
-<TR>
-   <TH>fs</TH>
-   <TD>The total file size that is still to be distributed.</TD>
-</TR>
-<TR>
-   <TH>tr</TH>
-   <TD>Shows the overall current transfer rate.</TD>
-</TR>
-<TR>
-   <TH>ec</TH>
-   <TD>This is the error counter for this destination.</TD>
-</TR>
-</TABLE>
-<H3><CENTER><A NAME="connection"><U>Connection</U></A></CENTER></H3>
-<P>
+</p>
+<table>
+<tr>
+   <th>dest</th>
+   <td>The destination alias where the the files are being distributed to.</td>
+</tr>
+<tr>
+   <th>fc</th>
+   <td>This is the file counter field. It shows the total number files that
+       are still to be distributed for this destination.</td>
+</tr>
+<tr>
+   <th>fs</th>
+   <td>The total file size that is still to be distributed.</td>
+</tr>
+<tr>
+   <th>tr</th>
+   <td>Shows the overall current transfer rate.</td>
+</tr>
+<tr>
+   <th>ec</th>
+   <td>This is the error counter for this destination.</td>
+</tr>
+</table>
+<h3><center><a name="connection"><u>Connection</u></a></center></h3>
+<p>
 The connection area is the actual area which monitors and controls the AFD.
 The meaning of each field is shown below:
-</P>
-<CENTER><IMG SRC="../images/one_line.gif"></CENTER>
-<TABLE BORDER>
-<TR>
-   <TD><B>1</B></TD>
-   <TD>Destination alias</TD>
-   <TD>This field holds the name of the destination alias. The background
+</p>
+<center><img src="../images/one_line.gif" alt="[closeup of one line of afd_ctrl dialog]"></center>
+<table border>
+<tr>
+   <td><b>1</b></td>
+   <td>Destination alias</td>
+   <td>This field holds the name of the destination alias. The background
        color indicates the current status of the connection:
-       <TABLE>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/normal_host.gif"></CENTER></TD>
-	  <TD>No transfer. Waiting for files to come.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/active_host.gif"></CENTER></TD>
-	  <TD>Transfer active. Files are currently being transfered.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/error_host.gif"></CENTER></TD>
-	  <TD>Error. Files cannot be transmitted. It turns red when the error
+       <table>
+       <tr>
+          <td><center><img src="../images/normal_host.gif"></center></td>
+	  <td>No transfer. Waiting for files to come.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/active_host.gif"></center></td>
+	  <td>Transfer active. Files are currently being transfered.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/error_host.gif"></center></td>
+	  <td>Error. Files cannot be transmitted. It turns red when the error
 	      counter has reached the value set in the 
-	      <A HREF="amg.html#max_errors">HOST_CONFIG</A> file.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/no_entry_host.gif"></CENTER></TD>
-	  <TD>There is no entry of this host in the DIR_CONFIG.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/disabled_host.gif"></CENTER></TD>
-	  <TD>This host is disabled. All files in the input directories for
-	      this host will be deleted.</TD>
-       </TR>
-       </TABLE>
-   </TD>
-</TR>
-<TR>
-   <TD><B>2</B></TD>
-   <TD>Debug Led</TD>
-   <TD>If this is yellow debug is on for this destination. Do not let
+	      <a href="amg.html#max_errors">HOST_CONFIG</a> file.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/no_entry_host.gif"></center></td>
+	  <td>There is no entry of this host in the DIR_CONFIG.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/disabled_host.gif"></center></td>
+	  <td>This host is disabled. All files in the input directories for
+	      this host will be deleted.</td>
+       </tr>
+       </table>
+   </td>
+</tr>
+<tr>
+   <td><b>2</b></td>
+   <td>Debug Led</td>
+   <td>If this is yellow debug is on for this destination. Do not let
        debug on for very long on high traffic connections. Since this means
        lots of data gets written to the log file. See
-       <A HREF="log.html#transfer_debug_log"> Log Files</A> for more
-       information of the debug output.</TD>
-</TR>
-<TR>
-   <TD><B>3</B></TD>
-   <TD>Queue Led</TD>
-   <TD>The color of this LED tells what the AMG will do when files arrive
+       <a href="log.html#transfer_debug_log"> Log Files</a> for more
+       information of the debug output.</td>
+</tr>
+<tr>
+   <td><b>3</b></td>
+   <td>Queue Led</td>
+   <td>The color of this LED tells what the AMG will do when files arrive
        for this destination.
-       <TABLE>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/normal_status.gif"></CENTER></TD>
-	  <TD>Normal status. Messages will be generated for the FD.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/queue_stopped.gif"></CENTER></TD>
-	  <TD>Queue stopped by user. Files for this host are saved in a
-	      a separate directory and no messages are generated.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/queue_auto_stopped.gif"></CENTER></TD>
-	  <TD>Queue stopped automatically. Files for this host are saved in a
-	      a separate directory and no messages are generated.</TD>
-       </TR>
-       </TABLE>
-   </TD>
-</TR>
-<TR>
-   <TD><B>4</B></TD>
-   <TD>Transfer Led</TD>
-   <TD>The color of this LED tells what the FD will do when a message arrives
+       <table>
+       <tr>
+          <td><center><img src="../images/normal_status.gif"></center></td>
+	  <td>Normal status. Messages will be generated for the FD.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/queue_stopped.gif"></center></td>
+	  <td>Queue stopped by user. Files for this host are saved in a
+	      a separate directory and no messages are generated.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/queue_auto_stopped.gif"></center></td>
+	  <td>Queue stopped automatically. Files for this host are saved in a
+	      a separate directory and no messages are generated.</td>
+       </tr>
+       </table>
+   </td>
+</tr>
+<tr>
+   <td><b>4</b></td>
+   <td>Transfer Led</td>
+   <td>The color of this LED tells what the FD will do when a message arrives
        for this destination.
-       <TABLE>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/normal_status.gif"></CENTER></TD>
-	  <TD>Normal status. Files will be distributed by the FD.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/transfer_stopped.gif"></CENTER></TD>
-	  <TD>Transfer stopped by user. No files will be distributed.</TD>
-       </TR>
-       </TABLE>
-   </TD>
-</TR>
-<TR>
-   <TD><B>5</B></TD>
-   <TD>Detailed Selection</TD>
-   <TD>Shows all details for this job.</TD>
-</TR>
-<TR>
-   <TD><B>6</B></TD>
-   <TD>Connection</TD>
-   <TD><A NAME="connection">This</A> field shows the number of files currently
+       <table>
+       <tr>
+          <td><center><img src="../images/normal_status.gif"></center></td>
+	  <td>Normal status. Files will be distributed by the FD.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfer_stopped.gif"></center></td>
+	  <td>Transfer stopped by user. No files will be distributed.</td>
+       </tr>
+       </table>
+   </td>
+</tr>
+<tr>
+   <td><b>5</b></td>
+   <td>Detailed Selection</td>
+   <td>Shows all details for this job.</td>
+</tr>
+<tr>
+   <td><b>6</b></td>
+   <td>Connection</td>
+   <td><a name="connection">This</a> field shows the number of files currently
        being transfered for this host. The background color indicates the
        current status of the process.
-       <TABLE>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/no_connection.gif"></CENTER></TD>
-	  <TD>Normal status. No transfer is active for this process.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/connecting.gif"></CENTER></TD>
-	  <TD>FTP Connecting Phase. This includes makeing the connection
+       <table>
+       <tr>
+          <td><center><img src="../images/no_connection.gif"></center></td>
+	  <td>Normal status. No transfer is active for this process.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/connecting.gif"></center></td>
+	  <td>FTP Connecting Phase. This includes making the connection
 	      to the remote FTP-server, setting transfer mode and sending
-	      user name and password.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/transfering.gif"></CENTER></TD>
-	  <TD>FTP Transfer active. There are still two files to be transfered.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/ftp_burst.gif"></CENTER></TD>
-	  <TD>FTP Bursting. During an active transmission two more files have
-	      arrived, these have been appended to the current transfer job.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/closing.gif"></CENTER></TD>
-	  <TD>Closing Phase. This includes removing any lock files and
+	      user name and password.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfering.gif"></center></td>
+	  <td>FTP Transfer active. There are still two files to be transfered.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/ftp_burst.gif"></center></td>
+	  <td>FTP Bursting. During an active transmission two more files have
+	      arrived, these have been appended to the current transfer job.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/closing.gif"></center></td>
+	  <td>Closing Phase. This includes removing any lock files and
 	      closing the connection to the remote server. This is valid
-	      only for FTP and WMO.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/transfering_mail.gif"></CENTER></TD>
-	  <TD>Mail transfer active. There are still two files to be mailed.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/wmo.gif"></CENTER></TD>
-	  <TD>WMO transfer active. There are still two files to be send via
-	      TCP/IP socket.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/wmo_burst.gif"></CENTER></TD>
-	  <TD>WMO burst transfer active. During an active transmission two
+	      only for FTP and WMO.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfering_loc.gif"></center></td>
+	  <td>Local transfer active. There are still two files to be copied.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/loc_burst.gif"></center></td>
+	  <td>Local Bursting. During an active transmission two more files have
+	      arrived, these have been appended to the current transfer job.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfering_mail.gif"></center></td>
+	  <td>Mail transfer active. There are still two files to be mailed.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/wmo.gif"></center></td>
+	  <td>WMO transfer active. There are still two files to be send via
+	      TCP/IP socket.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/wmo_burst.gif"></center></td>
+	  <td>WMO burst transfer active. During an active transmission two
 	      more files have arrived, these have been appended to the current
-	      transfer job.</TD>
-       </TR>
-       <TR>
-          <TD><CENTER><IMG SRC="../images/error_connection.gif"></CENTER></TD>
-	  <TD>Error. An error has occurred while trying to distribute files.</TD>
-       </TR>
-       </TABLE>
-   </TD>
-</TR>
-<TR>
-   <TD><B>7</B></TD>
-   <TD>File Counter</TD>
-   <TD>Total number of files that still have to be send for this
-       destination.</TD>
-</TR>
-<TR>
-   <TD><B>8</B></TD>
-   <TD>File Size</TD>
-   <TD>Total number of bytes that still have to be send for this destination.
+	      transfer job.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/error_connection.gif"></center></td>
+	  <td>Error. An error has occurred while trying to distribute files.</td>
+       </tr>
+       </table>
+   </td>
+</tr>
+<tr>
+   <td><b>7</b></td>
+   <td>File Counter</td>
+   <td>Total number of files that still have to be send for this
+       destination.</td>
+</tr>
+<tr>
+   <td><b>8</b></td>
+   <td>File Size</td>
+   <td>Total number of bytes that still have to be send for this destination.
        The last character always shows the current unit: B for Bytes, K for
        Kilo Bytes, M for Mega Bytes, G for Giga Bytes and T for Tera
-       Bytes.</TD>
-</TR>
-<TR>
-   <TD><B>9</B></TD>
-   <TD>Transfer Rate</TD>
-   <TD>Displays the total current transfer rate of all connections to this
-       destination.</TD>
-</TR>
-<TR>
-   <TD><B>10</B></TD>
-   <TD>Error Counter</TD>
-   <TD>Number of errors that occurred for this destination. This will always
+       Bytes.</td>
+</tr>
+<tr>
+   <td><b>9</b></td>
+   <td>Transfer Rate</td>
+   <td>Displays the total current transfer rate of all connections to this
+       destination.</td>
+</tr>
+<tr>
+   <td><b>10</b></td>
+   <td>Error Counter</td>
+   <td>Number of errors that occurred for this destination. This will always
        be reset to zero when a file has been distributed successfully. If
        the number of errors is larger then two digits a greater sign (&gt;)
-       will be displayed.</TD>
-</TR>
-<TR>
-   <TD><B>11</B></TD>
-   <TD>Error Counter Bar</TD>
-   <TD>Displays a bar for the number of errors for this destination. The
+       will be displayed.</td>
+</tr>
+<tr>
+   <td><b>11</b></td>
+   <td>Error Counter Bar</td>
+   <td>Displays a bar for the number of errors for this destination. The
        color of the bar will be green when the error counter is low and
-       will increasingly turn red the larger the error counter becomes.</TD>
-</TR>
-<TR>
-   <TD><B>12</B></TD>
-   <TD>Transfer Rate Bar</TD>
-   <TD>Displays a yellow bar to display the transfer rate to this
-       destination graphically.</TD>
-</TR>
-</TABLE>
-<P>
+       will increasingly turn red the larger the error counter becomes.</td>
+</tr>
+<tr>
+   <td><b>12</b></td>
+   <td>Transfer Rate Bar</td>
+   <td>Displays a yellow bar to display the transfer rate to this
+       destination graphically.</td>
+</tr>
+</table>
+<p>
 Selecting can be done by either holding down the shift key and pressing the
 left mouse button (temporary selection) or by holding the ctrl key and the
 left mouse button (permanent selection). The background of the line will
 change to black or grey respectively.
-</P>
-<H3><CENTER><A NAME="status"><U>Status</U></A></CENTER></H3>
-<A NAME="job_queue_counter"></A>
-<CENTER><IMG SRC="../images/status.gif"></CENTER>
-<P>
-<CENTER>
-<TABLE BORDER>
-<TR>
-   <TD><B>1</B></TD>
-   <TD>AMG</TD>
-   <TD>LED to show current status of process AMG (Automatic Message
+</p>
+<h3><center><a name="status"><u>Status</u></a></center></h3>
+<a name="job_queue_counter"></a>
+<center><img src="../images/status.gif"></center>
+<p>
+<center>
+<table border>
+<tr>
+   <td><b>1</b></td>
+   <td>AMG</td>
+   <td>LED to show current status of process AMG (Automatic Message
        Generator).
-       <TABLE BORDER>
-       <TR>
-          <TD><IMG SRC="../images/led-yellow.gif"></TD>
-          <TD>Normal status. Process is up and running.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-tomato.gif"></TD>
-          <TD>Process has terminated normally.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-blink.gif"></TD>
-          <TD>Abnormal termination. Process has been killed and is
-              not running any more.</TD>
-       </TR>
-       </TABLE>
-       <B>NOTE: This LED must be <IMG SRC="../images/led-yellow.gif"> so
-                that the AFD can function properly.</B>
-    </TD>
-</TR>
-<TR>
-   <TD><B>2</B></TD>
-   <TD>FD</TD>
-   <TD>LED to show current status of process FD (File Distributor).
-       <TABLE BORDER>
-       <TR>
-          <TD><IMG SRC="../images/led-yellow.gif"></TD>
-          <TD>Normal status. Process is up and running.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-tomato.gif"></TD>
-          <TD>Process has terminated normally.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-blink.gif"></TD>
-          <TD>Abnormal termination. Process has been killed and is
-              not running any more.</TD>
-       </TR>
-       </TABLE>
-       <B>NOTE: This LED must be <IMG SRC="../images/led-yellow.gif"> so
-                that the AFD can function properly.</B>
-    </TD>
-</TR>
-<TR>
-   <TD><B>3</B></TD>
-   <TD>Archive Watch</TD>
-   <TD>LED to show current status of process Archive Watch.
-       <TABLE BORDER>
-       <TR>
-          <TD><IMG SRC="../images/led-yellow.gif"></TD>
-          <TD>Normal status. Process is up and running.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-tomato.gif"></TD>
-          <TD>Process has terminated normally.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-red.gif"></TD>
-          <TD>Abnormal termination. Process has been killed and is
-              not running any more.</TD>
-       </TR>
-       </TABLE>
-    </TD>
-</TR>
-<TR>
-   <TD><B>4</B></TD>
-   <TD>AFDD</TD>
-   <TD>LED to show current status of process AFDD.
-       <TABLE BORDER>
-       <TR>
-          <TD><IMG SRC="../images/led-yellow.gif"></TD>
-          <TD>Normal status. Process is up and running.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-tomato.gif"></TD>
-          <TD>Process has terminated normally.</TD>
-       </TR>
-       <TR>
-          <TD><IMG SRC="../images/led-red.gif"></TD>
-          <TD>Abnormal termination. Process has been killed and is
-              not running any more.</TD>
-       </TR>
-       </TABLE>
-    </TD>
-</TR>
-<TR>
-   <TD><B>5</B></TD>
-   <TD>System Log</TD>
-   <TD>Radar that shows the five last type of messages in the system log.</TD>
-</TR>
-<TR>
-   <TD><B>6</B></TD>
-   <TD>Transfer Log</TD>
-   <TD>Radar that shows the five last type of messages in the transfer log.</TD>
-</TR>
-<TR>
-   <TD><B>7</B></TD>
-   <TD>Job Queue Counter</TD>
-   <TD>This counter shows how many jobs are currently being queued.</TD>
-</TR>
-</TABLE>
-</CENTER>
-<H3><CENTER><A NAME="Job Details"><U>Job Details</U></A></CENTER></H3>
-<P>
+       <table border>
+       <tr>
+          <td><img src="../images/led-yellow.gif"></td>
+          <td>Normal status. Process is up and running.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-tomato.gif"></td>
+          <td>Process has terminated normally.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-blink.gif"></td>
+          <td>Abnormal termination. Process has been killed and is
+              not running any more.</td>
+       </tr>
+       </table>
+       <b>NOTE: This LED must be <img src="../images/led-yellow.gif"> so
+                that the AFD can function properly.</b>
+    </td>
+</tr>
+<tr>
+   <td><b>2</b></td>
+   <td>FD</td>
+   <td>LED to show current status of process FD (File Distributor).
+       <table border>
+       <tr>
+          <td><img src="../images/led-yellow.gif"></td>
+          <td>Normal status. Process is up and running.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-tomato.gif"></td>
+          <td>Process has terminated normally.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-blink.gif"></td>
+          <td>Abnormal termination. Process has been killed and is
+              not running any more.</td>
+       </tr>
+       </table>
+       <b>NOTE: This LED must be <img src="../images/led-yellow.gif"> so
+                that the AFD can function properly.</b>
+    </td>
+</tr>
+<tr>
+   <td><b>3</b></td>
+   <td>Archive Watch</td>
+   <td>LED to show current status of process Archive Watch.
+       <table border>
+       <tr>
+          <td><img src="../images/led-yellow.gif"></td>
+          <td>Normal status. Process is up and running.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-tomato.gif"></td>
+          <td>Process has terminated normally.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-red.gif"></td>
+          <td>Abnormal termination. Process has been killed and is
+              not running any more.</td>
+       </tr>
+       </table>
+    </td>
+</tr>
+<tr>
+   <td><b>4</b></td>
+   <td>AFDD</td>
+   <td>LED to show current status of process AFDD.
+       <table border>
+       <tr>
+          <td><img src="../images/led-yellow.gif"></td>
+          <td>Normal status. Process is up and running.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-tomato.gif"></td>
+          <td>Process has terminated normally.</td>
+       </tr>
+       <tr>
+          <td><img src="../images/led-red.gif"></td>
+          <td>Abnormal termination. Process has been killed and is
+              not running any more.</td>
+       </tr>
+       </table>
+    </td>
+</tr>
+<tr>
+   <td><b>5</b></td>
+   <td>System Log</td>
+   <td>Radar that shows the five last type of messages in the system log.
+       It can have the following colors: <img src="../images/radar.png">
+       <table border>
+       <tr>
+          <th>Color</th>
+          <th>Log Symbol</th>
+          <th>Description</th>
+       </tr>
+       <tr>
+          <td align=center><img src="../images/info.png"></td>
+          <td align=center>&lt;I&gt;</td>
+          <td>Information, nothing serious.</td>
+       </tr>
+       <tr>
+          <td align=center><img src="../images/config.png"></td>
+          <td align=center>&lt;C&gt;</td>
+          <td>Configuration, something has been configured.</td>
+       </tr>
+       <tr>
+          <td align=center><img src="../images/warn.png"></td>
+          <td align=center>&lt;W&gt;</td>
+          <td>Warning. Most properly a configuration error, nothing to
+              be nervous about.</td>
+       </tr>
+       <tr>
+          <td align=center><img src="../images/error.png"></td>
+          <td align=center>&lt;E&gt;</td>
+          <td>Error, AFD should still be able to continue, but something
+              is wrong!</td>
+       </tr>
+       <tr>
+          <td align=center><img src="../images/fatal.png"></td>
+          <td align=center>&lt;F&gt;</td>
+          <td>A fatal error has occurred, the process involved has most
+              properly terminated abnormally. Now you should really be
+              nervous!</td>
+       </tr>
+       <tr>
+          <td align=center><img src="../images/dummy.png"></td>
+          <td align=center>&lt;#&gt;</td>
+          <td>Dummy sign. Is used for showing a new month in the system
+              log or when there is garbage or no information in the log
+              file.</td>
+       </tr>
+       </table>
+   </td>
+</tr>
+<tr>
+   <td><b>6</b></td>
+   <td>Transfer Log</td>
+   <td>Radar that shows the five last type of messages in the transfer log.
+       The meaning of the colors are the same as for the system log.</td>
+</tr>
+<tr>
+   <td><b>7</b></td>
+   <td>Job Queue Counter</td>
+   <td>This counter shows how many jobs are currently being queued.</td>
+</tr>
+</table>
+</center>
+<h3><center><a name="Job Details"><u>Job Details</u></a></center></h3>
+<p>
 The job details can be viewed by clicking with the right mouse button and
 holding the Ctrl button simultaneously when the mouse cursor is on a
-<A HREF="afd_ctrl.html#connection">connection</A> field. It shows a more
+<a href="afd_ctrl.html#connection">connection</a> field. It shows a more
 detailed view of what the current job is doing.
-</P>
-<CENTER><IMG SRC="../images/view_transfer.gif"></CENTER>
-<HR SIZE=3 NOSHADE>
-<TABLE>
-<TR>
-   <TD WIDTH=600><SMALL><ADDRESS>
-   Copyright &copy; 1997 - 2000 by H.Kiehl<BR>
-   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
-   Last updated: 26.01.2000
-   </ADDRESS></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
-</TR>
-</TABLE>
-</BODY>
-</HTML>
+</p>
+<center><img src="../images/view_transfer.gif"></center>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1997 - 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 29.12.2001
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

@@ -1,6 +1,6 @@
 /*
  *  remove_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,48 +114,57 @@ remove_files(char *del_dir, int fsa_pos)
       }
       else
       {
-         if (remove(del_dir) == -1)
+         if (!S_ISDIR(stat_buf.st_mode))
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to remove() file %s : %s (%s %d)\n",
-                      del_dir, strerror(errno), __FILE__, __LINE__);
-         }
-         else
-         {
-#ifdef _DELETE_LOG
-            size_t dl_real_size;
-#endif
-
-            number_deleted++;
-            file_size_deleted += stat_buf.st_size;
-#ifdef _DELETE_LOG
-            (void)strcpy(dl.file_name, p_dir->d_name);
-            if (fsa_pos > -1)
+            if (remove(del_dir) == -1)
             {
-               (void)sprintf(dl.host_name, "%-*s %x",
-                             MAX_HOSTNAME_LENGTH,
-                             fsa[fsa_pos].host_dsp_name,
-                             reason);
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Failed to remove() file %s : %s (%s %d)\n",
+                         del_dir, strerror(errno), __FILE__, __LINE__);
             }
             else
             {
-               (void)sprintf(dl.host_name, "%-*s %x",
-                             MAX_HOSTNAME_LENGTH,
-                             "-",
-                             reason);
-            }
-            *dl.file_size = stat_buf.st_size;
-            *dl.job_number = job_id;
-            *dl.file_name_length = strlen(p_dir->d_name);
-            (void)strcpy((dl.file_name + *dl.file_name_length + 1), "FD");
-            dl_real_size = *dl.file_name_length + dl.size + 2 /* FD */;
-            if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "write() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
-            }
+#ifdef _DELETE_LOG
+               size_t dl_real_size;
 #endif
+
+               number_deleted++;
+               file_size_deleted += stat_buf.st_size;
+#ifdef _DELETE_LOG
+               (void)strcpy(dl.file_name, p_dir->d_name);
+               if (fsa_pos > -1)
+               {
+                  (void)sprintf(dl.host_name, "%-*s %x",
+                                MAX_HOSTNAME_LENGTH,
+                                fsa[fsa_pos].host_dsp_name,
+                                reason);
+               }
+               else
+               {
+                  (void)sprintf(dl.host_name, "%-*s %x",
+                                MAX_HOSTNAME_LENGTH,
+                                "-",
+                                reason);
+               }
+               *dl.file_size = stat_buf.st_size;
+               *dl.job_number = job_id;
+               *dl.file_name_length = strlen(p_dir->d_name);
+               (void)strcpy((dl.file_name + *dl.file_name_length + 1), "FD");
+               dl_real_size = *dl.file_name_length + dl.size + 2 /* FD */;
+               if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+               {
+                  (void)rec(sys_log_fd, ERROR_SIGN,
+                            "write() error : %s (%s %d)\n",
+                            strerror(errno), __FILE__, __LINE__);
+               }
+#endif
+            }
+         }
+         else
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "UUUPS! A directory [%s]! Whats that doing here? (%s %d)\n",
+                      del_dir, __FILE__, __LINE__);
          }
       }
       errno = 0;

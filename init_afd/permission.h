@@ -31,11 +31,12 @@
 #define VIEW_PASSWD_PERM     "view_passwd"       /* View password        */
 #define LIST_LIMIT           "list_limit"        /* List limit show_xlog */
 #define SHOW_SLOG_PERM       "show_slog"         /* System Log           */
+#define SHOW_RLOG_PERM       "show_rlog"         /* Receive Log          */
 #define SHOW_TLOG_PERM       "show_tlog"         /* Transfer Log         */
 #define SHOW_DLOG_PERM       "show_dlog"         /* Debug Log            */
 #define SHOW_ILOG_PERM       "show_ilog"         /* Input Log            */
 #define SHOW_OLOG_PERM       "show_olog"         /* Output Log           */
-#define SHOW_RLOG_PERM       "show_rlog"         /* Delete Log           */
+#define SHOW_ELOG_PERM       "show_elog"         /* Delete Log           */
 #define EDIT_HC_PERM         "edit_hc"           /* Edit HOST_CONFIG     */
 #define AFD_CTRL_PERM        "afd_ctrl"          /* afd_ctrl dialog      */
 #define RAFD_CTRL_PERM       "rafd_ctrl"         /* remote afd_ctrl      */
@@ -46,6 +47,7 @@
 #define CTRL_TRANSFER_PERM   "control_transfer"  /* Start/Stop transfer  */
 #define SWITCH_HOST_PERM     "switch_host"
 #define DISABLE_HOST_PERM    "disable"           /* Disable host         */
+#define DISABLE_AFD_PERM     "disable_afd"       /* Disable AFD          */
 #define INFO_PERM            "info"              /* Info about host      */
 #define DEBUG_PERM           "debug"             /* Enable/Disable debug */
 #define RETRY_PERM           "retry"
@@ -60,6 +62,10 @@
 #define MON_CTRL_PERM        "mon_ctrl"          /* mon_ctrl dialog      */
 #define MON_STARTUP_PERM     "mon_startup"       /* Startup AFD_MON      */
 #define MON_SHUTDOWN_PERM    "mon_shutdown"      /* Shutdown AFD_MON     */
+
+#define DIR_CTRL_PERM        "dir_ctrl"          /* dir_ctrl dialog      */
+#define DIR_INFO_PERM        "dir_info"          /* dir_info dialog      */
+#define DISABLE_DIR_PERM     "disable_dir"       /* Disable directory    */
 
 #define PERMISSION_DENIED_STR "You are not permitted to use this program."
 

@@ -1,6 +1,6 @@
 /*
  *  afd_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M1
  **   afd_info - displays information on a single host
  **
  ** SYNOPSIS
- **   afd_info [--version] [-w <AFD working directory>] host-name [font name]
+ **   afd_info [--version] [-w <work dir>] [-f <font name>] -h host-name
  **
  ** DESCRIPTION
  **
@@ -116,7 +116,7 @@ char                       info_file[MAX_PATH_LENGTH],
                            {
                               "",
                               "Real host name 1:",
-                              "Files send      :",
+                              "Files transfered:",
                               "Last connection :",
                               "Total errors    :"
                            },
@@ -124,7 +124,7 @@ char                       info_file[MAX_PATH_LENGTH],
                            {
                               "",
                               "Real host name 2     :",
-                              "Bytes send           :",
+                              "Bytes transfered     :",
                               "No. of connections   :",
                               "Retry interval (min) :"
                            };
@@ -132,7 +132,8 @@ struct filetransfer_status *fsa;
 struct prev_values         prev;
 
 /* Local function prototypes */
-static void                init_afd_info(int, char **);
+static void                init_afd_info(int *, char **),
+                           usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -184,7 +185,7 @@ main(int argc, char *argv[])
 
    /* Initialise global values */
    p_work_dir = work_dir;
-   init_afd_info(argc, argv);
+   init_afd_info(&argc, argv);
 
    (void)strcpy(window_title, host_name);
    (void)strcat(window_title, " Info");
@@ -624,7 +625,8 @@ main(int argc, char *argv[])
    XmFontListFree(fontlist);
 
 #ifdef _EDITRES
-   XtAddEventHandler(toplevel, (EventMask)0, True, _XEditResCheckMessages, NULL);
+   XtAddEventHandler(toplevel, (EventMask)0, True,
+                     _XEditResCheckMessages, NULL);
 #endif
 
    /* Realize all widgets */
@@ -651,41 +653,33 @@ main(int argc, char *argv[])
 
 /*++++++++++++++++++++++++++++ init_afd_info() ++++++++++++++++++++++++++*/
 static void
-init_afd_info(int argc, char *argv[])
+init_afd_info(int *argc, char *argv[])
 {
-   int  count = 0;
    char *ptr;
 
-   if (argc == 2)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
-      (void)strcpy(host_name, argv[1]);
-      argc--; count++;
+      usage(argv[0]);
+      exit(SUCCESS);
+   }
+   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
+   {
       (void)strcpy(font_name, "fixed");
    }
-   else if (argc == 3)
-        {
-           (void)strcpy(host_name, argv[1]);
-           argc--; count++;
-           (void)strcpy(font_name, argv[2]);
-           argc--; count++;
-        }
-        else
-        {
-           (void)fprintf(stderr,
-                         "Usage : %s host-name [font name] [-w <working directory>]\n",
-                         argv[0]);
-           exit(INCORRECT);
-        }
-   if (get_afd_path(&argc, argv, p_work_dir) < 0)
+   if (get_arg(argc, argv, "-h", host_name,
+               MAX_HOSTNAME_LENGTH + 1) == INCORRECT)
+   {
+      usage(argv[0]);
+      exit(INCORRECT);
+   }
+   if (get_afd_path(argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
                     "Failed to get working directory of AFD. (%s %d)\n",
                     __FILE__, __LINE__);
       exit(INCORRECT);
-   }
-   while (count--)
-   {
-      argc++;
    }
 
    /* Attach to the FSA */
@@ -696,7 +690,7 @@ init_afd_info(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((host_position = get_position(fsa, host_name, no_of_hosts)) < 0)
+   if ((host_position = get_host_position(fsa, host_name, no_of_hosts)) < 0)
    {
       (void)fprintf(stderr, "Host %s is not in FSA.\n", host_name);
       exit(INCORRECT);
@@ -740,5 +734,17 @@ init_afd_info(int argc, char *argv[])
    (void)sprintf(info_file, "%s%s/%s%s", p_work_dir,
                  ETC_DIR, INFO_IDENTIFIER, host_name);
 
+   return;
+}
+
+
+/*------------------------------ usage() --------------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr, "Usage : %s [options] -h host-name\n", progname);
+   (void)fprintf(stderr, "            --version\n");
+   (void)fprintf(stderr, "            -f <font name>\n");
+   (void)fprintf(stderr, "            -w <work directory>\n");
    return;
 }

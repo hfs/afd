@@ -36,389 +36,54 @@ DESCR__S_M3
  **
  ** HISTORY
  **   18.05.1997 H.Kiehl Created
+ **   18.03.2000 H.Kiehl Modified to make it more generic.
  **
  */
 DESCR__E_M3
 
-#include <stdio.h>               /* sprintf(), popen(), pclose()         */
+#include <stdio.h>               /* sprintf(), pclose()                  */
 #include <string.h>              /* strcpy(), strcat(), strerror()       */
 #include <unistd.h>              /* write(), close()                     */
-#include <time.h>                /* ctime(), strftime()                  */
-#include <signal.h>              /* signal()                             */
+#include <time.h>                /* strftime()                           */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <Xm/Xm.h>
-#include <Xm/Form.h>
-#include <Xm/RowColumn.h>
-#include <Xm/LabelG.h>
-#include <Xm/Frame.h>
 #include <Xm/Text.h>
 #include <Xm/List.h>
-#include <Xm/Separator.h>
-#include <Xm/PushB.h>
-#include <Xm/ToggleBG.h>
-#include <X11/keysym.h>
-#ifdef _EDITRES
-#include <X11/Xmu/Editres.h>
-#endif
 #include <errno.h>
 #include "afd_ctrl.h"
 #include "show_olog.h"
 
 /* External global variables */
-extern Display *display;
 extern Widget  listbox_w,
-               summarybox_w,
-               toplevel_w;
-extern char    font_name[],
+               printshell,
+               statusbox_w,
+               summarybox_w;
+extern char    file_name[],
                search_file_name[],
                search_directory_name[],
                **search_recipient,
                search_file_size_str[],
                summary_str[],
                total_summary_str[];
-extern int     items_selected,
+extern int     device_type,
+               file_name_length,
+               items_selected,
                no_of_search_hosts,
-               toggles_set,
-               file_name_length;
+               range_type,
+               toggles_set;
 extern time_t  start_time_val,
                end_time_val;
-
-/* Local global variables */
-static Widget  printshell = (Widget)NULL,
-               printer_text_w,
-               printer_radio_w,
-               file_text_w,
-               file_radio_w;
-static char    printer_cmd[PRINTER_INFO_LENGTH + 1],
-               printer_name[PRINTER_INFO_LENGTH + 1],
-               file_name[MAX_PATH_LENGTH];
-static int     range_type,
-               device_type;
+extern FILE    *fp;
 
 /* Local function prototypes. */
-static int     prepare_printer(int *),
-               prepare_file(int *);
-static FILE    *fp;
-static void    print_data_button(Widget, XtPointer, XtPointer),
-               cancel_print_button(Widget, XtPointer, XtPointer),
-               device_select(Widget, XtPointer, XtPointer),
-               range_select(Widget, XtPointer, XtPointer),
-               save_file_name(Widget, XtPointer, XtPointer),
-               save_printer_name(Widget, XtPointer, XtPointer),
-               write_header(int),
+static void    write_header(int),
                write_summary(int);
 
 
-/*############################# print_data() ############################*/
+/*######################### print_data_button() #########################*/
 void
-print_data(void)
-{
-   if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
-   {
-      (void)fprintf(stderr, "signal() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-   }
-
-   /*
-    * First, see if the window has already been created. If
-    * no create a new window.
-    */
-   if ((printshell == (Widget)NULL) || (XtIsRealized(printshell) == False) ||
-       (XtIsSensitive(printshell) != True))
-   {
-      Widget          main_form_w,
-                      form_w,
-                      frame_w,
-                      radio_w,
-                      criteriabox_w,
-                      radiobox_w,
-                      separator_w,
-                      buttonbox_w,
-                      button_w,
-                      inputline_w;
-      Arg             args[MAXARGS];
-      Cardinal        argcount;
-      XmFontList      p_fontlist;
-      XmFontListEntry entry;
-
-      /* Get default values from AFD_CONFIG file. */
-      get_printer_cmd(printer_cmd, printer_name);
-
-      printshell = XtVaCreatePopupShell("Print Data", topLevelShellWidgetClass,
-                                       toplevel_w, NULL);
-
-      /* Create managing widget */
-      main_form_w = XmCreateForm(printshell, "main_form", NULL, 0);
-
-      /* Prepare font */
-      if ((entry = XmFontListEntryLoad(XtDisplay(main_form_w), font_name,
-                                       XmFONT_IS_FONT, "TAG1")) == NULL)
-      {
-         if ((entry = XmFontListEntryLoad(XtDisplay(main_form_w), "fixed",
-                                          XmFONT_IS_FONT, "TAG1")) == NULL)
-         {
-            (void)fprintf(stderr,
-                          "Failed to load font with XmFontListEntryLoad() : %s (%s %d)\n",
-                          strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-      }
-      p_fontlist = XmFontListAppendEntry(NULL, entry);
-      XmFontListEntryFree(&entry);
-
-      /*---------------------------------------------------------------*/
-      /*                         Button Box                            */
-      /*---------------------------------------------------------------*/
-      argcount = 0;
-      XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
-      argcount++;
-      XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
-      argcount++;
-      XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
-      argcount++;
-      XtSetArg(args[argcount], XmNfractionBase,     21);
-      argcount++;
-      buttonbox_w = XmCreateForm(main_form_w, "buttonbox", args, argcount);
-
-      /* Create Print Button. */
-      button_w = XtVaCreateManagedWidget("Print",
-                        xmPushButtonWidgetClass, buttonbox_w,
-                        XmNfontList,             p_fontlist,
-                        XmNtopAttachment,        XmATTACH_POSITION,
-                        XmNtopPosition,          1,
-                        XmNleftAttachment,       XmATTACH_POSITION,
-                        XmNleftPosition,         1,
-                        XmNrightAttachment,      XmATTACH_POSITION,
-                        XmNrightPosition,        10,
-                        XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       20,
-                        NULL);
-      XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)print_data_button, 0);
-
-      /* Create Cancel Button. */
-      button_w = XtVaCreateManagedWidget("Close",
-                        xmPushButtonWidgetClass, buttonbox_w,
-                        XmNfontList,             p_fontlist,
-                        XmNtopAttachment,        XmATTACH_POSITION,
-                        XmNtopPosition,          1,
-                        XmNleftAttachment,       XmATTACH_POSITION,
-                        XmNleftPosition,         11,
-                        XmNrightAttachment,      XmATTACH_POSITION,
-                        XmNrightPosition,        20,
-                        XmNbottomAttachment,     XmATTACH_POSITION,
-                        XmNbottomPosition,       20,
-                        NULL);
-      XtAddCallback(button_w, XmNactivateCallback,
-                    (XtCallbackProc)cancel_print_button, 0);
-      XtManageChild(buttonbox_w);
-
-      /*---------------------------------------------------------------*/
-      /*                      Horizontal Separator                     */
-      /*---------------------------------------------------------------*/
-      argcount = 0;
-      XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
-      argcount++;
-      XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_WIDGET);
-      argcount++;
-      XtSetArg(args[argcount], XmNbottomWidget,     buttonbox_w);
-      argcount++;
-      XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
-      argcount++;
-      XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
-      argcount++;
-      separator_w = XmCreateSeparator(main_form_w, "separator", args, argcount);
-      XtManageChild(separator_w);
-
-      /*---------------------------------------------------------------*/
-      /*                        Criteria Box                           */
-      /*---------------------------------------------------------------*/
-      criteriabox_w = XtVaCreateWidget("criteriabox",
-                        xmFormWidgetClass,   main_form_w,
-                        XmNtopAttachment,    XmATTACH_FORM,
-                        XmNleftAttachment,   XmATTACH_FORM,
-                        XmNrightAttachment,  XmATTACH_FORM,
-                        XmNbottomAttachment, XmATTACH_WIDGET,
-                        XmNbottomWidget,     separator_w,
-                        NULL);
-
-      /*---------------------------------------------------------------*/
-      /*                         Range Box                             */
-      /*---------------------------------------------------------------*/
-      /* Frame for Range Box */
-      frame_w = XtVaCreateManagedWidget("range_frame",
-                        xmFrameWidgetClass,  criteriabox_w,
-                        XmNshadowType,       XmSHADOW_ETCHED_IN,
-                        XmNtopAttachment,    XmATTACH_FORM,
-                        XmNtopOffset,        5,
-                        XmNleftAttachment,   XmATTACH_FORM,
-                        XmNleftOffset,       5,
-                        XmNbottomAttachment, XmATTACH_FORM,
-                        XmNbottomOffset,     5,
-                        NULL);
-
-      /* Label for the frame */
-      XtVaCreateManagedWidget("Range",
-                        xmLabelGadgetClass,        frame_w,
-                        XmNchildType,              XmFRAME_TITLE_CHILD,
-                        XmNchildVerticalAlignment, XmALIGNMENT_CENTER,
-                        NULL);
-
-      /* Manager widget for the actual range stuff */
-      radiobox_w = XtVaCreateWidget("radiobox",
-                        xmRowColumnWidgetClass, frame_w,
-                        XmNradioBehavior,       True,
-                        XmNorientation,         XmVERTICAL,
-                        XmNpacking,             XmPACK_COLUMN,
-                        XmNnumColumns,          1,
-                        XmNresizable,           False,
-                        NULL);
-
-      radio_w = XtVaCreateManagedWidget("Selection",
-                        xmToggleButtonGadgetClass, radiobox_w,
-                        XmNfontList,               p_fontlist,
-                        XmNset,                    True,
-                        NULL);
-      XtAddCallback(radio_w, XmNarmCallback,
-                    (XtCallbackProc)range_select, (XtPointer)SELECTION_TOGGLE);
-      radio_w = XtVaCreateManagedWidget("All",
-                        xmToggleButtonGadgetClass, radiobox_w,
-                        XmNfontList,               p_fontlist,
-                        XmNset,                    False,
-                        NULL);
-      XtAddCallback(radio_w, XmNarmCallback,
-                    (XtCallbackProc)range_select, (XtPointer)ALL_TOGGLE);
-      XtManageChild(radiobox_w);
-      range_type = SELECTION_TOGGLE;
-
-      /*---------------------------------------------------------------*/
-      /*                        Device Box                             */
-      /*---------------------------------------------------------------*/
-      /* Frame for Device Box */
-      frame_w = XtVaCreateManagedWidget("device_frame",
-                        xmFrameWidgetClass,   criteriabox_w,
-                        XmNshadowType,        XmSHADOW_ETCHED_IN,
-                        XmNtopAttachment,     XmATTACH_FORM,
-                        XmNtopOffset,         5,
-                        XmNleftAttachment,    XmATTACH_WIDGET,
-                        XmNleftWidget,        frame_w,
-                        XmNleftOffset,        5,
-                        XmNrightAttachment,   XmATTACH_FORM,
-                        XmNrightOffset,       5,
-                        XmNbottomAttachment,  XmATTACH_FORM,
-                        XmNbottomOffset,      5,
-                        NULL);
-
-      /* Label for the frame */
-      XtVaCreateManagedWidget("Device",
-                        xmLabelGadgetClass,          frame_w,
-                        XmNchildType,                XmFRAME_TITLE_CHILD,
-                        XmNchildVerticalAlignment,   XmALIGNMENT_CENTER,
-                        NULL);
-
-      form_w = XtVaCreateWidget("device_form",
-                        xmFormWidgetClass, frame_w,
-                        NULL);
-
-      /* Create selection line to select a printer */
-      inputline_w = XtVaCreateWidget("input_line",
-                        xmFormWidgetClass,  form_w,
-                        XmNtopAttachment,   XmATTACH_FORM,
-                        XmNrightAttachment, XmATTACH_FORM,
-                        XmNleftAttachment,  XmATTACH_FORM,
-                        NULL);
-
-      printer_radio_w = XtVaCreateManagedWidget("Printer",
-                        xmToggleButtonGadgetClass, inputline_w,
-                        XmNindicatorType,          XmONE_OF_MANY,
-                        XmNfontList,               p_fontlist,
-                        XmNset,                    True,
-                        XmNtopAttachment,          XmATTACH_FORM,
-                        XmNleftAttachment,         XmATTACH_FORM,
-                        XmNbottomAttachment,       XmATTACH_FORM,
-                        NULL);
-      XtAddCallback(printer_radio_w, XmNvalueChangedCallback,
-                    (XtCallbackProc)device_select, (XtPointer)PRINTER_TOGGLE);
-
-      /* A text box to enter the printers name. */
-      printer_text_w = XtVaCreateManagedWidget("printer_name",
-                        xmTextWidgetClass,   inputline_w,
-                        XmNfontList,         p_fontlist,
-                        XmNmarginHeight,     1,
-                        XmNmarginWidth,      1,
-                        XmNshadowThickness,  1,
-                        XmNcolumns,          20,
-                        XmNvalue,            printer_name,
-                        XmNtopAttachment,    XmATTACH_FORM,
-                        XmNleftAttachment,   XmATTACH_WIDGET,
-                        XmNleftWidget,       printer_radio_w,
-                        XmNrightAttachment,  XmATTACH_WIDGET,
-                        XmNrightOffset,      5,
-                        XmNbottomAttachment, XmATTACH_FORM,
-                        NULL);
-      XtAddCallback(printer_text_w, XmNlosingFocusCallback, save_printer_name, 0);
-      XtManageChild(inputline_w);
-
-      /* Create selection line to select a file to store the data. */
-      inputline_w = XtVaCreateWidget("input_line",
-                        xmFormWidgetClass,  form_w,
-                        XmNtopAttachment,   XmATTACH_WIDGET,
-                        XmNtopWidget,       inputline_w,
-                        XmNtopOffset,       5,
-                        XmNrightAttachment, XmATTACH_FORM,
-                        XmNleftAttachment,  XmATTACH_FORM,
-                        NULL);
-
-      file_radio_w = XtVaCreateManagedWidget("File   ",
-                        xmToggleButtonGadgetClass, inputline_w,
-                        XmNindicatorType,          XmONE_OF_MANY,
-                        XmNfontList,               p_fontlist,
-                        XmNset,                    False,
-                        XmNtopAttachment,          XmATTACH_FORM,
-                        XmNleftAttachment,         XmATTACH_FORM,
-                        XmNbottomAttachment,       XmATTACH_FORM,
-                        NULL);
-      XtAddCallback(file_radio_w, XmNvalueChangedCallback,
-                    (XtCallbackProc)device_select, (XtPointer)FILE_TOGGLE);
-      device_type = PRINTER_TOGGLE;
-
-      /* A text box to enter the files name. */
-      file_text_w = XtVaCreateManagedWidget("file_name",
-                        xmTextWidgetClass,   inputline_w,
-                        XmNfontList,         p_fontlist,
-                        XmNmarginHeight,     1,
-                        XmNmarginWidth,      1,
-                        XmNshadowThickness,  1,
-                        XmNcolumns,          20,
-                        XmNvalue,            file_name,
-                        XmNtopAttachment,    XmATTACH_FORM,
-                        XmNleftAttachment,   XmATTACH_WIDGET,
-                        XmNleftWidget,       file_radio_w,
-                        XmNrightAttachment,  XmATTACH_WIDGET,
-                        XmNrightOffset,      5,
-                        XmNbottomAttachment, XmATTACH_FORM,
-                        NULL);
-      XtAddCallback(file_text_w, XmNlosingFocusCallback, save_file_name, 0);
-      XtSetSensitive(file_text_w, False);
-      XtManageChild(inputline_w);
-      XtManageChild(form_w);
-      XtManageChild(criteriabox_w);
-      XtManageChild(main_form_w);
-
-#ifdef _EDITRES
-      XtAddEventHandler(printshell, (EventMask)0, True, _XEditResCheckMessages, NULL);
-#endif
-   }
-   XtPopup(printshell, XtGrabNone);
-
-   return;
-}
-
-
-/*+++++++++++++++++++++++++ print_data_button() +++++++++++++++++++++++++*/
-static void
 print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    char message[MAX_MESSAGE_LENGTH];
@@ -430,7 +95,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 
       if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == False)
       {
-         show_message("No data selected for printing!");
+         show_message(statusbox_w, "No data selected for printing!");
          XtPopdown(printshell);
 
          return;
@@ -487,12 +152,12 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 
             if (device_type == PRINTER_TOGGLE)
             {
-               int status;
+               int  status;
+               char buf;
 
                /* Send Control-D to printer queue */
-               (void)strcpy(line, CONTROL_D);
-               length = strlen(line);
-               if (write(fd, line, length) != length)
+               buf = CONTROL_D;
+               if (write(fd, &buf, 1) != 1)
                {
                   (void)fprintf(stderr, "write() error : %s (%s %d)\n",
                                 strerror(errno), __FILE__, __LINE__);
@@ -568,12 +233,12 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 
          if (device_type == PRINTER_TOGGLE)
          {
-            int status;
+            int  status;
+            char buf;
 
             /* Send Control-D to printer queue */
-            (void)strcpy(line, CONTROL_D);
-            length = strlen(line);
-            if (write(fd, line, length) != length)
+            buf = CONTROL_D;
+            if (write(fd, &buf, 1) != 1)
             {
                (void)fprintf(stderr, "write() error : %s (%s %d)\n",
                              strerror(errno), __FILE__, __LINE__);
@@ -604,54 +269,10 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
    }
 
-   show_message(message);
+   show_message(statusbox_w, message);
    XtPopdown(printshell);
 
    return;
-}
-
-
-/*-------------------------- prepare_printer() --------------------------*/
-static int
-prepare_printer(int *fd)
-{
-   char cmd[PRINTER_INFO_LENGTH + PRINTER_INFO_LENGTH + 1];
-
-   (void)strcpy(cmd, printer_cmd);
-   (void)strcat(cmd, printer_name);
-   (void)strcat(cmd, " > /dev/null");
-
-   if ((fp = popen(cmd, "w")) == NULL)
-   {
-      (void)xrec(toplevel_w, ERROR_DIALOG,
-                 "Failed to send printer command %s : %s (%s %d)",
-                 cmd, strerror(errno), __FILE__, __LINE__);
-      XtPopdown(printshell);
-
-      return(INCORRECT);
-   }
-
-   *fd = fileno(fp);
-
-   return(SUCCESS);
-}
-
-
-/*-------------------------- prepare_file() -----------------------------*/
-static int
-prepare_file(int *fd)
-{
-   if ((*fd = open(file_name, (O_RDWR | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
-   {
-      (void)xrec(toplevel_w, ERROR_DIALOG,
-                 "Failed to open() %s : %s (%s %d)",
-                 file_name, strerror(errno), __FILE__, __LINE__);
-      XtPopdown(printshell);
-
-      return(INCORRECT);
-   }
-
-   return(SUCCESS);
 }
 
 
@@ -837,75 +458,6 @@ write_summary(int fd)
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-
-   return;
-}
-
-
-/*+++++++++++++++++++++++ cancel_print_button() +++++++++++++++++++++++++*/
-static void
-cancel_print_button(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   XtPopdown(printshell);
-
-   return;
-}
-
-
-/*+++++++++++++++++++++++++++ range_select() ++++++++++++++++++++++++++++*/
-static void
-range_select(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   range_type = (int)client_data;
-
-   return;
-}
-
-
-/*+++++++++++++++++++++++++++ device_select() +++++++++++++++++++++++++++*/
-static void
-device_select(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   device_type = (int)client_data;
-
-   if (device_type == PRINTER_TOGGLE)
-   {
-      XtVaSetValues(file_radio_w, XmNset, False, NULL);
-      XtSetSensitive(file_text_w, False);
-      XtVaSetValues(printer_radio_w, XmNset, True, NULL);
-      XtSetSensitive(printer_text_w, True);
-   }
-   else
-   {
-      XtVaSetValues(printer_radio_w, XmNset, False, NULL);
-      XtSetSensitive(printer_text_w, False);
-      XtVaSetValues(file_radio_w, XmNset, True, NULL);
-      XtSetSensitive(file_text_w, True);
-   }
-
-   return;
-}
-
-
-/*+++++++++++++++++++++++++ save_printer_name() +++++++++++++++++++++++++*/
-static void
-save_printer_name(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   char *value = XmTextGetString(w);
-
-   (void)strcpy(printer_name, value);
-
-   return;
-}
-
-
-/*++++++++++++++++++++++++++ save_file_name() +++++++++++++++++++++++++++*/
-static void
-save_file_name(Widget w, XtPointer client_data, XtPointer call_data)
-{
-   char *value = XmTextGetString(w);
-
-   (void)strcpy(file_name, value);
 
    return;
 }

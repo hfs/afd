@@ -26,6 +26,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(SLOGPROG) : $(SLOGOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SLOGOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
@@ -36,6 +37,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(SLOGPROG)
 

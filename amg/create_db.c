@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,7 @@ DESCR__S_M3
  **                      mapped file.
  **   26.10.1997 H.Kiehl If disk is full do not give up.
  **   21.01.1998 H.Kiehl Rewrite to accommodate new messages and job ID's.
+ **   14.08.2000 H.Kiehl File mask no longer a fixed array.
  **
  */
 DESCR__E_M3
@@ -78,8 +79,9 @@ extern int                        no_of_hosts,
                                   no_of_important_dirs,
                                   *important_dir_no,
 #endif
-                                  no_of_dirs,     /* No. of directories  */
-                                                  /* in DIR_CONFIG file. */
+                                  no_of_local_dirs,/* No. of directories */
+                                                   /* in DIR_CONFIG file */
+                                                   /* that are local.    */
                                   counter_fd,     /* File descriptor for */
                                                   /* AFD counter file.   */
                                   fd_cmd_fd,
@@ -91,10 +93,10 @@ extern struct directory_entry     *de;
 extern struct instant_db          *db;
 extern struct afd_status          *p_afd_status;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 
 /* Global variables */
-int                               did_fd,
-                                  dnb_fd,
+int                               dnb_fd,
                                   jd_fd,
                                   jid_fd,
                                   *no_of_dir_names,
@@ -106,18 +108,18 @@ struct job_id_data                *jd;
 struct dir_name_buf               *dnb;
 
 /* Local function prototypes. */
-static void                       write_numbers(int, int),
+static void                       write_numbers(int),
                                   write_current_msg_list(int),
                                   unmap_data(int, void *);
 
 /* #define _WITH_JOB_LIST_TEST 1 */
+#define POS_STEP_SIZE 20
 
 /*+++++++++++++++++++++++++++++ create_db() +++++++++++++++++++++++++++++*/
 int
 create_db(int shmem_id)
 {
-   int             did_number,
-                   i,
+   int             i,
                    j,
                    jid_number,
 #ifdef _TEST_FILE_TABLE
@@ -126,18 +128,15 @@ create_db(int shmem_id)
                    not_in_same_file_system = 0,
                    size,
                    dir_counter = 0,
-                   file_counter = 0,
                    no_of_jobs;
    dev_t           ldv;               /* local device number (filesystem) */
    char            *ptr,
                    *p_sheme,
                    *host_ptr,
-                   *dir_option_ptr,
                    *tmp_ptr,
                    *p_offset,
                    *p_loptions,
                    *p_file,
-                   number[MAX_INT_LENGTH + 1],
                    *p_hostname;
    struct p_array  *p_ptr;
    struct stat     stat_buf;
@@ -180,11 +179,7 @@ create_db(int shmem_id)
       exit(INCORRECT);
    }
 
-   init_job_data(&jid_number, &did_number);
-
-   /* Lock the dir_name_buf structure so we do not get caught */
-   /* when the FD is removing a directory.                    */
-   lock_region_w(dnb_fd, 1);
+   init_job_data(&jid_number);
 
    /* Allocate space for the gotchas. */
    size = ((*no_of_job_ids / JOB_ID_DATA_STEP_SIZE) + 1) *
@@ -240,113 +235,26 @@ create_db(int shmem_id)
    memcpy(p_ptr, ptr, size);
    p_offset = ptr + size;
 
-   de[0].nfg           = de[0].tnfm = 0;
+   de[0].nfg           = 0;
    de[0].fme           = NULL;
    de[0].all_flag      = NO;
    de[0].dir           = (int)(p_ptr[0].ptr[1]) + p_offset;
-   de[0].dir_no        = lookup_dir_no(de[0].dir, &did_number);
+   de[0].alias         = (int)(p_ptr[0].ptr[2]) + p_offset;
+   if ((de[0].fra_pos = lookup_fra_pos(de[0].alias)) == INCORRECT)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Failed to locate dir alias <%s> for directory %s (%s %d)\n",
+                de[0].alias, de[0].dir, __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   de[0].dir_no        = dnb[fra[de[0].fra_pos].dir_pos].dir_id;
    de[0].mod_time      = -1;
    de[0].search_time   = 0;
-   de[0].old_file_time = OLD_FILE_TIME * 3600;
-   de[0].remove_flag   = NO;
-   de[0].report_flag   = YES;
-   de[0].end_character = -1;
-   dir_option_ptr = de[0].dir + strlen(de[0].dir) + 1;
-   if (*dir_option_ptr == 1)
-   {
-      int ii = 0;
-
-      dir_option_ptr++;
-
-      while ((isdigit(*dir_option_ptr)) && (ii < MAX_INT_LENGTH))
-      {
-         number[ii] = *dir_option_ptr;
-         dir_option_ptr++; ii++;
-      }
-      number[ii] = '\0';
-      if (number[0] != '\0')
-      {
-         de[0].old_file_time = atoi(number) * 3600;
-      }
-      while (*dir_option_ptr != '\0')
-      {
-         switch(*dir_option_ptr)
-         {
-            case 'd' :
-            case 'D' : /* Delete files */
-                       de[0].remove_flag = YES;
-                       break;
-
-            case 'i' :
-            case 'I' : /* Don't delete files */
-                       de[0].remove_flag = NO;
-                       break;
-
-            case 'r' :
-            case 'R' : /* Report unknown files */
-                       de[0].report_flag = YES;
-                       break;
-
-            case 's' :
-            case 'S' : /* Don't report unknown files */
-                       de[0].report_flag = NO;
-                       break;
-
-            case 'E' : /* Check end character of file. */
-                       if ((*(dir_option_ptr + 1) == 'C') &&
-                           (*(dir_option_ptr + 2) == '='))
-                       {
-                          dir_option_ptr += 3;
-                          ii = 0;
-                          while ((isdigit(*dir_option_ptr)) &&
-                                 (ii < MAX_INT_LENGTH))
-                          {
-                             number[ii] = *dir_option_ptr;
-                             dir_option_ptr++; ii++;
-                          }
-                          number[ii] = '\0';
-                          if (number[0] != '\0')
-                          {
-                             de[0].end_character = atoi(number);
-                          }
-                       }
-                       break;
-
-#ifndef _WITH_PTHREAD
-            case '*' : /* This is an important directory! */
-                       if ((important_dir_no = realloc(important_dir_no,
-                                                       sizeof(int))) == NULL)
-                       {
-                          (void)rec(sys_log_fd, ERROR_SIGN,
-                                    "realloc() error : %s (%s %d)\n",
-                                    strerror(errno), __FILE__, __LINE__);
-                       }
-                       else
-                       {
-                          important_dir_no[no_of_important_dirs] = 0;
-                          no_of_important_dirs++;
-                       }
-                       break;
-#endif
-
-            default  : /* Ignore all other characters */
-                       break;
-         }
-
-         dir_option_ptr++;
-      }
-   }
    if (stat(de[0].dir, &stat_buf) < 0)
    {
-      int ii;
-
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to stat() %s : %s (%s %d)\n",
                 de[0].dir, strerror(errno), __FILE__, __LINE__);
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      for (ii = 0; ii < no_of_dirs; ii++)
-      {
-         free(de[ii].fme);
-      }
       free(db); free(de);
       free(tmp_ptr);
       unmap_data(jd_fd, jd);
@@ -362,10 +270,12 @@ create_db(int shmem_id)
       db[i].priority = *((int)(p_ptr[i].ptr[0]) + p_offset);
 
       /* Store number of files to be send */
-      db[i].no_of_files = atoi((int)(p_ptr[i].ptr[2]) + p_offset);
+      db[i].no_of_files = atoi((int)(p_ptr[i].ptr[3]) + p_offset);
 
       /* Store pointer to first file (filter) */
-      db[i].files = (int)(p_ptr[i].ptr[3]) + p_offset;
+      db[i].files = (int)(p_ptr[i].ptr[4]) + p_offset;
+
+      db[i].fra_pos = de[dir_counter].fra_pos;
 
       /*
        * Store all file names of one directory into one array. This
@@ -374,118 +284,28 @@ create_db(int shmem_id)
        */
       if ((i > 0) && (db[i].dir != db[i - 1].dir))
       {
-         int ii;
-
-         file_counter = 0;
          dir_counter++;
          de[dir_counter].dir           = db[i].dir;
-         de[dir_counter].dir_no        = lookup_dir_no(de[dir_counter].dir, &did_number);
+         de[dir_counter].alias         = (int)(p_ptr[i].ptr[2]) + p_offset;
+         if ((de[dir_counter].fra_pos = lookup_fra_pos(de[dir_counter].alias)) == INCORRECT)
+         {
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Failed to locate dir alias <%s> for directory %s (%s %d)\n",
+                      de[dir_counter].alias, de[dir_counter].dir, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+         de[dir_counter].dir_no        = dnb[fra[de[dir_counter].fra_pos].dir_pos].dir_id;
          de[dir_counter].nfg           = 0;
          de[dir_counter].fme           = NULL;
-         de[dir_counter].tnfm          = 0;
          de[dir_counter].all_flag      = NO;
          de[dir_counter].mod_time      = -1;
          de[dir_counter].search_time   = 0;
-         de[dir_counter].old_file_time = OLD_FILE_TIME * 3600;
-         de[dir_counter].remove_flag   = NO;
-         de[dir_counter].report_flag   = YES;
-         de[dir_counter].end_character = -1;
-         dir_option_ptr = de[dir_counter].dir + strlen(de[dir_counter].dir) + 1;
-         if (*dir_option_ptr == 1)
-         {
-            dir_option_ptr++;
-
-            ii = 0;
-            while (isdigit(*dir_option_ptr))
-            {
-               number[ii] = *dir_option_ptr;
-               dir_option_ptr++; ii++;
-            }
-            number[ii] = '\0';
-            if (number[0] != '\0')
-            {
-               de[dir_counter].old_file_time = atoi(number) * 3600;
-            }
-            while (*dir_option_ptr != '\0')
-            {
-               switch(*dir_option_ptr)
-               {
-                  case 'd' :
-                  case 'D' : /* Delete files */
-                             de[dir_counter].remove_flag = YES;
-                             break;
-
-                  case 'i' :
-                  case 'I' : /* Don't delete files */
-                             de[dir_counter].remove_flag = NO;
-                             break;
-
-                  case 'r' :
-                  case 'R' : /* Report unknown files */
-                             de[dir_counter].report_flag = YES;
-                             break;
-
-                  case 's' :
-                  case 'S' : /* Don't report unknown files */
-                             de[dir_counter].report_flag = NO;
-                             break;
-
-                  case 'E' : /* Check end character of file. */
-                             if ((*(dir_option_ptr + 1) == 'C') &&
-                                 (*(dir_option_ptr + 2) == '='))
-                             {
-                                dir_option_ptr += 3;
-                                ii = 0;
-                                while ((isdigit(*dir_option_ptr)) &&
-                                       (ii < MAX_INT_LENGTH))
-                                {
-                                   number[ii] = *dir_option_ptr;
-                                   dir_option_ptr++; ii++;
-                                }
-                                number[ii] = '\0';
-                                if (number[0] != '\0')
-                                {
-                                   de[dir_counter].end_character = atoi(number);
-                                }
-                             }
-                             break;
-
-#ifndef _WITH_PTHREAD
-                  case '*' : /* This is an important directory! */
-                             if ((important_dir_no = realloc(important_dir_no,
-                                                             ((no_of_important_dirs + 1) * sizeof(int)))) == NULL)
-                             {
-                                (void)rec(sys_log_fd, ERROR_SIGN,
-                                          "realloc() error : %s (%s %d)\n",
-                                          strerror(errno), __FILE__, __LINE__);
-                             }
-                             else
-                             {
-                                important_dir_no[no_of_important_dirs] = dir_counter;
-                                no_of_important_dirs++;
-                             }
-                             break;
-#endif
-
-                  default  : /* Ignore all other characters */
-                             break;
-               }
-
-               dir_option_ptr++;
-            }
-         }
          if (stat(db[i].dir, &stat_buf) < 0)
          {
-            int ii;
-
             (void)rec(sys_log_fd, FATAL_SIGN,
                       "Failed to stat() %s : %s (%s %d)\n",
                       db[i].dir, strerror(errno), __FILE__, __LINE__);
             p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-            for (ii = 0; ii < no_of_dirs; ii++)
-            {
-               free(de[ii].fme);
-            }
             free(db); free(de);
             free(tmp_ptr);
             unmap_data(jd_fd, jd);
@@ -543,14 +363,19 @@ create_db(int shmem_id)
             (void)memset(ptr_start, 0, (FG_BUFFER_STEP_SIZE * sizeof(struct file_mask_entry)));
          }
          p_file = db[i].files;
-         de[dir_counter].fme[de[dir_counter].nfg].nfm = 0;
-         de[dir_counter].fme[de[dir_counter].nfg].dest_count = 0;
-         for (j = 0; j < db[i].no_of_files; j++, file_counter++)
+         de[dir_counter].fme[de[dir_counter].nfg].nfm = db[i].no_of_files;
+         if ((de[dir_counter].fme[de[dir_counter].nfg].file_mask = malloc((db[i].no_of_files * sizeof(char *)))) == NULL)
          {
-            de[dir_counter].fme[de[dir_counter].nfg].file_mask[de[dir_counter].fme[de[dir_counter].nfg].nfm] = p_file;
-            de[dir_counter].fme[de[dir_counter].nfg].nfm++;
-            de[dir_counter].tnfm++;
-
+            (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+            p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+            unmap_data(jd_fd, jd);
+            exit(INCORRECT);
+         }
+         de[dir_counter].fme[de[dir_counter].nfg].dest_count = 0;
+         for (j = 0; j < db[i].no_of_files; j++)
+         {
+            de[dir_counter].fme[de[dir_counter].nfg].file_mask[j] = p_file;
             if ((p_file[0] == '*') && (p_file[1] == '\0'))
             {
                de[dir_counter].all_flag = YES;
@@ -560,7 +385,7 @@ create_db(int shmem_id)
          if ((de[dir_counter].all_flag == YES) && (db[i].no_of_files > 1))
          {
             p_file = db[i].files;
-            for (j = 0; j < db[i].no_of_files; j++, file_counter++)
+            for (j = 0; j < db[i].no_of_files; j++)
             {
                if (p_file[0] == '!')
                {
@@ -570,22 +395,61 @@ create_db(int shmem_id)
                NEXT(p_file);
             }
          }
-         de[dir_counter].fme[de[dir_counter].nfg].pos[de[dir_counter].fme[de[dir_counter].nfg].dest_count++] = i;
+         if ((de[dir_counter].fme[de[dir_counter].nfg].dest_count % POS_STEP_SIZE) == 0)
+         {
+            size_t new_size;
+
+            /* Calculate new size of file group buffer */
+             new_size = ((de[dir_counter].fme[de[dir_counter].nfg].dest_count / POS_STEP_SIZE) + 1) *
+                        POS_STEP_SIZE * sizeof(int);
+
+            if ((de[dir_counter].fme[de[dir_counter].nfg].pos = realloc(de[dir_counter].fme[de[dir_counter].nfg].pos, new_size)) == NULL)
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "realloc() error : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
+               p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+               unmap_data(jd_fd, jd);
+               exit(INCORRECT);
+            }
+         }
+         de[dir_counter].fme[de[dir_counter].nfg].pos[de[dir_counter].fme[de[dir_counter].nfg].dest_count] = i;
+         de[dir_counter].fme[de[dir_counter].nfg].dest_count++;
          de[dir_counter].nfg++;
       }
       else if ((i > 0) && (db[i].files == db[i - 1].files))
            {
-              de[dir_counter].fme[de[dir_counter].nfg - 1].pos[de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count++] = i;
+              if ((de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count % POS_STEP_SIZE) == 0)
+              {
+                 size_t new_size;
+
+                 /* Calculate new size of file group buffer */
+                  new_size = ((de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count / POS_STEP_SIZE) + 1) *
+                             POS_STEP_SIZE * sizeof(int);
+
+                 if ((de[dir_counter].fme[de[dir_counter].nfg - 1].pos = realloc(de[dir_counter].fme[de[dir_counter].nfg - 1].pos, new_size)) == NULL)
+                 {
+                    (void)rec(sys_log_fd, FATAL_SIGN,
+                              "realloc() error : %s (%s %d)\n",
+                              strerror(errno), __FILE__, __LINE__);
+                    p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+                    unmap_data(jd_fd, jd);
+                    exit(INCORRECT);
+                 }
+              }
+              de[dir_counter].fme[de[dir_counter].nfg - 1].pos[de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count] = i;
+              de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count++;
            }
 
       /* Store number of local options */
-      db[i].no_of_loptions = atoi((int)(p_ptr[i].ptr[4]) + p_offset);
+      db[i].no_of_loptions = atoi((int)(p_ptr[i].ptr[5]) + p_offset);
       db[i].next_start_time = 0;
 
       /* Store pointer to first local option */
       if (db[i].no_of_loptions > 0)
       {
-         db[i].loptions = (int)(p_ptr[i].ptr[5]) + p_offset;
+         db[i].loptions = (int)(p_ptr[i].ptr[6]) + p_offset;
+         db[i].time_option_type = NO_TIME;
 
          /*
           * Because extracting bulletins from files can take quit a
@@ -600,6 +464,29 @@ create_db(int shmem_id)
                db[i].lfs |= GO_PARALLEL;
                db[i].lfs |= DO_NOT_LINK_FILES;
             }
+            /*
+             * NOTE: TIME_NO_COLLECT_ID option __must__ be checked before
+             *       TIME_ID. Since both start with time and TIME_ID only
+             *       consists only of the word time.
+             */
+            else if (strncmp(p_loptions, TIME_NO_COLLECT_ID, TIME_NO_COLLECT_ID_LENGTH) == 0)
+                 {
+                    char *ptr = p_loptions + TIME_NO_COLLECT_ID_LENGTH;
+
+                    while ((*ptr == ' ') || (*ptr == '\t'))
+                    {
+                       ptr++;
+                    }
+                    if (eval_time_str(ptr, &db[i].te) == SUCCESS)
+                    {
+                       db[i].time_option_type = SEND_NO_COLLECT_TIME;
+                    }
+                    else
+                    {
+                       (void)rec(sys_log_fd, ERROR_SIGN,
+                                 "%s (%s %d)\n", ptr, __FILE__, __LINE__);
+                    }
+                 }
             else if (strncmp(p_loptions, TIME_ID, TIME_ID_LENGTH) == 0)
                  {
                     char *ptr = p_loptions + TIME_ID_LENGTH;
@@ -611,6 +498,7 @@ create_db(int shmem_id)
                     if (eval_time_str(ptr, &db[i].te) == SUCCESS)
                     {
                        db[i].next_start_time = calc_next_time(&db[i].te);
+                       db[i].time_option_type = SEND_COLLECT_TIME;
                     }
                     else
                     {
@@ -642,12 +530,12 @@ create_db(int shmem_id)
       }
 
       /* Store number of standard options */
-      db[i].no_of_soptions = atoi((int)(p_ptr[i].ptr[6]) + p_offset);
+      db[i].no_of_soptions = atoi((int)(p_ptr[i].ptr[7]) + p_offset);
 
       /* Store pointer to first local option */
       if (db[i].no_of_soptions > 0)
       {
-         db[i].soptions = (int)(p_ptr[i].ptr[7]) + p_offset;
+         db[i].soptions = (int)(p_ptr[i].ptr[8]) + p_offset;
       }
       else
       {
@@ -655,13 +543,11 @@ create_db(int shmem_id)
       }
 
       /* Store pointer to recipient */
-      db[i].recipient = (int)(p_ptr[i].ptr[8]) + p_offset;
+      db[i].recipient = (int)(p_ptr[i].ptr[9]) + p_offset;
 
       /* Extract hostname and position in FSA for each recipient */
       if ((p_hostname = get_hostname(db[i].recipient)) == NULL)
       {
-         int ii;
-
          /*
           * If this should happen then something is really wrong.
           */
@@ -669,10 +555,6 @@ create_db(int shmem_id)
                    "Could not extract hostname. (%s %d)\n",
                    __FILE__, __LINE__);
          p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-         for (ii = 0; ii < no_of_dirs; ii++)
-         {
-            free(de[ii].fme);
-         }
          free(db); free(de);
          free(tmp_ptr);
          unmap_data(jd_fd, jd);
@@ -693,7 +575,9 @@ create_db(int shmem_id)
       }
       t_hostname(p_hostname, db[i].host_alias);
 
-      if ((db[i].position = get_position(fsa, db[i].host_alias, no_of_hosts)) < 0)
+      if ((db[i].position = get_host_position(fsa,
+                                              db[i].host_alias,
+                                              no_of_hosts)) < 0)
       {
          /* This should be impossible !(?) */
          (void)rec(sys_log_fd, WARN_SIGN,
@@ -712,16 +596,10 @@ create_db(int shmem_id)
       }
       if (*p_sheme != ':')
       {
-         int ii;
-
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Impossible, could not determine the sheme! (%s %d)\n",
                    __FILE__, __LINE__);
          p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-         for (ii = 0; ii < no_of_dirs; ii++)
-         {
-            free(de[ii].fme);
-         }
          free(db); free(de);
          free(tmp_ptr);
          unmap_data(jd_fd, jd);
@@ -742,16 +620,10 @@ create_db(int shmem_id)
 #endif
                   if (strcmp(db[i].recipient, SMTP_SHEME) != 0)
                   {
-                     int ii;
-
                      (void)rec(sys_log_fd, FATAL_SIGN,
                                "Unknown sheme <%s>. (%s %d)\n",
                                db[i].recipient, __FILE__, __LINE__);
                      p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-                     for (ii = 0; ii < no_of_dirs; ii++)
-                     {
-                        free(de[ii].fme);
-                     }
                      free(db); free(de);
                      free(tmp_ptr);
                      unmap_data(jd_fd, jd);
@@ -788,20 +660,18 @@ create_db(int shmem_id)
       *p_sheme = ':';
 
       lookup_job_id(&db[i], &jid_number);
-      if (db[i].next_start_time > 0)
+      if (db[i].time_option_type == SEND_COLLECT_TIME)
       {
          enter_time_job(i);
       }
    } /* for (i = 0; i < no_of_jobs; i++)  */
-
-   unlock_region(dnb_fd, 1);
 
    if (no_of_time_jobs > 1)
    {
       sort_time_job();
    }
 
-   write_numbers(jid_number, did_number);
+   write_numbers(jid_number);
 
    /* Write job list file. */
    write_current_msg_list(no_of_jobs);
@@ -812,6 +682,7 @@ create_db(int shmem_id)
    /* Free all memory */
    free(tmp_ptr);
    free(gotcha);
+   unmap_data(dnb_fd, dnb);
    unmap_data(jd_fd, jd);
    p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
 
@@ -841,7 +712,7 @@ create_db(int shmem_id)
         }
 
 #ifdef _TEST_FILE_TABLE
-   for (i = 0; i < no_of_dirs; i++)
+   for (i = 0; i < no_of_local_dirs; i++)
    {
       (void)fprintf(stdout, "Directory entry %d : %s\n", i, de[i].dir);
       for (j = 0; j < de[i].nfg; j++)
@@ -855,7 +726,6 @@ create_db(int shmem_id)
          (void)fprintf(stdout, "\t\tNumber of destinations = %d\n", de[i].fme[j].dest_count);
       }
       (void)fprintf(stdout, "\tNumber of file groups  = %d\n", de[i].nfg);
-      (void)fprintf(stdout, "\tTotal number of files  = %d\n", de[i].tnfm);
       if (de[i].all_flag == YES)
       {
          (void)fprintf(stdout, "\tAll files selected    = YES\n");
@@ -933,7 +803,7 @@ write_current_msg_list(int no_of_jobs)
 
 /*+++++++++++++++++++++++++++ write_numbers() +++++++++++++++++++++++++++*/
 static void
-write_numbers(int jid_number, int did_number)
+write_numbers(int jid_number)
 {
    size_t length;
    char   str_number[MAX_INT_LENGTH];
@@ -956,30 +826,6 @@ write_numbers(int jid_number, int did_number)
       }
    }
    if (close(jid_fd) == -1)
-   {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-   }
-
-   /* Save current DID number */
-   length = sprintf(str_number, "%d", did_number);
-   if (lseek(did_fd, SEEK_SET, 0) == -1)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to lseek() in DID number file : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-   }
-   else
-   {
-      if (write(did_fd, str_number, length) != length)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to write() highest DID number : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
-      }
-   }
-   if (close(did_fd) == -1)
    {
       (void)rec(sys_log_fd, DEBUG_SIGN,
                 "close() error : %s (%s %d)\n",

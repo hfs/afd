@@ -59,6 +59,7 @@ int               *p_log_counter,
                   sys_log_fd = STDERR_FILENO;
 unsigned int      total_length;
 char              *p_log_fifo,
+                  *p_log_his = NULL,
                   *p_work_dir;
 struct mon_status *p_mon_status;
 

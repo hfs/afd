@@ -56,7 +56,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>       /* fprintf(), stderr, remove()                  */
+#include <stdio.h>       /* fprintf(), stderr                            */
 #include <string.h>      /* strcpy(), strcat(), strerror()               */
 #include <time.h>        /* time()                                       */
 #include <ctype.h>       /* isdigit()                                    */

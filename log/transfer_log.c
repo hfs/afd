@@ -73,21 +73,21 @@ main(int argc, char *argv[])
                   length,
                   no_of_buffered_writes = 0,
                   prev_length = 0,
-                  log_pos = 0,
+                  log_pos,
                   dup_msg = 0,
                   status,
                   transfer_fd;
    unsigned int   *p_log_counter;
    time_t         next_file_time,
+                  next_his_time,
                   now;
    long           fifo_size;
    char           *ptr,
                   *p_end,
                   *fifo_buffer,
                   *p_log_fifo,
+                  *p_log_his,
                   work_dir[MAX_PATH_LENGTH],
-                  transfer_log_fifo[MAX_PATH_LENGTH],
-                  sys_log_fifo[MAX_PATH_LENGTH],
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH],
                   msg_str[MAX_LINE_LENGTH],
@@ -102,47 +102,53 @@ main(int argc, char *argv[])
    {
       exit(INCORRECT);
    }
-   p_work_dir = work_dir;
+   else
+   {
+      char transfer_log_fifo[MAX_PATH_LENGTH],
+           sys_log_fifo[MAX_PATH_LENGTH];
 
-   /* Create and open fifos that we need */
-   (void)strcpy(transfer_log_fifo, work_dir);
-   (void)strcat(transfer_log_fifo, FIFO_DIR);
-   (void)strcpy(sys_log_fifo, transfer_log_fifo);
-   (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
-   (void)strcat(transfer_log_fifo, TRANSFER_LOG_FIFO);
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
+      p_work_dir = work_dir;
+
+      /* Create and open fifos that we need */
+      (void)strcpy(transfer_log_fifo, work_dir);
+      (void)strcat(transfer_log_fifo, FIFO_DIR);
+      (void)strcpy(sys_log_fifo, transfer_log_fifo);
+      (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
+      (void)strcat(transfer_log_fifo, TRANSFER_LOG_FIFO);
+      if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(sys_log_fifo) < 0)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to create fifo %s. (%s %d)\n",
+                      sys_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   sys_log_fifo, __FILE__, __LINE__);
+                   "Failed to open() fifo %s : %s (%s %d)\n",
+                   sys_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() fifo %s : %s (%s %d)\n",
-                sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   if ((stat(transfer_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(transfer_log_fifo) < 0)
+      if ((stat(transfer_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(transfer_log_fifo) < 0)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to create fifo %s. (%s %d)\n",
+                      transfer_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if ((transfer_fd = open(transfer_log_fifo, O_RDWR)) < 0)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   transfer_log_fifo, __FILE__, __LINE__);
+                   "Failed to open() fifo %s : %s (%s %d)\n",
+                   transfer_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((transfer_fd = open(transfer_log_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() fifo %s : %s (%s %d)\n",
-                transfer_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
    
    /*
@@ -175,7 +181,9 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_log_counter = (unsigned int *)&p_afd_status->trans_log_ec;
+   log_pos = p_afd_status->trans_log_ec % LOG_FIFO_SIZE;
    p_log_fifo = &p_afd_status->trans_log_fifo[0];
+   p_log_his = p_afd_status->trans_log_history;
 
    /*
     * Set umask so that all log files have the permission 644.
@@ -199,7 +207,12 @@ main(int argc, char *argv[])
                     work_dir, LOG_DIR, TRANSFER_LOG_NAME);
 
    /* Calculate time when we have to start a new file */
-   next_file_time = (time(NULL) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
+   next_file_time = (time(&now) / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
+                    SWITCH_FILE_TIME;
+
+   /* Calculate time when to shuffle the history array. */
+   next_his_time = (now / HISTORY_LOG_INTERVAL) * HISTORY_LOG_INTERVAL +
+                   HISTORY_LOG_INTERVAL;
 
    /* Is current log file already too old? */
    if (stat(current_log_file, &stat_buf) == 0)
@@ -262,6 +275,13 @@ main(int argc, char *argv[])
             transfer_file = open_log_file(current_log_file);
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
          }
+         if (now > next_his_time)
+         {
+            (void)memmove(p_log_his, p_log_his + 1, MAX_LOG_HISTORY - 1);
+            p_log_his[MAX_LOG_HISTORY - 1] = NO_INFORMATION;
+            next_his_time = (now / HISTORY_LOG_INTERVAL) * HISTORY_LOG_INTERVAL +
+                            HISTORY_LOG_INTERVAL;
+         }
       }
       else if (FD_ISSET(transfer_fd, &rset))
            {
@@ -276,7 +296,7 @@ main(int argc, char *argv[])
               if ((n = read(transfer_fd, fifo_buffer, fifo_size)) > 0)
               {
 #ifdef _FIFO_DEBUG
-                 show_fifo_data('R', transfer_log_fifo, fifo_buffer, n, __FILE__, __LINE__);
+                 show_fifo_data('R', TRANSFER_LOG_FIFO, fifo_buffer, n, __FILE__, __LINE__);
 #endif
 
                  /* Now evaluate all data read from fifo, byte after byte */
@@ -289,7 +309,7 @@ main(int argc, char *argv[])
                        msg_str[length] = *ptr;
                        ptr++; count++; length++;
                     }
-                    if (*ptr == '\n')
+                    if ((*ptr == '\n') || (*ptr == '\0'))
                     {
                        ptr++; count++;
                     }
@@ -305,27 +325,26 @@ main(int argc, char *argv[])
                        switch(msg_str[LOG_SIGN_POSITION])
                        {
                           case 'I' : p_log_fifo[log_pos] = INFO_ID;
-                                     log_pos++;
-                                     (*p_log_counter)++;
                                      break;
                           case 'W' : p_log_fifo[log_pos] = WARNING_ID;
-                                     log_pos++;
-                                     (*p_log_counter)++;
                                      break;
                           case 'E' : p_log_fifo[log_pos] = ERROR_ID;
-                                     log_pos++;
-                                     (*p_log_counter)++;
+                                     break;
+                          case 'D' : /* Debug is NOT made vissible!!! */
                                      break;
                           case 'F' : p_log_fifo[log_pos] = FAULTY_ID;
-                                     log_pos++;
-                                     (*p_log_counter)++;
                                      break;
-                          case 'D' : /* Debug is NOT made vissible */
+                          default  : p_log_fifo[log_pos] = CHAR_BACKGROUND;
                                      break;
-                          default  : p_log_fifo[log_pos] = WHITE;
-                                     log_pos++;
-                                     (*p_log_counter)++;
-                                     break;
+                       }
+                       if (msg_str[LOG_SIGN_POSITION] != 'D')
+                       {
+                          if (p_log_fifo[log_pos] > p_log_his[MAX_LOG_HISTORY - 1])
+                          {
+                             p_log_his[MAX_LOG_HISTORY - 1] = p_log_fifo[log_pos];
+                          }
+                          log_pos++;
+                          (*p_log_counter)++;
                        }
                     }
 
@@ -349,7 +368,7 @@ main(int argc, char *argv[])
                                 (void)fprint_dup_msg(transfer_file,
                                                      dup_msg,
                                                      &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                     &prev_msg_str[LOG_SIGN_POSITION + 2],
+                                                     &prev_msg_str[LOG_SIGN_POSITION + 3],
                                                      now);
                              }
                              dup_msg = 0;
@@ -380,7 +399,7 @@ main(int argc, char *argv[])
                              (void)fprint_dup_msg(transfer_file,
                                                   dup_msg,
                                                   &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                  &prev_msg_str[LOG_SIGN_POSITION + 2],
+                                                  &prev_msg_str[LOG_SIGN_POSITION + 3],
                                                   now);
                           }
                           dup_msg = 0;

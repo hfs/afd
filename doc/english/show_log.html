@@ -1,74 +1,88 @@
-<HTML>
-<HEAD>
-<TITLE>AFD (show_log.html)</TITLE>
-</HEAD>
-<BODY bgcolor=#F0ECD6>
-<H1 ALIGN=center><A NAME="show_log">System, Transfer and Transfer Debug Window</A></H1>
-<P>
-<HR SIZE=3 NOSHADE>
-<P>
-<CENTER><IMG SRC="../images/show_log_small.gif"></CENTER>
-<P>
+<html>
+<head>
+<title>AFD (show_log.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="show_log">System, Receive, Transfer and
+                                    Transfer Debug Window</a></h1>
+<hr size=3 noshade>
+<p>
+<center><img src="../images/show_log_small.gif" alt="[image of show_log dialog]"></center>
+</p>
+<p>
 The show_log dialog was designed to continously show all activities
-in the given (system, transfer or transfer debug) log file. Even when
+in the given (system, receive, transfer or transfer debug) log file. Even when
 a log file is full and a new one is opened show_log will notice this
-and continue to show the newest information.
-<P>
-<CENTER><IMG SRC="../images/show_log_top.gif"></CENTER>
-<P>
-<CENTER>
-<TABLE BORDER>
-<TR>
-   <TD><B>&nbsp 1&nbsp</B></TD>
-   <TD>Toggle area to select the information that should be displayed. It
+and continue to show the newest information. It is also possible to view
+just a certain log level for example only errors and warnings.
+</p>
+<p>
+<center><img src="../images/show_log_top.gif" alt="[closeup of the top part]"></center>
+</p>
+<p>
+<center>
+<table border>
+<tr>
+   <td><b>&nbsp; 1&nbsp;</b></td>
+   <td>Toggle area to select the information that should be displayed. It
        is not necessary to press the update button for the selection to
        become active.
-       <TABLE>
-       <TR>
-          <TD>Info</TD>
-          <TD>Show information. Everything that is not dangerous.</TD>
-       </TR>
-       <TR>
-          <TD>Warn</TD>
-          <TD>Show warnings.</TD>
-       </TR>
-       <TR>
-          <TD>Error</TD>
-          <TD>Show errors. Important messages for the AFD system administrator.</TD>
-       </TR>
-       <TR>
-          <TD>Debug</TD>
-          <TD>Show debug information. This information is only for the developer.</TD>
-       </TR>
-       </TABLE>
-       NOTE: Fatal messages are always shown.
-   </TD>
-</TR>
-<TR>
-   <TD><B>&nbsp 2&nbsp</B></TD>
-   <TD>Here it is possible to select an older log file for viewing. After
+       <table>
+       <tr>
+          <td>Info</td>
+          <td>Show information. Everything that is not dangerous.</td>
+       </tr>
+       <tr>
+          <td>Config</td>
+          <td>Show configuration information. Any configuration such as
+              starting or stoping the transfer or queue. This button
+              will only be shown for the system log.</td>
+       </tr>
+       <tr>
+          <td>Warn</td>
+          <td>Show warnings.</td>
+       </tr>
+       <tr>
+          <td>Error</td>
+          <td>Show errors. Important messages for the AFD system
+              administrator.</td>
+       </tr>
+       <tr>
+          <td>Debug</td>
+          <td>Show debug information. This information is only for the
+              developer and sometimes for the system administrator.</td>
+       </tr>
+       </table>
+       NOTE: Fatal messages and the so called "no information" messages
+             (eg. to indicate a new month) are always shown.
+   </td>
+</tr>
+<tr>
+   <td><b>&nbsp; 2&nbsp;</b></td>
+   <td>Here it is possible to select an older log file for viewing. After
        moving the slider the update button must be pressed for the selection
        to become active.
-   </TD>
-</TR>
-<TR>
-   <TD><B>&nbsp 3&nbsp</B></TD>
-   <TD>The number log entries found.</TD>
-</TR>
-</TABLE>
-</CENTER>
-<P>
-<HR SIZE=3 NOSHADE>
-<TABLE>
-<TR>
-   <TD WIDTH=600><SMALL><ADDRESS>
-   Copyright &copy; 1997 by H.Kiehl<BR>
-   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
-   Last updated: 27.09.1997
-   </ADDRESS></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
-</TR>
-</TABLE>
-</BODY>
-</HTML>
+   </td>
+</tr>
+<tr>
+   <td><b>&nbsp; 3&nbsp;</b></td>
+   <td>The number log entries found.</td>
+</tr>
+</table>
+</center>
+</p>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1997 - 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 04.06.2001
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

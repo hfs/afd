@@ -1,6 +1,6 @@
 /*
  *  afddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -33,8 +33,8 @@
 #include <sys/types.h>
 
 /* Define the language to use */
-#define GERMAN
-/* #define ENGLISH */
+/* #define GERMAN */
+#define ENGLISH
 
 #ifdef _LINK_MAX_TEST
 #define LINKY_MAX                  4
@@ -63,15 +63,19 @@
 #define AMG                        "amg"
 #define FD                         "fd"
 #define SEND_FILE_FTP              "sf_ftp"
+#define GET_FILE_FTP               "gf_ftp"
 #define SEND_FILE_SMTP             "sf_smtp"
+#define GET_FILE_SMTP              "gf_smtp"
 #define SEND_FILE_LOC              "sf_loc"
 #ifdef _WITH_WMO_SUPPORT
 #define SEND_FILE_WMO              "sf_wmo"
+#define GET_FILE_WMO               "gf_wmo"
 #endif
 #ifdef _WITH_MAP_SUPPORT
 #define SEND_FILE_MAP              "sf_map"
 #endif
 #define SLOG                       "system_log"
+#define RLOG                       "receive_log"
 #define TLOG                       "transfer_log"
 #define TDBLOG                     "trans_db_log"
 #define MON_SYS_LOG                "mon_sys_log"
@@ -104,6 +108,8 @@
 #define MON_INFO                   "mon_info"
 #define AFD_CMD                    "afdcmd"
 #define VIEW_DC                    "view_dc"
+#define DIR_CTRL                   "dir_ctrl"
+#define DIR_INFO                   "dir_info"
 #define MAX_PROCNAME_LENGTH        14
 #define AFD_USER_NAME              "afd"
 #define AFD_ACTIVE_FILE            "/AFD_ACTIVE"
@@ -127,7 +133,11 @@
 /* Definitions of lock ID's */
 #define EDIT_HC_LOCK_ID            0    /* Edit host configuration      */
 #define EDIT_DC_LOCK_ID            1    /* Edit directory configuration */
-#define NO_OF_LOCK_PROC            2
+#define AMG_LOCK_ID                2    /* AMG                          */
+#define FD_LOCK_ID                 3    /* FD                           */
+#define AW_LOCK_ID                 4    /* Archive watch                */
+#define AS_LOCK_ID                 5    /* AFD statistics               */
+#define NO_OF_LOCK_PROC            6
 
 /* Commands that can be send to DB_UPDATE_FIFO of the AMG */
 #define HOST_CONFIG_UPDATE         4
@@ -156,7 +166,9 @@
 #define WRITTING_JID_STRUCT        64
 #define FD_DIR_CHECK_ACTIVE        128
 
-#define DIRS_IN_FILE_DIR           5
+/* The number of directories that are always in the AFD file directory: */
+/*         ".", "..", "error", "pool", "time", "incoming"               */
+#define DIRS_IN_FILE_DIR           6
 
 #define HOST_DISABLED              32
 #define HOST_IN_DIR_CONFIG         64  /* Host in DIR_CONFIG file (bit 7)*/
@@ -166,85 +178,86 @@
 #define AMG_NO                     0
 #define FD_NO                      1
 #define SLOG_NO                    2
-#define TLOG_NO                    3
-#define TDBLOG_NO                  4
-#define AW_NO                      5
-#define STAT_NO                    6
-#define IT_NO                      7
-#define AFDD_NO                    8
+#define RLOG_NO                    3
+#define TLOG_NO                    4
+#define TDBLOG_NO                  5
+#define AW_NO                      6
+#define STAT_NO                    7
+#define DC_NO                      8
+#define AFDD_NO                    9
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_NO_MMAP)
-#define MAPPER_NO                  9
-#define DL_NO                      10
-#define NO_OF_PROCESS              11
+#define MAPPER_NO                  10
+#define DL_NO                      11
+#define NO_OF_PROCESS              12
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define DL_NO                      9
-#define NO_OF_PROCESS              10
+#define DL_NO                      10
+#define NO_OF_PROCESS              11
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define IL_NO                      9
-#define NO_OF_PROCESS              10
+#define IL_NO                      10
+#define NO_OF_PROCESS              11
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define IL_NO                      9
-#define DL_NO                      10
-#define NO_OF_PROCESS              11
+#define IL_NO                      10
+#define DL_NO                      11
+#define NO_OF_PROCESS              12
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && defined (_NO_MMAP)
-#define MAPPER_NO                  9
-#define IL_NO                      10
-#define NO_OF_PROCESS              11
+#define MAPPER_NO                  10
+#define IL_NO                      11
+#define NO_OF_PROCESS              12
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_NO_MMAP)
-#define MAPPER_NO                  9
-#define IL_NO                      10
-#define DL_NO                      11
-#define NO_OF_PROCESS              12
+#define MAPPER_NO                  10
+#define IL_NO                      11
+#define DL_NO                      12
+#define NO_OF_PROCESS              13
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && !defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define OL_NO                      9
-#define NO_OF_PROCESS              10
+#define OL_NO                      10
+#define NO_OF_PROCESS              11
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define OL_NO                      9
-#define DL_NO                      10
-#define NO_OF_PROCESS              11
+#define OL_NO                      10
+#define DL_NO                      11
+#define NO_OF_PROCESS              12
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && !defined (_DELETE_LOG) && defined (_NO_MMAP)
-#define MAPPER_NO                  9
-#define OL_NO                      10
-#define NO_OF_PROCESS              11
+#define MAPPER_NO                  10
+#define OL_NO                      11
+#define NO_OF_PROCESS              12
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && defined (_DELETE_LOG) && defined (_NO_MMAP)
-#define MAPPER_NO                  9
-#define OL_NO                      10
-#define DL_NO                      11
-#define NO_OF_PROCESS              12
+#define MAPPER_NO                  10
+#define OL_NO                      11
+#define DL_NO                      12
+#define NO_OF_PROCESS              13
 #endif
 #if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define IL_NO                      9
-#define OL_NO                      10
-#define NO_OF_PROCESS              11
-#endif
-#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define IL_NO                      9
-#define OL_NO                      10
-#define DL_NO                      11
+#define IL_NO                      10
+#define OL_NO                      11
 #define NO_OF_PROCESS              12
 #endif
-#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_NO_MMAP)
-#define MAPPER_NO                  9
+#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_NO_MMAP)
 #define IL_NO                      10
 #define OL_NO                      11
 #define DL_NO                      12
 #define NO_OF_PROCESS              13
 #endif
+#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_NO_MMAP)
+#define MAPPER_NO                  10
+#define IL_NO                      11
+#define OL_NO                      12
+#define DL_NO                      13
+#define NO_OF_PROCESS              14
+#endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_NO_MMAP)
-#define NO_OF_PROCESS              9
+#define NO_OF_PROCESS              10
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && defined (_NO_MMAP)
-#define MAPPER_NO                  9
-#define NO_OF_PROCESS              10
+#define MAPPER_NO                  10
+#define NO_OF_PROCESS              11
 #endif
 
 #define NA                         -1
@@ -265,6 +278,7 @@
 #define NONE                       5
 #define IS_LOCKED                  -2
 #define IS_NOT_LOCKED              11
+#define AUTO_SIZE_DETECT           -2
 
 #define GO_PARALLEL                8
 #define SPLIT_FILE_LIST            16
@@ -318,6 +332,18 @@
 #define WMO                        4
 #define WMO_FLAG                   16
 #endif
+#define SEND_FLAG                  256
+#define RETRIEVE_FLAG              512
+#define SEND_FTP_FLAG              65536
+#define SEND_LOC_FLAG              131072
+#define SEND_SMTP_FLAG             262144
+#ifdef _WITH_MAP_SUPPORT
+#define SEND_MAP_FLAG              524288
+#endif
+#ifdef _WITH_WMO_SUPPORT
+#define SEND_WMO_FLAG              1048576
+#endif
+#define GET_FTP_FLAG               16777216
 
 #define FTP_SHEME                  "ftp"
 #define FTP_SHEME_LENGTH           3
@@ -349,21 +375,23 @@
 #define DEFAULT_NO_OF_NO_BURSTS    0
 
 /* Definitions to be read from the AFD_CONFIG file. */
-#define DEFAULT_PRINTER_CMD_DEF    "DEFAULT_PRINTER_CMD"
-#define DEFAULT_PRINTER_NAME_DEF   "DEFAULT_PRINTER_NAME"
-#define MAX_CONNECTIONS_DEF        "MAX_CONNECTIONS"
-#define MAX_COPIED_FILES_DEF       "MAX_COPIED_FILES"
-#define MAX_COPIED_FILE_SIZE_DEF   "MAX_COPIED_FILE_SIZE"
-#define ONE_DIR_COPY_TIMEOUT_DEF   "ONE_DIR_COPY_TIMEOUT"
+#define DEFAULT_PRINTER_CMD_DEF        "DEFAULT_PRINTER_CMD"
+#define DEFAULT_PRINTER_NAME_DEF       "DEFAULT_PRINTER_NAME"
+#define MAX_CONNECTIONS_DEF            "MAX_CONNECTIONS"
+#define MAX_COPIED_FILES_DEF           "MAX_COPIED_FILES"
+#define MAX_COPIED_FILE_SIZE_DEF       "MAX_COPIED_FILE_SIZE"
+#define ONE_DIR_COPY_TIMEOUT_DEF       "ONE_DIR_COPY_TIMEOUT"
+#define REMOTE_FILE_CHECK_INTERVAL_DEF "REMOTE_FILE_CHECK_INTERVAL"
 #ifndef _WITH_PTHREAD
-#define DIR_CHECK_TIMEOUT_DEF      "DIR_CHECK_TIMEOUT"
+#define DIR_CHECK_TIMEOUT_DEF          "DIR_CHECK_TIMEOUT"
 #endif
-#define TRUSTED_REMOTE_IP_DEF      "TRUSTED_REMOTE_IP"
-#define PING_CMD_DEF               "PING_CMD"
-#define TRACEROUTE_CMD_DEF         "TRACEROUTE_CMD"
+#define TRUSTED_REMOTE_IP_DEF          "TRUSTED_REMOTE_IP"
+#define PING_CMD_DEF                   "PING_CMD"
+#define TRACEROUTE_CMD_DEF             "TRACEROUTE_CMD"
 
-/* Heading identifiers for the AMG database file */
+/* Heading identifiers for the DIR_CONFIG file and messages. */
 #define DIR_IDENTIFIER             "[directory]"
+#define DIR_OPTION_IDENTIFIER      "[dir options]"
 #define FILE_IDENTIFIER            "[files]"
 #define DESTINATION_IDENTIFIER     "[destination]"
 #define RECIPIENT_IDENTIFIER       "[recipient]"
@@ -377,7 +405,7 @@
                                          /* eliminated.                  */
 #define MAX_REAL_HOSTNAME_LENGTH   40    /* How long the real host name  */
                                          /* or its IP number may be.     */
-#define MAX_PROXY_NAME_LENGTH      25    /* The maximum length of the    */
+#define MAX_PROXY_NAME_LENGTH      80    /* The maximum length of the    */
                                          /* remote proxy name.           */
 #define MAX_MSG_NAME_LENGTH        30    /* Maximum length of message    */
                                          /* name.                        */
@@ -417,56 +445,66 @@
 #define AUTO_PAUSE_QUEUE_LOCK_STAT 16
 
 /* Position of each colour in global array */
-#define DEFAULT_BG                 0  /* Background                  */
+#define DEFAULT_BG                 0  /* Background                      */
 #define WHITE                      1
-#define DISCONNECT                 1  /* Successful completion of    */
-                                      /* operation and disconnected. */
-#define NOT_WORKING                2
-#define NOT_WORKING2               3
-#define ERROR_ID                   3
-#define DISCONNECTED               3  /* AFD_MON not connected.      */
-#define STOP_TRANSFER              4  /* Transfer to this host is    */
-                                      /* stopped.                    */
-#define WARNING_ID                 4
-#define CONFIG_ID                  5
-#define TRANSFER_ACTIVE            5  /* Creating remote lockfile    */
-                                      /* and transferring files.     */
-#define PAUSE_QUEUE                6
-#define NORMAL_STATUS              7
-#define INFO_ID                    7
-#define CONNECTING                 8  /* Open connection to remote   */
-                                      /* host, sending user and pass-*/
-                                      /* word, setting transfer type */
-                                      /* and changing directory.     */
-#define BLACK                      9
-#define FG                         9  /* Foreground                  */
-#define FAULTY_ID                  9
-#define LOCKED_INVERSE             10
-#define TR_BAR                     11 /* Colour for transfer rate bar*/
-#define DEBUG_MODE                 11
+#define DISCONNECT                 1  /* Successful completion of        */
+                                      /* operation and disconnected.     */
+#define DISABLED                   1
+#define NO_INFORMATION             1
+#define CHAR_BACKGROUND            2  /* Background color for characters.*/
+#define DISCONNECTED               2  /* AFD_MON not connected.          */
+#define CLOSING_CONNECTION         2  /* Closing an active connection.   */
+#define PAUSE_QUEUE                3
+#define AUTO_PAUSE_QUEUE           4
+#define CONNECTING                 5  /* Open connection to remote host, */
+                                      /* sending user and password,      */
+                                      /* setting transfer type and       */
+                                      /* changing directory.             */
+#define LOCKED_INVERSE             6
+#define TR_BAR                     7  /* Colour for transfer rate bar.   */
+#define DEBUG_MODE                 7
 #ifdef _WITH_WMO_SUPPORT
-#define WMO_ACTIVE                 11
+#define WMO_ACTIVE                 7
 #endif
-#define LABEL_BG                   12 /* Background for label        */
+#define LABEL_BG                   8  /* Background for label.           */
 #ifdef _WITH_MAP_SUPPORT
-#define MAP_ACTIVE                 12
+#define MAP_ACTIVE                 8
 #endif
-#define FAULTY_TRANSFERS           13 /* When logging in failed or   */
-                                      /* we cannot access the        */
-                                      /* directory where we have to  */
-                                      /* store the files.            */
-#define EMAIL_ACTIVE               14
-#define CHAR_BACKGROUND            15 /* Background color for characters */
-#define FTP_BURST_TRANSFER_ACTIVE  16
+#define BUTTON_BACKGROUND          9  /* Background for button line in   */
+                                      /* afd_ctrl dialog.                */
+#define EMAIL_ACTIVE               10
+#define FTP_BURST_TRANSFER_ACTIVE  11
+#define CONNECTION_ESTABLISHED     12 /* AFD_MON                         */
+#define NORMAL_STATUS              12
+#define INFO_ID                    12
+#define RETRIEVE_ACTIVE            12 /* When gf_ftp retrieves files.    */
+#define CONFIG_ID                  13
+#define TRANSFER_ACTIVE            13 /* Creating remote lockfile and    */
+                                      /* transferring files.             */
+#define DIRECTORY_ACTIVE           13
+#define STOP_TRANSFER              14 /* Transfer to this host is        */
+                                      /* stopped.                        */
+#define WARNING_ID                 14
+#define NOT_WORKING                15
+#define NOT_WORKING2               16
+#define ERROR_ID                   16
+#define CONNECTION_DEFUNCT         16 /* AFD_MON, connection not         */
+                                      /* working.                        */
+#define BLACK                      17
+#define FG                         17 /* Foreground                      */
+#define FAULTY_ID                  17
 #ifdef _WITH_WMO_SUPPORT
-#define WMO_BURST_TRANSFER_ACTIVE  17
-#define AUTO_PAUSE_QUEUE           18
+#define WMO_BURST_TRANSFER_ACTIVE  18
 #define COLOR_POOL_SIZE            19
 #else
-#define AUTO_PAUSE_QUEUE           17
 #define COLOR_POOL_SIZE            18
 #endif
 
+/* History types. */
+#define RECEIVE_HISTORY            0
+#define SYSTEM_HISTORY             1
+#define TRANSFER_HISTORY           2
+#define NO_OF_LOG_HISTORY          3
 
 /* Directory definitions */
 #define AFD_MSG_DIR                "/messages"
@@ -482,7 +520,13 @@
                                                 /* could not be           */
                                                 /* transfered.            */
 
+#define INCOMING_DIR               "/incoming"
+#define FILE_MASK_DIR              "/file_mask"
+#define LS_DATA_DIR                "/ls_data"
 #define FSA_ID_FILE                "/fsa.id"
+#define FSA_STAT_FILE              "/fsa_status"
+#define FRA_ID_FILE                "/fra.id"
+#define FRA_STAT_FILE              "/fra_status"
 #define STATUS_SHMID_FILE          "/afd.status"
 #define BLOCK_FILE                 "/NO_AUTO_RESTART"
 #define COUNTER_FILE               "/amg_counter"
@@ -491,11 +535,9 @@
 #define AFD_NAME                   "afd.name"
 #define MAX_AFD_NAME_LENGTH         30
 
-/* Definition of file that holds status of the FSA */
-#define FSA_STAT_FILE              "/fsa_status"
-
 /* Definitions of fifo names */
 #define SYSTEM_LOG_FIFO            "/system_log.fifo"
+#define RECEIVE_LOG_FIFO           "/receive_log.fifo"
 #define TRANSFER_LOG_FIFO          "/transfer_log.fifo"
 #define TRANS_DEBUG_LOG_FIFO       "/trans_db_log.fifo"
 #define MON_SYS_LOG_FIFO           "/mon_sys_log.fifo"
@@ -510,6 +552,7 @@
 #define IP_FIN_FIFO                "/ip_fin.fifo"
 #define SF_FIN_FIFO                "/sf_fin.fifo"
 #define RETRY_FD_FIFO              "/retry_fd.fifo"
+#define RETRY_FR_FIFO              "/retry_fr.fifo"
 #define DELETE_JOBS_FIFO           "/delete_jobs.fifo"
 #define DELETE_JOBS_HOST_FIFO      "/delete_jobs_host.fifo"
 #define FD_WAKE_UP_FIFO            "/fd_wake_up.fifo"
@@ -557,6 +600,8 @@
 #define SHUTDOWN                   19
 #define FSA_UPDATED                20
 #define CHECK_FILE_DIR             21 /* Check for jobs without message. */
+#define DISABLE_MON                22
+#define ENABLE_MON                 23
 
 /* In process AFD we have various stop flags */
 #define STARTUP_ID                 -1
@@ -653,7 +698,7 @@ struct status
           unsigned long file_size_in_use_done;  /* Number of bytes send  */
                                                 /* for current file.     */
        };
-  
+
 struct filetransfer_status
        {
           char           host_alias[MAX_HOSTNAME_LENGTH + 1];
@@ -676,7 +721,7 @@ struct filetransfer_status
                                             /* as stored in host_alias   */
                                             /* plus the toggling         */
                                             /* character.                */
-          char           proxy_name[MAX_PROXY_NAME_LENGTH];
+          char           proxy_name[MAX_PROXY_NAME_LENGTH + 1];
           char           host_toggle_str[MAX_TOGGLE_STR_LENGTH];
           char           toggle_pos;        /* The position of the       */
                                             /* toggling character in the */
@@ -714,8 +759,29 @@ struct filetransfer_status
                                             /*|      | that may NOT     |*/
                                             /*|      | burst.           |*/
                                             /*+------+------------------+*/
-          unsigned char  protocol;          /* Transfer protocol that    */
-                                            /* is being used.            */
+          unsigned int   protocol;          /* Transfer protocol that    */
+                                            /* is being used:            */
+                                            /*+------+------------------+*/
+                                            /*|Bit(s)|     Meaning      |*/
+                                            /*+------+------------------+*/
+                                            /*| 26-32| Not used.        |*/
+                                            /*| 25   | GET_FTP          |*/
+                                            /*| 22-24| Not used.        |*/
+                                            /*| 21   | SEND_WMO         |*/
+                                            /*| 20   | SEND_MAP         |*/
+                                            /*| 19   | SEND_SMTP        |*/
+                                            /*| 18   | SEND_LOC         |*/
+                                            /*| 17   | SEND_FTP         |*/
+                                            /*| 11-16| Not used.        |*/
+                                            /*| 10   | RETRIEVE         |*/
+                                            /*| 9    | SEND             |*/
+                                            /*| 6 - 8| Not used.        |*/
+                                            /*| 5    | WMO              |*/
+                                            /*| 4    | MAP              |*/
+                                            /*| 3    | SMTP             |*/
+                                            /*| 2    | LOC              |*/
+                                            /*| 1    | FTP              |*/
+                                            /*+------+------------------+*/
           char           debug;             /* When this flag is set all */
                                             /* transfer information is   */
                                             /* logged.                   */
@@ -747,7 +813,7 @@ struct filetransfer_status
                                             /* files still to be send.   */
           unsigned long  total_file_size;   /* The overall number of     */
                                             /* bytes still to be send.   */
-          int            total_connect_time;/******** NOT USED !!! *******/
+          unsigned int   total_connect_time;/******** NOT USED !!! *******/
           unsigned int   file_counter_done; /* No. of files done so far. */
           unsigned long  bytes_send;        /* No. of bytes send so far. */
           unsigned int   connections;       /* No. of connections.       */
@@ -755,13 +821,106 @@ struct filetransfer_status
                                             /* data.                     */
           int            allowed_transfers; /* Maximum no. of parallel   */
                                             /* transfers for this host.  */
-          int            transfer_rate;     /* Overall transfer rate for */
-                                            /* this host.                */
           long           transfer_timeout;  /* When to timeout the       */
                                             /* transmitting job.         */
           struct status  job_status[MAX_NO_PARALLEL_JOBS];
        };
-      
+
+/* Structure to hold all possible bits for a time entry */
+struct bd_time_entry
+       {
+#ifdef _WORKING_LONG_LONG
+          unsigned long long continuous_minute;
+          unsigned long long minute;
+#else
+          unsigned char      continuous_minute[8];
+          unsigned char      minute[8];
+#endif
+          unsigned int       hour;
+          unsigned int       day_of_month;
+          unsigned short     month;
+          unsigned char      day_of_week;
+       };
+
+/* Structure holding all neccessary data for retrieving files */
+struct fileretrieve_status
+       {
+          char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
+          char          host_alias[MAX_HOSTNAME_LENGTH + 1];
+                                            /* Here the alias hostname is*/
+                                            /* stored. When a secondary  */
+                                            /* host can be specified,    */
+                                            /* only that part is stored  */
+                                            /* up to the position of the */
+                                            /* toggling character eg:    */
+                                            /* mrz_mfa + mrz_mfb =>      */
+                                            /*       mrz_mf              */
+          char          url[MAX_RECIPIENT_LENGTH];
+          struct bd_time_entry te;
+          unsigned char dir_status;         /* Status of this directory. */
+          unsigned char remove;             /* Should the files be       */
+                                            /* removed when they are     */
+                                            /* being retrieved.          */
+          unsigned char stupid_mode;        /* If set it will NOT        */
+                                            /* collect information about */
+                                            /* files that where found in */
+                                            /* directory. So that when   */
+                                            /* remove is not set we will */
+                                            /* not always collect the    */
+                                            /* same files. This ensures  */
+                                            /* that files are collected  */
+                                            /* only once.                */
+          unsigned int  protocol;           /* Transfer protocol that    */
+                                            /* is being used.            */
+          unsigned char delete_unknown_files;
+          unsigned char report_unknown_files;
+          unsigned char important_dir;      /* Directory is important.   */
+                                            /* In times where all        */
+                                            /* directories contain lots  */
+                                            /* files or the filesystem   */
+                                            /* is very slow, this        */
+                                            /* directory will get more   */
+                                            /* attention.                */
+          unsigned char time_option;        /* Flag to indicate if the   */
+                                            /* time option is used.      */
+          char          force_reread;       /* Always read the directory.*/
+                                            /* Don't check the directory */
+                                            /* time.                     */
+          char          queued;             /* Used by FD, so it knows   */
+                                            /* if the job is in the      */
+                                            /* queue or not.             */
+          char          priority;           /* Priority of this          */
+                                            /* directory.                */
+          unsigned long bytes_received;     /* No. of bytes received so  */
+                                            /* far.                      */
+          unsigned int  files_received;     /* No. of files received so  */
+                                            /* far.                      */
+          time_t        last_retrieval;     /* Time of last retrieval.   */
+          time_t        next_check_time;    /* Next time to check for    */
+                                            /* files in directory.       */
+          int           old_file_time;      /* After how many hours can  */
+                                            /* a unknown file be         */
+                                            /* declared as old.          */
+          int           end_character;      /* Only pick up files where  */
+                                            /* the last charachter (of   */
+                                            /* the content) contains     */
+                                            /* this character. A -1      */
+                                            /* means not to check the    */
+                                            /* last character.           */
+          int           dir_pos;            /* Position of the directory */
+                                            /* name int the structure    */
+                                            /* dir_name_buf.             */
+          int           fsa_pos;            /* Position of this host in  */
+                                            /* FSA, to get the data that */
+                                            /* are in the HOST_CONFIG.   */
+          int           no_of_process;      /* The number of process     */
+                                            /* that currently process    */
+                                            /* data for this directory.  */
+          int           max_process;        /* The maximum number of     */
+                                            /* process that may be       */
+                                            /* forked for this directory.*/
+       };
+
 /* Structure that holds status of all process */
 struct afd_status
        {
@@ -780,6 +939,7 @@ struct afd_status
                                           /*+------+--------------------+*/
           signed char   fd;               /* File Distributor            */
           signed char   sys_log;          /* System Log                  */
+          signed char   receive_log;      /* Receive Log                 */
           signed char   trans_log;        /* Transfer Log                */
           signed char   trans_db_log;     /* Transfer Debug Log          */
           signed char   archive_watch;
@@ -799,11 +959,18 @@ struct afd_status
 #endif
           unsigned int  sys_log_ec;         /* System log entry counter. */
           char          sys_log_fifo[LOG_FIFO_SIZE + 1];
+          char          sys_log_history[MAX_LOG_HISTORY];
+          unsigned int  receive_log_ec;     /* Receive log entry counter.*/
+          char          receive_log_fifo[LOG_FIFO_SIZE + 1];
+          char          receive_log_history[MAX_LOG_HISTORY];
           unsigned int  trans_log_ec;       /* Transfer log entry        */
                                             /* counter.                  */
           char          trans_log_fifo[LOG_FIFO_SIZE + 1];
+          char          trans_log_history[MAX_LOG_HISTORY];
           int           no_of_transfers;    /* The number of active      */
                                             /* transfers system wide.    */
+          int           no_of_retrieves;    /* The number of process     */
+                                            /* that may collect files.   */
           nlink_t       jobs_in_queue;      /* The number of jobs still  */
                                             /* to be done by the FD.     */
           time_t        start_time;         /* Time when AFD was started.*/
@@ -837,14 +1004,12 @@ struct rule
 struct job_id_data
        {
           int  job_id;
-          int  dir_id_pos;
+          int  dir_id_pos;                  /* Position of the directory */
+                                            /* name int the structure    */
+                                            /* dir_name_buf.             */
           char priority;
           int  no_of_files;
-#ifdef _WITH_DYNAMIC_NO_OF_FILTERS
-          char **file_list;
-#else
-          char file_list[MAX_NO_FILES][MAX_FILENAME_LENGTH];
-#endif
+          char file_list[MAX_FILE_MASK_BUFFER];
           int  no_of_loptions;
           char loptions[MAX_OPTION_LENGTH];
           int  no_of_soptions;
@@ -854,8 +1019,17 @@ struct job_id_data
        };
 struct dir_name_buf
        {
-          char dir_name[MAX_PATH_LENGTH];
-          int  dir_id;
+          char dir_name[MAX_PATH_LENGTH];   /* Full directory name.      */
+          int  dir_id;                      /* Unique number to identify */
+                                            /* directory faster and      */
+                                            /* easier.                   */
+       };
+
+/* Definition for holding the file mask list. */
+struct file_mask
+       {
+          int  nfm;
+          char file_list[MAX_FILE_MASK_BUFFER];
        };
 
 struct delete_log
@@ -987,6 +1161,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                check_burst(char, int, unsigned int, char *, char *, int),
 #endif
                check_dir(char *, int),
+               check_fra(void),
                check_fsa(void),
                check_lock(char *, char),
                check_msa(void),
@@ -995,24 +1170,23 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                copy_file(char *, char *),
                create_message(int, char *, char *),
                create_name(char *, signed char, time_t, int, unsigned short *, char *),
+               create_remote_dir(char *, char *),
                extract(char *, char *, int, int *, off_t *),
                filter(char *, char *),
-               fprint_dup_msg(FILE *, int, char *, char *, time_t),
+               fra_attach(void),
+               fra_detach(void),
                fsa_attach(void),
                fsa_detach(void),
                get_afd_name(char *),
                get_afd_path(int *, char **, char *),
+               get_arg(int *, char **, char *, char *, int),
+               get_dir_position(struct fileretrieve_status *, char *, int),
                get_mon_path(int *, char **, char *),
                get_permissions(char **),
-               get_position(struct filetransfer_status *, char *, int),
+               get_host_position(struct filetransfer_status *, char *, int),
                get_rule(char *, int),
                lock_file(char *, int),
                lock_region(int, off_t),
-#ifdef _FIFO_DEBUG
-               logger(FILE *, int, char *, int),
-#else
-               logger(FILE *, int, int),
-#endif
                make_fifo(char *),
                move_file(char *, char *),
                msa_attach(void),
@@ -1030,6 +1204,7 @@ extern off_t   gts2tiff(char *, char *),
 extern pid_t   start_log(char *);
 #endif
 extern ssize_t readn(int, void *, int);
+extern time_t  calc_next_time(struct bd_time_entry *);
 extern void    *attach_buf(char *, int *, size_t, char *),
                bitset(unsigned char *, int),
                lock_region_w(int, off_t),
@@ -1040,6 +1215,7 @@ extern void    *attach_buf(char *, int *, size_t, char *),
                get_log_number(int *, int, char *, int),
                *map_file(char *, int *),
                *mmap_resize(int, void *, size_t),
+               receive_log(char *, char *, int, char *, ...),
                reshuffel_log_files(int, char *, char *),
                t_hostname(char *, char *),
                set_fl(int, int),

@@ -1,6 +1,6 @@
 /*
  *  show_ilog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -99,8 +99,7 @@ int              sys_log_fd = STDERR_FILENO,
                  file_name_length,
                  no_of_log_files,
                  no_of_search_hosts,
-                 char_width,
-                 view_passwd;
+                 char_width;
 Dimension        button_height;
 time_t           start_time_val,
                  end_time_val;
@@ -115,10 +114,11 @@ struct item_list *il;
 struct sol_perm  perm;
 
 /* Local function prototypes */
-static void      init_show_ilog(int, char **, char *, char *),
+static void      init_show_ilog(int *, char **),
                  eval_permissions(char *),
                  sig_bus(int),
-                 sig_segv(int);
+                 sig_segv(int),
+                 usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -176,13 +176,19 @@ main(int argc, char *argv[])
 
    /* Initialise global values */
    p_work_dir = work_dir;
-   init_show_ilog(argc, argv, font_name, window_title);
-
+   init_show_ilog(&argc, argv);
+   (void)strcpy(window_title, "Input Log ");
+   if (get_afd_name(&window_title[10]) == INCORRECT)
+   {
+      if (gethostname(&window_title[10], MAX_AFD_NAME_LENGTH) == 0)
+      {
+         window_title[0] = toupper((int)window_title[0]);
+      }
+   }
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    toplevel_w = XtAppInitialize(&app, "AFD", NULL, 0,
                                 &argc, argv, fallback_res, args, argcount);
-
    display = XtDisplay(toplevel_w);
 
    /* Create managing widget */
@@ -842,17 +848,27 @@ main(int argc, char *argv[])
 
 /*+++++++++++++++++++++++++++ init_show_ilog() ++++++++++++++++++++++++++*/
 static void
-init_show_ilog(int argc, char *argv[], char *font_name, char *window_title)
+init_show_ilog(int *argc, char *argv[])
 {
-   char *perm_buffer,
-        hostname[MAX_AFD_NAME_LENGTH];
+   char *perm_buffer;
 
-   if (get_afd_path(&argc, argv, p_work_dir) < 0)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
+   {
+      usage(argv[0]);
+      exit(SUCCESS);
+   }
+   if (get_afd_path(argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
                     "Failed to get working directory of AFD. (%s %d)\n",
                     __FILE__, __LINE__);
       exit(INCORRECT);
+   }
+   if (get_arg(argc, argv, "-f", font_name, 256) == INCORRECT)
+   {
+      (void)strcpy(font_name, "fixed");
    }
 
    /* Now lets see if user may use this program */
@@ -878,62 +894,31 @@ init_show_ilog(int argc, char *argv[], char *font_name, char *window_title)
                                     "Impossible!! Remove the programmer!\n");
                       exit(INCORRECT);
    }
-   if (argc < 1)
-   {
-      (void)fprintf(stderr,
-                    "Usage : %s [-w <working directory>] [font name] [host name 1..n]\n",
-                    argv[0]);
-      exit(INCORRECT);
-   }
-   if ((argc > 1) && (isdigit(argv[1][0]) != 0))
-   {
-      (void)strcpy(font_name, argv[1]);
-      argc--; argv++;
-   }
-   else
-   {
-      (void)strcpy(font_name, "fixed");
-   }
 
    /* Collect all hostnames */
-   no_of_search_hosts = argc - 1;
-   if (no_of_search_hosts > 0)  
+   no_of_search_hosts = *argc - 1;
+   if (no_of_search_hosts > 0)
    {
-      int i = 0;    
+      int i = 0;
 
       RT_ARRAY(search_recipient, no_of_search_hosts,
                (MAX_RECIPIENT_LENGTH + 1), char);
       RT_ARRAY(search_user, no_of_search_hosts,
                (MAX_RECIPIENT_LENGTH + 1), char);
-      while (argc > 1)          
+      while (*argc > 1)
       {
          (void)strcpy(search_recipient[i], argv[1]);
          if (strlen(search_recipient[i]) == MAX_HOSTNAME_LENGTH)
          {
             (void)strcat(search_recipient[i], "*");
          }
-         argc--; argv++;        
+         (*argc)--; argv++;
          i++;
       }
       for (i = 0; i < no_of_search_hosts; i++)
       {
          search_user[i][0] = '\0';
       }
-   }
-
-   /* Prepare title of this window. */
-   (void)strcpy(window_title, "Input Log ");
-   if (get_afd_name(hostname) == INCORRECT)
-   {
-      if (gethostname(hostname, MAX_AFD_NAME_LENGTH) == 0)
-      {
-         hostname[0] = toupper((int)hostname[0]);
-         (void)strcat(window_title, hostname);
-      }
-   }
-   else
-   {
-      (void)strcat(window_title, hostname);
    }
 
    start_time_val = -1;
@@ -944,6 +929,17 @@ init_show_ilog(int argc, char *argv[], char *font_name, char *window_title)
    special_button_flag = SEARCH_BUTTON;
    no_of_log_files = 0;
 
+   return;
+}
+
+
+/*---------------------------------- usage() ----------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr,
+                 "Usage : %s [-w <working directory>] [-f <font name>] [host name 1..n]\n",
+                 progname);
    return;
 }
 

@@ -81,6 +81,7 @@ DESCR__E_M3
 /* External global variables */
 extern int                        amg_flag,
                                   fsa_fd,
+                                  no_of_hosts,
                                   sys_log_fd;
 extern struct filetransfer_status *fsa;
 
@@ -100,16 +101,9 @@ check_burst(char         protocol,
             int          limit)
 {
    /* Do NOT burst when FSA is STALE! */
-   if (fsa != NULL)
+   if (no_of_hosts == STALE)
    {
-      char *ptr;
-
-      ptr = (char *)fsa;
-      ptr -= AFD_WORD_OFFSET;
-      if (*(int *)ptr == STALE)
-      {
-         return(NO);
-      }
+      return(NO);
    }
 
 #ifdef _WITH_WMO_SUPPORT
@@ -223,14 +217,25 @@ check_burst(char         protocol,
                     (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
                    (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == IS_NOT_LOCKED))
                {
-                  /* BURST FILES!!! */
-                  status = burst_files(burst_connection, position, src_dir, dst_dir);
-                  unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
-
-                  if (status == SUCCESS)
+                  if (fsa[position].job_status[burst_connection].job_id != job_id)
                   {
-                     unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
-                     return(YES);
+                     unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
+                               fsa[position].job_status[burst_connection].job_id,
+                               job_id, __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     /* BURST FILES!!! */
+                     status = burst_files(burst_connection, position, src_dir, dst_dir);
+                     unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
+
+                     if (status == SUCCESS)
+                     {
+                        unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
+                        return(YES);
+                     }
                   }
                }
 
@@ -263,14 +268,25 @@ check_burst(char         protocol,
                     (fsa[position].job_status[no_burst_array[j]].burst_counter < MAX_NO_OF_BURSTS)) &&
                    (lock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa) == IS_NOT_LOCKED))
                {
-                  /* BURST FILES!!! */
-                  status = burst_files(no_burst_array[j], position, src_dir, dst_dir);
-                  unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
-                  unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
-
-                  if (status == SUCCESS)
+                  if (fsa[position].job_status[no_burst_array[j]].job_id != job_id)
                   {
-                     return(YES);
+                     unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
+                               fsa[position].job_status[no_burst_array[j]].job_id,
+                               job_id, __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     /* BURST FILES!!! */
+                     status = burst_files(no_burst_array[j], position, src_dir, dst_dir);
+                     unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
+
+                     if (status == SUCCESS)
+                     {
+                        unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
+                        return(YES);
+                     }
                   }
                }
             }
@@ -309,14 +325,25 @@ check_burst(char         protocol,
                     (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
                    (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == IS_NOT_LOCKED))
                {
-                  /* BURST FILES!!! */
-                  status = burst_files(burst_connection, position, src_dir, dst_dir);
-                  unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
-
-                  if (status == SUCCESS)
+                  if (fsa[position].job_status[burst_connection].job_id != job_id)
                   {
-                     unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
-                     return(YES);
+                     unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
+                               fsa[position].job_status[burst_connection].job_id,
+                               job_id, __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     /* BURST FILES!!! */
+                     status = burst_files(burst_connection, position, src_dir, dst_dir);
+                     unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
+
+                     if (status == SUCCESS)
+                     {
+                        unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
+                        return(YES);
+                     }
                   }
                }
 
@@ -352,14 +379,25 @@ check_burst(char         protocol,
                  (fsa[position].job_status[no_burst_array[j]].burst_counter < MAX_NO_OF_BURSTS)) &&
                 (lock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa) == IS_NOT_LOCKED))
             {
-               /* BURST FILES!!! */
-               status = burst_files(no_burst_array[j], position, src_dir, dst_dir);
-               unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
-               unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
-
-               if (status == SUCCESS)
+               if (fsa[position].job_status[no_burst_array[j]].job_id != job_id)
                {
-                  return(YES);
+                  unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
+                            fsa[position].job_status[no_burst_array[j]].job_id,
+                            job_id, __FILE__, __LINE__);
+               }
+               else
+               {
+                  /* BURST FILES!!! */
+                  status = burst_files(no_burst_array[j], position, src_dir, dst_dir);
+                  unlock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa);
+
+                  if (status == SUCCESS)
+                  {
+                     unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
+                     return(YES);
+                  }
                }
             }
          }
@@ -393,14 +431,25 @@ check_burst(char         protocol,
                  (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
                 (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == IS_NOT_LOCKED))
             {
-               /* BURST FILES!!! */
-               status = burst_files(burst_connection, position, src_dir, dst_dir);
-               unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
-
-               if (status == SUCCESS)
+               if (fsa[position].job_status[burst_connection].job_id != job_id)
                {
-                  unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
-                  return(YES);
+                  unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "GOTCHA, you lousy bug! Job ID's not the same! [%d != %d] (%s %d)\n",
+                            fsa[position].job_status[burst_connection].job_id,
+                            job_id, __FILE__, __LINE__);
+               }
+               else
+               {
+                  /* BURST FILES!!! */
+                  status = burst_files(burst_connection, position, src_dir, dst_dir);
+                  unlock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa);
+
+                  if (status == SUCCESS)
+                  {
+                     unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
+                     return(YES);
+                  }
                }
             }
 

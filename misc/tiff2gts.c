@@ -56,11 +56,8 @@ DESCR__E_M3
 #include <unistd.h>
 #include <errno.h>
 
-#define OFFSET_START     8
+#define OFFSET_START    8
 #define OFFSET_END      12
-
-/* External global variables */
-extern int sys_log_fd;
 
 /* Function prototypes */
 static void byte_swap(char *);
@@ -84,37 +81,38 @@ tiff2gts(char *path, char* filename)
 
    if (stat(fullname, &stat_buf) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Can't access file %s : %s (%s %d)\n",
-                fullname, strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Can't access file %s : %s", fullname, strerror(errno));
       return(INCORRECT);
    }
 
    if (stat_buf.st_size <= (OFFSET_END + 4))
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Could not convert file %s. File does not have the correct length. (%s %d)\n",
-                filename, __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Could not convert file %s. File does not have the correct length.",
+                  filename);
       return(INCORRECT);
    }
 
    if ((buf = (char *)malloc(stat_buf.st_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "malloc() error : %s", strerror(errno));
       return(INCORRECT);
    }
 
    if ((fd = open(fullname, O_RDONLY, 0)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() %s : %s (%s %d)\n",
-                fullname, strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Failed to open() %s : %s", fullname, strerror(errno));
       free(buf);
       return(INCORRECT);
    }
 
    if (read(fd, buf, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "read() error : %s (%s %d)\n",
-                fullname, strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "read() error : %s", fullname, strerror(errno));
       free(buf);
       (void)close(fd);
       return(INCORRECT);
@@ -132,15 +130,17 @@ tiff2gts(char *path, char* filename)
    data_size = data_end - data_start + 1;
    if (data_size > stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "File %s is corrupt. Data size (%d) larger then file size (%d). (%s %d)\n",
-                filename, data_size, stat_buf.st_size, __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "File %s is corrupt. Data size (%d) larger then file size (%d).",
+                  filename, data_size, stat_buf.st_size);
       free(buf);
       return(INCORRECT);
    }
    else if (data_size <= 0)
         {
-           (void)rec(sys_log_fd, ERROR_SIGN, "File %s is corrupt. Data size (%d) less then or equal to file size (%d). (%s %d)\n",
-                     filename, data_size, stat_buf.st_size, __FILE__, __LINE__);
+           receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "File %s is corrupt. Data size (%d) less then or equal to file size (%d).",
+                       filename, data_size, stat_buf.st_size);
            free(buf);
            return(INCORRECT);
         }
@@ -151,16 +151,16 @@ tiff2gts(char *path, char* filename)
    (void)sprintf(dest_file_name, "%s/.%s", path, filename);
    if ((fd = open(dest_file_name, (O_WRONLY | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() %s : %s (%s %d)\n",
-                dest_file_name, strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Failed to open() %s : %s", dest_file_name, strerror(errno));
       free(buf);
       return(INCORRECT);
    }
 
    if (write(fd, &buf[data_start], data_size) != data_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "write() error : %s (%s %d)\n",
-                fullname, strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "write() error : %s", fullname, strerror(errno));
       free(buf);
       (void)close(fd);
       return(INCORRECT);
@@ -169,23 +169,25 @@ tiff2gts(char *path, char* filename)
    free(buf);
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                  "close() error : %s", strerror(errno));
    }
 
    /* Remove the original file */
    if (remove(fullname) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "Failed to remove() original TIFF file %s : %s (%s %d)\n",
-                fullname, strerror(errno), __FILE__, __LINE__);
+      receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  "Failed to remove() original TIFF file %s : %s",
+                  fullname, strerror(errno));
    }
 
    /* Rename file to its new name */
    (void)sprintf(fullname, "%s/%s", path, filename);
    if (rename(dest_file_name, fullname) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "Failed to rename() file %s to %s : %s (%s %d)\n",
-                dest_file_name, fullname, strerror(errno), __FILE__, __LINE__);
+      receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  "Failed to rename() file %s to %s : %s",
+                  dest_file_name, fullname, strerror(errno));
    }
 
    return(data_size);

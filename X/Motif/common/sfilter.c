@@ -79,86 +79,86 @@ sfilter(char *p_filter, char *p_file)
       p_tmp = ptr;
       switch(*ptr)
       {
-         case '*' :  ptr++;
-                     while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
-                     {
-                        length++;
-                        ptr++;
-                     }
-                     if (length == 0)
-                     {
-                        return((inverse == NO) ? 0 : -1);
-                     }
-                     buffer = *ptr;
-                     if (*ptr != '\0')
-                     {
-                        *ptr = '\0';
-                     }
-                     if ((buffer == '?') && (*(ptr + 1) == '\0'))
-                     {
-                        count = 0;
-                        while ((p_file_buffer = find(p_file_buffer, p_tmp + 1, length)) != NULL)
-                        {
-                           p_buffer = p_file_buffer;
-                           count++;
-                        }
-                        if (count == 0)
-                        {
-                           *ptr = buffer;
-                           return((inverse == NO) ? -1 : 0);
-                        }
-                        else
-                        {
-                           p_file_buffer = p_buffer;
-                        }
-                        *ptr = buffer;
-                     }
-                     else if ((p_file_buffer = find(p_file_buffer, p_tmp + 1, length)) == NULL)
-                          {
-                             *ptr = buffer;
-                             return((inverse == NO) ? -1 : 0);
-                          }
-                          else
-                          {
-                             *ptr = buffer;
-                             if ((buffer == '\0') && (*p_file != '\0'))
-                             {
-                                ptr = p_tmp;
-                             }
-                          }
-                     if ((buffer == '\0') && (*p_file_buffer == ' '))
-                     {
-                        return((inverse == NO) ? 0 : -1);
-                     }
-                     break;
-         case '?' :  if (*(p_file_buffer++) == ' ')
-                     {
-                        return((inverse == NO) ? -1 : 0);
-                     }
-                     if ((*(++ptr) == '\0') && (*p_file_buffer == ' '))
-                     {
-                        return((inverse == NO) ? 0 : -1);
-                     }
-                     break;
-         default  :  while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
-                     {
-                        length++;
-                        ptr++;
-                     }
-                     buffer = *ptr;
-                     *ptr = '\0';
-                     if (strncmp(p_file_buffer, p_tmp, length) != 0)
-                     {
-                        *ptr = buffer;
-                        return((inverse == NO) ? -1 : 0);
-                     }
-                     *ptr = buffer;
-                     p_file_buffer += length;
-                     if ((buffer == '\0') && (*p_file_buffer == ' '))
-                     {
-                        return((inverse == NO) ? 0 : -1);
-                     }
-                     break;
+         case '*' :
+            ptr++;
+            while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
+            {
+               length++;
+               ptr++;
+            }
+            if (length == 0)
+            {
+               if ((*ptr == '*') || (*ptr == '?'))
+               {
+                  break;
+               }
+               else
+               {
+                  return((inverse == NO) ? 0 : -1);
+               }
+            }
+            buffer = *ptr;
+            if ((*ptr == '?') && (*(ptr + 1) == '\0'))
+            {
+               count = 0;
+               while ((p_file_buffer = find(p_file_buffer, p_tmp + 1, length)) != NULL)
+               {
+                  p_buffer = p_file_buffer;
+                  count++;
+               }
+               if (count == 0)
+               {
+                  return((inverse == NO) ? -1 : 0);
+               }
+               else
+               {
+                  p_file_buffer = p_buffer;
+               }
+            }
+            else if ((p_file_buffer = find(p_file_buffer, p_tmp + 1, length)) == NULL)
+                 {
+                    return((inverse == NO) ? -1 : 0);
+                 }
+                 else
+                 {
+                    if ((buffer == '\0') && (*p_file != '\0'))
+                    {
+                       ptr = p_tmp;
+                    }
+                 }
+            if ((buffer == '\0') && (*p_file_buffer == ' '))
+            {
+               return((inverse == NO) ? 0 : -1);
+            }
+            break;
+
+         case '?' :
+            if (*(p_file_buffer++) == ' ')
+            {
+               return((inverse == NO) ? -1 : 0);
+            }
+            if ((*(++ptr) == '\0') && (*p_file_buffer == ' '))
+            {
+               return((inverse == NO) ? 0 : -1);
+            }
+            break;
+
+         default  :
+            while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
+            {
+               length++;
+               ptr++;
+            }
+            if (strncmp(p_file_buffer, p_tmp, length) != 0)
+            {
+               return((inverse == NO) ? -1 : 0);
+            }
+            p_file_buffer += length;
+            if ((*ptr == '\0') && (*p_file_buffer == ' '))
+            {
+               return((inverse == NO) ? 0 : -1);
+            }
+            break;
       }
    }
 
@@ -182,24 +182,24 @@ find(char          *search_text,
      register char *search_string,
      register int  string_length)
 {
-   register int treffer = 0;
+   register int hit = 0;
 
    while (*search_text != ' ')
    {
       if (*(search_text++) == *(search_string++))
       {
-         if (++treffer == string_length)
+         if (++hit == string_length)
          {
             return(search_text);
          }
       }
       else
       {
-         search_string -= (treffer + 1);
-         if (treffer != 0)
+         search_string -= (hit + 1);
+         if (hit != 0)
          {
-            search_text -= treffer;
-            treffer = 0;
+            search_text -= hit;
+            hit = 0;
          }
       }
    }

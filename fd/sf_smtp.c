@@ -1,6 +1,6 @@
 /*
  *  sf_smtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,6 +71,7 @@ DESCR__S_M1
  **   29.03.1999 H.Kiehl Local user name is LOGNAME.
  **   24.08.1999 H.Kiehl Enhanced option "attach file" to support trans-
  **                      renaming.
+ **   08.07.2000 H.Kiehl Cleaned up log output to reduce code size.
  **
  */
 DESCR__E_M1
@@ -94,24 +95,25 @@ DESCR__E_M1
 
 /* Global variables */
 int                        counter_fd,
+                           exitflag = IS_FAULTY_VAR,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
-                           rule_pos,
+                           trans_rule_pos,
+                           user_rule_pos,
                            fsa_id,
                            fsa_fd = -1,
                            line_length = 0, /* encode_base64()           */
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
-                           trans_db_log_fd = STDERR_FILENO,
+                           trans_db_log_fd = -1,
                            amg_flag = NO,
                            timeout_flag;
 #ifndef _NO_MMAP
 off_t                      fsa_size;
 #endif
 off_t                      *file_size_buffer;
-long                       smtp_timeout;
+long                       transfer_timeout;
 char                       host_deleted = NO,
-                           err_msg_dir[MAX_PATH_LENGTH],
                            *p_work_dir,
                            msg_str[MAX_RET_MSG_LENGTH],
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
@@ -181,7 +183,7 @@ main(int argc, char *argv[])
    off_t            *ol_file_size = NULL;
    size_t           ol_size,
                     ol_real_size;
-   clock_t          end_time,
+   clock_t          end_time = 0,
                     start_time = 0,
                     *ol_transfer_time = NULL;
    struct tms       tmsdummy;
@@ -215,8 +217,9 @@ main(int argc, char *argv[])
 
    /* Initialise variables */
    p_work_dir = work_dir;
-   init_sf(argc, argv, file_path, &blocksize, &files_to_send, SMTP);
+   files_to_send = init_sf(argc, argv, file_path, SMTP_FLAG);
    p_db = &db;
+   blocksize = fsa[db.fsa_pos].block_size;
 
    if ((signal(SIGINT, sig_kill) == SIG_ERR) ||
        (signal(SIGQUIT, sig_exit) == SIG_ERR) ||
@@ -231,9 +234,6 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Set SMTP timeout value */
-   smtp_timeout = fsa[(int)db.position].transfer_timeout;
-
    /*
     * The extra buffer is needed to convert LF's to CRLF.
     */
@@ -247,16 +247,9 @@ main(int argc, char *argv[])
 #ifdef _OUTPUT_LOG
    if (db.output_log == YES)
    {
-      output_log_ptrs(&ol_fd,
-                      &ol_job_number,
-                      &ol_data,
-                      &ol_file_name,
-                      &ol_file_name_length,
-                      &ol_file_size,
-                      &ol_size,
-                      &ol_transfer_time,
-                      db.host_alias,
-                      SMTP);
+      output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
+                      &ol_file_name_length, &ol_file_size, &ol_size,
+                      &ol_transfer_time, db.host_alias, SMTP);
    }
 #endif
 
@@ -270,50 +263,17 @@ main(int argc, char *argv[])
    /* Connect to remote SMTP-server */
    if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
    {
-      if (fsa[(int)db.position].debug == YES)
-      {
-         (void)rec(trans_db_log_fd, ERROR_SIGN,
-                   "%-*s[%d]: Could not connect to %s (%d). (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   SMTP_HOST_NAME, status, __FILE__, __LINE__);
-      }
-      reset_fsa(p_db, YES, NO_OF_FILES_VAR | CONNECT_STATUS_VAR);
-
-      if (timeout_flag == OFF)
-      {
-         (void)rec(transfer_log_fd, ERROR_SIGN,
-                   "%-*s[%d]: Failed to connect to %s (%d). #%d (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   SMTP_HOST_NAME, status,
-                   db.job_id, __FILE__, __LINE__);
-         if (status != INCORRECT)
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, msg_str);
-         }
-      }
-      else
-      {
-         (void)rec(transfer_log_fd, ERROR_SIGN,
-                   "%-*s[%d]: Failed to connect to %s due to timeout. #%d (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   SMTP_HOST_NAME, db.job_id, __FILE__, __LINE__);
-      }
+      trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                "SMTP connection to %s at port %d failed (%d).",
+                db.smtp_server, db.port, status);
       exit(CONNECT_ERROR);
    }
    else
    {
-      if (fsa[(int)db.position].debug == YES)
+      if ((fsa[db.fsa_pos].debug == YES) &&
+          (trans_db_log_fd != -1))
       {
-         (void)rec(trans_db_log_fd, INFO_SIGN,
-                   "%-*s[%d]: Connected to %s. (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, db.smtp_server,
-                   __FILE__, __LINE__);
-         (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, msg_str);
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Connected.");
       }
    }
 
@@ -326,79 +286,47 @@ main(int argc, char *argv[])
    }
    if ((status = smtp_helo(host_name)) != SUCCESS)
    {
-      if (fsa[(int)db.position].debug == YES)
-      {
-         (void)rec(trans_db_log_fd, ERROR_SIGN,
-                   "%-*s[%d]: Failed to send HELO to %s (%d). (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, host_name, status, __FILE__, __LINE__);
-      }
-      if (timeout_flag == OFF)
-      {
-         (void)rec(transfer_log_fd, ERROR_SIGN,
-                   "%-*s[%d]: Failed to send HELO to %s (%d). #%d (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, host_name, status,
-                   db.job_id, __FILE__, __LINE__);
-         if (status != INCORRECT)
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, msg_str);
-         }
-      }
-      else
-      {
-         (void)rec(transfer_log_fd, ERROR_SIGN,
-                   "%-*s[%d]: Failed to send HELO to %s due to timeout. #%d (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, host_name,
-                   db.job_id, __FILE__, __LINE__);
-      }
-      reset_fsa(p_db, YES, NO_OF_FILES_VAR | CONNECT_STATUS_VAR);
+      trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                "Failed to send HELO to %s (%d).", db.smtp_server, status);
+      (void)smtp_quit();
       exit(CONNECT_ERROR);
    }
    else
    {
-      if (fsa[(int)db.position].debug == YES)
+      if ((fsa[db.fsa_pos].debug == YES) &&
+          (trans_db_log_fd != -1))
       {
-         (void)rec(trans_db_log_fd, INFO_SIGN,
-                   "%-*s[%d]: Have send HELO. (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, __FILE__, __LINE__);
-         (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, msg_str);
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Send HELO.");
       }
    }
 
    /* Inform FSA that we have finished connecting */
    if (host_deleted == NO)
    {
-      lock_offset = (char *)&fsa[(int)db.position] - (char *)fsa;
+      lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
       rlock_region(fsa_fd, lock_offset);
 
       if (check_fsa() == YES)
       {
-         if ((db.position = get_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+         if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
          {
             host_deleted = YES;
          }
          else
          {
-            lock_offset = (char *)&fsa[(int)db.position] - (char *)fsa;
+            lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
             rlock_region(fsa_fd, lock_offset);
          }
       }
       if (host_deleted == NO)
       {
-         fsa[(int)db.position].job_status[(int)db.job_no].connect_status = EMAIL_ACTIVE;
-         fsa[(int)db.position].job_status[(int)db.job_no].no_of_files = files_to_send;
+         fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = EMAIL_ACTIVE;
+         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = files_to_send;
 
          /* Number of connections */
-         lock_region_w(fsa_fd, (char *)&fsa[(int)db.position].connections - (char *)fsa);
-         fsa[(int)db.position].connections += 1;
-         unlock_region(fsa_fd, (char *)&fsa[(int)db.position].connections - (char *)fsa);
+         lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].connections - (char *)fsa);
+         fsa[db.fsa_pos].connections += 1;
+         unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].connections - (char *)fsa);
          unlock_region(fsa_fd, lock_offset);
       }
    }
@@ -414,7 +342,7 @@ main(int argc, char *argv[])
    }
    if (check_fsa() == YES)
    {
-      if ((db.position = get_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+      if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Terminating. Host %s is not in FSA. (%s %d)\n",
@@ -424,21 +352,21 @@ main(int argc, char *argv[])
    }
    if (db.toggle_host == YES)
    {
-      if (fsa[(int)db.position].host_toggle == HOST_ONE)
+      if (fsa[db.fsa_pos].host_toggle == HOST_ONE)
       {
          (void)strcpy(db.hostname,
-                      fsa[(int)db.position].real_hostname[HOST_TWO - 1]);
+                      fsa[db.fsa_pos].real_hostname[HOST_TWO - 1]);
       }
       else
       {
          (void)strcpy(db.hostname,
-                      fsa[(int)db.position].real_hostname[HOST_ONE - 1]);
+                      fsa[db.fsa_pos].real_hostname[HOST_ONE - 1]);
       }
    }
    else
    {
       (void)strcpy(db.hostname,
-                   fsa[(int)db.position].real_hostname[(int)(fsa[(int)db.position].host_toggle - 1)]);
+                   fsa[db.fsa_pos].real_hostname[(int)(fsa[db.fsa_pos].host_toggle - 1)]);
    }
    if ((db.special_flag & FILE_NAME_IS_USER) == 0)
    {
@@ -482,7 +410,7 @@ main(int argc, char *argv[])
           */
          (void)sprintf(mail_header_file, "%s%s/%s%s",
                        p_work_dir, ETC_DIR, MAIL_HEADER_IDENTIFIER,
-                       fsa[(int)db.position].host_alias);
+                       fsa[db.fsa_pos].host_alias);
       }
       else
       {
@@ -552,7 +480,8 @@ main(int argc, char *argv[])
                         /* do a multipart mail.                  */
                         if (db.special_flag & ATTACH_FILE)
                         {
-                           (void)sprintf(multipart_boundary, "----%s", db.msg_name);
+                           (void)sprintf(multipart_boundary, "----%s",
+                                         db.msg_name);
                         }
                      }
                   }
@@ -583,59 +512,18 @@ main(int argc, char *argv[])
       /* Send local user name */
       if ((status = smtp_user(local_user)) != SUCCESS)
       {
-         if (fsa[(int)db.position].debug == YES)
-         {
-            if (timeout_flag == OFF)
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to send local user %s (%d). (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         local_user, status, __FILE__, __LINE__);
-               (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%c]: %s\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, db.job_no,
-                         msg_str);
-            }
-            else
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to send local user %s due to timeout. (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         local_user, __FILE__, __LINE__);
-            }
-         }
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to send local user %s (%d).", local_user, status);
          (void)smtp_quit();
-         reset_fsa(p_db, YES, NO_OF_FILES_VAR | CONNECT_STATUS_VAR);
-         if (timeout_flag == OFF)
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to send local user %s (%d). #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      local_user, status,
-                      db.job_id, __FILE__, __LINE__);
-            (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      msg_str);
-         }
-         else
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to send local user %s due to timeout. #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      local_user, db.job_id, __FILE__, __LINE__);
-         }
          exit(USER_ERROR);
       }
       else
       {
-         if (fsa[(int)db.position].debug == YES)
+         if ((fsa[db.fsa_pos].debug == YES) &&
+             (trans_db_log_fd != -1))
          {
-            (void)rec(trans_db_log_fd, INFO_SIGN,
-                      "%-*s[%d]: Entered local user name %s. (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      local_user, __FILE__, __LINE__);
-            (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      msg_str);
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                         "Entered local user name %s.", local_user);
          }
       }
 
@@ -645,13 +533,14 @@ main(int argc, char *argv[])
          {
             register int k;
 
-            for (k = 0; k < rule[rule_pos].no_of_rules; k++)
+            for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
             {
-               if (filter(rule[rule_pos].filter[k], p_file_name_buffer) == 0)
+               if (filter(rule[user_rule_pos].filter[k],
+                          p_file_name_buffer) == 0)
                {
                   change_name(p_file_name_buffer,
-                              rule[rule_pos].filter[k],
-                              rule[rule_pos].rename_to[k],
+                              rule[user_rule_pos].filter[k],
+                              rule[user_rule_pos].rename_to[k],
                               db.user);
                   break;
                }
@@ -667,117 +556,36 @@ main(int argc, char *argv[])
       /* Send remote user name */
       if ((status = smtp_rcpt(remote_user)) != SUCCESS)
       {
-         if (fsa[(int)db.position].debug == YES)
-         {
-            if (timeout_flag == OFF)
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to send remote user %s (%d). (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         remote_user, status, __FILE__, __LINE__);
-               (void)rec(trans_db_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         msg_str);
-            }
-            else
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to send remote user %s due to timeout. (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         remote_user, __FILE__, __LINE__);
-            }
-         }
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to send remote user %s (%d).", remote_user, status);
          (void)smtp_quit();
-         reset_fsa(p_db, YES, NO_OF_FILES_VAR | CONNECT_STATUS_VAR);
-         if (timeout_flag == OFF)
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to send remote user %s (%d). #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      remote_user, status, db.job_id,
-                      __FILE__, __LINE__);
-            (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      msg_str);
-         }
-         else
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to send remote user %s due to timeout. #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      remote_user, db.job_id, __FILE__, __LINE__);
-         }
          exit(REMOTE_USER_ERROR);
       }
       else
       {
-         if (fsa[(int)db.position].debug == YES)
+         if ((fsa[db.fsa_pos].debug == YES) &&
+             (trans_db_log_fd != -1))
          {
-            (void)rec(trans_db_log_fd, INFO_SIGN,
-                      "%-*s[%d]: Remote address %s accepted by SMTP-server. (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      remote_user, __FILE__, __LINE__);
-            (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      msg_str);
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                         "Remote address %s accepted by SMTP-server.",
+                         remote_user);
          }
       }
 
       /* Enter data mode */
       if ((status = smtp_open()) != SUCCESS)
       {
-         if (fsa[(int)db.position].debug == YES)
-         {
-            if (timeout_flag == OFF)
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to set DATA mode (%d). (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         status, __FILE__, __LINE__);
-               (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         msg_str);
-            }
-            else
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to set DATA mode due to timeout. (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         __FILE__, __LINE__);
-            }
-         }
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to set DATA mode (%d).", status);
          (void)smtp_quit();
-         reset_fsa(p_db, YES, NO_OF_FILES_VAR | CONNECT_STATUS_VAR);
-         if (timeout_flag == OFF)
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to set DATA mode (%d). #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      status, db.job_id, __FILE__, __LINE__);
-            (void)rec(transfer_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      msg_str);
-         }
-         else
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to set DATA mode due to timeout. #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      db.job_id, __FILE__, __LINE__);
-         }
          exit(DATA_ERROR);
       }
       else
       {
-         if (fsa[(int)db.position].debug == YES)
+         if ((fsa[db.fsa_pos].debug == YES) &&
+             (trans_db_log_fd != -1))
          {
-            (void)rec(trans_db_log_fd, INFO_SIGN,
-                      "%-*s[%d]: Set DATA mode. (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      __FILE__, __LINE__);
-            (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      msg_str);
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Set DATA mode.");
          }
       }
 
@@ -788,30 +596,22 @@ main(int argc, char *argv[])
       /* Open local file */
       if ((fd = open(fullname, O_RDONLY)) < 0)
       {
-         if (fsa[(int)db.position].debug == YES)
-         {
-            (void)rec(trans_db_log_fd, INFO_SIGN,
-                      "%-*s[%d]: Failed to open local file %s (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fullname, __FILE__, __LINE__);
-         }
-         (void)smtp_quit();
+         msg_str[0] = '\0';
          (void)rec(transfer_log_fd, INFO_SIGN,
                    "%-*s[%d]: %d Bytes send in %d file(s).\n",
                    MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                   fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-         reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                              NO_OF_FILES_VAR |
-                              NO_OF_FILES_DONE_VAR |
-                              FILE_SIZE_DONE_VAR |
-                              FILE_SIZE_IN_USE_VAR |
-                              FILE_SIZE_IN_USE_DONE_VAR));
+                   fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                   fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to open() local file %s : %s",
+                   fullname, strerror(errno));
+         (void)smtp_quit();
          exit(OPEN_LOCAL_ERROR);
       }
       else
       {
-         if (fsa[(int)db.position].debug == YES)
+         if ((fsa[db.fsa_pos].debug == YES) &&
+             (trans_db_log_fd != -1))
          {
             (void)rec(trans_db_log_fd, INFO_SIGN,
                       "%-*s[%d]: Open local file %s (%s %d)\n",
@@ -832,15 +632,16 @@ main(int argc, char *argv[])
       {
          if (check_fsa() == YES)
          {
-            if ((db.position = get_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+            if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                no_of_hosts)) == INCORRECT)
             {
                host_deleted = YES;
             }
          }
          if (host_deleted == NO)
          {
-            fsa[(int)db.position].job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
-            (void)strcpy(fsa[(int)db.position].job_status[(int)db.job_no].file_name_in_use,
+            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
+            (void)strcpy(fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use,
                          final_filename);
          }
       }
@@ -855,67 +656,17 @@ main(int argc, char *argv[])
       {
          size_t length;
 
-         if (db.special_flag & ATTACH_FILE)
+         length = sprintf(buffer, "Subject : %s\r\n", db.subject);
+         if (smtp_write(buffer, NULL, length) < 0)
          {
-            length = sprintf(buffer, "Subject : %s", db.subject);
-         }
-         else
-         {
-            length = sprintf(buffer, "Subject : %s\n", db.subject);
-         }
-
-         if (smtp_write(buffer, smtp_buffer, length) < 0)
-         {
-            if (fsa[(int)db.position].debug == YES)
-            {
-               if (timeout_flag == OFF)
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, __FILE__, __LINE__);
-                  (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, msg_str);
-               }
-               else
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, __FILE__, __LINE__);
-               }
-            }
-            (void)smtp_quit();
             (void)rec(transfer_log_fd, INFO_SIGN,
                       "%-*s[%d]: %d Bytes send in %d file(s).\n",
                       MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                      fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-            reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                 NO_OF_FILES_VAR |
-                                 NO_OF_FILES_DONE_VAR |
-                                 FILE_SIZE_DONE_VAR |
-                                 FILE_SIZE_IN_USE_VAR |
-                                 FILE_SIZE_IN_USE_DONE_VAR |
-                                 FILE_NAME_IN_USE_VAR));
-            if (timeout_flag == OFF)
-            {
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         db.job_id, __FILE__, __LINE__);
-               (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         msg_str);
-            }
-            else
-            {
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         db.job_id, __FILE__, __LINE__);
-            }
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write subject to SMTP-server.");
+            (void)smtp_quit();
             exit(WRITE_REMOTE_ERROR);
          }
          no_of_bytes = length;
@@ -924,67 +675,17 @@ main(int argc, char *argv[])
            {
               size_t length;
 
-              if (db.special_flag & ATTACH_FILE)
+              length = sprintf(buffer, "Subject : %s\r\n", final_filename);
+              if (smtp_write(buffer, NULL, length) < 0)
               {
-                 length = sprintf(buffer, "Subject : %s", final_filename);
-              }
-              else
-              {
-                 length = sprintf(buffer, "Subject : %s\n", final_filename);
-              }
-
-              if (smtp_write(buffer, smtp_buffer, length) < 0)
-              {
-                 if (fsa[(int)db.position].debug == YES)
-                 {
-                    if (timeout_flag == OFF)
-                    {
-                       (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                 "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                                 MAX_HOSTNAME_LENGTH, tr_hostname,
-                                 (int)db.job_no, __FILE__, __LINE__);
-                       (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                                 MAX_HOSTNAME_LENGTH, tr_hostname,
-                                 (int)db.job_no, msg_str);
-                    }
-                    else
-                    {
-                       (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                 "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                                 MAX_HOSTNAME_LENGTH, tr_hostname,
-                                 (int)db.job_no, __FILE__, __LINE__);
-                    }
-                 }
-                 (void)smtp_quit();
                  (void)rec(transfer_log_fd, INFO_SIGN,
                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                           fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                           fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-                 reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                      NO_OF_FILES_VAR |
-                                      NO_OF_FILES_DONE_VAR |
-                                      FILE_SIZE_DONE_VAR |
-                                      FILE_SIZE_IN_USE_VAR |
-                                      FILE_SIZE_IN_USE_DONE_VAR |
-                                      FILE_NAME_IN_USE_VAR));
-                 if (timeout_flag == OFF)
-                 {
-                    (void)rec(transfer_log_fd, ERROR_SIGN,
-                              "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                              db.job_id, __FILE__, __LINE__);
-                    (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                              msg_str);
-                 }
-                 else
-                 {
-                    (void)rec(transfer_log_fd, ERROR_SIGN,
-                              "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                              db.job_id, __FILE__, __LINE__);
-                 }
+                           fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                           fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                           "Failed to write the filename as subject to SMTP-server.");
+                 (void)smtp_quit();
                  exit(WRITE_REMOTE_ERROR);
               }
 
@@ -1000,12 +701,12 @@ main(int argc, char *argv[])
          {
 #ifdef PRE_RELEASE
             length = sprintf(buffer,
-                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d-%d)\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\n",
+                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d-%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
                              MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
                              multipart_boundary);
 #else
             length = sprintf(buffer,
-                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\n",
+                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
                              MAJOR, MINOR, BUG_FIX, multipart_boundary);
 #endif
             buffer_ptr = buffer;
@@ -1013,63 +714,21 @@ main(int argc, char *argv[])
          else
          {
             length = sprintf(encode_buffer,
-                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\nContent-Transfer-Encoding: BASE64\n\n",
+                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
                              MAJOR, MINOR, BUG_FIX, final_filename);
             buffer_ptr = encode_buffer;
          }
 
-         if (smtp_write(buffer_ptr, smtp_buffer, length) < 0)
+         if (smtp_write(buffer_ptr, NULL, length) < 0)
          {
-            if (fsa[(int)db.position].debug == YES)
-            {
-               if (timeout_flag == OFF)
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, __FILE__, __LINE__);
-                  (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, msg_str);
-               }
-               else
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, __FILE__, __LINE__);
-               }
-            }
-            (void)smtp_quit();
             (void)rec(transfer_log_fd, INFO_SIGN,
                       "%-*s[%d]: %d Bytes send in %d file(s).\n",
                       MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                      fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-            reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                 NO_OF_FILES_VAR |
-                                 NO_OF_FILES_DONE_VAR |
-                                 FILE_SIZE_DONE_VAR |
-                                 FILE_SIZE_IN_USE_VAR |
-                                 FILE_SIZE_IN_USE_DONE_VAR |
-                                 FILE_NAME_IN_USE_VAR));
-            if (timeout_flag == OFF)
-            {
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         db.job_id, __FILE__, __LINE__);
-               (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         msg_str);
-            }
-            else
-            {
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         db.job_id, __FILE__, __LINE__);
-            }
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write start of multipart boundary to SMTP-server.");
+            (void)smtp_quit();
             exit(WRITE_REMOTE_ERROR);
          }
 
@@ -1085,61 +744,19 @@ main(int argc, char *argv[])
          {
             /* Write boundary */
             length = sprintf(encode_buffer,
-                             "\n--%s\nContent-Type: TEXT/PLAIN; charset=US-ASCII\n\n",
+                             "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=US-ASCII\r\n\r\n",
                              multipart_boundary);
 
-            if (smtp_write(encode_buffer, smtp_buffer, length) < 0)
+            if (smtp_write(encode_buffer, NULL, length) < 0)
             {
-               if (fsa[(int)db.position].debug == YES)
-               {
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                     (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                  }
-               }
-               (void)smtp_quit();
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes send in %d file(s).\n",
                          MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                         fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-               reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                    NO_OF_FILES_VAR |
-                                    NO_OF_FILES_DONE_VAR |
-                                    FILE_SIZE_DONE_VAR |
-                                    FILE_SIZE_IN_USE_VAR |
-                                    FILE_SIZE_IN_USE_DONE_VAR |
-                                    FILE_NAME_IN_USE_VAR));
-               if (timeout_flag == OFF)
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-                  (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            msg_str);
-               }
-               else
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-               }
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write the Content-Type (TEXT/PLAIN) to SMTP-server.");
+               (void)smtp_quit();
                exit(WRITE_REMOTE_ERROR);
             }
 
@@ -1149,115 +766,34 @@ main(int argc, char *argv[])
          /* Now lets write the message. */
          if (db.special_flag & ENCODE_ANSI)
          {
-            if (smtp_write_iso8859(mail_header_buffer, extra_mail_header_buffer, mail_header_size) < 0)
+            if (smtp_write_iso8859(mail_header_buffer,
+                                   extra_mail_header_buffer,
+                                   mail_header_size) < 0)
             {
-               if (fsa[(int)db.position].debug == YES)
-               {
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                     (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                  }
-               }
-               (void)smtp_quit();
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes send in %d file(s).\n",
                          MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                         fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-               reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                    NO_OF_FILES_VAR |
-                                    NO_OF_FILES_DONE_VAR |
-                                    FILE_SIZE_DONE_VAR |
-                                    FILE_SIZE_IN_USE_VAR |
-                                    FILE_SIZE_IN_USE_DONE_VAR |
-                                    FILE_NAME_IN_USE_VAR));
-               if (timeout_flag == OFF)
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-                  (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            msg_str);
-               }
-               else
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-               }
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write the mail header content to SMTP-server.");
+               (void)smtp_quit();
                exit(WRITE_REMOTE_ERROR);
             }
          }
          else
          {
-            if (smtp_write(mail_header_buffer, extra_mail_header_buffer, mail_header_size) < 0)
+            if (smtp_write(mail_header_buffer, extra_mail_header_buffer,
+                           mail_header_size) < 0)
             {
-               if (fsa[(int)db.position].debug == YES)
-               {
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                     (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                  }
-               }
-               (void)smtp_quit();
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes send in %d file(s).\n",
                          MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                         fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-               reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                    NO_OF_FILES_VAR |
-                                    NO_OF_FILES_DONE_VAR |
-                                    FILE_SIZE_DONE_VAR |
-                                    FILE_SIZE_IN_USE_VAR |
-                                    FILE_SIZE_IN_USE_DONE_VAR |
-                                    FILE_NAME_IN_USE_VAR));
-               if (timeout_flag == OFF)
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-                  (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            msg_str);
-               }
-               else
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-               }
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write the mail header content to SMTP-server.");
+               (void)smtp_quit();
                exit(WRITE_REMOTE_ERROR);
             }
          }
@@ -1272,13 +808,14 @@ main(int argc, char *argv[])
                char new_filename[MAX_FILENAME_LENGTH];
 
                new_filename[0] = '\0';
-               for (k = 0; k < rule[rule_pos].no_of_rules; k++)
+               for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
                {
-                  if (filter(rule[rule_pos].filter[k], final_filename) == 0)
+                  if (filter(rule[trans_rule_pos].filter[k],
+                             final_filename) == 0)
                   {
                      change_name(final_filename,
-                                 rule[rule_pos].filter[k],
-                                 rule[rule_pos].rename_to[k],
+                                 rule[trans_rule_pos].filter[k],
+                                 rule[trans_rule_pos].rename_to[k],
                                  new_filename);
                      break;
                   }
@@ -1288,68 +825,26 @@ main(int argc, char *argv[])
                   (void)strcpy(new_filename, final_filename);
                }
                length = sprintf(encode_buffer,
-                                "\n--%s\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\nContent-Transfer-Encoding: BASE64\n\n",
+                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
                                 multipart_boundary, new_filename);
             }
             else
             {
                length = sprintf(encode_buffer,
-                                "\n--%s\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\nContent-Transfer-Encoding: BASE64\n\n",
+                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
                                 multipart_boundary, final_filename);
             }
 
-            if (smtp_write(encode_buffer, smtp_buffer, length) < 0)
+            if (smtp_write(encode_buffer, NULL, length) < 0)
             {
-               if (fsa[(int)db.position].debug == YES)
-               {
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                     (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(trans_db_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, __FILE__, __LINE__);
-                  }
-               }
-               (void)smtp_quit();
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes send in %d file(s).\n",
                          MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                         fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-               reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                    NO_OF_FILES_VAR |
-                                    NO_OF_FILES_DONE_VAR |
-                                    FILE_SIZE_DONE_VAR |
-                                    FILE_SIZE_IN_USE_VAR |
-                                    FILE_SIZE_IN_USE_DONE_VAR |
-                                    FILE_NAME_IN_USE_VAR));
-               if (timeout_flag == OFF)
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-                  (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            msg_str);
-               }
-               else
-               {
-                  (void)rec(transfer_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            db.job_id, __FILE__, __LINE__);
-               }
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write the Content-Type (APPLICATION/octet-stream) to SMTP-server.");
+               (void)smtp_quit();
                exit(WRITE_REMOTE_ERROR);
             }
 
@@ -1363,152 +858,68 @@ main(int argc, char *argv[])
          {
             if (read(fd, buffer, blocksize) != blocksize)
             {
-               if (fsa[(int)db.position].debug == YES)
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Could not read local file %s : %s (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            fullname, strerror(errno), __FILE__, __LINE__);
-               }
-               (void)smtp_quit();
+               msg_str[0] = '\0';
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes send in %d file(s).\n",
                          MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                         fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-               reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                    NO_OF_FILES_VAR |
-                                    NO_OF_FILES_DONE_VAR |
-                                    FILE_SIZE_DONE_VAR |
-                                    FILE_SIZE_IN_USE_VAR |
-                                    FILE_SIZE_IN_USE_DONE_VAR |
-                                    FILE_NAME_IN_USE_VAR));
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to read() %s : %s",
+                         fullname, strerror(errno));
+               (void)smtp_quit();
                exit(READ_LOCAL_ERROR);
             }
             if (db.special_flag & ATTACH_FILE)
             {
                write_size = encode_base64((unsigned char *)buffer, blocksize,
                                           (unsigned char *)encode_buffer);
-               buffer_ptr = encode_buffer;
+               if (smtp_write(encode_buffer, NULL, write_size) < 0)
+               {
+                  (void)rec(transfer_log_fd, INFO_SIGN,
+                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write data from the source file to the SMTP-server.");
+                  (void)smtp_quit();
+                  exit(WRITE_REMOTE_ERROR);
+               }
             }
             else
             {
-               buffer_ptr = buffer;
+               if (db.special_flag & ENCODE_ANSI)
+               {
+                  if (smtp_write_iso8859(buffer, smtp_buffer, blocksize) < 0)
+                  {
+                     (void)rec(transfer_log_fd, INFO_SIGN,
+                               "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to write data from the source file to the SMTP-server.");
+                     (void)smtp_quit();
+                     exit(WRITE_REMOTE_ERROR);
+                  }
+               }
+               else
+               {
+                  if (smtp_write(buffer, smtp_buffer, blocksize) < 0)
+                  {
+                     (void)rec(transfer_log_fd, INFO_SIGN,
+                               "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to write data from the source file to the SMTP-server.");
+                     (void)smtp_quit();
+                     exit(WRITE_REMOTE_ERROR);
+                  }
+               }
                write_size = blocksize;
-            }
-            if (db.special_flag & ENCODE_ANSI)
-            {
-               if (smtp_write_iso8859(buffer_ptr, smtp_buffer, write_size) < 0)
-               {
-                  if (fsa[(int)db.position].debug == YES)
-                  {
-                     if (timeout_flag == OFF)
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                        (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, msg_str);
-                     }
-                     else
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                     }
-                  }
-                  (void)smtp_quit();
-                  (void)rec(transfer_log_fd, INFO_SIGN,
-                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                            fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-                  reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                       NO_OF_FILES_VAR |
-                                       NO_OF_FILES_DONE_VAR |
-                                       FILE_SIZE_DONE_VAR |
-                                       FILE_SIZE_IN_USE_VAR |
-                                       FILE_SIZE_IN_USE_DONE_VAR |
-                                       FILE_NAME_IN_USE_VAR));
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               db.job_id, __FILE__, __LINE__);
-                     (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               db.job_id, __FILE__, __LINE__);
-                  }
-                  exit(WRITE_REMOTE_ERROR);
-               }
-            }
-            else
-            {
-               if (smtp_write(buffer_ptr, smtp_buffer, write_size) < 0)
-               {
-                  if (fsa[(int)db.position].debug == YES)
-                  {
-                     if (timeout_flag == OFF)
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                        (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, msg_str);
-                     }
-                     else
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                     }
-                  }
-                  (void)smtp_quit();
-                  (void)rec(transfer_log_fd, INFO_SIGN,
-                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                            fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-                  reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                       NO_OF_FILES_VAR |
-                                       NO_OF_FILES_DONE_VAR |
-                                       FILE_SIZE_DONE_VAR |
-                                       FILE_SIZE_IN_USE_VAR |
-                                       FILE_SIZE_IN_USE_DONE_VAR |
-                                       FILE_NAME_IN_USE_VAR));
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               db.job_id, __FILE__, __LINE__);
-                     (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               db.job_id, __FILE__, __LINE__);
-                  }
-                  exit(WRITE_REMOTE_ERROR);
-               }
             }
 
             no_of_bytes += write_size;
@@ -1517,16 +928,16 @@ main(int argc, char *argv[])
             {
                if (check_fsa() == YES)
                {
-                  if ((db.position = get_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+                  if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
                   {
                      host_deleted = YES;
                   }
                }
                if (host_deleted == NO)
                {
-                  fsa[(int)db.position].job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
-                  fsa[(int)db.position].job_status[(int)db.job_no].file_size_done += write_size;
-                  fsa[(int)db.position].job_status[(int)db.job_no].bytes_send += write_size;
+                  fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
+                  fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done += write_size;
+                  fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += write_size;
                }
             }
          }
@@ -1534,152 +945,67 @@ main(int argc, char *argv[])
          {
             if (read(fd, buffer, rest) != rest)
             {
-               if (fsa[(int)db.position].debug == YES)
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Could not read local file %s : %s (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            fullname, strerror(errno), __FILE__, __LINE__);
-               }
-               (void)smtp_quit();
+               msg_str[0] = '\0';
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes send in %d file(s).\n",
                          MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                         fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-               reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                    NO_OF_FILES_VAR |
-                                    NO_OF_FILES_DONE_VAR |
-                                    FILE_SIZE_DONE_VAR |
-                                    FILE_SIZE_IN_USE_VAR |
-                                    FILE_SIZE_IN_USE_DONE_VAR |
-                                    FILE_NAME_IN_USE_VAR));
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to read() rest from %s : %s",
+                         fullname, strerror(errno));
                exit(READ_LOCAL_ERROR);
             }
             if (db.special_flag & ATTACH_FILE)
             {
                write_size = encode_base64((unsigned char *)buffer, rest,
                                           (unsigned char *)encode_buffer);
-               buffer_ptr = encode_buffer;
+               if (smtp_write(encode_buffer, NULL, write_size) < 0)
+               {
+                  (void)rec(transfer_log_fd, INFO_SIGN,
+                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write the rest data from the source file to the SMTP-server.");
+                  (void)smtp_quit();
+                  exit(WRITE_REMOTE_ERROR);
+               }
             }
             else
             {
+               if (db.special_flag & ENCODE_ANSI)
+               {
+                  if (smtp_write_iso8859(buffer, smtp_buffer, rest) < 0)
+                  {
+                     (void)rec(transfer_log_fd, INFO_SIGN,
+                               "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to write the rest data from the source file to the SMTP-server.");
+                     (void)smtp_quit();
+                     exit(WRITE_REMOTE_ERROR);
+                  }
+               }
+               else
+               {
+                  if (smtp_write(buffer, smtp_buffer, rest) < 0)
+                  {
+                     (void)rec(transfer_log_fd, INFO_SIGN,
+                               "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to write the rest data from the source file to the SMTP-server.");
+                     (void)smtp_quit();
+                     exit(WRITE_REMOTE_ERROR);
+                  }
+               }
                write_size = rest;
-               buffer_ptr = buffer;
-            }
-            if (db.special_flag & ENCODE_ANSI)
-            {
-               if (smtp_write_iso8859(buffer_ptr, smtp_buffer, write_size) < 0)
-               {
-                  if (fsa[(int)db.position].debug == YES)
-                  {
-                     if (timeout_flag == OFF)
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write to SMTP-server (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                        (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, msg_str);
-                     }
-                     else
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                     }
-                  }
-                  (void)smtp_quit();
-                  (void)rec(transfer_log_fd, INFO_SIGN,
-                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                            fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-                  reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                       NO_OF_FILES_VAR |
-                                       NO_OF_FILES_DONE_VAR |
-                                       FILE_SIZE_DONE_VAR |
-                                       FILE_SIZE_IN_USE_VAR |
-                                       FILE_SIZE_IN_USE_DONE_VAR |
-                                       FILE_NAME_IN_USE_VAR));
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               db.job_id, __FILE__, __LINE__);
-                     (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, db.job_id, __FILE__, __LINE__);
-                  }
-                  exit(WRITE_REMOTE_ERROR);
-               }
-            }
-            else
-            {
-               if (smtp_write(buffer_ptr, smtp_buffer, write_size) < 0)
-               {
-                  if (fsa[(int)db.position].debug == YES)
-                  {
-                     if (timeout_flag == OFF)
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write to SMTP-server (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                        (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, msg_str);
-                     }
-                     else
-                     {
-                        (void)rec(trans_db_log_fd, ERROR_SIGN,
-                                  "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                                  MAX_HOSTNAME_LENGTH, tr_hostname,
-                                  (int)db.job_no, __FILE__, __LINE__);
-                     }
-                  }
-                  (void)smtp_quit();
-                  (void)rec(transfer_log_fd, INFO_SIGN,
-                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                            fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                            fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-                  reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                       NO_OF_FILES_VAR |
-                                       NO_OF_FILES_DONE_VAR |
-                                       FILE_SIZE_DONE_VAR |
-                                       FILE_SIZE_IN_USE_VAR |
-                                       FILE_SIZE_IN_USE_DONE_VAR |
-                                       FILE_NAME_IN_USE_VAR));
-                  if (timeout_flag == OFF)
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                               db.job_id, __FILE__, __LINE__);
-                     (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, msg_str);
-                  }
-                  else
-                  {
-                     (void)rec(transfer_log_fd, ERROR_SIGN,
-                               "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               (int)db.job_no, db.job_id, __FILE__, __LINE__);
-                  }
-                  exit(WRITE_REMOTE_ERROR);
-               }
             }
 
             no_of_bytes += write_size;
@@ -1688,16 +1014,16 @@ main(int argc, char *argv[])
             {
                if (check_fsa() == YES)
                {
-                  if ((db.position = get_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+                  if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
                   {
                      host_deleted = YES;
                   }
                }
                if (host_deleted == NO)
                {
-                  fsa[(int)db.position].job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
-                  fsa[(int)db.position].job_status[(int)db.job_no].file_size_done += write_size;
-                  fsa[(int)db.position].job_status[(int)db.job_no].bytes_send += write_size;
+                  fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
+                  fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done += write_size;
+                  fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += write_size;
                }
             }
          }
@@ -1733,7 +1059,7 @@ main(int argc, char *argv[])
                 */
                (void)rec(sys_log_fd, WARN_SIGN,
                          "File %s for host %s was DEFINITELY NOT send in dot notation. (%s %d)\n",
-                         final_filename, fsa[(int)db.position].host_dsp_name,
+                         final_filename, fsa[db.fsa_pos].host_dsp_name,
                          __FILE__, __LINE__);
             }
             else
@@ -1749,60 +1075,18 @@ main(int argc, char *argv[])
          int length;
 
          /* Write boundary */
-         length = sprintf(buffer, "\n--%s--\n", multipart_boundary);
+         length = sprintf(buffer, "\r\n--%s--\r\n", multipart_boundary);
 
-         if (smtp_write(buffer, smtp_buffer, length) < 0)
+         if (smtp_write(buffer, NULL, length) < 0)
          {
-            if (fsa[(int)db.position].debug == YES)
-            {
-               if (timeout_flag == OFF)
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write data to SMTP-server (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, __FILE__, __LINE__);
-                  (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, msg_str);
-               }
-               else
-               {
-                  (void)rec(trans_db_log_fd, ERROR_SIGN,
-                            "%-*s[%d]: Failed to write to SMTP-server due to timeout. (%s %d)\n",
-                            MAX_HOSTNAME_LENGTH, tr_hostname,
-                            (int)db.job_no, __FILE__, __LINE__);
-               }
-            }
-            (void)smtp_quit();
             (void)rec(transfer_log_fd, INFO_SIGN,
                       "%-*s[%d]: %d Bytes send in %d file(s).\n",
                       MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                      fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-            reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                                 NO_OF_FILES_VAR |
-                                 NO_OF_FILES_DONE_VAR |
-                                 FILE_SIZE_DONE_VAR |
-                                 FILE_SIZE_IN_USE_VAR |
-                                 FILE_SIZE_IN_USE_DONE_VAR |
-                                 FILE_NAME_IN_USE_VAR));
-            if (timeout_flag == OFF)
-            {
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to write data to SMTP-server. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         db.job_id, __FILE__, __LINE__);
-               (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         msg_str);
-            }
-            else
-            {
-               (void)rec(transfer_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to write to SMTP-server due to timeout. #%d (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         db.job_id, __FILE__, __LINE__);
-            }
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write end of multipart boundary to SMTP-server.");
+            (void)smtp_quit();
             exit(WRITE_REMOTE_ERROR);
          }
 
@@ -1833,159 +1117,111 @@ main(int argc, char *argv[])
       /* Close remote file */
       if ((status = smtp_close()) != SUCCESS)
       {
-         if (fsa[(int)db.position].debug == YES)
-         {
-            if (timeout_flag == OFF)
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to close data mode (%d). (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         status, __FILE__, __LINE__);
-               (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, msg_str);
-            }
-            else
-            {
-               (void)rec(trans_db_log_fd, ERROR_SIGN,
-                         "%-*s[%d]: Failed to close data mode due to timeout. (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname,
-                         (int)db.job_no, __FILE__, __LINE__);
-            }
-         }
-         (void)smtp_quit();
          (void)rec(transfer_log_fd, INFO_SIGN,
                    "%-*s[%d]: %d Bytes send in %d file(s).\n",
                    MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
-                   fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done);
-         reset_fsa(p_db, YES, (CONNECT_STATUS_VAR |
-                              NO_OF_FILES_VAR |
-                              NO_OF_FILES_DONE_VAR |
-                              FILE_SIZE_DONE_VAR |
-                              FILE_SIZE_IN_USE_VAR |
-                              FILE_SIZE_IN_USE_DONE_VAR |
-                              FILE_NAME_IN_USE_VAR));
-         if (timeout_flag == OFF)
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to close data mode (%d). #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      status, db.job_id, __FILE__, __LINE__);
-            (void)rec(transfer_log_fd, ERROR_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, msg_str);
-         }
-         else
-         {
-            (void)rec(transfer_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to close data mode due to timeout. #%d (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, db.job_id, __FILE__, __LINE__);
-         }
+                   fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                   fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to close data mode (%d).", status);
+         (void)smtp_quit();
          exit(CLOSE_REMOTE_ERROR);
       }
       else
       {
-         if (fsa[(int)db.position].debug == YES)
+         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
          {
-            (void)rec(trans_db_log_fd, INFO_SIGN,
-                      "%-*s[%d]: Closing data mode. (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      __FILE__, __LINE__);
-            (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, msg_str);
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Closing data mode.");
          }
       }
 
       /* Tell user via FSA a file has been mailed. */
       if (host_deleted == NO)
       {
-         lock_offset = (char *)&fsa[(int)db.position] - (char *)fsa;
+         lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
          rlock_region(fsa_fd, lock_offset);
 
          /* Before we read from the FSA lets make */
          /* sure that it is NOT stale!            */
          if (check_fsa() == YES)
          {
-            if ((db.position = get_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+            if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                no_of_hosts)) == INCORRECT)
             {
                host_deleted = YES;
             }
             else
             {
-               lock_offset = (char *)&fsa[(int)db.position] - (char *)fsa;
+               lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
                rlock_region(fsa_fd, lock_offset);
             }
          }
          if (host_deleted == NO)
          {
-            fsa[(int)db.position].job_status[(int)db.job_no].file_name_in_use[0] = '\0';
-            fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done = files_send + 1;
-            fsa[(int)db.position].job_status[(int)db.job_no].file_size_in_use = 0;
-            fsa[(int)db.position].job_status[(int)db.job_no].file_size_in_use_done = 0;
+            fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use[0] = '\0';
+            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done = files_send + 1;
+            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use = 0;
+            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use_done = 0;
 
             /* Total file counter */
-            lock_region_w(fsa_fd, (char *)&fsa[(int)db.position].total_file_counter - (char *)fsa);
-            fsa[(int)db.position].total_file_counter -= 1;
+            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
+            fsa[db.fsa_pos].total_file_counter -= 1;
 #ifdef _VERIFY_FSA
-            if (fsa[(int)db.position].total_file_counter < 0)
+            if (fsa[db.fsa_pos].total_file_counter < 0)
             {
                (void)rec(sys_log_fd, DEBUG_SIGN,
                          "Total file counter for host %s less then zero. Correcting to %d. (%s %d)\n",
-                         fsa[(int)db.position].host_dsp_name,
-                         files_to_send - (files_send + 1),
-                         __FILE__, __LINE__);
-               fsa[(int)db.position].total_file_counter = files_to_send - (files_send + 1);
+                         fsa[db.fsa_pos].host_dsp_name,
+                         files_to_send - (files_send + 1), __FILE__, __LINE__);
+               fsa[db.fsa_pos].total_file_counter = files_to_send - (files_send + 1);
             }
 #endif
 
             /* Total file size */
 #ifdef _VERIFY_FSA
-            ui_variable = fsa[(int)db.position].total_file_size;
+            ui_variable = fsa[db.fsa_pos].total_file_size;
 #endif
-            fsa[(int)db.position].total_file_size -= stat_buf.st_size;
+            fsa[db.fsa_pos].total_file_size -= stat_buf.st_size;
 #ifdef _VERIFY_FSA
-            if (fsa[(int)db.position].total_file_size > ui_variable)
+            if (fsa[db.fsa_pos].total_file_size > ui_variable)
             {
                int   k;
                off_t *tmp_ptr = p_file_size_buffer;
 
                tmp_ptr++;
-               fsa[(int)db.position].total_file_size = 0;
+               fsa[db.fsa_pos].total_file_size = 0;
                for (k = (files_send + 1); k < files_to_send; k++)
                {
-                  fsa[(int)db.position].total_file_size += *tmp_ptr;
+                  fsa[db.fsa_pos].total_file_size += *tmp_ptr;
                }
 
                (void)rec(sys_log_fd, DEBUG_SIGN,
                          "Total file size for host %s overflowed. Correcting to %lu. (%s %d)\n",
-                         fsa[(int)db.position].host_dsp_name,
-                         fsa[(int)db.position].total_file_size,
+                         fsa[db.fsa_pos].host_dsp_name,
+                         fsa[db.fsa_pos].total_file_size,
                          __FILE__, __LINE__);
             }
-            else if ((fsa[(int)db.position].total_file_counter == 0) &&
-                     (fsa[(int)db.position].total_file_size > 0))
+            else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
+                     (fsa[db.fsa_pos].total_file_size > 0))
                  {
                     (void)rec(sys_log_fd, DEBUG_SIGN,
                               "fc for host %s is zero but fs is not zero. Correcting. (%s %d)\n",
-                              fsa[(int)db.position].host_dsp_name,
+                              fsa[db.fsa_pos].host_dsp_name,
                               __FILE__, __LINE__);
-                    fsa[(int)db.position].total_file_size = 0;
+                    fsa[db.fsa_pos].total_file_size = 0;
                  }
 #endif
-            unlock_region(fsa_fd, (char *)&fsa[(int)db.position].total_file_counter - (char *)fsa);
+            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
 
             /* File counter done */
-            lock_region_w(fsa_fd, (char *)&fsa[(int)db.position].file_counter_done - (char *)fsa);
-            fsa[(int)db.position].file_counter_done += 1;
-            unlock_region(fsa_fd, (char *)&fsa[(int)db.position].file_counter_done - (char *)fsa);
+            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
+            fsa[db.fsa_pos].file_counter_done += 1;
+            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
 
             /* Number of bytes send */
-            lock_region_w(fsa_fd, (char *)&fsa[(int)db.position].bytes_send - (char *)fsa);
-            fsa[(int)db.position].bytes_send += stat_buf.st_size;
-            unlock_region(fsa_fd, (char *)&fsa[(int)db.position].bytes_send - (char *)fsa);
+            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+            fsa[db.fsa_pos].bytes_send += stat_buf.st_size;
+            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
             unlock_region(fsa_fd, lock_offset);
          }
       }
@@ -2005,7 +1241,8 @@ main(int argc, char *argv[])
           */
          if (archive_file(file_path, final_filename, p_db) < 0)
          {
-            if (fsa[(int)db.position].debug == YES)
+            if ((fsa[db.fsa_pos].debug == YES) &&
+                (trans_db_log_fd != -1))
             {
                (void)rec(trans_db_log_fd, ERROR_SIGN,
                          "%-*s[%d]: Failed to archive file %s (%s %d)\n",
@@ -2018,7 +1255,7 @@ main(int argc, char *argv[])
             {
                (void)strcpy(ol_file_name, p_file_name_buffer);
                *ol_file_size = *p_file_size_buffer;
-               *ol_job_number = fsa[(int)db.position].job_status[(int)db.job_no].job_id;
+               *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
                ol_real_size = strlen(p_file_name_buffer) + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
@@ -2032,7 +1269,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            if (fsa[(int)db.position].debug == YES)
+            if ((fsa[db.fsa_pos].debug == YES) &&
+                (trans_db_log_fd != -1))
             {
                (void)rec(trans_db_log_fd, INFO_SIGN,
                          "%-*s[%d]: Archived file %s (%s %d)\n",
@@ -2047,7 +1285,7 @@ main(int argc, char *argv[])
                *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                (void)strcpy(&ol_file_name[*ol_file_name_length + 1], &db.archive_dir[db.archive_offset]);
                *ol_file_size = *p_file_size_buffer;
-               *ol_job_number = fsa[(int)db.position].job_status[(int)db.job_no].job_id;
+               *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
                ol_real_size = *ol_file_name_length +
                               strlen(&ol_file_name[*ol_file_name_length + 1]) +
@@ -2077,7 +1315,7 @@ main(int argc, char *argv[])
          {
             (void)strcpy(ol_file_name, p_file_name_buffer);
             *ol_file_size = *p_file_size_buffer;
-            *ol_job_number = fsa[(int)db.position].job_status[(int)db.job_no].job_id;
+            *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
             *ol_transfer_time = end_time - start_time;
             ol_real_size = strlen(p_file_name_buffer) + ol_size;
             if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
@@ -2097,7 +1335,7 @@ main(int argc, char *argv[])
        * Also move all, error entries back to the message
        * and file directories.
        */
-      if (fsa[(int)db.position].error_counter > 0)
+      if (fsa[db.fsa_pos].error_counter > 0)
       {
          int  fd,
               j;
@@ -2105,8 +1343,8 @@ main(int argc, char *argv[])
 
          /* Number of errors that have occurred since last */
          /* successful transfer.                          */
-         lock_region_w(fsa_fd, (char *)&fsa[(int)db.position].error_counter - (char *)fsa);
-         fsa[(int)db.position].error_counter = 0;
+         lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
+         fsa[db.fsa_pos].error_counter = 0;
 
          /*
           * Wake up FD!
@@ -2144,35 +1382,26 @@ main(int argc, char *argv[])
           * Remove the error condition (NOT_WORKING) from all jobs
           * of this host.
           */
-         for (j = 0; j < fsa[(int)db.position].allowed_transfers; j++)
+         for (j = 0; j < fsa[db.fsa_pos].allowed_transfers; j++)
          {
             if ((j != db.job_no) &&
-                (fsa[(int)db.position].job_status[j].connect_status == NOT_WORKING))
+                (fsa[db.fsa_pos].job_status[j].connect_status == NOT_WORKING))
             {
-               fsa[(int)db.position].job_status[j].connect_status = DISCONNECT;
+               fsa[db.fsa_pos].job_status[j].connect_status = DISCONNECT;
             }
          }
-         unlock_region(fsa_fd, (char *)&fsa[(int)db.position].error_counter - (char *)fsa);
+         unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
 
          /*
           * Since we have successfully transmitted a file, no need to
           * have the queue stopped anymore.
           */
-         if (fsa[(int)db.position].host_status & AUTO_PAUSE_QUEUE_STAT)
+         if (fsa[db.fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT)
          {
-            fsa[(int)db.position].host_status ^= AUTO_PAUSE_QUEUE_STAT;
+            fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
             (void)rec(sys_log_fd, INFO_SIGN,
                       "Starting queue for %s that was stopped by init_afd. (%s %d)\n",
-                      fsa[(int)db.position].host_alias, __FILE__, __LINE__);
-         }
-
-         /*
-          * Hmmm. This is very dangerous! But let see how it
-          * works in practice.
-          */
-         if (fsa[(int)db.position].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT)
-         {
-            fsa[(int)db.position].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
+                      fsa[db.fsa_pos].host_alias, __FILE__, __LINE__);
          }
       }
 
@@ -2185,32 +1414,14 @@ main(int argc, char *argv[])
    (void)rec(transfer_log_fd, INFO_SIGN,
              "%-*s[%d]: %d Bytes mailed in %d file(s).\n",
              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-             fsa[(int)db.position].job_status[(int)db.job_no].file_size_done,
+             fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
              files_send);
 
    /* Logout again */
    if ((status = smtp_quit()) != SUCCESS)
    {
-      if (fsa[(int)db.position].debug == YES)
-      {
-         if (timeout_flag == OFF)
-         {
-            (void)rec(trans_db_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to disconnect from SMTP-server. (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      __FILE__, __LINE__);
-            (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, msg_str);
-         }
-         else
-         {
-            (void)rec(trans_db_log_fd, ERROR_SIGN,
-                      "%-*s[%d]: Failed to disconnect from SMTP-server due to timeout. (%s %d)\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname,
-                      (int)db.job_no, __FILE__, __LINE__);
-         }
-      }
+      trans_log(WARN_SIGN, __FILE__, __LINE__,
+                "Failed to disconnect from SMTP-server (%d).", status);
 
       /*
        * Since all files have been transfered successful it is
@@ -2218,32 +1429,17 @@ main(int argc, char *argv[])
        * It's enough when we say in the Transfer log that we failed
        * to log out.
        */
-      (void)rec(transfer_log_fd, WARN_SIGN,
-                "%-*s[%d]: Failed to log out (%d). #%d (%s %d)\n",
-                MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                status, db.job_id, __FILE__, __LINE__);
    }
    else
    {
-      if (fsa[(int)db.position].debug == YES)
+      if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
       {
-         (void)rec(trans_db_log_fd, INFO_SIGN,
-                   "%-*s[%d]: Logged out. (%s %d)\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, __FILE__, __LINE__);
-         (void)rec(trans_db_log_fd, INFO_SIGN, "%-*s[%d]: %s\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname,
-                   (int)db.job_no, msg_str);
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Logged out.");
       }
    }
 
    /* Don't need the ASCII buffer */
    free(smtp_buffer);
-
-   /* Inform FSA that we have finished transferring */
-   /* data and have disconnected.                  */
-   reset_fsa(p_db, NO, (CONNECT_STATUS_VAR | NO_OF_FILES_VAR |
-                        NO_OF_FILES_DONE_VAR | FILE_SIZE_DONE_VAR));
 
    /*
     * Remove file directory, but only when all files have
@@ -2265,6 +1461,7 @@ main(int argc, char *argv[])
                 file_path, __FILE__, __LINE__);
    }
 
+   exitflag = 0;
    exit(TRANSFER_SUCCESS);
 }
 
@@ -2276,9 +1473,10 @@ sf_smtp_exit(void)
    int  fd;
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
-   reset_fsa((struct job *)&db, NO, FILE_SIZE_VAR);
+   reset_fsa((struct job *)&db, exitflag);
 
-   if (db.user_rename_rule[0] != '\0')
+   if ((db.user_rename_rule[0] != '\0') ||
+       (db.trans_rename_rule[0] != '\0'))
    {
       (void)close(counter_fd);
    }
@@ -2329,11 +1527,7 @@ sf_smtp_exit(void)
 static void
 sig_segv(int signo)
 {
-   reset_fsa((struct job *)&db, YES, (CONNECT_STATUS_VAR |
-                        NO_OF_FILES_VAR | NO_OF_FILES_DONE_VAR |
-                        FILE_SIZE_VAR | FILE_SIZE_DONE_VAR |
-                        FILE_SIZE_IN_USE_VAR | FILE_SIZE_IN_USE_DONE_VAR |
-                        FILE_NAME_IN_USE_VAR | PROC_ID_VAR));
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    (void)rec(sys_log_fd, DEBUG_SIGN,
               "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this! (%s %d)\n",
              __FILE__, __LINE__);
@@ -2345,11 +1539,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   reset_fsa((struct job *)&db, YES, (CONNECT_STATUS_VAR |
-                        NO_OF_FILES_VAR | NO_OF_FILES_DONE_VAR |
-                        FILE_SIZE_VAR | FILE_SIZE_DONE_VAR |
-                        FILE_SIZE_IN_USE_VAR | FILE_SIZE_IN_USE_DONE_VAR |
-                        FILE_NAME_IN_USE_VAR | PROC_ID_VAR));
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    (void)rec(sys_log_fd, DEBUG_SIGN,
              "Uuurrrggh! Received SIGBUS. (%s %d)\n",
              __FILE__, __LINE__);
@@ -2361,11 +1551,7 @@ sig_bus(int signo)
 static void
 sig_kill(int signo)
 {
-   reset_fsa((struct job *)&db, NO, (CONNECT_STATUS_VAR |
-                        NO_OF_FILES_VAR | NO_OF_FILES_DONE_VAR |
-                        FILE_SIZE_VAR | FILE_SIZE_DONE_VAR |
-                        FILE_SIZE_IN_USE_VAR | FILE_SIZE_IN_USE_DONE_VAR |
-                        FILE_NAME_IN_USE_VAR | PROC_ID_VAR));
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(GOT_KILLED);
 }
 
@@ -2374,10 +1560,6 @@ sig_kill(int signo)
 static void
 sig_exit(int signo)
 {
-   reset_fsa((struct job *)&db, YES, (CONNECT_STATUS_VAR |
-                        NO_OF_FILES_VAR | NO_OF_FILES_DONE_VAR |
-                        FILE_SIZE_VAR | FILE_SIZE_DONE_VAR |
-                        FILE_SIZE_IN_USE_VAR | FILE_SIZE_IN_USE_DONE_VAR |
-                        FILE_NAME_IN_USE_VAR | PROC_ID_VAR));
+   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }

@@ -81,7 +81,7 @@ format_info(char **text)
 {
    int    count,
           length;
-   size_t buf_size = INFO_TEXT_STEP_SIZE + INFO_TEXT_STEP_SIZE;
+   size_t buf_size = MAX_FILE_MASK_BUFFER + MAX_FILE_MASK_BUFFER;
    char   *p_begin_underline = NULL,
           **p_array = NULL;
 
@@ -147,44 +147,7 @@ format_info(char **text)
          /* Print recipient */
          if (perm.view_passwd != YES)
          {
-            char *ptr = id.dbe[j].recipient;
-
-            /*
-             * The user may not see the password. Lets cut it out and
-             * replace it with DEFAULT_VIEW_PASSWD.
-             */
-            while (*ptr != ':')
-            {
-               ptr++;
-            }
-            ptr++;
-            while ((*ptr != ':') && (*ptr != '@'))
-            {
-               if (*ptr == '\\')
-               {
-                  ptr++;
-               }
-               ptr++;
-            }
-            if (*ptr == ':')
-            {
-               char *p_end = ptr + 1,
-                    tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-               ptr++;
-               while (*ptr != '@')
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  ptr++;
-               }
-               (void)strcpy(tmp_buffer, ptr);
-               *p_end = '\0';
-               (void)strcat(id.dbe[j].recipient, "XXXXX");
-               (void)strcat(id.dbe[j].recipient, tmp_buffer);
-            }
+            remove_passwd(id.dbe[j].recipient);
          }
          count = sprintf(*text + length,
                          "Recipient  : %s\n", id.dbe[j].recipient);
@@ -284,14 +247,14 @@ format_info(char **text)
 
          p_array[j] = *text + length;
 
-         if ((length + INFO_TEXT_STEP_SIZE) > buf_size)
+         if ((length + MAX_FILE_MASK_BUFFER) > buf_size)
          {
             int    ii,
                    *offset,
                    under_line_offset;
 
-            buf_size = (((length / INFO_TEXT_STEP_SIZE) + 1) *
-                         INFO_TEXT_STEP_SIZE) + INFO_TEXT_STEP_SIZE;
+            buf_size = (((length / MAX_FILE_MASK_BUFFER) + 1) *
+                         MAX_FILE_MASK_BUFFER) + MAX_FILE_MASK_BUFFER;
             if ((offset = malloc((j + 1) * sizeof(int))) == NULL)
             {
                (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
@@ -348,7 +311,7 @@ format_info(char **text)
             offset[ii] = p_array[ii] - *text;
          }
          under_line_offset = p_begin_underline - *text;
-         if ((*text = realloc(*text, new_size + INFO_TEXT_STEP_SIZE)) == NULL)
+         if ((*text = realloc(*text, new_size + MAX_FILE_MASK_BUFFER)) == NULL)
          {
             (void)fprintf(stderr, "realloc() error : %s (%s %d)\n",
                           strerror(errno), __FILE__, __LINE__);

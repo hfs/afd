@@ -1,6 +1,6 @@
 /*
  *  mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -38,6 +38,8 @@ DESCR__S_M1
  ** HISTORY
  **   31.08.1998 H.Kiehl Created
  **   05.06.1999 H.Kiehl Added remote host list.
+ **   03.09.2000 H.Kiehl Addition of log history.
+ **   13.09.2000 H.Kiehl Addition of top number of process.
  **
  */
 DESCR__E_M1
@@ -265,10 +267,11 @@ main(int argc, char *argv[])
                       MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
                       __FILE__, __LINE__);
          }
+         msa[afd_no].connect_status = CONNECTION_DEFUNCT;
       }
       else
       {
-         msa[afd_no].connect_status = NORMAL_STATUS;
+         msa[afd_no].connect_status = CONNECTION_ESTABLISHED;
          (void)rec(mon_log_fd, INFO_SIGN,
                    "%-*s: ========> AFDD Connected <========\n",
                    MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
@@ -295,18 +298,10 @@ main(int argc, char *argv[])
                          __FILE__, __LINE__);
             }
             (void)tcp_quit();
+            msa[afd_no].connect_status = CONNECTION_DEFUNCT;
          }
          else
          {
-/*
-            if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
-            {
-               timeout_flag = ON;
-               (void)tcp_quit();
-               timeout_flag = OFF;
-            }
-*/
-
             for (;;)
             {
                /*
@@ -319,10 +314,13 @@ main(int argc, char *argv[])
 
                   for (i = (STORAGE_TIME - 1); i > 0; i--)
                   {
+                     msa[afd_no].top_no_of_transfers[i] = msa[afd_no].top_no_of_transfers[i - 1];
                      msa[afd_no].top_tr[i] = msa[afd_no].top_tr[i - 1];
                      msa[afd_no].top_fr[i] = msa[afd_no].top_fr[i - 1];
                   }
+                  msa[afd_no].top_no_of_transfers[0] = 0;
                   msa[afd_no].top_tr[0] = msa[afd_no].top_fr[0] = 0;
+                  msa[afd_no].top_not_time = msa[afd_no].top_tr_time = msa[afd_no].top_fr_time = 0L;
                   new_day_time = (now / 86400) * 86400 + 86400;
                }
 
@@ -331,6 +329,7 @@ main(int argc, char *argv[])
                   if ((bytes_buffered = read_msg()) == INCORRECT)
                   {
                      bytes_buffered -= bytes_done;
+                     msa[afd_no].connect_status = CONNECTION_DEFUNCT;
                      goto done;
                   }
                   else
@@ -341,6 +340,7 @@ main(int argc, char *argv[])
                         timeout_flag = ON;
                         (void)tcp_quit();
                         timeout_flag = OFF;
+                        msa[afd_no].connect_status = DISCONNECTED;
                         goto done;
                      }
                      bytes_buffered -= bytes_done;
@@ -363,6 +363,7 @@ main(int argc, char *argv[])
                   {
                      if ((bytes_buffered = read_msg()) == INCORRECT)
                      {
+                        msa[afd_no].connect_status = CONNECTION_DEFUNCT;
                         goto done;
                      }
                      else
@@ -373,6 +374,7 @@ main(int argc, char *argv[])
                            timeout_flag = ON;
                            (void)tcp_quit();
                            timeout_flag = OFF;
+                           msa[afd_no].connect_status = DISCONNECTED;
                            goto done;
                         }
                         bytes_buffered -= bytes_done;
@@ -403,6 +405,7 @@ main(int argc, char *argv[])
                                        __FILE__, __LINE__);
                           }
                           (void)tcp_quit();
+                          msa[afd_no].connect_status = CONNECTION_DEFUNCT;
                           break;
                        }
                        else
@@ -414,6 +417,7 @@ main(int argc, char *argv[])
                              timeout_flag = ON;
                              (void)tcp_quit();
                              timeout_flag = OFF;
+                             msa[afd_no].connect_status = DISCONNECTED;
                              break;
                           }
                           bytes_buffered -= bytes_done;
@@ -433,7 +437,6 @@ main(int argc, char *argv[])
 done:
 
       msa[afd_no].tr = 0;
-      msa[afd_no].connect_status = DISCONNECTED;
 
       /* Initialise descriptor set and timeout */
       FD_ZERO(&rset);
@@ -483,6 +486,9 @@ done:
 /*                AV - AFD version                                       */
 /*                HL - List of current host alias names and real         */
 /*                     hostnames                                         */
+/*                RH - Receive log history                               */
+/*                SH - System log history                                */
+/*                TH - Transfer log history                              */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 static int
 evaluate_message(int *bytes_done)
@@ -494,8 +500,7 @@ evaluate_message(int *bytes_done)
    ptr = msg_str;
    for (;;)
    {
-      if (((*ptr == '\n') && (*(ptr - 1) == '\r')) ||
-          (*ptr == '\0'))
+      if (*ptr == '\0')
       {
          break;
       }
@@ -541,6 +546,7 @@ evaluate_message(int *bytes_done)
                if (msa[afd_no].tr > msa[afd_no].top_tr[0])
                {
                   msa[afd_no].top_tr[0] = msa[afd_no].tr;
+                  msa[afd_no].top_tr_time = msa[afd_no].last_data_time;
                }
                ptr++;
                ptr_start = ptr;
@@ -556,6 +562,7 @@ evaluate_message(int *bytes_done)
                   if (msa[afd_no].fr > msa[afd_no].top_fr[0])
                   {
                      msa[afd_no].top_fr[0] = msa[afd_no].fr;
+                     msa[afd_no].top_fr_time = msa[afd_no].last_data_time;
                   }
                   ptr++;
                   ptr_start = ptr;
@@ -590,6 +597,11 @@ evaluate_message(int *bytes_done)
                            /* Store number of transfers. */
                            *ptr = '\0';
                            msa[afd_no].no_of_transfers = atoi(ptr_start);
+                           if (msa[afd_no].no_of_transfers > msa[afd_no].top_no_of_transfers[0])
+                           {
+                              msa[afd_no].top_no_of_transfers[0] = msa[afd_no].no_of_transfers;
+                              msa[afd_no].top_not_time = msa[afd_no].last_data_time;
+                           }
                            ptr++;
                            ptr_start = ptr;
                            while ((*ptr != ' ') && (*ptr != '\0'))
@@ -747,42 +759,36 @@ evaluate_message(int *bytes_done)
            }
            if (*ptr == ' ')
            {
-              int  i;
+              register int i = 0;
 #ifdef _DEBUG_PRINT
-              int  length;
+              int  length = 2;
               char fifo_buf[(LOG_FIFO_SIZE * 4) + 4];
 
               fifo_buf[0] = 'S';
               fifo_buf[1] = 'R';
-              length = 2;
 #endif /* _DEBUG_PRINT */
 
               /* Store system log entry counter. */
               *ptr = '\0';
               msa[afd_no].sys_log_ec = (unsigned int)strtoul(ptr_start, NULL, 10);
               ptr++;
-              ptr_start = ptr;
-              for (i = 0; i < LOG_FIFO_SIZE; i++)
+              while ((*ptr != '\0') && (i < LOG_FIFO_SIZE))
               {
-                 while ((*ptr != ' ') && (*ptr != '\0'))
+                 msa[afd_no].sys_log_fifo[i] = *ptr - ' ';
+                 if (msa[afd_no].sys_log_fifo[i] > COLOR_POOL_SIZE)
                  {
-                    ptr++;
+                    (void)rec(sys_log_fd, DEBUG_SIGN,
+                              "Reading garbage for Transfer Log Radar entry <%d> (%s %d)\n",
+                              (int)msa[afd_no].sys_log_fifo[i],
+                              __FILE__, __LINE__);
+                    msa[afd_no].sys_log_fifo[i] = CHAR_BACKGROUND;
                  }
-                 if ((*ptr == ' ') ||
-                     ((*ptr == '\0') &&
-                      (i == (LOG_FIFO_SIZE - 1))))
-                 {
-                    /* Store system log status. */
-                    *ptr = '\0';
-                    msa[afd_no].sys_log_fifo[i] = (char)atoi(ptr_start);
-                    ptr++;
-                    ptr_start = ptr;
 #ifdef _DEBUG_PRINT
-                    length += sprintf(&fifo_buf[length], " %d",
-                                      (int)msa[afd_no].sys_log_fifo[i]);
+                 length += sprintf(&fifo_buf[length], " %d",
+                                   (int)msa[afd_no].sys_log_fifo[i]);
 #endif /* _DEBUG_PRINT */
-                 }
-              } /* for (i = 0; i < LOG_FIFO_SIZE; i++) */
+                 ptr++; i++;
+              }
 #ifdef _DEBUG_PRINT
               (void)fprintf(stderr, "%s\n", fifo_buf);
 #endif /* _DEBUG_PRINT */
@@ -862,6 +868,117 @@ evaluate_message(int *bytes_done)
            }
         }
    /*
+    * Receive Log History
+    */
+   else if ((*ptr == 'R') && (*(ptr + 1) == 'H'))
+        {
+           register int i = 0;
+#ifdef _DEBUG_PRINT
+           int  length = 2;
+           char fifo_buf[(MAX_LOG_HISTORY * 4) + 4];
+
+           fifo_buf[0] = 'R';
+           fifo_buf[1] = 'H';
+#endif /* _DEBUG_PRINT */
+
+           /* Syntax: RH <history data> */;
+           ptr += 3;
+           while ((*ptr != '\0') && (i < MAX_LOG_HISTORY))
+           {
+              msa[afd_no].log_history[RECEIVE_HISTORY][i] = *ptr - ' ';
+              if (msa[afd_no].log_history[RECEIVE_HISTORY][i] > COLOR_POOL_SIZE)
+              {
+                 (void)rec(sys_log_fd, DEBUG_SIGN,
+                           "Reading garbage for Receive Log History <%d> (%s %d)\n",
+                           (int)msa[afd_no].log_history[RECEIVE_HISTORY][i],
+                           __FILE__, __LINE__);
+                 msa[afd_no].log_history[RECEIVE_HISTORY][i] = CHAR_BACKGROUND;
+              }
+#ifdef _DEBUG_PRINT
+              length += sprintf(&fifo_buf[length], " %d",
+                                (int)msa[afd_no].log_history[RECEIVE_HISTORY][i]);
+#endif /* _DEBUG_PRINT */
+              ptr++; i++;
+           }
+#ifdef _DEBUG_PRINT
+              (void)fprintf(stderr, "%s\n", fifo_buf);
+#endif /* _DEBUG_PRINT */
+        }
+   /*
+    * Transfer Log History
+    */
+   else if ((*ptr == 'T') && (*(ptr + 1) == 'H'))
+        {
+           register int i = 0;
+#ifdef _DEBUG_PRINT
+           int  length = 2;
+           char fifo_buf[(MAX_LOG_HISTORY * 4) + 4];
+
+           fifo_buf[0] = 'T';
+           fifo_buf[1] = 'H';
+#endif /* _DEBUG_PRINT */
+
+           /* Syntax: TH <history data> */;
+           ptr += 3;
+           while ((*ptr != '\0') && (i < MAX_LOG_HISTORY))
+           {
+              msa[afd_no].log_history[TRANSFER_HISTORY][i] = *ptr - ' ';
+              if (msa[afd_no].log_history[TRANSFER_HISTORY][i] > COLOR_POOL_SIZE)
+              {
+                 (void)rec(sys_log_fd, DEBUG_SIGN,
+                           "Reading garbage for Transfer Log History <%d> (%s %d)\n",
+                           (int)msa[afd_no].log_history[TRANSFER_HISTORY][i],
+                           __FILE__, __LINE__);
+                 msa[afd_no].log_history[TRANSFER_HISTORY][i] = CHAR_BACKGROUND;
+              }
+#ifdef _DEBUG_PRINT
+              length += sprintf(&fifo_buf[length], " %d",
+                                (int)msa[afd_no].log_history[TRANSFER_HISTORY][i]);
+#endif /* _DEBUG_PRINT */
+              ptr++; i++;
+           }
+#ifdef _DEBUG_PRINT
+              (void)fprintf(stderr, "%s\n", fifo_buf);
+#endif /* _DEBUG_PRINT */
+        }
+   /*
+    * System Log History
+    */
+   else if ((*ptr == 'S') && (*(ptr + 1) == 'H'))
+        {
+           register int i = 0;
+#ifdef _DEBUG_PRINT
+           int  length = 2;
+           char fifo_buf[(MAX_LOG_HISTORY * 4) + 4];
+
+           fifo_buf[0] = 'S';
+           fifo_buf[1] = 'H';
+#endif /* _DEBUG_PRINT */
+
+           /* Syntax: SH <history data> */;
+           ptr += 3;
+           while ((*ptr != '\0') && (i < MAX_LOG_HISTORY))
+           {
+              msa[afd_no].log_history[SYSTEM_HISTORY][i] = *ptr - ' ';
+              if (msa[afd_no].log_history[SYSTEM_HISTORY][i] > COLOR_POOL_SIZE)
+              {
+                 (void)rec(sys_log_fd, DEBUG_SIGN,
+                           "Reading garbage for System Log History <%d> (%s %d)\n",
+                           (int)msa[afd_no].log_history[SYSTEM_HISTORY][i],
+                           __FILE__, __LINE__);
+                 msa[afd_no].log_history[SYSTEM_HISTORY][i] = CHAR_BACKGROUND;
+              }
+#ifdef _DEBUG_PRINT
+              length += sprintf(&fifo_buf[length], " %d",
+                                (int)msa[afd_no].log_history[SYSTEM_HISTORY][i]);
+#endif /* _DEBUG_PRINT */
+              ptr++; i++;
+           }
+#ifdef _DEBUG_PRINT
+              (void)fprintf(stderr, "%s\n", fifo_buf);
+#endif /* _DEBUG_PRINT */
+        }
+   /*
     * AFD Version Number
     */
    else if ((*ptr == 'A') && (*(ptr + 1) == 'V'))
@@ -938,11 +1055,26 @@ mon_exit(void)
    if (tcp_quit() < 0)
    {
       (void)rec(mon_log_fd, DEBUG_SIGN,
-                "Failed to close TCP connection. (%s %d)\n",
-                __FILE__, __LINE__);
+                "%-*s: Failed to close TCP connection. (%s %d)\n",
+                msa[afd_no].afd_alias, __FILE__, __LINE__);
    }
-   msa[afd_no].connect_status = DISCONNECTED;
+   if (msa[afd_no].connect_status == DISABLED)
+   {
+      msa[afd_no].fr = 0;
+      msa[afd_no].fc = 0;
+      msa[afd_no].fs = 0;
+      msa[afd_no].ec = 0;
+      msa[afd_no].no_of_transfers = 0;
+      msa[afd_no].host_error_counter = 0;
+   }
+   else
+   {
+      msa[afd_no].connect_status = DISCONNECTED;
+   }
    msa[afd_no].tr = 0;
+   (void)rec(mon_log_fd, INFO_SIGN,
+             "%-*s: ========> Disconnected <========\n",
+              MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias);
 
    if (msa_detach() != SUCCESS)
    {
@@ -988,8 +1120,5 @@ sig_bus(int signo)
 static void
 sig_exit(int signo)
 {
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "HEY! Somebody killed me! (%s %d)\n",
-             __FILE__, __LINE__);
    exit(INCORRECT);
 }

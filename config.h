@@ -244,6 +244,13 @@
 #define MAX_HOSTNAME_LENGTH 8
 
 /*-----------------------------------------------------------------------*
+ * The maximum directory alias name length that is displayed by
+ * 'dir_ctrl'.
+ * DEFAULT: 10
+ *-----------------------------------------------------------------------*/
+#define MAX_DIR_ALIAS_LENGTH 10
+
+/*-----------------------------------------------------------------------*
  * The maximum size of the system and transfer debug log files.
  * DEFAULT: 2097152  (2MB)
  *-----------------------------------------------------------------------*/
@@ -279,6 +286,18 @@
 #ifdef _DELETE_LOG
 #define MAX_DELETE_LOG_FILES   7
 #endif
+
+/*-----------------------------------------------------------------------*
+ * The following definitions are used to control the length and interval
+ * of the log history for the receive-, system- and transfer-log.
+ * HISTORY_LOG_INTERVAL - At what interval the log history is shuffled
+ *                        one bock to the left in the mon_ctrl dialog.
+ *                        DEFAULT: 3600
+ * MAX_LOG_HISTORY      - The number of history blocks are to be stored.
+ *                        DEFAULT: 24
+ *-----------------------------------------------------------------------*/
+#define HISTORY_LOG_INTERVAL 3600
+#define MAX_LOG_HISTORY      24
 
 
 
@@ -330,24 +349,19 @@
  * The following entries are used to set the maximum values for the
  * DIR_CONFIG file. They are as followed:
  *
- * MAX_NO_DEST_GROUP    - Number of destination groups that may be
- *                        specified for one file entry.
- * MAX_NO_RECIPIENT     - The maximum no of recipient that can be defined
- *                        for one destination entry.
  * MAX_NO_OPTIONS       - Number of options that may be defined for one
  *                        destination.
  * MAX_RECIPIENT_LENGTH - Maximum length that one recipient may have,
  *                        including the directory entry.
- * MAX_NO_FILES         - Maximum number of file names that may be
- *                        specified for one file group. Names with wild-
- *                        cards (*,?) count as one entry.
+ * MAX_FILE_MASK_BUFFER - Maximum number of bytes that may be used to
+ *                        store the file masks for one file group entry.
+ *                        Each file mask will be terminated by a new-
+ *                        line.
  *-----------------------------------------------------------------------*/
-#define MAX_NO_DEST_GROUP    5
-#define MAX_NO_RECIPIENT     10
 #define MAX_NO_OPTIONS       10
 #define MAX_RECIPIENT_LENGTH 256
 #define MAX_OPTION_LENGTH    256
-#define MAX_NO_FILES         20
+#define MAX_FILE_MASK_BUFFER 4096
 
 /*-----------------------------------------------------------------------*
  * ONE_DIR_COPY_TIMEOUT - When AMG has collected MAX_COPIED_FILES, it
@@ -360,7 +374,7 @@
  *                        to go once through all directories and it will
  *                        take too long until important files get send.
  *                        This is only effective when the administrator
- *                        has marked one or more directeries with an
+ *                        has marked one or more directories with an
  *                        asterix '*'.
  *                        DEFAULT: 60 (seconds)
  *                        NOTE: This is only a quick hack until a better
@@ -372,10 +386,17 @@
 #endif
 
 /*-----------------------------------------------------------------------*
- * Maximum number of times that the process dir_check may fork itself.
- * DEFAULT: 8
+ * MAX_NO_OF_DIR_CHECKS - Maximum number of times that the process
+ *                        dir_check may fork itself.
+ *                        DEFAULT: 20
+ * MAX_PROCESS_PER_DIR  - The maximum number of times that the process
+ *                        dir_check may fork itself per directory. This
+ *                        number must be less then or equal to
+ *                        MAX_NO_OF_DIR_CHECKS!
+ *                        DEFAULT: 10
  *-----------------------------------------------------------------------*/
-#define MAX_NO_OF_DIR_CHECKS 8
+#define MAX_NO_OF_DIR_CHECKS 20
+#define MAX_PROCESS_PER_DIR  10
 
 /*-----------------------------------------------------------------------*
  * When no archive time is specified in the DIR_CONFIG file this is it's
@@ -405,6 +426,13 @@
 #define FD_RESCAN_TIME 10
 
 /*-----------------------------------------------------------------------*
+ * The time interval at which the FD scans remote directories for files
+ * that must be retrieved.
+ * DEFAULT: 60
+ *-----------------------------------------------------------------------*/
+#define DEFAULT_REMOTE_FILE_CHECK_INTERVAL 60
+
+/*-----------------------------------------------------------------------*
  * If this is defined, AFD will try to use the type-of-service field
  * in the IP header for a TCP socket. For FTP this would minimize delay
  * on the control connection and maximize throughput on the data
@@ -414,16 +442,37 @@
 #define _WITH_TOS
 
 /*-----------------------------------------------------------------------*
- * The number of simultaneous connections/transfers:
- *   MAX_DEFAULT_CONNECTIONS      - default when no value is set in
- *                                  AFD_CONFIG file (default 20).
- *   MAX_CONFIGURABLE_CONNECTIONS - the maximum configurable value in
- *                                  AFD_CONFIG file (default 512). If
- *                                  a higher value is specified it will
- *                                  default to MAX_DEFAULT_CONNECTIONS.
+ * The number of simultaneous connections/transfers for input and
+ * output:
+ *
+ * MAX_DEFAULT_CONNECTIONS      - default when no value is set in
+ *                                AFD_CONFIG file (default 30).
+ * MAX_CONFIGURABLE_CONNECTIONS - the maximum configurable value in
+ *                                AFD_CONFIG file (default 512). If
+ *                                a higher value is specified it will
+ *                                default to MAX_DEFAULT_CONNECTIONS.
  *-----------------------------------------------------------------------*/
-#define MAX_DEFAULT_CONNECTIONS      20
+#define MAX_DEFAULT_CONNECTIONS      30
 #define MAX_CONFIGURABLE_CONNECTIONS 512
+
+/*-----------------------------------------------------------------------*
+ * If the number of messages queued is very large and most messages
+ * belong to a host that is very slow, new messages will only be
+ * processed very slowly when the whole queue is scanned each time a
+ * new message arrives or a job has terminated. The following parameters
+ * can reduce system load and make FD much more responsive in such
+ * situations.
+ *
+ * MAX_QUEUED_BEFORE_CECKED   - the maximum number of messages that
+ *                              must be queued before we start
+ *                              counting the loops.
+ *                              DEFAULT: 4000
+ * ELAPSED_LOOPS_BEFORE_CHECK - the number of loops before the whole
+ *                              queue is being checked.
+ *                              DEFAULT: 20
+ *-----------------------------------------------------------------------*/
+#define MAX_QUEUED_BEFORE_CECKED   4000
+#define ELAPSED_LOOPS_BEFORE_CHECK 20
 
 /*-----------------------------------------------------------------------*
  * The default retry time (in seconds) when a transfer has failed.

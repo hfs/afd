@@ -7,12 +7,13 @@ include ../../../Include.mk
 INSTDIR  = ../../../../bin
 COMDIR   = ../../../common
 XCOMDIR  = ../common
-LIB      = $(COMDIR)/libafd.a $(XCOMDIR)/libxafd.a
+LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
 CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../.. -I../../../init_afd -I../../../log -I../afd_ctrl -I../../../afd_mon
 
 SCMDPROG = show_cmd
 SCMDOBJS = cmd_callbacks.o\
            exec_cmd.o\
+           print_data.o\
            show_cmd.o
 
 PROGS    = $(SCMDPROG)
@@ -24,6 +25,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(SCMDPROG) : $(SCMDOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SCMDOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
@@ -34,6 +36,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(SCMDPROG)
 

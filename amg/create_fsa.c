@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,14 +28,14 @@ DESCR__S_M3
  **   void create_fsa(void)
  **
  ** DESCRIPTION
- **   This function creates the FSA (Filetransfer Status Area), to
- **   which all process of the AFD will map. The FSA has the following
- **   structure:
+ **   This function creates the FSA (Filetransfer Status Area),
+ **   to which most process of the AFD will map. The FSA has the
+ **   following structure:
  **
  **      <int no_of_hosts><struct filetransfer_status fsa[no_of_hosts]>
  **
- **   A detailed description of the structure filetransfer_status can
- **   be found in afddefs.h. The signed integer variable no_of_hosts
+ **   A detailed description of the structure filetransfer_status
+ **   can be found in afddefs.h. The signed integer variable no_of_hosts
  **   contains the number of hosts that the AFD has to serve. This
  **   variable can have the value STALE (-1), which will tell all other
  **   process to unmap from this area and map to the new area.
@@ -72,7 +72,8 @@ DESCR__E_M3
 
 /* External global variables */
 extern char                       *p_work_dir;
-extern int                        sys_log_fd,
+extern int                        first_time,
+                                  sys_log_fd,
                                   fsa_id,
                                   fsa_fd,
                                   no_of_hosts; /* The number of remote/  */
@@ -84,7 +85,7 @@ extern struct host_list           *hl;         /* Structure that holds   */
                                                /* all the hosts.         */
 extern struct filetransfer_status *fsa;
 
-/* Local global variables */
+/* Global variables */
 struct afd_status                 *p_afd_status; /* Used by attach_afd_status() */
 
 
@@ -98,17 +99,11 @@ create_fsa(void)
                               old_fsa_fd = -1,
                               old_fsa_id,
                               old_no_of_hosts = -1,
-                              afd_cmd_fd,
                               size;
-   static int                 first_time = YES;
    off_t                      old_fsa_size = -1;
    char                       *ptr = NULL,
-#ifdef _FIFO_DEBUG
-                              cmd[2],
-#endif
                               new_fsa_stat[MAX_PATH_LENGTH],
                               old_fsa_stat[MAX_PATH_LENGTH],
-                              afd_cmd_fifo[MAX_PATH_LENGTH],
                               fsa_id_file[MAX_PATH_LENGTH];
    struct filetransfer_status *old_fsa = NULL;
    struct flock               wlock = {F_WRLCK, SEEK_SET, 0, 1},
@@ -120,33 +115,9 @@ create_fsa(void)
    /* Initialise all pathnames and file descriptors */
    (void)strcpy(fsa_id_file, p_work_dir);
    (void)strcat(fsa_id_file, FIFO_DIR);
-   (void)strcpy(afd_cmd_fifo, fsa_id_file);
-   (void)strcat(afd_cmd_fifo, AFD_CMD_FIFO);
    (void)strcpy(old_fsa_stat, fsa_id_file);
    (void)strcat(old_fsa_stat, FSA_STAT_FILE);
-
    (void)strcat(fsa_id_file, FSA_ID_FILE);
-
-   /*
-    * Check if fifos have been created. If not create and open them.
-    */
-   if ((stat(afd_cmd_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(afd_cmd_fifo) < 0)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   afd_cmd_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-   if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
 
    /*
     * First just try open the fsa_id_file. If this fails create
@@ -503,7 +474,6 @@ create_fsa(void)
          fsa[i].bytes_send          = 0;
          fsa[i].connections         = 0;
          fsa[i].active_transfers    = 0;
-         fsa[i].transfer_rate       = 0;
          fsa[i].successful_retries  = 0;
          fsa[i].debug               = NO;
          fsa[i].last_connection = fsa[i].last_retry_time = time(NULL);
@@ -660,7 +630,6 @@ create_fsa(void)
             fsa[i].bytes_send          = old_fsa[host_pos].bytes_send;
             fsa[i].connections         = old_fsa[host_pos].connections;
             fsa[i].active_transfers    = old_fsa[host_pos].active_transfers;
-            fsa[i].transfer_rate       = old_fsa[host_pos].transfer_rate;
             fsa[i].last_connection     = old_fsa[host_pos].last_connection;
             fsa[i].last_retry_time     = old_fsa[host_pos].last_retry_time;
             fsa[i].total_file_counter  = old_fsa[host_pos].total_file_counter;
@@ -732,24 +701,23 @@ create_fsa(void)
             }
             (void)memset(&hl[i].fullname[0], 0, MAX_FILENAME_LENGTH);
 
-            fsa[i].host_status         = 0;
-            fsa[i].error_counter       = 0;
-            fsa[i].total_errors        = 0;
-            fsa[i].total_connect_time  = 0;
-            fsa[i].file_counter_done   = 0;
-            fsa[i].bytes_send          = 0;
-            fsa[i].connections         = 0;
-            fsa[i].active_transfers    = 0;
-            fsa[i].transfer_rate       = 0;
-            fsa[i].total_file_counter  = 0;
-            fsa[i].total_file_size     = 0;
-            fsa[i].special_flag        = 0;
+            fsa[i].host_status        = 0;
+            fsa[i].error_counter      = 0;
+            fsa[i].total_errors       = 0;
+            fsa[i].total_connect_time = 0;
+            fsa[i].file_counter_done  = 0;
+            fsa[i].bytes_send         = 0;
+            fsa[i].connections        = 0;
+            fsa[i].active_transfers   = 0;
+            fsa[i].total_file_counter = 0;
+            fsa[i].total_file_size    = 0;
+            fsa[i].special_flag       = 0;
             if (hl[i].number_of_no_bursts > 0)
             {
                fsa[i].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
             }
-            fsa[i].successful_retries  = 0;
-            fsa[i].debug               = NO;
+            fsa[i].successful_retries = 0;
+            fsa[i].debug              = NO;
             fsa[i].last_connection = fsa[i].last_retry_time = time(NULL);
             memset(&fsa[i].job_status, 0, size);
             for (k = 0; k < fsa[i].allowed_transfers; k++)
@@ -879,10 +847,12 @@ create_fsa(void)
                   exit(INCORRECT);
                }
 #ifdef _NO_MMAP
-               if ((ptr = mmap_emu(0, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+               if ((ptr = mmap_emu(0, fsa_size, (PROT_READ | PROT_WRITE),
+                                   MAP_SHARED,
                                    new_fsa_stat, 0)) == (caddr_t) -1)
 #else
-               if ((ptr = mmap(0, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
+               if ((ptr = mmap(0, fsa_size, (PROT_READ | PROT_WRITE),
+                               MAP_SHARED,
                                fsa_fd, 0)) == (caddr_t) -1)
 #endif
                {
@@ -1014,26 +984,6 @@ create_fsa(void)
                       old_fsa_stat, strerror(errno), __FILE__, __LINE__);
          }
       }
-   }
-   else /* This is the first time that the FSA is created, */
-        /* so notify AFD that we are done.                 */
-   {
-#ifdef _FIFO_DEBUG
-      cmd[0] = AMG_READY; cmd[1] = '\0';
-      show_fifo_data('W', "afd_cmd", cmd, 1, __FILE__, __LINE__);
-#endif
-      if (send_cmd(AMG_READY, afd_cmd_fd) < 0)
-      {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Was not able to send AMG_READY to %s. (%s %d)\n",
-                   AFD, __FILE__, __LINE__);
-      }
-      first_time = NO;
-   }
-   if (close(afd_cmd_fd) == -1)
-   {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
    }
 
    /* Remove the old FSA file if there was one. */

@@ -368,7 +368,7 @@
              does not match, that file would only be checked again when
              another file would arrive.
            - When stopping AMG or FD open another dialog to ask user
-             if he realy wants to do so.
+             if he really wants to do so.
 12.09.1999 - Added new option subject, to specify the subject for mails.
 20.09.1999 - show_log showed hostnames that where one or more characters
              longer then the one it should show. Fixed.
@@ -378,10 +378,10 @@
              itself!! Thanks to Herbert Lepper for finding this one.
 04.10.1999 - format_info() of show_ilog would SEGV when file names get
              very long. Fixed.
-           - With sheme 'file' its no longer necessary to specify the
+           - With scheme 'file' its no longer necessary to specify the
              full path.
 07.10.1999 - Additional memory checks in delete_log and output_log.
-           - New option "force copy" for sheme file to force files to
+           - New option "force copy" for scheme file to force files to
              be copied and not linked nor memory mapped (good for copying
              to /dev/null).
 09.10.1999 - Implemented DIR_CHECK_TIMEOUT, so when there are many
@@ -405,8 +405,8 @@
              old name, the counters in the afd_ctrl dialog will be
              incorrect. Even worth, when there is only one file in
              the job, this would be lost! Fixed.
-04.12.1999 - Needed to change version.h so it works corectly when
-             debuging.
+04.12.1999 - Needed to change version.h so it works correctly when
+             debugging.
 05.12.1999 - Fixed a silly bug in exec_cmd, which made it loose some
              of the data written to stdout and stderr.
            - Created new dialog show_cmd.
@@ -421,7 +421,7 @@
                             ---------------
 18.12.1999 - New month will now be written in SYSTEM_LOG.
            - The chown option accepts a "." as well as ":" when
-             specifing both user and group.
+             specifying both user and group.
            - Its now possible to send RETRY to archive_watch so
              it rescans the directories.
 25.12.1999 - Limit the number of process that dir_check may generate
@@ -512,3 +512,92 @@
 28.06.2000 - In sf_ftp now stopping time after closing the data
              connection and starting when opening remote file.
 ------------------------> Released: 12.07.2000 <---------------------------
+
+
+
+                             Version 1.2.x
+                             =============
+
+---------------------------> Version 1.2.0 <-------------------------------
+                            ---------------
+09.01.2000 - Created new process receive_log.
+16.01.2000 - Addition of directory alias.
+           - DIR_CONFIG is checked for duplicate directory entries.
+22.01.2000 - Minor bug fixes for sf_smtp().
+           - All X application should now work with the -display option.
+           - All X applications are called with the -w path option when
+             started from afd_ctrl.
+           - When sf_ftp failed to close the remote file it failed to
+             append the file next time (when append option is set). Fixed.
+           - Changed all makefiles so 'make install' work when there
+             is an active AFD.
+23.01.2000 - New option -no_input for afd_ctrl and mon_ctrl.
+26.01.2000 - Added a closing phase. Hopefully this will make bursting
+             saver!
+29.01.2000 - Added new function ftp_size().
+           - When dir_check checks for paused hosts, these are now being
+             rescanned more efficient and saver.
+30.01.2000 - Stopping transfer of a host will terminate the connections.
+01.02.2000 - Process init_afd releases any queue locks. This should fix
+             the deadlock when all files are being deleted due to age
+             and files are still being queued.
+03.02.2000 - Fixed bug in filter() where it would solve the following
+             case incorrectly: "*xxx*??" sdsfxxxbb
+             Thanks to Herbert Lepper, for finding this one.
+16.02.2000 - sf_ftp always tries to get a reply when pipe is broken, ie
+             there is no reader. Fixed.
+20.02.2000 - Implemented PASSIVE mode for FTP.
+02.03.2000 - Using setvbuf() in ftpcmd.c instead of always flushing.
+03.03.2000 - Reorganized process afd_stat a bit.
+12.03.2000 - AMG, FD and archive_watch now checks if they already been
+             started.
+18.03.2000 - Added print button to show_cmd dialog and made printer
+             interface more generic.
+30.04.2000 - Only open() debug file when debug is enabled.
+01.05.2000 - Using a buffered read() when reading from the FTP control
+             connection, to reduce the number of system calls.
+13.05.2000 - On some window mangers/X servers afd_ctrl and mon_ctrl
+             either cut of some part of the bottom line or had a small
+             narrow line of garbage after changing the font size. Fixed.
+14.05.2000 - Added option to disable monitoring an AFD in mon_ctrl.
+24.06.2000 - Rewrite of job_list_spy.
+08.07.2000 - Cleaned up log output of sf_xxx() to reduce code size.
+14.07.2000 - exec_cmd() now returns the return code of the program
+             it started.
+           - New procedure to handle proxies. This will not be backward
+             compatible with the old one. This requires a change in
+             the FSA, DIR_CONFIG and HOST_CONFIG.
+18.07.2000 - Added two new options -c <config file> and -f <file name file>
+             to aftp.
+21.07.2000 - Garbage in title bar of dialog show_cmd when command did
+             not start with a /. Fixed.
+29.07.2000 - Doing a buffered read for the ftp_list() function.
+           - Cleaned up log output of aftp, added the SIZE command and
+             enabled appending of files.
+30.07.2000 - Added option to enable passive mode for aftp.
+05.08.2000 - When FD terminated, it could happen that not all its
+             sf_xxx process where killed. Fixed.
+           - Doing buffered read() in sf_smtp as well.
+07.08.2000 - Fixed bug where sf_smtp would write the MIME Version
+             directly behind the subject without a newline.
+05.09.2000 - In the mon_ctrl dialog the process LED's would not blink
+             when a process terminated abnormally. Fixed.
+08.09.2000 - New AMG option "time no collect". This option is similar
+             to the "time" option, only that it does NOT collect data
+             outside the specified times.
+09.09.2000 - archive_watch is now able to read data from the command
+             fifo.
+           - System log radar did not continue when a duplicate
+             message appeared after more then 10 seconds. Fixed.
+10.09.2000 - Found memory bug in afd_ctrl and mon_ctrl when adding a new
+             host or AFD.
+14.09.2000 - Counting line numbers in DIR_CONFIG is now hopefully
+             correct.
+16.09.2000 - Transfer time and file size are not calculated correctly
+             in the show_xlog dialog when they exceeded the given
+             display length. Fixed.
+           - If the transfer time and file size are to long this is
+             now shown with a greater sign.
+24.09.2000 - Using rmdir() instead of unlink() in rec_rmdir() as suggested
+             in man page of solaris.
+------------------------> Released: 24.09.2000 <---------------------------

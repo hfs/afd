@@ -60,20 +60,18 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* Global variables */
-int                 *no_of_dir_names;
-struct dir_name_buf *dnb = NULL;
-
 /* Local global variables */
-static int          dir_id;
+static int                 dir_id;
 
 /* External global variables */
-extern int          sys_log_fd;
-extern char         *p_work_dir;
+extern int                 *no_of_dir_names,
+                           sys_log_fd;
+extern struct dir_name_buf *dnb;
+extern char                *p_work_dir;
 
 /* Local function prototypes */
-static int          get_source_dir(char *, char *);
-static void         move_files_back(char *, char *);
+static int                 get_source_dir(char *, char *);
+static void                move_files_back(char *, char *);
 
 
 /*########################## clear_pool_dir() ##########################*/
@@ -149,14 +147,6 @@ clear_pool_dir(void)
                       pool_dir, strerror(errno), __FILE__, __LINE__);
          }
       }
-
-      if (dnb != NULL)
-      {
-         char *ptr = (char *)dnb;
-
-         ptr -= AFD_WORD_OFFSET;
-         free(ptr);
-      }
    }
 
    return;
@@ -203,59 +193,6 @@ get_source_dir(char *dir_name, char *orig_dir)
             i++;
          }
          dir_id = atoi(&dir_name[start]);
-
-         if (dnb == NULL)
-         {
-            int         fd;
-            char        dir_name_file[MAX_PATH_LENGTH],
-                        *ptr;
-            struct stat stat_buf;
-
-            (void)sprintf(dir_name_file, "%s%s%s", p_work_dir,
-                          FIFO_DIR, DIR_NAME_FILE);
-            if ((fd = open(dir_name_file, O_RDONLY)) == -1)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         dir_name_file, strerror(errno),
-                         __FILE__, __LINE__);
-               return(INCORRECT);
-            }
-            if (fstat(fd, &stat_buf) == -1)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         dir_name_file, strerror(errno),
-                         __FILE__, __LINE__);
-               (void)close(fd);
-               return(INCORRECT);
-            }
-            if ((ptr = malloc(stat_buf.st_size)) == NULL)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "malloc() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
-               return(INCORRECT);
-            }
-            if (read(fd, ptr, stat_buf.st_size) != stat_buf.st_size)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "read() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
-               return(INCORRECT);
-            }
-            if (close(fd) == -1)
-            {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Failed to close() %s : %s (%s %d)\n",
-                         dir_name_file, strerror(errno),
-                         __FILE__, __LINE__);
-               return(INCORRECT);
-            }
-            no_of_dir_names = (int *)ptr;
-            ptr += AFD_WORD_OFFSET;
-            dnb = (struct dir_name_buf *)ptr;
-         }
 
          for (i = 0; i < *no_of_dir_names; i++)
          {

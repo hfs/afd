@@ -64,10 +64,11 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 extern int                        sys_log_fd,
-                                  no_of_dirs,
+                                  no_of_local_dirs,
                                   no_of_hosts;
 extern struct directory_entry     *de;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 #ifdef _DELETE_LOG
 extern struct delete_log          dl;
 #endif
@@ -89,7 +90,7 @@ search_old_files(void)
    DIR           *dp;
    struct dirent *p_dir;
 
-   for (i = 0; i < no_of_dirs; i++)
+   for (i = 0; i < no_of_local_dirs; i++)
    {
       (void)strcpy(tmp_dir, de[i].dir);
 
@@ -135,9 +136,9 @@ search_old_files(void)
             if (S_ISREG(stat_buf.st_mode))
             {
                diff_time = now - stat_buf.st_mtime;
-               if (diff_time > de[i].old_file_time)
+               if (diff_time > fra[de[i].fra_pos].old_file_time)
                {
-                  if ((de[i].remove_flag == YES) ||
+                  if ((fra[de[i].fra_pos].delete_unknown_files == YES) ||
                       (p_dir->d_name[0] == '.') ||
                       (stat_buf.st_size == 0))
                   {
@@ -174,7 +175,7 @@ search_old_files(void)
                         file_counter++;
                         file_size += stat_buf.st_size;
 
-                        if (de[i].remove_flag != YES)
+                        if (fra[de[i].fra_pos].delete_unknown_files != YES)
                         {
                            junk_files = YES;
                         }
@@ -190,15 +191,15 @@ search_old_files(void)
                  /*
                   * Search queue directories for old files!
                   */
-            else if ((de[i].remove_flag == YES) &&
+            else if ((fra[de[i].fra_pos].delete_unknown_files == YES) &&
                      (S_ISDIR(stat_buf.st_mode)) &&
                      (p_dir->d_name[0] == '.'))
                  {
                     int pos;
 
-                    if ((pos = get_position(fsa,
-                                            &p_dir->d_name[1],
-                                            no_of_hosts)) != INCORRECT)
+                    if ((pos = get_host_position(fsa,
+                                                 &p_dir->d_name[1],
+                                                 no_of_hosts)) != INCORRECT)
                     {
                        DIR *dp_2;
 
@@ -241,9 +242,9 @@ search_old_files(void)
                              if (S_ISREG(stat_buf.st_mode))
                              {
                                 diff_time = now - stat_buf.st_mtime;
-                                if (diff_time > de[i].old_file_time)
+                                if (diff_time > fra[de[i].fra_pos].old_file_time)
                                 {
-                                   if (de[i].remove_flag == YES)
+                                   if (fra[de[i].fra_pos].delete_unknown_files == YES)
                                    {
                                       if (remove(tmp_dir) == -1)
                                       {
@@ -334,36 +335,38 @@ search_old_files(void)
          *(work_ptr - 1) = '\0';
 
          /* Tell user there are old files in this directory. */
-         if ((file_counter > 0) && (de[i].report_flag == YES) &&
-             (de[i].remove_flag == NO) && (junk_files == NO))
+         if ((file_counter > 0) &&
+             (fra[de[i].fra_pos].report_unknown_files == YES) &&
+             (fra[de[i].fra_pos].delete_unknown_files == NO) &&
+             (junk_files == NO))
          {
             if (file_size >= 1073741824)
             {
                (void)rec(sys_log_fd, WARN_SIGN,
                          "There are %d (%d GBytes) old (>%dh) files in %s\n",
                          file_counter, file_size / 1073741824,
-                         de[i].old_file_time / 3600, tmp_dir);
+                         fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
             }
             else if (file_size >= 1048576)
                  {
                     (void)rec(sys_log_fd, WARN_SIGN,
                               "There are %d (%d MBytes) old (>%dh) files in %s\n",
                               file_counter, file_size / 1048576,
-                              de[i].old_file_time / 3600, tmp_dir);
+                              fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
                  }
             else if (file_size >= 1024)
                  {
                     (void)rec(sys_log_fd, WARN_SIGN,
                               "There are %d (%d KBytes) old (>%dh) files in %s\n",
                               file_counter, file_size / 1024,
-                              de[i].old_file_time / 3600, tmp_dir);
+                              fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
                  }
                  else
                  {
                     (void)rec(sys_log_fd, WARN_SIGN,
                               "There are %d (%d Bytes) old (>%dh) files in %s\n",
                               file_counter, file_size,
-                              de[i].old_file_time / 3600, tmp_dir);
+                              fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
                  }
          }
       }

@@ -14,7 +14,7 @@ OPTIMIZATION_OPTIONS = -O2 \
                        -pipe \
                        -m486
 BINMODE              = 4755
-SBINMODE             = 755
+SBINMODE             = 700
 MAKE                 = make
 FORKMAKEFLAG         = -j3
 AR                   = ar

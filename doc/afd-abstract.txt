@@ -50,7 +50,7 @@ which has the following features:
    with which the administrator can monitor and control each recipient.
 
  - The code has been written entirely in C and ported to Linux, SGI,
-   FTX, SunOS, HPUX and SCO.
+   FTX, SunOS, HPUX, AIX and SCO.
 
-There are now more then 50 installations of the AFD in the DWD which
-distribute nearly a million files with 65 GBytes of data daily.
+There are now more then 80 installations of the AFD in the DWD which
+distribute three million files with 250 GBytes of data daily.

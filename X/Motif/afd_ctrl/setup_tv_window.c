@@ -64,10 +64,12 @@ void
 setup_tv_window(void)
 {
    bar_thickness_3 = glyph_height / 3;
-   tv_line_length     = DEFAULT_FRAME_SPACE + (MAX_HOSTNAME_LENGTH * glyph_width) +
+   tv_line_length     = DEFAULT_FRAME_SPACE +
+                        (MAX_HOSTNAME_LENGTH * glyph_width) +
                         glyph_width + glyph_width +  /* Job number */
                         glyph_width + glyph_width +  /* Priority   */
-                        DEFAULT_FRAME_SPACE + (filename_display_length * glyph_width) +
+                        DEFAULT_FRAME_SPACE +
+                        (filename_display_length * glyph_width) +
                         DEFAULT_FRAME_SPACE + glyph_width +
                         DEFAULT_FRAME_SPACE;
 
@@ -78,11 +80,11 @@ setup_tv_window(void)
    }
    else  if (line_style == CHARACTERS_ONLY)
          {
-            tv_line_length += (27 * glyph_width) + DEFAULT_FRAME_SPACE;
+            tv_line_length += (29 * glyph_width) + DEFAULT_FRAME_SPACE;
          }
          else
          {
-            tv_line_length += (27 * glyph_width) + DEFAULT_FRAME_SPACE +
+            tv_line_length += (29 * glyph_width) + DEFAULT_FRAME_SPACE +
                               (int)max_bar_length + DEFAULT_FRAME_SPACE;
          }
 
@@ -106,7 +108,7 @@ setup_tv_window(void)
             x_offset_tv_characters = x_offset_tv_file_name +
                                      ((filename_display_length + 1) * glyph_width) +
                                      DEFAULT_FRAME_SPACE + DEFAULT_FRAME_SPACE;
-            x_offset_tv_bars = x_offset_tv_characters + (27 * glyph_width) +
+            x_offset_tv_bars = x_offset_tv_characters + (29 * glyph_width) +
                                DEFAULT_FRAME_SPACE;
          }
 

@@ -21,6 +21,7 @@ all : $(PROGS)
 $(AWOBJS) : $(HEADERS)
 
 $(AWPROG) : $(AWOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AWOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
@@ -31,6 +32,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(AWPROG)
 

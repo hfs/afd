@@ -85,7 +85,8 @@ char         host_name[MAX_HOSTNAME_LENGTH + 1],
              *p_work_dir;
 
 /* Local function prototypes */
-static void  init_view_dc(int, char **);
+static void  init_view_dc(int *, char **),
+             usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -120,7 +121,7 @@ main(int argc, char *argv[])
 
    /* Initialise global values */
    p_work_dir = work_dir;
-   init_view_dc(argc, argv);
+   init_view_dc(&argc, argv);
 
    (void)strcpy(window_title, "DIR_CONFIG ");
    (void)strcat(window_title, host_name);
@@ -128,7 +129,14 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    toplevel_w = XtAppInitialize(&app, "AFD", NULL, 0,
                                 &argc, argv, fallback_res, args, argcount);
-   display = XtDisplay(toplevel_w);
+   /* Get display pointer */
+   if ((display = XtDisplay(toplevel_w)) == NULL)
+   {
+      (void)fprintf(stderr,
+                    "ERROR   : Could not open Display : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
 
    /* Create managing widget */
    form_w = XmCreateForm(toplevel_w, "form", NULL, 0);
@@ -247,41 +255,32 @@ main(int argc, char *argv[])
 
 /*++++++++++++++++++++++++++++ init_view_dc() +++++++++++++++++++++++++++*/
 static void
-init_view_dc(int argc, char *argv[])
+init_view_dc(int *argc, char *argv[])
 {
-   int  count = 0;
    char *perm_buffer;
 
-   if (argc == 2)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
-      (void)strcpy(host_name, argv[1]);
-      argc--; count++;
-      (void)strcpy(font_name, "fixed");
+      usage(argv[0]);
+      exit(SUCCESS);
    }
-   else if (argc == 3)
-        {
-           (void)strcpy(host_name, argv[1]);
-           argc--; count++;
-           (void)strcpy(font_name, argv[2]);
-           argc--; count++;
-        }
-        else
-        {
-           (void)fprintf(stderr,
-                         "Usage : %s host-name [font name] [-w <working directory>]\n",
-                         argv[0]);
-           exit(INCORRECT);
-        }
-   if (get_afd_path(&argc, argv, p_work_dir) < 0)
+   if (get_afd_path(argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
                     "Failed to get working directory of AFD. (%s %d)\n",
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   while (count--)
+   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
    {
-      argc++;
+      (void)strcpy(font_name, "fixed");
+   }
+   if (get_arg(argc, argv, "-h", host_name, MAX_HOSTNAME_LENGTH + 1) == INCORRECT)
+   {
+      usage(argv[0]);
+      exit(INCORRECT);
    }
 
    /* Now lets see if user may use this program */
@@ -331,5 +330,17 @@ init_view_dc(int argc, char *argv[])
          exit(INCORRECT);
    }
 
+   return;
+}
+
+
+/*------------------------------- usage() -------------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr, "Usage : %s [options] -h hostname\n", progname);
+   (void)fprintf(stderr, "             --version\n");
+   (void)fprintf(stderr, "             -f <font name>]\n");
+   (void)fprintf(stderr, "             -w <working directory>]\n");
    return;
 }

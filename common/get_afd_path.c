@@ -67,43 +67,28 @@ DESCR__E_M3
 int
 get_afd_path(int *argc, char *argv[], char *work_dir)
 {
-   char *ptr;
-
-   ptr = work_dir;
-
    /* See if directory is passed as argument */
-   if ((*argc > 2) && (strcmp(argv[1], WORK_DIR_ID) == 0))
+   if (get_arg(argc, argv, WORK_DIR_ID, work_dir, MAX_PATH_LENGTH) == INCORRECT)
    {
-      (void)strcpy(work_dir, argv[2]);
-      if (*argc > 3)
-      {
-         register int i;
+      char *ptr;
 
-         for (i = 1; i < (*argc - 2); i++)
-         {
-            argv[i] = argv[i + 2];
-         }
+      ptr = work_dir;
+
+      /* Check if the environment variable is set */
+      if ((ptr = getenv(WD_ENV_NAME)) != NULL)
+      {
+         (void)strcpy(work_dir, ptr);
       }
       else
       {
-         argv[1] = NULL;
+         (void)fprintf(stderr,
+                       "ERROR   : Failed to determine AFD working directory!\n");
+         (void)fprintf(stderr,
+                       "          No option %s or environment variable %s set.\n",
+                       WORK_DIR_ID, WD_ENV_NAME);
+         return(INCORRECT);
       }
-      *argc -= 2;
    }
-        /* Check if the environment variable is set */
-   else if ((ptr = getenv(WD_ENV_NAME)) != NULL)
-        {
-           (void)strcpy(work_dir, ptr);
-        }
-        else
-        {
-           (void)fprintf(stderr,
-                         "ERROR   : Failed to determine AFD working directory!\n");
-           (void)fprintf(stderr,
-                         "          No option %s or environment variable %s set.\n",
-                         WORK_DIR_ID, WD_ENV_NAME);
-           return(INCORRECT);
-        }
 
    if (check_dir(work_dir, R_OK | X_OK) == SUCCESS)
    {

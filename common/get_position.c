@@ -1,6 +1,6 @@
 /*
  *  get_position.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -23,18 +23,26 @@
 DESCR__S_M3
 /*
  ** NAME
- **   get_position - gets the position in the array which holds the host
+ **   get_position - gets the position of the host or directory
+ **                  in the FSA or FRA
  **
  ** SYNOPSIS
- **   int get_position(struct filetransfer_status *fsa,
- **                    char                       *host,
- **                    int                        no_of_hosts)
+ **   int get_dir_position(struct fileretrieve_status *fra,
+ **                        char                       *dir_alias,
+ **                        int                        no_of_dirs)
+ **   int get_host_position(struct filetransfer_status *fsa,
+ **                         char                       *host_alias,
+ **                         int                        no_of_hosts)
  **
  ** DESCRIPTION
- **   This function gets the position of host 'host' in the FSA
- **   (File Transfer Status Area) 'fsa'. The FSA consists of
- **   'no_of_hosts' structures, i.e. for each host a structure
- **   of filetransfer_status exists.
+ **   This function get_host_position() gets the position of host
+ **   'host_alias' in the FSA (File Transfer Status Area) 'fsa'.
+ **   The FSA consists of 'no_of_hosts' structures, i.e. for each
+ **   host a structure of filetransfer_status exists.
+ **
+ **   Function get_dir_position() is very similar to the above
+ **   function, only that it gets the 'dir_alias' from the FRA
+ **   (File Retrieve Area).
  **
  ** RETURN VALUES
  **   Returns the position of the host 'host' in the FSA pointed
@@ -46,6 +54,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   03.11.1995 H.Kiehl Created
+ **   31.03.2000 H.Kiehl Added function get_dir_position().
  **
  */
 DESCR__E_M3
@@ -53,22 +62,43 @@ DESCR__E_M3
 #include <string.h>                 /* strcmp()                          */
 
 
-/*########################## get_position() #############################*/
+/*######################## get_host_position() ##########################*/
 int
-get_position(struct filetransfer_status *fsa,
-             char                       *host,
-             int                        no_of_hosts)
+get_host_position(struct filetransfer_status *fsa,
+                  char                       *host_alias,
+                  int                        no_of_hosts)
 {
-   static int position;
+   int position;
 
    for (position = 0; position < no_of_hosts; position++)
    {
-      if (strcmp(fsa[position].host_alias, host) == 0)
+      if (strcmp(fsa[position].host_alias, host_alias) == 0)
       {
          return(position);
       }
    }
 
    /* Host not found in struct */
+   return(INCORRECT);
+}
+
+
+/*######################### get_dir_position() ##########################*/
+int
+get_dir_position(struct fileretrieve_status *fra,
+                 char                       *dir_alias,
+                 int                        no_of_dirs)
+{
+   int position;
+
+   for (position = 0; position < no_of_dirs; position++)
+   {
+      if (strcmp(fra[position].dir_alias, dir_alias) == 0)
+      {
+         return(position);
+      }
+   }
+
+   /* Directory not found in struct */
    return(INCORRECT);
 }

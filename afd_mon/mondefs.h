@@ -27,7 +27,7 @@
 
 #define MAX_AFDNAME_LENGTH       12
 #define MAX_REAL_HOSTNAME_LENGTH 40
-#define MAX_RET_MSG_LENGTH       1024  /* How much data is buffered from */
+#define MAX_RET_MSG_LENGTH       4096  /* How much data is buffered from */
                                        /* the remote TCP port.           */
 #define MAX_VERSION_LENGTH       40
 
@@ -112,13 +112,25 @@ struct mon_status_area
                                                  /* by the FD.          */
           int          no_of_transfers;          /* The number of       */
                                                  /* active transfers.   */
+          int          top_no_of_transfers[STORAGE_TIME];
+                                                 /* Maximum number of   */
+                                                 /* sf_xxx/gf_xxx       */
+                                                 /* process on a per    */
+                                                 /* day basis.          */
+          time_t       top_not_time;             /* Time when the       */
+                                                 /* this maximum was    */
+                                                 /* reached.            */
           int          max_connections;          /* Maximum number of   */
-                                                 /* sf_xxx process.     */
+                                                 /* sf_xxx/gf_xxx       */
+                                                 /* process.            */
           unsigned int sys_log_ec;               /* System log entry    */
                                                  /* counter.            */
           char         sys_log_fifo[LOG_FIFO_SIZE + 1];
                                                  /* Activity in the     */
                                                  /* system log.         */
+          char         log_history[NO_OF_LOG_HISTORY][MAX_LOG_HISTORY];
+                                                 /* All log activities  */
+                                                 /* the last 24 hours.  */
           int          host_error_counter;       /* Number of host      */
                                                  /* names that are red. */
           int          no_of_hosts;              /* The number of hosts */
@@ -131,9 +143,13 @@ struct mon_status_area
           unsigned int top_tr[STORAGE_TIME];     /* Maximum transfer    */
                                                  /* rate on a per day   */
                                                  /* basis.              */
+          time_t       top_tr_time;              /* Time when this      */
+                                                 /* maximum was reached.*/
           unsigned int fr;                       /* File rate.          */
           unsigned int top_fr[STORAGE_TIME];     /* Maximum file rate   */
                                                  /* on a per day basis. */
+          time_t       top_fr_time;              /* Time when this      */
+                                                 /* maximum was reached.*/
           unsigned int ec;                       /* Error counter.      */
           time_t       last_data_time;           /* Last time data was  */
                                                  /* received from       */
@@ -170,6 +186,6 @@ void  create_msa(void),
       eval_afd_mon_db(struct mon_list **),
       shutdown_mon(int),
       start_all(void),
-      stop_all(int);
+      stop_process(int, int);
 
 #endif /* __mondefs_h */

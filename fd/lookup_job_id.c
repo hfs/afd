@@ -56,7 +56,7 @@ extern struct msg_cache_buf *mdb;
 int
 lookup_job_id(int job_id)
 {
-   static int i;
+   int i;
 
    for (i = 0; i < *no_msg_cached; i++)
    {

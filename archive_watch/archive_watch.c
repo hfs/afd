@@ -38,6 +38,7 @@ DESCR__S_M1
  ** HISTORY
  **   19.02.1996 H.Kiehl Created
  **   22.08.1998 H.Kiehl Added some more exit handlers.
+ **   12.03.2000 H.Kiehl Check so archive_watch cannot be started twice.
  **
  */
 DESCR__E_M1
@@ -59,6 +60,7 @@ DESCR__E_M1
 /* Global variables */
 int    sys_log_fd = STDERR_FILENO,
        removed_archives;
+char   *p_work_dir;
 time_t current_time;
 
 /* Local function prototypes. */
@@ -90,6 +92,23 @@ main(int argc, char *argv[])
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
+   }
+   else
+   {
+      char *ptr;
+
+      p_work_dir = work_dir;
+
+      /*
+       * Lock archive_watch so no other archive_watch can be started!
+       */
+      if ((ptr = lock_proc(AW_LOCK_ID, NO)) != NULL)
+      {
+         (void)fprintf(stderr,
+                       "Process archive_watch already started by %s : (%s %d)\n",
+                       ptr, __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
 
    /* Initialise fifo to communicate with AFD */
@@ -205,23 +224,33 @@ main(int argc, char *argv[])
       else if (FD_ISSET(aw_cmd_fd, &rset))
            {
               /* Read the message */
-              if ((n = read(aw_cmd_fd, buffer, DEFAULT_BUFFER_SIZE)) > 0)
+              if ((n = read(aw_cmd_fd, buffer, 1)) > 0)
               {
 #ifdef _FIFO_DEBUG
                  show_fifo_data('R', "aw_cmd", buffer, n, __FILE__, __LINE__);
 #endif
-                 if (buffer[n] == STOP)
+                 if (buffer[0] == STOP)
                  {
                     (void)rec(sys_log_fd, INFO_SIGN, "Stopped %s\n",
                               ARCHIVE_WATCH);
                     break;
                  }
-                 else if (buffer[n] == RETRY)
+                 else if (buffer[0] == RETRY)
                       {
                          (void)rec(sys_log_fd, INFO_SIGN, "Rescaning archive directories.\n",
                                    ARCHIVE_WATCH);
                          inspect_archive(archive_dir);
-                         break;
+#ifdef _NO_ZERO_DELETION_REPORT
+                         if (removed_archives > 0)
+                         {
+                            (void)rec(sys_log_fd, INFO_SIGN,
+                                      "Removed %d archives.\n",
+                                      removed_archives);
+                         }
+#else
+                         (void)rec(sys_log_fd, INFO_SIGN, "Removed %d archives.\n",
+                                   removed_archives);
+#endif
                       }
               }
            }

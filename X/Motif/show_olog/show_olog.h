@@ -33,11 +33,6 @@
 #define SHOW_MAP                16
 #endif
 
-#define SELECTION_TOGGLE        1
-#define ALL_TOGGLE              2
-#define PRINTER_TOGGLE          3
-#define FILE_TOGGLE             4
-
 #define LOCAL_FILENAME          8
 #define REMOTE_FILENAME         9
 
@@ -65,8 +60,6 @@
 #endif
 #define UNKNOWN_ID_STR          "?   "
 
-#define CONTROL_D               "\004"
-
 #define SEARCH_BUTTON           1
 #define STOP_BUTTON             2
 #define STOP_BUTTON_PRESSED     4
@@ -76,6 +69,7 @@
 #define NOT_ARCHIVED            11
 #define NOT_FOUND               12
 #define NOT_IN_ARCHIVE          13
+#define FAILED_TO_SEND          14
 /* NOTE: DONE is defined in afddefs.h as 3 */
 
 /* When saving input lets define some names so we know where */
@@ -116,25 +110,16 @@
 #define SUM_SEP_LINE_LONG       "==============================================================================================================="
 
 /* Definitions for sending files not in FSA */
-#define SET_FTP                 1
-#define SET_SMTP                2
-#define SET_FILE                4
-#ifdef _WITH_WMO_SUPPORT
-#define SET_WMO                 8
-#endif
-#ifdef _WITH_MAP_SUPPORT
-#define SET_MAP                 16
-#endif
-#define SET_ASCII               1
-#define SET_BIN                 2
-#define SET_DOS                 3
+#define SET_ASCII               'A'
+#define SET_BIN                 'I'
+#define SET_DOS                 'D'
 #define SET_LOCK_DOT            4
 #define SET_LOCK_OFF            5
 #define SET_LOCK_DOT_VMS        6
 #define SET_LOCK_LOCKFILE       7
 #define SET_LOCK_PREFIX         8
-#define RECIPIENT_NO_ENTER      20
-#define RECIPIENT_ENTER         21
+#define HOSTNAME_NO_ENTER       20
+#define HOSTNAME_ENTER          21
 #define USER_NO_ENTER           22
 #define USER_ENTER              23
 #define PASSWORD_NO_ENTER       24
@@ -145,6 +130,13 @@
 #define PORT_ENTER              29
 #define TIMEOUT_NO_ENTER        30
 #define TIMEOUT_ENTER           31
+#define PREFIX_NO_ENTER         32
+#define PREFIX_ENTER            33
+
+#define MAX_TIMEOUT_DIGITS      4       /* Maximum number of digits for  */
+                                        /* the timeout field.            */
+#define MAX_PORT_DIGITS         5       /* Maximum number of digits for  */
+                                        /* the port field.               */
 
 /* Structure that holds offset (to job ID) to each item in list. */
 struct item_list
@@ -163,8 +155,8 @@ struct info_data
        {
           unsigned int job_no;
           int          no_of_files;
-#ifdef _WITH_DYNAMIC_MEMORY
           char         **files;
+#ifdef _WITH_DYNAMIC_MEMORY
           int          no_of_loptions;
           char         **loptions;
           int          no_of_soptions;
@@ -173,7 +165,6 @@ struct info_data
           int          no_of_loptions;
           int          no_of_soptions;
           char         *soptions;
-          char         files[MAX_NO_FILES][MAX_FILENAME_LENGTH];
           char         loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
 #endif
           char         recipient[MAX_RECIPIENT_LENGTH];
@@ -182,6 +173,8 @@ struct info_data
           char         remote_file_name[MAX_FILENAME_LENGTH];
           char         dir[MAX_PATH_LENGTH];
           char         archive_dir[MAX_PATH_LENGTH];
+          char         file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
+          char         trans_time[MAX_INT_LENGTH + MAX_INT_LENGTH];
           char         priority;
        };
 
@@ -192,6 +185,23 @@ struct resend_list
           unsigned int job_id;
           int          file_no;
           int          pos;
+       };
+
+/* Structure holding all data of for sending files. */
+struct send_data
+       {
+          char   hostname[MAX_FILENAME_LENGTH];
+          char   user[MAX_USER_NAME_LENGTH + 1];
+          char   target_dir[MAX_PATH_LENGTH];
+          char   prefix[MAX_FILENAME_LENGTH];
+          char   lock;                    /* DOT, OFF, etc.              */
+          char   mode_flag;               /* FTP passive or active mode. */
+          char   transfer_mode;
+          int    protocol;
+          int    port;
+          int    debug;
+          time_t timeout;
+          char   *password;
        };
 
 /* Permission structure for show_olog */
@@ -262,17 +272,18 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),
             print_button(Widget, XtPointer, XtPointer),
-            print_data(void),
             radio_button(Widget, XtPointer, XtPointer),
             resend_button(Widget, XtPointer, XtPointer),
             resend_files(int, int *),
             save_input(Widget, XtPointer, XtPointer),
             send_button(Widget, XtPointer, XtPointer),
             send_files(int, int *),
+            send_files_ftp(int, int *, int *, int *, int *,
+                           struct resend_list *, int *, int *),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
             toggled(Widget, XtPointer, XtPointer),
-            transmit_button(Widget, XtPointer, XtPointer);
+            trans_log(char *, char *, int , char *, ...);
 extern int  get_sum_data(int, time_t *, double *, double *);
 
 #endif /* __show_olog_h */

@@ -155,7 +155,7 @@ send_message(char           *afd_file_dir,
        *       gets larger and the next time we try to connect
        *       this and the additional job will connect only once.
        */
-      if (check_burst(db[position].protocol,
+      if (check_burst((char)db[position].protocol,
                       db[position].position,
                       db[position].job_id,
                       file_path, afd_file_dir, YES) != YES)

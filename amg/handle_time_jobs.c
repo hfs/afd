@@ -66,13 +66,10 @@ extern int                        max_copied_files,
 extern char                       afd_file_dir[],
                                   fin_fifo[],
                                   time_dir[];
-#ifdef _LIMIT_PROCESS_PER_DIR
 extern struct dc_proc_list        *dcpl;      /* Dir Check Process List */
-#else
-extern pid_t                      *pid;
-#endif
 extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 
 /* Local variables */
 static unsigned int               files_handled;
@@ -254,14 +251,11 @@ handle_time_dir(int time_job_no, int *no_of_process)
          {
             if ((db[time_job_list[time_job_no]].lfs & GO_PARALLEL) &&
                 (*no_of_process < max_process) &&
+                (fra[db[time_job_list[time_job_no]].fra_pos].no_of_process < fra[db[time_job_list[time_job_no]].fra_pos].max_process) &&
                 (fsa[db[time_job_list[time_job_no]].position].host_status < 2) &&
                 ((fsa[db[time_job_list[time_job_no]].position].special_flag & HOST_DISABLED) == 0))
             {
-#ifdef _LIMIT_PROCESS_PER_DIR
                if ((dcpl[*no_of_process].pid = fork()) == -1)
-#else
-               if ((pid[*no_of_process] = fork()) == -1)
-#endif
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
                             "Failed to fork() : %s (%s %d)\n",
@@ -270,11 +264,7 @@ handle_time_dir(int time_job_no, int *no_of_process)
                                creation_time, time_job_list[time_job_no],
                                files_moved, file_size_moved);
                }
-#ifdef _LIMIT_PROCESS_PER_DIR
                else if (dcpl[*no_of_process].pid == 0) /* Child process */
-#else
-               else if (pid[*no_of_process] == 0) /* Child process */
-#endif
                     {
 #ifdef _FIFO_DEBUG
                        char cmd[2];
@@ -300,6 +290,8 @@ handle_time_dir(int time_job_no, int *no_of_process)
                     }
                     else /* Parent process */
                     {
+                       fra[db[time_job_list[time_job_no]].fra_pos].no_of_process++;
+                       dcpl[*no_of_process].fra_pos = db[time_job_list[time_job_no]].fra_pos;
                        (*no_of_process)++;
                     }
                }

@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,19 +50,20 @@
 #define RETRY_W                         4
 #define DEBUG_W                         5
 #define TEST_W                          6
-#define INFO_W                          7
-#define VIEW_DC_W                       8
-#define EXIT_W                          9
+#define VIEW_LOAD_W                     7
+#define EXIT_W                          8
 
 /* Definitions for View pulldown */
 #define SYSTEM_W                        0
-#define TRANS_W                         1
-#define TRANS_DEBUG_W                   2
-#define INPUT_W                         3
-#define OUTPUT_W                        4
-#define DELETE_W                        5
-#define VIEW_LOAD_W                     6
-#define VIEW_JOB_W                      7
+#define RECEIVE_W                       1
+#define TRANS_W                         2
+#define TRANS_DEBUG_W                   3
+#define INPUT_W                         4
+#define OUTPUT_W                        5
+#define DELETE_W                        6
+#define INFO_W                          7
+#define VIEW_DC_W                       8
+#define VIEW_JOB_W                      9
 
 /* Definitions for Control pulldown */
 #define AMG_CTRL_W                      0
@@ -70,8 +71,9 @@
 #define RR_DC_W                         2
 #define RR_HC_W                         3
 #define EDIT_HC_W                       4
-#define STARTUP_AFD_W                   5
-#define SHUTDOWN_AFD_W                  6
+#define DIR_CTRL_W                      5
+#define STARTUP_AFD_W                   6
+#define SHUTDOWN_AFD_W                  7
 
 /* Definitions of popup selections */
 #define QUEUE_SEL                       0
@@ -80,23 +82,25 @@
 #define DEBUG_SEL                       3
 #define INFO_SEL                        4
 #define S_LOG_SEL                       5
-#define T_LOG_SEL                       6
-#define D_LOG_SEL                       7
-#define I_LOG_SEL                       8
-#define O_LOG_SEL                       9
-#define EXIT_SEL                        10
-#define DISABLE_SEL                     11
-#define DELETE_SEL                      12
-#define VIEW_JOB_SEL                    13
-#define R_LOG_SEL                       14
-#define SWITCH_SEL                      15
-#define VIEW_FILE_LOAD_SEL              16
-#define VIEW_KBYTE_LOAD_SEL             17
-#define VIEW_CONNECTION_LOAD_SEL        18
-#define VIEW_TRANSFER_LOAD_SEL          19
-#define VIEW_DC_SEL                     20
-#define PING_SEL                        21
-#define TRACEROUTE_SEL                  22
+#define R_LOG_SEL                       6
+#define T_LOG_SEL                       7
+#define D_LOG_SEL                       8
+#define I_LOG_SEL                       9
+#define O_LOG_SEL                       10
+#define EXIT_SEL                        11
+#define DISABLE_SEL                     12
+#define DELETE_SEL                      13
+#define VIEW_JOB_SEL                    14
+#define E_LOG_SEL                       15
+#define SWITCH_SEL                      16
+#define VIEW_FILE_LOAD_SEL              17
+#define VIEW_KBYTE_LOAD_SEL             18
+#define VIEW_CONNECTION_LOAD_SEL        19
+#define VIEW_TRANSFER_LOAD_SEL          20
+#define VIEW_DC_SEL                     21
+#define PING_SEL                        22
+#define TRACEROUTE_SEL                  23
+#define DIR_CTRL_SEL                    24
 /* NOTE: x_common_defs.h defines from 50 onwards. */
 
 /* Definitions for testing connections */
@@ -131,8 +135,9 @@
 #define LED_TWO                         2
 
 /* Log indicators (bit mapped) */
-#define SYS_LOG_INDICATOR               0
-#define TRANS_LOG_INDICATOR             1
+#define RECEIVE_LOG_INDICATOR           0
+#define SYS_LOG_INDICATOR               1
+#define TRANS_LOG_INDICATOR             2
 
 /* Structure definitions */
 struct line 
@@ -160,7 +165,7 @@ struct line
                                              /* bytes still to be send.  */
           char           str_tfs[5];         /* String holding this      */
                                              /* number.                  */
-          int            bytes_per_sec;      /* Actual transfer rate.    */
+          unsigned int   bytes_per_sec;      /* Actual transfer rate.    */
           char           str_tr[5];          /* String holding this      */
                                              /* number.                  */
           double         average_tr;         /* Average transfer rate.   */
@@ -191,11 +196,12 @@ struct afd_control_perm
           char        **debug_list;
           char        **retry_list;
           char        **show_slog_list;
+          char        **show_rlog_list;
           char        **show_tlog_list;
           char        **show_dlog_list;
           char        **show_ilog_list;
           char        **show_olog_list;
-          char        **show_rlog_list;
+          char        **show_elog_list;
           char        **afd_load_list;
           char        **view_jobs_list;
           char        **edit_hc_list;
@@ -214,15 +220,17 @@ struct afd_control_perm
           signed char debug;                 /* Enable/disable debugging */
           signed char retry;                 /* Retry sending file       */
           signed char show_slog;             /* Show System Log          */
+          signed char show_rlog;             /* Show Receive Log         */
           signed char show_tlog;             /* Show Transfer Log        */
           signed char show_dlog;             /* Show Debug Log           */
           signed char show_ilog;             /* Show Input Log           */
           signed char show_olog;             /* Show Output Log          */
-          signed char show_rlog;             /* Show Delete Log          */
+          signed char show_elog;             /* Show Delete Log          */
           signed char afd_load;              /* Show load of AFD         */
           signed char view_jobs;             /* View detailed transfer   */
           signed char edit_hc;               /* Edit HOST_CONFIG         */
           signed char view_dc;               /* View DIR_CONFIG entries  */
+          signed char dir_ctrl;              /* dir_ctrl dialog          */
        };
 
 struct job_data
@@ -233,8 +241,8 @@ struct job_data
           char          file_name_in_use[MAX_FILENAME_LENGTH + 1];
           char          str_fs_use[5];        /* String file_size_in_use.*/
           char          str_fs_use_done[5];
-          char          str_fc[4];            /* String no_of_files.     */
-          char          str_fc_done[4];       /* String fc done.         */
+          char          str_fc[5];            /* String no_of_files.     */
+          char          str_fc_done[5];       /* String fc done.         */
           char          str_fs[5];            /* String file_size.       */
           char          str_fs_done[5];       /* String fs done.         */
           char          connect_status;
@@ -301,7 +309,6 @@ extern void        calc_but_coord(void),
                    save_setup_cb(Widget, XtPointer, XtPointer),
                    setup_tv_window(void),
                    setup_window(char *),
-                   tv_input(Widget, XtPointer, XEvent *),
                    tv_locate_xy(int, int *, int *);
 extern signed char resize_tv_window(void),
                    resize_window(void),

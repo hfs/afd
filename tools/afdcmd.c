@@ -391,7 +391,7 @@ main(int argc, char *argv[])
       }
       if (position < 0)
       {
-         if ((position = get_position(fsa, hosts[i], no_of_hosts)) < 0)
+         if ((position = get_host_position(fsa, hosts[i], no_of_hosts)) < 0)
          {
             (void)fprintf(stderr,
                           "WARNING : Could not find host %s in FSA. (%s %d)\n",
@@ -741,8 +741,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending START to %s by %s [afdcmd]\n",
-                      FD, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending START to %s by %s [afdcmd]\n", FD, user);
             if (send_cmd(START_FD, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to start %s. (%s %d)\n",
@@ -774,8 +774,8 @@ main(int argc, char *argv[])
       {
          if (p_afd_status->fd == ON)
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending STOP to %s by %s [afdcmd]\n",
-                      FD, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending STOP to %s by %s [afdcmd]\n", FD, user);
             if (send_cmd(STOP_FD, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to stop %s. (%s %d)\n",
@@ -817,8 +817,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending START to %s by %s [afdcmd]\n",
-                      AMG, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending START to %s by %s [afdcmd]\n", AMG, user);
             if (send_cmd(START_AMG, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to start %s. (%s %d)\n",
@@ -850,8 +850,8 @@ main(int argc, char *argv[])
       {
          if (p_afd_status->amg == ON)
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending STOP to %s by %s [afdcmd]\n",
-                      AMG, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending STOP to %s by %s [afdcmd]\n", AMG, user);
             if (send_cmd(STOP_AMG, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to stop %s. (%s %d)\n",
@@ -888,8 +888,8 @@ main(int argc, char *argv[])
       {
          if (p_afd_status->amg == ON)
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending STOP to %s by %s [afdcmd]\n",
-                      AMG, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending STOP to %s by %s [afdcmd]\n", AMG, user);
             if (send_cmd(STOP_AMG, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to stop %s. (%s %d)\n",
@@ -898,8 +898,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending START to %s by %s [afdcmd]\n",
-                      AMG, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending START to %s by %s [afdcmd]\n", AMG, user);
             if (send_cmd(START_AMG, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to start %s. (%s %d)\n",
@@ -930,8 +930,8 @@ main(int argc, char *argv[])
       {
          if (p_afd_status->fd == ON)
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending STOP to %s by %s [afdcmd]\n",
-                      FD, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending STOP to %s by %s [afdcmd]\n", FD, user);
             if (send_cmd(STOP_FD, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to stop %s. (%s %d)\n",
@@ -940,8 +940,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending START to %s by %s [afdcmd]\n",
-                      FD, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending START to %s by %s [afdcmd]\n", FD, user);
             if (send_cmd(START_FD, afd_cmd_fd) < 0)
             {
                (void)fprintf(stderr, "Was not able to start %s. (%s %d)\n",

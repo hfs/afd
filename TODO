@@ -66,13 +66,13 @@ o       Support FTP block mode.                        [DONE]
         Note: This is useless, since no server I
               know supports this >:-(
 o       Add ageing option.                             [DONE]
-o       Stabilise afd_ctrl over very slow
+o       Stabilize afd_ctrl over very slow
         connections.                                   [DONE]
 o       Enable sending files by priority.              [DONE]
 o       Added linger option which solved problem
         with missing data in last block. Thus
         removing slow transfer mode :-)                [DONE]
-o       When AFD starts up, initialise it with
+o       When AFD starts up, initialize it with
         previous status.                               [DONE]
 o       Port to HP-UX.                                 [DONE]
 o       When number of jobs for a certain host
@@ -187,7 +187,7 @@ o       Font in show_log is set by parameter
 o       Create a menu bar for the afd_ctrl.            [DONE]
 o       Save setup from afd_ctrl.                      [DONE]
 o       For AMG, make the number of file groups
-        dynymic.                                       [DONE]
+        dynamic.                                       [DONE]
 o       Make init_afd a daemon process.                [DONE]
 o       Report when files in source directory
         are older then 24h.                            [DONE]
@@ -207,7 +207,7 @@ o       Allow for the AFD system administrator to
 o       Add support for quick multi selection
         in afd_ctrl.                                   [DONE]
 o       Allow administrator to supply host alias
-        names. So it is no longer neccessary to
+        names. So it is no longer necessary to
         change the /etc/hosts.                         [DONE]
 o       Dialog to edit HOST_CONFIG file.               [DONE]
 o       A TCP daemon that supplies information
@@ -277,7 +277,7 @@ o       Dialog that shows information on a
         remote AFD.                               *    [DONE]
 o       Configuration file AFD_CONFIG wherein
         the user can configure values that would
-        normaly need a recompile.                 *    [DONE]
+        normally need a recompile.                *    [DONE]
 o       Dialog to show DIR_CONFIG data on a
         per host basis.                           *    [DONE]
 o       Reduce system load for archive_watch.    **    [DONE]
@@ -304,17 +304,41 @@ o       X dialog that shows the output of a
         traceroute.                             ***    [DONE]
 o       Limit the number of process that
         dir_check may generate on a per
-        directory basis.                       ****    [TESTING]
+        directory basis.                       ****    [DONE]
+o       Log everything received by AFD (as
+        transfer log).                          ***    [DONE]
+o       Retrieve files from a remote host.     ****    [DONE]
+o       Dialog that shows and controls the
+        directories monitored by AFD
+        (as afd_ctrl).                           **    [DONE]
+o       Dialog that shows some information
+        on a directory from dir_ctrl.             *    [DONE]
+o       Time option for each directory.           *    [DONE]
 o       Dialog to send files from archive to
-        hosts that are not in the FSA.          ***    [UNDER CONSTRUCTION]
+        hosts that are not in the FSA.          ***    [DONE]
 o       Process that counts the number of files
         and their size send per min/hour/day/
-        week/month/year                         ***    [TESTING]
+        week/month/year                         ***    [DONE]
+o       Implement FTP passive mode.               *    [DONE]
+o       Print button for show_cmd dialog.         *    [DONE]
+o       Possibility to disable monitoring an
+        AFD in mon_ctrl dialog.                   *    [DONE]
+o       Generic FTP proxy procedure.             **    [DONE]
+o       In mon_ctrl show history of receive,
+        system and transfer log.                  *    [DONE]
+o       New time option that does NOT collect
+        data outside the specified time range.    *    [DONE]
+-------------------------> Rel: 24 September 2000 <-------------------------
+
+
+
+------------------------>>>>> Version 2.0.x <<<<<--------------------------
+o       Dialog to edit DIR_CONFIG.             ****    [TODO]
+o       Support for IP6.                        ***    [TODO]
 o       Dialog deleting all Jobs + files older
         than X days/hours/minutes/second.       ***    [TODO]
 o       Implement tar/un-tar command.            **    [TODO]
-o       Dialog to edit AMG database.            ***    [TODO]
-o       A SSL FTP client (sf_sftp).               *    [TODO]
+o       A SSL FTP client (sf_sftp).              **    [TODO]
 o       Write process sf_sql to send files to
         a database.                              **    [TODO]
 o       Do some heavy stress test shutting

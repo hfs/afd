@@ -27,8 +27,8 @@ DESCR__S_M3
  **   reset_message - clears message in status box
  **
  ** SYNOPSIS
- **   void show_message(char *message)
- **   void reset_message(void)
+ **   void show_message(Widget w, char *message)
+ **   void reset_message(Widget w)
  **
  ** DESCRIPTION
  **   show_message() will display a short message 'message' at the
@@ -54,16 +54,13 @@ DESCR__E_M3
 #include <Xm/Label.h>
 #include "x_common_defs.h"
 
-/* External global variables */
-extern Widget statusbox_w;
-
 /* Local global variables */
 static char   status_message[MAX_MESSAGE_LENGTH];
 
 
 /*########################## reset_message() ############################*/
 void
-reset_message(void)
+reset_message(Widget w)
 {
    if ((status_message[0] != ' ') && (status_message[1] != '\0'))
    {
@@ -73,7 +70,7 @@ reset_message(void)
       status_message[1] = '\0';
 
       xstr = XmStringCreateLtoR(status_message, XmFONTLIST_DEFAULT_TAG);
-      XtVaSetValues(statusbox_w, XmNlabelString, xstr, NULL);
+      XtVaSetValues(w, XmNlabelString, xstr, NULL);
       XmStringFree(xstr);
    }
 
@@ -83,13 +80,13 @@ reset_message(void)
 
 /*########################### show_message() ############################*/
 void
-show_message(char *message)
+show_message(Widget w, char *message)
 {
    XmString xstr;
 
    (void)strcpy(status_message, message);
    xstr = XmStringCreateLtoR(status_message, XmFONTLIST_DEFAULT_TAG);
-   XtVaSetValues(statusbox_w, XmNlabelString, xstr, NULL);
+   XtVaSetValues(w, XmNlabelString, xstr, NULL);
    XmStringFree(xstr);
 
    return;

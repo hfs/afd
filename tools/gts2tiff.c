@@ -49,7 +49,8 @@ DESCR__E_M1
 #include "amgdefs.h"          /* prototype of gts2tiff()                 */
 
 /* Global variables */
-int sys_log_fd = STDERR_FILENO;
+int receive_log_fd = STDERR_FILENO,
+    sys_log_fd = STDERR_FILENO;
 #ifdef _NO_MMAP
 char *p_work_dir = NULL;
 #endif

@@ -1,6 +1,6 @@
 /*
  *  check_paused_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,9 @@ DESCR__S_M3
  **                      for a specific host
  **
  ** SYNOPSIS
- **   char *check_paused_dir(struct directory_entry *p_de)
+ **   char *check_paused_dir(struct directory_entry *p_de,
+ **                          int                    *nfg,
+ **                          int                    *dest_count)
  **
  ** DESCRIPTION
  **   This function checks the user directory for any paused
@@ -61,14 +63,16 @@ extern struct filetransfer_status *fsa;
 
 /*######################### check_paused_dir() ##########################*/
 char *
-check_paused_dir(struct directory_entry *p_de)
+check_paused_dir(struct directory_entry *p_de,
+                 int                    *nfg,
+                 int                    *dest_count)
 {
    register int i,
                 j;
 
-   for (i = 0; i < p_de->nfg; i++)
+   for (i = *nfg; i < p_de->nfg; i++)
    {
-      for (j = 0; j < p_de->fme[i].dest_count; j++)
+      for (j = *dest_count; j < p_de->fme[i].dest_count; j++)
       {
          /* Is queue stopped? (ie PAUSE_QUEUE_STAT, AUTO_PAUSE_QUEUE_STAT */
          /* or AUTO_PAUSE_QUEUE_LOCK_STAT is set)                         */
@@ -83,10 +87,13 @@ check_paused_dir(struct directory_entry *p_de)
 
             if (S_ISDIR(stat_buf.st_mode))
             {
+               *nfg = i;
+               *dest_count = j + 1;
                return(db[p_de->fme[i].pos[j]].host_alias);
             }
          }
       }
+      *dest_count = 0;
    }
 
    return(NULL);

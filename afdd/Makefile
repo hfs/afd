@@ -28,6 +28,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(AFDDPROG) : $(AFDDOBJS) $(AFDLIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDDOBJS) $(AFDLIB) $(SPECIAL_LIBS)
 
 clean :
@@ -38,6 +39,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(AFDDPROG)
 

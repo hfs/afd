@@ -107,7 +107,7 @@ main(int argc, char *argv[])
 
    if (position < 0)
    {
-      if ((position = get_position(fsa, hostname, no_of_hosts)) < 0)
+      if ((position = get_host_position(fsa, hostname, no_of_hosts)) < 0)
       {
          (void)fprintf(stderr,
                        "ERROR   : Could not find host %s in FSA. (%s %d)\n",

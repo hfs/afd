@@ -28,9 +28,11 @@ all : $(PROGS)
 $(OBJS): $(HEADERS)
 
 $(IAFDPROG) : $(IAFDOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(IAFDOBJS) $(LIB) $(EFENCE) $(CCMALLOC)
 
 $(AFDPROG) : $(AFDOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDOBJS) $(LIB) $(EFENCE) $(CCMALLOC)
 
 clean :
@@ -41,9 +43,9 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTALLDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTALLDIR)
-	chmod $(BINMODE) $(INSTALLDIR)/$(IAFDPROG)
-	chmod $(BINMODE) $(INSTALLDIR)/$(AFDPROG)
+	chmod $(BINMODE) $(INSTALLDIR)/$(IAFDPROG) $(INSTALLDIR)/$(AFDPROG)
 
 # Other dependencies
 init_afd.o afd.o : ../version.h

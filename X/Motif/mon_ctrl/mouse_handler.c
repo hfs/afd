@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ DESCR__S_M3
  **   void change_mon_font_cb(Widget w, XtPointer client_data, XtPointer call_data)
  **   void change_mon_row_cb(Widget w, XtPointer client_data, XtPointer call_data)
  **   void change_mon_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void change_mon_history_cb(Widget w, XtPointer client_data, XtPointer call_data)
  **
  ** DESCRIPTION
  **
@@ -46,6 +47,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   13.09.1998 H.Kiehl Created
+ **   10.09.2000 H.Kiehl Addition of history logs.
  **
  */
 DESCR__E_M3
@@ -76,16 +78,13 @@ DESCR__E_M3
 
 /* External global variables */
 extern Display                 *display;
-extern XtAppContext            app;
-extern XtIntervalId            interval_id_tv;
 extern Widget                  fw[],
                                rw[],
+                               hlw[],
                                tw[],
                                lsw[];
-extern Widget                  appshell,
-                               transviewshell;
-extern Window                  detailed_window,
-                               line_window;
+extern Widget                  appshell;
+extern Window                  line_window;
 extern XFontStruct             *font_struct;
 extern GC                      letter_gc,
                                normal_letter_gc,
@@ -116,6 +115,8 @@ extern int                     no_of_active_process,
                                current_font,
                                current_row,
                                current_style,
+                               current_his_log,
+                               his_log_set,
                                sys_log_fd;
 extern float                   max_bar_length;
 extern unsigned long           color_pool[];
@@ -125,7 +126,7 @@ extern char                    *p_work_dir,
                                *traceroute_cmd,
                                *ptr_traceroute_cmd,
                                line_style,
-                               font_name[20],
+                               font_name[],
                                user[],
                                username[];
 extern struct mon_line         *connect_data;
@@ -134,10 +135,7 @@ extern struct mon_control_perm mcp;
 extern struct apps_list        *apps_list;
 
 /* Local global variables */
-static int                        in_window = NO;
-
-/* Global variables */
-size_t                            current_jd_size = 0;
+static int                     in_window = NO;
 
 
 /*############################ mon_focus() ##############################*/
@@ -246,13 +244,15 @@ mon_input(Widget      w,
             }
             if (gotcha == NO)
             {
-               char *args[4],
+               char *args[5],
                     progname[MAX_PATH_LENGTH];
 
                args[0] = progname;
-               args[1] = msa[select_no].afd_alias;
+               args[1] = "-f";
                args[2] = font_name;
-               args[3] = NULL;
+               args[3] = "-a";
+               args[4] = msa[select_no].afd_alias;
+               args[5] = NULL;
                (void)strcpy(progname, MON_INFO);
 
                make_xprocess(progname, progname, args, select_no);
@@ -350,7 +350,7 @@ save_mon_setup_cb(Widget    w,
                   XtPointer client_data,
                   XtPointer call_data)
 {
-   write_setup();
+   write_setup(-1, his_log_set);
 
    return;
 }
@@ -375,7 +375,7 @@ mon_popup_cb(Widget    w,
                log_typ[30],
                display_error,
        	       err_msg[1025 + 100];
-   size_t      new_size = (no_of_afds + 6) * sizeof(char *);
+   size_t      new_size = (no_of_afds + 8) * sizeof(char *);
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
        ((sel_typ == MON_RETRY_SEL) || (sel_typ == MON_INFO_SEL) ||
@@ -396,28 +396,39 @@ mon_popup_cb(Widget    w,
    switch(sel_typ)
    {
       case MON_RETRY_SEL:
+      case MON_DISABLE_SEL:
          break;
 
       case PING_SEL : /* Ping test */
          args[0] = progname;
-         args[1] = font_name;
-         args[2] = ping_cmd;
-         args[3] = NULL;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = ping_cmd;
+         args[6] = NULL;
          (void)strcpy(progname, SHOW_CMD);
          break;
 
       case TRACEROUTE_SEL : /* Traceroute test */
          args[0] = progname;
-         args[1] = font_name;
-         args[2] = traceroute_cmd;
-         args[3] = NULL;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = traceroute_cmd;
+         args[6] = NULL;
          (void)strcpy(progname, SHOW_CMD);
          break;
 
       case MON_INFO_SEL : /* Information */
          args[0] = progname;
-         args[2] = font_name;
-         args[3] = NULL;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-a";
+         args[7] = NULL;
          (void)strcpy(progname, MON_INFO);
          break;
 
@@ -425,9 +436,11 @@ mon_popup_cb(Widget    w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
-         args[4] = log_typ;
-         args[5] = NULL;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-l";
+         args[6] = log_typ;
+         args[7] = NULL;
          (void)strcpy(progname, SHOW_LOG);
          (void)strcpy(log_typ, MON_SYSTEM_STR);
 	 make_xprocess(progname, progname, args, -1);
@@ -437,8 +450,10 @@ mon_popup_cb(Widget    w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
-         args[4] = log_typ;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-l";
+         args[6] = log_typ;
          (void)strcpy(progname, SHOW_LOG);
          break;
 
@@ -446,9 +461,11 @@ mon_popup_cb(Widget    w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[3] = "-l";
+         args[4] = log_typ;
+         args[5] = "-f";
+         args[6] = font_name;
+         args[7] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_FILE_LOAD);
 	 make_xprocess(progname, progname, args, -1);
@@ -458,9 +475,11 @@ mon_popup_cb(Widget    w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[3] = "-l";
+         args[4] = log_typ;
+         args[5] = "-f";
+         args[6] = font_name;
+         args[7] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_KBYTE_LOAD);
 	 make_xprocess(progname, progname, args, -1);
@@ -470,9 +489,11 @@ mon_popup_cb(Widget    w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[3] = "-l";
+         args[4] = log_typ;
+         args[5] = "-f";
+         args[6] = font_name;
+         args[7] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_CONNECTION_LOAD);
          make_xprocess(progname, progname, args, -1);
@@ -482,9 +503,11 @@ mon_popup_cb(Widget    w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[3] = "-l";
+         args[4] = log_typ;
+         args[5] = "-f";
+         args[6] = font_name;
+         args[7] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_TRANSFER_LOAD);
          make_xprocess(progname, progname, args, -1);
@@ -519,6 +542,10 @@ mon_popup_cb(Widget    w,
          {
             FREE_RT_ARRAY(mcp.retry_list);
          }
+         if (mcp.disable_list != NULL)
+         {
+            FREE_RT_ARRAY(mcp.disable_list);
+         }
          if (mcp.show_slog_list != NULL)
          {
             FREE_RT_ARRAY(mcp.show_slog_list);
@@ -538,10 +565,6 @@ mon_popup_cb(Widget    w,
          if (mcp.afd_load_list != NULL)
          {
             FREE_RT_ARRAY(mcp.afd_load_list);
-         }
-         if (mcp.view_jobs_list != NULL)
-         {
-            FREE_RT_ARRAY(mcp.view_jobs_list);
          }
          if (mcp.edit_hc_list != NULL)
          {
@@ -595,7 +618,8 @@ mon_popup_cb(Widget    w,
          {
             case MON_RETRY_SEL : /* Retry to connect to remote AFD only if */
                                  /* we are currently disconnected from it. */
-               if (msa[i].connect_status == DISCONNECTED)
+               if ((msa[i].connect_status == DISCONNECTED) ||
+                   (msa[i].connect_status == ERROR_ID))
                {
                   int  fd;
                   char retry_fifo[MAX_PATH_LENGTH];
@@ -630,9 +654,95 @@ mon_popup_cb(Widget    w,
                }
                break;
 
+            case MON_DISABLE_SEL : /* Enable/Disable AFD */
+               if (msa[i].connect_status == DISABLED)
+               {
+                  int  fd;
+                  char mon_cmd_fifo[MAX_PATH_LENGTH];
+
+                  (void)sprintf(mon_cmd_fifo, "%s%s%s",
+                                p_work_dir, FIFO_DIR, MON_CMD_FIFO);
+                  if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+                  {
+                     (void)xrec(appshell, ERROR_DIALOG,
+                                "Failed to open() %s : %s (%s %d)",
+                                mon_cmd_fifo, strerror(errno),
+                                __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     int length;
+                     char cmd[2 + MAX_INT_LENGTH];
+
+                     length = sprintf(cmd, "%c %d", ENABLE_MON, i);
+                     if (write(fd, cmd, length) != length)
+                     {
+                        (void)xrec(appshell, ERROR_DIALOG,
+                                   "Failed to write() to %s : %s (%s %d)",
+                                   mon_cmd_fifo, strerror(errno),
+                                   __FILE__, __LINE__);
+                     }
+                     (void)rec(sys_log_fd, CONFIG_SIGN,
+                               "ENABLED monitoring for AFD %s (%s)\n",
+                               msa[i].afd_alias, user);
+                     if (close(fd) == -1)
+                     {
+                        (void)rec(sys_log_fd, DEBUG_SIGN,
+                                  "Failed to close() FIFO %s : %s (%s %d)\n",
+                                  mon_cmd_fifo, strerror(errno),
+                                  __FILE__, __LINE__);
+                     }
+                  }
+               }
+               else
+               {
+                  if (xrec(appshell, QUESTION_DIALOG,
+                      "Are you shure that you want to disable %s\nThis AFD will then not be monitored.",
+                      msa[i].afd_alias) == YES)
+                  {
+                     int  fd;
+                     char mon_cmd_fifo[MAX_PATH_LENGTH];
+
+                     (void)sprintf(mon_cmd_fifo, "%s%s%s",
+                                   p_work_dir, FIFO_DIR, MON_CMD_FIFO);
+                     if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+                     {
+                        (void)xrec(appshell, ERROR_DIALOG,
+                                   "Failed to open() %s : %s (%s %d)",
+                                   mon_cmd_fifo, strerror(errno),
+                                   __FILE__, __LINE__);
+                     }
+                     else
+                     {
+                        int length;
+                        char cmd[2 + MAX_INT_LENGTH];
+
+                        length = sprintf(cmd, "%c %d", DISABLE_MON, i);
+                        if (write(fd, cmd, length) != length)
+                        {
+                           (void)xrec(appshell, ERROR_DIALOG,
+                                      "Failed to write() to %s : %s (%s %d)",
+                                      mon_cmd_fifo, strerror(errno),
+                                      __FILE__, __LINE__);
+                        }
+                        (void)rec(sys_log_fd, CONFIG_SIGN,
+                                  "DISABLED monitoring for AFD %s (%s)\n",
+                                  msa[i].afd_alias, user);
+                        if (close(fd) == -1)
+                        {
+                           (void)rec(sys_log_fd, DEBUG_SIGN,
+                                     "Failed to close() FIFO %s : %s (%s %d)\n",
+                                     mon_cmd_fifo, strerror(errno),
+                                     __FILE__, __LINE__);
+                        }
+                     }
+                  }
+               }
+               break;
+
             case MON_LOG_SEL : /* Monitor Log */
                (void)strcpy(hosts[k], msa[i].afd_alias);
-               args[k + 5] = hosts[k];
+               args[k + 7] = hosts[k];
                k++;
                break;
 
@@ -652,7 +762,7 @@ mon_popup_cb(Widget    w,
                }
                break;
 
-            case MON_INFO_SEL : /* Show information for this host */
+            case MON_INFO_SEL : /* Show information for this AFD. */
                {
                   int gotcha = NO,
                       ii;
@@ -668,7 +778,7 @@ mon_popup_cb(Widget    w,
                   }
                   if (gotcha == NO)
                   {
-                     args[1] = msa[i].afd_alias;
+                     args[6] = msa[i].afd_alias;
                      make_xprocess(progname, progname, args, i);
                   }
                   else
@@ -694,7 +804,7 @@ mon_popup_cb(Widget    w,
    if (sel_typ == MON_LOG_SEL)
    {
       (void)strcpy(log_typ, MONITOR_STR);
-      args[k + 5] = NULL;
+      args[k + 7] = NULL;
       make_xprocess(progname, progname, args, -1);
    }
 
@@ -752,7 +862,13 @@ start_remote_prog(Widget    w,
         rsh_str[4],
         no_block[3];
 
-   if ((args = malloc(12 * sizeof(char *))) == NULL)
+   if ((no_selected == 0) && (no_selected_static == 0))
+   {
+      (void)xrec(appshell, INFO_DIALOG,
+                 "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
+      return;
+   }
+   if ((args = malloc(14 * sizeof(char *))) == NULL)
    {
       (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
@@ -774,6 +890,16 @@ start_remote_prog(Widget    w,
    (void)strcpy(rsh_str, "rsh");
    (void)strcpy(remote_user_parameter, "-l");
    (void)strcpy(local_display, XDisplayName(NULL));
+   if (local_display[0] == ':')
+   {
+      char hostname[90];
+
+      if (gethostname(hostname, 80) == 0)
+      {
+         (void)strcat(hostname, local_display);
+         (void)strcpy(local_display, hostname);
+      }
+   }
    (void)strcpy(no_block, "-n");
    args[0] = rsh_str;
    args[1] = no_block;
@@ -786,87 +912,107 @@ start_remote_prog(Widget    w,
    {
       case AFD_CTRL_SEL : /* Remote afd_ctrl */
          (void)strcpy(prog_to_call, AFD_CTRL);
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case S_LOG_SEL : /* Remote System Log */
          (void)strcpy(prog_to_call, SHOW_LOG);
          (void)strcpy(parameter, SYSTEM_STR);
-         args[9] = font_name;
-         args[10] = parameter;
-         args[11] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = "-l";
+         args[12] = parameter;
+         args[13] = NULL;
+         break;
+
+      case R_LOG_SEL : /* Remote Receive Log */
+         (void)strcpy(prog_to_call, SHOW_LOG);
+         (void)strcpy(parameter, RECEIVE_STR);
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = "-l";
+         args[12] = parameter;
+         args[13] = NULL;
          break;
 
       case T_LOG_SEL : /* Remote Transfer Log */
          (void)strcpy(prog_to_call, SHOW_LOG);
          (void)strcpy(parameter, TRANSFER_STR);
-         args[9] = font_name;
-         args[10] = parameter;
-         args[11] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = "-l";
+         args[12] = parameter;
+         args[13] = NULL;
          break;
 
       case I_LOG_SEL : /* Remote Input Log */
          (void)strcpy(prog_to_call, SHOW_ILOG);
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case O_LOG_SEL : /* Remote Output Log */
          (void)strcpy(prog_to_call, SHOW_OLOG);
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
-      case R_LOG_SEL : /* Remote Delete Log */
+      case E_LOG_SEL : /* Remote Delete Log */
          (void)strcpy(prog_to_call, SHOW_RLOG);
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case VIEW_FILE_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_FILE_LOAD);
          args[9] = parameter;
-         args[10] = font_name;
-         args[11] = NULL;
+         args[10] = "-f";
+         args[11] = font_name;
+         args[12] = NULL;
          break;
 
       case VIEW_KBYTE_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_KBYTE_LOAD);
          args[9] = parameter;
-         args[10] = font_name;
-         args[11] = NULL;
+         args[10] = "-f";
+         args[11] = font_name;
+         args[12] = NULL;
          break;
 
       case VIEW_CONNECTION_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_CONNECTION_LOAD);
          args[9] = parameter;
-         args[10] = font_name;
-         args[11] = NULL;
+         args[10] = "-f";
+         args[11] = font_name;
+         args[12] = NULL;
          break;
 
       case VIEW_TRANSFER_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_TRANSFER_LOAD);
-         args[8] = parameter;
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = parameter;
+         args[10] = "-f";
+         args[11] = font_name;
+         args[12] = NULL;
          break;
 
       case CONTROL_AMG_SEL : /* Start/Stop AMG */
          (void)strcpy(prog_to_call, AFD_CMD);
-         (void)strcpy(parameter, "-Y");
-         args[9] = parameter;
+         args[9] = "-Y";
          args[10] = NULL;
          break;
 
       case CONTROL_FD_SEL : /* Start/Stop FD */
          (void)strcpy(prog_to_call, AFD_CMD);
-         (void)strcpy(parameter, "-Z");
-         args[9] = parameter;
+         args[9] = "-Z";
          args[10] = NULL;
          break;
 
@@ -882,21 +1028,27 @@ start_remote_prog(Widget    w,
 
       case EDIT_HC_SEL : /* Edit HOST_CONFIG file */
          (void)strcpy(prog_to_call, EDIT_HC);
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
+         break;
+
+      case DIR_CTRL_SEL : /* dir_control dialog */
+         (void)strcpy(prog_to_call, DIR_CTRL);
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case STARTUP_AFD_SEL : /* Startup AFD */
          (void)strcpy(prog_to_call, "afd");
-         (void)strcpy(parameter, "-a");
-         args[9] = parameter;
+         args[9] = "-a";
          args[10] = NULL;
 	 break;
 
       case SHUTDOWN_AFD_SEL : /* Shutdown AFD */
          (void)strcpy(prog_to_call, "afd");
-         (void)strcpy(parameter, "-S");
-         args[9] = parameter;
+         args[9] = "-S";
          args[10] = NULL;
 	 break;
 
@@ -954,7 +1106,7 @@ start_remote_prog(Widget    w,
                }
                args[4] = msa[i].hostname;
                args[7] = msa[i].r_work_dir;
-               (void)sprintf(progname, "%s/sbin/rafdd_cmd", msa[i].r_work_dir);
+               (void)strcpy(progname, "sbin/rafdd_cmd");
                make_xprocess(rsh_str, prog_to_call, args, i);
                if (connect_data[i].inverse == ON)
                {
@@ -1006,7 +1158,13 @@ start_remote_prog(Widget    w,
         remote_user_parameter[3],
         rsh_str[4];
 
-   if ((args = malloc(12 * sizeof(char *))) == NULL)
+   if ((no_selected == 0) && (no_selected_static == 0))
+   {
+      (void)xrec(appshell, INFO_DIALOG,
+                 "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
+      return;
+   }
+   if ((args = malloc(14 * sizeof(char *))) == NULL)
    {
       (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
@@ -1038,87 +1196,107 @@ start_remote_prog(Widget    w,
    {
       case AFD_CTRL_SEL : /* Remote afd_ctrl */
          (void)strcpy(prog_to_call, AFD_CTRL);
-         args[8] = font_name;
-         args[9] = NULL;
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = NULL;
          break;
 
       case S_LOG_SEL : /* Remote System Log */
          (void)strcpy(prog_to_call, SHOW_LOG);
          (void)strcpy(parameter, SYSTEM_STR);
-         args[8] = font_name;
-         args[9] = parameter;
-         args[10] = NULL;
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = "-l";
+         args[11] = parameter;
+         args[12] = NULL;
+         break;
+
+      case R_LOG_SEL : /* Remote Receive Log */
+         (void)strcpy(prog_to_call, SHOW_LOG);
+         (void)strcpy(parameter, RECEIVE_STR);
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = "-l";
+         args[11] = parameter;
+         args[12] = NULL;
          break;
 
       case T_LOG_SEL : /* Remote Transfer Log */
          (void)strcpy(prog_to_call, SHOW_LOG);
          (void)strcpy(parameter, TRANSFER_STR);
-         args[8] = font_name;
-         args[9] = parameter;
-         args[10] = NULL;
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = "-l";
+         args[11] = parameter;
+         args[12] = NULL;
          break;
 
       case I_LOG_SEL : /* Remote Input Log */
          (void)strcpy(prog_to_call, SHOW_ILOG);
-         args[8] = font_name;
-         args[9] = NULL;
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = NULL;
          break;
 
       case O_LOG_SEL : /* Remote Output Log */
          (void)strcpy(prog_to_call, SHOW_OLOG);
-         args[8] = font_name;
-         args[9] = NULL;
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = NULL;
          break;
 
-      case R_LOG_SEL : /* Remote Delete Log */
+      case E_LOG_SEL : /* Remote Delete Log */
          (void)strcpy(prog_to_call, SHOW_RLOG);
-         args[8] = font_name;
-         args[9] = NULL;
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = NULL;
          break;
 
       case VIEW_FILE_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_FILE_LOAD);
          args[8] = parameter;
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case VIEW_KBYTE_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_KBYTE_LOAD);
          args[8] = parameter;
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case VIEW_CONNECTION_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_CONNECTION_LOAD);
          args[8] = parameter;
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case VIEW_TRANSFER_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_TRANSFER_LOAD);
          args[8] = parameter;
-         args[9] = font_name;
-         args[10] = NULL;
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
          break;
 
       case CONTROL_AMG_SEL : /* Start/Stop AMG */
          (void)strcpy(prog_to_call, AFD_CMD);
-         (void)strcpy(parameter, "-Y");
-         args[8] = parameter;
+         args[8] = "-Y";
          args[9] = NULL;
          break;
 
       case CONTROL_FD_SEL : /* Start/Stop FD */
          (void)strcpy(prog_to_call, AFD_CMD);
-         (void)strcpy(parameter, "-Z");
-         args[8] = parameter;
+         args[8] = "-Z";
          args[9] = NULL;
          break;
 
@@ -1134,21 +1312,27 @@ start_remote_prog(Widget    w,
 
       case EDIT_HC_SEL : /* Edit HOST_CONFIG file */
          (void)strcpy(prog_to_call, EDIT_HC);
-         args[8] = font_name;
-         args[9] = NULL;
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = NULL;
+         break;
+
+      case DIR_CTRL_SEL : /* dir_ctrl dialog */
+         (void)strcpy(prog_to_call, DIR_CTRL);
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = NULL;
          break;
 
       case STARTUP_AFD_SEL : /* Startup AFD */
          (void)strcpy(prog_to_call, "afd");
-         (void)strcpy(parameter, "-a");
-         args[9] = parameter;
+         args[9] = "-a";
          args[10] = NULL;
 	 break;
 
       case SHUTDOWN_AFD_SEL : /* Shutdown AFD */
          (void)strcpy(prog_to_call, "afd");
-         (void)strcpy(parameter, "-S");
-         args[8] = parameter;
+         args[8] = "-S";
          args[9] = NULL;
 	 break;
 
@@ -1206,7 +1390,7 @@ start_remote_prog(Widget    w,
                }
                args[3] = msa[i].hostname;
                args[6] = msa[i].r_work_dir;
-               (void)sprintf(progname, "%s/sbin/rafdd_cmd", msa[i].r_work_dir);
+               (void)strcpy(progname, "sbin/rafdd_cmd");
                make_xprocess(rsh_str, prog_to_call, args, i);
                if (connect_data[i].inverse == ON)
                {
@@ -1543,4 +1727,85 @@ change_mon_style_cb(Widget    w,
    }
 
    return;
+}
+
+
+/*###################### change_mon_history_cb() ########################*/
+void
+change_mon_history_cb(Widget    w,
+                      XtPointer client_data,
+                      XtPointer call_data)
+{
+   int item_no = (int)client_data,
+       i,
+       redraw = NO;
+
+   if (current_his_log != item_no)
+   {
+      XtVaSetValues(hlw[current_his_log], XmNset, False, NULL);
+      current_his_log = item_no;
+   }
+
+   switch(item_no)
+   {
+      case 0   :
+         his_log_set = atoi(HIS_0);
+         break;
+
+      case 1   :
+         his_log_set = atoi(HIS_1);
+         break;
+
+      case 2   :
+         his_log_set = atoi(HIS_2);
+         break;
+
+      case 3   :
+         his_log_set = atoi(HIS_3);
+         break;
+
+      case 4   :
+         his_log_set = atoi(HIS_4);
+         break;
+
+      default  :
+         (void)xrec(appshell, WARN_DIALOG, "Impossible history selection (%d).",
+                    item_no);
+         return;
+   }
+
+#ifdef _DEBUG
+   (void)fprintf(stderr, "%s: You have chosen: %d history logs\n",
+                 __FILE__, his_log_set);
+#endif
+
+   setup_mon_window(font_name);
+
+   if (resize_mon_window() == YES)
+   {
+      XClearWindow(display, line_window);
+
+      /* redraw label */
+      draw_label_line();
+
+      /* redraw all status lines */
+      for (i = 0; i < no_of_afds; i++)
+      {
+         if (his_log_set > 0)
+         {
+            (void)memcpy(connect_data[i].log_history, msa[i].log_history,
+                         (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
+         }
+         draw_line_status(i, 1);
+      }
+
+      redraw = YES;
+   }
+
+   if (redraw == YES)
+   {
+      XFlush(display);
+   }
+
+  return;
 }

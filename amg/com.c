@@ -23,7 +23,7 @@
 DESCR__S_M3
 /*
  ** NAME
- **   com - sends a command to the dir_check command fifo
+ **   com - sends a command to the dir_check or fr command fifo
  **
  ** SYNOPSIS
  **   int com(char action)
@@ -55,11 +55,8 @@ DESCR__E_M3
 
 
 /* External global variables */
-extern int  no_of_dir,
-            shm_id,
-            sys_log_fd;
-extern char cmd_fifo[MAX_PATH_LENGTH],
-            resp_fifo[MAX_FILENAME_LENGTH];
+extern int  sys_log_fd;
+extern char *p_work_dir;
 
 
 /*################################ com() ################################*/
@@ -68,11 +65,19 @@ com(char action)
 {
    int            write_fd,
                   read_fd,
-                  length,
                   status;
-   char           buffer[MAX_FIFO_BUFFER];
+   char           buffer[MAX_FIFO_BUFFER],
+                  cmd_fifo[MAX_PATH_LENGTH],
+                  resp_fifo[MAX_FILENAME_LENGTH];
    fd_set         rset;
    struct timeval timeout;
+
+   /* Build the fifo names. */
+   (void)strcpy(cmd_fifo, p_work_dir);
+   (void)strcat(cmd_fifo, FIFO_DIR);
+   (void)strcpy(resp_fifo, cmd_fifo);
+   (void)strcat(resp_fifo, DC_RESP_FIFO);
+   (void)strcat(cmd_fifo, DC_CMD_FIFO);
 
    /* Open fifo to send command to job */
    if ((write_fd = open(cmd_fifo, O_RDWR)) == -1)
@@ -95,15 +100,10 @@ com(char action)
    /* Write command to command fifo */
    buffer[0] = action;
    buffer[1] = '\0';
-   length = 2;
-   if (action == START)
-   {
-      length += sprintf(&buffer[2], "%d %d", shm_id, no_of_dir);
-   }
 #ifdef _FIFO_DEBUG
-   show_fifo_data('W', "ip_cmd", buffer, length, __FILE__, __LINE__);
+   show_fifo_data('W', "ip_cmd", buffer, 2, __FILE__, __LINE__);
 #endif
-   if (write(write_fd, buffer, length) != length)
+   if (write(write_fd, buffer, 2) != 2)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not write to fifo %s : %s (%s %d)\n",
@@ -122,10 +122,12 @@ com(char action)
 
    if ((status > 0) && (FD_ISSET(read_fd, &rset)))
    {
+      int length;
+
       if ((length = read(read_fd, buffer, 10)) > 0)
       {
 #ifdef _FIFO_DEBUG
-         show_fifo_data('R', "ip_resp", buffer, length, __FILE__, __LINE__);
+         show_fifo_data('R', DC_PROC_NAME, buffer, length, __FILE__, __LINE__);
 #endif
          if (buffer[length - 1] != ACKN)
          {
@@ -143,25 +145,25 @@ com(char action)
                      strerror(errno), __FILE__, __LINE__);
            exit(INCORRECT);
         }
-        else if (status == 0)
-             {
-                /* The other side does not answer. */
-                (void)rec(sys_log_fd, WARN_SIGN,
-                          "Did not receive any reply from %s. (%s %d)\n",
-                          IT_PROC_NAME, __FILE__, __LINE__);
+   else if (status == 0)
+        {
+           /* The other side does not answer. */
+           (void)rec(sys_log_fd, WARN_SIGN,
+                     "Did not receive any reply from %s. (%s %d)\n",
+                     DC_PROC_NAME, __FILE__, __LINE__);
 
-                /* So what do we do now???????????  */
-                (void)close(write_fd);
-                (void)close(read_fd);
-                return(INCORRECT);
-             }
-             else /* Impossible! Unknown error. */
-             {
-                (void)rec(sys_log_fd, FATAL_SIGN,
-                          "Ouch! What now? @!$(%. (%s %d)\n",
-                          __FILE__, __LINE__);
-                exit(INCORRECT);
-             }
+           /* So what do we do now???????????  */
+           (void)close(write_fd);
+           (void)close(read_fd);
+           return(INCORRECT);
+        }
+        else /* Impossible! Unknown error. */
+        {
+           (void)rec(sys_log_fd, FATAL_SIGN,
+                     "Ouch! What now? @!$(%. (%s %d)\n",
+                     __FILE__, __LINE__);
+           exit(INCORRECT);
+        }
 
    if (close(write_fd) == -1)
    {

@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   21.02.1999 H.Kiehl Created
+ **   10.09.2000 H.Kiehl Added top transfer and top file rate.
  **
  */
 DESCR__E_M3
@@ -52,15 +53,11 @@ DESCR__E_M3
 #include <Xm/Text.h>
 #include "afd_ctrl.h"
 #include "mon_info.h"
-#include "mondefs.h"
 
 /* external global variables */
-extern int                    afd_position,
-                              msa_id;
-extern off_t                  msa_size;
+extern int                    afd_position;
 extern char                   label_l[NO_OF_MSA_ROWS][21],
-                              label_r[NO_OF_MSA_ROWS][17],
-                              *p_work_dir;
+                              label_r[NO_OF_MSA_ROWS][17];
 extern Display                *display;
 extern XtIntervalId           interval_id_host;
 extern XtAppContext           app;
@@ -135,11 +132,57 @@ Widget w;
       flush = YES;
    }
 
+   if (prev.top_not != msa[afd_position].top_no_of_transfers[0])
+   {
+      prev.top_not = msa[afd_position].top_no_of_transfers[0];
+      (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.top_not);
+      XmTextSetString(text_wr[3], str_line);
+      flush = YES;
+   }
+
+   if (strcmp(prev.afd_version, msa[afd_position].afd_version) != 0)
+   {
+      (void)strcpy(prev.afd_version, msa[afd_position].afd_version);
+      (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, prev.afd_version);
+      XmTextSetString(text_wl[4], str_line);
+      flush = YES;
+   }
+
    if (prev.no_of_hosts != msa[afd_position].no_of_hosts)
    {
       prev.no_of_hosts = msa[afd_position].no_of_hosts;
       (void)sprintf(str_line, "%*u", MON_INFO_LENGTH, prev.no_of_hosts);
-      XmTextSetString(text_wr[3], str_line);
+      XmTextSetString(text_wr[4], str_line);
+      flush = YES;
+   }
+
+   if (prev.top_tr != msa[afd_position].top_tr[0])
+   {
+      prev.top_tr = msa[afd_position].top_tr[0];
+      if (prev.top_tr > 1048576)
+      {
+         (void)sprintf(str_line, "%*u MB/s",
+                       MON_INFO_LENGTH - 5, prev.top_tr / 1048576);
+      }
+      else if (prev.top_tr > 1024)
+           {
+              (void)sprintf(str_line, "%*u KB/s",
+                            MON_INFO_LENGTH - 5, prev.top_tr / 1024);
+           }
+           else
+           {
+              (void)sprintf(str_line, "%*u Bytes/s",
+                            MON_INFO_LENGTH - 8, prev.top_tr);
+           }
+      XmTextSetString(text_wl[5], str_line);
+      flush = YES;
+   }
+
+   if (prev.top_fr != msa[afd_position].top_fr[0])
+   {
+      prev.top_fr = msa[afd_position].top_fr[0];
+      (void)sprintf(str_line, "%*u files/s", MON_INFO_LENGTH - 8, prev.top_fr);
+      XmTextSetString(text_wr[5], str_line);
       flush = YES;
    }
 

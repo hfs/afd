@@ -23,6 +23,9 @@
 #define MAX_SYSTEM_LOG_FILES              4            /* Must be > 1!   */
 #define SYSTEM_LOG_RESCAN_TIME            10
 #define SYSTEM_LOG_NAME                   "SYSTEM_LOG."
+#define MAX_RECEIVE_LOG_FILES             7            /* Must be > 1!   */
+#define RECEIVE_LOG_NAME                 "RECEIVE_LOG."
+#define MAX_RECEIVE_DB_LOG_FILES          2            /* Must be > 1!   */
 #define MAX_TRANSFER_LOG_FILES            7            /* Must be > 1!   */
 #define TRANSFER_LOG_NAME                 "TRANSFER_LOG."
 #define MAX_TRANS_DB_LOG_FILES            2            /* Must be > 1!   */
@@ -53,6 +56,12 @@
 #endif
 
 /* Function prototypes. */
+extern int  fprint_dup_msg(FILE *, int, char *, char *, time_t),
+#ifdef _FIFO_DEBUG
+            logger(FILE *, int, char *, int);
+#else
+            logger(FILE *, int, int);
+#endif
 extern FILE *open_log_file(char *);
 
 #endif /* __logdefs_h */

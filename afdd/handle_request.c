@@ -1,6 +1,6 @@
 /*
  *  handle_request.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -235,371 +235,371 @@ handle_request(int sd, int pos)
 214 Direct comments to %s\r\n",
                                   AFD_MAINTAINER);
               }
-              else if ((cmd[0] == 'H') && (cmd[1] == 'E') && (cmd[2] == 'L') &&
-                       (cmd[3] == 'P') && (cmd[4] == ' ') && (cmd[5] != '\r'))
+         else if ((cmd[0] == 'H') && (cmd[1] == 'E') && (cmd[2] == 'L') &&
+                  (cmd[3] == 'P') && (cmd[4] == ' ') && (cmd[5] != '\r'))
+              {
+                 j = 5;
+                 while ((cmd[j] != ' ') && (cmd[j] != '\r'))
+                 {
+                    cmd[j] = toupper((int)cmd[j]);
+                    j++;
+                 }
+
+                 if (strcmp(&cmd[5], QUIT_CMD) == 0)
+                 {
+                    (void)fprintf(p_data, "%s\r\n", QUIT_SYNTAX);
+                 }
+                 else if (strcmp(&cmd[5], HELP_CMD) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", HELP_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], TRACEI_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", TRACEI_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], TRACEO_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", TRACEO_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], TRACEF_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", TRACEF_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], ILOG_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", ILOG_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], OLOG_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", OLOG_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], SLOG_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", SLOG_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], TLOG_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", TLOG_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], TDLOG_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", TDLOG_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], PROC_CMD) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", PROC_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], DISC_CMD) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", DISC_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], STAT_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", STAT_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], START_STAT_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", START_STAT_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], LDB_CMD) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", LDB_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], LRF_CMD) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", LRF_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], INFO_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", INFO_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], AFDSTAT_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", AFDSTAT_SYNTAX);
+                      }
+                      else
+                      {
+                         *(cmd + nbytes - 2) = '\0';
+                         (void)fprintf(p_data,
+                                       "502 Unknown command %s\r\n",
+                                       &cmd[5]);
+                      }
+              }
+              else if (strncmp(cmd, TRACEI_CMD, strlen(TRACEI_CMD)) == 0)
                    {
-                      j = 5;
-                      while ((cmd[j] != ' ') && (cmd[j] != '\r'))
-                      {
-                         cmd[j] = toupper((int)cmd[j]);
-                         j++;
-                      }
-
-                      if (strcmp(&cmd[5], QUIT_CMD) == 0)
-                      {
-                         (void)fprintf(p_data, "%s\r\n", QUIT_SYNTAX);
-                      }
-                      else if (strcmp(&cmd[5], HELP_CMD) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", HELP_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], TRACEI_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", TRACEI_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], TRACEO_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", TRACEO_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], TRACEF_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", TRACEF_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], ILOG_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", ILOG_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], OLOG_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", OLOG_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], SLOG_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", SLOG_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], TLOG_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", TLOG_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], TDLOG_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", TDLOG_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], PROC_CMD) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", PROC_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], DISC_CMD) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", DISC_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], STAT_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", STAT_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], START_STAT_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", START_STAT_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], LDB_CMD) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", LDB_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], LRF_CMD) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", LRF_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], INFO_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", INFO_SYNTAX);
-                           }
-                      else if (strcmp(&cmd[5], AFDSTAT_CMDL) == 0)
-                           {
-                              (void)fprintf(p_data, "%s\r\n", AFDSTAT_SYNTAX);
-                           }
-                           else
-                           {
-                              *(cmd + nbytes - 2) = '\0';
-                              (void)fprintf(p_data,
-                                            "502 Unknown command %s\r\n",
-                                            &cmd[5]);
-                           }
+                      (void)fprintf(p_data, "502 Service not implemented. See help for commands.\r\n");
                    }
-                   else if (strncmp(cmd, TRACEI_CMD, strlen(TRACEI_CMD)) == 0)
-                        {
-                           (void)fprintf(p_data, "502 Service not implemented. See help for commands.\r\n");
-                        }
-                   else if (strncmp(cmd, TRACEO_CMD, strlen(TRACEO_CMD)) == 0)
-                        {
-                           (void)fprintf(p_data, "502 Service not implemented. See help for commands.\r\n");
-                        }
-                   else if (strncmp(cmd, TRACEF_CMD, strlen(TRACEF_CMD)) == 0)
-                        {
-                           (void)fprintf(p_data, "502 Service not implemented. See help for commands.\r\n");
-                        }
-                   else if ((strncmp(cmd, ILOG_CMD, strlen(ILOG_CMD)) == 0) ||
-                            (strncmp(cmd, OLOG_CMD, strlen(OLOG_CMD)) == 0) ||
-                            (strncmp(cmd, SLOG_CMD, strlen(SLOG_CMD)) == 0) ||
-                            (strncmp(cmd, TLOG_CMD, strlen(TLOG_CMD)) == 0) ||
-                            (strncmp(cmd, TDLOG_CMD, strlen(TDLOG_CMD)) == 0))
-                        {
-                           char search_file[MAX_PATH_LENGTH];
+              else if (strncmp(cmd, TRACEO_CMD, strlen(TRACEO_CMD)) == 0)
+                   {
+                      (void)fprintf(p_data, "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if (strncmp(cmd, TRACEF_CMD, strlen(TRACEF_CMD)) == 0)
+                   {
+                      (void)fprintf(p_data, "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if ((strncmp(cmd, ILOG_CMD, strlen(ILOG_CMD)) == 0) ||
+                       (strncmp(cmd, OLOG_CMD, strlen(OLOG_CMD)) == 0) ||
+                       (strncmp(cmd, SLOG_CMD, strlen(SLOG_CMD)) == 0) ||
+                       (strncmp(cmd, TLOG_CMD, strlen(TLOG_CMD)) == 0) ||
+                       (strncmp(cmd, TDLOG_CMD, strlen(TDLOG_CMD)) == 0))
+                   {
+                      char search_file[MAX_PATH_LENGTH];
 
-                           /*
-                            * First lets determine what file we want and then
-                            * create the full file name without the number.
-                            */
-                           (void)sprintf(search_file, "%s%s/", p_work_dir,
-                                         LOG_DIR);
-                           switch (cmd[0])
-                           {
-                              case 'I' : /* Input log */
-                                         (void)strcat(search_file, INPUT_BUFFER_FILE);
-                                         break;
-                              case 'O' : /* Output log */
-                                         (void)strcat(search_file, OUTPUT_BUFFER_FILE);
-                                         break;
-                              case 'S' : /* System log */
-                                         (void)strcat(search_file, SYSTEM_LOG_NAME);
-                                         break;
-                              case 'T' : /* Transfer or transfer debug log */
-                                         if (cmd[1] == 'D')
-                                         {
-                                            (void)strcat(search_file, TRANS_DB_LOG_NAME);
-                                         }
-                                         else
-                                         {
-                                            (void)strcat(search_file, TRANSFER_LOG_NAME);
-                                         }
-                                         break;
-                              default  : /* Impossible!!! */
-                                         (void)rec(sys_log_fd, DEBUG_SIGN, "Unknown error! (%s %d)\n",
-                                                   __FILE__, __LINE__);
-                                         (void)fprintf(p_data,
-                                                       "500 Unknown error. (%s %d)\n",
-                                                       __FILE__, __LINE__);
-                                         (void)fflush(p_data);
-                                         (void)fclose(p_data);
-                                         p_data = NULL;
-                                         exit(INCORRECT);
-                           }
+                      /*
+                       * First lets determine what file we want and then
+                       * create the full file name without the number.
+                       */
+                      (void)sprintf(search_file, "%s%s/", p_work_dir,
+                                    LOG_DIR);
+                      switch (cmd[0])
+                      {
+                         case 'I' : /* Input log */
+                            (void)strcat(search_file, INPUT_BUFFER_FILE);
+                            break;
+                         case 'O' : /* Output log */
+                            (void)strcat(search_file, OUTPUT_BUFFER_FILE);
+                            break;
+                         case 'S' : /* System log */
+                            (void)strcat(search_file, SYSTEM_LOG_NAME);
+                            break;
+                         case 'T' : /* Transfer or transfer debug log */
+                            if (cmd[1] == 'D')
+                            {
+                               (void)strcat(search_file, TRANS_DB_LOG_NAME);
+                            }
+                            else
+                            {
+                               (void)strcat(search_file, TRANSFER_LOG_NAME);
+                            }
+                            break;
+                         default  : /* Impossible!!! */
+                            (void)rec(sys_log_fd, DEBUG_SIGN, "Unknown error! (%s %d)\n",
+                                      __FILE__, __LINE__);
+                            (void)fprintf(p_data,
+                                          "500 Unknown error. (%s %d)\n",
+                                          __FILE__, __LINE__);
+                            (void)fflush(p_data);
+                            (void)fclose(p_data);
+                            p_data = NULL;
+                            exit(INCORRECT);
+                      }
 
-                           if (cmd[i] == ' ')
-                           {
-                              if ((cmd[i + 1] == '-') || (cmd[i + 1] == '+') ||
-                                  (cmd[i + 1] == '#'))
+                      if (cmd[i] == ' ')
+                      {
+                         if ((cmd[i + 1] == '-') || (cmd[i + 1] == '+') ||
+                             (cmd[i + 1] == '#'))
+                         {
+                            int  k = 0,
+                                 lines = EVERYTHING,
+                                 show_time = EVERYTHING,
+                                 file_no = DEFAULT_FILE_NO,
+                                 faulty = NO;
+                            char numeric_str[MAX_INT_LENGTH];
+
+                            do
+                            {
+                               i += k;
+                               k = 0;
+                               if (cmd[i + 1 + k] == '*')
+                               {
+                                  if (cmd[i + 1] == '#')
+                                  {
+                                     file_no = EVERYTHING;
+                                  }
+                               }
+                               else
+                               {
+                                  while ((cmd[i + 1 + k] != ' ') &&
+                                         (cmd[i + 1 + k] != '\r') &&
+                                         (k < MAX_INT_LENGTH))
+                                  {
+                                     if (isdigit(cmd[i + 1 + k]))
+                                     {
+                                        numeric_str[k] = cmd[i + 1 + k];
+                                     }
+                                     else
+                                     {
+                                        faulty = YES;
+                                        (void)fprintf(p_data,
+                                                      "500 Expecting numeric value after \'%c\'\r\n",
+                                                      cmd[i + 1]);
+                                        break;
+                                     }
+                                     k++;
+                                  }
+                                  if (k > 0)
+                                  {
+                                     numeric_str[k] = '\0';
+                                     switch(cmd[i + 1])
+                                     {
+                                        case '#' : /* File number */
+                                           file_no = atoi(numeric_str);
+                                           break;
+                                        case '-' : /* number of lines */
+                                           lines = atoi(numeric_str);
+                                           break;
+                                        case '+' : /* Duration of displaying data. */
+                                           show_time = atoi(numeric_str);
+                                           break;
+                                        default  : /* Impossible!!! */
+                                           faulty = YES;
+                                           (void)rec(sys_log_fd, DEBUG_SIGN, "Unknown error! (%s %d)\n",
+                                                     __FILE__, __LINE__);
+                                           (void)fprintf(p_data,
+                                                         "500 Unknown error. (%s %d)\r\n",
+                                                         __FILE__, __LINE__);
+                                           break;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     faulty = YES;
+                                     (void)fprintf(p_data,
+                                                   "500 No numeric value supplied after \'%c\'\r\n",
+                                                   cmd[i + 1]);
+                                  }
+                               }
+                            } while ((cmd[i + 1 + k] != '\r') && (faulty == NO));
+
+                            if (faulty == NO)
+                            {
+                               get_display_data(search_file, NULL, lines, show_time, file_no);
+                            }
+                         }
+                         else if (isascii(cmd[i + 1]))
                               {
-                                 int  k = 0,
-                                      lines = EVERYTHING,
-                                      show_time = EVERYTHING,
-                                      file_no = DEFAULT_FILE_NO,
-                                      faulty = NO;
-                                 char numeric_str[MAX_INT_LENGTH];
+                                 int  k = 0;
+                                 char *ptr,
+			       search_string[256];
 
-                                 do
+                                 /* User has supplied a search string. */
+                                 ptr = &cmd[i + 1];
+                                 while ((*ptr != ' ') &&
+                                        (*ptr != '\r') &&
+                                        (*ptr != '\n'))
                                  {
-                                    i += k;
-                                    k = 0;
-                                    if (cmd[i + 1 + k] == '*')
+                                    search_string[k] = *ptr;
+                                    ptr++; k++;
+                                 }
+                                 if (*ptr == ' ')
+                                 {
+                                    search_string[k] = '\0';
+                                    if ((cmd[i + k + 1] == '-') || (cmd[i + k + 1] == '+') ||
+                                        (cmd[i + k + 1] == '#'))
                                     {
-                                       if (cmd[i + 1] == '#')
+                                       int  m = 0,
+                                            lines = EVERYTHING,
+                                            show_time = EVERYTHING,
+                                            file_no = DEFAULT_FILE_NO,
+                                            faulty = NO;
+                                       char numeric_str[MAX_INT_LENGTH];
+
+                                       do
                                        {
-                                          file_no = EVERYTHING;
+                                          i += m;
+                                          m = 0;
+                                          if (cmd[i + k + 1 + m] == '*')
+                                          {
+                                             if (cmd[i + k + 1] == '#')
+                                             {
+                                                file_no = EVERYTHING;
+                                             }
+                                          }
+                                          else
+                                          {
+                                             while ((cmd[i + k + 1 + m] != ' ') &&
+                                                    (cmd[i + k + 1 + m] != '\r') &&
+                                                    (m < MAX_INT_LENGTH))
+                                             {
+                                                if (isdigit(cmd[i + k + 1 + m]))
+                                                {
+                                                   numeric_str[m] = cmd[i + k + 1 + m];
+                                                }
+                                                else
+                                                {
+                                                   faulty = YES;
+                                                   (void)fprintf(p_data,
+                                                                 "500 Expecting numeric value after \'%c\'\r\n",
+                                                                 cmd[i + k + 1]);
+                                                   break;
+                                                }
+                                                m++;
+                                             }
+                                             if (m > 0)
+                                             {
+                                                numeric_str[m] = '\0';
+                                                switch(cmd[i + k + 1])
+                                                {
+                                                   case '#' : /* File number */
+                                                      file_no = atoi(numeric_str);
+                                                      break;
+                                                   case '-' : /* number of lines */
+                                                      lines = atoi(numeric_str);
+                                                      break;
+                                                   case '+' : /* Duration of displaying data. */
+                                                      show_time = atoi(numeric_str);
+                                                      break;
+                                                   default  : /* Impossible!!! */
+                                                      faulty = YES;
+                                                      (void)rec(sys_log_fd, DEBUG_SIGN, "Unknown error! (%s %d)\n",
+                                                                __FILE__, __LINE__);
+                                                      (void)fprintf(p_data,
+                                                                    "500 Unknown error. (%s %d)\r\n",
+                                                                    __FILE__, __LINE__);
+                                                      break;
+                                                }
+                                             }
+                                             else
+                                             {
+                                                faulty = YES;
+                                                (void)fprintf(p_data,
+                                                              "500 No numeric value supplied after \'%c\'\r\n",
+                                                              cmd[i + k + 1]);
+                                             }
+                                          }
+                                       } while ((cmd[i + k + 1 + m] != '\r') && (faulty == NO));
+
+                                       if (faulty == NO)
+                                       {
+                                          get_display_data(search_file,
+                                                           search_string,
+                                                           lines,
+                                                           show_time,
+                                                           file_no);
                                        }
                                     }
                                     else
                                     {
-                                       while ((cmd[i + 1 + k] != ' ') &&
-                                              (cmd[i + 1 + k] != '\r') &&
-                                              (k < MAX_INT_LENGTH))
-                                       {
-                                          if (isdigit(cmd[i + 1 + k]))
-                                          {
-                                             numeric_str[k] = cmd[i + 1 + k];
-                                          }
-                                          else
-                                          {
-                                             faulty = YES;
-                                             (void)fprintf(p_data,
-                                                           "500 Expecting numeric value after \'%c\'\r\n",
-                                                           cmd[i + 1]);
-                                             break;
-                                          }
-                                          k++;
-                                       }
-                                       if (k > 0)
-                                       {
-                                          numeric_str[k] = '\0';
-                                          switch(cmd[i + 1])
-                                          {
-                                             case '#' : /* File number */
-                                                        file_no = atoi(numeric_str);
-                                                        break;
-                                             case '-' : /* number of lines */
-                                                        lines = atoi(numeric_str);
-                                                        break;
-                                             case '+' : /* Duration of displaying data. */
-                                                        show_time = atoi(numeric_str);
-                                                        break;
-                                             default  : /* Impossible!!! */
-                                                        faulty = YES;
-                                                        (void)rec(sys_log_fd, DEBUG_SIGN, "Unknown error! (%s %d)\n",
-                                                                  __FILE__, __LINE__);
-                                                        (void)fprintf(p_data,
-                                                                      "500 Unknown error. (%s %d)\r\n",
-                                                                      __FILE__, __LINE__);
-                                                        break;
-                                          }
-                                       }
-                                       else
-                                       {
-                                          faulty = YES;
-                                          (void)fprintf(p_data,
-                                                        "500 No numeric value supplied after \'%c\'\r\n",
-                                                        cmd[i + 1]);
-                                       }
+                                       *(cmd + nbytes - 2) = '\0';
+                                       (void)fprintf(p_data,
+                                                     "500 \'%s\': Syntax wrong (see HELP).\r\n",
+                                                     cmd);
                                     }
-                                 } while ((cmd[i + 1 + k] != '\r') && (faulty == NO));
-
-                                 if (faulty == NO)
-                                 {
-                                    get_display_data(search_file, NULL, lines, show_time, file_no);
                                  }
                               }
-                              else if (isascii(cmd[i + 1]))
-                                   {
-                                      int  k = 0;
-                                      char *ptr,
-				           search_string[256];
-
-                                      /* User has supplied a search string. */
-                                      ptr = &cmd[i + 1];
-                                      while ((*ptr != ' ') &&
-                                             (*ptr != '\r') &&
-                                             (*ptr != '\n'))
-                                      {
-                                         search_string[k] = *ptr;
-                                         ptr++; k++;
-                                      }
-                                      if (*ptr == ' ')
-                                      {
-                                         search_string[k] = '\0';
-                                         if ((cmd[i + k + 1] == '-') || (cmd[i + k + 1] == '+') ||
-                                             (cmd[i + k + 1] == '#'))
-                                         {
-                                            int  m = 0,
-                                                 lines = EVERYTHING,
-                                                 show_time = EVERYTHING,
-                                                 file_no = DEFAULT_FILE_NO,
-                                                 faulty = NO;
-                                            char numeric_str[MAX_INT_LENGTH];
-
-                                            do
-                                            {
-                                               i += m;
-                                               m = 0;
-                                               if (cmd[i + k + 1 + m] == '*')
-                                               {
-                                                  if (cmd[i + k + 1] == '#')
-                                                  {
-                                                     file_no = EVERYTHING;
-                                                  }
-                                               }
-                                               else
-                                               {
-                                                  while ((cmd[i + k + 1 + m] != ' ') &&
-                                                         (cmd[i + k + 1 + m] != '\r') &&
-                                                         (m < MAX_INT_LENGTH))
-                                                  {
-                                                     if (isdigit(cmd[i + k + 1 + m]))
-                                                     {
-                                                        numeric_str[m] = cmd[i + k + 1 + m];
-                                                     }
-                                                     else
-                                                     {
-                                                        faulty = YES;
-                                                        (void)fprintf(p_data,
-                                                                      "500 Expecting numeric value after \'%c\'\r\n",
-                                                                      cmd[i + k + 1]);
-                                                        break;
-                                                     }
-                                                     m++;
-                                                  }
-                                                  if (m > 0)
-                                                  {
-                                                     numeric_str[m] = '\0';
-                                                     switch(cmd[i + k + 1])
-                                                     {
-                                                        case '#' : /* File number */
-                                                                   file_no = atoi(numeric_str);
-                                                                   break;
-                                                        case '-' : /* number of lines */
-                                                                   lines = atoi(numeric_str);
-                                                                   break;
-                                                        case '+' : /* Duration of displaying data. */
-                                                                   show_time = atoi(numeric_str);
-                                                                   break;
-                                                        default  : /* Impossible!!! */
-                                                                   faulty = YES;
-                                                                   (void)rec(sys_log_fd, DEBUG_SIGN, "Unknown error! (%s %d)\n",
-                                                                             __FILE__, __LINE__);
-                                                                   (void)fprintf(p_data,
-                                                                                 "500 Unknown error. (%s %d)\r\n",
-                                                                                 __FILE__, __LINE__);
-                                                                   break;
-                                                     }
-                                                  }
-                                                  else
-                                                  {
-                                                     faulty = YES;
-                                                     (void)fprintf(p_data,
-                                                                   "500 No numeric value supplied after \'%c\'\r\n",
-                                                                   cmd[i + k + 1]);
-                                                  }
-                                               }
-                                            } while ((cmd[i + k + 1 + m] != '\r') && (faulty == NO));
-
-                                            if (faulty == NO)
-                                            {
-                                               get_display_data(search_file,
-                                                                search_string,
-                                                                lines,
-                                                                show_time,
-                                                                file_no);
-                                            }
-                                         }
-                                         else
-                                         {
-                                            *(cmd + nbytes - 2) = '\0';
-                                            (void)fprintf(p_data,
-                                                          "500 \'%s\': Syntax wrong (see HELP).\r\n",
-                                                          cmd);
-                                         }
-                                      }
-                                   }
-                                   else
-                                   {
-                                      *(cmd + nbytes - 2) = '\0';
-                                      (void)fprintf(p_data,
-                                                    "500 \'%s\': command not understood.\r\n",
-                                                    cmd);
-                                   }
-                           } /* if (cmd[i] == ' ') */
-                           else if (cmd[i] == '\r')
-                                {
-                                   get_display_data(search_file, NULL,
-                                                    EVERYTHING,
-                                                    EVERYTHING,
-                                                    DEFAULT_FILE_NO);
-                                }
-                                else
-                                {
-                                    *(cmd + nbytes - 2) = '\0';
-                                    (void)fprintf(p_data,
-                                                  "500 \'%s\': command not understood.\r\n",
-                                                  cmd);
-                                }
-                        }
+                              else
+                              {
+                                 *(cmd + nbytes - 2) = '\0';
+                                 (void)fprintf(p_data,
+                                               "500 \'%s\': command not understood.\r\n",
+                                               cmd);
+                              }
+                      } /* if (cmd[i] == ' ') */
+                      else if (cmd[i] == '\r')
+                           {
+                              get_display_data(search_file, NULL,
+                                               EVERYTHING,
+                                               EVERYTHING,
+                                               DEFAULT_FILE_NO);
+                           }
+                           else
+                           {
+                               *(cmd + nbytes - 2) = '\0';
+                               (void)fprintf(p_data,
+                                             "500 \'%s\': command not understood.\r\n",
+                                             cmd);
+                           }
+                   }
                    else if (strncmp(cmd, PROC_CMD, strlen(PROC_CMD)) == 0)
                         {
                            (void)fprintf(p_data,

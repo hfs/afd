@@ -58,6 +58,7 @@ extern Widget       appshell,
                     label_window_w,
                     button_window_w;
 extern int          line_height,
+                    magic_value,
                     window_width,
                     window_height;
 extern unsigned int glyph_height;
@@ -131,15 +132,24 @@ resize_window(void)
          new_y = root_y;
       }
 
+#ifdef _WITH_VA_SET_VALUES_
+      XtVaSetValues(appshell,
+             XmNx, new_x,
+             XmNy, new_y,
+             XmNwidth, window_width,
+             XmNheight, window_height + line_height + line_height + glyph_height + magic_value,
+             NULL);
+#else
       /* Resize window */
       XMoveResizeWindow(display, XtWindow(appshell),
                         new_x,
                         new_y,
                         window_width,
-                        window_height + line_height + line_height + glyph_height + 12);
+                        window_height + line_height + line_height + glyph_height + magic_value);
+#endif
 #else
       XResizeWindow(display, XtWindow(appshell), window_width,
-                    window_height + line_height + line_height + glyph_height + 12);
+                    window_height + line_height + line_height + glyph_height + magic_value);
 #endif
 
       /* If the line_height changed, don't forget to change the */

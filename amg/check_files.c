@@ -1,6 +1,6 @@
 /*
  *  check_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,6 +76,9 @@ DESCR__E_M3
 #include <stdlib.h>                /* exit()                             */
 #include <time.h>                  /* time()                             */
 #include <unistd.h>                /* write(), read(), lseek(), close()  */
+#ifdef _WITH_PTHREAD
+#include <pthread.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>              /* stat(), S_ISREG()                  */
 #include <dirent.h>                /* opendir(), closedir(), readdir(),  */
@@ -84,22 +87,26 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-extern int    counter_fd,
-              max_copied_files,
-              sys_log_fd;
-extern size_t max_copied_file_size;
-extern uid_t  afd_uid;
-extern gid_t  afd_gid;
+extern int                        counter_fd,
+                                  max_copied_files,
+                                  sys_log_fd;
+extern size_t                     max_copied_file_size;
+extern uid_t                      afd_uid;
+extern gid_t                      afd_gid;
 #ifdef _INPUT_LOG
-extern int    il_fd;
+extern int                        il_fd;
 #endif
 #ifndef _WITH_PTHREAD
-extern off_t  *file_size_pool;
-extern char   **file_name_pool;
+extern off_t                      *file_size_pool;
+extern char                       **file_name_pool;
 #endif
+#ifdef _WITH_PTHREAD
+extern pthread_mutex_t            fsa_mutex;
+#endif
+extern struct fileretrieve_status *fra;
 
 /* Local function prototype */
-static int    get_last_char(char *, off_t);
+static int                        get_last_char(char *, off_t);
 
 
 /*########################### check_files() #############################*/
@@ -132,6 +139,7 @@ check_files(struct directory_entry *p_de,
    off_t          *il_file_size = NULL;
    size_t         il_size,
                   il_real_size;
+   time_t         now = 0L;
 
    /*
     * Create a buffer which we use can use to send our
@@ -203,8 +211,8 @@ check_files(struct directory_entry *p_de,
              (access(fullname, R_OK) == 0))
 #endif
          {
-            if ((p_de->end_character == -1) ||
-                (p_de->end_character == get_last_char(fullname, stat_buf.st_size)))
+            if ((fra[p_de->fra_pos].end_character == -1) ||
+                (fra[p_de->fra_pos].end_character == get_last_char(fullname, stat_buf.st_size)))
             {
                if (tmp_file_dir[0] == '\0')
                {
@@ -215,7 +223,7 @@ check_files(struct directory_entry *p_de,
                   *ptr = '\0';
 
                   /* Create a unique name */
-                  if (create_name(tmp_file_dir, NO_PRIORITY, time(NULL),
+                  if (create_name(tmp_file_dir, NO_PRIORITY, time(&now),
                                   p_de->dir_no, NULL, ptr) < 0)
                   {
                      if (errno == ENOSPC)
@@ -228,7 +236,7 @@ check_files(struct directory_entry *p_de,
                         {
                            (void)sleep(DISK_FULL_RESCAN_TIME);
                            errno = 0;
-                           if (create_name(tmp_file_dir, NO_PRIORITY, time(NULL),
+                           if (create_name(tmp_file_dir, NO_PRIORITY, time(&now),
                                            p_de->dir_no, NULL, ptr) < 0)
                            {
                               if (errno != ENOSPC)
@@ -331,7 +339,7 @@ check_files(struct directory_entry *p_de,
             }
             else
             {
-               if (p_de->end_character != -1)
+               if (fra[p_de->fra_pos].end_character != -1)
                {
                   p_de->search_time -= 5;
                }
@@ -380,8 +388,8 @@ check_files(struct directory_entry *p_de,
                {
                   if ((ret = filter(p_de->fme[i].file_mask[j], p_dir->d_name)) == 0)
                   {
-                     if ((p_de->end_character == -1) ||
-                         (p_de->end_character == get_last_char(fullname, stat_buf.st_size)))
+                     if ((fra[p_de->fra_pos].end_character == -1) ||
+                         (fra[p_de->fra_pos].end_character == get_last_char(fullname, stat_buf.st_size)))
                      {
                         if (tmp_file_dir[0] == '\0')
                         {
@@ -392,7 +400,7 @@ check_files(struct directory_entry *p_de,
                            *ptr = '\0';
 
                            /* Create a unique name */
-                           if (create_name(tmp_file_dir, NO_PRIORITY, time(NULL),
+                           if (create_name(tmp_file_dir, NO_PRIORITY, time(&now),
                                            p_de->dir_no, NULL, ptr) < 0)
                            {
                               if (errno == ENOSPC)
@@ -406,7 +414,7 @@ check_files(struct directory_entry *p_de,
                                     (void)sleep(DISK_FULL_RESCAN_TIME);
                                     errno = 0;
                                     if (create_name(tmp_file_dir, NO_PRIORITY,
-                                                    time(NULL), p_de->dir_no,
+                                                    time(&now), p_de->dir_no,
                                                     NULL, ptr) < 0)
                                     {
                                        if (errno != ENOSPC)
@@ -514,7 +522,7 @@ check_files(struct directory_entry *p_de,
                      }
                      else
                      {
-                        if (p_de->end_character != -1)
+                        if (fra[p_de->fra_pos].end_character != -1)
                         {
                            p_de->search_time -= 5;
                         }
@@ -568,6 +576,34 @@ done:
       (void)rec(sys_log_fd, ERROR_SIGN,
                 "Could not close directory %s : %s (%s %d)\n",
                 src_file_path, strerror(errno), __FILE__, __LINE__);
+   }
+
+   if (files_copied > 0)
+   {
+#ifdef _WITH_PTHREAD
+      int rtn;
+
+      if ((rtn = pthread_mutex_lock(&fsa_mutex)) != 0)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "pthread_mutex_lock() error : %s (%s %d)\n",
+                   strerror(rtn), __FILE__, __LINE__);
+      }
+#endif
+      fra[p_de->fra_pos].files_received += files_copied;
+      fra[p_de->fra_pos].bytes_received += *total_file_size;
+      fra[p_de->fra_pos].last_retrieval = now;
+#ifdef _WITH_PTHREAD
+      if ((rtn = pthread_mutex_unlock(&fsa_mutex)) != 0)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "pthread_mutex_unlock() error : %s (%s %d)\n",
+                   strerror(rtn), __FILE__, __LINE__);
+      }
+#endif
+      receive_log(INFO_SIGN, NULL, 0,
+                  "Received %d files with %d Bytes.",
+                  files_copied, *total_file_size);
    }
 
    return(files_copied);

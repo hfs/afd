@@ -9,19 +9,19 @@ EPROG   = encode64
 EOBJS   = encode64.o\
           encode_base64.o
 
-FPROG   = tfilter
-FOBJS   = tfilter.o
+ARGPROG = arg
+ARGOBJS = arg.o
 
-PROGS   = $(EPROG) $(FPROG)
-OBJS    = $(EOBJS) $(FOBJS)
+PROGS   = $(EPROG) $(ARGPROG)
+OBJS    = $(EOBJS) $(ARGOBJS)
 
 all : $(PROGS)
 
 $(EPROG) : $(EOBJS) $(LIB)
 	$(CC) $(CFLAGS) -o $@ $(EOBJS) $(LIB)
 
-$(FPROG) : $(FOBJS) $(LIB)
-	$(CC) $(CFLAGS) -o $@ $(FOBJS) $(LIB)
+$(ARGPROG) : $(ARGOBJS) $(LIB)
+	$(CC) $(CFLAGS) -o $@ $(ARGOBJS) $(LIB)
 
 clean :
 	rm -f $(OBJS) core

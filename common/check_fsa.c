@@ -30,8 +30,8 @@ DESCR__S_M3
  **
  ** DESCRIPTION
  **   This function checks if the FSA (Filetransfer Status Area)
- **   with the shared memory ID 'fsa_id' is still in use. If not
- **   it will detach from the old shared memory area and attach
+ **   which is a memory mapped area is still in use. If not
+ **   it will detach from the old memory area and attach
  **   to the new one with the function fsa_attach().
  **
  ** RETURN VALUES

@@ -54,6 +54,7 @@ extern int                        no_of_hosts,
                                   *no_msg_queued,
                                   sys_log_fd;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 extern struct queue_buf           *qb;
 extern struct msg_cache_buf       *mdb;
 
@@ -71,10 +72,21 @@ check_fsa_entries(void)
       gotcha = NO;
       for (j = 0; j < *no_msg_queued; j++)
       {
-         if (mdb[qb[j].pos].fsa_pos == i)
+         if (qb[j].msg_name[0] == '\0')
          {
-            gotcha = YES;
-            break;
+            if (fra[qb[j].pos].fsa_pos == i)
+            {
+               gotcha = YES;
+               break;
+            }
+         }
+         else
+         {
+            if (mdb[qb[j].pos].fsa_pos == i)
+            {
+               gotcha = YES;
+               break;
+            }
          }
       }
 

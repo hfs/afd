@@ -120,8 +120,6 @@ main(int argc, char *argv[])
                   *p_host_name,
                   *p_file_name,
                   work_dir[MAX_PATH_LENGTH],
-                  output_log_fifo[MAX_PATH_LENGTH],
-                  sys_log_fifo[MAX_PATH_LENGTH],
                   current_log_file[MAX_PATH_LENGTH],
                   log_file[MAX_PATH_LENGTH];
    unsigned short *file_name_length;
@@ -135,47 +133,53 @@ main(int argc, char *argv[])
    {
       exit(INCORRECT);
    }
-   p_work_dir = work_dir;
+   else
+   {
+      char output_log_fifo[MAX_PATH_LENGTH],
+           sys_log_fifo[MAX_PATH_LENGTH];
 
-   /* Create and open fifos that we need */
-   (void)strcpy(output_log_fifo, work_dir);
-   (void)strcat(output_log_fifo, FIFO_DIR);
-   (void)strcpy(sys_log_fifo, output_log_fifo);
-   (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
-   (void)strcat(output_log_fifo, OUTPUT_LOG_FIFO);
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
+      p_work_dir = work_dir;
+
+      /* Create and open fifos that we need */
+      (void)strcpy(output_log_fifo, work_dir);
+      (void)strcat(output_log_fifo, FIFO_DIR);
+      (void)strcpy(sys_log_fifo, output_log_fifo);
+      (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
+      (void)strcat(output_log_fifo, OUTPUT_LOG_FIFO);
+      if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(sys_log_fifo) < 0)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to create fifo %s. (%s %d)\n",
+                      sys_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   sys_log_fifo, __FILE__, __LINE__);
+                   "Failed to open() fifo %s : %s (%s %d)\n",
+                   sys_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() fifo %s : %s (%s %d)\n",
-                sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   if ((stat(output_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(output_log_fifo) < 0)
+      if ((stat(output_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(output_log_fifo) < 0)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to create fifo %s. (%s %d)\n",
+                      output_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if ((log_fd = open(output_log_fifo, O_RDWR)) < 0)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   output_log_fifo, __FILE__, __LINE__);
+                   "Failed to open() fifo %s : %s (%s %d)\n",
+                   output_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((log_fd = open(output_log_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to open() fifo %s : %s (%s %d)\n",
-                output_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
 
    /*

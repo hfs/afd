@@ -1,6 +1,6 @@
 /*
  *  init_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -126,7 +126,8 @@ main(int argc, char *argv[])
                   status,
                   i,
                   fd,
-                  auto_amg_stop = NO;
+                  auto_amg_stop = NO,
+                  old_afd_stat;
    off_t          offset;
    time_t         month_check_time,
                   now;
@@ -235,26 +236,49 @@ main(int argc, char *argv[])
    /* Now check if all directories needed are created */
    check_dirs(work_dir);
 
-   if ((fd = coe_open(afd_status_file, O_RDWR | O_CREAT,
-                      S_IRUSR | S_IWUSR)) == -1)
+   if ((stat(afd_status_file, &stat_buf) == -1) ||
+       (stat_buf.st_size != sizeof(struct afd_status)))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to create %s : %s (%s %d)\n",
-                afd_status_file, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      if (errno != ENOENT)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Failed to stat() %s : %s (%s %d)\n",
+                   afd_status_file, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      if ((fd = coe_open(afd_status_file, O_RDWR | O_CREAT | O_TRUNC,
+                         S_IRUSR | S_IWUSR)) == -1)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Failed to create %s : %s (%s %d)\n",
+                   afd_status_file, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      if (lseek(fd, sizeof(struct afd_status) - 1, SEEK_SET) == -1)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not seek() on %s : %s (%s %d)\n",
+                   afd_status_file, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      if (write(fd, "", 1) != 1)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN, "write() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      old_afd_stat = NO;
    }
-   if (lseek(fd, sizeof(struct afd_status), SEEK_SET) == -1)
+   else
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not seek() on %s : %s (%s %d)\n",
-                afd_status_file, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   if (write(fd, "", 1) != 1)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN, "write() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      if ((fd = coe_open(afd_status_file, O_RDWR)) == -1)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Failed to create %s : %s (%s %d)\n",
+                   afd_status_file, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      old_afd_stat = YES;
    }
 #ifdef _NO_MMAP
    /* Start mapper process that emulates mmap() */
@@ -287,7 +311,43 @@ main(int argc, char *argv[])
    }
 #endif /* IRIX5 */
    p_afd_status = (struct afd_status *)ptr;
-   memset(p_afd_status, 0, sizeof(struct afd_status));
+   if (old_afd_stat == NO)
+   {
+      (void)memset(p_afd_status, 0, sizeof(struct afd_status));
+      (void)memset(p_afd_status->receive_log_history, NO_INFORMATION,
+                   MAX_LOG_HISTORY);
+      (void)memset(p_afd_status->sys_log_history, NO_INFORMATION,
+                   MAX_LOG_HISTORY);
+      (void)memset(p_afd_status->trans_log_history, NO_INFORMATION,
+                   MAX_LOG_HISTORY);
+   }
+   else
+   {
+      p_afd_status->amg = 0;
+      p_afd_status->amg_jobs = 0;
+      p_afd_status->fd = 0;
+      p_afd_status->sys_log = 0;
+      p_afd_status->receive_log = 0;
+      p_afd_status->trans_log = 0;
+      p_afd_status->trans_db_log = 0;
+      p_afd_status->archive_watch = 0;
+      p_afd_status->afd_stat = 0;
+      p_afd_status->afdd = 0;
+#ifdef _NO_MMAP
+      p_afd_status->mapper = 0;
+#endif
+#ifdef _INPUT_LOG
+      p_afd_status->input_log = 0;
+#endif
+#ifdef _OUTPUT_LOG
+      p_afd_status->output_log = 0;
+#endif
+#ifdef _DELETE_LOG
+      p_afd_status->delete_log = 0;
+#endif
+      p_afd_status->no_of_transfers = 0;
+      p_afd_status->start_time = 0L;
+   }
    for (i = 0; i < NO_OF_PROCESS; i++)
    {
       proc_table[i].pid = 0;
@@ -303,6 +363,10 @@ main(int argc, char *argv[])
 
          case SLOG_NO   : proc_table[i].status = &p_afd_status->sys_log;
                           (void)strcpy(proc_table[i].proc_name, SLOG);
+                          break;
+
+         case RLOG_NO   : proc_table[i].status = &p_afd_status->receive_log;
+                          (void)strcpy(proc_table[i].proc_name, RLOG);
                           break;
 
          case TLOG_NO   : proc_table[i].status = &p_afd_status->trans_log;
@@ -321,7 +385,8 @@ main(int argc, char *argv[])
                           (void)strcpy(proc_table[i].proc_name, AFD_STAT);
                           break;
 
-         case IT_NO     : log_pid(0, IT_NO + 1);
+         case DC_NO     : /* dir_check */
+                          log_pid(0, i + 1);
                           break;
 
          case AFDD_NO   : proc_table[i].status = &p_afd_status->afdd;
@@ -394,6 +459,8 @@ main(int argc, char *argv[])
    proc_table[SLOG_NO].pid = make_process(SLOG, work_dir);
    log_pid(proc_table[SLOG_NO].pid, SLOG_NO + 1);
    *proc_table[SLOG_NO].status = ON;
+   proc_table[RLOG_NO].pid = make_process(RLOG, work_dir);
+   log_pid(proc_table[RLOG_NO].pid, RLOG_NO + 1);
    proc_table[TLOG_NO].pid = make_process(TLOG, work_dir);
    log_pid(proc_table[TLOG_NO].pid, TLOG_NO + 1);
    *proc_table[TLOG_NO].status = ON;
@@ -496,8 +563,7 @@ main(int argc, char *argv[])
 
             (void)strftime(month, 15, "%B", bd_time);
             (void)rec(sys_log_fd, DUMMY_SIGN,
-                      "================= %s <=================\n",
-                      month);
+                      "================= %s <=================\n", month);
             current_month = bd_time->tm_mon;
          }
          month_check_time = ((now / 86400) * 86400) + 86400;
@@ -532,7 +598,7 @@ main(int argc, char *argv[])
          if (stat_buf.st_nlink > 2)
          {
             p_afd_status->jobs_in_queue = stat_buf.st_nlink - DIRS_IN_FILE_DIR;
-            /* - 5 --> ".", "..", "error", "pool", "time" */
+            /* - 6 --> ".", "..", "error", "pool", "time", "incoming" */
          }
          else
          {
@@ -951,7 +1017,8 @@ main(int argc, char *argv[])
 static void
 check_dirs(char *work_dir)
 {
-   char        new_dir[MAX_PATH_LENGTH];
+   char        new_dir[MAX_PATH_LENGTH],
+               *ptr;
    struct stat stat_buf;
 
    /* First check that the working directory does exist */
@@ -969,7 +1036,7 @@ check_dirs(char *work_dir)
       exit(INCORRECT);
    }
 
-   /* Now lets check if the fifo directory is there */
+   /* Now lets check if the fifo directory is there. */
    (void)strcpy(new_dir, work_dir);
    (void)strcat(new_dir, FIFO_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
@@ -994,25 +1061,44 @@ check_dirs(char *work_dir)
    }
 
    /* Is error file directory there? */
-   (void)strcat(new_dir, ERROR_DIR);
+   ptr = new_dir + strlen(new_dir);
+   (void)strcpy(ptr, ERROR_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
    }
 
    /* Is the temp pool file directory there? */
-   (void)strcpy(new_dir, work_dir);
-   (void)strcat(new_dir, AFD_FILE_DIR);
-   (void)strcat(new_dir, AFD_TMP_DIR);
+   (void)strcpy(ptr, AFD_TMP_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
    }
 
    /* Is the time pool file directory there? */
-   (void)strcpy(new_dir, work_dir);
-   (void)strcat(new_dir, AFD_FILE_DIR);
-   (void)strcat(new_dir, AFD_TIME_DIR);
+   (void)strcpy(ptr, AFD_TIME_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is the incoming file directory there? */
+   (void)strcpy(ptr, INCOMING_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is the file mask directory there? */
+   ptr = new_dir + strlen(new_dir);
+   (void)strcpy(ptr, FILE_MASK_DIR);
+   if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
+
+   /* Is the ls data from remote hosts directory there? */
+   (void)strcpy(ptr, LS_DATA_DIR);
    if (check_dir(new_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
@@ -1131,6 +1217,7 @@ zombie_check(void)
 
                         /* The log and archive process may never die! */
                         if ((i == SLOG_NO) || (i == TLOG_NO) ||
+                            (i == RLOG_NO) ||
 #ifdef _NO_MMAP
                             (i == MAPPER_NO) ||
 #endif
@@ -1219,7 +1306,13 @@ afd_exit(void)
 
    if (probe_only != 1)
    {
-      (void)rec(sys_log_fd, INFO_SIGN, "<INIT> Stopped %s\n", AFD);
+      (void)rec(sys_log_fd, INFO_SIGN,
+#ifdef PRE_RELEASE
+                "<INIT> Stopped %s (PRE %d.%d.%d-%d)\n",
+                AFD, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
+#else
+                "<INIT> Stopped %s (%d.%d.%d)\n", AFD, MAJOR, MINOR, BUG_FIX);
+#endif
 
       /*
        * If some afd_ctrl dialog is still active, let the
@@ -1227,7 +1320,7 @@ afd_exit(void)
        */
       for (i = 0; i < NO_OF_PROCESS; i++)
       {
-         if (i != IT_NO)
+         if (i != DC_NO)
          {
             *proc_table[i].status = STOPPED;
          }

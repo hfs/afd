@@ -24,6 +24,7 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(VDCPROG) : $(VDCOBJS) $(LIB)
+	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(VDCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
@@ -34,6 +35,7 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(VDCPROG)
 

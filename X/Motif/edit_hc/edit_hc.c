@@ -1,6 +1,6 @@
 /*
  *  edit_hc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M1
  **   edit_hc - edits the AFD host configuration file
  **
  ** SYNOPSIS
- **   edit_hc [--version] [-w <AFD working directory>] [<font name>]
+ **   edit_hc [--version] [-w <AFD working directory>] [-f <font name>]
  **
  ** DESCRIPTION
  **   This dialog allows the user to change the following parameters
@@ -116,6 +116,7 @@ Widget                     auto_toggle_w,
                            real_hostname_1_w,
                            real_hostname_2_w,
                            retry_interval_w,
+                           rm_button_w,
                            second_label_w,
                            source_icon_w,
                            start_drag_w,
@@ -125,17 +126,22 @@ Widget                     auto_toggle_w,
                            toplevel_w,
                            transfer_timeout_w;
 Atom                       compound_text;
-int                        fsa_id,
+int                        fra_fd = -1,
+                           fra_id,
                            fsa_fd = -1,
+                           fsa_id,
                            host_alias_order_change = NO,
                            in_drop_site = -2,
+                           no_of_dirs,
                            no_of_hosts,
                            sys_log_fd = STDERR_FILENO;
 #ifndef _NO_MMAP
-off_t                      fsa_size;
+off_t                      fra_size,
+                           fsa_size;
 #endif
 char                       *p_work_dir,
                            last_selected_host[MAX_HOSTNAME_LENGTH + 1];
+struct fileretrieve_status *fra;
 struct filetransfer_status *fsa;
 struct host_list           *hl = NULL; /* required by change_alias_order() */
 struct changed_entry       *ce;
@@ -258,7 +264,7 @@ main(int argc, char *argv[])
                                      NULL);
    XtAddCallback(button_w, XmNactivateCallback,
                  (XtCallbackProc)submite_button, NULL);
-   button_w = XtVaCreateManagedWidget("Remove",
+   rm_button_w = XtVaCreateManagedWidget("Remove",
                                      xmPushButtonWidgetClass, box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
@@ -270,7 +276,7 @@ main(int argc, char *argv[])
                                      XmNbottomAttachment, XmATTACH_POSITION,
                                      XmNbottomPosition,   30,
                                      NULL);
-   XtAddCallback(button_w, XmNactivateCallback,
+   XtAddCallback(rm_button_w, XmNactivateCallback,
                  (XtCallbackProc)remove_button, NULL);
    button_w = XtVaCreateManagedWidget("Close",
                                      xmPushButtonWidgetClass, box_w,
@@ -991,14 +997,13 @@ main(int argc, char *argv[])
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_FORM,
                            XmNleftAttachment,   XmATTACH_FORM,
-                           XmNleftOffset,       55,
+                           XmNleftOffset,       5,
                            XmNbottomAttachment, XmATTACH_FORM,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    proxy_name_w = XtVaCreateManagedWidget("",
                            xmTextWidgetClass,   box_w,
                            XmNfontList,         fontlist,
-                           XmNcolumns,          12,
                            XmNmarginHeight,     1,
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
@@ -1006,6 +1011,8 @@ main(int argc, char *argv[])
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
                            XmNbottomAttachment, XmATTACH_FORM,
+                           XmNrightAttachment,  XmATTACH_FORM,
+                           XmNrightOffset,      5,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(proxy_name_w, XmNvalueChangedCallback, value_change,
@@ -1103,12 +1110,7 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    }
 
    /* Get the font if supplied. */
-   if ((*argc > 1) && (isdigit(argv[1][0]) != 0))
-   {
-      (void)strcpy(font_name, argv[1]);
-      (*argc)--; argv++;
-   }
-   else
+   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
    {
       (void)strcpy(font_name, "fixed");
    }
@@ -1333,17 +1335,22 @@ create_option_menu_fso(Widget parent, Widget label_w, XmFontList fontlist)
    XtManageChild(fso.option_menu_w);
 
    /* Add all possible buttons. */
-   (void)strcpy(button_name, "None");
    argcount = 0;
    XtSetArg(args[argcount], XmNfontList, fontlist);
    argcount++;
    fso.value[0] = -1;
-   fso.button_w[0] = XtCreateManagedWidget(button_name,
+   fso.button_w[0] = XtCreateManagedWidget("None",
                                            xmPushButtonWidgetClass,
                                            pane_w, args, argcount);
    XtAddCallback(fso.button_w[0], XmNactivateCallback, fso_option_changed,
                  (XtPointer)0);
-   for (i = 1; i < MAX_FSO_BUTTONS; i++)
+   fso.value[1] = AUTO_SIZE_DETECT;
+   fso.button_w[1] = XtCreateManagedWidget("Auto",
+                                           xmPushButtonWidgetClass,
+                                           pane_w, args, argcount);
+   XtAddCallback(fso.button_w[1], XmNactivateCallback, fso_option_changed,
+                 (XtPointer)1);
+   for (i = 2; i < MAX_FSO_BUTTONS; i++)
    {
       (void)sprintf(button_name, "%d", i);
       argcount = 0;
@@ -1447,7 +1454,7 @@ init_widget_data(void)
       ce[i].max_successful_retries = -1;
       ce[i].allowed_transfers = -1;
       ce[i].block_size = -1;
-      ce[i].file_size_offset = -2;
+      ce[i].file_size_offset = -3;
       if (fsa[i].host_toggle_str[0] == '\0')
       {
          ce[i].host_toggle[0][0] = '1';

@@ -1,6 +1,6 @@
 /*
  *  fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -59,6 +59,7 @@ DESCR__S_M1
  **   02.05.1997 H.Kiehl Include support for MAP.
  **   15.01.1998 H.Kiehl Complete redesign to accommodate new messages.
  **   09.07.1998 H.Kiehl Option to delete all jobs from a specific host.
+ **   10.08.2000 H.Kiehl Added support to fetch files from a remote host.
  **
  */
 DESCR__E_M1
@@ -82,28 +83,35 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-int                        max_connections = MAX_DEFAULT_CONNECTIONS,
-                           no_of_hosts = 0,
-                           no_of_transfers = 0,
-                           *no_msg_queued,
-                           *no_msg_cached,
-                           qb_fd = -1,
-                           mdb_fd = -1,
-                           msg_fifo_fd,
-                           sys_log_fd = STDERR_FILENO,
-                           transfer_log_fd = STDERR_FILENO,
+int                        amg_flag = NO,
+                           delete_jobs_fd,
+                           delete_jobs_host_fd,
                            fd_cmd_fd,
                            fd_resp_fd,
                            fd_wake_up_fd,
-                           read_fin_fd,
-                           retry_fd,
-                           delete_jobs_fd,
-                           delete_jobs_host_fd,
-                           amg_flag = NO,
+                           fra_fd = -1,
+                           fra_id,
                            fsa_fd = -1,
-                           fsa_id;
+                           fsa_id,
+                           max_connections = MAX_DEFAULT_CONNECTIONS,
+                           mdb_fd = -1,
+                           msg_fifo_fd,
+                           *no_msg_queued,
+                           *no_msg_cached,
+                           no_of_dirs = 0,
+                           no_of_hosts = 0,
+                           no_of_retrieves = 0,
+                           no_of_transfers = 0,
+                           qb_fd = -1,
+                           sys_log_fd = STDERR_FILENO,
+                           read_fin_fd,
+                           remote_file_check_interval = DEFAULT_REMOTE_FILE_CHECK_INTERVAL,
+                           *retrieve_list = NULL,
+                           retry_fd,
+                           transfer_log_fd = STDERR_FILENO;
 #ifndef _NO_MMAP
-off_t                      fsa_size;
+off_t                      fra_size,
+                           fsa_size;
 #endif
 off_t                      *buf_file_size = NULL;  /* _PRIO_CHECK */
 char                       *p_work_dir,
@@ -124,6 +132,7 @@ char                       *p_work_dir,
                            msg_cache_file[MAX_PATH_LENGTH],
                            msg_queue_file[MAX_PATH_LENGTH];
 struct filetransfer_status *fsa;
+struct fileretrieve_status *fra;
 struct afd_status          *p_afd_status;
 struct connection          *connection = NULL;
 struct queue_buf           *qb;
@@ -136,49 +145,72 @@ struct delete_log          dl;
 static time_t              now;
 
 #if defined _BURST_MODE || defined _AGE_LIMIT
-#define START_PROCESS()                                          \
-        {                                                        \
-           time_t current_time = time(NULL);                     \
-                                                                 \
-           /* Try handle any pending jobs. */                    \
-           for (i = 0; i < *no_msg_queued; i++)                  \
-           {                                                     \
-              if (qb[i].pid == PENDING)                          \
-              {                                                  \
-                 if ((qb[i].pid = start_process(i, current_time, NO)) == REMOVED) \
-                 {                                               \
-                    /*                                           \
-                     * The message can be removed because the    \
-                     * files are queued in another message       \
-                     * or have been removed due to age.          \
-                     */                                          \
-                    remove_msg(i);                               \
-                    if (i < *no_msg_queued)                      \
-                    {                                            \
-                       i--;                                      \
-                    }                                            \
-                 }                                               \
-              }                                                  \
-           }                                                     \
+#define START_PROCESS()                                       \
+        {                                                     \
+           int    fsa_pos;                                    \
+           time_t current_time = time(NULL);                  \
+                                                              \
+           /* Try handle any pending jobs. */                 \
+           for (i = 0; i < *no_msg_queued; i++)               \
+           {                                                  \
+              if (qb[i].pid == PENDING)                       \
+              {                                               \
+                 if (qb[i].msg_name[0] != '\0')               \
+                 {                                            \
+                    fsa_pos = mdb[qb[i].pos].fsa_pos;         \
+                 }                                            \
+                 else                                         \
+                 {                                            \
+                    fsa_pos = fra[qb[i].pos].fsa_pos;         \
+                 }                                            \
+                 if ((qb[i].pid = start_process(fsa_pos, i, current_time, NO)) == REMOVED) \
+                 {                                            \
+                    /*                                        \
+                     * The message can be removed because the \
+                     * files are queued in another message    \
+                     * or have been removed due to age.       \
+                     */                                       \
+                    remove_msg(i);                            \
+                    if (i < *no_msg_queued)                   \
+                    {                                         \
+                       i--;                                   \
+                    }                                         \
+                 }                                            \
+              }                                               \
+           }                                                  \
         }
 #else
-#define START_PROCESS()                                          \
-        {                                                        \
-           time_t current_time = time(NULL);                     \
-                                                                 \
-           /* Try handle any pending jobs. */                    \
-           for (i = 0; i < *no_msg_queued; i++)                  \
-           {                                                     \
-              if (qb[i].pid == PENDING)                          \
-              {                                                  \
-                 qb[i].pid = start_process(i, current_time, NO); \
-              }                                                  \
-           }                                                     \
+#define START_PROCESS()                                       \
+        {                                                     \
+           int    fsa_pos;                                    \
+           time_t current_time = time(NULL);                  \
+                                                              \
+           /* Try handle any pending jobs. */                 \
+           for (i = 0; i < *no_msg_queued; i++)               \
+           {                                                  \
+              if (qb[i].pid == PENDING)                       \
+              {                                               \
+                 if (qb[i].msg_name[0] != '\0')               \
+                 {                                            \
+                    fsa_pos = mdb[qb[i].pos].fsa_pos;         \
+                 }                                            \
+                 else                                         \
+                 {                                            \
+                    fsa_pos = fra[qb[i].pos].fsa_pos;         \
+                 }                                            \
+                 qb[i].pid = start_process(fsa_pos, i, current_time, NO); \
+              }                                               \
+           }                                                  \
         }
+#endif
+#ifdef FTX
+#define WAIT_LOOPS 100
+#else
+#define WAIT_LOOPS 50
 #endif
 
 /* Local functions prototypes */
-static void  remove_connection(int, char),
+static void  remove_connection(struct connection *, int),
              to_error_dir(int),
              get_afd_config_value(void),
              get_new_positions(void),
@@ -189,10 +221,10 @@ static void  remove_connection(int, char),
              sig_segv(int),
              sig_bus(int);
 static int   get_free_connection(void),
-             get_free_disp_pos(int);
-static char  zombie_check(int, int);
+             get_free_disp_pos(int),
+             zombie_check(struct connection *, int, int);
 static pid_t make_process(struct connection *),
-             start_process(int, time_t, int);
+             start_process(int, int, time_t, int);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -204,12 +236,12 @@ main(int argc, char *argv[])
                      *job_id,
                      status,
                      max_fd,
-                     pos,
                      loop_counter = 0;
    unsigned short    *unique_number;
    time_t            *creation_time,
                      abnormal_term_check_time,
-                     next_dir_check_time;
+                     next_dir_check_time,
+                     remote_file_check_time;
    size_t            fifo_size,
                      msg_fifo_buf_size;
    char              stop_flag = 0,
@@ -231,7 +263,23 @@ main(int argc, char *argv[])
    {
       exit(INCORRECT);
    }
-   p_work_dir = work_dir;
+   else
+   {
+      char *ptr;
+
+      p_work_dir = work_dir;
+
+      /*
+       * Lock FD so no other FD can be started!
+       */
+      if ((ptr = lock_proc(FD_LOCK_ID, NO)) != NULL)
+      {
+         (void)fprintf(stderr,
+                       "Process FD already started by %s : (%s %d)\n",
+                       ptr, __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+   }
 
    /* Initialise variables */
    (void)strcpy(sys_log_fifo, work_dir);
@@ -298,6 +346,22 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Get the fra_id and no of directories of the FRA */
+   if (fra_attach() < 0)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to attach to FRA. (%s %d)\n",
+                __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   for (i = 0; i < no_of_dirs; i++)
+   {
+      if (fra[i].queued == YES)
+      {
+         fra[i].queued = NO;
+      }
+   }
+   init_fra_data();
+
    /* Get the fsa_id and no of host of the FSA */
    if (fsa_attach() < 0)
    {
@@ -325,9 +389,19 @@ main(int argc, char *argv[])
 
    /* Attach/create memory area for message data and queue. */
    init_msg_buffer();
+
+   /*
+    * Initialize the queue and remove any queued retrieve job from
+    * it. Because at this point we do not have the necessary information
+    * to check if this job still does exists.
+    */
    for (i = 0; i < *no_msg_queued; i++)
    {
       qb[i].pid = PENDING;
+      if (qb[i].msg_name[0] == '\0')
+      {
+         remove_msg(i);
+      }
    }
 
    /*
@@ -420,13 +494,9 @@ main(int argc, char *argv[])
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   (void)memset(connection, 0, (max_connections * sizeof(struct connection)));
 
    /* Initialise structure connection */
-   for (i = 0; i < max_connections; i++)
-   {
-      connection[i].temp_toggle = OFF;
-   }
+   (void)memset(connection, 0, (max_connections * sizeof(struct connection)));
 
    /* Tell user we are starting the FD */
 #ifdef PRE_RELEASE
@@ -436,9 +506,21 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
              FD, MAJOR, MINOR, BUG_FIX);
 #endif
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "FD configuration: Max. connections           %d\n",
+             max_connections);
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "FD configuration: Remote file check interval %d (sec)\n",
+             remote_file_check_interval);
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "FD configuration: FD rescan interval         %d (sec)\n",
+             FD_RESCAN_TIME);
    abnormal_term_check_time = (time(&now) / 45) * 45 + 45;
    next_dir_check_time = ((now / DIR_CHECK_TIME) * DIR_CHECK_TIME) +
                          DIR_CHECK_TIME;
+   remote_file_check_time = ((now / remote_file_check_interval) *
+                             remote_file_check_interval) +
+                            remote_file_check_interval;
 
    /* Now watch and start transfer jobs */
    for (;;)
@@ -479,27 +561,31 @@ main(int argc, char *argv[])
             {
                if (connection[i].pid > 0)
                {
-                  int  qb_pos;
-                  char faulty;
+                  int faulty,
+                      qb_pos;
 
                   qb_pos_pid(connection[i].pid, &qb_pos);
                   if (qb_pos != -1)
                   {
-                     if ((faulty = zombie_check(qb_pos, WNOHANG)) == YES)
+                     if ((faulty = zombie_check(&connection[i], qb_pos,
+                                                WNOHANG)) == YES)
                      {
                         qb[qb_pos].pid = PENDING;
-                        if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
+                        if (qb[qb_pos].msg_name[0] != '\0')
                         {
-                           int j;
-
-                           /* Move all jobs from this host to the error directory. */
-                           for (j = 0; j < *no_msg_queued; j++)
+                           if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
                            {
-                              if ((qb[j].in_error_dir != YES) &&
-                                  (qb[j].pid == PENDING) &&
-                                  (mdb[qb[j].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                              int j;
+
+                              /* Move all jobs from this host to the error directory. */
+                              for (j = 0; j < *no_msg_queued; j++)
                               {
-                                 to_error_dir(j);
+                                 if ((qb[j].in_error_dir != YES) &&
+                                     (qb[j].pid == PENDING) &&
+                                     (mdb[qb[j].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                                 {
+                                    to_error_dir(j);
+                                 }
                               }
                            }
                         }
@@ -512,24 +598,13 @@ main(int argc, char *argv[])
                           {
                              qb[qb_pos].pid = PENDING;
                           }
-                  }
-                  else
-                  {
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "Hmmm. Failed to locate pid %d in queue? (%s %d)\n",
-                               connection[i].pid, __FILE__, __LINE__);
 
-                     /* It does not make sence to keep this job in */
-                     /* the connect structure, so just remove it.  */
-                     faulty = NEITHER;
-                     remove_connection(i, faulty);
-                  }
-
-                  if ((stop_flag == 0) && (faulty != NEITHER) &&
-                      (*no_msg_queued > 0))
-                  {
-                     START_PROCESS();
-                  }
+                     if ((stop_flag == 0) && (faulty != NEITHER) &&
+                         (*no_msg_queued > 0))
+                     {
+                        START_PROCESS();
+                     }
+                  } /* if (qb_pos != -1) */
                } /* if (connection[i].pid > 0) */
             } /* for (i = 0; i < max_connections; i++) */
          } /* if (p_afd_status->no_of_transfers > 0) */
@@ -558,6 +633,72 @@ main(int argc, char *argv[])
          check_msg_time();
 
          abnormal_term_check_time = ((now / 45) * 45) + 45;
+      }
+
+      /*
+       * Check if we must check for files on any remote system.
+       */
+      if ((p_afd_status->no_of_transfers < max_connections) &&
+          (no_of_retrieves > 0) && (time(&now) > remote_file_check_time))
+      {
+         for (i = 0; i < no_of_retrieves; i++)
+         {
+            if ((fra[retrieve_list[i]].queued == NO) &&
+                (fra[retrieve_list[i]].dir_status != DISABLED) &&
+                ((fsa[fra[retrieve_list[i]].fsa_pos].special_flag & HOST_DISABLED) == 0) &&
+                ((fsa[fra[retrieve_list[i]].fsa_pos].host_status & STOP_TRANSFER_STAT) == 0) &&
+                ((fra[retrieve_list[i]].time_option == NO) ||
+                 (fra[retrieve_list[i]].next_check_time <= now)))
+            {
+               int    j,
+                      qb_pos = *no_msg_queued;
+               double msg_number = ((double)fra[retrieve_list[i]].priority - 47.0) *
+                                   ((double)now * 10000.0);
+
+               check_queue_space();
+               for (j = 0; j < *no_msg_queued; j++)
+               {
+                  if (msg_number < qb[j].msg_number)
+                  {
+                     size_t move_size;
+
+                     move_size = (*no_msg_queued - j) *
+                                 sizeof(struct queue_buf);
+                     (void)memmove(&qb[j + 1], &qb[j], move_size);
+                     qb_pos = j;
+                     break;
+                  }
+               }
+
+               /* Put data in queue. */
+               qb[qb_pos].msg_name[0] = '\0';
+               qb[qb_pos].msg_number = msg_number;
+               qb[qb_pos].pid = PENDING;
+               qb[qb_pos].creation_time = now;
+               qb[qb_pos].pos = retrieve_list[i];
+               qb[qb_pos].connect_pos = -1;
+               qb[qb_pos].in_error_dir = NO;
+               (*no_msg_queued)++;
+               fra[retrieve_list[i]].queued = YES;
+
+               if ((fsa[fra[retrieve_list[i]].fsa_pos].error_counter == 0) &&
+                   (stop_flag == 0))
+               {
+                  qb[qb_pos].pid = start_process(fra[retrieve_list[i]].fsa_pos,
+                                                 qb_pos, now, NO);
+               }
+            }
+            else if (((fsa[fra[retrieve_list[i]].fsa_pos].special_flag & HOST_DISABLED) ||
+                      (fsa[fra[retrieve_list[i]].fsa_pos].host_status & STOP_TRANSFER_STAT)) &&
+                     (fra[retrieve_list[i]].time_option == YES) &&
+                     (fra[retrieve_list[i]].next_check_time <= now))
+                 {
+                    fra[retrieve_list[i]].next_check_time = calc_next_time(&fra[retrieve_list[i]].te);
+                 }
+         }
+         remote_file_check_time = ((now / remote_file_check_interval) *
+                                   remote_file_check_interval) +
+                                  remote_file_check_interval;
       }
 
       /* Check if we have to stop and we have */
@@ -600,11 +741,7 @@ main(int argc, char *argv[])
                break;
             }
             (void)my_usleep(100000);
-#ifdef FTX
-         } while (loops++ < 100);
-#else
-         } while (loops++ < 50);
-#endif
+         } while (loops++ < WAIT_LOOPS);
          if (gotcha == NO)
          {
             next_dir_check_time = ((now / DIR_CHECK_TIME) * DIR_CHECK_TIME) +
@@ -657,6 +794,10 @@ main(int argc, char *argv[])
                   break;
 
                case FSA_UPDATED :
+                  if (check_fra_fd() == YES)
+                  {
+                     init_fra_data();
+                  }
                   if (check_fsa() == YES)
                   {
                      get_new_positions();
@@ -672,8 +813,8 @@ main(int argc, char *argv[])
                   if (stop_flag == SAVE_STOP)
                   {
                      (void)rec(sys_log_fd, INFO_SIGN,
-                              "%s is already shutting down. Please be patient.\n",
-                              FD);
+                               "%s is already shutting down. Please be patient.\n",
+                               FD);
                      (void)rec(sys_log_fd, INFO_SIGN,
                                "Maximum shutdown time for %s is %d seconds.\n",
                                FD, FD_TIMEOUT);
@@ -697,7 +838,6 @@ main(int argc, char *argv[])
                   exit(SUCCESS);
 
                default :
-
                   /* Most properly we are reading garbage */
                   (void)rec(sys_log_fd, WARN_SIGN, 
                             "Reading garbage (%d) on fifo %s. (%s %d)\n",
@@ -708,8 +848,8 @@ main(int argc, char *argv[])
       }
 
            /*
-            * sf_xxx PROCESS TERMINATED
-            * =========================
+            * sf_xxx or gf_xxx PROCESS TERMINATED
+            * ===================================
             */
       else if ((status > 0) && (FD_ISSET(read_fin_fd, &rset)))
            {
@@ -718,30 +858,35 @@ main(int argc, char *argv[])
               if (read(read_fin_fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
               {
                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                           "Reading garbage from fifo %s (%s %d)\n",
+                           "read() error or reading garbage from fifo %s (%s %d)\n",
                            SF_FIN_FIFO, __FILE__, __LINE__);
               }
               else
               {
-                 int  qb_pos;
-                 char faulty = NO;
+                 int faulty = NO,
+                     qb_pos;
 
                  qb_pos_pid(pid, &qb_pos);
                  if (qb_pos != -1)
                  {
-                    if ((faulty = zombie_check(qb_pos, 0)) == YES)
+                    if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
+                                               qb_pos, 0)) == YES)
                     {
                        qb[qb_pos].pid = PENDING;
-                       if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
+                       if (qb[qb_pos].msg_name[0] != '\0')
                        {
-                          /* Move all jobs from this host to the error directory. */
-                          for (i = 0; i < *no_msg_queued; i++)
+                          if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
                           {
-                             if ((qb[i].in_error_dir != YES) &&
-                                 (qb[i].pid == PENDING) &&
-                                 (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                             /* Move all jobs from this host to the error */
+                             /* directory.                                */
+                             for (i = 0; i < *no_msg_queued; i++)
                              {
-                                to_error_dir(i);
+                                if ((qb[i].in_error_dir != YES) &&
+                                    (qb[i].pid == PENDING) &&
+                                    (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                                {
+                                   to_error_dir(i);
+                                }
                              }
                           }
                        }
@@ -759,10 +904,31 @@ main(int argc, char *argv[])
                  if ((stop_flag == 0) && (faulty != NEITHER) &&
                      (*no_msg_queued > 0))
                  {
-                    START_PROCESS();
+                    /*
+                     * If the number of messages queued is very large
+                     * and most messages belong to a host that is very
+                     * slow, new messages will only be processed very
+                     * slowly when we always scan the whole queue.
+                     */
+                    if (*no_msg_queued < MAX_QUEUED_BEFORE_CECKED)
+                    {
+                       START_PROCESS();
+                    }
+                    else
+                    {
+                       if (loop_counter > ELAPSED_LOOPS_BEFORE_CHECK)
+                       {
+                          START_PROCESS();
+                          loop_counter = 0;
+                       }
+                       else
+                       {
+                          loop_counter++;
+                       }
+                    }
                  }
               }
-           } /* sf_xxx PROCESS TERMINATED */
+           } /* sf_xxx or gf_xxx PROCESS TERMINATED */
 
            /*
             * RETRY
@@ -780,23 +946,25 @@ main(int argc, char *argv[])
               }
               else
               {
-                 int qb_pos;
-
                  if (stop_flag == 0)
                  {
+                    int qb_pos;
+
                     qb_pos_fsa(fsa_pos, &qb_pos);
                     if (qb_pos != -1)
                     {
 #if defined _BURST_MODE || defined _AGE_LIMIT
-                       if ((qb[qb_pos].pid = start_process(qb_pos, time(NULL), YES)) == REMOVED)
+                       if ((qb[qb_pos].pid = start_process(fsa_pos, qb_pos,
+                                                           time(NULL),
+                                                           YES)) == REMOVED)
                        {
                           remove_msg(qb_pos);
                        }
-                    }
 #else
-                       qb[qb_pos].pid = start_process(qb_pos, time(NULL), YES);
-                    }
+                       qb[qb_pos].pid = start_process(fsa_pos, qb_pos,
+                                                      time(NULL), YES);
 #endif
+                    }
                  }
               }
            } /* RETRY */
@@ -807,7 +975,8 @@ main(int argc, char *argv[])
             */
       else if ((status > 0) && (FD_ISSET(msg_fifo_fd, &rset)))
            {
-              if ((read(msg_fifo_fd, fifo_buffer, msg_fifo_buf_size)) != msg_fifo_buf_size)
+              if ((read(msg_fifo_fd, fifo_buffer,
+                        msg_fifo_buf_size)) != msg_fifo_buf_size)
               {
                  (void)rec(sys_log_fd, WARN_SIGN,
                            "Hmmm. Seems like I am reading garbage from the fifo. (%s %d)\n",
@@ -815,30 +984,11 @@ main(int argc, char *argv[])
               }
               else
               {
-                 int tmp_job_id = *job_id;
+                 int pos,
+                     tmp_job_id = *job_id;
 
                  /* Queue the job order */
-                 if ((*no_msg_queued != 0) &&
-                     ((*no_msg_queued % MSG_QUE_BUF_SIZE) == 0))
-                 {
-                    char   *ptr;
-                    size_t new_size;
-
-                    new_size = (((*no_msg_queued / MSG_QUE_BUF_SIZE) + 1) *
-                               MSG_QUE_BUF_SIZE * sizeof(struct queue_buf)) +
-                               AFD_WORD_OFFSET;
-                    ptr = (char *)qb - AFD_WORD_OFFSET;
-                    if ((ptr = mmap_resize(qb_fd, ptr, new_size)) == (caddr_t) -1)
-                    {
-                       (void)rec(sys_log_fd, FATAL_SIGN,
-                                 "mmap() error : %s (%s %d)\n",
-                                 strerror(errno), __FILE__, __LINE__);
-                       exit(INCORRECT);
-                    }
-                    no_msg_queued = (int *)ptr;
-                    ptr += AFD_WORD_OFFSET;
-                    qb = (struct queue_buf *)ptr;
-                 }
+                 check_queue_space();
 
                  if ((pos = lookup_job_id(tmp_job_id)) == INCORRECT)
                  {
@@ -849,14 +999,20 @@ main(int argc, char *argv[])
                     {
                        char del_dir[MAX_PATH_LENGTH];
 
-                       (void)sprintf(del_dir, "%s%s/%c_%ld_%04d_%u", p_work_dir,
-                                     AFD_FILE_DIR, *msg_priority, *creation_time,
-                                     *unique_number, *job_id);
+                       (void)sprintf(del_dir, "%s%s/%c_%ld_%04d_%u",
+                                     p_work_dir, AFD_FILE_DIR, *msg_priority,
+                                     *creation_time, *unique_number, *job_id);
 #ifdef _DELETE_LOG
                        remove_files(del_dir, -1, *job_id, OTHER_DEL);
 #else
                        remove_files(del_dir, -1);
 #endif
+                    }
+                    else
+                    {
+                       (void)rec(sys_log_fd, DEBUG_SIGN,
+                                 "Hmmm. Priority data is NULL! Must be reading garbage! (%s %d)\n",
+                                 __FILE__, __LINE__);
                     }
                  }
                  else
@@ -902,12 +1058,17 @@ main(int argc, char *argv[])
                        if (stop_flag == 0)
                        {
 #if defined _BURST_MODE || defined _AGE_LIMIT
-                          if ((qb[qb_pos].pid = start_process(qb_pos, time(NULL), NO)) == REMOVED)
+                          if ((qb[qb_pos].pid = start_process(mdb[qb[qb_pos].pos].fsa_pos,
+                                                              qb_pos,
+                                                              time(NULL),
+                                                              NO)) == REMOVED)
                           {
                              remove_msg(qb_pos);
                           }
 #else
-                          qb[qb_pos].pid = start_process(qb_pos, time(NULL), NO);
+                          qb[qb_pos].pid = start_process(mdb[qb[qb_pos].pos].fsa_pos,
+                                                         qb_pos, time(NULL),
+                                                         NO);
 #endif
                        }
                     }
@@ -924,13 +1085,13 @@ main(int argc, char *argv[])
                         * slow, new messages will only be processed very
                         * slowly when we always scan the whole queue.
                         */
-                       if (*no_msg_queued < 1000)
+                       if (*no_msg_queued < MAX_QUEUED_BEFORE_CECKED)
                        {
                           START_PROCESS();
                        }
                        else
                        {
-                          if (loop_counter > 100)
+                          if (loop_counter > ELAPSED_LOOPS_BEFORE_CHECK)
                           {
                              START_PROCESS();
                              loop_counter = 0;
@@ -966,19 +1127,25 @@ main(int argc, char *argv[])
               if ((n = read(delete_jobs_host_fd, fifo_buffer, fifo_size)) > 0)
               {
                  int  bytes_done = 0,
-                      fsa_position,
+                      fsa_pos,
                       j;
-                 char *p_host_name = fifo_buffer;
+                 char *p_host_name = fifo_buffer,
+                      *p_host_stored;
 
                  do
                  {
                     for (i = 0; i < *no_msg_queued; i++)
                     {
-                       if (strcmp(mdb[qb[i].pos].host_name, p_host_name) == 0)
+                       if (qb[i].msg_name[0] != '\0')
                        {
-                          char *p_job_dir,
-                               *ptr;
-
+                          p_host_stored = mdb[qb[i].pos].host_name;
+                       }
+                       else
+                       {
+                          p_host_stored = fra[qb[i].pos].host_alias;
+                       }
+                       if (strcmp(p_host_stored, p_host_name) == 0)
+                       {
                           /*
                            * Kill the job when it is currently distributing
                            * data.
@@ -991,40 +1158,46 @@ main(int argc, char *argv[])
                                 {
                                    (void)rec(sys_log_fd, WARN_SIGN,
                                              "Failed to kill transfer job to %s (%d) : %s (%s %d)\n",
-                                             mdb[qb[i].pos].host_name,
+                                             p_host_stored,
                                              qb[i].pid, strerror(errno),
                                              __FILE__, __LINE__);
                                 }
                              }
                              else
                              {
-                                remove_connection(qb[i].connect_pos, NO);
+                                remove_connection(&connection[qb[i].connect_pos], NO);
                              }
                           }
 
-                          if (qb[i].in_error_dir == YES)
+                          if (qb[i].msg_name[0] != '\0')
                           {
-                             p_job_dir = err_file_dir;
-                             ptr = p_job_dir + strlen(p_job_dir);
-                             (void)sprintf(ptr, "%s/%s",
-                                           mdb[qb[i].pos].host_name,
-                                           qb[i].msg_name);
-                          }
-                          else
-                          {
-                             p_job_dir = file_dir;
-                             ptr = p_job_dir + strlen(p_job_dir);
-                             (void)strcpy(ptr, qb[i].msg_name);
-                          }
+                             char *p_job_dir,
+                                  *ptr;
+
+                             if (qb[i].in_error_dir == YES)
+                             {
+                                p_job_dir = err_file_dir;
+                                ptr = p_job_dir + strlen(p_job_dir);
+                                (void)sprintf(ptr, "%s/%s",
+                                              mdb[qb[i].pos].host_name,
+                                              qb[i].msg_name);
+                             }
+                             else
+                             {
+                                p_job_dir = file_dir;
+                                ptr = p_job_dir + strlen(p_job_dir);
+                                (void)strcpy(ptr, qb[i].msg_name);
+                             }
 #ifdef _DELETE_LOG
-                          remove_files(p_job_dir,
-                                       mdb[qb[i].pos].fsa_pos,
-                                       mdb[qb[i].pos].job_id,
-                                       USER_DEL);
+                             remove_files(p_job_dir,
+                                          mdb[qb[i].pos].fsa_pos,
+                                          mdb[qb[i].pos].job_id,
+                                          USER_DEL);
 #else
-                          remove_files(p_job_dir, -1);
+                             remove_files(p_job_dir, -1);
 #endif
-                          *ptr = '\0';
+                             *ptr = '\0';
+                          }
 
                           remove_msg(i);
                           if (i < *no_msg_queued)
@@ -1039,18 +1212,20 @@ main(int argc, char *argv[])
                      * need to start and stop the FD to sort out any
                      * problems in the FSA.
                      */
-                    if ((fsa_position = get_position(fsa, p_host_name, no_of_hosts)) != INCORRECT)
+                    if ((fsa_pos= get_host_position(fsa,
+                                                    p_host_name,
+                                                    no_of_hosts)) != INCORRECT)
                     {
-                       fsa[fsa_position].total_file_counter = 0;
-                       fsa[fsa_position].total_file_size = 0;
-                       fsa[fsa_position].active_transfers = 0;
-                       fsa[fsa_position].error_counter = 0;
+                       fsa[fsa_pos].total_file_counter = 0;
+                       fsa[fsa_pos].total_file_size = 0;
+                       fsa[fsa_pos].active_transfers = 0;
+                       fsa[fsa_pos].error_counter = 0;
                        for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
                        {
-                          fsa[fsa_position].job_status[j].no_of_files = 0;
-                          fsa[fsa_position].job_status[j].proc_id = -1;
-                          fsa[fsa_position].job_status[j].connect_status = DISCONNECT;
-                          fsa[fsa_position].job_status[j].file_name_in_use[0] = '\0';
+                          fsa[fsa_pos].job_status[j].no_of_files = 0;
+                          fsa[fsa_pos].job_status[j].proc_id = -1;
+                          fsa[fsa_pos].job_status[j].connect_status = DISCONNECT;
+                          fsa[fsa_pos].job_status[j].file_name_in_use[0] = '\0';
                        }
                     }
 
@@ -1121,7 +1296,7 @@ main(int argc, char *argv[])
                              }
                              else
                              {
-                                remove_connection(qb[i].connect_pos, NO);
+                                remove_connection(&connection[qb[i].connect_pos], NO);
                              }
                           }
 
@@ -1214,7 +1389,7 @@ main(int argc, char *argv[])
                     }
                  }
               }
-           }
+           } /* TIMEOUT or WAKE-UP (Start/Stop Transfer) */
 
            /*
             * SELECT ERROR
@@ -1235,184 +1410,180 @@ main(int argc, char *argv[])
 
 /*++++++++++++++++++++++++++++ start_process() ++++++++++++++++++++++++++*/
 static pid_t
-start_process(int qb_pos, time_t current_time, int retry)
+start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
 {
-   static pid_t pid;
-
-   pid = PENDING;
 #ifdef _AGE_LIMIT
-   if ((mdb[qb[qb_pos].pos].age_limit > 0) &&
+   if ((qb[qb_pos].msg_name[0] != '\0') &&
+       (mdb[qb[qb_pos].pos].age_limit > 0) &&
        ((current_time - qb[qb_pos].creation_time) > mdb[qb[qb_pos].pos].age_limit))
    {
-      if (qb[qb_pos].msg_name[0] == '\0')
+      char del_dir[MAX_PATH_LENGTH];
+
+      if (qb[qb_pos].in_error_dir == YES)
       {
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "Uuups! How can this be? No message name!? (%s %d)\n",
-                   __FILE__, __LINE__);
+         (void)sprintf(del_dir, "%s%s%s/%s/%s",
+                       p_work_dir, AFD_FILE_DIR, ERROR_DIR,
+                       fsa[fsa_pos].host_alias, qb[qb_pos].msg_name);
       }
       else
       {
-         char del_dir[MAX_PATH_LENGTH];
-
-         if (qb[qb_pos].in_error_dir == YES)
-         {
-            (void)sprintf(del_dir, "%s%s%s/%s/%s",
-                          p_work_dir, AFD_FILE_DIR, ERROR_DIR,
-                          fsa[mdb[qb[qb_pos].pos].fsa_pos].host_alias,
-                          qb[qb_pos].msg_name);
-         }
-         else
-         {
-            (void)sprintf(del_dir, "%s%s/%s",
-                          p_work_dir, AFD_FILE_DIR, qb[qb_pos].msg_name);
-         }
-#ifdef _DELETE_LOG
-         remove_files(del_dir, mdb[qb[qb_pos].pos].fsa_pos,
-                      mdb[qb[qb_pos].pos].job_id, AGE_OUTPUT);
-#else
-         remove_files(del_dir, mdb[qb[qb_pos].pos].fsa_pos);
-#endif
+         (void)sprintf(del_dir, "%s%s/%s",
+                       p_work_dir, AFD_FILE_DIR, qb[qb_pos].msg_name);
       }
+#ifdef _DELETE_LOG
+      remove_files(del_dir, fsa_pos, mdb[qb[qb_pos].pos].job_id, AGE_OUTPUT);
+#else
+      remove_files(del_dir, fsa_pos);
+#endif
 
       return(REMOVED);
    }
+   else
 #endif /* _AGE_LIMIT */
-
-   if (((fsa[mdb[qb[qb_pos].pos].fsa_pos].host_status & STOP_TRANSFER_STAT) == 0) &&
-       ((fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 0) ||
-        (retry == YES) ||
-        ((fsa[mdb[qb[qb_pos].pos].fsa_pos].active_transfers == 0) &&
-        ((fsa[mdb[qb[qb_pos].pos].fsa_pos].special_flag & ERROR_FILE_UNDER_PROCESS) == 0) &&
-        ((current_time - (fsa[mdb[qb[qb_pos].pos].fsa_pos].last_retry_time + fsa[mdb[qb[qb_pos].pos].fsa_pos].retry_interval)) >= 0))))
    {
-      if ((p_afd_status->no_of_transfers < max_connections) &&
-          (fsa[mdb[qb[qb_pos].pos].fsa_pos].active_transfers < fsa[mdb[qb[qb_pos].pos].fsa_pos].allowed_transfers))
+      pid_t pid = PENDING;
+
+      if (((fsa[fsa_pos].host_status & STOP_TRANSFER_STAT) == 0) &&
+          ((fsa[fsa_pos].error_counter == 0) || (retry == YES) ||
+           ((fsa[fsa_pos].active_transfers == 0) &&
+           ((fsa[fsa_pos].special_flag & ERROR_FILE_UNDER_PROCESS) == 0) &&
+           ((current_time - (fsa[fsa_pos].last_retry_time + fsa[fsa_pos].retry_interval)) >= 0))))
       {
-         int pos;
+         if ((p_afd_status->no_of_transfers < max_connections) &&
+             (fsa[fsa_pos].active_transfers < fsa[fsa_pos].allowed_transfers))
+         {
+            int pos;
 
-         if ((pos = get_free_connection()) == INCORRECT)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to get free connection. (%s %d)\n",
-                      __FILE__, __LINE__);
-         }
-         else
-         {
-            if ((connection[pos].job_no = get_free_disp_pos(mdb[qb[qb_pos].pos].fsa_pos)) != INCORRECT)
+            if ((pos = get_free_connection()) == INCORRECT)
             {
-               /*
-                * When the host can be toggled and auto toggle
-                * is in effect, we must check here if we are
-                * sending to the original host. If this is not
-                * the case lets temporally switch back to the
-                * original host to see if it is working now.
-                */
-               connection[pos].error_file = qb[qb_pos].in_error_dir;
-               connection[pos].protocol = mdb[qb[qb_pos].pos].type;
-               connection[pos].position = mdb[qb[qb_pos].pos].fsa_pos;
-               (void)strcpy(connection[pos].msg_name, qb[qb_pos].msg_name);
-               (void)strcpy(fsa[connection[pos].position].job_status[connection[pos].job_no].unique_name, qb[qb_pos].msg_name);
-               if ((fsa[connection[pos].position].error_counter == 0) &&
-                   (fsa[connection[pos].position].auto_toggle == ON) &&
-                   (fsa[connection[pos].position].original_toggle_pos != NONE) &&
-                   (connection[pos].temp_toggle == OFF) &&
-                   (fsa[connection[pos].position].max_successful_retries > 0))
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Failed to get free connection. (%s %d)\n",
+                         __FILE__, __LINE__);
+            }
+            else
+            {
+               if ((connection[pos].job_no = get_free_disp_pos(fsa_pos)) != INCORRECT)
                {
-                  if ((fsa[connection[pos].position].original_toggle_pos == fsa[connection[pos].position].toggle_pos) &&
-                      (fsa[connection[pos].position].successful_retries > 0))
+                  /*
+                   * When the host can be toggled and auto toggle
+                   * is in effect, we must check here if we are
+                   * sending to the original host. If this is not
+                   * the case lets temporally switch back to the
+                   * original host to see if it is working now.
+                   */
+                  connection[pos].error_file = qb[qb_pos].in_error_dir;
+                  connection[pos].fsa_pos = fsa_pos;
+                  if (qb[qb_pos].msg_name[0] == '\0')
                   {
-                     fsa[connection[pos].position].original_toggle_pos = NONE;
-                     fsa[connection[pos].position].successful_retries = 0;
+                     connection[pos].fra_pos = qb[qb_pos].pos;
+                     connection[pos].protocol = fra[qb[qb_pos].pos].protocol;
                   }
-                  else if (fsa[connection[pos].position].successful_retries >= fsa[connection[pos].position].max_successful_retries)
-                       {
-                          connection[pos].temp_toggle = ON;
-                          fsa[connection[pos].position].successful_retries = 0;
-                       }
-                       else
-                       {
-                          fsa[connection[pos].position].successful_retries++;
-                       }
-               }
-               else
-               {
+                  else
+                  {
+                     connection[pos].fra_pos = -1;
+                     connection[pos].protocol = mdb[qb[qb_pos].pos].type;
+                  }
                   connection[pos].temp_toggle = OFF;
-               }
-
-               /* Create process to distribute file. */
-               if ((connection[pos].pid = make_process(&connection[pos])) > 0)
-               {
-                  (void)strcpy(connection[pos].hostname, mdb[qb[qb_pos].pos].host_name);
-                  if (check_fsa() == YES)
+                  (void)strcpy(connection[pos].msg_name, qb[qb_pos].msg_name);
+                  (void)strcpy(fsa[fsa_pos].job_status[connection[pos].job_no].unique_name, qb[qb_pos].msg_name);
+                  if ((fsa[fsa_pos].error_counter == 0) &&
+                      (fsa[fsa_pos].auto_toggle == ON) &&
+                      (fsa[fsa_pos].original_toggle_pos != NONE) &&
+                      (fsa[fsa_pos].max_successful_retries > 0))
                   {
-                     get_new_positions();
-                     init_msg_buffer();
+                     if ((fsa[fsa_pos].original_toggle_pos == fsa[fsa_pos].toggle_pos) &&
+                         (fsa[fsa_pos].successful_retries > 0))
+                     {
+                        fsa[fsa_pos].original_toggle_pos = NONE;
+                        fsa[fsa_pos].successful_retries = 0;
+                     }
+                     else if (fsa[fsa_pos].successful_retries >= fsa[fsa_pos].max_successful_retries)
+                          {
+                             connection[pos].temp_toggle = ON;
+                             fsa[fsa_pos].successful_retries = 0;
+                          }
+                          else
+                          {
+                             fsa[fsa_pos].successful_retries++;
+                          }
                   }
 
-                  pid = fsa[connection[pos].position].job_status[connection[pos].job_no].proc_id = connection[pos].pid;
-                  fsa[connection[pos].position].active_transfers += 1;
-                  if (fsa[connection[pos].position].error_counter > 0)
+                  /* Create process to distribute file. */
+                  if ((connection[pos].pid = make_process(&connection[pos])) > 0)
                   {
-                     fsa[connection[pos].position].special_flag |= ERROR_FILE_UNDER_PROCESS;
+                     if (check_fsa() == YES)
+                     {
+                        if (check_fra_fd() == YES)
+                        {
+                           init_fra_data();
+                        }
+                        get_new_positions();
+                        init_msg_buffer();
+                     }
+                     (void)strcpy(connection[pos].hostname, fsa[fsa_pos].host_alias);
+                     pid = fsa[fsa_pos].job_status[connection[pos].job_no].proc_id = connection[pos].pid;
+                     fsa[fsa_pos].active_transfers += 1;
+                     if (fsa[fsa_pos].error_counter > 0)
+                     {
+                        fsa[fsa_pos].special_flag |= ERROR_FILE_UNDER_PROCESS;
+                     }
+                     qb[qb_pos].connect_pos = pos;
+                     p_afd_status->no_of_transfers++;
                   }
-                  qb[qb_pos].connect_pos = pos;
-     
-                  p_afd_status->no_of_transfers++;
                }
             }
          }
-      }
 #ifdef _BURST_MODE
-      else
-      {
-         int limit = NO;
-
-         if (qb[qb_pos].in_error_dir == YES)
-         {
-            (void)sprintf(p_src_dir, "%s/%s/%s", ERROR_DIR,
-                          fsa[mdb[qb[qb_pos].pos].fsa_pos].host_alias,
-                          qb[qb_pos].msg_name);
-         }
-         else
-         {
-            (void)strcpy(p_src_dir, qb[qb_pos].msg_name);
-         }
-         if ((*no_msg_queued > 1) && (*no_msg_queued < 500))
-         {
-            int i = 0;
-
-            do
-            {
-               if (i != qb_pos)
-               {
-                  if ((qb[qb_pos].msg_name[0] > qb[i].msg_name[0]) &&
-                      (strcmp(mdb[qb[qb_pos].pos].host_name, mdb[qb[i].pos].host_name) == 0))
-                  {
-                     limit = YES;
-                     break;
-                  }
-               }
-               i++;
-            } while (i < *no_msg_queued);
-         }
-         else if (*no_msg_queued >= 500)
+         else if (qb[qb_pos].msg_name[0] != '\0')
               {
-                 limit = YES;
-              }
-         if (check_burst(mdb[qb[qb_pos].pos].type,
-                         mdb[qb[qb_pos].pos].fsa_pos,
-                         mdb[qb[qb_pos].pos].job_id,
-                         src_dir,
-                         file_dir,
-                         limit) == YES)
-         {
-            pid = REMOVED;
-         }
-      }
-#endif
-   }
+                 int limit = NO;
 
-   return(pid);
+                 if (qb[qb_pos].in_error_dir == YES)
+                 {
+                    (void)sprintf(p_src_dir, "%s/%s/%s", ERROR_DIR,
+                                  fsa[mdb[qb[qb_pos].pos].fsa_pos].host_alias,
+                                  qb[qb_pos].msg_name);
+                 }
+                 else
+                 {
+                    (void)strcpy(p_src_dir, qb[qb_pos].msg_name);
+                 }
+                 if ((*no_msg_queued > 1) && (*no_msg_queued < 500))
+                 {
+                    int i = 0;
+
+                    do
+                    {
+                       if (i != qb_pos)
+                       {
+                          if ((qb[qb_pos].msg_name[0] > qb[i].msg_name[0]) &&
+                              (strcmp(mdb[qb[qb_pos].pos].host_name, mdb[qb[i].pos].host_name) == 0))
+                          {
+                             limit = YES;
+                             break;
+                          }
+                       }
+                       i++;
+                    } while (i < *no_msg_queued);
+                 }
+                 else if (*no_msg_queued >= 500)
+                      {
+                         limit = YES;
+                      }
+                 if (check_burst(mdb[qb[qb_pos].pos].type,
+                                 mdb[qb[qb_pos].pos].fsa_pos,
+                                 mdb[qb[qb_pos].pos].job_id,
+                                 src_dir,
+                                 file_dir,
+                                 limit) == YES)
+                 {
+                    pid = REMOVED;
+                 }
+              }
+#endif /* _BURST_MODE */
+      }
+      return(pid);
+   }
 }
 
 
@@ -1420,13 +1591,21 @@ start_process(int qb_pos, time_t current_time, int retry)
 static pid_t
 make_process(struct connection *con)
 {
-   static pid_t pid;
-   char         progname[MAX_PROCNAME_LENGTH],
-                str_job_no[MAX_INT_LENGTH];
+   pid_t pid;
+   char  *args[10],
+         progname[MAX_PROCNAME_LENGTH],
+         str_job_no[3];
 
    if (con->protocol == FTP)
    {
-      (void)strcpy(progname, SEND_FILE_FTP);
+      if (con->msg_name[0] == '\0')
+      {
+         (void)strcpy(progname, GET_FILE_FTP);
+      }
+      else
+      {
+         (void)strcpy(progname, SEND_FILE_FTP);
+      }
    }
    else if (con->protocol == LOC)
         {
@@ -1456,6 +1635,86 @@ make_process(struct connection *con)
            return(INCORRECT);
         }
 
+   if (con->job_no < 10)
+   {
+      str_job_no[0] = con->job_no + '0';
+      str_job_no[1] = '\0';
+   }
+   else if (con->job_no < 100)
+        {
+           str_job_no[0] = (con->job_no / 10) + '0';
+           str_job_no[1] = (con->job_no % 10) + '0';
+           str_job_no[2] = '\0';
+        }
+        else
+        {
+           (void)rec(sys_log_fd, ERROR_SIGN,
+                     "Get the programmer to expand the job number! Or else you are in deep trouble! (%s %d)\n",
+                     __FILE__, __LINE__);
+           str_job_no[0] = ((con->job_no / 10) % 10) + '0';
+           str_job_no[1] = (con->job_no % 10) + '0';
+           str_job_no[2] = '\0';
+        }
+
+   args[0] = progname;
+   args[1] = WORK_DIR_ID;
+   args[2] = p_work_dir;
+   args[3] = "-j";
+   args[4] = str_job_no;
+   if (con->error_file == YES)
+   {
+      if (con->temp_toggle == ON)
+      {
+         args[5] = "-f";
+         args[6] = "-t";
+         args[7] = "-m";
+         args[8] = con->msg_name;
+         args[9] = NULL;
+      }
+      else
+      {
+         args[5] = "-f";
+         args[6] = "-m";
+         args[7] = con->msg_name;
+         args[8] = NULL;
+      }
+   }
+   else
+   {
+      if (con->temp_toggle == ON)
+      {
+         if (con->msg_name[0] == '\0')
+         {
+            args[5] = "-t";
+            args[6] = "-d";
+            args[7] = fra[con->fra_pos].dir_alias;
+            args[8] = NULL;
+         }
+         else
+         {
+            args[5] = "-t";
+            args[6] = "-m";
+            args[7] = con->msg_name;
+            args[8] = NULL;
+         }
+      }
+      else
+      {
+         if (con->msg_name[0] == '\0')
+         {
+            args[5] = "-d";
+            args[6] = fra[con->fra_pos].dir_alias;
+            args[7] = NULL;
+         }
+         else
+         {
+            args[5] = "-m";
+            args[6] = con->msg_name;
+            args[7] = NULL;
+         }
+      }
+   }
+
    switch(pid = fork())
    {
       case -1 :
@@ -1466,41 +1725,9 @@ make_process(struct connection *con)
                    strerror(errno),  __FILE__, __LINE__);
          return(INCORRECT);
 
-      case  0 :
+      case  0 : /* Child process */
 
-         /* Child process */
-         (void)sprintf(str_job_no, "%d", (int)con->job_no);
-
-         if (con->error_file == YES)
-         {
-            if (con->temp_toggle == ON)
-            {
-               (void)execlp(progname, progname, WORK_DIR_ID, p_work_dir,
-                            "-f", "-t", "-j", str_job_no,
-                            "-m", con->msg_name, (char *)0);
-            }
-            else
-            {
-               (void)execlp(progname, progname, WORK_DIR_ID, p_work_dir,
-                            "-f", "-j", str_job_no,
-                            "-m", con->msg_name, (char *)0);
-            }
-         }
-         else
-         {
-            if (con->temp_toggle == ON)
-            {
-               (void)execlp(progname, progname, WORK_DIR_ID, p_work_dir,
-                            "-t", "-j", str_job_no,
-                            "-m", con->msg_name, (char *)0);
-            }
-            else
-            {
-               (void)execlp(progname, progname, WORK_DIR_ID, p_work_dir,
-                            "-j", str_job_no, "-m", con->msg_name,
-                            (char *)0);
-            }
-         }
+         execvp(progname, args);
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Failed to start process %s : %s (%s %d)\n",
                    progname, strerror(errno), __FILE__, __LINE__);
@@ -1525,79 +1752,83 @@ make_process(struct connection *con)
  * Description : Checks if any process is finished (zombie), if this
  *               is the case it is killed with waitpid().
  */
-static char
-zombie_check(int qb_pos, int options)
+static int
+zombie_check(struct connection *p_con, int qb_pos, int options)
 {
-   static char faulty;
-   int         host_deleted = NO,
-               exit_status,
-               status;
-   pid_t       ret;
+   int   faulty = YES,
+         status;
+   pid_t ret;
 
    /* Wait for process to terminate. */
-   faulty = YES;
-   if ((ret = waitpid(qb[qb_pos].pid, &status, options)) == qb[qb_pos].pid)
+   if ((ret = waitpid(p_con->pid, &status, options)) == p_con->pid)
    {
+      int host_deleted = NO;
+
       if (WIFEXITED(status))
       {
+         int exit_status;
+
          switch(exit_status = WEXITSTATUS(status))
          {
             case TRANSFER_SUCCESS      : /* Ordinary end of process. */
                faulty = NO;
-               if (((connection[qb[qb_pos].connect_pos].temp_toggle == ON) &&
-                   (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos != fsa[connection[qb[qb_pos].connect_pos].position].host_toggle)) ||
-                   (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos == fsa[connection[qb[qb_pos].connect_pos].position].host_toggle))
+               if (((p_con->temp_toggle == ON) &&
+                   (fsa[p_con->fsa_pos].original_toggle_pos != fsa[p_con->fsa_pos].host_toggle)) ||
+                   (fsa[p_con->fsa_pos].original_toggle_pos == fsa[p_con->fsa_pos].host_toggle))
                {
                   /*
                    * Do not forget to toggle back to the original
                    * host and deactivate original_toggle_pos!
                    */
-                  connection[qb[qb_pos].connect_pos].temp_toggle = OFF;
-                  fsa[connection[qb[qb_pos].connect_pos].position].successful_retries = 0;
-                  if (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos != NONE)
+                  p_con->temp_toggle = OFF;
+                  fsa[p_con->fsa_pos].successful_retries = 0;
+                  if (fsa[p_con->fsa_pos].original_toggle_pos != NONE)
                   {
-                     fsa[connection[qb[qb_pos].connect_pos].position].host_toggle = fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos;
-                     fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos = NONE;
+                     fsa[p_con->fsa_pos].host_toggle = fsa[p_con->fsa_pos].original_toggle_pos;
+                     fsa[p_con->fsa_pos].original_toggle_pos = NONE;
                      (void)rec(sys_log_fd, INFO_SIGN,
                                "Switching back to host %s%c after successful transfer.\n",
-                               fsa[connection[qb[qb_pos].connect_pos].position].host_alias,
-                               fsa[connection[qb[qb_pos].connect_pos].position].host_toggle_str[(int)fsa[connection[qb[qb_pos].connect_pos].position].host_toggle]);
+                               fsa[p_con->fsa_pos].host_alias,
+                               fsa[p_con->fsa_pos].host_toggle_str[(int)fsa[p_con->fsa_pos].host_toggle]);
                   }
                }
-               fsa[connection[qb[qb_pos].connect_pos].position].last_connection = time(NULL);
+               fsa[p_con->fsa_pos].last_connection = time(NULL);
                break;
 
-            case SYNTAX_ERROR          : /* Syntax for sf_xxx wrong. */
+            case SYNTAX_ERROR          : /* Syntax for sf_xxx/gf_xxx wrong. */
                if (check_fsa() == YES)
                {
-                  if (get_position(fsa, connection[qb[qb_pos].connect_pos].hostname, no_of_hosts) == INCORRECT)
+                  if (get_host_position(fsa, p_con->hostname, no_of_hosts) == INCORRECT)
                   {
                      host_deleted = YES;
+                  }
+                  if (check_fra_fd() == YES)
+                  {
+                     init_fra_data();
                   }
                   get_new_positions();
                   init_msg_buffer();
                }
                if (host_deleted == NO)
                {
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].connect_status = NOT_WORKING;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_name_in_use[0] = '\0';
-               } 
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].connect_status = NOT_WORKING;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].no_of_files = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].no_of_files_done = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size_done = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size_in_use = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size_in_use_done = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_name_in_use[0] = '\0';
+               }
                /*
-                * Lets assume that the message is moved to the faulty directory.
-                * So no further action is necessary.
+                * Lets assume that in the case for sf_xxx the message is
+                * moved to the faulty directory. So no further action is
+                * necessary.
                 */
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Syntax for calling sf_xxx wrong. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
+                         "%-*s[%d]: Syntax for calling program wrong. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname, p_con->job_no,
+                         __FILE__, __LINE__);
                break;
 
             case NO_MESSAGE_FILE : /* The message file has disappeared. */
@@ -1607,21 +1838,22 @@ zombie_check(int qb_pos, int options)
                {
                   char del_dir[MAX_PATH_LENGTH];
 
-                  if (qb[qb_pos].in_error_dir == YES)
+                  if (p_con->error_file == YES)
                   {
                      (void)sprintf(del_dir, "%s%s%s/%s/%s", p_work_dir,
-                                   AFD_FILE_DIR,
-                                   ERROR_DIR,
-                                   mdb[qb[qb_pos].pos].host_name,
-                                   qb[qb_pos].msg_name);
+                                   AFD_FILE_DIR, ERROR_DIR,
+                                   fsa[p_con->fsa_pos].host_alias,
+                                   p_con->msg_name);
                   }
                   else
                   {
                      (void)sprintf(del_dir, "%s%s/%s", p_work_dir,
-                                   AFD_FILE_DIR, qb[qb_pos].msg_name);
+                                   AFD_FILE_DIR, p_con->msg_name);
                   }
 #ifdef _DELETE_LOG
-                  remove_files(del_dir, -1, mdb[qb[qb_pos].pos].job_id, OTHER_DEL);
+                  remove_files(del_dir, -1,
+                               fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                               OTHER_DEL);
 #else
                   remove_files(del_dir, -1);
 #endif
@@ -1631,11 +1863,6 @@ zombie_check(int qb_pos, int options)
             case JID_NUMBER_ERROR      : /* Hmm, failed to determine JID */
                                          /* number, lets assume the      */
                                          /* queue entry is corrupted.    */
-                                         /* Remove it or else it will    */
-                                         /* always try again.            */
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Hmm..., looks like queue is corupt, will remove this (%d) entry. (%s %d)\n",
-                         qb_pos, __FILE__, __LINE__);
 
                /* Note: We have to trust the queue here to get the correct  */
                /*       connect position in struct connection. How else do  */
@@ -1654,11 +1881,9 @@ zombie_check(int qb_pos, int options)
 
             case MAIL_ERROR            : /* Failed to send mail to remote host */
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Failed to send mail. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
+                         "%-*s[%d]: Failed to send mail. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname, p_con->job_no,
+                         __FILE__, __LINE__);
                break;
 
             case CONNECT_ERROR         : /* Failed to connect to remote host */
@@ -1668,7 +1893,11 @@ zombie_check(int qb_pos, int options)
             case REMOTE_USER_ERROR     : /* Failed to send mail address. */
             case DATA_ERROR            : /* Failed to send data command. */
             case OPEN_REMOTE_ERROR     : /* */
+            case READ_LOCAL_ERROR      : /* */
             case WRITE_REMOTE_ERROR    : /* */
+            case WRITE_LOCAL_ERROR     : /* */
+            case READ_REMOTE_ERROR     : /* */
+            case OPEN_LOCAL_ERROR      : /* */
             case WRITE_LOCK_ERROR      : /* */
             case CLOSE_REMOTE_ERROR    : /* */
             case MOVE_REMOTE_ERROR     : /* */
@@ -1689,49 +1918,25 @@ zombie_check(int qb_pos, int options)
 #endif
                break;
 
-            case OPEN_LOCAL_ERROR      : /* */
-               (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Disconnected. Failed to open local file. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
-               break;
-
-            case READ_LOCAL_ERROR      : /* */
-               (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Disconnected. Failed to read local file. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
-               break;
-
             case STAT_LOCAL_ERROR      : /* */
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Disconnected. Could not stat() local file. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
+                         "%-*s[%d]: Disconnected. Could not stat() local file. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname, p_con->job_no,
+                         __FILE__, __LINE__);
                break;
 
             case LOCK_REGION_ERROR     : /* */
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Disconnected. Failed to lock region. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
+                         "%-*s[%d]: Disconnected. Failed to lock region. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname, p_con->job_no,
+                         __FILE__, __LINE__);
                break;
 
             case UNLOCK_REGION_ERROR   : /* */
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Disconnected. Failed to unlock region. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
+                         "%-*s[%d]: Disconnected. Failed to unlock region. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname, p_con->job_no,
+                         __FILE__, __LINE__);
                break;
 
             case GOT_KILLED : /* Process has been killed, most properly */
@@ -1742,85 +1947,40 @@ zombie_check(int qb_pos, int options)
             case NO_FILES_TO_SEND : /* There are no files to send. Most */
                                     /* properly the files have benn     */
                                     /* deleted due to age.              */
-               remove_connection(qb[qb_pos].connect_pos, NEITHER);
+               remove_connection(p_con, NEITHER);
 
                /*
                 * This is actually a good time to check if there are
                 * at all any files to be send. If NOT and the auto
                 * pause queue flag is set, we might get a deadlock.
                 */
-               if (connection[qb[qb_pos].connect_pos].position != -1)
+               if (p_con->fsa_pos != -1)
                {
-                  if ((fsa[connection[qb[qb_pos].connect_pos].position].total_file_counter == 0) &&
-                      (fsa[connection[qb[qb_pos].connect_pos].position].total_file_size == 0) &&
-                      (fsa[connection[qb[qb_pos].connect_pos].position].host_status & AUTO_PAUSE_QUEUE_STAT))
+                  if ((fsa[p_con->fsa_pos].total_file_counter == 0) &&
+                      (fsa[p_con->fsa_pos].total_file_size == 0) &&
+                      (fsa[p_con->fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT))
                   {
-                     fsa[connection[qb[qb_pos].connect_pos].position].host_status ^= AUTO_PAUSE_QUEUE_STAT;
+                     fsa[p_con->fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                      (void)rec(sys_log_fd, INFO_SIGN,
                                "Starting queue for %s that was stopped by init_afd. (%s %d)\n",
-                                fsa[connection[qb[qb_pos].connect_pos].position].host_alias,
+                                fsa[p_con->fsa_pos].host_alias,
                                 __FILE__, __LINE__);
                   }
                }
                return(NO);
 
             case ALLOC_ERROR           : /* */
-               if (check_fsa() == YES)
-               {
-                  if (get_position(fsa, connection[qb[qb_pos].connect_pos].hostname, no_of_hosts) == INCORRECT)
-                  {
-                     host_deleted = YES;
-                  }
-                  get_new_positions();
-                  init_msg_buffer();
-               }
-               if (host_deleted == NO)
-               {
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].connect_status = NOT_WORKING;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_name_in_use[0] = '\0';
-               } 
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Failed to allocate memory. #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
+                         "%-*s[%d]: Failed to allocate memory. (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname, p_con->job_no,
+                         __FILE__, __LINE__);
                break;
 
             default                    : /* Unknown error. */
-               if (check_fsa() == YES)
-               {
-                  if (get_position(fsa, connection[qb[qb_pos].connect_pos].hostname, no_of_hosts) == INCORRECT)
-                  {
-                     host_deleted = YES;
-                  }
-                  get_new_positions();
-                  init_msg_buffer();
-               }
-               if (host_deleted == NO)
-               {
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].connect_status = NOT_WORKING;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_name_in_use[0] = '\0';
-               } 
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Disconnected due to an unknown error (%d). #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         exit_status, mdb[qb[qb_pos].pos].job_id,
-                         __FILE__, __LINE__);
+                         "%-*s[%d]: Disconnected due to an unknown error (%d). (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname, p_con->job_no,
+                         exit_status, __FILE__, __LINE__);
                break;
          }
 
@@ -1832,8 +1992,7 @@ zombie_check(int qb_pos, int options)
           * files as quickly as possible. So when temp_toggle
           * is ON, it may NEVER be faulty.
           */
-         if ((connection[qb[qb_pos].connect_pos].temp_toggle == ON) &&
-             (faulty == YES))
+         if ((p_con->temp_toggle == ON) && (faulty == YES))
          {
             faulty = NONE;
          }
@@ -1843,55 +2002,61 @@ zombie_check(int qb_pos, int options)
                /* abnormal termination */
                if (check_fsa() == YES)
                {
-                  if (get_position(fsa, connection[qb[qb_pos].connect_pos].hostname, no_of_hosts) == INCORRECT)
+                  if (get_host_position(fsa, p_con->hostname, no_of_hosts) == INCORRECT)
                   {
                      host_deleted = YES;
+                  }
+                  if (check_fra_fd() == YES)
+                  {
+                     init_fra_data();
                   }
                   get_new_positions();
                   init_msg_buffer();
                }
                if (host_deleted == NO)
                {
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].connect_status = NOT_WORKING;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].no_of_files_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_size_in_use_done = 0;
-                  fsa[connection[qb[qb_pos].connect_pos].position].job_status[connection[qb[qb_pos].connect_pos].job_no].file_name_in_use[0] = '\0';
-               } 
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].connect_status = NOT_WORKING;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].no_of_files = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].no_of_files_done = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size_done = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size_in_use = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_size_in_use_done = 0;
+                  fsa[p_con->fsa_pos].job_status[p_con->job_no].file_name_in_use[0] = '\0';
+               }
 
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Abnormal termination of transfer job (%d). #%u (%s %d)\n",
-                         MAX_HOSTNAME_LENGTH,
-                         connection[qb[qb_pos].connect_pos].hostname,
-                         connection[qb[qb_pos].connect_pos].job_no,
-                         connection[qb[qb_pos].connect_pos].pid,
-                         mdb[qb[qb_pos].pos].job_id, __FILE__, __LINE__);
+                         "%-*s[%d]: Abnormal termination of transfer job (%d). (%s %d)\n",
+                         MAX_HOSTNAME_LENGTH, p_con->hostname,
+                         p_con->job_no, p_con->pid, __FILE__, __LINE__);
             }
 
-      remove_connection(qb[qb_pos].connect_pos, faulty);
+      remove_connection(p_con, faulty);
 
       /*
        * Even if we did fail to send a file, lets set the transfer
-       * time. Otherwise jobs will get deletet to early together
+       * time. Otherwise jobs will get deleted to early together
        * with their current files if no transfer was successful
        * and we did a reread DIR_CONFIG.
        */
-      mdb[qb[qb_pos].pos].last_transfer_time = now;
-   } /* if (waitpid(pid, &status, 0) == pid) */
+      if (qb[qb_pos].msg_name[0] != '\0')
+      {
+         mdb[qb[qb_pos].pos].last_transfer_time = now;
+      }
+   } /* if (waitpid(p_con->pid, &status, 0) == p_con->pid) */
    else
    {
       if (ret == -1)
       {
+         int tmp_errno = errno;
+
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "waitpid() error [%d] : %s (%s %d)\n",
-                   qb[qb_pos].pid, strerror(errno), __FILE__, __LINE__);
-         if (errno == ECHILD)
+                   p_con->pid, strerror(errno), __FILE__, __LINE__);
+         if (tmp_errno == ECHILD)
          {
             faulty = NONE;
-            remove_connection(qb[qb_pos].connect_pos, NONE);
+            remove_connection(p_con, NONE);
          }
       }
       else
@@ -1906,64 +2071,64 @@ zombie_check(int qb_pos, int options)
 
 /*------------------------- remove_connection() ------------------------*/
 static void
-remove_connection(int pos, char faulty)
+remove_connection(struct connection *p_con, int faulty)
 {
-   if (connection[pos].position != -1)
+   if (p_con->fsa_pos != -1)
    {
       /* Decrease number of active transfers to this host in FSA */
       if (faulty == YES)
       {
-         fsa[connection[pos].position].last_retry_time = time(NULL);
-         lock_region_w(fsa_fd, (char *)&fsa[connection[pos].position].error_counter - (char *)fsa);
-         fsa[connection[pos].position].error_counter += 1;
-         fsa[connection[pos].position].total_errors += 1;
-         unlock_region(fsa_fd, (char *)&fsa[connection[pos].position].error_counter - (char *)fsa);
+         fsa[p_con->fsa_pos].last_retry_time = time(NULL);
+         lock_region_w(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
+         fsa[p_con->fsa_pos].error_counter += 1;
+         fsa[p_con->fsa_pos].total_errors += 1;
+         unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
 
          /* Check if we need to toggle hosts */
-         if ((fsa[connection[pos].position].error_counter == fsa[connection[pos].position].max_errors) &&
-             (fsa[connection[pos].position].original_toggle_pos == NONE))
+         if ((fsa[p_con->fsa_pos].error_counter == fsa[p_con->fsa_pos].max_errors) &&
+             (fsa[p_con->fsa_pos].original_toggle_pos == NONE))
          {
-            fsa[connection[pos].position].original_toggle_pos = fsa[connection[pos].position].host_toggle;
+            fsa[p_con->fsa_pos].original_toggle_pos = fsa[p_con->fsa_pos].host_toggle;
          }
-         if ((fsa[connection[pos].position].auto_toggle == ON) &&
-             ((fsa[connection[pos].position].error_counter % fsa[connection[pos].position].max_errors) == 0))
+         if ((fsa[p_con->fsa_pos].auto_toggle == ON) &&
+             ((fsa[p_con->fsa_pos].error_counter % fsa[p_con->fsa_pos].max_errors) == 0))
          {
-            (void)rec(sys_log_fd, INFO_SIGN, "Automatic host switch initiated for host %s\n",
-                      fsa[connection[pos].position].host_dsp_name);
-            if (fsa[connection[pos].position].host_toggle == HOST_ONE)
+            (void)rec(sys_log_fd, INFO_SIGN,
+                      "Automatic host switch initiated for host %s\n",
+                      fsa[p_con->fsa_pos].host_dsp_name);
+            if (fsa[p_con->fsa_pos].host_toggle == HOST_ONE)
             {
-               fsa[connection[pos].position].host_toggle = HOST_TWO;
+               fsa[p_con->fsa_pos].host_toggle = HOST_TWO;
             }
             else
             {
-               fsa[connection[pos].position].host_toggle = HOST_ONE;
+               fsa[p_con->fsa_pos].host_toggle = HOST_ONE;
             }
          }
       }
       else
       {
          if ((faulty != NEITHER) &&
-             (fsa[connection[pos].position].error_counter > 0) &&
-             (connection[pos].temp_toggle == OFF))
+             (fsa[p_con->fsa_pos].error_counter > 0) &&
+             (p_con->temp_toggle == OFF))
          {
             int j;
 
-            lock_region_w(fsa_fd, (char *)&fsa[connection[pos].position].error_counter - (char *)fsa);
-            fsa[connection[pos].position].error_counter = 0;
+            lock_region_w(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
+            fsa[p_con->fsa_pos].error_counter = 0;
 
             /*
              * Remove the error condition (NOT_WORKING) from all jobs
              * of this host.
              */
-            for (j = 0; j < fsa[connection[pos].position].allowed_transfers; j++)
+            for (j = 0; j < fsa[p_con->fsa_pos].allowed_transfers; j++)
             {
-               if ((j != pos) &&
-                   (fsa[connection[pos].position].job_status[j].connect_status == NOT_WORKING))
+               if (fsa[p_con->fsa_pos].job_status[j].connect_status == NOT_WORKING)
                {
-                  fsa[connection[pos].position].job_status[j].connect_status = DISCONNECT;
+                  fsa[p_con->fsa_pos].job_status[j].connect_status = DISCONNECT;
                }
             }
-            unlock_region(fsa_fd, (char *)&fsa[connection[pos].position].error_counter - (char *)fsa);
+            unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
          }
       }
 
@@ -1976,53 +2141,48 @@ remove_connection(int pos, char faulty)
        */
       if (check_fsa() == YES)
       {
+         if (check_fra_fd() == YES)
+         {
+            init_fra_data();
+         }
          get_new_positions();
          init_msg_buffer();
       }
 
-      if (fsa[connection[pos].position].active_transfers > fsa[connection[pos].position].allowed_transfers)
+      if (fsa[p_con->fsa_pos].active_transfers > fsa[p_con->fsa_pos].allowed_transfers)
       {
          (void)rec(sys_log_fd, DEBUG_SIGN,
                    "Active transfers > allowed transfers %d!? [%d] (%s %d)\n",
-                   fsa[connection[pos].position].allowed_transfers,
-                   fsa[connection[pos].position].active_transfers,
+                   fsa[p_con->fsa_pos].allowed_transfers,
+                   fsa[p_con->fsa_pos].active_transfers,
                    __FILE__, __LINE__);
-         fsa[connection[pos].position].active_transfers = fsa[connection[pos].position].allowed_transfers;
+         fsa[p_con->fsa_pos].active_transfers = fsa[p_con->fsa_pos].allowed_transfers;
       }
-      fsa[connection[pos].position].active_transfers -= 1;
-      if (fsa[connection[pos].position].active_transfers < 0)
+      fsa[p_con->fsa_pos].active_transfers -= 1;
+      if (fsa[p_con->fsa_pos].active_transfers < 0)
       {
          (void)rec(sys_log_fd, DEBUG_SIGN,
                    "Active transfers < 0!? [%d] (%s %d)\n",
-                   fsa[connection[pos].position].active_transfers,
+                   fsa[p_con->fsa_pos].active_transfers,
                    __FILE__, __LINE__);
-         fsa[connection[pos].position].active_transfers = 0;
+         fsa[p_con->fsa_pos].active_transfers = 0;
       }
-      if (fsa[connection[pos].position].special_flag & ERROR_FILE_UNDER_PROCESS)
+      if (fsa[p_con->fsa_pos].special_flag & ERROR_FILE_UNDER_PROCESS)
       {
          /* Error job is no longer under process. */
-         fsa[connection[pos].position].special_flag ^= ERROR_FILE_UNDER_PROCESS;
+         fsa[p_con->fsa_pos].special_flag ^= ERROR_FILE_UNDER_PROCESS;
       }
-      fsa[connection[pos].position].job_status[(int)connection[pos].job_no].proc_id = -1;
+      fsa[p_con->fsa_pos].job_status[p_con->job_no].proc_id = -1;
 #ifdef _BURST_MODE
-      fsa[connection[pos].position].job_status[(int)connection[pos].job_no].unique_name[0] = '\0';
-      fsa[connection[pos].position].job_status[(int)connection[pos].job_no].burst_counter = 0;
+      fsa[p_con->fsa_pos].job_status[p_con->job_no].unique_name[0] = '\0';
+      fsa[p_con->fsa_pos].job_status[p_con->job_no].burst_counter = 0;
 #endif
 #if defined (_BURST_MODE) || defined (_OUTPUT_LOG)
-      fsa[connection[pos].position].job_status[(int)connection[pos].job_no].job_id = NO_ID;
+      fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id = NO_ID;
 #endif
    }
 
-   /*
-    * Reset all values of connection structure.
-    */
-   connection[pos].hostname[0] = '\0';
-   connection[pos].job_no = -1;
-   connection[pos].position = -1;
-   connection[pos].msg_name[0] = '\0';
-   connection[pos].pid = 0;
-
-   /* Decrease the number of active transfers */
+   /* Decrease the number of active transfers. */
    if (p_afd_status->no_of_transfers > 0)
    {
       p_afd_status->no_of_transfers--;
@@ -2033,6 +2193,16 @@ remove_connection(int pos, char faulty)
                 "Huh?! Whats this trying to reduce number of transfers although its zero??? (%s %d)\n",
                 __FILE__, __LINE__);
    }
+
+   /*
+    * Reset all values of connection structure.
+    */
+   p_con->hostname[0] = '\0';
+   p_con->job_no = -1;
+   p_con->fsa_pos = -1;
+   p_con->fra_pos = -1;
+   p_con->msg_name[0] = '\0';
+   p_con->pid = 0;
 
    return;
 }
@@ -2076,7 +2246,8 @@ to_error_dir(int pos)
          fsa[mdb[qb[pos].pos].fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
          (void)rec(sys_log_fd, WARN_SIGN,
                    "Stopped queue for host %s, since the number jobs are reaching a dangerous level. (%s %d)\n",
-                   fsa[mdb[qb[pos].pos].fsa_pos].host_alias, __FILE__, __LINE__);
+                   fsa[mdb[qb[pos].pos].fsa_pos].host_alias,
+                   __FILE__, __LINE__);
       }
    }
    (void)strcat(p_err_file_dir, "/");
@@ -2099,7 +2270,8 @@ to_error_dir(int pos)
             fsa[mdb[qb[pos].pos].fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
             (void)rec(sys_log_fd, WARN_SIGN,
                       "Stopped queue for host %s, since the number jobs are reaching a dangerous level. (%s %d)\n",
-                      fsa[mdb[qb[pos].pos].fsa_pos].host_alias, __FILE__, __LINE__);
+                      fsa[mdb[qb[pos].pos].fsa_pos].host_alias,
+                      __FILE__, __LINE__);
          }
       }
       else if (errno == ENOSPC)
@@ -2162,52 +2334,37 @@ qb_pos_pid(pid_t pid, int *qb_pos)
 static void
 qb_pos_fsa(int fsa_pos, int *qb_pos)
 {
-   int    i,
-          j = 0,
-          pos;
-   double msg_number = 0.0;
+   register int i, j;
 
    *qb_pos = -1;
-   do
+   for (i = 0; i < *no_msg_queued; i++)
    {
-      pos = -1;
-      for (i = j; i < *no_msg_cached; i++)
+      if (qb[i].pid == PENDING)
       {
-         if (fsa_pos == mdb[i].fsa_pos)
+         if (qb[i].msg_name[0] != '\0')
          {
-            pos = i;
-            break;
+            for (j = 0; j < *no_msg_cached; j++)
+            {
+               if ((fsa_pos == mdb[j].fsa_pos) && (qb[i].pos == j))
+               {
+                  *qb_pos = i;
+                  return;
+               }
+            }
          }
-      }
-      if ((pos == -1) && (j == 0))
-      {
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "No message cached for FSA position %d. (%s %d)\n",
-                   fsa_pos, __FILE__, __LINE__);
-         return;
-      }
-      j = i + 1;
-
-      for (i = 0; i < *no_msg_queued; i++)
-      {
-         if ((qb[i].pos == pos) && (qb[i].pid == PENDING))
+         else
          {
-            if ((msg_number == 0.0) || (msg_number > qb[i].msg_number))
+            if (fsa_pos == fra[qb[i].pos].fsa_pos)
             {
                *qb_pos = i;
-               msg_number = qb[i].msg_number;
+               return;
             }
-            break;
          }
       }
-   } while (j < *no_msg_cached);
-
-   if (*qb_pos == -1)
-   {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "No message for %s in queue that is PENDING. (%s %d)\n",
-                fsa[fsa_pos].host_dsp_name, __FILE__, __LINE__);
    }
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "No message for %s in queue that is PENDING. (%s %d)\n",
+             fsa[fsa_pos].host_dsp_name, __FILE__, __LINE__);
 
    return;
 }
@@ -2227,13 +2384,23 @@ get_afd_config_value(void)
    {
       char value[MAX_INT_LENGTH];
 
-      if (get_definition(buffer, MAX_CONNECTIONS_DEF, value, MAX_INT_LENGTH) != NULL)
+      if (get_definition(buffer, MAX_CONNECTIONS_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
       {
          max_connections = atoi(value);
          if ((max_connections < 1) ||
              (max_connections > MAX_CONFIGURABLE_CONNECTIONS))
          {
             max_connections = MAX_DEFAULT_CONNECTIONS;
+         }
+      }
+      if (get_definition(buffer, REMOTE_FILE_CHECK_INTERVAL_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         remote_file_check_interval = atoi(value);
+         if (remote_file_check_interval < 1)
+         {
+            remote_file_check_interval = DEFAULT_REMOTE_FILE_CHECK_INTERVAL;
          }
       }
       free(buffer);
@@ -2331,12 +2498,28 @@ get_new_positions(void)
    {
       if (connection[i].pid > 0)
       {
-         if ((connection[i].position = get_position(fsa, connection[i].hostname, no_of_hosts)) < 0)
+         if ((connection[i].fsa_pos = get_host_position(fsa,
+                                                        connection[i].hostname,
+                                                        no_of_hosts)) < 0)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "Hmm. Failed to locate host %s for connection %d [pid = %d] has been removed. Writing data to end of FSA 8-( (%s %d)\n",
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Hmm. Failed to locate host <%s> for connection job %d [pid = %d] has been removed. Writing data to end of FSA 8-( (%s %d)\n",
                       connection[i].hostname, i, connection[i].pid,
                       __FILE__, __LINE__);
-            connection[i].position = no_of_hosts;
+            connection[i].fsa_pos = no_of_hosts;
+         }
+         if (connection[i].msg_name[0] == '\0')
+         {
+            if ((connection[i].fra_pos = get_dir_position(fra,
+                                                          connection[i].dir_alias,
+                                                          no_of_dirs)) < 0)
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "Hmm. Failed to locate dir_alias %s for connection job %d [pid = %d] has been removed. Writing data to end of FRA 8-( (%s %d)\n",
+                         connection[i].dir_alias, i, connection[i].pid,
+                         __FILE__, __LINE__);
+               connection[i].fra_pos = no_of_dirs;
+            }
          }
       }
    }
@@ -2353,11 +2536,11 @@ fd_exit(void)
    struct stat  stat_buf;
 
    /* Kill any job still active with a normal kill (2)! */
-   for (i = 0; i < *no_msg_queued; i++)
+   for (i = 0; i < max_connections; i++)
    {
-      if (qb[i].pid > 0)
+      if (connection[i].pid > 0)
       {
-         if (kill(qb[i].pid, SIGINT) == -1)
+         if (kill(connection[i].pid, SIGINT) == -1)
          {
             if (errno != ESRCH)
             {
@@ -2369,74 +2552,23 @@ fd_exit(void)
          }
       }
    }
-   for (i = 0; i < *no_msg_queued; i++)
-   {
-      if (qb[i].pid > 0)
-      {
-         char faulty;
-
-         if ((faulty = zombie_check(i, WNOHANG)) == YES)
-         {
-            qb[i].pid = PENDING;
-            if (fsa[mdb[qb[i].pos].fsa_pos].error_counter == 1)
-            {
-               int j;
-
-               /* Move all jobs from this host to the error directory. */
-               for (j = 0; j < *no_msg_queued; j++)
-               {
-                  if ((qb[j].in_error_dir != YES) &&
-                      (qb[j].pid == PENDING) &&
-                      (mdb[qb[j].pos].fsa_pos == mdb[qb[i].pos].fsa_pos))
-                  {
-                     to_error_dir(j);
-                  }
-               }
-            }
-         }
-         else if (faulty == NO)
-              {
-                 remove_msg(i);
-                 if (i < *no_msg_queued)
-                 {
-                    i--;
-                 }
-              }
-         else if (faulty == NONE)
-              {
-                 qb[i].pid = PENDING;
-              }
-      } /* if (qb[i].pid > 0) */
-   }
-
-   /* Kill any job still active with a kill -9! */
-   for (i = 0; i < p_afd_status->no_of_transfers; i++)
+   (void)sleep(1);
+   for (i = 0; i < max_connections; i++)
    {
       if (connection[i].pid > 0)
       {
-         int  qb_pos;
-         char faulty;
+         int faulty,
+             qb_pos;
 
-         if (kill(connection[i].pid, SIGKILL) == -1)
+         qb_pos_pid(connection[i].pid, &qb_pos);
+         if (qb_pos != -1)
          {
-            jobs_killed++;
-            if (errno != ESRCH)
+            if ((faulty = zombie_check(&connection[i], qb_pos, WNOHANG)) == YES)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to kill transfer job to %s (%d) : %s (%s %d)\n",
-                         connection[i].hostname, connection[i].pid,
-                         strerror(errno), __FILE__, __LINE__);
-            }
-         }
-         else
-         {
-            qb_pos_pid(connection[i].pid, &qb_pos);
-            if (qb_pos != -1)
-            {
-               if ((faulty = zombie_check(qb_pos, 0)) == YES)
+               qb[qb_pos].pid = PENDING;
+               if (qb[qb_pos].msg_name[0] != '\0')
                {
-                  qb[qb_pos].pid = PENDING;
-                  if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
+                  if (fsa[connection[i].fsa_pos].error_counter == 1)
                   {
                      int j;
 
@@ -2452,6 +2584,65 @@ fd_exit(void)
                      }
                   }
                }
+            }
+            else if (faulty == NO)
+                 {
+                    remove_msg(qb_pos);
+                 }
+            else if (faulty == NONE)
+                 {
+                    qb[qb_pos].pid = PENDING;
+                 }
+         }
+      } /* if (connection[i].pid > 0) */
+   }
+
+   /* Kill any job still active with a kill -9! */
+   for (i = 0; i < max_connections; i++)
+   {
+      if (connection[i].pid > 0)
+      {
+         if (kill(connection[i].pid, SIGKILL) == -1)
+         {
+            if (errno != ESRCH)
+            {
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "Failed to kill transfer job to %s (%d) : %s (%s %d)\n",
+                         connection[i].hostname, connection[i].pid,
+                         strerror(errno), __FILE__, __LINE__);
+            }
+         }
+         else
+         {
+            int faulty,
+                qb_pos;
+
+            jobs_killed++;
+            qb_pos_pid(connection[i].pid, &qb_pos);
+            if (qb_pos != -1)
+            {
+               if ((faulty = zombie_check(&connection[i], qb_pos, 0)) == YES)
+               {
+                  qb[qb_pos].pid = PENDING;
+                  if (qb[qb_pos].msg_name[0] != '\0')
+                  {
+                     if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
+                     {
+                        int j;
+
+                        /* Move all jobs from this host to the error directory. */
+                        for (j = 0; j < *no_msg_queued; j++)
+                        {
+                           if ((qb[j].in_error_dir != YES) &&
+                               (qb[j].pid == PENDING) &&
+                               (mdb[qb[j].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                           {
+                              to_error_dir(j);
+                           }
+                        }
+                     }
+                  }
+               }
                else if (faulty == NO)
                     {
                        remove_msg(qb_pos);
@@ -2461,7 +2652,6 @@ fd_exit(void)
                        qb[qb_pos].pid = PENDING;
                     }
             }
-            i--;
          }
       }
    }
@@ -2526,6 +2716,7 @@ fd_exit(void)
                 strerror(errno), __FILE__, __LINE__);
    }
 
+   /* Free all memory that we allocated. */
    if (connection != NULL)
    {
       free(connection);

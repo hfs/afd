@@ -97,18 +97,155 @@ main(int argc, char *argv[])
 #ifdef _DELETE_LOG
    (void)fprintf(stdout, "delete_log           : %d\n", p_afd_status->delete_log);
 #endif
-   (void)fprintf(stdout, "Syslog entry counter : %d\n", p_afd_status->sys_log_ec);
-   (void)fprintf(stdout, "Syslog indicator     : %d", p_afd_status->sys_log_fifo[0]);
-   for (i = 1; i < LOG_FIFO_SIZE; i++)
+   (void)fprintf(stdout, "Receivelog indicator : %u <",
+                 p_afd_status->receive_log_ec);
+   for (i = 0; i < LOG_FIFO_SIZE; i++)
    {
-      (void)fprintf(stdout, ", %d", p_afd_status->sys_log_fifo[i]);
+      switch (p_afd_status->receive_log_fifo[i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
+   }
+   (void)fprintf(stdout, " >\n");
+   (void)fprintf(stdout, "Receive log history  :");
+   for (i = 0; i < MAX_LOG_HISTORY; i++)
+   {
+      switch (p_afd_status->receive_log_history[i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
    }
    (void)fprintf(stdout, "\n");
-   (void)fprintf(stdout, "Trans entry counter  : %d\n", p_afd_status->trans_log_ec);
-   (void)fprintf(stdout, "Translog indicator   : %d", p_afd_status->trans_log_fifo[0]);
-   for (i = 1; i < LOG_FIFO_SIZE; i++)
+   (void)fprintf(stdout, "Syslog indicator     : %u <",
+                 p_afd_status->sys_log_ec);
+   for (i = 0; i < LOG_FIFO_SIZE; i++)
    {
-      (void)fprintf(stdout, ", %d", p_afd_status->trans_log_fifo[i]);
+      switch (p_afd_status->sys_log_fifo[i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+         case CONFIG_ID :
+            (void)fprintf(stdout, " C");
+            break;
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
+   }
+   (void)fprintf(stdout, " >\n");
+   (void)fprintf(stdout, "System log history   :");
+   for (i = 0; i < MAX_LOG_HISTORY; i++)
+   {
+      switch (p_afd_status->sys_log_history[i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+         case CONFIG_ID :
+            (void)fprintf(stdout, " C");
+            break;
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
+   }
+   (void)fprintf(stdout, "\n");
+   (void)fprintf(stdout, "Translog indicator   : %u <",
+                 p_afd_status->trans_log_ec);
+   for (i = 0; i < LOG_FIFO_SIZE; i++)
+   {
+      switch (p_afd_status->trans_log_fifo[i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
+   }
+   (void)fprintf(stdout, " >\n");
+   (void)fprintf(stdout, "Transfer log history :");
+   for (i = 0; i < MAX_LOG_HISTORY; i++)
+   {
+      switch (p_afd_status->trans_log_history[i])
+      {
+         case INFO_ID :
+            (void)fprintf(stdout, " I");
+            break;
+
+         case ERROR_ID :
+            (void)fprintf(stdout, " E");
+            break;
+
+         case WARNING_ID :
+            (void)fprintf(stdout, " W");
+            break;
+
+         case FAULTY_ID :
+            (void)fprintf(stdout, " F");
+            break;
+
+         default :
+            (void)fprintf(stdout, " ?");
+            break;
+      }
    }
    (void)fprintf(stdout, "\n");
    (void)fprintf(stdout, "Number of transfers  : %d\n", p_afd_status->no_of_transfers);

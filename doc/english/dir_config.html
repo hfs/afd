@@ -1,0 +1,1349 @@
+<html>
+<head>
+<title>DIR_CONFIG (dir_config.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="dir_config">The DIR_CONFIG file</a></h1>
+<hr size=3 noshade>
+<p>
+The AMG expects a configuration file $AFD_HOME_DIR/etc/DIR_CONFIG,
+which should conform to the following rules. All entries are grouped
+in sections, a section begins with the line [section name] and
+continues until the next section starts. Supported sections names
+and the corresponding entries are listed below and must be set in
+this order:
+</p>
+<p>
+Comments start with # and may be placed anywhere except directly
+behind the files and destination identifiers.
+</p>
+<h3 align=center><u><a name="directory_entry">The directory entry [directory]</a></u></h3>
+<p>
+The directory in which the AMG has to search for files which have to
+be send. Each directory must begin with / or a ~ and this directory must
+exists or the AMG must have read and write access so it can create the
+directory recursively. Otherwise it ignores the complete entry for this
+directory. The number of directory entries in the DIR_CONFIG is unlimited.
+However duplicate directory entries will be ignored. If you wish to
+give the directory an alias name you can do so by putting the name
+directly behind the directory entry: [directory] &lt;dir alias&gt;.
+These directories must be located on the host where AFD is running or
+must be mounted via NFS. AMG is also able to fetch files from
+a remote host, currently only FTP is supported to fetch files. The
+directory must then be specified in URL format as shown below:
+</p>
+<p>
+<code>&lt;scheme&gt;://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;:&lt;port&gt;/&lt;url-path&gt;[;type=&lt;i|a|d&gt;]</code>
+</p>
+<p>
+The items are separated by special characters :, /, @ and ;. If these
+characters appear within one of the items, they must be masked with a
+\. As mentioned earlier, the only scheme supported is ftp.
+</p>
+<p>
+NOTE: The option [directory] must always start at the begining of a line.
+There may not be any tabs or spaces in front.
+</p>
+<h3 align=center><u><a name="directory_options">The directory options [dir options]</a></u></h3>
+<p>
+With the options in the table below, it is possible to specify what
+the AFD should for example do with files that are in the directory but
+are not being distributed, how files are to be retrieved from a remote
+hosts, etc. A full list of options for this optional section and the
+defaults is shown in the table below:
+</p>
+<center><table border>
+<tr>
+   <th>Option</th>
+   <th>Description</th>
+   <th>Local Dir</th>
+   <th>Remote Dir</th>
+   <th>Default</th>
+</tr>
+<tr>
+   <td>delete unknown files [time in hours]</td>
+   <td>Delete all files that are older then the number of hours
+       specified with the &lt;old file time&gt; option and are
+       not to be distributed. If the optional time in hours is specified
+       it will override the value given in "old file time".</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>do not delete unknown files</td>
+   <td>The opposite of the above option.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>X</td>
+</tr>
+<tr>
+   <td>delete queued files [time in hours]</td>
+   <td>Delete all files queued on input that are older then the
+       number of hours specified with the &lt;old file time&gt; option
+       and are to be distributed. If the optional time in hours is specified
+       it will override the value given in "old file time".</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>report unknown files</td>
+   <td>Any files found in this directory that are not being
+       distributed and are older then the number of hours specified
+       in the &lt;old file time&gt; option will be reported in the
+       system log.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>X</td>
+</tr>
+<tr>
+   <td>do not report unknown files</td>
+   <td>The opposite of the above option.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>old file time &lt;value in hours&gt;</td>
+   <td>The age of a file in hours before a file is being reported
+       in the system log or being deleted.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>24</td>
+</tr>
+<tr>
+   <td>end character &lt;decimal number&gt;</td>
+   <td>Sometimes some application may not be able to send files with
+       a leading dot and then rename these files after they have send all
+       data. With this option AFD will wait until the character specified
+       with &lt;decimal number&gt; will appear a the last character in the
+       file before it will grab the file.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>important dir</td>
+   <td>This marks the directory as important. This is useful when you
+       have lots of directories that are to be monitored by the AMG
+       and/or you have only a slow disk. The process dir_check will now
+       check all important directories every DIR_CHECK_TIMEOUT
+       (default: 30) second. This ensures that the important
+       directories will at least be checked every DIR_CHECK_TIMEOUT
+       second and not until all directories have been checked, which
+       could take very long.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>time &lt;min hour dom month dow&gt;</td>
+   <td>With this option it is possible at what interval the directory
+       is to be scanned.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>do not remove</td>
+   <td>By default when AMG will remove all files that it finds in
+       the directory being scanned. With this option set it will NOT
+       remove these files.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td><a name="store_remote_list">store remote list</a></td>
+   <td>When the above option &lt;do not remove&gt; is set, it can
+       happen that always the same files are being collected by the
+       AMG. To avoid this situation this option can be set. Then AMG
+       will keep a list of files and their modification time and there
+       size of all files found during the last scan. So only when a
+       file has changed will it be retrieved by the AMG.</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>priority &lt;value&gt;</td>
+   <td>With this you can give the directory a priority. This option
+       is only useful for remote directories, ie. from where the
+       files have to be retrieved. 0 is the highest priority and 9 is
+       the lowest.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>9</td>
+</tr>
+<tr>
+   <td>force reread</td>
+   <td>Before AFD scans the directory for files it checks if the
+       time has changed since the last scan. With this options sets
+       it will always read the directory. This can be useful for
+       some broken filesystems that do not update this information
+       correctly. Needless to say that this will create a higher
+       system load.</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td>max process &lt;value&gt;</td>
+   <td>Here you may limit the number of process that the AMG may
+       fork to handle files for this directory. AMG will only fork
+       a process when using the exec option, or some other option
+       that can use a lot of time to process.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>10</td>
+</tr>
+</table></center>
+<h3 align=center><u><a name="files_entry">The files entry [files]</a></u></h3>
+<p>
+In this section it possible which files are to be distributed from the
+directory specified in the directory section. Each file name may
+contain the wild cards '*' and/or '?' in any order. If the file entry
+starts with a '!' it means NOT this file. It is important to put these
+entries first otherwise the '!' option is meaningless. The buffer for
+storing the file names of this section has a fixed size of 4096
+(MAX_FILE_MASK_BUFFER) bytes. As many file names as will fit into this
+buffer can be stored here, each separated by an extra character. The
+number of file groups is unlimited.
+</p>
+<h3 align=center><u><a name="destination">The destination entry [destination]</a></u></h3>
+<p>
+This marks the beginning of the destination section which contains
+one recipient and one options section. There is no limit in the number
+of destination entries per files section.
+</p>
+<h3 align=center><u><a name="recipient">The recipient entry [recipient]</a></u></h3>
+<p>
+In the recipient section you specify the user name, password,
+remote host and remote directory in the following URL format:
+</p>
+<p>
+<code>&lt;scheme&gt;://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;:&lt;port&gt;/&lt;url-path&gt;[;type=&lt;i|a|d&gt;][;server=&lt;server name&gt;]</code>
+</p>
+<p>
+The items are separated by special characters :, /, @ and ;. If these
+characters appear within one of the items, they must be masked with a
+\.
+</p>
+<p>
+It is not necessary to specify the real hostname or IP number for host.
+In fact it might be much more user friendly to use an alias name here,
+since this will be the name displayed in the afd_ctrl dialog.
+This alias name is then resolved via the <a href="host_config.html">
+HOST_CONFIG</a> file. However, the host must always be supplied.
+</p>
+<p>
+The server= option is only useful for the mailto scheme. With this option
+it is possible to set the mailserver address. If it is not set the default
+is localhost (SMTP_HOST_NAME in protocols/smtpdefs.h). If it is set this
+will be the hostname that AFD will take as alias/real hostname.
+</p>
+<p>
+Another useful feature for the mailto scheme is the possibility to
+group several mail addresses into one group. Under recipient it is then
+only necessary to specify one group name and not each recipient each
+on a separate line. This can be done as follows:
+</p>
+<pre>
+         [recipient]
+	 mailto://$hotels@HOTELS
+</pre>
+<p>
+You then need to create a file in $AFD_WORK_DIR/etc/group.list with a
+list of mail addresses as shown in the following example:
+</p>
+<pre>
+         [hotels]
+	 manager1@hotel1.com
+	 manager2@hotel2.com
+	 manager3@hotel3.com
+	 manager4@hotel4.com
+</pre>
+<p>
+In this case it is also possible to just write mailto://$hotels. In
+the afd_ctrl dialog it will then appear as hotels. The group name
+may not be longer then 8 characters.
+</p>
+<p>
+There are currently five schemes supported:
+</p>
+<table border>
+<tr>
+   <th>Scheme</th>
+   <th>Description</th>
+   <th>Example</th>
+</tr>
+<tr>
+   <td>ftp</td>
+   <td>Normal FTP transfers.</td>
+   <td>ftp://donald:secret@ducktown/directory</td>
+</tr>
+<tr>
+   <td>mailto</td>
+   <td>Sending files via SMTP.</td>
+   <td>mailto://daisy@ducktown</td>
+</tr>
+<tr>
+   <td>file</td>
+   <td>Copies files to another directory.</td>
+   <td>file://@local/directory</td>
+</tr>
+<tr>
+   <td>wmo</td>
+   <td>Sends files via TCP according to WMO regulations at port 1111.</td>
+   <td>wmo://@wmo-host:1111</td>
+</tr>
+<tr>
+   <td>scp1</td>
+   <td>Sends files via SSH using the SCP1 protocol.</td>
+   <td>scp1://donald:secret@ducktown/directory</td>
+</tr>
+</table>
+<p>
+Each recipient section may have an unlimited number of recipients and
+each may not be longer then 256 (MAX_RECIPIENT_LENGTH) characters.
+</p>
+<p>
+The type option allows three different types of transfer modes
+</p>
+<pre>
+        a - ASCII
+        i - Image (binary)
+        d - DOS Image (same as i accept that all CR are converted to CRLF)
+</pre>
+<h3 align=center><u><a name="options">The options entry [options]</a></u></h3>
+<p>
+For each destination section you may specify one options section and
+may contain up to 10 (MAX_NO_OPTIONS) options each 256
+(MAX_OPTION_LENGTH) characters long. All options specified
+here count for all recipients that are specified in the recipient
+section. Valid options can be taken from the following table:
+</p>
+<table border>
+<tr>
+   <th>Option name</th>
+   <th>Description</th>
+   <th>AMG</th>
+   <th>ftp</th>
+   <th>mailto</th>
+   <th>file</th>
+   <th>wmo</th>
+   <th>scp</th>
+</tr>
+<tr>
+   <td>priority x</td>
+   <td>The priority of this job. Valid entries for x are 0-9, 0 is
+       the highest priority and 9 is the lowest. (default 9)</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+</tr>
+<tr>
+   <td>delete</td>
+   <td>Deletes all files.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="time">time &lt;min hour dom month dow&gt;</a></td>
+   <td><p>
+       This option allows to enter cron like time jobs in the AFD.
+       The five time and date fields in the time option specify when
+       files are to be distributed, that is when the minute, hour,
+       and month of year fields match the current time, and when
+       at least one of the two day fields (day of month, or day
+       of  week) match the current time. The time and date fields
+       are as follows:
+       </p>
+       <center>
+       <table border>
+       <tr>
+          <th>time and date fields</th>
+          <td><center>minute</center></td>
+          <td><center>hour</center></td>
+          <td><center>day of month</center></td>
+          <td><center>month</center></td>
+          <td><center>day of week</center></td>
+       </tr>
+       <tr>
+          <th>allowed values</th>
+          <td><center>0-59</center></td>
+          <td><center>0-23</center></td>
+          <td><center>1-31</center></td>
+          <td><center>1-12</center></td>
+          <td><center>1-7</center></td>
+       </tr>
+       </table>
+       </center>
+       <p>
+       In the &lt;day of week&gt; field 1 is Monday and 7 is Sunday.
+       </p>
+       <p>
+       A field may be an asterisk, which always stands for all values
+       in this field.
+       </p>
+       <p>
+       Ranges of numbers are allowed. The ranges consist of two numbers
+       and a hyphen. There may not be any blanks! The specified range
+       is inclusive. Example: "19-22"
+       </p>
+       <p>
+       Its also possible to list a set of numbers or even ranges.
+       Examples: "1,2,4,15", "4-8,18-20"
+       </p>
+       <p>
+       Step sizes can be used after an asterisk. So to specify every
+       five minutes, just use "*/5". They can also be used in combination
+       with a range. For example, "0-30/5" would equal "0,5,10,15,20,25,30".
+       </p>
+   </td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>time no collect &lt;min hour dom month dow&gt;</td>
+   <td>This option is the same as the above time option only that no files
+       will be collected (these will be deleted) outside the given time
+       frames.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>basename</td>
+   <td>Sends only the basename of the file. For example if you have the
+       following file name xxxx.yyyy.zzzz, it will rename the file on the
+       remote site to xxxx. NOTE: You may overwrite files when they have
+       the same name.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>extension</td>
+   <td>Removes only the extension from the file name. Taking the example
+       file name from above, the file name on the remote site would be
+       xxxx.yyyy</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>prefix add xx</td>
+   <td>Adds a prefix to the file name.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>prefix del xx</td>
+   <td>Remove a prefix from the file name. If  the AMG does not find this
+       prefix, this option is ignored.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>toupper</td>
+   <td>Convert all letters of the file name to upper case.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>tolower</td>
+   <td>Convert all letters of the file name to lower case.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="rename">rename &lt;rule&gt; [overwrite]</a></td>
+   <td>Rename files as defined in the 'rule'-section of the 
+       <a href="rename_rules.html">etc/rename.rule</a> file. If the
+       overwrite option is NOT set, multiple files with the same
+       name will not be overwritten. This is done by appending a
+       ; and a number to the file name that is renamed.
+   </td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="trans_rename">trans_rename &lt;rule&gt;</a></td>
+   <td>Rename files on the remote site after the files have been transmitted,
+       as defined in the 'rule'-section of the
+       <a href="rename_rules.html">etc/rename.rule</a> file. This renaming
+       may include directory names, however the directories must exist on
+       the remote site.
+   </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="force_copy">force copy</a></td>
+   <td>Force files to be copied and not linked nor memory mapped
+       (Good for copying files to /dev/null).
+   </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>chmod mode</td>
+   <td>Changes the permission of each file distributed. Only a numeric
+       mode from one to four octal digits (0-7) is accepted. The first
+       digit selects the set user ID (4), set group ID (2) or the save
+       text image (1) attributes. The second digit selects permissions
+       for the user who owns the file: read (4), write (2) and/or execute
+       (1). The third selects permissions for other users in the files
+       group. The fourth digit is for all other users (world).
+   </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>chown [user][:.][group]</td>
+   <td>Changes the user and/or group ownership of files. If only a user
+       name (or numeric user ID) is given, that user is made the owner of
+       each given file, and the files group is not changed. If the user
+       name is followed by a colon or dot and a group name (or numeric
+       group ID), with no spaces between them, the group ownership of
+       the files is changed as well.
+   </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>tiff2gts</td>
+   <td>Converts T4-coded TIFF files to T4-files having a GTS header and end.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>gts2tiff</td>
+   <td>Converts T4-GTS files to TIFF-files.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>grib2wmo [CCCC]</td>
+   <td>Converts GRIB to WMO files with "TTAAii CCCC YYGGgg" headers,
+       SOH and ETX at start and end and 10 Byte ASCII length and
+       type indicator. You can optionally supply the CCCC if you
+       do whish to overrule the one from the GRIB.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>wmo2ascii</td>
+   <td>wmo2ascii will remove SOH, ETX and the two carriage returns from the
+       given WMO file. It will convert the following text from:
+       <pre>
+          &lt;SOH&gt;&lt;CR&gt;&lt;CR&gt;&lt;LF&gt;nnn&lt;CR&gt;&lt;CR&gt;&lt;LF&gt;
+          WMO header&lt;CR&gt;&lt;CR&gt;&lt;LF&gt;WMO message&lt;CR&gt;&lt;CR&gt;&lt;LF&gt;&lt;ETX&gt;
+       </pre>
+       to
+       <pre>
+          WMO header&lt;LF&gt;WMO message&lt;LF&gt;
+       </pre>
+       in addition &lt;CR&gt;&lt;CR&gt;&lt;LF&gt; will be changed to
+       &lt;LF&gt;. The file name will not be changed.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>assemble &lt;type&gt; &lt;file name&gt;</td>
+   <td>This options assembles all files to a single file. The original
+       files will be deleted. To help extraction of the files a length
+       indicator may be inserted. The following types can be assembled:
+      <table>
+      <tr>
+         <td><b>VAX</b></td>
+         <td>Two byte length indicator.</td>
+      </tr>
+      <tr>
+         <td><b>LBF</b></td>
+         <td>Four byte length indicator with low byte first.</td>
+      </tr>
+      <tr>
+         <td><b>HBF</b></td>
+         <td>Four byte length indicator with high byte first.</td>
+      </tr>
+      <tr>
+         <td><b>MSS</b></td>
+         <td>Four byte length indicator MSS standard.</td>
+      </tr>
+      <tr>
+         <td><b>WMO</b></td>
+         <td>Eight byte ASCII length indicator plus two byte type
+             indicator (00 - with SOH and ETX, 01 - no SOH and ETX) .
+	     This is the current WMO standard.</td>
+      </tr>
+      <tr>
+         <td><b>ASCII</b></td>
+         <td>No length indicator. The data of the next file is always
+             appended, no matter if it contains binary or ascii data.</td>
+      </tr>
+      </table>
+      The &lt;file name&gt; may contain a %n to insert a unique
+      number four characters long and/or with the help of %tx insert
+      the actual time, where character x may be one of the following:
+      <pre>
+         a - short day "Tue",           A - long day "Tuesday",
+         b - short month "Jan",         B - long month "January",
+         d - day of month [01,31],      m - month [01,12],
+         j - day of the year [001,366], y - year [01,99],
+         Y - year 1997,                 H - hour [00,23],
+         M - minute [00,59],            S - second [00,60]
+         U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
+      </pre>
+      If no file name is specified the default will be no_file_name.
+   </td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr> 
+   <td>convert &lt;type&gt;</td>
+   <td>This options converts all files fom one format into another. The
+       original file will be overwritten with the new one. The following
+       types can be converted:
+      <table>
+      <tr>
+         <td><b>sohetx2wmo0</b></td>
+         <td>converts a file that contains many ascii bulletins starting
+             with SOH and ending with ETX to the WMO standart (8 byte ascii
+             length and 2 bytes type indicators). The SOH and ETX will be
+             copied to the new file.</td>
+      </tr>                                                                
+      <tr>
+         <td><b>sohetx2wmo1</b></td>
+         <td>Same as sohetx2wmo0 only that the SOH and ETX will NOT be
+             copied to the new file.</td>
+      </tr>                                                           
+      </table>
+   </td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>extract &lt;type&gt;</td>
+   <td>This options extracts files with WMO bulletins into one file
+       per bulletin. To indicate the length of the bulletin there is
+       either a two or four byte length indicator at the beginning of
+       the following format:
+   <table>
+   <tr>
+      <td><b>VAX</b></td>
+      <td>Two byte length indicator.</td>
+   </tr>
+   <tr>
+      <td><b>LBF</b></td>
+      <td>Four byte length indicator with low byte first.</td>
+   </tr>
+   <tr>
+      <td><b>HBF</b></td>
+      <td>Four byte length indicator with high byte first.</td>
+   </tr>
+   <tr>
+      <td><b>MSS</b></td>
+      <td>Four byte length indicator MSS standard.</td>
+   </tr>
+   <tr>
+      <td><b>WMO</b></td>
+      <td>Eight byte ASCII length indicator plus two byte type
+          indicator. This is the current WMO standard.</td>
+   </tr>
+   <tr>
+      <td><b>MRZ</b></td>
+      <td>Special four byte length indicator used in the DWD.</td>
+   </tr>
+   <tr>
+      <td><b>GRIB</b></td>
+      <td>Standard GRIB, however since there are so many different
+          GRIB types and limited namespace for WMO header, many
+	  GRIB's will overwrite each other.</td>
+   </tr>
+   </table>
+   The file name of the new file will always be the WMO-header, that is:
+   TTAAii_CCCC_YYGGgg[_BBB]</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>exec &lt;command&gt;</td>
+   <td>Executes a command specified in &lt;command&gt; for each file to be
+       distributed. The file name can be supplied with %s. There may be up
+       to 10 places in the command where you can insert the file name.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>execd &lt;command&gt;</td>
+   <td>Same as the exec option above, but deletes the original file
+       after executing the command.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>execD &lt;command&gt;</td>
+   <td>Again this is similar to the exec option and differs in that
+       when an error occurs during execution that all files will be
+       deleted. This only works if no %s is found in the command string,
+       otherwise it will behave just like the exec option.</td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>pexec &lt;command&gt;</td>
+   <td>Executes a command specified in &lt;command&gt; for each file after
+       it was distributed. The file name can be supplied with %s. There may
+       be up to 10 places in the command where you can insert the file name.
+       The files stored in the archive will NOT be effected by this option.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+</tr>
+<tr>
+   <td>lock</td>
+   <td><table>
+   <tr>
+      <td><b>DOT</b></td>
+      <td>When transmitting file "xxxx.yyyy" it creates the file on the remote
+          site as ".xxxx.yyyy". When the file has been completely transmitted
+          it is renamed to its original name. This ensures that the remote user
+          can read the file when it is complete.</td>
+   </tr>
+   <tr>
+      <td><b>DOT_VMS</b></td>
+      <td>When transmitting file "xxxx.yyyy" it creates the file on the remote
+          site as ".xxxx.yyyy". After transmission this file is renamed to
+          "xxxx.yyyy.". This ensures that the remote user can read the file
+          when the transfer is complete.</td>
+   </tr>
+   <tr>
+      <td><b>OFF</b></td>
+      <td>No locking on the remote site.</td>
+   </tr>
+   <tr>
+      <td><b>LOCKFILE</b></td>
+      <td>Before starting transmission of the actual data files, the lock
+          file "CONNECTED______.LCK" is send. When all files have been send
+          successful this file is removed again.</td>
+   </tr>
+   <tr>
+      <td><b>xyz.</b></td>
+      <td>When transmitting file "xxxx.yyyy" it creates the file on the
+          remote site as "xyz.xxxx.yyyy". This ensures that the remote user
+          can read the file when the transfer is complete.</td>
+   </tr>
+   </table>
+   If this option is not set the default is lock DOT.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>lockp .zz</td>
+   <td>When transmitting file "xxxx.yyyy" it creates the file on the
+       remote site as "xxxx.yyyy.zz". This ensures that the remote user
+       can read the file when the transfer is complete.</td>        
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>archive x</td>
+   <td>Tells the AFD to archive files to this user for x days (default 0).</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+</tr>
+<tr>
+   <td><a name="age-limit">age-limit x</a></td>
+   <td>Files older then x seconds will not get send. They will be removed.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+</tr>
+<tr>
+   <td><a name="no_log_output">no log output</a></td>
+   <td>When set each file name distributed will NOT be logged.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+</tr>
+<tr>
+   <td><a name="file_name_is_subject">file name is subject</a></td>
+   <td>The subject of the mail is the file name. This can only be used
+       when sending mails.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="file_name_is_user">file name is user [rename rule]</a></td>
+   <td>The user name of the mail is the file name. This can only be used
+       when sending mails. The optional rename rule allows to filter or
+       create the user name from the file name. For a detailed description
+       of the renaming procedure see <a href="rename_rules.html">rename rule</a>.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="mail_header">mail header [full path to mail header file]</a></td>
+   <td>Is used to insert some default information at the top of the
+       main body of the mail. If the option is used without the optional
+       mail header file, it will take the file MAIL-host_alias in the
+       etc directory as the header file.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="attach_file">attach file [rename rule]</a></td>
+   <td>With this option it is possible to attach files to a mail.
+       Each file will be attached to a separate mail (one file
+       per mail).  The encoding will be done in BASE64 according to
+       <a href="../txt/rfc1521.txt">RFC 1521</a>. If a rename
+       rule is specified the filename will be renamed in the
+       attachment.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="attach_all_files">attach all files [rename rule]</a></td>
+   <td>With this option it is possible to attach files to a mail.
+       If more than one file is available they will all be
+       attached to ONE mail. The encoding will be done in BASE64
+       according to <a href="../txt/rfc1521.txt">RFC 1521</a>. If
+       a rename rule is specified the filename will be renamed in the
+       attachment.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="subject_file">subject &lt;full path to subject file&gt;</a></td>
+   <td>Adds the subject in the &lt;subject file&gt; to the mail. It
+       is possible to insert the current date, for more details see the
+       next option.
+       </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="subject_line">subject "xxx"</a></td>
+   <td>Adds the line xxx after the subject identifier to the mails subject.
+       It is possible to insert the current date in any form with %tx
+       where character x determines the time format which can be one of
+       the following:<br>
+       <pre>
+            a - short day "Tue",           A - long day "Tuesday",
+            b - short month "Jan",         B - long month "January",
+            d - day of month [01,31],      m - month [01,12],
+            j - day of the year [001,366], y - year [01,99],
+            Y - year 1997,                 H - hour [00,23],
+            M - minute [00,59],            S - second [00,60]
+            U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
+       </pre>
+       </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="reply-to">reply-to &lt;mail address&gt;</a></td>
+   <td>This adds Reply-To: header to a mail with another mail address
+       to which the recipient should reply.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="charset">charset &lt;character set&gt;</a></td>
+   <td>This adds a MIME header, sets the transfer encoding to 8bit and
+       specifies the character set. It does NOT check if the character
+       set specified is a valied one. Possible values could be:
+       <pre>
+          ISO-8859-1     --&gt; Latin 1; Western European Languages
+	  ISO-8859-2     --&gt; Latin 2; Slavic/Central European Languages
+	  ISO-8859-3     --&gt; Latin 3; Esperanto, Galician, Maltese, Turkish
+	  ISO-8859-4     --&gt; Latin 4; Estonian, Latvian, Lithuanian
+	  ISO-8859-5     --&gt; Cyrillic
+	  ISO-8859-6     --&gt; Arabic
+	  ISO-8859-7     --&gt; Modern Greek
+	  ISO-8859-8     --&gt; Hebrew
+	  ISO-8859-9     --&gt; Latin 5; Turkish
+	  ISO-8859-14    --&gt; Latin 8; Celtic
+	  ISO-8859-15    --&gt; Latin 9; Western European Languages with Euro
+       </pre>
+       </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="file_name_is_header">file name is header</a></td>
+   <td>The file name is send as WMO header. This can only be used when
+       sending files via TCP according to WMO regulations. The file
+       name must then be of the following format: TTAAii_CCCC_YYGGgg[_BBB].</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+</tr>
+<tr>
+   <td><a name="sequence_numbering">sequence numbering</a></td>
+   <td>Puts in a three digit sequence number into the WMO header.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="check_reply">check reply</a></td>
+   <td>According to the WMO protocol messages are send as a continuous
+       stream without any form of handshaking. When this option is set
+       AFD waits for an acknowledge for each message its sends. The
+       acknowledge consists of the following 10 characters: 00000000AK
+       for a positive acknowledge or 00000000NA for a negative acknowledge.
+   </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>mode &lt;active | passive&gt;</td>
+   <td>There two ways to communicate with another FTP server, either
+       active or passive. Active mode is the more common one while
+       passive is more secure. If no mode is specified the default will
+       be active. NOTE: It's much better to use the
+       <a href="host_config.html#special_flag">HOST_CONFIG</a> to set
+       active or passive mode.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>site &lt;command&gt;</td>
+   <td>This option is used to execute the command after each file
+       is transmitted.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>file busy rename &lt;character&gt;</td>
+   <td>Appends the given character when we fail to open the remote file
+       due to some brocken FTP server that will not allow to open it
+       because a hanging child still has this file open.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>restart &lt;file&gt;</td>
+   <td>Append file on remote site. This option is for internal use only!</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><center><img src="../images/ex.gif" alt="[X]"></center></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+</table>
+<h3 align=center><u><a name="example1">Example 1</a></u></h3>
+<p>
+An example entry in the DIR_CONFIG file might look as follows:
+</p>
+<pre>
+      [directory]
+      /usr/data/tmp
+
+           [files]
+           abc*
+
+                [destination]
+
+                     [recipient]
+                     ftp://donald:secret@hollywood//home/user
+                     mailto://daisy@hollywood
+
+                     [options]
+                     archive 3
+                     lock DOT
+                     priority 1
+</pre>
+<p>
+The result of this entry would be that all files starting with abc in
+the directory /usr/data/tmp would be send to the user donald via FTP
+with the password secret at hollywood and there stored in the directory
+/home/user. They will also be send to daisy via SMTP. All files will be
+send with the priority 1 and will be archived for three days. The ftp
+files will be send with a dot first and only when a file is completely
+transmitted will it be renamed to its original name.
+</p>
+<h3 align=center><u><a name="example2">Example 2</a></u></h3>
+<p>
+In the following example we want different options when we send mails to
+daisy. For this we need to split the two recipients so that each have
+their own options as follows:
+</p>
+<pre>
+      [directory]
+      /usr/data/tmp
+
+           [files]
+           abc*
+
+                [destination]
+
+                     [recipient]
+                     ftp://donald:secret@hollywood//home/user
+
+                     [options]
+                     archive 3
+                     lock DOT
+                     priority 1
+
+                [destination]
+
+                     [recipient]
+                     mailto://daisy@hollywood
+
+                     [options]
+                     archive 3
+                     attach file
+                     priority 1
+</pre>
+<p>
+Now daisy gets the same files as in example 1 only this time the files
+are attached.
+</p>
+<h3 align=center><u><a name="example3">Example 3</a></u></h3>
+<p>
+If daisy should get more files we need to split up the above example
+another time:
+</p>
+<pre>
+      [directory]
+      /usr/data/tmp
+
+           [files]
+           abc*
+
+                [destination]
+
+                     [recipient]
+                     ftp://donald:secret@hollywood//home/user
+
+                     [options]
+                     archive 3
+                     lock DOT
+                     priority 1
+
+           [files]
+           abc*
+           def*
+           ghi*
+           jkl*
+
+                [destination]
+
+                     [recipient]
+                     mailto://daisy@hollywood
+
+                     [options]
+                     archive 3
+                     attach file
+                     priority 1
+</pre>
+<p>
+Daisy will now also get the additional files def*, ghi* and jkl*.
+</p>
+<h3 align=center><u><a name="example4">Example 4</a></u></h3>
+<p>
+The source directory for files can also be on another host. For this
+we just need to change the directory entry as follows:
+</p>
+<pre>
+      [directory]
+      ftp://micky:mouse@ducktown//usr/data/tmp
+
+           [files]
+           abc*
+
+                [destination]
+
+                     [recipient]
+                     ftp://donald:secret@hollywood//home/user
+                     mailto://daisy@hollywood
+
+                     [options]
+                     archive 3
+                     lock DOT
+                     priority 1
+</pre>
+<p>
+The result of this entry will be similar to the one in
+<a href="#example1">example 1</a>, only that in this example AFD will
+look every minute on the host ducktown in the directory /usr/data/tmp
+for the files.
+</p>
+<p>
+If we do not like AFD to delete the files on the remote we can tell
+it via the <a href="#directory_options">[dir options]</a> to not remove
+the files on the remote host:
+</p>
+<pre>
+      [directory]
+      ftp://micky:mouse@ducktown//usr/data/tmp
+
+           [dir options]
+	   do not remove
+
+           [files]
+           abc*
+
+                [destination]
+
+                     [recipient]
+                     ftp://donald:secret@hollywood//home/user
+                     mailto://daisy@hollywood
+
+                     [options]
+                     archive 3
+                     lock DOT
+                     priority 1
+</pre>
+<p>
+Now AFD will collect the same files every minute and send them to donald
+and daisy. If one does not wish to send the same files again one can
+add the following option:
+</p>
+<pre>
+      [directory]
+      ftp://micky:mouse@ducktown//usr/data/tmp
+
+           [dir options]
+	   do not remove
+	   store remote list
+
+           [files]
+           abc*
+
+                [destination]
+
+                     [recipient]
+                     ftp://donald:secret@hollywood//home/user
+                     mailto://daisy@hollywood
+
+                     [options]
+                     archive 3
+                     lock DOT
+                     priority 1
+</pre>
+<p>
+With the option <a href="#store_remote_list">store remote list</a> only
+new files or those where the date and/or size has changed will be
+collected. If one want's to increase the poll interval from 1 minute
+to 30 minutes, it needs to be done asfollows:
+</p>
+<pre>
+      [directory]
+      ftp://micky:mouse@ducktown//usr/data/tmp
+
+           [dir options]
+	   do not remove
+	   store remote list
+	   time */30 * * * *
+
+           [files]
+           abc*
+
+                [destination]
+
+                     [recipient]
+                     ftp://donald:secret@hollywood//home/user
+                     mailto://daisy@hollywood
+
+                     [options]
+                     archive 3
+                     lock DOT
+                     priority 1
+</pre>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1997 - 2004 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 01.06.2005
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

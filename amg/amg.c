@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -99,21 +99,24 @@ DESCR__E_M1
 #ifdef _DEBUG
 FILE                       *p_debug_file;
 #endif
-int                        shm_id,      /* The shared memory ID's for    */
+int                        dnb_fd,
+                           shm_id,      /* The shared memory ID's for    */
                                         /* the sorted data and pointers. */
-                           data_length, /* The size of data for each     */
-                                        /* main sorted data and pointers.*/
-                           no_of_dir,   /* Number of directories in the  */
-                                        /* AMG database file.            */
+                           data_length, /* The size of data for one job. */
+                           max_process_per_dir = MAX_PROCESS_PER_DIR,
+                           *no_of_dir_names,
+                           no_of_dirs,
                            no_of_hosts,
+                           fra_fd = -1,
+                           fra_id,
                            fsa_fd = -1,
                            fsa_id,
                            sys_log_fd = STDERR_FILENO,
                            stop_flag = 0,
                            amg_flag = YES;
-pid_t                      pid,
-                           tmp_pid;
-off_t                      fsa_size;
+pid_t                      dc_pid;      /* dir_check pid                 */
+off_t                      fra_size,
+                           fsa_size;
 #ifndef _NO_MMAP
 off_t                      afd_active_size;
 #endif
@@ -121,18 +124,18 @@ char                       *p_work_dir,
                            *pid_list,
                            counter_file[MAX_PATH_LENGTH],
                            host_config_file[MAX_PATH_LENGTH],
-                           dir_config_file[MAX_PATH_LENGTH],
-                           cmd_fifo[MAX_PATH_LENGTH],
-                           resp_fifo[MAX_FILENAME_LENGTH];
+                           dir_config_file[MAX_PATH_LENGTH];
 struct host_list           *hl;
+struct fileretrieve_status *fra;
 struct filetransfer_status *fsa;
+struct dir_name_buf        *dnb = NULL;
 #ifdef _DELETE_LOG
 struct delete_log          dl;
 #endif
 
 /* local functions    */
 static void                amg_exit(void),
-                           get_afd_config_value(int *, int *),
+                           get_afd_config_value(int *, int *, int *),
                            notify_dir_check(void),
                            sig_segv(int),
                            sig_bus(int),
@@ -144,7 +147,6 @@ int
 main(int argc, char *argv[])
 {
    int              i,
-                    first_time = NO,
                     amg_cmd_fd,              /* File descriptor of the   */
                                              /* used by the controlling  */
                                              /* program AFD.             */
@@ -154,6 +156,9 @@ main(int argc, char *argv[])
                                              /* notify AMG over this     */
                                              /* fifo.                    */
                     max_fd,                  /* Biggest file descriptor. */
+                    no_of_local_dir,         /* Number of local          */
+                                             /* directories found in the */
+                                             /* DIR_CONFIG file.         */
                     afd_active_fd,           /* File descriptor to file  */
                                              /* holding all active pid's */
                                              /* of the AFD.              */
@@ -164,11 +169,9 @@ main(int argc, char *argv[])
    time_t           dc_old_time,
                     hc_old_time;
    char             buffer[10],
-                    sys_log_fifo[MAX_PATH_LENGTH],
                     work_dir[MAX_PATH_LENGTH],
-                    amg_cmd_fifo[MAX_PATH_LENGTH],
                     db_update_fifo[MAX_PATH_LENGTH],
-                    afd_active_file[MAX_PATH_LENGTH];
+                    *ptr;
    fd_set           rset;
    struct timeval   timeout;
    struct stat      stat_buf;
@@ -237,340 +240,361 @@ main(int argc, char *argv[])
                      host_config_file, &rescan_time, &max_no_proc);
    }
    p_work_dir = work_dir;
-   if (dir_config_file[0] == '\0')
-   {
-      (void)strcpy(dir_config_file, work_dir);
-      (void)strcat(dir_config_file, ETC_DIR);
-      (void)strcat(dir_config_file, DEFAULT_DIR_CONFIG_FILE);
-   }
-   if (host_config_file[0] == '\0')
-   {
-      (void)strcpy(host_config_file, work_dir);
-      (void)strcat(host_config_file, ETC_DIR);
-      (void)strcat(host_config_file, DEFAULT_HOST_CONFIG_FILE);
-   }
-
-   /* Initialise variables with default values */
-   shm_id = -1;
-   (void)strcpy(amg_cmd_fifo, work_dir);
-   (void)strcat(amg_cmd_fifo, FIFO_DIR);
-   (void)strcpy(cmd_fifo, amg_cmd_fifo);
-   (void)strcat(cmd_fifo, IP_CMD_FIFO);
-   (void)strcpy(resp_fifo, amg_cmd_fifo);
-   (void)strcat(resp_fifo, IP_RESP_FIFO);
-   (void)strcpy(db_update_fifo, amg_cmd_fifo);
-   (void)strcat(db_update_fifo, DB_UPDATE_FIFO);
-   (void)strcpy(counter_file, amg_cmd_fifo);
-   (void)strcat(counter_file, COUNTER_FILE);
-   (void)strcpy(sys_log_fifo, amg_cmd_fifo);
-   (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
-   (void)strcpy(afd_active_file, amg_cmd_fifo);
-   (void)strcat(afd_active_file, AFD_ACTIVE_FILE);
-   (void)strcat(amg_cmd_fifo, AMG_CMD_FIFO);
-
-   /* Create and open sys_log fifo. */
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   sys_log_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-   if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
 
    /*
-    * We need to write the pid of dir_check to the AFD_ACTIVE file.
-    * Otherwise it can happen that two or more dir_check's run at
-    * the same time, when init_afd was killed.
+    * Lock AMG so no other AMG can be started!
     */
-   if ((afd_active_fd = coe_open(afd_active_file, O_RDWR)) == -1)
+   if ((ptr = lock_proc(AMG_LOCK_ID, NO)) != NULL)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Could not open() %s : %s (%s %d)\n",
-                afd_active_file, strerror(errno), __FILE__, __LINE__);
-      pid_list = NULL;
+      (void)fprintf(stderr, "Process AMG already started by %s : (%s %d)\n",
+                    ptr, __FILE__, __LINE__);
+      _exit(INCORRECT);
    }
    else
    {
-      if (fstat(afd_active_fd, &stat_buf) < 0)
+      int  first_time = NO;
+      char afd_active_file[MAX_PATH_LENGTH],
+           amg_cmd_fifo[MAX_PATH_LENGTH],
+           dc_cmd_fifo[MAX_PATH_LENGTH],
+           dc_resp_fifo[MAX_FILENAME_LENGTH],
+           sys_log_fifo[MAX_PATH_LENGTH];
+
+      if (dir_config_file[0] == '\0')
+      {
+         (void)strcpy(dir_config_file, work_dir);
+         (void)strcat(dir_config_file, ETC_DIR);
+         (void)strcat(dir_config_file, DEFAULT_DIR_CONFIG_FILE);
+      }
+      if (host_config_file[0] == '\0')
+      {
+         (void)strcpy(host_config_file, work_dir);
+         (void)strcat(host_config_file, ETC_DIR);
+         (void)strcat(host_config_file, DEFAULT_HOST_CONFIG_FILE);
+      }
+
+      /* Initialise variables with default values */
+      shm_id = -1;
+      (void)strcpy(amg_cmd_fifo, work_dir);
+      (void)strcat(amg_cmd_fifo, FIFO_DIR);
+      (void)strcpy(dc_cmd_fifo, amg_cmd_fifo);
+      (void)strcat(dc_cmd_fifo, DC_CMD_FIFO);
+      (void)strcpy(dc_resp_fifo, amg_cmd_fifo);
+      (void)strcat(dc_resp_fifo, DC_RESP_FIFO);
+      (void)strcpy(db_update_fifo, amg_cmd_fifo);
+      (void)strcat(db_update_fifo, DB_UPDATE_FIFO);
+      (void)strcpy(counter_file, amg_cmd_fifo);
+      (void)strcat(counter_file, COUNTER_FILE);
+      (void)strcpy(sys_log_fifo, amg_cmd_fifo);
+      (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
+      (void)strcpy(afd_active_file, amg_cmd_fifo);
+      (void)strcat(afd_active_file, AFD_ACTIVE_FILE);
+      (void)strcat(amg_cmd_fifo, AMG_CMD_FIFO);
+
+      /* Create and open sys_log fifo. */
+      if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(sys_log_fifo) < 0)
+         {
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Failed to create fifo %s. (%s %d)\n",
+                      sys_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not open fifo %s : %s (%s %d)\n",
+                   sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+
+      /*
+       * We need to write the pid of dir_check to the AFD_ACTIVE file.
+       * Otherwise it can happen that two or more dir_check's run at
+       * the same time, when init_afd was killed.
+       */
+      if ((afd_active_fd = coe_open(afd_active_file, O_RDWR)) == -1)
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not fstat() %s : %s (%s %d)\n",
+                   "Could not open() %s : %s (%s %d)\n",
                    afd_active_file, strerror(errno), __FILE__, __LINE__);
-         (void)close(afd_active_fd);
          pid_list = NULL;
       }
       else
       {
-#ifdef _NO_MMAP
-         if ((pid_list = mmap_emu(0, stat_buf.st_size,
-                                  (PROT_READ | PROT_WRITE), MAP_SHARED,
-                                  afd_active_file, 0)) == (caddr_t) -1)
-#else
-         if ((pid_list = mmap(0, stat_buf.st_size,
-                              (PROT_READ | PROT_WRITE), MAP_SHARED,
-                              afd_active_fd, 0)) == (caddr_t) -1)
-#endif
+         if (fstat(afd_active_fd, &stat_buf) < 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN, "mmap() error : %s (%s %d)\n",
-                          strerror(errno), __FILE__, __LINE__);
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Could not fstat() %s : %s (%s %d)\n",
+                      afd_active_file, strerror(errno), __FILE__, __LINE__);
+            (void)close(afd_active_fd);
             pid_list = NULL;
          }
-
-         afd_active_size = stat_buf.st_size;
-
-         if (close(afd_active_fd) == -1)
+         else
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Failed to close() %s : %s (%s %d)\n",
-                      afd_active_file, strerror(errno), __FILE__, __LINE__);
-         }
+#ifdef _NO_MMAP
+            if ((pid_list = mmap_emu(0, stat_buf.st_size,
+                                     (PROT_READ | PROT_WRITE), MAP_SHARED,
+                                     afd_active_file, 0)) == (caddr_t) -1)
+#else
+            if ((pid_list = mmap(0, stat_buf.st_size,
+                                 (PROT_READ | PROT_WRITE), MAP_SHARED,
+                                 afd_active_fd, 0)) == (caddr_t) -1)
+#endif
+            {
+               (void)rec(sys_log_fd, WARN_SIGN, "mmap() error : %s (%s %d)\n",
+                             strerror(errno), __FILE__, __LINE__);
+               pid_list = NULL;
+            }
+            afd_active_size = stat_buf.st_size;
 
-         /*
-          * Before starting to activate new process make sure there is
-          * no old process still running.
-          */
-         if (*(pid_t *)(pid_list + ((IT_NO + 1) * sizeof(pid_t))) > 0)
-         {
-            if (kill(*(pid_t *)(pid_list + ((IT_NO + 1) * sizeof(pid_t))), SIGINT) == 0)
+            if (close(afd_active_fd) == -1)
             {
                (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Had to kill() an old dir_check job! (%s %d)\n",
-                         __FILE__, __LINE__);
+                         "Failed to close() %s : %s (%s %d)\n",
+                         afd_active_file, strerror(errno), __FILE__, __LINE__);
             }
+
+            /*
+             * Before starting to activate new process make sure there is
+             * no old process still running.
+             */
+            if (*(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) > 0)
+            {
+               if (kill(*(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))), SIGINT) == 0)
+               {
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "Had to kill() an old %s job! (%s %d)\n",
+                            DC_PROC_NAME, __FILE__, __LINE__);
+               }
+            }
+            (void)shmctl(*(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))), IPC_RMID, 0);
          }
-         (void)shmctl(*(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))), IPC_RMID, 0);
       }
-   }
 
-   /*
-    * Create and initialize AMG counter file. Do it here to
-    * avoid having two dir_checks trying to do the same.
-    */
-   if ((stat(counter_file, &stat_buf) == -1) && (errno == ENOENT))
-   {
       /*
-       * Lets assume when there is no counter file that this is the
-       * first time that AFD is started.
+       * Create and initialize AMG counter file. Do it here to
+       * avoid having two dir_checks trying to do the same.
        */
-      first_time = YES;
-   }
-   if ((fd = coe_open(counter_file, O_RDWR | O_CREAT,
-                      S_IRUSR | S_IWUSR)) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open() %s : %s (%s %d)\n",
-                counter_file, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   /* Initialise counter file with zero */
-   if (write(fd, &status, sizeof(int)) != sizeof(int))
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not initialise %s : %s (%s %d)\n",
-                counter_file, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   if (close(fd) == -1)
-   {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-   }
-
-   /* If process AFD and AMG_DIALOG have not yet been created */
-   /* we create the fifos needed to communicate with them.    */
-   if ((stat(amg_cmd_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(amg_cmd_fifo) < 0)
+      if ((stat(counter_file, &stat_buf) == -1) && (errno == ENOENT))
+      {
+         /*
+          * Lets assume when there is no counter file that this is the
+          * first time that AFD is started.
+          */
+         first_time = YES;
+      }
+      if ((fd = coe_open(counter_file, O_RDWR | O_CREAT,
+                         S_IRUSR | S_IWUSR)) == -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   amg_cmd_fifo, __FILE__, __LINE__);
+                   "Could not open() %s : %s (%s %d)\n",
+                   counter_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((stat(db_update_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(db_update_fifo) < 0)
+
+      /* Initialise counter file with zero */
+      if (write(fd, &status, sizeof(int)) != sizeof(int))
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   db_update_fifo, __FILE__, __LINE__);
+                   "Could not initialise %s : %s (%s %d)\n",
+                   counter_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-
-   /* Open fifo to AFD to receive commands */
-   if ((amg_cmd_fd = coe_open(amg_cmd_fifo, (O_RDONLY | O_NONBLOCK))) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                amg_cmd_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   /* Open fifo for edit_hc and edit_dc so they can */
-   /* inform the AMG about any changes.             */
-   if ((db_update_fd = coe_open(db_update_fifo, O_RDWR)) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                db_update_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   get_afd_config_value(&rescan_time, &max_no_proc);
-
-   /* Find largest file descriptor */
-   if (amg_cmd_fd > db_update_fd)
-   {
-      max_fd = amg_cmd_fd + 1;
-   }
-   else
-   {
-      max_fd = db_update_fd + 1;
-   }
-
-   /* Evaluate HOST_CONFIG file */
-   hl = NULL;
-   if ((eval_host_config() == NO_ACCESS) && (first_time == NO))
-   {
-      /*
-       * Try get the host information from the current FSA.
-       */
-      if (fsa_attach() != INCORRECT)
+      if (close(fd) == -1)
       {
-         size_t new_size = ((no_of_hosts / HOST_BUF_SIZE) + 1) *
-                           HOST_BUF_SIZE * sizeof(struct host_list);
+         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
 
-         if ((hl = realloc(hl, new_size)) == NULL)
+      /* If process AFD and AMG_DIALOG have not yet been created */
+      /* we create the fifos needed to communicate with them.    */
+      if ((stat(amg_cmd_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(amg_cmd_fifo) < 0)
          {
             (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not reallocate memory for host list : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+                      "Failed to create fifo %s. (%s %d)\n",
+                      amg_cmd_fifo, __FILE__, __LINE__);
             exit(INCORRECT);
          }
-
-         for (i = 0; i < no_of_hosts; i++)
+      }
+      if ((stat(db_update_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      {
+         if (make_fifo(db_update_fifo) < 0)
          {
-            (void)memcpy(hl[i].host_alias, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
-            (void)memcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
-            (void)memcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
-            (void)memcpy(hl[i].host_toggle_str, fsa[i].host_toggle_str, 5);
-            (void)memcpy(hl[i].proxy_name, fsa[i].proxy_name, MAX_PROXY_NAME_LENGTH);
-            (void)memset(hl[i].fullname, 0, MAX_FILENAME_LENGTH);
-            hl[i].allowed_transfers   = fsa[i].allowed_transfers;
-            hl[i].max_errors          = fsa[i].max_errors;
-            hl[i].retry_interval      = fsa[i].retry_interval;
-            hl[i].transfer_blksize    = fsa[i].block_size;
-            hl[i].successful_retries  = fsa[i].max_successful_retries;
-            hl[i].file_size_offset    = fsa[i].file_size_offset;
-            hl[i].transfer_timeout    = fsa[i].transfer_timeout;
-            hl[i].protocol            = fsa[i].protocol;
-            hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Failed to create fifo %s. (%s %d)\n",
+                      db_update_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
          }
+      }
 
-         (void)fsa_detach();
+      /* Open fifo to AFD to receive commands. */
+      if ((amg_cmd_fd = coe_open(amg_cmd_fifo, (O_RDONLY | O_NONBLOCK))) == -1)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not open fifo %s : %s (%s %d)\n",
+                   amg_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+
+      /* Open fifo for edit_hc and edit_dc so they can */
+      /* inform the AMG about any changes.             */
+      if ((db_update_fd = coe_open(db_update_fifo, O_RDWR)) == -1)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not open fifo %s : %s (%s %d)\n",
+                   db_update_fifo, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir);
+
+      /* Find largest file descriptor. */
+      if (amg_cmd_fd > db_update_fd)
+      {
+         max_fd = amg_cmd_fd + 1;
+      }
+      else
+      {
+         max_fd = db_update_fd + 1;
+      }
+
+      /* Evaluate HOST_CONFIG file. */
+      hl = NULL;
+      if ((eval_host_config() == NO_ACCESS) && (first_time == NO))
+      {
+         /*
+          * Try get the host information from the current FSA.
+          */
+         if (fsa_attach() != INCORRECT)
+         {
+            size_t new_size = ((no_of_hosts / HOST_BUF_SIZE) + 1) *
+                              HOST_BUF_SIZE * sizeof(struct host_list);
+
+            if ((hl = realloc(hl, new_size)) == NULL)
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Could not reallocate memory for host list : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+
+            for (i = 0; i < no_of_hosts; i++)
+            {
+               (void)memcpy(hl[i].host_alias, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
+               (void)memcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
+               (void)memcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
+               (void)memcpy(hl[i].host_toggle_str, fsa[i].host_toggle_str, 5);
+               (void)memcpy(hl[i].proxy_name, fsa[i].proxy_name, MAX_PROXY_NAME_LENGTH);
+               (void)memset(hl[i].fullname, 0, MAX_FILENAME_LENGTH);
+               hl[i].allowed_transfers   = fsa[i].allowed_transfers;
+               hl[i].max_errors          = fsa[i].max_errors;
+               hl[i].retry_interval      = fsa[i].retry_interval;
+               hl[i].transfer_blksize    = fsa[i].block_size;
+               hl[i].successful_retries  = fsa[i].max_successful_retries;
+               hl[i].file_size_offset    = fsa[i].file_size_offset;
+               hl[i].transfer_timeout    = fsa[i].transfer_timeout;
+               hl[i].protocol            = fsa[i].protocol;
+               hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
+            }
+
+            (void)fsa_detach();
+         }
+      }
+
+      /* Get the size of the database file */
+      if (stat(dir_config_file, &stat_buf) == -1)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not get size of database file %s : %s (%s %d)\n",
+                   dir_config_file, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+#ifdef _DEBUG
+      (void)fprintf(stderr, ">>DEBUG<< database size = %d\n",
+                    (int)stat_buf.st_size);
+#endif
+
+      /* Since this is the first time round and this */
+      /* is the time of the actual database, we      */
+      /* store its value here in dc_old_time.        */
+      dc_old_time = stat_buf.st_mtime;
+
+      /* evaluate database */
+      if (eval_dir_config(stat_buf.st_size, &no_of_local_dir) != SUCCESS)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not find any valid entries in database file %s (%s %d)\n",
+                   dir_config_file, __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+
+      /*
+       * Since there might have been an old FSA which has more information
+       * then the HOST_CONFIG lets rewrite this file using the information
+       * from both HOST_CONFIG and old FSA. That what is found in the
+       * HOST_CONFIG will always have a higher priority.
+       */
+      hc_old_time = write_host_config();
+      (void)rec(sys_log_fd, INFO_SIGN, "Found %d hosts in HOST_CONFIG.\n",
+                no_of_hosts);
+
+#ifdef _DEBUG
+      show_shm(p_debug_file);
+#endif
+
+      /*
+       * Before we start any programs copy any files that are in the
+       * pool directory back to their original directories (if they
+       * still exist).
+       */
+#ifdef _DELETE_LOG
+      delete_log_ptrs(&dl);
+#endif
+      clear_pool_dir();
+#ifdef _DELETE_LOG
+      if ((dl.fd != -1) && (dl.data != NULL))
+      {
+         free(dl.data);
+      }
+#endif
+
+      /* First create the fifo to communicate with other process */
+      (void)unlink(dc_cmd_fifo);
+      if (make_fifo(dc_cmd_fifo) < 0)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not create fifo %s. (%s %d)\n",
+                   dc_cmd_fifo, __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      (void)unlink(dc_resp_fifo);
+      if (make_fifo(dc_resp_fifo) < 0)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not create fifo %s. (%s %d)\n",
+                   dc_resp_fifo, __FILE__, __LINE__);
+         exit(INCORRECT);
       }
    }
 
-   /* Get the size of the database file */
-   if (stat(dir_config_file, &stat_buf) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not get size of database file %s : %s (%s %d)\n",
-                dir_config_file, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-#ifdef _DEBUG
-   (void)fprintf(stderr, ">>DEBUG<< database size = %d\n", (int)stat_buf.st_size);
-#endif
-
-   /* Since this is the first time round and this */
-   /* is the time of the actual database, we      */
-   /* store its value here in dc_old_time.        */
-   dc_old_time = stat_buf.st_mtime;
-
-   /* evaluate database */
-   if ((no_of_dir = eval_dir_config(stat_buf.st_size)) < 0)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not find any valid entries (%d) in database file %s (%s %d)\n",
-                no_of_dir, dir_config_file, __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   /*
-    * Since there might have been an old FSA which has more information
-    * then the HOST_CONFIG lets rewrite this file using the information
-    * from both HOST_CONFIG and old FSA. That what is found in the
-    * HOST_CONFIG will always have a higher priority.
-    */
-   hc_old_time = write_host_config();
-   (void)rec(sys_log_fd, INFO_SIGN, "Found %d hosts in HOST_CONFIG.\n",
-             no_of_hosts);
-
-#ifdef _DEBUG
-   show_shm(p_debug_file);
-#endif
-
-   /*
-    * Before we start any programs copy any files that are in the
-    * pool directory back to their original directories (if they
-    * still exist).
-    */
-#ifdef _DELETE_LOG
-   delete_log_ptrs(&dl);
-#endif
-   clear_pool_dir();
-#ifdef _DELETE_LOG
-   if ((dl.fd != -1) && (dl.data != NULL))
-   {
-      free(dl.data);
-   }
-#endif
-
-   /* First create the fifo to communicate with other process */
-   (void)unlink(cmd_fifo);
-   if (make_fifo(cmd_fifo) < 0)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not create fifo %s. (%s %d)\n",
-                cmd_fifo, __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   (void)unlink(resp_fifo);
-   if (make_fifo(resp_fifo) < 0)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not create fifo %s. (%s %d)\n",
-                resp_fifo, __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   /* Start process if database has information */
+   /* Start process dir_check and fr if database has information. */
    if (data_length > 0)
    {
-      pid = make_process_amg(work_dir, shm_id, rescan_time, max_no_proc, no_of_dir);
+      dc_pid = make_process_amg(work_dir, DC_PROC_NAME, shm_id, rescan_time,
+                                max_no_proc, no_of_local_dir);
       if (pid_list != NULL)
       {
-         *(pid_t *)(pid_list + ((IT_NO + 1) * sizeof(pid_t))) = pid;
+         *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
          *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
       }
    }
    else
    {
       /* Process not started */
-      pid = NOT_RUNNING;
+      dc_pid = NOT_RUNNING;
    }
 
    /* Note time when AMG is started */
@@ -581,6 +605,15 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
              AMG, MAJOR, MINOR, BUG_FIX);
 #endif
+      get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir);
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "AMG Configuration: Directory rescan time     %d (sec)\n",
+             rescan_time);
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "AMG Configuration: Max process               %d\n", max_no_proc);
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "AMG Configuration: Max process per directory %d\n",
+             max_process_per_dir);
 
    /* Check if the database has been changed */
    for (;;)
@@ -605,22 +638,23 @@ main(int argc, char *argv[])
             (void)rec(sys_log_fd, INFO_SIGN, "%s shutting down ....\n", AMG);
 
             /* Do not forget to stop all running jobs */
-            if (pid > 0)
+            if (dc_pid > 0)
             {
                int j;
 
-               if (com(STOP) < 0)
+               if (com(STOP) == INCORRECT)
                {
-                  (void)rec(sys_log_fd, INFO_SIGN, "Giving it another try ...\n");
+                  (void)rec(sys_log_fd, INFO_SIGN,
+                            "Giving it another try ...\n");
                   (void)com(STOP);
                }
 
                /* Wait for the child to terminate */
                for (j = 0; j < MAX_SHUTDOWN_TIME;  j++)
                {
-                  if (waitpid(pid, NULL, WNOHANG) == pid)
+                  if (waitpid(dc_pid, NULL, WNOHANG) == dc_pid)
                   {
-                     pid = NOT_RUNNING;
+                     dc_pid = NOT_RUNNING;
                      break;
                   }
                   else
@@ -790,9 +824,10 @@ main(int argc, char *argv[])
            }
 
       /* Check if any process died */
-      if (pid > 0)
+      if (dc_pid > 0) 
       {
-         if (amg_zombie_check(&pid, WNOHANG) == YES)
+         if ((amg_zombie_check(&dc_pid, WNOHANG) == YES) &&
+             (data_length > 0))
          {
             struct shmid_ds dummy_buf;
 
@@ -800,7 +835,7 @@ main(int argc, char *argv[])
             /* For now lets only tell the user that the job died. */
             (void)rec(sys_log_fd, ERROR_SIGN,
                       "Job %s has died! (%s %d)\n",
-                      IT_PROC_NAME, __FILE__, __LINE__);
+                      DC_PROC_NAME, __FILE__, __LINE__);
 
             /*
              * For some unknown reason it can happen that the shared
@@ -815,16 +850,18 @@ main(int argc, char *argv[])
                          shm_id, __FILE__, __LINE__);
                exit(3);
             }
-            pid = make_process_amg(work_dir, shm_id, rescan_time, max_no_proc, no_of_dir);
+            dc_pid = make_process_amg(work_dir, DC_PROC_NAME, shm_id,
+                                      rescan_time, max_no_proc,
+                                      no_of_local_dir);
             if (pid_list != NULL)
             {
-               *(pid_t *)(pid_list + ((IT_NO + 1) * sizeof(pid_t))) = pid;
+               *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
                *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
             }
             (void)rec(sys_log_fd, INFO_SIGN, "Restarted %s. (%s %d)\n",
-                      IT_PROC_NAME, __FILE__, __LINE__);
+                      DC_PROC_NAME, __FILE__, __LINE__);
          }
-      } /* if (pid > 0) */
+      } /* if (dc_pid > 0) */
    } /* for (;;) */
 
    /* Remove shared memory region */
@@ -849,7 +886,9 @@ main(int argc, char *argv[])
 
 /*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
 static void
-get_afd_config_value(int *rescan_time, int *max_no_proc)
+get_afd_config_value(int *rescan_time,
+                     int *max_no_proc,
+                     int *max_process_per_dir)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
@@ -867,6 +906,10 @@ get_afd_config_value(int *rescan_time, int *max_no_proc)
          *rescan_time = atoi(value);
          if (*rescan_time < 1)
          {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
+                      *rescan_time, AMG_DIR_RESCAN_TIME_DEF,
+                      DEFAULT_RESCAN_TIME);
             *rescan_time = DEFAULT_RESCAN_TIME;
          }
       }
@@ -876,7 +919,25 @@ get_afd_config_value(int *rescan_time, int *max_no_proc)
          *max_no_proc = atoi(value);
          if ((*max_no_proc < 1) || (*max_no_proc > 10240))
          {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
+                      *max_no_proc, MAX_NO_OF_DIR_CHECKS_DEF,
+                      MAX_NO_OF_DIR_CHECKS);
             *max_no_proc = MAX_NO_OF_DIR_CHECKS;
+         }
+      }
+      if (get_definition(buffer, MAX_PROCESS_PER_DIR_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *max_process_per_dir = atoi(value);
+         if ((*max_process_per_dir < 1) || (*max_process_per_dir > 10240) ||
+             (*max_process_per_dir >= *max_no_proc))
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
+                      *max_process_per_dir, MAX_PROCESS_PER_DIR_DEF,
+                      MAX_PROCESS_PER_DIR);
+            *max_process_per_dir = MAX_PROCESS_PER_DIR;
          }
       }
       free(buffer);
@@ -926,15 +987,16 @@ amg_exit(void)
    (void)rec(sys_log_fd, INFO_SIGN, "Stopped %s\n", AMG);
 
    /* Kill all jobs that where started */
-   if (pid > 0)
+   if (dc_pid > 0)
    {
-      if (kill(pid, SIGINT) < 0)
+      if (kill(dc_pid, SIGINT) < 0)
       {
          if (errno != ESRCH)
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to kill job %d : %s (%s %d)\n",
-                      pid, strerror(errno), __FILE__, __LINE__);
+                      "Failed to kill process %s with pid %d : %s (%s %d)\n",
+                      DC_PROC_NAME, dc_pid, strerror(errno),
+                      __FILE__, __LINE__);
          }
       }
    }

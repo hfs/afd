@@ -84,6 +84,7 @@ DESCR__E_M3
 extern Display          *display;
 extern Widget           listbox_w,
                         headingbox_w,
+                        statusbox_w,
                         summarybox_w;
 extern Window           main_window;
 extern int              file_name_length,
@@ -282,6 +283,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          /* Free all memory that was allocated in get_info(). */
          for (i = 0; i < id.count; i++)
          {
+            free(id.dbe[i].files);
             if (id.dbe[i].soptions != NULL)
             {
                free((void *)id.dbe[i].soptions);
@@ -367,7 +369,7 @@ search_button(Widget w, XtPointer client_data, XtPointer call_data)
 void
 print_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   reset_message();
+   reset_message(statusbox_w);
    print_data();
 
    return;
@@ -400,22 +402,23 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          else if (eval_time(value, w, &start_time_val) < 0)
               {
-                 show_message(TIME_FORMAT);
+                 show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
                  return;
               }
-         reset_message();
+         reset_message(statusbox_w);
          break;
          
       case START_TIME :
          if (eval_time(value, w, &start_time_val) < 0)
          {
-            show_message(TIME_FORMAT);
-            XtFree(value);
-            return;
+            show_message(statusbox_w, TIME_FORMAT);
          }
-         reset_message();
-         XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         else
+         {
+            reset_message(statusbox_w);
+            XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         }
          break;
          
       case END_TIME_NO_ENTER : 
@@ -425,22 +428,23 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          }
          else if (eval_time(value, w, &end_time_val) < 0)
               {
-                 show_message(TIME_FORMAT);
+                 show_message(statusbox_w, TIME_FORMAT);
                  XtFree(value);
                  return;
               }
-         reset_message();
+         reset_message(statusbox_w);
          break;
          
       case END_TIME :
          if (eval_time(value, w, &end_time_val) < 0)
          {
-            show_message(TIME_FORMAT);
-            XtFree(value);
-            return;
+            show_message(statusbox_w, TIME_FORMAT);
          }
-         reset_message();
-         XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         else
+         {
+            reset_message(statusbox_w);
+            XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         }
          break;
          
       case FILE_NAME_NO_ENTER :
@@ -449,18 +453,18 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          
       case FILE_NAME :
          (void)strcpy(search_file_name, value);
-         reset_message();
+         reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
          
       case DIRECTORY_NAME_NO_ENTER :
          (void)strcpy(search_directory_name, value);
-         reset_message();
+         reset_message(statusbox_w);
          break;
          
       case DIRECTORY_NAME :
          (void)strcpy(search_directory_name, value);
-         reset_message();
+         reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
          
@@ -481,26 +485,26 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                     extra_sign = 1;
                     gt_lt_sign = EQUAL_SIGN;
                  }
-                 else if (value[0] == '<')
-                      {
-                         extra_sign = 1;
-                         gt_lt_sign = LESS_THEN_SIGN;
-                      }
-                      else if (value[0] == '>')
-                           {
-                              extra_sign = 1;
-                              gt_lt_sign = GREATER_THEN_SIGN;
-                           }
-                           else
-                           {
-                              show_message(FILE_SIZE_FORMAT);
-                              XtFree(value);
-                              return;
-                           }
+            else if (value[0] == '<')
+                 {
+                    extra_sign = 1;
+                    gt_lt_sign = LESS_THEN_SIGN;
+                 }
+            else if (value[0] == '>')
+                 {
+                    extra_sign = 1;
+                    gt_lt_sign = GREATER_THEN_SIGN;
+                 }
+                 else
+                 {
+                    show_message(statusbox_w, FILE_SIZE_FORMAT);
+                    XtFree(value);
+                    return;
+                 }
             search_file_size = (size_t)atol(value + extra_sign);
             (void)strcpy(search_file_size_str, value + extra_sign);
          }
-         reset_message();
+         reset_message(statusbox_w);
          if (type == FILE_LENGTH)
          {
             XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
@@ -602,7 +606,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                } /* for (;;) */
             } /* if (no_of_search_hosts > 0) */
          }
-         reset_message();
+         reset_message(statusbox_w);
          break;
 
       case RECIPIENT_NAME : /* Read the recipient */
@@ -700,7 +704,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                } /* for (;;) */
             } /* if (no_of_search_hosts > 0) */
          }
-         reset_message();
+         reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
          
@@ -791,42 +795,42 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
               *value = time_val - (min * 60) - (hour * 3600);
            }
-           else if (length == 7)
-                {
-                   int days;
+      else if (length == 7)
+           {
+              int days;
 
-                   if ((!isdigit(numeric_str[3])) || (!isdigit(numeric_str[4])) ||
-                       (!isdigit(numeric_str[5])) || (!isdigit(numeric_str[6])))
-                   {
-                      return(INCORRECT);
-                   }
+              if ((!isdigit(numeric_str[3])) || (!isdigit(numeric_str[4])) ||
+                  (!isdigit(numeric_str[5])) || (!isdigit(numeric_str[6])))
+              {
+                 return(INCORRECT);
+              }
 
-                   str[0] = numeric_str[1];
-                   str[1] = numeric_str[2];
-                   str[2] = '\0';
-                   days = atoi(str);
-                   str[0] = numeric_str[3];
-                   str[1] = numeric_str[4];
-                   str[2] = '\0';
-                   hour = atoi(str);
-                   if ((hour < 0) || (hour > 23))
-                   {
-                      return(INCORRECT);
-                   }
-                   str[0] = numeric_str[5];
-                   str[1] = numeric_str[6];
-                   min = atoi(str);
-                   if ((min < 0) || (min > 59))
-                   {
-                      return(INCORRECT);
-                   }
+              str[0] = numeric_str[1];
+              str[1] = numeric_str[2];
+              str[2] = '\0';
+              days = atoi(str);
+              str[0] = numeric_str[3];
+              str[1] = numeric_str[4];
+              str[2] = '\0';
+              hour = atoi(str);
+              if ((hour < 0) || (hour > 23))
+              {
+                 return(INCORRECT);
+              }
+              str[0] = numeric_str[5];
+              str[1] = numeric_str[6];
+              min = atoi(str);
+              if ((min < 0) || (min > 59))
+              {
+                 return(INCORRECT);
+              }
 
-                   *value = time_val - (min * 60) - (hour * 3600) - (days * 86400);
-                }
-                else
-                {
-                   return(INCORRECT);
-                }
+              *value = time_val - (min * 60) - (hour * 3600) - (days * 86400);
+           }
+           else
+           {
+              return(INCORRECT);
+           }
 
       return(SUCCESS);
    }

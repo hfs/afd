@@ -35,8 +35,8 @@ DESCR__S_M3
  **   value in the buffer 'definition'.
  **
  ** RETURN VALUES
- **   Returns SUCCESS when it got the definition for the search value,
- **   otherwise INCORRECT is returned.
+ **   Returns a pointer positioned after the value just found.
+ **   Otherwise NULL is returned.
  **
  ** AUTHOR
  **   H.Kiehl

@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,6 +81,7 @@ extern struct queue_buf           *qb;
 extern struct msg_cache_buf       *mdb;
 extern struct afd_status          *p_afd_status;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 
 /* Local global variables */
 static int                        *no_of_job_ids,
@@ -123,7 +124,8 @@ init_msg_buffer(void)
       size_t new_size = (MSG_CACHE_BUF_SIZE * sizeof(struct msg_cache_buf)) +
                         AFD_WORD_OFFSET;
 
-      if ((ptr = attach_buf(msg_cache_file, &mdb_fd, new_size, "FD")) == (caddr_t) -1)
+      if ((ptr = attach_buf(msg_cache_file, &mdb_fd,
+                            new_size, "FD")) == (caddr_t) -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to mmap() to %s : %s (%s %d)\n",
@@ -140,7 +142,8 @@ init_msg_buffer(void)
       size_t new_size = (MSG_QUE_BUF_SIZE * sizeof(struct queue_buf)) +
                         AFD_WORD_OFFSET;
 
-      if ((ptr = attach_buf(msg_queue_file, &qb_fd, new_size, "FD")) == (caddr_t) -1)
+      if ((ptr = attach_buf(msg_queue_file, &qb_fd,
+                            new_size, "FD")) == (caddr_t) -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to mmap() to %s : %s (%s %d)\n",
@@ -287,6 +290,14 @@ stat_again:
                    strerror(errno), __FILE__, __LINE__);
       }
       (void)sleep(1);
+      if (sleep_counter > 20)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Something is really wrong here! Size of structure is not what it should be! (%s %d)\n",
+                   __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      sleep_counter++;
       goto stat_again;
    }
    (void)rec(sys_log_fd, DEBUG_SIGN,
@@ -328,7 +339,8 @@ stat_again:
                 * within the FSA, but the contents of the job is
                 * still the same.
                 */
-               if ((pos = get_position(fsa, mdb[j].host_name, no_of_hosts)) != -1)
+               if ((pos = get_host_position(fsa, mdb[j].host_name,
+                                            no_of_hosts)) != -1)
                {
                   mdb[j].in_current_fsa = YES;
                   mdb[j].fsa_pos = pos;
@@ -513,7 +525,8 @@ stat_again:
             {
                (void)rec(sys_log_fd, FATAL_SIGN,
                          "Failed to fstat() %s : %s (%s %d)\n",
-                         job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                         job_id_data_file, strerror(errno),
+                         __FILE__, __LINE__);
                exit(INCORRECT);
             }
             if (stat_buf.st_size > 0)
@@ -578,7 +591,7 @@ stat_again:
             }
          } /* for (i = 0; i < removed_jobs; i++) */
          unlock_region(jd_fd, 1);
-(void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
+         (void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
           *no_of_job_ids, __FILE__, __LINE__);
          free(rjl);
          rjl = NULL;
@@ -615,7 +628,7 @@ stat_again:
                {
                   int new_pos;
 
-                  if ((new_pos = get_position(fsa, mdb[i].host_name, no_of_hosts)) == INCORRECT)
+                  if ((new_pos = get_host_position(fsa, mdb[i].host_name, no_of_hosts)) == INCORRECT)
                   {
                      (void)rec(sys_log_fd, DEBUG_SIGN,
                                "Hmm. Host %s is no longer in the FSA. Removed it from cache. (%s %d)\n",
@@ -637,7 +650,8 @@ stat_again:
             {
                int new_pos;
 
-               if ((new_pos = get_position(fsa, mdb[i].host_name, no_of_hosts)) == INCORRECT)
+               if ((new_pos = get_host_position(fsa, mdb[i].host_name,
+                                                no_of_hosts)) == INCORRECT)
                {
                   (void)rec(sys_log_fd, DEBUG_SIGN,
                             "Hmm. Host %s is no longer in the FSA. Removed it from cache. (%s %d)\n",
@@ -697,7 +711,8 @@ stat_again:
             {
                (void)rec(sys_log_fd, FATAL_SIGN,
                          "Failed to fstat() %s : %s (%s %d)\n",
-                         job_id_data_file, strerror(errno), __FILE__, __LINE__);
+                         job_id_data_file, strerror(errno),
+                         __FILE__, __LINE__);
                exit(INCORRECT);
             }
             if (stat_buf.st_size > 0)
@@ -762,7 +777,7 @@ stat_again:
             }
          } /* for (i = 0; i < removed_jobs; i++) */
          unlock_region(jd_fd, 1);
-(void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
+         (void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
           *no_of_job_ids, __FILE__, __LINE__);
          free(rjl);
       }
@@ -904,9 +919,6 @@ remove_job(int                cache_pos,
    {
       if (qb[j].pos == cache_pos)
       {
-         char *ptr,
-              *p_job_dir;
-
          (void)rec(sys_log_fd, DEBUG_SIGN,
                    "Job %u is currently in the queue! (%s %d)\n",
                    job_id, __FILE__, __LINE__);
@@ -920,12 +932,20 @@ remove_job(int                cache_pos,
             {
                if (errno != ESRCH)
                {
+                  char *p_host_alias;
+
+                  if (qb[j].msg_name[0] == '\0')
+                  {
+                     p_host_alias = fra[qb[j].pos].host_alias;
+                  }
+                  else
+                  {
+                     p_host_alias = mdb[qb[j].pos].host_name;
+                  }
                   (void)rec(sys_log_fd, WARN_SIGN,
                             "Failed to kill transfer job to %s (%d) : %s (%s %d)\n",
-                            mdb[qb[j].pos].host_name,
-                            qb[j].pid,
-                            strerror(errno),
-                            __FILE__, __LINE__);
+                            p_host_alias, qb[j].pid,
+                            strerror(errno), __FILE__, __LINE__);
                }
             }
          }
@@ -934,21 +954,17 @@ remove_job(int                cache_pos,
           * NOOOO. There may not be any message in the queue.
           * Remove it if there is one.
           */
-         if (qb[j].msg_name[0] == '\0')
+         if (qb[j].msg_name[0] != '\0')
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Uuups! How can this be? No message name!? (%s %d)\n",
-                      __FILE__, __LINE__);
-         }
-         else
-         {
+            char *ptr,
+                 *p_job_dir;
+
             if (qb[j].in_error_dir == YES)
             {
                p_job_dir = err_file_dir;
                ptr = p_err_file_dir;
                (void)sprintf(p_err_file_dir, "%s/%s",
-                             mdb[qb[j].pos].host_name,
-                             qb[j].msg_name);
+                             mdb[qb[j].pos].host_name, qb[j].msg_name);
             }
             else
             {
@@ -957,15 +973,13 @@ remove_job(int                cache_pos,
                (void)strcpy(p_file_dir, qb[j].msg_name);
             }
 #ifdef _DELETE_LOG
-            remove_files(p_job_dir,
-                         mdb[qb[j].pos].fsa_pos,
-                         mdb[qb[j].pos].job_id,
-                         USER_DEL);
+            remove_files(p_job_dir, mdb[qb[j].pos].fsa_pos,
+                         mdb[qb[j].pos].job_id, USER_DEL);
 #else
             remove_files(p_job_dir, -1);
 #endif
+            *ptr = '\0';
          }
-         *ptr = '\0';
          remove_msg(j);
          j--;
       }
@@ -1037,8 +1051,7 @@ remove_job(int                cache_pos,
    {
       (void)rec(sys_log_fd, DEBUG_SIGN,
                 "How can this be?! cache_pos [%d] is not less then no_msg_cached [%d]. (%s %d)\n",
-                cache_pos, *no_msg_cached,
-                __FILE__, __LINE__);
+                cache_pos, *no_msg_cached, __FILE__, __LINE__);
    }
 
    /* Remove message from message directory. */
@@ -1048,8 +1061,7 @@ remove_job(int                cache_pos,
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Failed to remove() %s : %s (%s %d)\n",
-                   msg_dir, strerror(errno),
-                   __FILE__, __LINE__);
+                   msg_dir, strerror(errno), __FILE__, __LINE__);
       }
    }
    else
@@ -1113,21 +1125,15 @@ remove_job(int                cache_pos,
             }
             else if ((qb[j].pos == cache_pos) && (qb[j].pid < 1))
                  {
-                    char *ptr,
-                         *p_job_dir;
-
                     /*
                      * NOOOO. There may not be any message in the queue.
                      * Remove it if there is one.
                      */
-                    if (qb[j].msg_name[0] == '\0')
+                    if (qb[j].msg_name[0] != '\0')
                     {
-                       (void)rec(sys_log_fd, DEBUG_SIGN,
-                                 "Uuups! How can this be? No message name!? (%s %d)\n",
-                                 __FILE__, __LINE__);
-                    }
-                    else
-                    {
+                       char *ptr,
+                            *p_job_dir;
+
                        if (qb[j].in_error_dir == YES)
                        {
                           p_job_dir = err_file_dir;
@@ -1143,15 +1149,13 @@ remove_job(int                cache_pos,
                           (void)strcpy(p_file_dir, qb[j].msg_name);
                        }
 #ifdef _DELETE_LOG
-                       remove_files(p_job_dir,
-                                    mdb[qb[j].pos].fsa_pos,
-                                    mdb[qb[j].pos].job_id,
-                                    USER_DEL);
+                       remove_files(p_job_dir, mdb[qb[j].pos].fsa_pos,
+                                    mdb[qb[j].pos].job_id, USER_DEL);
 #else
                        remove_files(p_job_dir, -1);
 #endif
+                       *ptr = '\0';
                     }
-                    *ptr = '\0';
                     remove_msg(j);
                     j--;
                  }
@@ -1172,28 +1176,21 @@ remove_job(int                cache_pos,
          {
             if ((qb[j].pos == cache_pos) && (qb[j].pid < 1))
             {
-               char *ptr,
-                    *p_job_dir;
-
                /*
                 * NOOOO. There may not be any message in the queue.
                 * Remove it if there is one.
                 */
-               if (qb[j].msg_name[0] == '\0')
+               if (qb[j].msg_name[0] != '\0')
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Uuups! How can this be? No message name!? (%s %d)\n",
-                            __FILE__, __LINE__);
-               }
-               else
-               {
+                  char *ptr,
+                       *p_job_dir;
+
                   if (qb[j].in_error_dir == YES)
                   {
                      p_job_dir = err_file_dir;
                      ptr = p_err_file_dir;
                      (void)sprintf(p_err_file_dir, "%s/%s",
-                                   mdb[qb[j].pos].host_name,
-                                   qb[j].msg_name);
+                                   mdb[qb[j].pos].host_name, qb[j].msg_name);
                   }
                   else
                   {
@@ -1202,15 +1199,13 @@ remove_job(int                cache_pos,
                      (void)strcpy(p_file_dir, qb[j].msg_name);
                   }
 #ifdef _DELETE_LOG
-                  remove_files(p_job_dir,
-                               mdb[qb[j].pos].fsa_pos,
-                               mdb[qb[j].pos].job_id,
-                               USER_DEL);
+                  remove_files(p_job_dir, mdb[qb[j].pos].fsa_pos,
+                               mdb[qb[j].pos].job_id, USER_DEL);
 #else
                   remove_files(p_job_dir, -1);
 #endif
+                  *ptr = '\0';
                }
-               *ptr = '\0';
                remove_msg(j);
                j--;
             }
@@ -1236,8 +1231,7 @@ remove_job(int                cache_pos,
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to open() %s : %s (%s %d)\n",
-                   file, strerror(errno),
-                   __FILE__, __LINE__);
+                   file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
@@ -1245,8 +1239,7 @@ remove_job(int                cache_pos,
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to fstat() %s : %s (%s %d)\n",
-                   file, strerror(errno),
-                   __FILE__, __LINE__);
+                   file, strerror(errno), __FILE__, __LINE__);
          (void)close(fd);
          exit(INCORRECT);
       }
@@ -1263,8 +1256,7 @@ remove_job(int                cache_pos,
          {
             (void)rec(sys_log_fd, FATAL_SIGN,
                       "mmap() error : %s (%s %d)\n",
-                      strerror(errno),
-                      __FILE__, __LINE__);
+                      strerror(errno), __FILE__, __LINE__);
             (void)close(fd);
             exit(INCORRECT);
          }
@@ -1304,8 +1296,7 @@ remove_job(int                cache_pos,
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
                       "munmap() error : %s (%s %d)\n",
-                      strerror(errno),
-                      __FILE__, __LINE__);
+                      strerror(errno), __FILE__, __LINE__);
          }
       } /* if (stat_buf.st_size != 0) */
       
@@ -1325,8 +1316,7 @@ remove_job(int                cache_pos,
 static void
 sort_array(int start, int end)
 {
-   int i,
-       j,
+   int i, j,
        center,
        temp;
 

@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,6 +55,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/wait.h>          /* waitpid()                              */
 #include <fcntl.h>
+#include <signal.h>            /* kill()                                 */
 #include <unistd.h>            /* fork()                                 */
 #ifndef _NO_MMAP
 #include <sys/mman.h>          /* munmap()                               */
@@ -98,13 +99,14 @@ extern GC                         letter_gc,
                                   black_line_gc,
                                   white_line_gc,
                                   led_gc;
-extern int                        no_of_active_process,
+extern int                        button_width,
+                                  filename_display_length,
+                                  no_of_active_process,
                                   no_of_hosts,
                                   no_of_jobs_selected,
                                   line_length,
                                   line_height,
                                   x_offset_proc,
-                                  button_width,
                                   no_selected,
                                   no_selected_static,
                                   no_of_rows,
@@ -123,7 +125,7 @@ extern unsigned long              color_pool[];
 extern char                       *p_work_dir,
                                   *pid_list,
                                   line_style,
-                                  font_name[20],
+                                  font_name[],
                                   *ping_cmd,
                                   *ptr_ping_cmd,
                                   *traceroute_cmd,
@@ -250,13 +252,15 @@ input(Widget      w,
             }
             if (gotcha == NO)
             {
-               char *args[4],
+               char *args[5],
                     progname[MAX_PATH_LENGTH];
 
                args[0] = progname;
-               args[1] = fsa[select_no].host_alias;
+               args[1] = "-f";
                args[2] = font_name;
-               args[3] = NULL;
+               args[3] = "-h";
+               args[4] = fsa[select_no].host_alias;
+               args[5] = NULL;
                (void)strcpy(progname, AFD_INFO);
 
                make_xprocess(progname, progname, args, select_no);
@@ -426,7 +430,8 @@ input(Widget      w,
                         else
                         {
                            draw_detailed_line(0);
-                           interval_id_tv = XtAppAddTimeOut(app, STARTING_REDRAW_TIME,
+                           interval_id_tv = XtAppAddTimeOut(app,
+                                                            STARTING_REDRAW_TIME,
                                                             (XtTimerCallbackProc)check_tv_status,
                                                             w);
                         }
@@ -479,10 +484,10 @@ input(Widget      w,
                                 {
                                    break;
                                 }
-                                else if (select_no < jd[i].fsa_no)
-                                     {
-                                        pos = i;
-                                     }
+                           else if (select_no < jd[i].fsa_no)
+                                {
+                                   pos = i;
+                                }
                         }
                         if (pos == -1)
                         {
@@ -557,7 +562,7 @@ save_setup_cb(Widget      w,
               XtPointer   client_data,
               XtPointer   call_data)
 {
-   write_setup();
+   write_setup(filename_display_length, -1);
 
    return;
 }
@@ -586,7 +591,7 @@ popup_cb(Widget      w,
           cmd[2],
 #endif
        	  err_msg[1025 + 100];
-   size_t new_size = (no_of_hosts + 6) * sizeof(char *);
+   size_t new_size = (no_of_hosts + 8) * sizeof(char *);
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
        ((sel_typ == QUEUE_SEL) || (sel_typ == TRANS_SEL) ||
@@ -619,24 +624,34 @@ popup_cb(Widget      w,
 
       case PING_SEL : /* Ping test */
          args[0] = progname;
-         args[1] = font_name;
-         args[2] = ping_cmd;
-         args[3] = NULL;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = ping_cmd;
+         args[6] = NULL;
          (void)strcpy(progname, SHOW_CMD);
          break;
 
       case TRACEROUTE_SEL : /* Traceroute test */
          args[0] = progname;
-         args[1] = font_name;
-         args[2] = traceroute_cmd;
-         args[3] = NULL;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = traceroute_cmd;
+         args[6] = NULL;
          (void)strcpy(progname, SHOW_CMD);
          break;
 
       case INFO_SEL : /* Information */
          args[0] = progname;
-         args[2] = font_name;
-         args[3] = NULL;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-h";
+         args[7] = NULL;
          (void)strcpy(progname, AFD_INFO);
          break;
 
@@ -644,20 +659,38 @@ popup_cb(Widget      w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
-         args[4] = log_typ;
-         args[5] = NULL;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-l";
+         args[6] = log_typ;
+         args[7] = NULL;
          (void)strcpy(progname, SHOW_LOG);
          (void)strcpy(log_typ, SYSTEM_STR);
-	 make_xprocess(progname, progname, args, -1);
-	 return;
+         make_xprocess(progname, progname, args, -1);
+         return;
+
+      case R_LOG_SEL : /* Receive Log */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-l";
+         args[6] = log_typ;
+         args[7] = NULL;
+         (void)strcpy(progname, SHOW_LOG);
+         (void)strcpy(log_typ, RECEIVE_STR);
+         make_xprocess(progname, progname, args, -1);
+         return;
 
       case T_LOG_SEL : /* Transfer Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
-         args[4] = log_typ;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-l";
+         args[6] = log_typ;
          (void)strcpy(progname, SHOW_LOG);
          break;
 
@@ -665,8 +698,10 @@ popup_cb(Widget      w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
-         args[4] = log_typ;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-l";
+         args[6] = log_typ;
          (void)strcpy(progname, SHOW_LOG);
          break;
   
@@ -674,57 +709,63 @@ popup_cb(Widget      w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
+         args[3] = "-f";
+         args[4] = font_name;
          (void)strcpy(progname, SHOW_ILOG);
-	 break;
+         break;
 
       case O_LOG_SEL : /* Output Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
+         args[3] = "-f";
+         args[4] = font_name;
          (void)strcpy(progname, SHOW_OLOG);
-	 break;
+         break;
 
-      case R_LOG_SEL : /* Delete Log */
+      case E_LOG_SEL : /* Delete Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
+         args[3] = "-f";
+         args[4] = font_name;
          (void)strcpy(progname, SHOW_RLOG);
-	 break;
+         break;
 
       case VIEW_FILE_LOAD_SEL : /* File Load */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
          args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[4] = "-f";
+         args[5] = font_name;
+         args[6] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_FILE_LOAD);
-	 make_xprocess(progname, progname, args, -1);
-	 return;
+         make_xprocess(progname, progname, args, -1);
+         return;
 
       case VIEW_KBYTE_LOAD_SEL : /* KByte Load */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
          args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[4] = "-f";
+         args[5] = font_name;
+         args[6] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_KBYTE_LOAD);
-	 make_xprocess(progname, progname, args, -1);
-	 return;
+         make_xprocess(progname, progname, args, -1);
+         return;
 
       case VIEW_CONNECTION_LOAD_SEL : /* Connection Load */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
          args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[4] = "-f";
+         args[5] = font_name;
+         args[6] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_CONNECTION_LOAD);
          make_xprocess(progname, progname, args, -1);
@@ -735,8 +776,9 @@ popup_cb(Widget      w,
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
          args[3] = log_typ;
-         args[4] = font_name;
-         args[5] = NULL;
+         args[4] = "-f";
+         args[5] = font_name;
+         args[6] = NULL;
          (void)strcpy(progname, AFD_LOAD);
          (void)strcpy(log_typ, SHOW_TRANSFER_LOAD);
          make_xprocess(progname, progname, args, -1);
@@ -747,17 +789,22 @@ popup_cb(Widget      w,
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
-         args[4] = NULL;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = NULL;
          (void)strcpy(progname, SHOW_QUEUE);
-	 make_xprocess(progname, progname, args, -1);
-	 return;
+         make_xprocess(progname, progname, args, -1);
+         return;
 #endif
 
       case VIEW_DC_SEL : /* View DIR_CONFIG entries */
          args[0] = progname;
+         args[1] = "-f";
          args[2] = font_name;
-         args[3] = NULL;
+         args[3] = WORK_DIR_ID;
+         args[4] = p_work_dir;
+         args[5] = "-h";
+         args[7] = NULL;
          (void)strcpy(progname, VIEW_DC);
          break;
 
@@ -783,16 +830,18 @@ popup_cb(Widget      w,
               else
               {
                  (void)xrec(appshell, INFO_DIALOG,
-                            "No job marked. Mark with CTRL + Mouse button 3.", sel_typ);
+                            "No job marked. Mark with CTRL + Mouse button 3.",
+                            sel_typ);
               }
-	 return;
+         return;
 
-      case EDIT_HC_SEL : /* Edit host configuration data */
+      case EDIT_HC_SEL : /* Edit host configuration data. */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = font_name;
-         args[4] = NULL;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = NULL;
          (void)strcpy(progname, EDIT_HC);
          if ((p_user = lock_proc(EDIT_HC_LOCK_ID, YES)) != NULL)
          {
@@ -802,9 +851,20 @@ popup_cb(Widget      w,
          }
          else
          {
-	    make_xprocess(progname, progname, args, -1);
+            make_xprocess(progname, progname, args, -1);
          }
-	 return;
+         return;
+
+      case DIR_CTRL_SEL : /* Directory Control. */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = NULL;
+         (void)strcpy(progname, DIR_CTRL);
+         make_xprocess(progname, progname, args, -1);
+         return;
 
       case EXIT_SEL  : /* Exit */
          XFreeFont(display, font_struct);
@@ -869,6 +929,10 @@ popup_cb(Widget      w,
          {
             FREE_RT_ARRAY(acp.show_slog_list);
          }
+         if (acp.show_rlog_list != NULL)
+         {
+            FREE_RT_ARRAY(acp.show_rlog_list);
+         }
          if (acp.show_tlog_list != NULL)
          {
             FREE_RT_ARRAY(acp.show_tlog_list);
@@ -884,6 +948,10 @@ popup_cb(Widget      w,
          if (acp.show_olog_list != NULL)
          {
             FREE_RT_ARRAY(acp.show_olog_list);
+         }
+         if (acp.show_elog_list != NULL)
+         {
+            FREE_RT_ARRAY(acp.show_elog_list);
          }
          if (acp.afd_load_list != NULL)
          {
@@ -923,8 +991,8 @@ popup_cb(Widget      w,
 	  {
              (void)fprintf(stderr, "%d, ", i);
           }
-	  else
-	  {
+          else
+          {
              j = i;
           }
        }
@@ -955,16 +1023,14 @@ popup_cb(Widget      w,
                   {
                      (void)rec(sys_log_fd, CONFIG_SIGN,
                                "%s: STARTED queue that stopped automatically (%s).\n",
-                               connect_data[i].host_display_str,
-                               user);
+                               connect_data[i].host_display_str, user);
                      fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                   }
                   else
                   {
                      (void)rec(sys_log_fd, CONFIG_SIGN,
                                "%s: STARTED queue (%s).\n",
-                               connect_data[i].host_display_str,
-                               user);
+                               connect_data[i].host_display_str, user);
                      fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                   }
                }
@@ -972,8 +1038,7 @@ popup_cb(Widget      w,
                {
                   (void)rec(sys_log_fd, CONFIG_SIGN,
                             "%s: STOPPED queue (%s).\n",
-                            connect_data[i].host_display_str,
-                            user);
+                            connect_data[i].host_display_str, user);
                   fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                }
                break;
@@ -1019,6 +1084,25 @@ popup_cb(Widget      w,
                }
                else
                {
+                  if (fsa[i].active_transfers > 0)
+                  {
+                     int m;
+
+                     for (m = 0; m < fsa[i].allowed_transfers; m++)
+                     {
+                        if (fsa[i].job_status[m].proc_id > 0)
+                        {
+                           if ((kill(fsa[i].job_status[m].proc_id, SIGINT) == -1) &&
+                               (errno != ESRCH))
+                           {
+                              (void)rec(sys_log_fd, DEBUG_SIGN,
+                                        "Failed to kill process %d : %s (%s %d)\n",
+                                        fsa[i].job_status[m].proc_id,
+                                        strerror(errno), __FILE__, __LINE__);
+                           }
+                        }
+                     }
+                  }
                   (void)rec(sys_log_fd, CONFIG_SIGN,
                             "%s: STOPPED transfer (%s).\n",
                             connect_data[i].host_display_str,
@@ -1033,8 +1117,7 @@ popup_cb(Widget      w,
                   fsa[i].special_flag ^= HOST_DISABLED;
                   (void)rec(sys_log_fd, CONFIG_SIGN,
                             "%s: ENABLED (%s).\n",
-                            connect_data[i].host_display_str,
-                            user);
+                            connect_data[i].host_display_str, user);
                }
                else
                {
@@ -1050,20 +1133,15 @@ popup_cb(Widget      w,
                      fsa[i].special_flag ^= HOST_DISABLED;
                      (void)rec(sys_log_fd, CONFIG_SIGN,
                                "%s: DISABLED (%s).\n",
-                               connect_data[i].host_display_str,
-                               user);
+                               connect_data[i].host_display_str, user);
 
-                     (void)sprintf(delete_jobs_host_fifo,
-                                   "%s%s%s",
-                                   p_work_dir,
-                                   FIFO_DIR,
-                                   DELETE_JOBS_HOST_FIFO);
+                     (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                                   p_work_dir, FIFO_DIR, DELETE_JOBS_HOST_FIFO);
                      if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
                      {
                         (void)xrec(appshell, ERROR_DIALOG,
                                    "Failed to open() %s : %s (%s %d)",
-                                   DELETE_JOBS_HOST_FIFO,
-                                   strerror(errno),
+                                   DELETE_JOBS_HOST_FIFO, strerror(errno),
                                    __FILE__, __LINE__);
                      }
                      else
@@ -1072,30 +1150,24 @@ popup_cb(Widget      w,
                         {
                            (void)xrec(appshell, ERROR_DIALOG,
                                       "Failed to write() to %s : %s (%s %d)",
-                                      DELETE_JOBS_HOST_FIFO,
-                                      strerror(errno),
+                                      DELETE_JOBS_HOST_FIFO, strerror(errno),
                                       __FILE__, __LINE__);
                         }
                         if (close(fd) == -1)
                         {
                            (void)rec(sys_log_fd, DEBUG_SIGN,
                                      "Failed to close() FIFO %s : %s (%s %d)\n",
-                                     DELETE_JOBS_HOST_FIFO,
-                                     strerror(errno),
+                                     DELETE_JOBS_HOST_FIFO, strerror(errno),
                                      __FILE__, __LINE__);
                         }
                      }
-                     (void)sprintf(delete_jobs_host_fifo,
-                                   "%s%s%s",
-                                   p_work_dir,
-                                   FIFO_DIR,
-                                   DEL_TIME_JOB_FIFO);
+                     (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                                   p_work_dir, FIFO_DIR, DEL_TIME_JOB_FIFO);
                      if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
                      {
                         (void)xrec(appshell, ERROR_DIALOG,
                                    "Failed to open() %s : %s (%s %d)",
-                                   DEL_TIME_JOB_FIFO,
-                                   strerror(errno),
+                                   DEL_TIME_JOB_FIFO, strerror(errno),
                                    __FILE__, __LINE__);
                      }
                      else
@@ -1104,16 +1176,14 @@ popup_cb(Widget      w,
                         {
                            (void)xrec(appshell, ERROR_DIALOG,
                                       "Failed to write() to %s : %s (%s %d)",
-                                      DEL_TIME_JOB_FIFO,
-                                      strerror(errno),
+                                      DEL_TIME_JOB_FIFO, strerror(errno),
                                       __FILE__, __LINE__);
                         }
                         if (close(fd) == -1)
                         {
                            (void)rec(sys_log_fd, DEBUG_SIGN,
                                      "Failed to close() FIFO %s : %s (%s %d)\n",
-                                     DEL_TIME_JOB_FIFO,
-                                     strerror(errno),
+                                     DEL_TIME_JOB_FIFO, strerror(errno),
                                      __FILE__, __LINE__);
                         }
                      }
@@ -1177,11 +1247,14 @@ popup_cb(Widget      w,
                break;
 
             case RETRY_SEL :
-               /* It is not very helpful if we just check  */
-               /* whether the error_counter is larger than */
-               /* zero, since we might have restarted the  */
-               /* AFD and then the error_counter is zero.  */
-               if (fsa[i].total_file_counter > 0)
+               /* It is not very helpful if we just check     */
+               /* whether the error_counter is larger than    */
+               /* zero, since we might have restarted the AFD */
+               /* and then the error_counter is zero. Also do */
+               /* NOT check if the total_file_counter is      */
+               /* larger than zero, there might be a retrieve */
+               /* job in the queue.                           */
+               if ((fsa[i].special_flag & HOST_DISABLED) == 0)
                {
                   int  fd;
                   char retry_fifo[MAX_PATH_LENGTH];
@@ -1237,9 +1310,9 @@ popup_cb(Widget      w,
 
             case I_LOG_SEL :                 
             case O_LOG_SEL :                 
-            case R_LOG_SEL :                 
+            case E_LOG_SEL :                 
                (void)strcpy(hosts[k], fsa[i].host_alias);
-               args[k + 4] = hosts[k];
+               args[k + 5] = hosts[k];
                k++;
                break;
 
@@ -1250,7 +1323,7 @@ popup_cb(Widget      w,
                {
                   (void)strcat(hosts[k], "?");
                }
-               args[k + 5] = hosts[k];
+               args[k + 7] = hosts[k];
                k++;
                break;
 
@@ -1270,7 +1343,7 @@ popup_cb(Widget      w,
                   }
                   if (gotcha == NO)
                   {
-                     args[1] = fsa[i].host_alias;
+                     args[6] = fsa[i].host_alias;
                      make_xprocess(progname, progname, args, i);
                   }
                   else
@@ -1316,7 +1389,7 @@ popup_cb(Widget      w,
                   }
                   if (gotcha == NO)
                   {
-                     args[1] = fsa[i].host_alias;
+                     args[6] = fsa[i].host_alias;
                      make_xprocess(progname, progname, args, i);
                   }
                   else
@@ -1342,19 +1415,19 @@ popup_cb(Widget      w,
    if (sel_typ == T_LOG_SEL)
    {
       (void)strcpy(log_typ, TRANSFER_STR);
-      args[k + 5] = NULL;
+      args[k + 7] = NULL;
       make_xprocess(progname, progname, args, -1);
    }
    else if (sel_typ == D_LOG_SEL)
         {
            (void)strcpy(log_typ, TRANS_DB_STR);
-           args[k + 5] = NULL;
+           args[k + 7] = NULL;
            make_xprocess(progname, progname, args, -1);
         }
-   else if ((sel_typ == O_LOG_SEL) || (sel_typ == R_LOG_SEL) ||
+   else if ((sel_typ == O_LOG_SEL) || (sel_typ == E_LOG_SEL) ||
             (sel_typ == I_LOG_SEL))
         {
-           args[k + 4] = NULL;
+           args[k + 5] = NULL;
            make_xprocess(progname, progname, args, -1);
         }
 
@@ -1423,8 +1496,8 @@ control_cb(Widget      w,
                              __FILE__, __LINE__);
                   return;
                }
-               (void)rec(sys_log_fd, WARN_SIGN, "Sending STOP to %s by %s\n",
-                         AMG, user);
+               (void)rec(sys_log_fd, CONFIG_SIGN,
+                         "Sending STOP to %s by %s\n", AMG, user);
                if (send_cmd(STOP_AMG, afd_cmd_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,
@@ -1454,7 +1527,7 @@ control_cb(Widget      w,
                return;
             }
 
-            (void)rec(sys_log_fd, WARN_SIGN, "Sending START to %s by %s\n",
+            (void)rec(sys_log_fd, CONFIG_SIGN, "Sending START to %s by %s\n",
                       AMG, user);
             if (send_cmd(START_AMG, afd_cmd_fd) < 0)
             {
@@ -1490,9 +1563,8 @@ control_cb(Widget      w,
                              __FILE__, __LINE__);
                   return;
                }
-               (void)rec(sys_log_fd, WARN_SIGN, 
-                         "Sending STOP to %s by %s\n",
-                         FD, user);
+               (void)rec(sys_log_fd, CONFIG_SIGN, 
+                         "Sending STOP to %s by %s\n", FD, user);
                if (send_cmd(STOP_FD, afd_cmd_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,
@@ -1522,9 +1594,8 @@ control_cb(Widget      w,
                return;
             }
 
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Sending START to %s by %s\n",
-                      FD, user);
+            (void)rec(sys_log_fd, CONFIG_SIGN,
+                      "Sending START to %s by %s\n", FD, user);
             if (send_cmd(START_FD, afd_cmd_fd) < 0)
             {
                (void)xrec(appshell, ERROR_DIALOG,

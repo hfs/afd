@@ -85,18 +85,14 @@ init_jd_structure(struct job_data *p_jd, int select_no, int job_no)
         {
            p_jd->stat_color_no = NOT_WORKING2;
         }
-        else if (fsa[select_no].job_status[job_no].no_of_files > 0)
-             {
-                p_jd->stat_color_no = TRANSFER_ACTIVE;
-             }
-             else if (fsa[select_no].host_status == FAULTY_TRANSFERS)
-                  {
-                     p_jd->stat_color_no = FAULTY_TRANSFERS;
-                  }
-                  else
-                  {
-                     p_jd->stat_color_no = NORMAL_STATUS;
-                  }
+   else if (fsa[select_no].job_status[job_no].no_of_files > 0)
+        {
+           p_jd->stat_color_no = TRANSFER_ACTIVE;
+        }
+        else
+        {
+           p_jd->stat_color_no = NORMAL_STATUS;
+        }
    p_jd->special_flag = fsa[select_no].special_flag | 191;
 
    p_jd->file_size_in_use = fsa[select_no].job_status[job_no].file_size_in_use;
@@ -104,9 +100,9 @@ init_jd_structure(struct job_data *p_jd, int select_no, int job_no)
    p_jd->file_size_in_use_done = fsa[select_no].job_status[job_no].file_size_in_use_done;
    CREATE_FS_STRING(p_jd->str_fs_use_done, p_jd->file_size_in_use_done);
    p_jd->no_of_files = fsa[select_no].job_status[job_no].no_of_files;
-   CREATE_SFC_STRING(p_jd->str_fc, p_jd->no_of_files);
+   CREATE_FC_STRING(p_jd->str_fc, p_jd->no_of_files);
    p_jd->no_of_files_done = fsa[select_no].job_status[job_no].no_of_files_done;
-   CREATE_SFC_STRING(p_jd->str_fc_done, p_jd->no_of_files_done);
+   CREATE_FC_STRING(p_jd->str_fc_done, p_jd->no_of_files_done);
    p_jd->file_size = fsa[select_no].job_status[job_no].file_size;
    CREATE_FS_STRING(p_jd->str_fs, p_jd->file_size);
    p_jd->file_size_done = fsa[select_no].job_status[job_no].file_size_done;

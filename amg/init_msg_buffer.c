@@ -22,12 +22,14 @@
 DESCR__S_M3
 /*
  ** NAME
- **   init_msg_buffer - 
+ **   init_msg_buffer - initializes the message buffer cache
  **
  ** SYNOPSIS
  **   void init_msg_buffer(void)
  **
  ** DESCRIPTION
+ **   This function mmaps to MESSAGE_BUF_FILE, that caches all messages
+ **   when FD is not running.
  **
  ** RETURN VALUES
  **   None.

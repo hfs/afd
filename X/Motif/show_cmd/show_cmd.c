@@ -27,7 +27,7 @@ DESCR__S_M1
  ** SYNOPSIS
  **   show_cmd [--version]
  **                OR
- **   show_cmd [-w <AFD working directory>] [font name] <command>
+ **   show_cmd [-w <AFD working directory>] [-f <font name>] <command>
  **
  ** DESCRIPTION
  **
@@ -38,6 +38,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   04.12.1999 H.Kiehl Created
+ **   18.03.2000 H.Kiehl Added print button.
  **
  */
 DESCR__E_M1
@@ -62,6 +63,7 @@ DESCR__E_M1
 #include <Xm/Text.h>
 #include <Xm/PushB.h>
 #include <Xm/PushBG.h>
+#include <Xm/Label.h>
 #include <Xm/LabelG.h>
 #include <Xm/Separator.h>
 #include <Xm/Form.h>
@@ -75,8 +77,9 @@ Display        *display;
 XtAppContext   app;
 XmTextPosition wpr_position;
 XtInputId      cmd_input_id;
-Widget         toplevel,
-               cmd_output;
+Widget         toplevel_w,
+               cmd_output,
+               statusbox_w;
 int            cmd_fd,
                sys_log_fd = STDERR_FILENO;
 pid_t          cmd_pid;
@@ -88,7 +91,8 @@ char           cmd[MAX_PATH_LENGTH],
 /* Local functions */
 static void    init_cmd(int *, char **, char *),
                sig_bus(int),
-               sig_segv(int);
+               sig_segv(int),
+               usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -103,18 +107,23 @@ main(int argc, char *argv[])
                    {
                       ".show_cmd*mwmDecorations : 110",
                       ".show_cmd*mwmFunctions : 30",
-                      ".show_cmd.form.cmd_outputSW*XmText.fontList : fixed",
+                      ".show_cmd.mainform_w.cmd_outputSW*XmText.fontList : fixed",
                       ".show_cmd*background : NavajoWhite2",
-                      ".show_cmd.form.cmd_outputSW.cmd_output.background : NavajoWhite1",
-                      ".show_cmd.form.buttonbox*background : PaleVioletRed2",
-                      ".show_cmd.form.buttonbox*foreground : Black",
-                      ".show_cmd.form.buttonbox*highlightColor : Black",
+                      ".show_cmd.mainform_w.cmd_outputSW.cmd_output.background : NavajoWhite1",
+                      ".show_cmd.mainform_w.buttonbox_w*background : PaleVioletRed2",
+                      ".show_cmd.mainform_w.buttonbox_w*foreground : Black",
+                      ".show_cmd.mainform_w.buttonbox_w*highlightColor : Black",
+                      ".show_cmd.Print Data*background : NavajoWhite2",
+                      ".show_cmd.Print Data*XmText.background : NavajoWhite1",
+                      ".show_cmd.Print Data.main_form.buttonbox*background : PaleVioletRed2",
+                      ".show_cmd.Print Data.main_form.buttonbox*foreground : Black",
+                      ".show_cmd.Print Data.main_form.buttonbox*highlightColor : Black",
                       NULL
                    };
-   Widget          form,
+   Widget          mainform_w,
                    button,
-                   buttonbox,
-                   h_separator;
+                   buttonbox_w,
+                   separator_w;
    Arg             args[MAXARGS];
    Cardinal        argcount;
    XmFontListEntry entry;
@@ -127,14 +136,21 @@ main(int argc, char *argv[])
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
-   toplevel = XtAppInitialize(&app, "AFD", NULL, 0,
-                              &argc, argv, fallback_res, args, argcount);
+   toplevel_w = XtAppInitialize(&app, "AFD", NULL, 0,
+                                &argc, argv, fallback_res, args, argcount);
+   if ((display = XtDisplay(toplevel_w)) == NULL)
+   {
+      (void)fprintf(stderr,
+                    "ERROR   : Could not open Display : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
 
    /* Create managing widget */
-   form = XmCreateForm(toplevel, "form", NULL, 0);
+   mainform_w = XmCreateForm(toplevel_w, "mainform_w", NULL, 0);
 
    /* Prepare the font */
-   entry = XmFontListEntryLoad(XtDisplay(toplevel), font_name,
+   entry = XmFontListEntryLoad(XtDisplay(toplevel_w), font_name,
                                XmFONT_IS_FONT, "TAG1");
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
@@ -146,11 +162,11 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
    argcount++;
-   XtSetArg(args[argcount], XmNfractionBase, 21);
+   XtSetArg(args[argcount], XmNfractionBase, 31);
    argcount++;
-   buttonbox = XmCreateForm(form, "buttonbox", args, argcount);
+   buttonbox_w = XmCreateForm(mainform_w, "buttonbox_w", args, argcount);
    button = XtVaCreateManagedWidget("Repeat",
-                        xmPushButtonWidgetClass, buttonbox,
+                        xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,         fontlist,
                         XmNtopAttachment,    XmATTACH_POSITION,
                         XmNtopPosition,      1,
@@ -159,12 +175,12 @@ main(int argc, char *argv[])
                         XmNrightAttachment,  XmATTACH_POSITION,
                         XmNrightPosition,    10,
                         XmNbottomAttachment, XmATTACH_POSITION,
-                        XmNbottomPosition,   20,
+                        XmNbottomPosition,   30,
                         NULL);
    XtAddCallback(button, XmNactivateCallback,
                  (XtCallbackProc)repeat_button, 0);
-   button = XtVaCreateManagedWidget("Close",
-                        xmPushButtonWidgetClass, buttonbox,
+   button = XtVaCreateManagedWidget("Print",
+                        xmPushButtonWidgetClass, buttonbox_w,
                         XmNfontList,         fontlist,
                         XmNtopAttachment,    XmATTACH_POSITION,
                         XmNtopPosition,      1,
@@ -173,26 +189,74 @@ main(int argc, char *argv[])
                         XmNrightAttachment,  XmATTACH_POSITION,
                         XmNrightPosition,    20,
                         XmNbottomAttachment, XmATTACH_POSITION,
-                        XmNbottomPosition,   20,
+                        XmNbottomPosition,   30,
+                        NULL);
+   XtAddCallback(button, XmNactivateCallback,
+                 (XtCallbackProc)print_button, 0);
+   button = XtVaCreateManagedWidget("Close",
+                        xmPushButtonWidgetClass, buttonbox_w,
+                        XmNfontList,         fontlist,
+                        XmNtopAttachment,    XmATTACH_POSITION,
+                        XmNtopPosition,      1,
+                        XmNleftAttachment,   XmATTACH_POSITION,
+                        XmNleftPosition,     21,
+                        XmNrightAttachment,  XmATTACH_POSITION,
+                        XmNrightPosition,    30,
+                        XmNbottomAttachment, XmATTACH_POSITION,
+                        XmNbottomPosition,   30,
                         NULL);
    XtAddCallback(button, XmNactivateCallback,
                  (XtCallbackProc)close_button, 0);
-   XtManageChild(buttonbox);
+   XtManageChild(buttonbox_w);
 
-   /* Create the second horizontal separator */
+/*-----------------------------------------------------------------------*/
+/*                         Horizontal Separator                          */
+/*-----------------------------------------------------------------------*/
    argcount = 0;
-   XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
+   XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
    argcount++;
-   XtSetArg(args[argcount], XmNbottomAttachment,      XmATTACH_WIDGET);
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNbottomWidget,          buttonbox);
+   XtSetArg(args[argcount], XmNbottomWidget,     buttonbox_w);
    argcount++;
-   XtSetArg(args[argcount], XmNleftAttachment,        XmATTACH_FORM);
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
    argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment,       XmATTACH_FORM);
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
    argcount++;
-   h_separator = XmCreateSeparator(form, "h_separator", args, argcount);
-   XtManageChild(h_separator);
+   separator_w = XmCreateSeparator(mainform_w, "separator", args, argcount);
+   XtManageChild(separator_w);                                              
+
+/*-----------------------------------------------------------------------*/
+/*                            Status Box                                 */
+/*                            ----------                                 */
+/* The status of the output log is shown here. If eg. no files are found */
+/* it will be shown here.                                                */
+/*-----------------------------------------------------------------------*/
+   statusbox_w = XtVaCreateManagedWidget(" ",                              
+                        xmLabelWidgetClass,  mainform_w,
+                        XmNfontList,         fontlist,  
+                        XmNleftAttachment,   XmATTACH_FORM,
+                        XmNrightAttachment,  XmATTACH_FORM,
+                        XmNbottomAttachment, XmATTACH_WIDGET,
+                        XmNbottomWidget,     separator_w,
+                        NULL);
+
+/*-----------------------------------------------------------------------*/
+/*                         Horizontal Separator                          */
+/*-----------------------------------------------------------------------*/
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomWidget,     statusbox_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   argcount++;
+   separator_w = XmCreateSeparator(mainform_w, "separator", args, argcount);
+   XtManageChild(separator_w);
 
    /* Create cmd_output as a ScrolledText window */
    argcount = 0;
@@ -222,25 +286,26 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment,       XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNbottomWidget,           h_separator);
+   XtSetArg(args[argcount], XmNbottomWidget,           separator_w);
    argcount++;
-   cmd_output = XmCreateScrolledText(form, "cmd_output", args, argcount);
+   cmd_output = XmCreateScrolledText(mainform_w, "cmd_output", args, argcount);
    XtManageChild(cmd_output);
-   XtManageChild(form);
+   XtManageChild(mainform_w);
 
 #ifdef _EDITRES
-   XtAddEventHandler(toplevel, (EventMask)0, True, _XEditResCheckMessages, NULL);
+   XtAddEventHandler(toplevel_w, (EventMask)0, True,
+                      _XEditResCheckMessages, NULL);
 #endif
 
    /* Realize all widgets */
-   XtRealizeWidget(toplevel);
+   XtRealizeWidget(toplevel_w);
 
 
    /* Set some signal handlers. */
    if ((signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
-      (void)xrec(toplevel, WARN_DIALOG,
+      (void)xrec(toplevel_w, WARN_DIALOG,
                  "Failed to set signal handler's for afd_ctrl : %s",
                  strerror(errno));
    }
@@ -262,43 +327,28 @@ static void
 init_cmd(int *argc, char *argv[], char *title_cmd)
 {
    int  length = 0;
-   char progname[MAX_PATH_LENGTH],
-        *ptr;
+   char *ptr;
 
-   /* Get display pointer */
-   if ((display = XOpenDisplay(NULL)) == NULL)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
-      (void)fprintf(stderr, "ERROR   : Could not open Display.\n");
-      exit(INCORRECT);
+      usage(argv[0]);
+      exit(SUCCESS);
    }
 
-   /* First get working directory for the AFD */
+   /* Get working directory for the AFD */
    if (get_afd_path(argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
    }
-   (void)strcpy(progname, argv[0]);
-   if (*argc < 2)
-   {
-      (void)fprintf(stderr,
-                    "Usage: %s [nummeric font name] <command>\n",
-                    progname);
-      exit(INCORRECT);
-   }
-   if ((*argc > 1) && (isdigit(argv[1][0]) != 0))
-   {
-      (void)strcpy(font_name, argv[1]);
-      (*argc)--; argv++;
-   }
-   else
+   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
    {
       (void)strcpy(font_name, "fixed");
    }
    if (*argc < 2)
    {
-      (void)fprintf(stderr,
-                    "Usage: %s [nummeric font name] <command>\n",
-                    progname);
+      usage(argv[0]);
       exit(INCORRECT);
    }
    if (argv[1][0] == '"')
@@ -314,7 +364,21 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    {
       (void)strcpy(cmd, argv[1]);
    }
-   (*argc)--; argv++;
+   if (*argc > 2)
+   {
+      register int j;
+
+      for (j = 1; j < *argc; j++)
+      {
+         argv[j] = argv[j + 1];
+      }
+      argv[j] = NULL;
+   }
+   else
+   {
+      argv[1] = NULL;
+   }
+   (*argc)--;
 
    /* Cut out command for title of window */
    ptr = cmd;
@@ -341,6 +405,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    }
    else
    {
+      length = 0;
       while ((*ptr != ' ') && (*ptr != '\0') &&
              (length < MAX_TITLE_CMD_LENGTH))
       {
@@ -367,6 +432,18 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    }
    (void)strcat(title_cmd, ptr);
 
+   return;
+}
+
+
+/*-------------------------------- usage() ------------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr, "Usage: %s [options] <command to execute>\n", progname);
+   (void)fprintf(stderr, "              --version\n");
+   (void)fprintf(stderr, "              -f <font name>\n");
+   (void)fprintf(stderr, "              -w <working directory>\n");
    return;
 }
 

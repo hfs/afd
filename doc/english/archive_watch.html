@@ -1,59 +1,64 @@
-<HTML>
-<HEAD>
-<TITLE>AFD (archive_watch.html)</TITLE>
-</HEAD>
-<BODY bgcolor=#F0ECD6>
-<H1 ALIGN=center><A NAME="archive_watch">Archive Watch</A></H1>
-<HR SIZE=3 NOSHADE>
-<P>
+<html>
+<head>
+<title>AFD (archive_watch.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="archive_watch">Archive Watch</a></h1>
+<hr size=3 noshade>
+<p>
 This process traverses through the archive directories and checks if
 the archive is old enough to be deleted. The process init_afd will
 automatically restart it when it terminates for whatever reason. When
 files are archived by the process sf_xxx, they are stored in the
 following directory structure (beginning at $AFD_WORK_DIR):
-</P>
-<PRE>
+</p>
+<pre>
 archive/hollywood/donald/n/archive_name/
             |       |    |       |
-            |       |    |       +-------> This unique directory name
+            |       |    |       +-------&gt; This unique directory name
             |       |    |                 is created when files are
             |       |    |                 being archived.
-            |       |    +---------------> Due to the restriction that
+            |       |    +---------------&gt; Due to the restriction that
             |       |                      some unix system allow for
             |       |                      only 1000 directories, sub-
             |       |                      directories starting with
             |       |                      zero are being created.
-            |       +--------------------> Remote user name.
-            +----------------------------> Remote host name.
-</PRE>
-<P>
+            |       +--------------------&gt; Remote user name.
+            +----------------------------&gt; Remote host name.
+</pre>
+<p>
 The time when the archive should be deleted is in the archive name,
 which has the following format:
-</P>
-<PRE>
+</p>
+<pre>
      x_nnnnnnnnnn_jjjj
      |     |       |
-     |     |       +-------> Job Identifier
-     |     +---------------> time when archive should be
+     |     |       +-------&gt; Job Identifier
+     |     +---------------&gt; time when archive should be
      |                       deleted. The format is unix
      |                       time in seconds.
-     +---------------------> priority of the job
-</PRE>
-<P>
-Archive watch will walk through this directory structure every hour
-(ARCHIVE_RESCAN_TIME) and see if any archive has reached its deletion time.
-</P>
-<HR SIZE=3 NOSHADE>
-<TABLE>
-<TR>
-   <TD WIDTH=600><SMALL><ADDRESS>
-   Copyright &copy; 1997 - 1999 by H.Kiehl<BR>
-   <A HREF="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</A><BR>
-   Last updated: 21.03.1999
-   </ADDRESS></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="contents.html">Index</A></SMALL></TD>
-   <TD><SMALL><IMG ALIGN=middle SRC="../images/reddot.gif"><A HREF="index.html">Home</A></SMALL></TD>
-</TR>
-</TABLE>
-</BODY>
-</HTML>
+     +---------------------&gt; priority of the job
+</pre>
+<p>
+Archive watch will walk through this directory structure every 10 minutes
+(ARCHIVE_STEP_TIME) and see if any archive has reached its deletion time.
+If you lower this value more archives ie. directories will be created.
+This has the advantage that files with the same name will have a lesser
+chance to overwrite each other. The disadvantage will be the high number
+of directories created and deleted again.
+</p>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1997 - 2001 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 04.06.2001
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

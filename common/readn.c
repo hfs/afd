@@ -54,7 +54,7 @@ DESCR__E_M3
 #include <errno.h>
 
 /* External global variables. */
-extern long connect_timeout;
+extern long transfer_timeout;
 
 
 /*############################## readn() ################################*/
@@ -75,7 +75,7 @@ readn(int fd, void *buf, int nbyte)
       FD_ZERO(&rset);
       FD_SET(fd, &rset);
       timeout.tv_usec = 0L;
-      timeout.tv_sec = connect_timeout;
+      timeout.tv_sec = transfer_timeout;
 
       status = select(fd + 1, &rset, NULL, NULL, &timeout);
 

@@ -1,7 +1,6 @@
 /*
  *  job_list_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +25,7 @@ DESCR__S_M1
  **   job_list_spy - shows all jobs that are held by the AFD
  **
  ** SYNOPSIS
- **   job_list_spy [-w <AFD work dir>] [--version]
+ **   job_list_spy [-w <AFD work dir>] [--version] [<job no>]
  **
  ** DESCRIPTION
  **
@@ -38,6 +37,7 @@ DESCR__S_M1
  ** HISTORY
  **   03.02.1998 H.Kiehl Created
  **   15.05.1999 H.Kiehl Option to show only one job.
+ **   24.06.2000 H.Kiehl Completely revised.
  **
  */
 DESCR__E_M1
@@ -62,11 +62,11 @@ int
 main(int argc, char *argv[])
 {
    int                 fd,
-                       i,
-                       j,
+                       i, j,
                        *no_of_job_ids,
                        search_id = -1;
    char                file[MAX_PATH_LENGTH],
+                       option_buffer[MAX_OPTION_LENGTH],
                        *ptr,
                        work_dir[MAX_PATH_LENGTH];
    struct stat         stat_buf;
@@ -119,31 +119,96 @@ main(int argc, char *argv[])
       {
          if ((search_id == -1) || (search_id == jd[i].job_id))
          {
-            (void)fprintf(stdout, "Job-ID      Dir-ID      P Hostalias\n");
-            (void)fprintf(stdout, "%-11d %-11d %c %-*s\n",
-                          jd[i].job_id,
-                          jd[i].dir_id_pos,
-                          jd[i].priority,
-                          MAX_HOSTNAME_LENGTH, jd[i].host_alias);
-            (void)fprintf(stdout, "Number of file filters: %d\n",
-                          jd[i].no_of_files);
-            for (j = 0; j < jd[i].no_of_files; j++)
+            (void)fprintf(stdout, "Job-ID      : %d\n",
+                          jd[i].job_id);
+            (void)fprintf(stdout, "Dir position: %d\n",
+                          jd[i].dir_id_pos);
+            (void)fprintf(stdout, "Priority    : %c\n",
+                          jd[i].priority);
+            (void)fprintf(stdout, "Hostalias   : %s\n",
+                          jd[i].host_alias);
+            if (jd[i].no_of_files == 1)
             {
-               (void)fprintf(stdout, "                        %s\n", jd[i].file_list[j]);
+               (void)fprintf(stdout, "File filters: %s\n",
+                             jd[i].file_list);
             }
-            (void)fprintf(stdout, "Number of local options: %d\n",
-                          jd[i].no_of_loptions);
+            else
+            {
+               char *p_file = jd[i].file_list;
+
+               (void)fprintf(stdout, "File filters: %s\n", p_file);
+               NEXT(p_file);
+               for (j = 1; j < jd[i].no_of_files; j++)
+               {
+                  (void)fprintf(stdout, "            : %s\n", p_file);
+                  NEXT(p_file);
+               }
+            }
             if (jd[i].no_of_loptions > 0)
             {
-               (void)fprintf(stdout, "%s\n", jd[i].loptions);
+               if (jd[i].no_of_loptions == 1)
+               {
+                  (void)fprintf(stdout, "AMG options : %s\n",
+                                jd[i].loptions);
+               }
+               else
+               {
+                  char *ptr = jd[i].loptions;
+
+                  (void)fprintf(stdout, "AMG options : %s\n",
+                                ptr);
+                  NEXT(ptr);
+                  for (j = 1; j < jd[i].no_of_loptions; j++)
+                  {
+                     (void)fprintf(stdout, "            : %s\n",
+                                   ptr);
+                     NEXT(ptr);
+                  }
+               }
             }
-            (void)fprintf(stdout, "Number of standart options: %d\n",
-                          jd[i].no_of_soptions);
             if (jd[i].no_of_soptions > 0)
             {
-               (void)fprintf(stdout, "%s\n", jd[i].soptions);
+               if (jd[i].no_of_soptions == 1)
+               {
+                  (void)fprintf(stdout, "FD options  : %s\n",
+                                jd[i].soptions);
+               }
+               else
+               {
+                  char *ptr,
+                       *ptr_start;
+
+                  ptr = ptr_start = option_buffer;
+
+                  (void)strcpy(option_buffer, jd[i].soptions);
+                  while ((*ptr != '\n') && (*ptr != '\0'))
+                  {
+                     ptr++;
+                  }
+                  *ptr = '\0';
+                  ptr++;
+                  (void)fprintf(stdout, "FD options  : %s\n",
+                                ptr_start);
+                  for (j = 1; j < jd[i].no_of_soptions; j++)
+                  {
+                     ptr_start = ptr;
+                     while ((*ptr != '\n') && (*ptr != '\0'))
+                     {
+                        ptr++;
+                     }
+                     *ptr = '\0';
+                     ptr++;
+                     (void)fprintf(stdout, "            : %s\n",
+                                   ptr_start);
+                  }
+               }
             }
-            (void)fprintf(stdout, "RECIPIENT: %s\n\n", jd[i].recipient);
+            (void)fprintf(stdout, "Recipient   : %s\n",
+                          jd[i].recipient);
+            if ((search_id == -1) && ((i + 1) < *no_of_job_ids))
+            {
+               (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
+            }
          }
       }
    }

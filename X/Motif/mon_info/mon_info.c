@@ -1,6 +1,6 @@
 /*
  *  mon_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M1
  **   mon_info - displays information on a single AFD
  **
  ** SYNOPSIS
- **   mon_info [--version] [-w <AFD working directory>] AFD-name [font name]
+ **   mon_info [--version] [-w <work dir>] [-f <font name>] -a AFD-name
  **
  ** DESCRIPTION
  **
@@ -36,6 +36,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   21.02.1999 H.Kiehl Created
+ **   10.09.2000 H.Kiehl Added top transfer and top file rate.
  **
  */
 DESCR__E_M1
@@ -59,6 +60,7 @@ DESCR__E_M1
 
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
+#include <Xm/TextF.h>
 #include <Xm/ToggleBG.h>
 #include <Xm/PushB.h>
 #include <Xm/PushBG.h>
@@ -69,7 +71,6 @@ DESCR__E_M1
 #include <Xm/Form.h>
 #include <errno.h>
 #include "mon_info.h"
-#include "mondefs.h"
 #include "version.h"
 
 /* Global variables */
@@ -98,20 +99,25 @@ char                   info_file[MAX_PATH_LENGTH],
                           "Real host name     :",
                           "TCP port           :",
                           "Last data time     :",
-                          "Maximum connections:"
+                          "Maximum connections:",
+                          "AFD Version        :",
+                          "Top transfer rate  :"
                        },
                        label_r[NO_OF_MSA_ROWS][17] =
                        {
                           "IP number      :",
                           "Remote work dir:",
                           "Poll interval  :",
-                          "Number of hosts:"
+                          "TOP connections:",
+                          "Number of hosts:",
+                          "Top file rate  :"
                        };
 struct mon_status_area *msa;
 struct prev_values     prev;
 
 /* Local function prototypes */
-static void            init_mon_info(int, char **);
+static void            init_mon_info(int *, char **),
+                       usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -157,7 +163,7 @@ main(int argc, char *argv[])
 
    /* Initialise global values */
    p_work_dir = work_dir;
-   init_mon_info(argc, argv);
+   init_mon_info(&argc, argv);
 
    (void)strcpy(window_title, afd_name);
    (void)strcat(window_title, " Info");
@@ -213,7 +219,7 @@ main(int argc, char *argv[])
                               XmNalignment,        XmALIGNMENT_END,
                               NULL);
       text_wl[i] = XtVaCreateManagedWidget("text_wl",
-                              xmTextWidgetClass,         msa_text_w,
+                              xmTextWidgetClass,        msa_text_w,
                               XmNfontList,              fontlist,
                               XmNcolumns,               MON_INFO_LENGTH,
                               XmNtraversalOn,           False,
@@ -242,6 +248,24 @@ main(int argc, char *argv[])
    XmTextSetString(text_wl[2], str_line);
    (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.max_connections);
    XmTextSetString(text_wl[3], str_line);
+   (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, prev.afd_version);
+   XmTextSetString(text_wl[4], str_line);
+   if (prev.top_tr > 1048576)
+   {
+      (void)sprintf(str_line, "%*u MB/s",
+                    MON_INFO_LENGTH - 5, prev.top_tr / 1048576);
+   }
+   else if (prev.top_tr > 1024)               
+        {
+           (void)sprintf(str_line, "%*u KB/s",
+                         MON_INFO_LENGTH - 5, prev.top_tr / 1024);
+        }
+        else
+        {
+           (void)sprintf(str_line, "%*u Bytes/s",
+                         MON_INFO_LENGTH - 8, prev.top_tr);
+        }
+   XmTextSetString(text_wl[5], str_line);
 
    /* Create the first horizontal separator */
    argcount = 0;
@@ -329,8 +353,12 @@ main(int argc, char *argv[])
    XmTextSetString(text_wr[1], str_line);
    (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.poll_interval);
    XmTextSetString(text_wr[2], str_line);
-   (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.no_of_hosts);
+   (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.top_not);
    XmTextSetString(text_wr[3], str_line);
+   (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.no_of_hosts);
+   XmTextSetString(text_wr[4], str_line);
+   (void)sprintf(str_line, "%*u files/s", MON_INFO_LENGTH - 8, prev.top_fr);
+   XmTextSetString(text_wr[5], str_line);
 
    argcount = 0;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
@@ -449,32 +477,28 @@ main(int argc, char *argv[])
 
 /*++++++++++++++++++++++++++++ init_mon_info() ++++++++++++++++++++++++++*/
 static void
-init_mon_info(int argc, char *argv[])
+init_mon_info(int *argc, char *argv[])
 {
    int  count = 0,
         i;
 
-   if (argc == 2)
+   if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
-      (void)strcpy(afd_name, argv[1]);
-      argc--; count++;
+      usage(argv[0]);
+      exit(SUCCESS);
+   }
+   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
+   {
       (void)strcpy(font_name, "fixed");
    }
-   else if (argc == 3)
-        {
-           (void)strcpy(afd_name, argv[1]);
-           argc--; count++;
-           (void)strcpy(font_name, argv[2]);
-           argc--; count++;
-        }
-        else
-        {
-           (void)fprintf(stderr,
-                         "Usage : %s AFD-name [font name] [-w <working directory>]\n",
-                         argv[0]);
-           exit(INCORRECT);
-        }
-   if (get_mon_path(&argc, argv, p_work_dir) < 0)
+   if (get_arg(argc, argv, "-a", afd_name, MAX_AFD_NAME_LENGTH + 1) == INCORRECT)
+   {
+      usage(argv[0]);
+      exit(INCORRECT);
+   }
+   if (get_mon_path(argc, argv, p_work_dir) < 0)
    {
       (void)fprintf(stderr,
                     "Failed to get working directory of AFD_MON. (%s %d)\n",
@@ -512,15 +536,31 @@ init_mon_info(int argc, char *argv[])
    /* Initialize values in MSA structure */
    (void)strcpy(prev.real_hostname, msa[afd_position].hostname);
    (void)strcpy(prev.r_work_dir, msa[afd_position].r_work_dir);
+   (void)strcpy(prev.afd_version, msa[afd_position].afd_version);
    prev.port = msa[afd_position].port;
    prev.poll_interval = msa[afd_position].poll_interval;
    prev.max_connections = msa[afd_position].max_connections;
    prev.no_of_hosts = msa[afd_position].no_of_hosts;
    prev.last_data_time = msa[afd_position].last_data_time;
+   prev.top_not = msa[afd_position].top_no_of_transfers[0];
+   prev.top_tr = msa[afd_position].top_tr[0];
+   prev.top_fr = msa[afd_position].top_fr[0];
 
    /* Create name of info file and read it */
    (void)sprintf(info_file, "%s%s/%s%s", p_work_dir,
                  ETC_DIR, INFO_IDENTIFIER, afd_name);
 
+   return;
+}
+
+
+/*-------------------------------- usage() ------------------------------*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr, "Usage : %s [options] -a AFD-name\n", progname);
+   (void)fprintf(stderr, "           --version\n");
+   (void)fprintf(stderr, "           -f <font name>]\n");
+   (void)fprintf(stderr, "           -w <working directory>]\n");
    return;
 }

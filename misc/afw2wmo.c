@@ -1,6 +1,6 @@
 /*
  *  afw2wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -68,6 +68,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   30.07.1999 H.Kiehl Created (from evaluate_message() in MCS)
+ **   24.02.2000 H.Kiehl Convert BM?? -> BMBB??
+ **                      Convert XX?? -> BMBB??
  **
  */
 DESCR__E_M3
@@ -78,12 +80,12 @@ DESCR__E_M3
 #include <ctype.h>              /* isalpha(), isdigit()                  */
 #include <errno.h>
 
-/* External global variables */
-extern int               sys_log_fd;
-
 #ifdef _WITH_AFW2WMO
+/* External global variables. */
+extern int  sys_log_fd;
+
 /* Local function prototypes */
-static void              show_error(char *, char *);
+static void show_error(char *, char *);
 
 #define SOH                    1
 #define ETX                    3
@@ -126,9 +128,8 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    /* then 20 Bytes.                                           */
    if (*msg_length < 20)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Message %s to short [%d] (%s %d)\n",
-                msg_name, *msg_length, __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Message %s to short [%d]", msg_name, *msg_length);
       return(INCORRECT);
    }
 
@@ -145,9 +146,8 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
       }
       else
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "%s is contains an unknown message type! (%s %d)\n",
-                   msg_name, __FILE__, __LINE__);
+         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "%s is contains an unknown message type!", msg_name);
          return(INCORRECT);
       }
    }
@@ -156,9 +156,8 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    /* then 1 Megabytes.                                        */
    if (*msg_length > 1048576)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Message %s to long [%d] (%s %d)\n",
-                msg_name, *msg_length, __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Message %s to long [%d]", msg_name, *msg_length);
       return(INCORRECT);
    }
 
@@ -175,7 +174,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    {
       show_error(read_ptr, "TT");
 /*
-      show_buffer(sys_log_fd, msg, *msg_length);
+      show_buffer(receive_log_fd, msg, *msg_length);
 */
       return(INCORRECT);
    }
@@ -187,9 +186,8 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    /* Allocate memory for the wmo_buffer. */
    if ((*wmo_buffer = malloc((2 * *msg_length))) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to malloc() memory : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Failed to malloc() memory : %s", strerror(errno));
       exit(INCORRECT);
    }
    write_ptr = *wmo_buffer;
@@ -200,10 +198,19 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
 
    /* Write TTDL */
    p_start_afw_header = read_ptr;
-   *(write_ptr + 2) = toupper(*read_ptr);
-   *(write_ptr + 3) = toupper(*(read_ptr + 1));
-   if (((*read_ptr == 'S') || (*read_ptr == 's')) &&
-       ((*(read_ptr + 1) == 'N') || (*(read_ptr + 1) == 'n')) &&
+   if (((*read_ptr == 'X') || (*read_ptr == 'x')) &&
+       ((*(read_ptr + 1) == 'X') || (*(read_ptr + 1) == 'x')) &&
+       !((*(read_ptr + 2) == '3') && (*(read_ptr + 3) == '5')))
+   {
+      *(write_ptr + 2) = 'B';
+      *(write_ptr + 3) = 'M';
+   }
+   else
+   {
+      *(write_ptr + 2) = toupper(*read_ptr);
+      *(write_ptr + 3) = toupper(*(read_ptr + 1));
+   }
+   if ((*(write_ptr + 2) == 'S') && (*(write_ptr + 3) == 'N') &&
        (*(read_ptr + 2) == '4') && (*(read_ptr + 3) == '0'))
    {
       *(write_ptr + 4) = 'X';
@@ -211,8 +218,16 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    }
    else
    {
-      *(write_ptr + 4) = 'D';
-      *(write_ptr + 5) = 'L';
+      if ((*(write_ptr + 2 ) == 'B') && (*(write_ptr + 3) == 'M'))
+      {
+         *(write_ptr + 4) = 'B';
+         *(write_ptr + 5) = 'B';
+      }
+      else
+      {
+         *(write_ptr + 4) = 'D';
+         *(write_ptr + 5) = 'L';
+      }
    }
    write_ptr += 6;
 
@@ -278,7 +293,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    {
       show_error(read_ptr, "YY");
 /*
-      show_buffer(sys_log_fd, msg, *msg_length);
+      show_buffer(receive_log_fd, msg, *msg_length);
 */
       return(INCORRECT);
    }
@@ -292,7 +307,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    {
       show_error(read_ptr, "GG");
 /*
-      show_buffer(sys_log_fd, msg, *msg_length);
+      show_buffer(receive_log_fd, msg, *msg_length);
 */
       return(INCORRECT);
    }
@@ -304,7 +319,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    {
       show_error(read_ptr, "gg");
 /*
-      show_buffer(sys_log_fd, msg, *msg_length);
+      show_buffer(receive_log_fd, msg, *msg_length);
 */
       return(INCORRECT);
    }
@@ -337,7 +352,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
       {
          show_error(read_ptr, "IIiii");
 /*
-         show_buffer(sys_log_fd, msg, *msg_length);
+         show_buffer(receive_log_fd, msg, *msg_length);
 */
          return(INCORRECT);
       }
@@ -457,12 +472,11 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
               }
               else
               {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Error in message %s (%s %d)\n",
-                           msg_name, __FILE__, __LINE__);
+                 receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Error in message %s", msg_name);
                  show_error(read_ptr, "CCCC");
 /*
-                 show_buffer(sys_log_fd, msg, *msg_length);
+                 show_buffer(receive_log_fd, msg, *msg_length);
 */
                  return(INCORRECT);
               }
@@ -501,9 +515,8 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
         else
         {
            /* Impossible! Should never come here. */
-           (void)rec(sys_log_fd, DEBUG_SIGN,
-                     "Hmmm. This should never happen! (%s %d)\n",
-                     __FILE__, __LINE__);
+           receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Hmmm. This should never happen!");
            return(INCORRECT);
         }
 
@@ -554,17 +567,17 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
       }
    }
    else if ((p_start_ansi != NULL) &&
-            (((*p_start_afw_header == 'S') || (*p_start_afw_header == 's')) &&
-             ((*(p_start_afw_header + 1) == 'A') || (*(p_start_afw_header + 1) == 'a')) &&
-             (*p_start_ansi == 'E') &&
-             (*(p_start_ansi + 1) == 'D')) ||
-            (((*p_start_afw_header == 'S') || (*p_start_afw_header == 's')) &&
-             ((*(p_start_afw_header + 1) == 'H') || (*(p_start_afw_header + 1) == 'h')) &&
-             (*(p_start_afw_header + 2) == ' ')) ||
-            (((*p_start_afw_header == 'X') || (*p_start_afw_header == 'x')) &&
-             ((*(p_start_afw_header + 1) == 'X') || (*(p_start_afw_header + 1) == 'x')) &&
-             (*(p_start_afw_header + 2) == '0') &&
-             ((*(p_start_afw_header + 3) == '1') || (*(p_start_afw_header + 3) == '2'))))
+            ((((*p_start_afw_header == 'S') || (*p_start_afw_header == 's')) &&
+              ((*(p_start_afw_header + 1) == 'A') || (*(p_start_afw_header + 1) == 'a')) &&
+              (*p_start_ansi == 'E') &&
+              (*(p_start_ansi + 1) == 'D')) ||
+             (((*p_start_afw_header == 'S') || (*p_start_afw_header == 's')) &&
+              ((*(p_start_afw_header + 1) == 'H') || (*(p_start_afw_header + 1) == 'h')) &&
+              (*(p_start_afw_header + 2) == ' ')) ||
+             (((*p_start_afw_header == 'X') || (*p_start_afw_header == 'x')) &&
+              ((*(p_start_afw_header + 1) == 'X') || (*(p_start_afw_header + 1) == 'x')) &&
+              (*(p_start_afw_header + 2) == '0') &&
+              ((*(p_start_afw_header + 3) == '1') || (*(p_start_afw_header + 3) == '2')))))
         {
             (void)memcpy(write_ptr, p_start_ansi, 4);
             *(write_ptr + 4) = ' ';
@@ -597,11 +610,10 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    *msg_length = *msg_length + garbage - (read_ptr - msg);
    if (*msg_length < 1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Premature end of message %s! (%s %d)\n",
-                msg_name, __FILE__, __LINE__);
+      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                  "Premature end of message %s!", msg_name);
 /*
-      show_buffer(sys_log_fd, msg, read_ptr - msg);
+      show_buffer(receive_log_fd, msg, read_ptr - msg);
 */
       return(INCORRECT);
    }
@@ -619,12 +631,8 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
 
    /* Tell user we have converted a message. */
    *msg_header_ptr = '\0';
-/*
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Converted %s [%d] (%s %d)\n",
-             MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-             msg_header, *msg_length, __FILE__, __LINE__);
-*/
+   receive_log(INFO_SIGN, __FILE__, __LINE__,
+               "Converted %s [%d]", msg_header, *msg_length);
 #endif /* _WITH_AFW2WMO */
 
    return(SUCCESS);
@@ -646,7 +654,7 @@ show_error(char *is, char *expect)
    length = (MAX_INT_LENGTH + 2) * show_length;
    if ((tmp_buf = malloc(length + 1)) == NULL)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -664,9 +672,8 @@ show_error(char *is, char *expect)
       }
    }
    tmp_buf[buf_length] = '\0';
-   (void)rec(sys_log_fd, WARN_SIGN,
-             "Received <%s> instead of <%s>. (%s %d)\n",
-             tmp_buf, expect, __FILE__, __LINE__);
+   receive_log(WARN_SIGN, __FILE__, __LINE__,
+               "Received <%s> instead of <%s>", tmp_buf, expect);
 
    free(tmp_buf);
 

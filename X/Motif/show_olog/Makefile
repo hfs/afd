@@ -8,7 +8,8 @@ INSTDIR  = ../../../../bin
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
-CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../.. -I../../../init_afd -I../../../log -I../../../fd -I../afd_ctrl
+PROTOLIB = ../../../protocols/libprotocols.a
+CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../.. -I../../../init_afd -I../../../log -I../../../fd -I../../../protocols -I../afd_ctrl
 
 SLOGPROG = show_olog
 SLOGOBJS = calculate_summary.o\
@@ -20,7 +21,9 @@ SLOGOBJS = calculate_summary.o\
            print_data.o\
            resend_files.o\
            send_files.o\
-           show_olog.o
+           send_files_ftp.o\
+           show_olog.o\
+           trans_log.o
 
 PROGS    = $(SLOGPROG)
 OBJS     = $(SLOGOBJS)
@@ -31,7 +34,8 @@ all : $(PROGS)
 $(OBJS) : $(HEADERS)
 
 $(SLOGPROG) : $(SLOGOBJS) $(LIB)
-	$(CC) $(CFLAGS) -o $@ $(SLOGOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(SLOGOBJS) $(LIB) $(PROTOLIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
 clean :
 	rm -f $(OBJS) core
@@ -41,8 +45,11 @@ clobber :
 	rm -f $(PROGS)
 
 install :
+	cd $(INSTDIR) && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)
 	chmod $(BINMODE) $(INSTDIR)/$(SLOGPROG)
 
 # Other dependencies
 show_olog.o : ../../../version.h ../../../init_afd/permission.h
+get_send_data.o : ../../../protocols/ftpdefs.h ../../../protocols/smtpdefs.h
+send_files_ftp.o : ../../../protocols/ftpdefs.h ../../../fd/fddefs.h

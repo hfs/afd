@@ -40,11 +40,6 @@
 #define UNKNOWN_ID_LENGTH       7
 #define MAX_REASON_LENGTH       7
 
-#define SELECTION_TOGGLE        1
-#define ALL_TOGGLE              2
-#define PRINTER_TOGGLE          3
-#define FILE_TOGGLE             4
-
 #define EQUAL_SIGN              1
 #define LESS_THEN_SIGN          2
 #define GREATER_THEN_SIGN       3
@@ -56,8 +51,6 @@
 #define F_MEGABYTE              1048576.0
 #define F_GIGABYTE              1073741824.0
 #define F_TERABYTE              1099511627776.0
-
-#define CONTROL_D               "\004"
 
 #define SEARCH_BUTTON           1
 #define STOP_BUTTON             2
@@ -120,7 +113,7 @@ struct db_entry
           int          no_of_loptions;
           int          no_of_soptions;
           char         *soptions;
-          char         files[MAX_NO_FILES][MAX_FILENAME_LENGTH];
+          char         **files;
           char         loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
           char         recipient[MAX_RECIPIENT_LENGTH];
           char         priority;
@@ -205,7 +198,6 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int, double),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),
             print_button(Widget, XtPointer, XtPointer),
-            print_data(void),
             save_input(Widget, XtPointer, XtPointer),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer);

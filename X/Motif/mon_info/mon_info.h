@@ -21,10 +21,11 @@
 #define __mon_info_h
 
 #include "x_common_defs.h"
+#include "mondefs.h"
 
 #define MAXARGS                  20
 #define MAX_INFO_STRING_LENGTH   40
-#define NO_OF_MSA_ROWS           4
+#define NO_OF_MSA_ROWS           6
 #define MSA_INFO_TEXT_WIDTH_L    15
 #define MSA_INFO_TEXT_WIDTH_R    18
 #define MON_INFO_LENGTH          20
@@ -36,13 +37,17 @@
 
 struct prev_values
        {
-          char   real_hostname[MAX_REAL_HOSTNAME_LENGTH];
-          char   r_work_dir[MAX_PATH_LENGTH];
-          int    port;
-          int    poll_interval;
-          int    max_connections;
-          int    no_of_hosts;
-          time_t last_data_time;
+          char         real_hostname[MAX_REAL_HOSTNAME_LENGTH];
+          char         r_work_dir[MAX_PATH_LENGTH];
+          char         afd_version[MAX_VERSION_LENGTH];
+          int          port;
+          int          poll_interval;
+          int          max_connections;
+          int          no_of_hosts;
+          int          top_not;       /* TOP number of transfers. */
+          unsigned int top_tr;
+          unsigned int top_fr;
+          time_t       last_data_time;
        };
 
 /* Function prototypes */

@@ -9,6 +9,7 @@ LIB     = libxafd.a
 HEADERS = ../afd_ctrl/afd_ctrl.h ../../../config.h
 OBJS    = check_info_file.o\
           check_nummeric.o\
+          generic_print.o\
           get_current_jid_list.o\
           get_ip_no.o\
           get_printer_cmd.o\
@@ -16,6 +17,7 @@ OBJS    = check_info_file.o\
           init_color.o\
           locate_xy.o\
           make_xprocess.o\
+          remove_passwd.o\
           sfilter.o\
           show_info.o\
           show_message.o\

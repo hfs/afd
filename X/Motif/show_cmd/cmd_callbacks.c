@@ -60,7 +60,8 @@ extern char           cmd[];
 extern pid_t          cmd_pid;
 extern int            cmd_fd;
 extern Display        *display;
-extern Widget         cmd_output;
+extern Widget         cmd_output,
+                      statusbox_w;
 extern XtInputId      cmd_input_id;
 extern XmTextPosition wpr_position;
 extern XtAppContext   app;
@@ -85,6 +86,17 @@ close_button(Widget w, XtPointer client_data, XtPointer call_data)
    }
 
    exit(SUCCESS);
+}
+
+
+/*############################ print_button() ###########################*/
+void
+print_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   reset_message(statusbox_w);
+   print_data();
+
+   return;
 }
 
 

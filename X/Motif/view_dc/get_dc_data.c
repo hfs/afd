@@ -56,31 +56,43 @@ DESCR__E_M3
 #include "view_dc.h"
 
 /* Global variables */
-int                   *current_jid_list,
-                      no_of_current_jobs;
+int                        *current_jid_list,
+                           fra_fd = -1,
+                           fra_id,
+                           fsa_fd = -1,
+                           fsa_id,
+                           no_of_current_jobs,
+                           no_of_dirs,
+                           no_of_hosts;
+#ifndef _NO_MMAP
+off_t                      fra_size,
+                           fsa_size;
+#endif
+struct filetransfer_status *fsa;
+struct fileretrieve_status *fra;
 
 /* External global variables */
-extern int            glyph_height,
-                      glyph_width,
-                      sys_log_fd,
-                      view_passwd;
-extern char           host_name[],
-                      *p_work_dir;
-extern Display        *display;
-extern XtAppContext   app;
-extern Widget         toplevel_w,
-                      text_w;
-extern Dimension      button_height;
+extern int                 glyph_height,
+                           glyph_width,
+                           sys_log_fd,
+                           view_passwd;
+extern char                host_name[],
+                           *p_work_dir;
+extern Display             *display;
+extern XtAppContext        app;
+extern Widget              toplevel_w,
+                           text_w;
+extern Dimension           button_height;
 
 /* Local global variables */
-static int            job_counter,
-                      max_x,
-                      max_y;
-static XmTextPosition *position_array,
-                      text_position;
+static int                 job_counter,
+                           max_x,
+                           max_y;
+static XmTextPosition      *position_array,
+                           text_position;
 
 /* Local function prototypes */
-static void           show_data(struct job_id_data *, char *);
+static void                show_data(struct job_id_data *, char *);
 
 
 /*############################ get_dc_data() ############################*/
@@ -88,6 +100,7 @@ void
 get_dc_data(void)
 {
    int                 dnb_fd,
+                       fsa_pos,
                        i,
                        j,
                        jd_fd,
@@ -282,24 +295,71 @@ get_dc_data(void)
                 strerror(errno), __FILE__, __LINE__);
    }
 
+   if (fsa_attach() == INCORRECT)
+   {
+      (void)xrec(toplevel_w, ERROR_DIALOG,
+                 "Failed to attach to FSA. (%s %d)", __FILE__, __LINE__);
+   }
+   if ((fsa_pos = get_host_position(fsa, host_name, no_of_hosts)) == INCORRECT)
+   {
+      (void)xrec(toplevel_w, ERROR_DIALOG,
+                 "Failed to locate host %s in FSA. (%s %d)",
+                 host_name, __FILE__, __LINE__);
+   }
+
    /*
     * Go through current job list and search the JID structure for
     * the host we are looking for.
     */
-   for (i = 0; i < no_of_current_jobs; i++)
+   if (fsa[fsa_pos].protocol & SEND_FLAG)
    {
-      for (j = 0; j < *no_of_job_ids; j++)
+      for (i = 0; i < no_of_current_jobs; i++)
       {
-         if (jd[j].job_id == current_jid_list[i])
+         for (j = 0; j < *no_of_job_ids; j++)
          {
-            if (strcmp(jd[j].host_alias, host_name) == 0)
+            if (jd[j].job_id == current_jid_list[i])
             {
-               show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name);
+               if (strcmp(jd[j].host_alias, host_name) == 0)
+               {
+                  show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name);
+               }
+               break;
             }
-            break;
          }
       }
    }
+   if (fsa[fsa_pos].protocol & RETRIEVE_FLAG)
+   {
+      int k;
+
+      if (fra_attach() == INCORRECT)
+      {
+         (void)xrec(toplevel_w, ERROR_DIALOG,
+                    "Failed to attach to FRA. (%s %d)", __FILE__, __LINE__);
+      }
+      for (i = 0; i < no_of_dirs; i++)
+      {
+         if (strcmp(fra[i].host_alias, host_name) == 0)
+         {
+            for (j = 0; j < no_of_current_jobs; j++)
+            {
+               for (k = 0; k < *no_of_job_ids; k++)
+               {
+                  if (jd[k].job_id == current_jid_list[j])
+                  {
+                     if (jd[k].dir_id_pos == fra[i].dir_pos)
+                     {
+                        show_data(&jd[k], dnb[jd[k].dir_id_pos].dir_name);
+                     }
+                     break;
+                  }
+               }
+            }
+         }
+      }
+      (void)fra_detach();
+   }
+   (void)fsa_detach();
 
    if (job_counter > 0)
    {
@@ -330,6 +390,14 @@ get_dc_data(void)
          free(separator_line);
       }
       free((void *)position_array);
+   }
+   else
+   {
+      char text[1024];
+
+      max_x = sprintf(text, "\n  No job's found for this host.\n\n");
+      max_y = 3;
+      XmTextInsert(text_w, 0, text);
    }
 
    /* Resize window to fit text. */
@@ -382,7 +450,8 @@ show_data(struct job_id_data *p_jd, char *dir_name)
    int  count,
         i,
         length;
-   char text[8192],
+   char *p_file,
+        text[8192],
         value[MAX_PATH_LENGTH];
 
    if ((job_counter % 10) == 0)
@@ -407,7 +476,9 @@ show_data(struct job_id_data *p_jd, char *dir_name)
    max_y++;
 
    /* Show file filters. */
-   count = sprintf(text + length, "Filter     : %s\n", p_jd->file_list[0]);
+   p_file = p_jd->file_list;
+   count = sprintf(text + length, "Filter     : %s\n", p_file);
+   NEXT(p_file);
    length += count;
    if (count > max_x)
    {
@@ -416,7 +487,8 @@ show_data(struct job_id_data *p_jd, char *dir_name)
    max_y++;
    for (i = 1; i < p_jd->no_of_files; i++)
    {
-      count = sprintf(text + length, "             %s\n", p_jd->file_list[i]);
+      count = sprintf(text + length, "             %s\n", p_file);
+      NEXT(p_file);
       length += count;
       if (count > max_x)
       {
@@ -429,44 +501,7 @@ show_data(struct job_id_data *p_jd, char *dir_name)
    (void)strcpy(value, p_jd->recipient);
    if (view_passwd != YES)
    {
-      char *ptr = value;
-
-      /*
-       * The user may not see the password. Lets cut it out and
-       * replace it with DEFAULT_VIEW_PASSWD.
-       */
-      while (*ptr != ':')
-      {
-         ptr++;
-      }
-      ptr++;
-      while ((*ptr != ':') && (*ptr != '@'))
-      {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         ptr++;
-      }
-      if (*ptr == ':')
-      {
-         char *p_end = ptr + 1,
-              tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-         ptr++;
-         while (*ptr != '@')
-         {
-            if (*ptr == '\\')
-            {
-               ptr++;
-            }
-            ptr++;
-         }
-         (void)strcpy(tmp_buffer, ptr);
-         *p_end = '\0';
-         (void)strcat(value, "XXXXX");
-         (void)strcat(value, tmp_buffer);
-      }
+      remove_passwd(value);
    }
    count = sprintf(text + length, "Recipient  : %s\n", value);
    length += count;

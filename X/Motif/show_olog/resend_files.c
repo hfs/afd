@@ -73,6 +73,7 @@ extern Display          *display;
 extern Widget           toplevel_w,
                         special_button_w,
                         scrollbar_w,
+                        statusbox_w,
                         listbox_w;
 extern int              items_selected,
                         no_of_log_files,
@@ -141,7 +142,7 @@ resend_files(int no_selected, int *select_list)
    {
       (void)sprintf(user_message, "User limit (%d) for resending reached!",
                     perm.resend_limit);
-      show_message(user_message);
+      show_message(statusbox_w, user_message);
       return;
    }
    overwrite = 0;
@@ -504,7 +505,7 @@ resend_files(int no_selected, int *select_list)
       (void)sprintf(&user_message[length], " USER LIMIT (%d) REACHED",
                     perm.resend_limit);
    }
-   show_message(user_message);
+   show_message(statusbox_w, user_message);
 
    free((void *)rl);
    free((void *)select_done_list);
@@ -780,7 +781,7 @@ write_fsa(int add)
          *ptr = '\0';
          t_hostname(p_hostname, truncated_hostname);
          *ptr = tmp_char;
-         if ((position = get_position(fsa, truncated_hostname, no_of_hosts)) != INCORRECT)
+         if ((position = get_host_position(fsa, truncated_hostname, no_of_hosts)) != INCORRECT)
          {
             (void)check_fsa();
             lock_region_w(fsa_fd, (char *)&fsa[position].total_file_counter - (char *)fsa);

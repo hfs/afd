@@ -73,9 +73,12 @@ remove_time_dir(char *host_name, int job_id, int reason)
 
    if ((dp = opendir(time_dir)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to opendir() %s to remove old time jobs : %s (%s %d)\n",
-                time_dir, strerror(errno), __FILE__, __LINE__);
+      if (errno != ENOENT)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Failed to opendir() %s to remove old time jobs : %s (%s %d)\n",
+                   time_dir, strerror(errno), __FILE__, __LINE__);
+      }
    }
    else
    {

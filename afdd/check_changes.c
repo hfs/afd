@@ -1,6 +1,6 @@
 /*
  *  check_changes.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   17.01.1999 H.Kiehl Created
+ **   03.09.2000 H.Kiehl Addition of log history.
  **
  */
 DESCR__E_M3
@@ -69,6 +70,9 @@ check_changes(FILE *p_data)
    static unsigned int old_sys_log_ec;
    static time_t   next_stat_time,
                    old_st_mtime;
+   static char     old_receive_log_history[MAX_LOG_HISTORY],
+                   old_sys_log_history[MAX_LOG_HISTORY],
+                   old_trans_log_history[MAX_LOG_HISTORY];
    time_t          now;
 
    if (check_fsa() == YES)
@@ -107,25 +111,24 @@ check_changes(FILE *p_data)
             if ((access(afd_config_file, F_OK) == 0) &&
                 (read_file(afd_config_file, &buffer) != INCORRECT))
             {
+               int  max_connections = 0;
                char value[MAX_INT_LENGTH];
 
                if (get_definition(buffer,
                                   MAX_CONNECTIONS_DEF,
                                   value, MAX_INT_LENGTH) != NULL)
                {
-                  int max_connections;
-
                   max_connections = atoi(value);
-                  if ((max_connections < 1) ||
-                      (max_connections > MAX_CONFIGURABLE_CONNECTIONS))
-                  {
-                     max_connections = MAX_DEFAULT_CONNECTIONS;
-                  }
-                  if (max_connections != old_max_connections)
-                  {
-                     old_max_connections = max_connections;
-                     (void)fprintf(p_data, "MC %d\r\n", old_max_connections);
-                  }
+               }
+               if ((max_connections < 1) ||
+                   (max_connections > MAX_CONFIGURABLE_CONNECTIONS))
+               {
+                  max_connections = MAX_DEFAULT_CONNECTIONS;
+               }
+               if (max_connections != old_max_connections)
+               {
+                  old_max_connections = max_connections;
+                  (void)fprintf(p_data, "MC %d\r\n", old_max_connections);
                }
                free(buffer);
             }
@@ -145,15 +148,62 @@ check_changes(FILE *p_data)
 
    if (old_sys_log_ec != p_afd_status->sys_log_ec)
    {
-      int i;
+      register int i;
+      char         buf[LOG_FIFO_SIZE + 1];
 
       old_sys_log_ec = p_afd_status->sys_log_ec;
-      (void)fprintf(p_data, "SR %u", old_sys_log_ec);
       for (i = 0; i < LOG_FIFO_SIZE; i++)
       {
-         (void)fprintf(p_data, " %d", (int)p_afd_status->sys_log_fifo[i]);
+         buf[i] = p_afd_status->sys_log_fifo[i] + ' ';
       }
-      (void)fprintf(p_data, "\r\n");
+      buf[i] = '\0';
+      (void)fprintf(p_data, "SR %u %s\r\n", old_sys_log_ec, buf);
+   }
+
+   if (memcmp(old_receive_log_history, p_afd_status->receive_log_history,
+              MAX_LOG_HISTORY) != 0)
+   {
+      register int i;
+      char         buf[MAX_LOG_HISTORY + 1];
+
+      (void)memcpy(old_receive_log_history, p_afd_status->receive_log_history,
+                   MAX_LOG_HISTORY);
+      for (i = 0; i < MAX_LOG_HISTORY; i++)
+      {
+         buf[i] = p_afd_status->receive_log_history[i] + ' ';
+      }
+      buf[i] = '\0';
+      (void)fprintf(p_data, "RH %s\r\n", buf);
+   }
+   if (memcmp(old_sys_log_history, p_afd_status->sys_log_history,
+              MAX_LOG_HISTORY) != 0)
+   {
+      register int i;
+      char         buf[MAX_LOG_HISTORY + 1];
+
+      (void)memcpy(old_sys_log_history, p_afd_status->sys_log_history,
+                   MAX_LOG_HISTORY);
+      for (i = 0; i < MAX_LOG_HISTORY; i++)
+      {
+         buf[i] = p_afd_status->sys_log_history[i] + ' ';
+      }
+      buf[i] = '\0';
+      (void)fprintf(p_data, "SH %s\r\n", buf);
+   }
+   if (memcmp(old_trans_log_history, p_afd_status->trans_log_history,
+              MAX_LOG_HISTORY) != 0)
+   {
+      register int i;
+      char         buf[MAX_LOG_HISTORY + 1];
+
+      (void)memcpy(old_trans_log_history, p_afd_status->trans_log_history,
+                   MAX_LOG_HISTORY);
+      for (i = 0; i < MAX_LOG_HISTORY; i++)
+      {
+         buf[i] = p_afd_status->trans_log_history[i] + ' ';
+      }
+      buf[i] = '\0';
+      (void)fprintf(p_data, "TH %s\r\n", buf);
    }
 
    /*

@@ -27,8 +27,9 @@
 
 /* Function prototypes */
 extern void close_button(Widget, XtPointer, XtPointer),
-            exec_cmd(char *),
             catch_child(Widget),
+            exec_cmd(char *),
+            print_button(Widget, XtPointer, XtPointer),
             repeat_button(Widget, XtPointer, XtPointer);
 
 #endif /* __show_cmd_h */

@@ -133,16 +133,18 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
          {
             register int gotcha = NO,
                          j;
-            char         *p_file = p_db->files;
+            char         *p_file_db = p_db->files,
+                         *p_file_jd = jd[i].file_list;
 
             for (j = 0; j < jd[i].no_of_files; j++)
             {
-               if (strcmp(jd[i].file_list[j], p_file) != 0)
+               if (strcmp(p_file_jd, p_file_db) != 0)
                {
                   gotcha = YES;
                   break;
                }
-               NEXT(p_file);
+               NEXT(p_file_db);
+               NEXT(p_file_jd);
             }
             if (gotcha == YES)
             {
@@ -239,9 +241,9 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
    ptr = p_db->files;
    for (i = 0; i < p_db->no_of_files; i++)
    {
-      (void)strcpy(jd[*no_of_job_ids].file_list[i], ptr);
       NEXT(ptr);
    }
+   (void)memcpy(jd[*no_of_job_ids].file_list, p_db->files, (ptr - p_db->files));
    jd[*no_of_job_ids].no_of_loptions = p_db->no_of_loptions;
    jd[*no_of_job_ids].no_of_soptions = p_db->no_of_soptions;
    (void)strcpy(jd[*no_of_job_ids].recipient, p_db->recipient);

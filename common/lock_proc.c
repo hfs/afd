@@ -107,7 +107,7 @@ lock_proc(int proc_id, int test_lock)
         }
 
    /* Position file desciptor over user */
-   offset = NO_OF_LOCK_PROC + (proc_id * 100);
+   offset = NO_OF_LOCK_PROC + ((proc_id + 1) * 100);
    if (lseek(fd, offset, SEEK_SET) == -1)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "lseek() error : %s (%s %d)\n",

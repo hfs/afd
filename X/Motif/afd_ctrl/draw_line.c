@@ -1,6 +1,6 @@
 /*
  *  draw_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -91,6 +91,8 @@ extern int                        line_length,
                                   x_offset_bars,
                                   x_offset_characters,
                                   x_offset_stat_leds,
+                                  x_offset_receive_log,
+                                  x_center_receive_log,
                                   x_offset_sys_log,
                                   x_center_sys_log,
                                   x_offset_trans_log,
@@ -102,7 +104,7 @@ extern int                        line_length,
 extern unsigned int               glyph_height,
                                   glyph_width,
                                   text_offset;
-extern struct coord               coord[2][LOG_FIFO_SIZE];
+extern struct coord               coord[3][LOG_FIFO_SIZE];
 extern struct afd_status          prev_afd_status;
 extern struct line                *connect_data;
 extern struct filetransfer_status *fsa;
@@ -317,8 +319,12 @@ draw_button_line(void)
    draw_proc_led(AFDD_LED, prev_afd_status.afdd);
 
    /* Draw log status indicators */
-   draw_log_status(SYS_LOG_INDICATOR, prev_afd_status.sys_log_ec % LOG_FIFO_SIZE);
-   draw_log_status(TRANS_LOG_INDICATOR, prev_afd_status.trans_log_ec % LOG_FIFO_SIZE);
+   draw_log_status(RECEIVE_LOG_INDICATOR,
+                   prev_afd_status.receive_log_ec % LOG_FIFO_SIZE);
+   draw_log_status(SYS_LOG_INDICATOR,
+                   prev_afd_status.sys_log_ec % LOG_FIFO_SIZE);
+   draw_log_status(TRANS_LOG_INDICATOR
+                   , prev_afd_status.trans_log_ec % LOG_FIFO_SIZE);
 
    /* Draw job queue counter */
    draw_queue_counter(prev_afd_status.jobs_in_queue);
@@ -575,41 +581,67 @@ draw_log_status(int log_typ, int si_pos)
       {
          XDrawLine(display, button_window, white_line_gc,
                    x_center_sys_log, y_center_log,
-                   coord[0][si_pos].x, coord[0][si_pos].y);
+                   coord[log_typ][si_pos].x, coord[log_typ][si_pos].y);
       }
       else
       {
          XDrawLine(display, button_window, black_line_gc,
                    x_center_sys_log, y_center_log,
-                   coord[0][si_pos].x, coord[0][si_pos].y);
+                   coord[log_typ][si_pos].x, coord[log_typ][si_pos].y);
       }
    }
-   else
-   {
-      for (i = 0; i < LOG_FIFO_SIZE; i++)
-      {
-         gc_values.foreground = color_pool[(int)prev_afd_status.trans_log_fifo[i]];
-         XChangeGC(display, color_gc, GCForeground, &gc_values);
-         XFillArc(display, button_window, color_gc,
-                  x_offset_trans_log, SPACE_ABOVE_LINE,
-                  glyph_height, glyph_height,
-                  ((i * log_angle) * 64),
-                  (log_angle * 64));
-      }
-      if ((prev_afd_status.trans_log_fifo[si_pos] == BLACK) ||
-          (prev_afd_status.trans_log_fifo[prev_si_pos] == BLACK))
-      {
-         XDrawLine(display, button_window, white_line_gc,
-                   x_center_trans_log, y_center_log,
-                   coord[1][si_pos].x, coord[1][si_pos].y);
-      }
-      else
-      {
-         XDrawLine(display, button_window, black_line_gc,
-                   x_center_trans_log, y_center_log,
-                   coord[1][si_pos].x, coord[1][si_pos].y);
-      }
-   }
+   else if (log_typ == TRANS_LOG_INDICATOR)
+        {
+           for (i = 0; i < LOG_FIFO_SIZE; i++)
+           {
+              gc_values.foreground = color_pool[(int)prev_afd_status.trans_log_fifo[i]];
+              XChangeGC(display, color_gc, GCForeground, &gc_values);
+              XFillArc(display, button_window, color_gc,
+                       x_offset_trans_log, SPACE_ABOVE_LINE,
+                       glyph_height, glyph_height,
+                       ((i * log_angle) * 64),
+                       (log_angle * 64));
+           }
+           if ((prev_afd_status.trans_log_fifo[si_pos] == BLACK) ||
+               (prev_afd_status.trans_log_fifo[prev_si_pos] == BLACK))
+           {
+              XDrawLine(display, button_window, white_line_gc,
+                        x_center_trans_log, y_center_log,
+                        coord[log_typ][si_pos].x, coord[log_typ][si_pos].y);
+           }
+           else
+           {
+              XDrawLine(display, button_window, black_line_gc,
+                        x_center_trans_log, y_center_log,
+                        coord[log_typ][si_pos].x, coord[log_typ][si_pos].y);
+           }
+        }
+        else
+        {
+           for (i = 0; i < LOG_FIFO_SIZE; i++)
+           {
+              gc_values.foreground = color_pool[(int)prev_afd_status.receive_log_fifo[i]];
+              XChangeGC(display, color_gc, GCForeground, &gc_values);
+              XFillArc(display, button_window, color_gc,
+                       x_offset_receive_log, SPACE_ABOVE_LINE,
+                       glyph_height, glyph_height,
+                       ((i * log_angle) * 64),
+                       (log_angle * 64));
+           }
+           if ((prev_afd_status.receive_log_fifo[si_pos] == BLACK) ||
+               (prev_afd_status.receive_log_fifo[prev_si_pos] == BLACK))
+           {
+              XDrawLine(display, button_window, white_line_gc,
+                        x_center_receive_log, y_center_log,
+                        coord[log_typ][si_pos].x, coord[log_typ][si_pos].y);
+           }
+           else
+           {
+              XDrawLine(display, button_window, black_line_gc,
+                        x_center_receive_log, y_center_log,
+                        coord[log_typ][si_pos].x, coord[log_typ][si_pos].y);
+           }
+        }
 
    return;
 }

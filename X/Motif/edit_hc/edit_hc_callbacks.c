@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -39,6 +39,8 @@ DESCR__S_M3
  ** HISTORY
  **   19.08.1997 H.Kiehl Created
  **   28.02.1998 H.Kiehl Added host switching information.
+ **   16.07.2000 H.Kiehl Disable any input fields when they are not
+ **                      available.
  **
  */
 DESCR__E_M3
@@ -58,6 +60,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 
 /* External global variables */
+extern Display                    *display;
 extern Widget                     auto_toggle_w,
                                   host_1_w,
                                   host_2_w,
@@ -72,9 +75,11 @@ extern Widget                     auto_toggle_w,
                                   real_hostname_1_w,
                                   real_hostname_2_w,
                                   retry_interval_w,
+                                  rm_button_w,
                                   second_label_w,
                                   source_icon_w,
                                   start_drag_w,
+                                  statusbox_w,
                                   successful_retries_label_w,
                                   successful_retries_w,
                                   transfer_timeout_w;
@@ -135,10 +140,10 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       /* Get the selected hostname and the position in the FSA. */
       XmStringGetLtoR(xmsel[i], XmFONTLIST_DEFAULT_TAG, &host_selected);
-      if ((fsa_pos = get_position(fsa, host_selected, no_of_hosts)) < 0)
+      if ((fsa_pos = get_host_position(fsa, host_selected, no_of_hosts)) < 0)
       {
          (void)xrec(w, WARN_DIALOG,
-                    "Could not find host %s in FSA. Assume ithas already been removed. (%s %d)",
+                    "Could not find host %s in FSA. Assume it has already been removed. (%s %d)",
                     host_selected, __FILE__, __LINE__);
       }
       else
@@ -245,7 +250,7 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
    } /* if (removed_hosts > 0) */
 
    (void)sprintf(msg, "Removed %d hosts from FSA.", removed_hosts);
-   show_message(msg);
+   show_message(statusbox_w, msg);
 
    return;
 }
@@ -443,108 +448,135 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
       value_changed = NO;
       switch(choice)
       {
-         case REAL_HOST_NAME_1   : if (input_data[0] != '\0')
-                                   {
-                                      (void)strcpy(ce[cur_pos].real_hostname[0], input_data);
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].real_hostname[0][0] = '\0';
-                                   }
-                                   ce[cur_pos].value_changed |= REAL_HOSTNAME_1_CHANGED;
-                                   break;
+         case REAL_HOST_NAME_1 :
+            if (input_data[0] != '\0')
+            {
+               (void)strcpy(ce[cur_pos].real_hostname[0], input_data);
+            }
+            else
+            {
+               ce[cur_pos].real_hostname[0][0] = '\0';
+            }
+            ce[cur_pos].value_changed |= REAL_HOSTNAME_1_CHANGED;
+            break;
 
-         case REAL_HOST_NAME_2   : if (input_data[0] != '\0')
-                                   {
-                                      (void)strcpy(ce[cur_pos].real_hostname[1], input_data);
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].real_hostname[1][0] = '\0';
-                                   }
-                                   ce[cur_pos].value_changed |= REAL_HOSTNAME_2_CHANGED;
-                                   break;
+         case REAL_HOST_NAME_2 :
+            if (input_data[0] != '\0')
+            {
+               (void)strcpy(ce[cur_pos].real_hostname[1], input_data);
+            }
+            else
+            {
+               ce[cur_pos].real_hostname[1][0] = '\0';
+            }
+            ce[cur_pos].value_changed |= REAL_HOSTNAME_2_CHANGED;
+            break;
 
-         case HOST_1_ID          : if (input_data[0] != '\0')
-                                   {
-                                      ce[cur_pos].host_toggle[0][0] = *input_data;
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].host_toggle[0][0] = '1';
-                                   }
-                                   ce[cur_pos].value_changed |= HOST_1_ID_CHANGED;
-                                   break;
+         case HOST_1_ID :
+            if (input_data[0] != '\0')
+            {
+               ce[cur_pos].host_toggle[0][0] = *input_data;
+            }
+            else
+            {
+               ce[cur_pos].host_toggle[0][0] = '1';
+            }
+            ce[cur_pos].value_changed |= HOST_1_ID_CHANGED;
+            break;
 
-         case HOST_2_ID          : if (input_data[0] != '\0')
-                                   {
-                                      ce[cur_pos].host_toggle[1][0] = *input_data;
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].host_toggle[1][0] = '2';
-                                   }
-                                   ce[cur_pos].value_changed |= HOST_2_ID_CHANGED;
-                                   break;
+         case HOST_2_ID :
+            if (input_data[0] != '\0')
+            {
+               ce[cur_pos].host_toggle[1][0] = *input_data;
+            }
+            else
+            {
+               ce[cur_pos].host_toggle[1][0] = '2';
+            }
+            ce[cur_pos].value_changed |= HOST_2_ID_CHANGED;
+            break;
 
-         case PROXY_NAME         : if (input_data[0] == '\0')
-                                   {
-                                      ce[cur_pos].proxy_name[0] = '\0';
-                                   }
-                                   else
-                                   {
-                                      (void)strcpy(ce[cur_pos].proxy_name, input_data);
-                                   }
-                                   ce[cur_pos].value_changed |= PROXY_NAME_CHANGED;
-                                   break;
+         case PROXY_NAME :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].proxy_name[0] = '\0';
+            }
+            else
+            {
+               int length = strlen(input_data);
 
-         case TRANSFER_TIMEOUT   : if (input_data[0] == '\0')
-                                   {
-                                      ce[cur_pos].transfer_timeout = DEFAULT_TRANSFER_TIMEOUT;
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].transfer_timeout = atol(input_data);
-                                   }
-                                   ce[cur_pos].value_changed |= TRANSFER_TIMEOUT_CHANGED;
-                                   break;
+               if (length > MAX_PROXY_NAME_LENGTH)
+               {
+                  (void)memcpy(ce[cur_pos].proxy_name, input_data,
+                               MAX_PROXY_NAME_LENGTH);
+                  ce[cur_pos].proxy_name[MAX_PROXY_NAME_LENGTH] = '\0';
+                  XmTextSetString(w, ce[cur_pos].proxy_name);
+                  XFlush(display);
+                  (void)xrec(w, INFO_DIALOG,
+                             "Proxy length to long. Cutting off extra length.");
+               }
+               else
+               {
+                  (void)memcpy(ce[cur_pos].proxy_name, input_data, length);
+                  ce[cur_pos].proxy_name[length] = '\0';
+               }
+            }
+            ce[cur_pos].value_changed |= PROXY_NAME_CHANGED;
+            break;
 
-         case RETRY_INTERVAL     : if (input_data[0] == '\0')
-                                   {
-                                      ce[cur_pos].retry_interval = DEFAULT_RETRY_INTERVAL;
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].retry_interval = atoi(input_data);
-                                   }
-                                   ce[cur_pos].value_changed |= RETRY_INTERVAL_CHANGED;
-                                   break;
+         case TRANSFER_TIMEOUT :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].transfer_timeout = DEFAULT_TRANSFER_TIMEOUT;
+            }
+            else
+            {
+               ce[cur_pos].transfer_timeout = atol(input_data);
+            }
+            ce[cur_pos].value_changed |= TRANSFER_TIMEOUT_CHANGED;
+            break;
 
-         case MAXIMUM_ERRORS     : if (input_data[0] == '\0')
-                                   {
-                                      ce[cur_pos].max_errors = DEFAULT_MAX_ERRORS;
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].max_errors = atoi(input_data);
-                                   }
-                                   ce[cur_pos].value_changed |= MAX_ERRORS_CHANGED;
-                                   break;
+         case RETRY_INTERVAL :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].retry_interval = DEFAULT_RETRY_INTERVAL;
+            }
+            else
+            {
+               ce[cur_pos].retry_interval = atoi(input_data);
+            }
+            ce[cur_pos].value_changed |= RETRY_INTERVAL_CHANGED;
+            break;
 
-         case SUCCESSFUL_RETRIES : if (input_data[0] == '\0')
-                                   {
-                                      ce[cur_pos].max_successful_retries = DEFAULT_SUCCESSFUL_RETRIES;
-                                   }
-                                   else
-                                   {
-                                      ce[cur_pos].max_successful_retries = atoi(input_data);
-                                   }
-                                   ce[cur_pos].value_changed |= SUCCESSFUL_RETRIES_CHANGED;
-                                   break;
+         case MAXIMUM_ERRORS :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].max_errors = DEFAULT_MAX_ERRORS;
+            }
+            else
+            {
+               ce[cur_pos].max_errors = atoi(input_data);
+            }
+            ce[cur_pos].value_changed |= MAX_ERRORS_CHANGED;
+            break;
 
-         default                 : (void)rec(sys_log_fd, DEBUG_SIGN, "Hey man! What's going on here? (%s %d)\n",
-                                             __FILE__, __LINE__);
-                                   break;
+         case SUCCESSFUL_RETRIES :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].max_successful_retries = DEFAULT_SUCCESSFUL_RETRIES;
+            }
+            else
+            {
+               ce[cur_pos].max_successful_retries = atoi(input_data);
+            }
+            ce[cur_pos].value_changed |= SUCCESSFUL_RETRIES_CHANGED;
+            break;
+
+         default :
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Hey man! What's going on here? (%s %d)\n",
+                      __FILE__, __LINE__);
+            break;
       }
 
       XtFree(input_data);
@@ -563,12 +595,12 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
    XmListCallbackStruct *cbs = (XmListCallbackStruct *)call_data;
 
    /* Clear message area when clicking on a host alias. */
-   reset_message();
+   reset_message(statusbox_w);
 
    /* Get the selected hostname and the position in the FSA. */
    XmStringGetLtoR(cbs->item, XmFONTLIST_DEFAULT_TAG, &host_selected);
    (void)strcpy(last_selected_host, host_selected);
-   if ((cur_pos = get_position(fsa, host_selected, no_of_hosts)) < 0)
+   if ((cur_pos = get_host_position(fsa, host_selected, no_of_hosts)) < 0)
    {
       (void)xrec(w, FATAL_DIALOG,
                  "AAAaaaarrrrghhhh!!! Could not find host %s in FSA. (%s %d)",
@@ -587,109 +619,174 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
                numeric_str[MAX_INT_LENGTH];
       XmString xstr;
 
-      /* Activate/Deactivate 2nd host name string. */
-      if (fsa[cur_pos].host_toggle_str[0] == '\0')
-      {
-         XtSetSensitive(second_label_w, False);
-         XtSetSensitive(real_hostname_2_w, False);
-         label_str[5] = '1';
-         xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
-         XtVaSetValues(first_label_w,
-                       XmNlabelString, xstr,
-                       NULL);
-         XmStringFree(xstr);
+      last_select = cur_pos;
 
-         ce[cur_pos].host_switch_toggle = OFF;
+      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT
+          (fsa[cur_pos].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+          (fsa[cur_pos].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+          (fsa[cur_pos].protocol & SMTP_FLAG))
+      {
+         XtSetSensitive(host_switch_toggle_w, True);
+         XtSetSensitive(real_hostname_1_w, True);
+         XtSetSensitive(transfer_timeout_w, True);
+         XtSetSensitive(retry_interval_w, True);
+
+         /* Activate/Deactivate 2nd host name string. */
+         if (fsa[cur_pos].host_toggle_str[0] == '\0')
+         {
+            XtSetSensitive(second_label_w, False);
+            XtSetSensitive(real_hostname_2_w, False);
+            label_str[5] = '1';
+            xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
+            XtVaSetValues(first_label_w,
+                          XmNlabelString, xstr,
+                          NULL);
+            XmStringFree(xstr);
+
+            ce[cur_pos].host_switch_toggle = OFF;
+            XtSetSensitive(host_1_label_w, False);
+            XtSetSensitive(host_1_w, False);
+            XtSetSensitive(host_2_label_w, False);
+            XtSetSensitive(host_2_w, False);
+            XtSetSensitive(auto_toggle_w, False);
+            XtVaSetValues(host_switch_toggle_w, XmNset, False, NULL);
+         }
+         else
+         {
+            char toggle_str[2];
+
+            XtSetSensitive(second_label_w, True);
+            XtSetSensitive(real_hostname_2_w, True);
+            label_str[5] = fsa[cur_pos].host_toggle_str[HOST_ONE];
+            xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
+            XtVaSetValues(first_label_w,
+                          XmNlabelString, xstr,
+                          NULL);
+            XmStringFree(xstr);
+            label_str[5] = fsa[cur_pos].host_toggle_str[HOST_TWO];
+            xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
+            XtVaSetValues(second_label_w,
+                          XmNlabelString, xstr,
+                          NULL);
+            XmStringFree(xstr);
+
+            XtVaSetValues(host_switch_toggle_w, XmNset, True, NULL);
+            ce[cur_pos].host_switch_toggle = ON;
+            XtSetSensitive(host_1_label_w, True);
+            XtSetSensitive(host_1_w, True);
+            toggle_str[1] = '\0';
+            toggle_str[0] = fsa[cur_pos].host_toggle_str[HOST_ONE];
+            XtVaSetValues(host_1_w, XmNvalue, toggle_str, NULL);
+            XtSetSensitive(host_2_label_w, True);
+            XtSetSensitive(host_2_w, True);
+            toggle_str[0] = fsa[cur_pos].host_toggle_str[HOST_TWO];
+            XtVaSetValues(host_2_w, XmNvalue, toggle_str, NULL);
+            XtSetSensitive(auto_toggle_w, True);
+         }
+
+         if (ce[cur_pos].value_changed & REAL_HOSTNAME_1_CHANGED)
+         {
+            tmp_ptr = ce[cur_pos].real_hostname[0];
+         }
+         else
+         {
+            tmp_ptr = fsa[cur_pos].real_hostname[0];
+         }
+         XtVaSetValues(real_hostname_1_w, XmNvalue, tmp_ptr, NULL);
+
+         if (ce[cur_pos].value_changed & REAL_HOSTNAME_2_CHANGED)
+         {
+            tmp_ptr = ce[cur_pos].real_hostname[1];
+         }
+         else
+         {
+            tmp_ptr = fsa[cur_pos].real_hostname[1];
+         }
+         XtVaSetValues(real_hostname_2_w, XmNvalue, tmp_ptr, NULL);
+
+         if (ce[cur_pos].value_changed & TRANSFER_TIMEOUT_CHANGED)
+         {
+            (void)sprintf(numeric_str, "%ld", ce[cur_pos].transfer_timeout);
+         }
+         else
+         {
+            (void)sprintf(numeric_str, "%ld", fsa[cur_pos].transfer_timeout);
+         }
+         XtVaSetValues(transfer_timeout_w, XmNvalue, numeric_str, NULL);
+
+         if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
+         {
+            (void)sprintf(numeric_str, "%d", ce[cur_pos].retry_interval);
+         }
+         else
+         {
+            (void)sprintf(numeric_str, "%d", fsa[cur_pos].retry_interval);
+         }
+         XtVaSetValues(retry_interval_w, XmNvalue, numeric_str, NULL);
+
+         if (fsa[cur_pos].auto_toggle == ON)
+         {
+            XtSetSensitive(successful_retries_label_w, True);
+            XtSetSensitive(successful_retries_w, True);
+            XtVaSetValues(auto_toggle_w, XmNset, True, NULL);
+            ce[cur_pos].auto_toggle = ON;
+            if (ce[cur_pos].value_changed & SUCCESSFUL_RETRIES_CHANGED)
+            {
+               (void)sprintf(numeric_str, "%d",
+                             ce[cur_pos].max_successful_retries);
+            }
+            else
+            {
+               (void)sprintf(numeric_str, "%d",
+                             fsa[cur_pos].max_successful_retries);
+            }
+            XtVaSetValues(successful_retries_w, XmNvalue, numeric_str, NULL);
+         }
+         else
+         {
+            XtSetSensitive(successful_retries_label_w, False);
+            XtSetSensitive(successful_retries_w, False);
+            XtVaSetValues(auto_toggle_w, XmNset, False, NULL);
+            ce[cur_pos].auto_toggle = OFF;
+         }
+      }
+      else
+      {
+         XtSetSensitive(host_switch_toggle_w, False);
          XtSetSensitive(host_1_label_w, False);
          XtSetSensitive(host_1_w, False);
          XtSetSensitive(host_2_label_w, False);
          XtSetSensitive(host_2_w, False);
          XtSetSensitive(auto_toggle_w, False);
-         XtVaSetValues(host_switch_toggle_w, XmNset, False, NULL);
+         XtSetSensitive(real_hostname_1_w, False);
+         XtSetSensitive(real_hostname_2_w, False);
+         XtSetSensitive(transfer_timeout_w, False);
+         XtSetSensitive(retry_interval_w, False);
+         XtSetSensitive(successful_retries_label_w, False);
+         XtSetSensitive(successful_retries_w, False);
+      }
+
+      if (fsa[cur_pos].protocol & FTP_FLAG)
+      {
+         XtSetSensitive(proxy_name_w, True);
+         if (ce[cur_pos].value_changed & PROXY_NAME_CHANGED)
+         {
+            tmp_ptr = ce[cur_pos].proxy_name;
+         }
+         else
+         {
+            tmp_ptr = fsa[cur_pos].proxy_name;
+         }
+         XtVaSetValues(proxy_name_w, XmNvalue, tmp_ptr, NULL);
       }
       else
       {
-         char toggle_str[2];
-
-         XtSetSensitive(second_label_w, True);
-         XtSetSensitive(real_hostname_2_w, True);
-         label_str[5] = fsa[cur_pos].host_toggle_str[HOST_ONE];
-         xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
-         XtVaSetValues(first_label_w,
-                       XmNlabelString, xstr,
-                       NULL);
-         XmStringFree(xstr);
-         label_str[5] = fsa[cur_pos].host_toggle_str[HOST_TWO];
-         xstr = XmStringCreateLtoR(label_str, XmFONTLIST_DEFAULT_TAG);
-         XtVaSetValues(second_label_w,
-                       XmNlabelString, xstr,
-                       NULL);
-         XmStringFree(xstr);
-
-         XtVaSetValues(host_switch_toggle_w, XmNset, True, NULL);
-         ce[cur_pos].host_switch_toggle = ON;
-         XtSetSensitive(host_1_label_w, True);
-         XtSetSensitive(host_1_w, True);
-         toggle_str[1] = '\0';
-         toggle_str[0] = fsa[cur_pos].host_toggle_str[HOST_ONE];
-         XtVaSetValues(host_1_w, XmNvalue, toggle_str, NULL);
-         XtSetSensitive(host_2_label_w, True);
-         XtSetSensitive(host_2_w, True);
-         toggle_str[0] = fsa[cur_pos].host_toggle_str[HOST_TWO];
-         XtVaSetValues(host_2_w, XmNvalue, toggle_str, NULL);
-         XtSetSensitive(auto_toggle_w, True);
+         XtSetSensitive(proxy_name_w, False);
       }
-
-      last_select = cur_pos;
-      if (ce[cur_pos].value_changed & REAL_HOSTNAME_1_CHANGED)
-      {
-         tmp_ptr = ce[cur_pos].real_hostname[0];
-      }
-      else
-      {
-         tmp_ptr = fsa[cur_pos].real_hostname[0];
-      }
-      XtVaSetValues(real_hostname_1_w, XmNvalue, tmp_ptr, NULL);
-
-      if (ce[cur_pos].value_changed & REAL_HOSTNAME_2_CHANGED)
-      {
-         tmp_ptr = ce[cur_pos].real_hostname[1];
-      }
-      else
-      {
-         tmp_ptr = fsa[cur_pos].real_hostname[1];
-      }
-      XtVaSetValues(real_hostname_2_w, XmNvalue, tmp_ptr, NULL);
-
-      if (ce[cur_pos].value_changed & PROXY_NAME_CHANGED)
-      {
-         tmp_ptr = ce[cur_pos].proxy_name;
-      }
-      else
-      {
-         tmp_ptr = fsa[cur_pos].proxy_name;
-      }
-      XtVaSetValues(proxy_name_w, XmNvalue, tmp_ptr, NULL);
-
-      if (ce[cur_pos].value_changed & TRANSFER_TIMEOUT_CHANGED)
-      {
-         (void)sprintf(numeric_str, "%ld", ce[cur_pos].transfer_timeout);
-      }
-      else
-      {
-         (void)sprintf(numeric_str, "%ld", fsa[cur_pos].transfer_timeout);
-      }
-      XtVaSetValues(transfer_timeout_w, XmNvalue, numeric_str, NULL);
-
-      if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
-      {
-         (void)sprintf(numeric_str, "%d", ce[cur_pos].retry_interval);
-      }
-      else
-      {
-         (void)sprintf(numeric_str, "%d", fsa[cur_pos].retry_interval);
-      }
-      XtVaSetValues(retry_interval_w, XmNvalue, numeric_str, NULL);
 
       if (ce[cur_pos].value_changed & MAX_ERRORS_CHANGED)
       {
@@ -701,30 +798,6 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       }
       XtVaSetValues(max_errors_w, XmNvalue, numeric_str, NULL);
 
-      if (fsa[cur_pos].auto_toggle == ON)
-      {
-         XtSetSensitive(successful_retries_label_w, True);
-         XtSetSensitive(successful_retries_w, True);
-         XtVaSetValues(auto_toggle_w, XmNset, True, NULL);
-         ce[cur_pos].auto_toggle = ON;
-         if (ce[cur_pos].value_changed & SUCCESSFUL_RETRIES_CHANGED)
-         {
-            (void)sprintf(numeric_str, "%d", ce[cur_pos].max_successful_retries);
-         }
-         else
-         {
-            (void)sprintf(numeric_str, "%d", fsa[cur_pos].max_successful_retries);
-         }
-         XtVaSetValues(successful_retries_w, XmNvalue, numeric_str, NULL);
-      }
-      else
-      {
-         XtSetSensitive(successful_retries_label_w, False);
-         XtSetSensitive(successful_retries_w, False);
-         XtVaSetValues(auto_toggle_w, XmNset, False, NULL);
-         ce[cur_pos].auto_toggle = OFF;
-      }
-
       /* Set option menu for Parallel Transfers */
       if (ce[cur_pos].value_changed & ALLOWED_TRANSFERS_CHANGED)
       {
@@ -733,6 +806,10 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       else
       {
          choice = fsa[cur_pos].allowed_transfers - 1;
+      }
+      if (choice < 0)
+      {
+         choice = 0;
       }
       XtVaSetValues(pt.option_menu_w,
                     XmNmenuHistory, pt.button_w[choice],
@@ -816,48 +893,87 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       XmUpdateDisplay(tb.option_menu_w);
 
       /* Set option menu for Filesize Offset */
-      if (ce[cur_pos].value_changed & FILE_SIZE_OFFSET_CHANGED)
+      if (fsa[cur_pos].protocol & FTP_FLAG)
       {
-         if ((ce[cur_pos].file_size_offset == -1) ||
-             (ce[cur_pos].file_size_offset > 12))
+         XtSetSensitive(fso.option_menu_w, True);
+         if (ce[cur_pos].value_changed & FILE_SIZE_OFFSET_CHANGED)
          {
-            choice = 0;
+            if ((ce[cur_pos].file_size_offset == -1) ||
+                (ce[cur_pos].file_size_offset > (MAX_FSO_BUTTONS - 1)))
+            {
+               choice = 0;
+            }
+            else if (ce[cur_pos].file_size_offset == AUTO_SIZE_DETECT)
+                 {
+                    choice = 1;
+                 }
+                 else
+                 {
+                    choice = ce[cur_pos].file_size_offset;
+                 }
          }
          else
          {
-            choice = ce[cur_pos].file_size_offset;
+            if ((fsa[cur_pos].file_size_offset == -1) ||
+                (fsa[cur_pos].file_size_offset > (MAX_FSO_BUTTONS - 1)))
+            {
+               choice = 0;
+            }
+            else if (fsa[cur_pos].file_size_offset == AUTO_SIZE_DETECT)
+                 {
+                    choice = 1;
+                 }
+                 else
+                 {
+                    choice = fsa[cur_pos].file_size_offset;
+                 }
          }
+         XtVaSetValues(fso.option_menu_w,
+                       XmNmenuHistory, fso.button_w[choice],
+                       NULL);
+         XmUpdateDisplay(fso.option_menu_w);
       }
       else
       {
-         if ((fsa[cur_pos].file_size_offset == -1) ||
-             (fsa[cur_pos].file_size_offset > 12))
-         {
-            choice = 0;
-         }
-         else
-         {
-            choice = fsa[cur_pos].file_size_offset;
-         }
+         XtSetSensitive(fso.option_menu_w, False);
       }
-      XtVaSetValues(fso.option_menu_w,
-                    XmNmenuHistory, fso.button_w[choice],
-                    NULL);
-      XmUpdateDisplay(fso.option_menu_w);
 
       /* Set option menu for number of no bursts */
-      if (ce[cur_pos].value_changed & NO_OF_NO_BURST_CHANGED)
+#ifdef _WITH_WMO_SUPPORT
+      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+          (fsa[cur_pos].protocol & WMO_FLAG))
+#else
+      if (fsa[cur_pos].protocol & FTP_FLAG)
+#endif /* _WITH_WMO_SUPPORT */
       {
-         choice = ce[cur_pos].no_of_no_bursts;
+         XtSetSensitive(nob.option_menu_w, True);
+         if (ce[cur_pos].value_changed & NO_OF_NO_BURST_CHANGED)
+         {
+            choice = ce[cur_pos].no_of_no_bursts;
+         }
+         else
+         {
+            choice = (fsa[cur_pos].special_flag & NO_BURST_COUNT_MASK);
+         }
+         XtVaSetValues(nob.option_menu_w,
+                       XmNmenuHistory, nob.button_w[choice],
+                       NULL);
+         XmUpdateDisplay(nob.option_menu_w);
       }
       else
       {
-         choice = (fsa[cur_pos].special_flag & NO_BURST_COUNT_MASK);
+         XtSetSensitive(nob.option_menu_w, False);
       }
-      XtVaSetValues(nob.option_menu_w,
-                    XmNmenuHistory, nob.button_w[choice],
-                    NULL);
-      XmUpdateDisplay(nob.option_menu_w);
+
+      /* See if we need to disable the remove button. */
+      if (fsa[cur_pos].special_flag & HOST_IN_DIR_CONFIG)
+      {
+         XtSetSensitive(rm_button_w, False);
+      }
+      else
+      {
+         XtSetSensitive(rm_button_w, True);
+      }
    } /* if (cur_pos != last_select) */
 
    return;
@@ -914,7 +1030,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             }
             else
             {
-               show_message(REAL_HOST_NAME_WRONG);
+               show_message(statusbox_w, REAL_HOST_NAME_WRONG);
                if (host_list != NULL)
                {
                   FREE_RT_ARRAY(host_list);
@@ -932,7 +1048,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             }
             else
             {
-               show_message(REAL_HOST_NAME_WRONG);
+               show_message(statusbox_w, REAL_HOST_NAME_WRONG);
                if (host_list != NULL)
                {
                   FREE_RT_ARRAY(host_list);
@@ -1112,7 +1228,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          if (ce[i].value_changed & FILE_SIZE_OFFSET_CHANGED)
          {
             fsa[i].file_size_offset = ce[i].file_size_offset;
-            ce[i].file_size_offset = -2;
+            ce[i].file_size_offset = -3;
             changes++;
          }
          if (ce[i].value_changed & NO_OF_NO_BURST_CHANGED)
@@ -1198,7 +1314,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
               (void)sprintf(msg, "No values have been changed!");
            }
    }
-   show_message(msg);
+   show_message(statusbox_w, msg);
    if (changes != 0)
    {
       int  line_length;

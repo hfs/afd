@@ -431,7 +431,8 @@ static void
 get_job_data(struct job_id_data *p_jd)
 {
    register int   i;
-   register char  *p_tmp;
+   register char  *p_file,
+                  *p_tmp;
    int            size;
    size_t         new_size;
 
@@ -450,11 +451,19 @@ get_job_data(struct job_id_data *p_jd)
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
    id.dbe[0].priority = p_jd->priority;
    id.dbe[0].no_of_files = p_jd->no_of_files;
+   p_file = p_jd->file_list;
+   if ((id.dbe[0].files = malloc((p_jd->no_of_files * sizeof(char *)))) == NULL)
+   {
+      (void)xrec(toplevel_w, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+                 strerror(errno), __FILE__, __LINE__);
+      return;
+   }
 
    /* Save all file/filter names */
    for (i = 0; i < id.dbe[0].no_of_files; i++)
    {
-      (void)strcpy(id.dbe[0].files[i], p_jd->file_list[i]);
+      id.dbe[0].files[i] = p_file;
+      NEXT(p_file);
    }
 
    id.dbe[0].no_of_loptions = p_jd->no_of_loptions;
@@ -476,7 +485,7 @@ get_job_data(struct job_id_data *p_jd)
    if (id.dbe[0].no_of_soptions > 0)
    {
       size = strlen(p_jd->soptions);
-      if ((id.dbe[0].soptions = calloc(size, sizeof(char))) == NULL)
+      if ((id.dbe[0].soptions = calloc(size + 1, sizeof(char))) == NULL)
       {
          (void)xrec(toplevel_w, FATAL_DIALOG,
                     "calloc() error : %s (%s %d)",
@@ -504,7 +513,8 @@ get_dir_data(int dir_pos)
 {
    register int   i,
                   j;
-   register char  *p_tmp;
+   register char  *p_file,
+                  *p_tmp;
    int            size,
                   gotcha;
 
@@ -529,31 +539,7 @@ get_dir_data(int dir_pos)
 
    while (jd[i].dir_id_pos == dir_pos)
    {
-      /* Allocate memory to hold all data. */
-      if ((id.count % 10) == 0)
-      {
-         size_t new_size;
-
-         /* Calculate new size */
-         new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
-
-         /* Create or increase the space for the buffer */
-         if ((id.dbe = (struct db_entry *)realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
-         {
-            (void)xrec(toplevel_w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
-                       strerror(errno), __FILE__, __LINE__);
-            return;
-         }
-      }
-
-      id.dbe[id.count].priority = jd[i].priority;
-      id.dbe[id.count].no_of_files = jd[i].no_of_files;
-
-      /* Save all file/filter names */
-      for (j = 0; j < id.dbe[id.count].no_of_files; j++)
-      {
-         (void)strcpy(id.dbe[id.count].files[j], jd[i].file_list[j]);
-      }
+      p_file = jd[i].file_list;
 
       /*
        * Only show those entries that really match the current
@@ -561,17 +547,51 @@ get_dir_data(int dir_pos)
        * names through all the filters.
        */
       gotcha = NO;
-      for (j = 0; j < id.dbe[id.count].no_of_files; j++)
+      for (j = 0; j < jd[i].no_of_files; j++)
       {
-         if (sfilter(id.dbe[id.count].files[j], id.file_name) == 0)
+         if (sfilter(p_file, id.file_name) == 0)
          {
             gotcha = YES;
             break;
          }
+         NEXT(p_file);
       }
       if (gotcha == YES)
       {
+         /* Allocate memory to hold all data. */
+         if ((id.count % 10) == 0)
+         {
+            size_t new_size;
+
+            /* Calculate new size */
+            new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
+
+            /* Create or increase the space for the buffer */
+            if ((id.dbe = (struct db_entry *)realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
+            {
+               (void)xrec(toplevel_w, FATAL_DIALOG, "realloc() error : %s (%s %d)",
+                          strerror(errno), __FILE__, __LINE__);
+               return;
+            }
+         }
+
+         id.dbe[id.count].priority = jd[i].priority;
          id.dbe[id.count].no_of_loptions = jd[i].no_of_loptions;
+         id.dbe[id.count].no_of_files = jd[i].no_of_files;
+         p_file = jd[i].file_list;
+         if ((id.dbe[id.count].files = malloc((jd[i].no_of_files * sizeof(char *)))) == NULL)
+         {
+            (void)xrec(toplevel_w, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+                       strerror(errno), __FILE__, __LINE__);
+            return;
+         }
+
+         /* Save all file/filter names */
+         for (j = 0; j < id.dbe[id.count].no_of_files; j++)
+         {
+            id.dbe[id.count].files[j] = p_file;
+            NEXT(p_file);
+         }
 
          /* Save all AMG (local) options. */
          if (id.dbe[id.count].no_of_loptions > 0)
@@ -590,7 +610,7 @@ get_dir_data(int dir_pos)
          if (id.dbe[id.count].no_of_soptions > 0)
          {
             size = strlen(jd[i].soptions);
-            if ((id.dbe[id.count].soptions = calloc(size,
+            if ((id.dbe[id.count].soptions = calloc(size + 1,
                                                     sizeof(char))) == NULL)
             {
                (void)xrec(toplevel_w, FATAL_DIALOG,
