@@ -128,7 +128,7 @@ int                        shm_id,         /* Shared memory ID of        */
                                             /* local.                    */
                            counter_fd,      /* File descriptor for AFD   */
                                             /* counter file.             */
-                           write_fin_fd,
+                           fin_fd,
                            no_of_rule_headers = 0,
                            amg_flag = YES,
                            receive_log_fd = STDERR_FILENO,
@@ -152,7 +152,6 @@ char                       *p_dir_alias,
                            *p_work_dir,
                            *p_shm = NULL,
                            first_time = YES,
-                           fin_fifo[MAX_PATH_LENGTH],
                            time_dir[MAX_PATH_LENGTH],
                            *p_time_dir,
 #ifndef _WITH_PTHREAD
@@ -184,6 +183,7 @@ char                       *il_file_name,
 #endif /* _INPUT_LOG */
 
 /* Local variables. */
+static unsigned int        fork_counter = 0;
 static int                 in_child = NO;
 
 /* Local functions */
@@ -194,7 +194,7 @@ static void                check_fifo(int, int),
                            check_pool_dir(time_t),
                            sig_bus(int),
                            sig_segv(int);
-static pid_t               get_one_zombie(void);
+static pid_t               get_one_zombie(pid_t);
 static int                 get_process_pos(pid_t),
 #ifdef _WITH_PTHREAD
                            handle_dir(int, time_t, char *, char *, char *, off_t *, char **);
@@ -210,25 +210,26 @@ main(int argc, char *argv[])
    int              check_time = YES;
 #endif
    int              del_time_job_fd,
+                    fifo_size,
                     i,
                     max_fd,               /* Largest file descriptor.    */
                     n,
 #ifdef _WITH_PTHREAD
                     rtn,
 #else
-                   fdc,
-                   fpdc,
-                   *full_dir,
-                   *full_paused_dir,
+                    fdc,
+                    fpdc,
+                    *full_dir,
+                    *full_paused_dir,
 #endif
                     read_fd,
-                    read_fin_fd,
                     status,
                     write_fd;
 #ifdef REPORT_DIR_TIME_INTERVAL
    unsigned int     average_diff_time = 0;
 #endif /* REPORT_DIR_TIME_INTERVAL */
    time_t           fd_search_start_time,
+                    midnight,
                     next_time_check,
                     next_search_time,
 #ifdef REPORT_DIR_TIME_INTERVAL
@@ -244,7 +245,7 @@ main(int argc, char *argv[])
 #ifdef REPORT_DIR_TIME_INTERVAL
    unsigned int     no_of_dir_searches = 0;
 #endif /* REPORT_DIR_TIME_INTERVAL */
-   char             buffer[MAX_FIFO_BUFFER],
+   char             *fifo_buffer,
 #ifdef _FIFO_DEBUG
                     cmd[2],
 #endif
@@ -266,7 +267,7 @@ main(int argc, char *argv[])
 
    p_work_dir = work_dir;
    init_dir_check(argc, argv, rule_file, &rescan_time, &read_fd,
-                  &write_fd, &read_fin_fd, &del_time_job_fd);
+                  &write_fd, &del_time_job_fd);
 
 #ifdef SA_FULLDUMP
    /*
@@ -319,15 +320,37 @@ main(int argc, char *argv[])
    }
 #endif /* !_WITH_PTHREAD */
 
+   /*
+    * Determine the size of the fifo buffer. Then create a buffer
+    * large enough to hold the data from a fifo.
+    */
+   if ((i = (int)fpathconf(fin_fd, _PC_PIPE_BUF)) < 0)
+   {
+      /* If we cannot determine the size of the fifo set default value */
+      fifo_size = DEFAULT_FIFO_SIZE;                                     
+   }
+   else
+   {
+      fifo_size = i;
+   }
+
+   /* Allocate a buffer for reading data from FIFO's. */
+   if ((fifo_buffer = malloc(fifo_size)) == NULL)       
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);                   
+      exit(INCORRECT);
+   }
+
    /* Find largest file descriptor */
    max_fd = del_time_job_fd;
    if (read_fd > max_fd)
    {
       max_fd = read_fd;
    }
-   if (read_fin_fd > max_fd)
+   if (fin_fd > max_fd)
    {
-      max_fd = read_fin_fd;
+      max_fd = fin_fd;
    }
    max_fd++;
    FD_ZERO(&rset);
@@ -345,6 +368,7 @@ main(int argc, char *argv[])
                       OLD_FILE_SEARCH_INTERVAL + OLD_FILE_SEARCH_INTERVAL;
    next_rename_rule_check_time = (fd_search_start_time / READ_RULES_INTERVAL) *
                                  READ_RULES_INTERVAL + READ_RULES_INTERVAL;
+   midnight = (fd_search_start_time / 86400) * 86400 + 86400;
 #ifdef REPORT_DIR_TIME_INTERVAL
    next_report_time = (fd_search_start_time / REPORT_DIR_TIME_INTERVAL) *
                       REPORT_DIR_TIME_INTERVAL + REPORT_DIR_TIME_INTERVAL;
@@ -368,7 +392,7 @@ main(int argc, char *argv[])
    /*
     * The following loop checks all user directories for new
     * files to arrive. When we fork to copy files from directories
-    * not in the same file system as the AFD, watch the read_fin_fd
+    * not in the same file system as the AFD, watch the fin_fd
     * to see when the child has done its job.
     */
    for (;;)
@@ -393,13 +417,20 @@ main(int argc, char *argv[])
       }
       if (now >= next_search_time)
       {
-         while (get_one_zombie() != -1)
+         while (get_one_zombie(-1) > 0)
          {
             /* Do nothing. */;
          }
          search_old_files(now);
          next_search_time = (time(&now) / OLD_FILE_SEARCH_INTERVAL) *
                             OLD_FILE_SEARCH_INTERVAL + OLD_FILE_SEARCH_INTERVAL;
+      }
+      if (now >= midnight)
+      {
+         (void)rec(sys_log_fd, DEBUG_SIGN,
+                   "dir_check syscalls : %u forks\n", fork_counter);
+         fork_counter = 0;
+         midnight = (now / 86400) * 86400 + 86400;
       }
       if (now >= next_time_check)
       {
@@ -436,7 +467,7 @@ main(int argc, char *argv[])
 #endif /* REPORT_DIR_TIME_INTERVAL */
       if (first_time == YES)
       {
-         sleep_time = 0;
+         sleep_time = 0L;
          first_time = NO;
       }
       else
@@ -445,7 +476,7 @@ main(int argc, char *argv[])
       }
 
       /* Initialise descriptor set and timeout */
-      FD_SET(read_fin_fd, &rset);
+      FD_SET(fin_fd, &rset);
       FD_SET(read_fd, &rset);
       FD_SET(del_time_job_fd, &rset);
       timeout.tv_usec = 0;
@@ -458,18 +489,35 @@ main(int argc, char *argv[])
       {
          check_fifo(read_fd, write_fd);
       }
-      else if ((status > 0) && (FD_ISSET(read_fin_fd, &rset)))
+      else if ((status > 0) && (FD_ISSET(fin_fd, &rset)))
            {
-              if ((n = read(read_fin_fd, buffer, MAX_FIFO_BUFFER)) > 0)
+              int bytes_done = 0;
+
+              if ((n = read(fin_fd, fifo_buffer, fifo_size)) >= sizeof(pid_t))
               {
-                 int count = 0;
+                 pid_t pid;
 
                  do
                  {
-                    (void)get_one_zombie();
-                    count++;
-                 } while (count < n);
+                    pid = *(pid_t *)&fifo_buffer[bytes_done];
+                    (void)get_one_zombie(pid);
+                    bytes_done += sizeof(pid_t);
+                 } while ((n > bytes_done) &&
+                          ((n - bytes_done) >= sizeof(pid_t)));
               }
+              if ((n > 0) && ((n - bytes_done) > 0))
+              {
+                 (void)rec(sys_log_fd, DEBUG_SIGN,
+                           "Reading garbage from fifo [%d] (%s %d)\n",
+                           (n - bytes_done), __FILE__, __LINE__);
+              }
+              else if (n == -1)
+                   {
+                      (void)rec(sys_log_fd, WARN_SIGN,
+                                "read() error while reading from %s : %s (%s %d)\n",
+                                IP_FIN_FIFO, strerror(errno),
+                                __FILE__, __LINE__);
+                   }
            }
       else if (status == 0)
            {
@@ -584,7 +632,7 @@ main(int argc, char *argv[])
                  /* Check if any process is finished. */
                  if (no_of_process > 0)
                  {
-                    while (get_one_zombie() != -1)
+                    while (get_one_zombie(-1) > 0)
                     {
                        /* Do nothing. */;
                     }
@@ -662,7 +710,7 @@ main(int argc, char *argv[])
                        /* Check if any process is finished. */
                        if (no_of_process >= max_process)
                        {
-                          while (get_one_zombie() != -1)
+                          while (get_one_zombie(-1) > 0)
                           {
                              /* Do nothing. */;
                           }
@@ -698,10 +746,8 @@ main(int argc, char *argv[])
 #endif /* REPORT_DIR_TIME_INTERVAL */
                     while (fdc > 0)
                     {
-#ifndef REPORT_DIR_TIME_INTERVAL
                        now = time(NULL);
                        diff_time = now - start_time;
-#endif /* !REPORT_DIR_TIME_INTERVAL */
 
                        if (diff_time < one_dir_copy_timeout)
                        {
@@ -793,7 +839,7 @@ main(int argc, char *argv[])
                     /* Check if any process is finished. */
                     if (no_of_process > 0)
                     {
-                       while (get_one_zombie() != -1)
+                       while (get_one_zombie(-1) > 0)
                        {
                           /* Do nothing. */;
                        }
@@ -847,10 +893,10 @@ main(int argc, char *argv[])
                * User disabled a a host, all time jobs must be removed
                * for this host.
                */
-              if ((n = read(del_time_job_fd, buffer, MAX_FIFO_BUFFER)) > 0)
+              if ((n = read(del_time_job_fd, fifo_buffer, fifo_size)) > 0)
               {
                  int  bytes_done = 0;
-                 char *p_host_name = buffer;
+                 char *p_host_name = fifo_buffer;
 
                  do
                  {
@@ -1232,74 +1278,88 @@ handle_dir(int    dir_no,
                                     break;
 
                                  case  0 : /* Child process */
-
-                                    in_child = YES;
-                                    if ((db[de[dir_no].fme[j].pos[k]].lfs & SPLIT_FILE_LIST) &&
-                                        (files_linked > MAX_FILES_TO_PROCESS))
                                     {
-                                       int            ii,
-                                                      split_files_renamed,
-                                                      loops = files_linked / MAX_FILES_TO_PROCESS;
-                                       off_t          split_file_size_renamed;
-                                       time_t         tmp_creation_time;
-                                       unsigned short tmp_unique_number;
-                                       char           tmp_unique_name[MAX_FILENAME_LENGTH],
-                                                      src_file_path[MAX_PATH_LENGTH];
+                                       pid_t pid;
 
-                                       (void)strcpy(src_file_path, afd_file_dir);
-                                       (void)strcat(src_file_path, unique_name);
-                                       (void)strcat(src_file_path, "/");
-                                       tmp_unique_name[0] = '/';
-
-                                       /*
-                                        * If there are lots of files in the directory,
-                                        * it can take quit a while before any files get
-                                        * distributed. So lets only do MAX_FILES_TO_PROCESS
-                                        * at one time. The distribution of files is in
-                                        * most cases what takes most the time. So always
-                                        * try to start the distribution as early as
-                                        * possible.
-                                        */
-                                       for (ii = 0; ii < loops; ii++)
+                                       in_child = YES;
+                                       (void)fra_detach();
+                                       if ((db[de[dir_no].fme[j].pos[k]].lfs & SPLIT_FILE_LIST) &&
+                                           (files_linked > MAX_FILES_TO_PROCESS))
                                        {
-                                          if (ii > 0)
-                                          {
-                                             int file_offset;
+                                          int            ii,
+                                                         split_files_renamed,
+                                                         loops = files_linked / MAX_FILES_TO_PROCESS;
+                                          off_t          split_file_size_renamed;
+                                          time_t         tmp_creation_time;
+                                          unsigned short tmp_unique_number;
+                                          char           tmp_unique_name[MAX_FILENAME_LENGTH],
+                                                         src_file_path[MAX_PATH_LENGTH];
 
-                                             file_offset = ii * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
-                                             (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH));
-                                          }
-                                          if ((split_files_renamed = rename_files(src_file_path,
-                                                                                  afd_file_dir,
-                                                                                  files_moved,
-                                                                                  &db[de[dir_no].fme[j].pos[k]],
-                                                                                  &tmp_creation_time,
-                                                                                  &tmp_unique_number,
-                                                                                  &tmp_unique_name[1],
-                                                                                  &split_file_size_renamed)) > 0)
+                                          (void)strcpy(src_file_path, afd_file_dir);
+                                          (void)strcat(src_file_path, unique_name);
+                                          (void)strcat(src_file_path, "/");
+                                          tmp_unique_name[0] = '/';
+
+                                          /*
+                                           * If there are lots of files in the directory,
+                                           * it can take quit a while before any files get
+                                           * distributed. So lets only do MAX_FILES_TO_PROCESS
+                                           * at one time. The distribution of files is in
+                                           * most cases what takes most the time. So always
+                                           * try to start the distribution as early as
+                                           * possible.
+                                           */
+                                          for (ii = 0; ii < loops; ii++)
                                           {
+                                             if (ii > 0)
+                                             {
+                                                int file_offset;
+
+                                                file_offset = ii * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
+                                                (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH));
+                                             }
+                                             if ((split_files_renamed = rename_files(src_file_path,
+                                                                                     afd_file_dir,
+                                                                                     files_moved,
+                                                                                     &db[de[dir_no].fme[j].pos[k]],
+                                                                                     &tmp_creation_time,
+                                                                                     &tmp_unique_number,
+                                                                                     &tmp_unique_name[1],
+                                                                                     &split_file_size_renamed)) > 0)
+                                             {
+                                                send_message(afd_file_dir,
+                                                             tmp_unique_name,
+                                                             tmp_unique_number,
+                                                             tmp_creation_time,
+                                                             de[dir_no].fme[j].pos[k],
+                                                             split_files_renamed,
+                                                             split_file_size_renamed);
+                                             } /* if (split_files_linked > 0) */
+
+                                             file_size_linked -= split_file_size_renamed;
+                                             files_linked -= split_files_renamed;
+                                          } /* for (ii = 0; ii < loops; ii++) */
+
+                                          if (files_linked > 0)
+                                          {
+                                             if (loops > 0)
+                                             {
+                                                int file_offset;
+
+                                                file_offset = loops * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
+                                                (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (files_linked * MAX_FILENAME_LENGTH));
+                                             }
                                              send_message(afd_file_dir,
-                                                          tmp_unique_name,
-                                                          tmp_unique_number,
-                                                          tmp_creation_time,
+                                                          unique_name,
+                                                          unique_number,
+                                                          creation_time,
                                                           de[dir_no].fme[j].pos[k],
-                                                          split_files_renamed,
-                                                          split_file_size_renamed);
-                                          } /* if (split_files_linked > 0) */
-
-                                          file_size_linked -= split_file_size_renamed;
-                                          files_linked -= split_files_renamed;
-                                       } /* for (ii = 0; ii < loops; ii++) */
-
-                                       if (files_linked > 0)
-                                       {
-                                          if (loops > 0)
-                                          {
-                                             int file_offset;
-
-                                             file_offset = loops * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
-                                             (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (files_linked * MAX_FILENAME_LENGTH));
+                                                          files_linked,
+                                                          file_size_linked);
                                           }
+                                       }
+                                       else
+                                       {
                                           send_message(afd_file_dir,
                                                        unique_name,
                                                        unique_number,
@@ -1308,36 +1368,28 @@ handle_dir(int    dir_no,
                                                        files_linked,
                                                        file_size_linked);
                                        }
-                                    }
-                                    else
-                                    {
-                                       send_message(afd_file_dir,
-                                                    unique_name,
-                                                    unique_number,
-                                                    creation_time,
-                                                    de[dir_no].fme[j].pos[k],
-                                                    files_linked,
-                                                    file_size_linked);
-                                    }
 
-                                    /*
-                                     * Tell parent process we have completed
-                                     * the task.
-                                     */
-                                    if (write(write_fin_fd, "", 1) != 1)
-                                    {
-                                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                                 "Could not write() to fifo %s : %s (%s %d)\n",
-                                                 fin_fifo, strerror(errno),
-                                                 __FILE__, __LINE__);
+                                       /*
+                                        * Tell parent process we have completed
+                                        * the task.
+                                        */
+                                       pid = getpid();
+                                       if (write(fin_fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+                                       {
+                                          (void)rec(sys_log_fd, ERROR_SIGN,
+                                                    "Could not write() to fifo %s : %s (%s %d)\n",
+                                                    IP_FIN_FIFO, strerror(errno),
+                                                    __FILE__, __LINE__);
+                                       }
+                                       (void)close(fin_fd);
                                     }
                                     exit(SUCCESS);
 
                                  default : /* Parent process */
-
                                     dcpl[no_of_process].fra_pos = de[dir_no].fra_pos;
                                     fra[de[dir_no].fra_pos].no_of_process++;
                                     no_of_process++;
+                                    fork_counter++;
                                     break;
                               } /* switch() */
                            }
@@ -1539,13 +1591,13 @@ handle_dir(int    dir_no,
 
 /*+++++++++++++++++++++++++++ get_one_zombie() ++++++++++++++++++++++++++*/
 static pid_t
-get_one_zombie(void)
+get_one_zombie(pid_t cpid)
 {
    int   status;
    pid_t pid;
 
    /* Is there a zombie? */
-   if ((pid = waitpid(-1, &status, 0)) > 0)
+   if ((pid = waitpid(cpid, &status, (cpid == -1) ? WNOHANG : 0)) > 0)
    {
       int pos;
 
@@ -1632,10 +1684,10 @@ static void
 check_fifo(int read_fd, int write_fd)
 {
    int  n;
-   char buffer[MAX_FIFO_BUFFER];
+   char buffer[20];
 
    /* Read the message */
-   if ((n = read(read_fd, buffer, MAX_FIFO_BUFFER)) > 0)
+   if ((n = read(read_fd, buffer, 20)) > 0)
    {
       int  count = 0,
            i;
@@ -1692,6 +1744,9 @@ check_fifo(int read_fd, int write_fd)
                   FREE_RT_ARRAY(p_data[i].file_name_pool);
                }
 #endif
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "dir_check syscalls : %u forks\n", fork_counter);
+               (void)rec(sys_log_fd, INFO_SIGN, "Stopped dir_check.\n");
 
                /* Set flag to indicate that the the dir_check is NOT active. */
                if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
@@ -1760,13 +1815,17 @@ sig_segv(int signo)
 {
    if (in_child == YES)
    {
-      if (write(write_fin_fd, "", 1) != 1)
+      pid_t pid;
+
+      pid = getpid();
+      if (write(fin_fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Could not write() to fifo %s : %s (%s %d)\n",
-                   fin_fifo, strerror(errno),
+                   IP_FIN_FIFO, strerror(errno),
                    __FILE__, __LINE__);
       }
+      (void)close(fin_fd);
    }
    else
    {
@@ -1801,13 +1860,17 @@ sig_bus(int signo)
 {
    if (in_child == YES)
    {
-      if (write(write_fin_fd, "", 1) != 1)
+      pid_t pid;
+
+      pid = getpid();
+      if (write(fin_fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Could not write() to fifo %s : %s (%s %d)\n",
-                   fin_fifo, strerror(errno),
+                   IP_FIN_FIFO, strerror(errno),
                    __FILE__, __LINE__);
       }
+      (void)close(fin_fd);
    }
    else
    {

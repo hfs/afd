@@ -67,7 +67,7 @@ com(char action)
    int            write_fd,
                   read_fd,
                   status;
-   char           buffer[MAX_FIFO_BUFFER],
+   char           buffer[20],
                   cmd_fifo[MAX_PATH_LENGTH],
                   resp_fifo[MAX_FILENAME_LENGTH];
    fd_set         rset;

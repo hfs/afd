@@ -787,6 +787,16 @@ main(int argc, char *argv[])
                                           "Was not able to stop %s. (%s %d)\n",
                                           AMG, __FILE__, __LINE__);
                              }
+#ifdef _FIFO_DEBUG
+                             cmd[0] = STOP; cmd[1] = '\0';
+                             show_fifo_data('W', "fd_cmd", cmd, 1, __FILE__, __LINE__);
+#endif
+                             if (send_cmd(STOP, fd_cmd_fd) < 0)
+                             {
+                                (void)rec(sys_log_fd, WARN_SIGN,
+                                          "Was not able to stop %s. (%s %d)\n",
+                                          FD, __FILE__, __LINE__);
+                             }
                              for (j = 0; j < MAX_SHUTDOWN_TIME;  j++)
                              {
                                 if (waitpid(proc_table[AMG_NO].pid, NULL, WNOHANG) == proc_table[AMG_NO].pid)

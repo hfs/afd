@@ -24,7 +24,7 @@ SHOOBJS = show_stat.o\
 STBPROG = show_bench_stat
 STBOBJS = show_bench_stat.o
 
-PROGS   = $(STAPROG) $(SHOPROG)
+PROGS   = $(STAPROG) $(SHOPROG) $(STBPROG)
 OBJS    = $(STAOBJS) $(SHOOBJS) $(STBOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h statdefs.h
 

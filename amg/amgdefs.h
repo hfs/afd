@@ -47,12 +47,6 @@
 #define MAX_MSG_PER_SEC            9999 /* The maximum number of         */
                                         /* messages that may be          */
                                         /* generated in one second.      */
-#define MAX_FIFO_BUFFER            13   /* This is how much we want to   */
-                                        /* read or write to a fifo.      */
-                                        /* Usually it is just one char-  */
-                                        /* acter. But sometimes we also  */
-                                        /* wish to send an integer.      */
-                                        /* (eg. shm ID)                  */
 #define MAX_DETACH_TIME            1    /* The maximum time that eval_-  */
                                         /* database will wait for all    */
                                         /* jobs to detach from the FSA.  */
@@ -498,7 +492,7 @@ extern void   check_old_time_jobs(int),
                              int *, int *),
               handle_time_jobs(int *, char *, time_t),
               init_dir_check(int, char **, char *, time_t *, int *,
-                             int *, int *, int *),
+                             int *, int *),
               init_job_data(int *),
               init_msg_buffer(void),
               lookup_job_id(struct instant_db *, int *),

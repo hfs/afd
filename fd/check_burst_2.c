@@ -295,12 +295,6 @@ retry:
 
       if (ret == YES)
       {
-         /* Lets remove the current job. */
-         if (rmdir(file_path) == -1)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to rmdir() %s : %s", file_path, strerror(errno));
-         }
          *files_to_send = init_sf_burst2(*p_new_db, file_path);
          if (*files_to_send == 0)
          {

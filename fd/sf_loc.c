@@ -903,6 +903,15 @@ main(int argc, char *argv[])
             }
          }
       }
+
+      /*
+       * Remove file directory.
+       */
+      if (rmdir(file_path) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to rmdir() %s : %s", file_path, strerror(errno));
+      }
 #ifdef _WITH_BURST_2
       burst_counter++;
    } while (check_burst_2(&p_new_db, file_path, &files_to_send) == YES);
@@ -929,15 +938,6 @@ main(int argc, char *argv[])
              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done, i);
 #endif /* _WITH_BURST_2 */
-
-   /*
-    * Remove file directory.
-    */
-   if (rmdir(file_path) == -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to rmdir() %s : %s", file_path, strerror(errno));
-   }
 
    exitflag = 0;
    exit(TRANSFER_SUCCESS);

@@ -64,12 +64,11 @@ extern int                        max_copied_files,
                                   no_of_time_jobs,
                                   sys_log_fd,
                                   *time_job_list,
-                                  write_fin_fd;
+                                  fin_fd;
 extern char                       afd_file_dir[],
 #ifndef _WITH_PTHREAD
                                   *file_name_buffer,
 #endif
-                                  fin_fifo[],
                                   time_dir[];
 extern struct dc_proc_list        *dcpl;      /* Dir Check Process List */
 extern struct instant_db          *db;
@@ -291,8 +290,9 @@ handle_time_dir(int time_job_no, int *no_of_process)
                }
                else if (dcpl[*no_of_process].pid == 0) /* Child process */
                     {
+                       pid_t pid;
 #ifdef _FIFO_DEBUG
-                       char cmd[2];
+                       char  cmd[2];
 #endif
 
                        send_message(afd_file_dir, unique_name, unique_number,
@@ -304,13 +304,15 @@ handle_time_dir(int time_job_no, int *no_of_process)
                        cmd[0] = ACKN; cmd[1] = '\0';
                        show_fifo_data('W', "ip_fin", cmd, 1, __FILE__, __LINE__);
 #endif
-                       if (write(write_fin_fd, "", 1) != 1)
+                       pid = getpid();
+                       if (write(fin_fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
                        {
                           (void)rec(sys_log_fd, ERROR_SIGN,
                                     "Could not write() to fifo %s : %s (%s %d)\n",
-                                    fin_fifo, strerror(errno),
+                                    IP_FIN_FIFO, strerror(errno),
                                     __FILE__, __LINE__);
                        }
+                       (void)close(fin_fd);
                        exit(SUCCESS);
                     }
                     else /* Parent process */

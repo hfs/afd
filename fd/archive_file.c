@@ -389,7 +389,8 @@ get_dir_number(char *directory)
             if (errno != EEXIST)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to create directory : %s", strerror(errno));
+                          "Failed to create directory <%s> : %s",
+                          directory, strerror(errno));
                ptr[-1] = '\0';
                (void)closedir(dp);
                return(INCORRECT);

@@ -33,13 +33,13 @@ DESCR__S_M1
  **                       time_t *rescan_time,
  **                       int    *read_fd,
  **                       int    *write_fd,
- **                       int    *read_fin_fd)
+ **                       int    *del_time_job_fd)
  **
  ** DESCRIPTION
  **
  ** RETURN VALUES
  **   On succcess it returns the rule_file, rescan_time and the file
- **   descriptors read_fd, write_fd and read_fin_fd.
+ **   descriptors read_fd, write_fd and fin_fd.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -82,7 +82,7 @@ extern int                    shm_id,      /* Shared memory ID of        */
                                                 /* that are local.       */
                               counter_fd,  /* File descriptor for AFD    */
                                            /* counter file.              */
-                              write_fin_fd,
+                              fin_fd,
 #ifdef _INPUT_LOG
                               il_fd,
 #endif
@@ -98,7 +98,6 @@ extern off_t                  *file_size_pool;
 extern uid_t                  afd_uid;
 extern gid_t                  afd_gid;
 extern char                   *p_work_dir,
-                              fin_fifo[],
                               time_dir[],
                               *p_time_dir,
 #ifndef _WITH_PTHREAD
@@ -127,7 +126,6 @@ init_dir_check(int    argc,
                time_t *rescan_time,
                int    *read_fd,
                int    *write_fd,
-               int    *read_fin_fd,
                int    *del_time_job_fd)
 {
    int         i;
@@ -138,6 +136,7 @@ init_dir_check(int    argc,
 #endif
                dc_cmd_fifo[MAX_PATH_LENGTH],
                dc_resp_fifo[MAX_PATH_LENGTH],
+               fin_fifo[MAX_PATH_LENGTH],
                receive_log_fifo[MAX_PATH_LENGTH],
                sys_log_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
@@ -345,14 +344,7 @@ init_dir_check(int    argc,
          exit(INCORRECT);
       }
    }
-   if ((write_fin_fd = coe_open(fin_fifo, O_RDWR)) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                fin_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   if ((*read_fin_fd = coe_open(fin_fifo, O_RDWR)) == -1)
+   if ((fin_fd = coe_open(fin_fifo, O_RDWR)) == -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not open fifo %s : %s (%s %d)\n",

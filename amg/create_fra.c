@@ -359,6 +359,7 @@ create_fra(int no_of_dirs)
          fra[i].bytes_received       = 0L;
          fra[i].files_received       = 0;
          fra[i].no_of_process        = 0;
+         fra[i].dir_status           = NORMAL_STATUS;
          if (fra[i].time_option == YES)
          {
             (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));

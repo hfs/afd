@@ -717,8 +717,8 @@ main(int argc, char *argv[])
             else
             {
                length = sprintf(encode_buffer,
-                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n",
-                                MAJOR, MINOR, BUG_FIX, final_filename);
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                MAJOR, MINOR, BUG_FIX, final_filename, final_filename);
                buffer_ptr = encode_buffer;
             }
 
@@ -828,14 +828,14 @@ main(int argc, char *argv[])
                      (void)strcpy(new_filename, final_filename);
                   }
                   length = sprintf(encode_buffer,
-                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n",
-                                   multipart_boundary, new_filename);
+                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                   multipart_boundary, new_filename, new_filename);
                }
                else
                {
                   length = sprintf(encode_buffer,
-                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n",
-                                   multipart_boundary, final_filename);
+                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                   multipart_boundary, final_filename, final_filename);
                }
 
                if (smtp_write(encode_buffer, NULL, length) < 0)
@@ -904,14 +904,14 @@ main(int argc, char *argv[])
             if (files_send == 0)
             {
                length = sprintf(encode_buffer,
-                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
-                                multipart_boundary, new_filename);
+                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, new_filename, new_filename);
             }
             else
             {
                length = sprintf(encode_buffer,
-                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
-                                multipart_boundary, new_filename);
+                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, new_filename, new_filename);
             }
          }
          else
@@ -919,14 +919,14 @@ main(int argc, char *argv[])
             if (files_send == 0)
             {
                length = sprintf(encode_buffer,
-                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
-                                multipart_boundary, final_filename);
+                                "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, final_filename, final_filename);
             }
             else
             {
                length = sprintf(encode_buffer,
-                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
-                                multipart_boundary, final_filename);
+                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
+                                multipart_boundary, final_filename, final_filename);
             }
          }
 

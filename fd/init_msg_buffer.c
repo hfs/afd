@@ -67,12 +67,9 @@ extern int                        mdb_fd,
                                   *no_msg_queued,
                                   no_of_hosts,
                                   sys_log_fd;
-extern char                       current_msg_list_file[],
-                                  file_dir[],
+extern char                       file_dir[],
                                   err_file_dir[],
-                                  msg_cache_file[],
                                   msg_dir[],
-                                  msg_queue_file[],
                                   *p_err_file_dir,
                                   *p_file_dir,
                                   *p_msg_dir,
@@ -123,13 +120,15 @@ init_msg_buffer(void)
    {
       size_t new_size = (MSG_CACHE_BUF_SIZE * sizeof(struct msg_cache_buf)) +
                         AFD_WORD_OFFSET;
+      char   fullname[MAX_PATH_LENGTH];
 
-      if ((ptr = attach_buf(msg_cache_file, &mdb_fd,
+      (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_CACHE_FILE);
+      if ((ptr = attach_buf(fullname, &mdb_fd,
                             new_size, "FD")) == (caddr_t) -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to mmap() to %s : %s (%s %d)\n",
-                   msg_cache_file, strerror(errno), __FILE__, __LINE__);
+                   fullname, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
       no_msg_cached = (int *)ptr;
@@ -141,13 +140,15 @@ init_msg_buffer(void)
    {
       size_t new_size = (MSG_QUE_BUF_SIZE * sizeof(struct queue_buf)) +
                         AFD_WORD_OFFSET;
+      char   fullname[MAX_PATH_LENGTH];
 
-      if ((ptr = attach_buf(msg_queue_file, &qb_fd,
+      (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
+      if ((ptr = attach_buf(fullname, &qb_fd,
                             new_size, "FD")) == (caddr_t) -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to mmap() to %s : %s (%s %d)\n",
-                   msg_queue_file, strerror(errno), __FILE__, __LINE__);
+                   fullname, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
       no_msg_queued = (int *)ptr;
@@ -852,7 +853,11 @@ read_current_msg_list(int **cml, int *no_of_current_msg)
 {
    int    fd;
    size_t size;
+   char   current_msg_list_file[MAX_PATH_LENGTH];
 
+   (void)strcpy(current_msg_list_file, p_work_dir);
+   (void)strcat(current_msg_list_file, FIFO_DIR);
+   (void)strcat(current_msg_list_file, CURRENT_MSG_LIST_FILE);
    if ((fd = open(current_msg_list_file, O_RDWR)) == -1) /* WR for locking */
    {
       if (errno == ENOENT)

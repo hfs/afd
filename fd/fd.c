@@ -126,13 +126,9 @@ char                       *p_work_dir,
                            *p_src_dir,
                            src_dir[MAX_PATH_LENGTH],
 #endif
-                           current_msg_list_file[MAX_PATH_LENGTH],
-                           fd_cmd_fifo[MAX_PATH_LENGTH],
                            file_dir[MAX_PATH_LENGTH],
                            err_file_dir[MAX_PATH_LENGTH],
-                           msg_dir[MAX_PATH_LENGTH],
-                           msg_cache_file[MAX_PATH_LENGTH],
-                           msg_queue_file[MAX_PATH_LENGTH];
+                           msg_dir[MAX_PATH_LENGTH];
 struct filetransfer_status *fsa;
 struct fileretrieve_status *fra;
 struct afd_status          *p_afd_status;
@@ -145,6 +141,7 @@ struct delete_log          dl;
 
 /* Local global variables */
 static time_t              now;
+static unsigned int        fork_counter = 0;
 
 #if defined _BURST_MODE || defined _AGE_LIMIT
 #define START_PROCESS()                                       \
@@ -253,6 +250,7 @@ main(int argc, char *argv[])
    unsigned short    *unique_number;
    time_t            *creation_time,
                      abnormal_term_check_time,
+                     midnight,
                      next_dir_check_time,
                      remote_file_check_time,
                      sleep_time;
@@ -263,11 +261,10 @@ main(int argc, char *argv[])
                      *msg_buffer,
                      *msg_priority,
 #ifdef _WITH_BURST_2
-                     more_data_fifo[MAX_PATH_LENGTH],
                      *p_more_data,
 #endif /* _WITH_BURST_2 */
                      work_dir[MAX_PATH_LENGTH],
-                     sys_log_fifo[MAX_PATH_LENGTH];
+                     name_buffer[MAX_PATH_LENGTH];
    fd_set            rset;
    struct timeval    timeout;
 #ifdef SA_FULLDUMP
@@ -302,20 +299,12 @@ main(int argc, char *argv[])
    }
 
    /* Initialise variables */
-   (void)strcpy(sys_log_fifo, work_dir);
-   (void)strcat(sys_log_fifo, FIFO_DIR);
-   (void)strcpy(current_msg_list_file, sys_log_fifo);
-   (void)strcat(current_msg_list_file, CURRENT_MSG_LIST_FILE);
+   (void)strcpy(name_buffer, work_dir);
+   (void)strcat(name_buffer, FIFO_DIR);
 #ifdef _WITH_BURST_2
-   (void)strcpy(more_data_fifo, sys_log_fifo);
-   (void)strcat(more_data_fifo, MORE_DATA_FIFO);
-   p_more_data = more_data_fifo + strlen(more_data_fifo);
+   p_more_data = name_buffer + strlen(name_buffer);
 #endif /* _WITH_BURST_2 */
-   (void)strcpy(msg_cache_file, sys_log_fifo);
-   (void)strcat(msg_cache_file, MSG_CACHE_FILE);
-   (void)strcpy(msg_queue_file, sys_log_fifo);
-   (void)strcat(msg_queue_file, MSG_QUEUE_FILE);
-   (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
+   (void)strcat(name_buffer, SYSTEM_LOG_FIFO);
    (void)strcpy(msg_dir, work_dir);
    (void)strcat(msg_dir, AFD_MSG_DIR);
    (void)strcat(msg_dir, "/");
@@ -341,17 +330,17 @@ main(int argc, char *argv[])
                  &msg_buffer);
 
    /* Open system log fifo. */
-   if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
+   if ((sys_log_fd = coe_open(name_buffer, O_RDWR)) < 0)
    {
       if (errno == ENOENT)
       {
-         if (make_fifo(sys_log_fifo) == SUCCESS)
+         if (make_fifo(name_buffer) == SUCCESS)
          {
-            if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
+            if ((sys_log_fd = coe_open(name_buffer, O_RDWR)) < 0)
             {
                (void)fprintf(stderr,
                              "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                             sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+                             name_buffer, strerror(errno), __FILE__, __LINE__);
                exit(INCORRECT);
             }
          }
@@ -359,7 +348,7 @@ main(int argc, char *argv[])
          {
             (void)fprintf(stderr,
                           "ERROR   : Could not create fifo %s. (%s %d)\n",
-                          sys_log_fifo, __FILE__, __LINE__);
+                          name_buffer, __FILE__, __LINE__);
             exit(INCORRECT);
          }
       }
@@ -367,10 +356,14 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stderr,
                        "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                       sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+                       name_buffer, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
    }
+#ifdef _WITH_BURST_2
+   (void)strcpy(p_more_data, MORE_DATA_FIFO);
+   p_more_data = name_buffer + strlen(name_buffer);
+#endif /* _WITH_BURST_2 */
 
    /* Open and create all fifos */
    if (init_fifos_fd() == INCORRECT)
@@ -563,6 +556,7 @@ main(int argc, char *argv[])
    remote_file_check_time = ((now / remote_file_check_interval) *
                              remote_file_check_interval) +
                             remote_file_check_interval;
+   midnight = (now / 86400) * 86400 + 86400;
    FD_ZERO(&rset);
 
    /* Now watch and start transfer jobs */
@@ -696,6 +690,14 @@ main(int argc, char *argv[])
          }
 
          abnormal_term_check_time = ((now / 45) * 45) + 45;
+      }
+
+      if (now >= midnight)
+      {
+         (void)rec(sys_log_fd, DEBUG_SIGN,
+                   "FD syscalls        : %u forks\n", fork_counter);
+         fork_counter = 0;
+         midnight = (now / 86400) * 86400 + 86400;
       }
 
       /*
@@ -975,11 +977,11 @@ main(int argc, char *argv[])
                              }
                           }
                           (void)sprintf(p_more_data, "%d", pid);
-                          if ((mdfd = open(more_data_fifo, O_RDWR)) == -1)
+                          if ((mdfd = open(name_buffer, O_RDWR)) == -1)
                           {
                              (void)rec(sys_log_fd, WARN_SIGN,
                                        "Failed to open() fifo %s : %s (%s %d)\n",
-                                       more_data_fifo, strerror(errno),
+                                       name_buffer, strerror(errno),
                                        __FILE__, __LINE__);
 
                              /*
@@ -1078,7 +1080,14 @@ main(int argc, char *argv[])
 #endif /* _WITH_BURST_2 */
                     }
                     bytes_done += sizeof(pid_t);
-                 } while (n > bytes_done);
+                 } while ((n > bytes_done) &&
+                          ((n - bytes_done) >= sizeof(pid_t)));
+                 if ((n - bytes_done) > 0)
+                 {
+                    (void)rec(sys_log_fd, DEBUG_SIGN,
+                              "Reading garbage from fifo [%d] (%s %d)\n",
+                              (n - bytes_done), __FILE__, __LINE__);
+                 }
 
                  if ((stop_flag == 0) && (faulty != NEITHER) &&
                      (*no_msg_queued > 0))
@@ -1942,6 +1951,7 @@ make_process(struct connection *con)
       default :
 
          /* Parent process */
+         fork_counter++;
          return(pid);
    }
 }
@@ -2779,6 +2789,8 @@ fd_exit(void)
    time_t       now;
    struct stat  stat_buf;
 
+   (void)rec(sys_log_fd, DEBUG_SIGN, "FD syscalls        : %u forks\n",
+             fork_counter);
    now = time(NULL);
 
    /* Kill any job still active with a normal kill (2)! */

@@ -467,7 +467,7 @@
 
 
 ---------------------------> Version 1.1.6 <-------------------------------
-                            ---------------                                
+                            ---------------
 11.03.2000 - Switching back automatically did still not work correctly!
              Hopefully this is fixed now.
 03.04.2000 - dir_check terminates normally when it no longer can access
@@ -484,7 +484,7 @@
 
 
 ---------------------------> Version 1.1.7 <-------------------------------
-                            ---------------                                
+                            ---------------
 07.05.2000 - Using buffered read() for afd_mon process.
 08.05.2000 - If the number of messages queued is very large and most
              messages belong to a host that has a very slow network
@@ -503,7 +503,7 @@
 
 
 ---------------------------> Version 1.1.8 <-------------------------------
-                            ---------------                                
+                            ---------------
 24.06.2000 - When storing data in the job ID database the function
              lookup_job_id() failed to store the last terminating NULL
              for AMG options.
@@ -604,7 +604,7 @@
 
 
 ---------------------------> Version 1.2.1 <-------------------------------
-                            ---------------                                
+                            ---------------
 29.09.2000 - In mon_ctrl and afd_ctrl, doing a Alt+Mouse button 1 caused
              it to SEGV. Fixed.
 07.10.2000 - When transfers are active and they are being stopped, these
@@ -646,7 +646,7 @@
 
 
 ---------------------------> Version 1.2.2 <-------------------------------
-                            ---------------                                
+                            ---------------
 22.11.2000 - Implemented FTP passive mode for the ftp_list() function.
            - When switching back to the original host, forgot to update
              the host_dsp_name variable in the FSA. Fixed.
@@ -680,7 +680,7 @@
 
 
 ---------------------------> Version 1.2.3 <-------------------------------
-                            ---------------                                
+                            ---------------
 24.12.2000 - New process asmtp to send mails automatically.
 26.12.2000 - When creating archives we will now always check the maximum
              number of links a directory may have with pathconf() instead
@@ -707,7 +707,7 @@
 
 
 ---------------------------> Version 1.2.4 <-------------------------------
-                            ---------------                                
+                            ---------------
 03.02.2001 - sf_xxx now sorts the files by date (oldest date first) before
              it starts sending files.
 15.02.2001 - view_hosts showed garbage just behind the first real hostname.
@@ -734,7 +734,7 @@
 
 
 ---------------------------> Version 1.2.5 <-------------------------------
-                            ---------------                                
+                            ---------------
 11.04.2001 - show_olog failed to resend files from archive. Fixed.
 12.04.2001 - Process dir_check checks the pool directory at start
              for unfinished jobs.
@@ -783,3 +783,20 @@
 29.05.2001 - When disabling a host and the queue was stopped by hand,
              files in the queue where never deleted. Fixed.
 ------------------------> Released: 30.05.2001 <---------------------------
+
+
+---------------------------> Version 1.2.6 <-------------------------------
+                            ---------------
+31.05.2001 - For mail attachment, write a Content-Disposition header.
+             Some mail readers or MTA's don't like this if it is not there.
+01.06.2001 - Fixed nasty bug in dir_check. Process dir_check did always
+             wait for all its children to return before scanning the
+             directories. This could lead to very long delays, depending
+             on the options in DIR_CONFIG.
+02.06.2001 - Another bad bug in dir_check. When one directory recieves files
+             at a very high rate, it can happen that dir_check ends up
+             in an endless loop serving only this one directory!
+03.06.2001 - In sf_loc removed empty directory to late during a burst. FD
+             under rare conditions thought there is a job without a message
+             and created one for an empty directory.
+------------------------> Released: 06.06.2001 <---------------------------

@@ -60,8 +60,7 @@ extern int  sys_log_fd,
             retry_fd,
             delete_jobs_fd,
             delete_jobs_host_fd;
-extern char *p_work_dir,
-            fd_cmd_fifo[MAX_PATH_LENGTH];
+extern char *p_work_dir;
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$ init_fifos_fd() $$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -69,6 +68,7 @@ int
 init_fifos_fd(void)
 {
    char        transfer_log_fifo[MAX_PATH_LENGTH],
+               fd_cmd_fifo[MAX_PATH_LENGTH],
                fd_resp_fifo[MAX_PATH_LENGTH],
                msg_fifo[MAX_PATH_LENGTH],
                fd_wake_up_fifo[MAX_PATH_LENGTH],
