@@ -418,8 +418,7 @@ format_input_info(char *text, int pos)
    int                 count,
                        fd,
                        jobs_found = 0,
-                       length,
-                       no_of_dirs;
+                       length;
    off_t               dnb_size;
    char                fullname[MAX_PATH_LENGTH],
                        *p_begin_underline = NULL,
@@ -471,7 +470,6 @@ format_input_info(char *text, int pos)
          return;
       }
       dnb_size = stat_buf.st_size;
-      no_of_dirs = *(int *)ptr;
       ptr += AFD_WORD_OFFSET;
       dnb = (struct dir_name_buf *)ptr;
       (void)close(fd);

@@ -23,10 +23,11 @@
 #include "x_common_defs.h"
 
 /* What information should be displayed */
-#define SHOW_INPUT              1
-#define SHOW_OUTPUT             2
-#define SHOW_UNSENT_INPUT       4
-#define SHOW_UNSENT_OUTPUT      8
+#define SHOW_INPUT              1      /* Files queued, due to error or */
+                                       /* queue stopped.                */
+#define SHOW_OUTPUT             2      /* Files in FD queue. */
+#define SHOW_UNSENT_INPUT       4      /* All files in input dir.       */
+#define SHOW_UNSENT_OUTPUT      8      /* Files currently send by FD.   */
 
 #define EQUAL_SIGN              1
 #define LESS_THEN_SIGN          2
@@ -92,15 +93,16 @@ struct queued_file_list
           char   msg_name[MAX_MSG_NAME_LENGTH];
           char   hostname[MAX_HOSTNAME_LENGTH + 1];
           char   in_error_dir;
-          char   queue_type;
+          char   queue_type;  /* SHOW_INPUT, SHOW_OUTPUT, SHOW_UNSENT_INPUT,*/
+                              /* SHOW_UNSENT_OUTPUT                         */
        };
 
 /* Permission structure for show_queue */
 struct sol_perm
        {
-          int  list_limit;
-          char delete;
-          char view_passwd;
+          int         list_limit;
+          signed char delete;
+          signed char view_passwd;
        };
 
 /* Various macro definitions. */

@@ -134,8 +134,6 @@ main(int argc, char *argv[])
    Cardinal        argcount;
    XmFontList      fontlist;
    XmFontListEntry entry;
-   XFontStruct     *font_struct;
-   XmFontType      dummy;
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -162,7 +160,6 @@ main(int argc, char *argv[])
           exit(INCORRECT);
        }
    }
-   font_struct = (XFontStruct *)XmFontListEntryGetFont(entry, &dummy);
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
 

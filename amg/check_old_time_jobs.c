@@ -160,7 +160,8 @@ check_old_time_jobs(int no_of_jobs)
                       * then there where no files and we can save us a
                       * complex search for the new one.
                       */
-                     if ((rmdir(time_dir) == -1) && (errno == ENOTEMPTY))
+                     if ((rmdir(time_dir) == -1) &&
+                         ((errno == ENOTEMPTY) || (errno == EEXIST)))
                      {
                         int jid_pos = -1;
 

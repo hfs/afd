@@ -7,7 +7,7 @@ Group: Applications/Communications
 BuildRoot: %{_builddir}/%{name}-root
 Prefix: /opt
 Source0: src-%{version}.tar.bz2
-URL: http://www.dwd.de/general/GBTI/afd/
+URL: http://www.dwd.de/AFD/
 
 %description
 The Automatic File Distributor provides a framework for very flexible,

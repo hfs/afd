@@ -1,6 +1,6 @@
 /*
  *  assemble.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -65,6 +65,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   16.05.1999 H.Kiehl Created
+ **   14.06.2002 H.Kiehl Fixed assembling MSS files.
  **
  */
 DESCR__E_M3
@@ -366,15 +367,15 @@ write_length_indicator(int fd, int type, int length)
          if (*(char *)&byte_order == 1)
          {
             /* little-endian */
-            buffer[0] = ((char *)&length)[3];
+            buffer[0] = 250;
             buffer[1] = ((char *)&length)[2];
             buffer[2] = ((char *)&length)[1];
-            buffer[3] = 0;
+            buffer[3] = ((char *)&length)[0];
          }
          else
          {
             /* big-endian */
-            buffer[0] = 0;
+            buffer[0] = 250;
             buffer[1] = ((char *)&length)[1];
             buffer[2] = ((char *)&length)[2];
             buffer[3] = ((char *)&length)[3];

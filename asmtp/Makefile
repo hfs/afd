@@ -15,7 +15,7 @@ ASMTPOBJS  = asmtp.o\
              init_asmtp.o\
              trans_log.o
 
-PROGS      = $(ASMTPPROG)
+PROGS      = $(ASMTPPROG)$(EXE_EXT)
 OBJS       = $(ASMTPOBJS)
 HEADERS    = ../init_afd/afddefs.h ../config.h asmtpdefs.h
 
@@ -23,7 +23,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(ASMTPPROG) : $(ASMTPOBJS) $(LIB) $(PROTOLIB)
+$(ASMTPPROG)$(EXE_EXT) : $(ASMTPOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(ASMTPOBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 

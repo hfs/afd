@@ -49,7 +49,6 @@ DESCR__E_M3
 #include <X11/Xlib.h>
 #include <Xm/Xm.h>
 #include <errno.h>
-#include "afd_ctrl.h"
 #include "mon_ctrl.h"
 #include "permission.h"
 

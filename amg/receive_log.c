@@ -68,8 +68,7 @@ receive_log(char   *sign,
             char   *fmt, ...)
 {
    char      *ptr = p_dir_alias;
-   size_t    header_length,
-             length = DIR_ALIAS_OFFSET;
+   size_t    length = DIR_ALIAS_OFFSET;
    char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
    va_list   ap;
    struct tm *p_ts;
@@ -109,7 +108,6 @@ receive_log(char   *sign,
    buf[length]     = ':';
    buf[length + 1] = ' ';
    length += 2;
-   header_length = length;
 
    va_start(ap, fmt);
    length += vsprintf(&buf[length], fmt, ap);

@@ -83,34 +83,16 @@
 #define RETRY_SEL                       2
 #define DEBUG_SEL                       3
 #define INFO_SEL                        4
-#define S_LOG_SEL                       5
-#define R_LOG_SEL                       6
-#define T_LOG_SEL                       7
-#define D_LOG_SEL                       8
-#define I_LOG_SEL                       9
-#define O_LOG_SEL                       10
-#define EXIT_SEL                        11
-#define DISABLE_SEL                     12
-#define DELETE_SEL                      13
-#define VIEW_JOB_SEL                    14
-#define E_LOG_SEL                       15
-#define SWITCH_SEL                      16
-#define VIEW_FILE_LOAD_SEL              17
-#define VIEW_KBYTE_LOAD_SEL             18
-#define VIEW_CONNECTION_LOAD_SEL        19
-#define VIEW_TRANSFER_LOAD_SEL          20
-#define VIEW_DC_SEL                     21
-#define PING_SEL                        22
-#define TRACEROUTE_SEL                  23
-#define DIR_CTRL_SEL                    24
-#define SHOW_QUEUE_SEL                  25
-/* NOTE: x_common_defs.h defines from 50 onwards. */
-
-/* Definitions for testing connections */
-#define SHOW_PING_TEST                  "Ping"
-#define SHOW_TRACEROUTE_TEST            "Traceroute"
-#define PING_W                          0
-#define TRACEROUTE_W                    1
+#define DISABLE_SEL                     5
+#define VIEW_JOB_SEL                    6
+#define SWITCH_SEL                      7
+#define VIEW_DC_SEL                     8
+/* NOTE: Since some of these are used by more then one */
+/*       program each may define only a certain range: */
+/*         afd_ctrl.h        0 - 39                    */
+/*         mon_ctrl.h       40 - 69                    */
+/*         dir_ctrl.h       70 - 99                    */
+/*         x_common_defs.h 100 onwards.                */
 
 /* Bar types */
 #define ERROR_BAR_NO                    0
@@ -126,12 +108,6 @@
 #define NUMBER_OF_FILES_DONE            3
 #define FILE_SIZE                       4
 #define FILE_SIZE_DONE                  5
-
-/* LED indicators */
-#define AMG_LED                         0
-#define FD_LED                          1
-#define AW_LED                          2
-#define AFDD_LED                        3
 
 /* Status LED's */
 #define LED_ONE                         1

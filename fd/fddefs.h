@@ -192,6 +192,10 @@
 #define ATTACH_ALL_FILES_ID_LENGTH     16
 #define REPLY_TO_ID                    "reply-to"
 #define REPLY_TO_ID_LENGTH             8
+#define FROM_ID                        "from"
+#define FROM_ID_LENGTH                 4
+#define CHARSET_ID                     "charset"
+#define CHARSET_ID_LENGTH              7
 #ifdef _WITH_EUMETSAT_HEADERS
 #define EUMETSAT_HEADER_ID             "eumetsat"
 #define EUMETSAT_HEADER_ID_LENGTH      8
@@ -403,9 +407,12 @@ struct job
           char          file_name_is_header; /* Assumes that the file    */
                                          /* name is bulletin header.     */
 #endif
+          char          *charset;        /* MIME charset.                */
           char          *subject;        /* Subject for mail.            */
           char          *reply_to;       /* The address where the        */
                                          /* recipient sends the reply.   */
+          char          *from;           /* The address who send this    */
+                                         /* mail.                        */
 #ifdef _WITH_TRANS_EXEC
           char          *trans_exec_cmd; /* String holding the exec cmd. */
 #endif /* _WITH_TRANS_EXEC */

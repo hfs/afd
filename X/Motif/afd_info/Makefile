@@ -15,7 +15,7 @@ AFDIOBJS = afd_info.o\
            info_callbacks.o\
            update_info.o
 
-PROGS    = $(AFDIPROG)
+PROGS    = $(AFDIPROG)$(EXE_EXT)
 OBJS     = $(AFDIOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h afd_info.h
 
@@ -25,7 +25,7 @@ $(OBJS) : $(HEADERS)
 
 afd_info.o : active_passive.h
 
-$(AFDIPROG) : $(AFDIOBJS) $(LIB)
+$(AFDIPROG)$(EXE_EXT) : $(AFDIOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDIOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -39,7 +39,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(AFDIPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(AFDIPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

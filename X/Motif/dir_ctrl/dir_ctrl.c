@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   30.08.2000 H.Kiehl Created
+ **   05.05.2002 H.Kiehl Show the number files currently in the directory.
  **
  */
 DESCR__E_M1
@@ -77,7 +78,6 @@ DESCR__E_M1
 #include <Xm/PushB.h>
 #include <Xm/Separator.h>
 #include <errno.h>
-#include "afd_ctrl.h"
 #include "version.h"
 #include "permission.h"
 
@@ -102,9 +102,9 @@ GC                         letter_gc,
 Colormap                   default_cmap;
 XFontStruct                *font_struct;
 XmFontList                 fontlist = NULL;
-Widget                     mw[5],       /* Main menu */
+Widget                     mw[3],       /* Main menu */
                            dw[3],       /* Directory menu */
-                           vw[7],       /* View menu */
+                           vw[8],       /* View menu */
                            sw[4],       /* Setup menu */
                            hw[3],       /* Help menu */
                            fw[13],      /* Select font */
@@ -142,6 +142,7 @@ int                        bar_thickness_2,
                            window_height,
                            x_offset_bars,
                            x_offset_characters,
+                           x_offset_dir_full,
                            x_offset_type;
 #ifndef _NO_MMAP
 off_t                      fra_size;
@@ -453,18 +454,20 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
          dcp.info_list          = NULL;
          dcp.disable            = YES;
          dcp.disable_list       = NULL;
-         dcp.show_slog          = YES; /* View the system log   */
+         dcp.show_slog          = YES; /* View the system log    */
          dcp.show_slog_list     = NULL;
-         dcp.show_rlog          = YES; /* View the receive log  */
+         dcp.show_rlog          = YES; /* View the receive log   */
          dcp.show_rlog_list     = NULL;
-         dcp.show_tlog          = YES; /* View the transfer log */
+         dcp.show_tlog          = YES; /* View the transfer log  */
          dcp.show_tlog_list     = NULL;
-         dcp.show_ilog          = YES; /* View the input log    */
+         dcp.show_ilog          = YES; /* View the input log     */
          dcp.show_ilog_list     = NULL;
-         dcp.show_olog          = YES; /* View the output log   */
+         dcp.show_olog          = YES; /* View the output log    */
          dcp.show_olog_list     = NULL;
-         dcp.show_elog          = YES; /* View the delete log   */
+         dcp.show_elog          = YES; /* View the delete log    */
          dcp.show_elog_list     = NULL;
+         dcp.show_queue         = YES; /* View show_queue dialog */
+         dcp.show_queue_list    = NULL;
          break;
 
       default : /* Something must be wrong! */
@@ -499,7 +502,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
 
    /* Prepare title for dir_ctrl window */
 #ifdef PRE_RELEASE
-   (void)sprintf(window_title, "DIR_CTRL PRE %d.%d.%d-%d ",
+   (void)sprintf(window_title, "DIR_CTRL %d.%d.%d-pre%d ",
                  MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)sprintf(window_title, "DIR_CTRL %d.%d.%d ", MAJOR, MINOR, BUG_FIX);
@@ -570,8 +573,21 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       connect_data[i].dir_status = fra[i].dir_status;
       connect_data[i].bytes_received = fra[i].bytes_received;
       connect_data[i].files_received = fra[i].files_received;
+      connect_data[i].dir_flag = fra[i].dir_flag;
+      connect_data[i].files_in_dir = fra[i].files_in_dir;
+      connect_data[i].files_queued = fra[i].files_queued;
+      connect_data[i].bytes_in_dir = fra[i].bytes_in_dir;
+      connect_data[i].bytes_in_queue = fra[i].bytes_in_queue;
       connect_data[i].max_process = fra[i].max_process;
       connect_data[i].no_of_process = fra[i].no_of_process;
+      CREATE_FC_STRING(connect_data[i].str_files_in_dir,
+                       connect_data[i].files_in_dir);
+      CREATE_FS_STRING(connect_data[i].str_bytes_in_dir,
+                       connect_data[i].bytes_in_dir);
+      CREATE_FC_STRING(connect_data[i].str_files_queued,
+                       connect_data[i].files_queued);
+      CREATE_FS_STRING(connect_data[i].str_bytes_queued,
+                       connect_data[i].bytes_in_queue);
       CREATE_EC_STRING(connect_data[i].str_np, connect_data[i].no_of_process);
       connect_data[i].last_retrieval = fra[i].last_retrieval;
       connect_data[i].bytes_per_sec = 0;
@@ -698,6 +714,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
        (dcp.show_ilog != NO_PERMISSION) ||
        (dcp.show_olog != NO_PERMISSION) ||
        (dcp.show_elog != NO_PERMISSION) ||
+       (dcp.show_queue != NO_PERMISSION) ||
        (dcp.info != NO_PERMISSION))
    {
       view_pull_down_w = XmCreatePulldownMenu(*menu_w,
@@ -786,6 +803,18 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             XtAddCallback(vw[DIR_DELETE_W], XmNactivateCallback, dir_popup_cb,
                           (XtPointer)E_LOG_SEL);
          }
+      }
+      if (dcp.show_queue != NO_PERMISSION)
+      {
+         XtVaCreateManagedWidget("Separator",
+                              xmSeparatorWidgetClass, view_pull_down_w,
+                              NULL);
+         vw[DIR_SHOW_QUEUE_W] = XtVaCreateManagedWidget("Queue",
+                           xmPushButtonWidgetClass, view_pull_down_w,
+                           XmNfontList,             fontlist,
+                           NULL);
+         XtAddCallback(vw[DIR_SHOW_QUEUE_W], XmNactivateCallback, dir_popup_cb,
+                       (XtPointer)SHOW_QUEUE_SEL);
       }
       if (dcp.info != NO_PERMISSION)
       {

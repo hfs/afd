@@ -31,7 +31,7 @@ AFDCOBJS = afd_ctrl.o\
            tv_window_size.o\
            window_size.o
 
-PROGS    = $(AFDCPROG)
+PROGS    = $(AFDCPROG)$(EXE_EXT)
 OBJS     = $(AFDCOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h afd_ctrl.h
 
@@ -39,7 +39,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(AFDCPROG) : $(AFDCOBJS) $(LIB)
+$(AFDCPROG)$(EXE_EXT) : $(AFDCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(MATHSLIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
@@ -53,7 +53,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDCPROG)
+	chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDCPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

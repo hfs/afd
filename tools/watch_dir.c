@@ -48,6 +48,7 @@ DESCR__E_M1
 #include <sys/stat.h>           /* stat(), S_ISDIR()                     */
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */
 #include <unistd.h>             /* STDERR_FILENO                         */
+#include <time.h>               /* ctime()                               */
 #include <errno.h>
 
 int  sys_log_fd = STDERR_FILENO;
@@ -61,6 +62,8 @@ static void usage(char *);
 int
 main(int argc, char *argv[])
 {
+   int           ret;
+   off_t         filesize;
    char          *ptr,
                  filename[MAX_FILENAME_LENGTH],
                  watch_dir[MAX_PATH_LENGTH];
@@ -88,6 +91,8 @@ main(int argc, char *argv[])
    ptr = watch_dir + strlen(watch_dir);
    *ptr++ = '/';
 
+   (void)printf("               File name                | File size |        File date\n");
+   (void)printf("----------------------------------------+-----------+-------------------------\n");
    for (;;)
    {
       while ((dirp = readdir(dp)) != NULL)
@@ -98,9 +103,7 @@ main(int argc, char *argv[])
             continue;
          }
 
-         *ptr = '\0';
          (void)strcpy(ptr, dirp->d_name);
-
          if (stat(watch_dir, &stat_buf) < 0)
          {
             (void)fprintf(stderr, "WARNING : Failed to stat() %s : %s (%s %d)\n",
@@ -111,10 +114,14 @@ main(int argc, char *argv[])
          /* Make sure it's NOT a directory */
          if (S_ISDIR(stat_buf.st_mode) == 0)
          {
-            if (strcmp(dirp->d_name, filename) != 0)
+            if (((ret = strcmp(dirp->d_name, filename)) != 0) ||
+                ((ret == 0) && (filesize != stat_buf.st_size)))
             {
-               (void)printf("%20s  %d Bytes\n", dirp->d_name, (int)stat_buf.st_size);
+               (void)printf("%-39s |%10d | %s",
+                            dirp->d_name, (int)stat_buf.st_size,
+                            ctime(&stat_buf.st_mtime));
                (void)strcpy(filename, dirp->d_name);
+               filesize = stat_buf.st_size;
             }
          }
       }

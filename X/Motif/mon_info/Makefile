@@ -15,7 +15,7 @@ MONIOBJS = mon_info.o\
            info_callbacks.o\
            update_info.o
 
-PROGS    = $(MONIPROG)
+PROGS    = $(MONIPROG)$(EXE_EXT)
 OBJS     = $(MONIOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../afd_mon/mondefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h mon_info.h
 
@@ -23,7 +23,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(MONIPROG) : $(MONIOBJS) $(LIB)
+$(MONIPROG)$(EXE_EXT) : $(MONIOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MONIOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -37,7 +37,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(MONIPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(MONIPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

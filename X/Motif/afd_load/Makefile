@@ -14,7 +14,7 @@ ALOGPROG = afd_load
 ALOGOBJS = afd_load.o\
            afd_load_callbacks.o
 
-PROGS    = $(ALOGPROG)
+PROGS    = $(ALOGPROG)$(EXE_EXT)
 OBJS     = $(ALOGOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../statistics/statdefs.h ../../../config.h ../afd_ctrl/afd_ctrl.h $(XCOMDIR)/x_common_defs.h ./afd_load.h
 
@@ -22,7 +22,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(ALOGPROG) : $(ALOGOBJS) $(LIB)
+$(ALOGPROG)$(EXE_EXT) : $(ALOGOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(ALOGOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XAWLIBS) $(XLIBS) $(SPECIAL_LIBS)
 
@@ -36,7 +36,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(ALOGPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(ALOGPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

@@ -131,7 +131,6 @@ main(int argc, char *argv[])
    int              fd,
                     status,
                     bytes_buffered,
-                    no_of_bytes,
                     files_to_send,
                     files_send = 0,
 #ifdef _BURST_MODE
@@ -139,7 +138,8 @@ main(int argc, char *argv[])
                     burst_counter = 0,
 #endif
                     blocksize;
-   off_t            lock_offset;
+   off_t            lock_offset,
+                    no_of_bytes;
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
    unsigned int     *ol_job_number = NULL;

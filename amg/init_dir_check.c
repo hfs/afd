@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,6 +47,7 @@ DESCR__S_M1
  ** HISTORY
  **   06.04.1999 H.Kiehl Created
  **   12.01.2000 H.Kiehl Added receive log.
+ **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **
  */
 DESCR__E_M1
@@ -67,9 +68,7 @@ DESCR__E_M1
 
 
 /* global variables */
-extern int                    shm_id,      /* Shared memory ID of        */
-                                           /* dir_check.                 */
-                              max_process,
+extern int                    max_process,
                               max_copied_files,
 #ifndef _WITH_PTHREAD
                               dir_check_timeout,
@@ -87,8 +86,8 @@ extern int                    shm_id,      /* Shared memory ID of        */
 #endif
                               receive_log_fd,
                               sys_log_fd;
-extern size_t                 max_copied_file_size,
-                              msg_fifo_buf_size;
+extern size_t                 msg_fifo_buf_size;
+extern off_t                  max_copied_file_size;
 #ifdef _WITH_PTHREAD
 extern pthread_t              *thread;
 #else
@@ -140,17 +139,16 @@ init_dir_check(int    argc,
    struct stat stat_buf;
 
    /* Get call-up parameters */
-   if (argc != 6)
+   if (argc != 5)
    {
       usage();
    }
    else
    {
       (void)strcpy(p_work_dir, argv[1]);
-      shm_id = atoi(argv[2]);
-      *rescan_time = atoi(argv[3]);
-      max_process = atoi(argv[4]);
-      no_of_local_dirs = atoi(argv[5]);
+      *rescan_time = atoi(argv[2]);
+      max_process = atoi(argv[3]);
+      no_of_local_dirs = atoi(argv[4]);
    }
 
    /* User and group ID */
@@ -366,7 +364,7 @@ init_dir_check(int    argc,
    }
 
    /* Now create the internal database of this process */
-   no_of_jobs = create_db(shm_id);
+   no_of_jobs = create_db();
 
    /* Allocate space for process ID array. */
    if ((dcpl = malloc(max_process * sizeof(struct dc_proc_list))) == NULL)
@@ -416,7 +414,7 @@ static void
 usage(void)
 {
    (void)fprintf(stderr,
-                 "SYNTAX  : dir_check [--version] <AFD working directory> <shm id> <rescan time> <no. of. process> <no. of dirs>\n");
+                 "SYNTAX  : dir_check [--version] <AFD working directory> <rescan time> <no. of. process> <no. of dirs>\n");
    exit(INCORRECT);
 }
 

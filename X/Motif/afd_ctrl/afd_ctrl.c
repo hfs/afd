@@ -638,7 +638,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
 
    /* Prepare title for afd_ctrl window. */
 #ifdef PRE_RELEASE
-   (void)sprintf(window_title, "AFD PRE %d.%d.%d-%d ",
+   (void)sprintf(window_title, "AFD %d.%d.%d-pre%d ",
                  MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)sprintf(window_title, "AFD %d.%d.%d ", MAJOR, MINOR, BUG_FIX);

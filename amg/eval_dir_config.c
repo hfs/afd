@@ -97,6 +97,7 @@ DESCR__S_M3
  **   14.02.2000 H.Kiehl Additional shared memory area for remote
  **                      directories.
  **   26.03.2000 H.Kiehl Addition of new header field DIR_OPTION_IDENTIFIER.
+ **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **
  */
 DESCR__E_M3
@@ -108,9 +109,10 @@ DESCR__E_M3
                                     /* atoi(), malloc()                  */
 #include <ctype.h>                  /* isdigit()                         */
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>                /* shmat(), shmctl(), shmdt()        */
 #include <sys/stat.h>
+#ifndef _NO_MMAP
+#include <sys/mman.h>               /* mmap(), munmap()                  */
+#endif
 #include <unistd.h>                 /* geteuid(), R_OK, W_OK, X_OK       */
 #include <pwd.h>                    /* getpwnam()                        */
 #include <errno.h>
@@ -128,8 +130,6 @@ extern FILE                *p_debug_file;
 extern char                dir_config_file[],
                            *p_work_dir;
 extern int                 dnb_fd,
-                           shm_id,     /* The shared memory ID's for the */
-                                       /* sorted data and pointers.      */
                            data_length,/* The size of data for one job.  */
                            sys_log_fd,
                            *no_of_dir_names,
@@ -156,7 +156,7 @@ static char                *p_t = NULL;   /* Start of directory table.   */
 /* Local function prototypes */
 static int                 check_hostname_list(char *, int),
                            count_new_lines(char *, char *);
-static void                copy_to_shm(void),
+static void                copy_to_file(void),
                            copy_job(int, int, struct dir_group *),
                            insert_dir(struct dir_group *),
                            insert_hostname(struct dir_group *),
@@ -1889,7 +1889,7 @@ check_dummy_line:
    {
       /* Now copy data and pointers in their relevant */
       /* shared memory areas.                         */
-      copy_to_shm();
+      copy_to_file();
 
       /* Don't forget to create the FSA (Filetransfer */
       /* Status Area).                                */
@@ -1986,7 +1986,7 @@ check_hostname_list(char *recipient, int flag)
    int          i;
    unsigned int protocol;
    char         host_alias[MAX_HOSTNAME_LENGTH + 1],
-                real_hostname[MAX_HOSTNAME_LENGTH + 1],
+                real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
                 new;
 
    /* Extract only hostname. */
@@ -2187,7 +2187,26 @@ copy_job(int              file_no,
                   offset,
                   options,       /* Counts no. of local options found.  */
                   priority,
-                  length;        /* Storage for length of RENAME_ID.    */
+                  loption_length[LOCAL_OPTION_POOL_SIZE] =
+                  {
+                     RENAME_ID_LENGTH,
+                     EXEC_ID_LENGTH,
+                     TIME_ID_LENGTH,
+                     TIME_NO_COLLECT_ID_LENGTH,
+                     BASENAME_ID_LENGTH,
+                     EXTENSION_ID_LENGTH,
+                     ADD_PREFIX_ID_LENGTH,
+                     DEL_PREFIX_ID_LENGTH,
+                     TOUPPER_ID_LENGTH,
+                     TOLOWER_ID_LENGTH,
+#ifdef _WITH_AFW2WMO
+                     AFW2WMO_ID_LENGTH,
+#endif /* _WITH_AFW2WMO */
+                     TIFF2GTS_ID_LENGTH,
+                     GTS2TIFF_ID_LENGTH,
+                     EXTRACT_ID_LENGTH,
+                     ASSEMBLE_ID_LENGTH
+                  };
    size_t         new_size;
    char           buffer[MAX_INT_LENGTH],
                   *ptr = NULL,     /* Pointer where data is to be       */
@@ -2204,6 +2223,8 @@ copy_job(int              file_no,
                      EXTENSION_ID,
                      ADD_PREFIX_ID,
                      DEL_PREFIX_ID,
+                     TOUPPER_ID,
+                     TOLOWER_ID,
 #ifdef _WITH_AFW2WMO
                      AFW2WMO_ID,
 #endif /* _WITH_AFW2WMO */
@@ -2332,9 +2353,8 @@ copy_job(int              file_no,
       {
          for (k = 0; k < LOCAL_OPTION_POOL_SIZE; k++)
          {
-            length = strlen(p_loption[k]);
             if (strncmp(dir->file[file_no].dest[dest_no].options[i],
-                        p_loption[k], length) == 0)
+                        p_loption[k], loption_length[k]) == 0)
             {
                /* Save the local option in shared memory region. */
                offset = sprintf(ptr, "%s", dir->file[file_no].
@@ -2481,71 +2501,152 @@ copy_job(int              file_no,
 }
 
 
-/*++++++++++++++++++++++++++++++ copy_to_shm() ++++++++++++++++++++++++++*/
-/*                               -------------                           */
-/* Description: Creates a shared memory area and copies the number of    */
-/*              jobs, the pointer array and the data into this area.     */
+/*+++++++++++++++++++++++++++++ copy_to_file() ++++++++++++++++++++++++++*/
+/*                              --------------                           */
+/* Description: Creates a file and copies the number of                  */
+/*              jobs, the pointer array and the data into it.            */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 static void
-copy_to_shm(void)
+copy_to_file(void)
 {
-   /* Do not forget to remove the old regions. */
-   if (shm_id > -1)  /* Was area created?  */
-   {
-      if (shmctl(shm_id, IPC_RMID, 0) < 0)
-      {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not remove shared memory region %d : %s (%s %d)\n",
-                   shm_id, strerror(errno), __FILE__, __LINE__);
-      }
-   }
-
    /* First test if there is any data at all for this job type. */
    if (data_length > 0)
    {
-      int            loop_counter = 0,
-                     size,
+      int            fd,
+                     i,
+                     loops,
+                     rest,
                      size_ptr_array;
-      char           *p_shm_reg,
-                     *ptr,
-                     *p_data;
+      size_t         size;
+      char           *ptr,
+                     *p_data,
+                     *p_mmap,
+                     buffer[4096],
+                     amg_data_file[MAX_PATH_LENGTH],
+                     tmp_amg_data_file[MAX_PATH_LENGTH];
       struct p_array *p_ptr;
 
       /* First calculate the size for each region. */
       size_ptr_array = job_no * sizeof(struct p_array);
       size = sizeof(int) + data_length + size_ptr_array + sizeof(char);
 
-      /* Create shared memory regions. */
-      while (((shm_id = shmget(IPC_PRIVATE, size,
-                               IPC_CREAT | IPC_EXCL | SHM_R | SHM_W)) == -1) &&
-             (errno == EEXIST))
+      /*
+       * In case some forked dir_check process is still using
+       * the old data lets rename it so it can still be used. This
+       * is really not necessary, however the overhead is very
+       * small, so lets just do it.
+       */
+      ptr = tmp_amg_data_file + sprintf(tmp_amg_data_file, "%s%s%s",
+                                        p_work_dir, FIFO_DIR, AMG_DATA_FILE);
+      (void)strcpy(amg_data_file, tmp_amg_data_file);
+      *ptr = '.';
+      *(ptr + 1) = 't';
+      *(ptr + 2) = 'm';
+      *(ptr + 3) = 'p';
+      *(ptr + 4) = '\0';
+      if ((rename(amg_data_file, tmp_amg_data_file) == -1) &&
+          (errno != ENOENT))
       {
-         if (loop_counter == 5)
+         (void)rec(sys_log_fd, WARN_SIGN,
+                   "Failed to rename() %s to %s : %s (%s %d)\n",
+                   amg_data_file, tmp_amg_data_file, strerror(errno),
+                   __FILE__, __LINE__);
+      }
+
+      /* Create a new mmap file to store all data for dir_check. */
+      if ((fd = open(amg_data_file, (O_RDWR | O_CREAT | O_TRUNC),
+                     (S_IRUSR | S_IWUSR))) == -1)
+      {
+         if (errno == ENOSPC)
          {
-            break;
+            (void)unlink(tmp_amg_data_file);
+            tmp_amg_data_file[0] = '\0';
+            if ((fd = open(amg_data_file, (O_RDWR | O_CREAT | O_TRUNC),
+                           (S_IRUSR | S_IWUSR))) == -1)
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Failed to open() %s : %s (%s %d)\n",
+                         amg_data_file, strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
          }
-         loop_counter++;
-         (void)sleep(1);
+         else
+         {
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Failed to open() %s : %s (%s %d)\n",
+                      amg_data_file, strerror(errno), __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
       }
-
-      if (shm_id == -1)
+      (void)memset(buffer, 0, 4096);
+      loops = size / 4096;
+      rest = size % 4096;
+      for (i = 0; i < loops; i++)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not create shared memory region : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         if (write(fd, buffer, 4096) != 4096)
+         {
+            if ((tmp_amg_data_file[0] != '\0') && (errno == ENOSPC))
+            {
+               (void)unlink(tmp_amg_data_file);
+               tmp_amg_data_file[0] = '\0';
+               if (write(fd, buffer, 4096) != 4096)
+               {
+                  (void)rec(sys_log_fd, FATAL_SIGN,
+                            "Failed to write() to <%s> : %s",
+                            amg_data_file, strerror(errno),
+                            __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+            }
+            else
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Failed to write() to <%s> : %s",
+                         amg_data_file, strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+         }
+      }
+      if (rest > 0)
+      {
+         if (write(fd, buffer, rest) != rest)
+         {
+            if ((tmp_amg_data_file[0] != '\0') && (errno == ENOSPC))
+            {
+               (void)unlink(tmp_amg_data_file);
+               tmp_amg_data_file[0] = '\0';
+               if (write(fd, buffer, rest) != rest)
+               {
+                  (void)rec(sys_log_fd, FATAL_SIGN,
+                            "Failed to write() to <%s> : %s",
+                            amg_data_file, strerror(errno),
+                            __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+            }
+            else
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Failed to write() to <%s> : %s",
+                         amg_data_file, strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+         }
+      }
+#ifdef _NO_MMAP
+      if ((p_mmap = mmap_emu(0, size, (PROT_READ | PROT_WRITE),
+                             MAP_SHARED, amg_data_file, 0)) == (caddr_t) -1)
+#else
+      if ((p_mmap = mmap(0, size, (PROT_READ | PROT_WRITE),
+                         MAP_SHARED, fd, 0)) == (caddr_t) -1)
+#endif
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN, "Failed to mmap() %s : %s (%s %d)\n",
+                   amg_data_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
-      /* Attach to shared memory regions. */
-      if ((void *)(p_shm_reg = shmat(shm_id, 0, 0)) == (void *) -1)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not attach to shared memory region : %s (%s %d)\n",
-                   strerror(errno),  __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-
-      ptr = p_shm_reg;
+      ptr = p_mmap;
       p_ptr = pp;
       p_data = p_t;
 
@@ -2561,18 +2662,21 @@ copy_to_shm(void)
       memcpy(ptr, p_data, data_length);
       ptr += data_length;
 
-      /* Detach shared memory regions. */
-      if (shmdt(p_shm_reg) < 0)
+#ifdef _NO_MMAP
+      if (munmap_emu((void *)p_mmap) == -1)
+#else
+      if (munmap(p_mmap, size) == -1)
+#endif
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not detach shared memory region %d : %s (%s %d)\n",
-                   shm_id, strerror(errno), __FILE__, __LINE__);
+                   "Could not munmap() from %s : %s (%s %d)\n",
+                   amg_data_file, strerror(errno), __FILE__, __LINE__);
       }
-   }
-   else
-   {
-      /* We did not create a shared memory area. */
-      shm_id = -1;
+      if (close(fd) == -1)
+      {
+         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
    }
 
    return;

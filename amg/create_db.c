@@ -26,7 +26,7 @@ DESCR__S_M3
  **               for dir_check
  **
  ** SYNOPSIS
- **   int create_db(int shmem_id)
+ **   int create_db(void)
  **
  ** DESCRIPTION
  **   This function creates structure instant_db and initialises it
@@ -55,6 +55,7 @@ DESCR__S_M3
  **   05.04.2001 H.Kiehl Remove O_TRUNC.
  **   25.04.2001 H.Kiehl Rename files from pool directory if there is only
  **                      one job for this directory.
+ **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **
  */
 DESCR__E_M3
@@ -69,8 +70,6 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>              /* msync(), munmap()                  */
-#include <sys/ipc.h>
-#include <sys/shm.h>               /* shmat()                            */
 #include <fcntl.h>
 #include <unistd.h>                /* fork(), rmdir(), fstat()           */
 #include <errno.h>
@@ -93,8 +92,9 @@ extern int                        no_of_hosts,
                                                   /* AFD counter file.   */
                                   sys_log_fd,
                                   *time_job_list;
-extern char                       *p_work_dir,
-                                  *p_shm;
+extern off_t                      amg_data_size;
+extern char                       *p_mmap,
+                                  *p_work_dir;
 extern struct directory_entry     *de;
 extern struct instant_db          *db;
 extern struct afd_status          *p_afd_status;
@@ -123,9 +123,10 @@ static void                       write_numbers(int),
 
 /*+++++++++++++++++++++++++++++ create_db() +++++++++++++++++++++++++++++*/
 int
-create_db(int shmem_id)
+create_db(void)
 {
-   int             i,
+   int             amg_data_fd,
+                   i,
                    j,
                    jid_number,
 #ifdef _TEST_FILE_TABLE
@@ -137,7 +138,8 @@ create_db(int shmem_id)
                    dir_counter = 0,
                    no_of_jobs;
    dev_t           ldv;               /* local device number (filesystem) */
-   char            *ptr,
+   char            amg_data_file[MAX_PATH_LENGTH],
+                   *ptr,
                    *p_sheme,
                    *tmp_ptr,
                    *p_offset,
@@ -167,20 +169,53 @@ create_db(int shmem_id)
    }
    ldv = stat_buf.st_dev;
 
-   /* Attach to shared memory regions */
-   if ((void *)(p_shm = shmat(shmem_id, 0, 0)) == (void *) -1)
+   (void)sprintf(amg_data_file, "%s%s%s", p_work_dir, FIFO_DIR, AMG_DATA_FILE);
+   if ((amg_data_fd = open(amg_data_file, O_RDWR)) == -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
       if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
       {
          p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
       }
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not attach to shared memory region %d : %s (%s %d)\n",
-                shmem_id, strerror(errno), __FILE__, __LINE__);
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to open()  %s : %s (%s %d)\n",
+                amg_data_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   ptr = p_shm;
+   if (fstat(amg_data_fd, &stat_buf) == -1)
+   {
+      p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to fstat() %s : %s (%s %d)\n",
+                amg_data_file, strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   amg_data_size = stat_buf.st_size;
+#ifdef _NO_MMAP
+   if ((p_mmap = mmap_emu(0, amg_data_size, (PROT_READ | PROT_WRITE),
+                          MAP_SHARED, amg_data_file, 0)) == (caddr_t) -1)
+#else
+   if ((p_mmap = mmap(0, amg_data_size, (PROT_READ | PROT_WRITE),
+                      MAP_SHARED, amg_data_fd, 0)) == (caddr_t) -1)
+#endif
+   {
+      p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to mmap() %s : %s (%s %d)\n",
+                amg_data_file, strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   if (close(amg_data_fd) == -1)
+   {
+      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
+   }
+   ptr = p_mmap;
 
    /* First get the no of jobs */
    no_of_jobs = *(int *)ptr;
@@ -529,12 +564,12 @@ create_db(int shmem_id)
       /* Store number of local options */
       db[i].no_of_loptions = atoi((int)(p_ptr[i].ptr[5]) + p_offset);
       db[i].next_start_time = 0;
+      db[i].time_option_type = NO_TIME;
 
       /* Store pointer to first local option. */
       if (db[i].no_of_loptions > 0)
       {
          db[i].loptions = (int)(p_ptr[i].ptr[6]) + p_offset;
-         db[i].time_option_type = NO_TIME;
 
          /*
           * Because extracting bulletins from files can take quit a

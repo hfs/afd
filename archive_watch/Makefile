@@ -13,14 +13,14 @@ AWPROG = archive_watch
 AWOBJS = archive_watch.o\
          inspect_archive.o
 
-PROGS   = $(AWPROG)
+PROGS   = $(AWPROG)$(EXE_EXT)
 HEADERS = awdefs.h ../init_afd/afddefs.h ../config.h
 
 all : $(PROGS)
 
 $(AWOBJS) : $(HEADERS)
 
-$(AWPROG) : $(AWOBJS) $(LIB)
+$(AWPROG)$(EXE_EXT) : $(AWOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AWOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -34,7 +34,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(AWPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(AWPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

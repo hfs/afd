@@ -19,7 +19,7 @@ SQUEOBJS = callbacks.o\
            print_data.o\
            show_queue.o
 
-PROGS    = $(SQUEPROG)
+PROGS    = $(SQUEPROG)$(EXE_EXT)
 OBJS     = $(SQUEOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h show_queue.h
 
@@ -27,7 +27,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(SQUEPROG) : $(SQUEOBJS) $(LIB)
+$(SQUEPROG)$(EXE_EXT) : $(SQUEOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SQUEOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -41,7 +41,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(SQUEPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(SQUEPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

@@ -16,6 +16,7 @@ AMGOBJS = amg.o\
           clear_error_dir.o\
           clear_pool_dir.o\
           com.o\
+          convert_fra.o\
           create_fsa.o\
           create_fra.o\
           create_sa.o\
@@ -28,7 +29,6 @@ AMGOBJS = amg.o\
           remove_pool_directory.o\
           reread_dir_config.o\
           reread_host_config.o\
-          show_shm.o\
           store_file_mask.o
 
 DCHKPROG= dir_check
@@ -68,35 +68,34 @@ TITOBJS = eval_time_str.o\
           in_time.o\
           test_in_time.o
 
-PSHPROG = print_shm
-PSHOBJS = print_shm.o\
-          show_shm.o
+PSHPROG = show_amg_data
+PSHOBJS = show_amg_data.o
 
-PROGS   = $(AMGPROG) $(DCHKPROG)
-OBJS    = $(AMGOBJS) $(DCHKOBJS)
+PROGS   = $(AMGPROG)$(EXE_EXT) $(DCHKPROG)$(EXE_EXT)
+OBJS    = $(AMGOBJS) $(DCHKOBJS) $(TTOBJS) $(TITOBJS) $(PSHOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h amgdefs.h
 
 all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(AMGPROG) : $(AMGOBJS) $(AFDLIB)
+$(AMGPROG)$(EXE_EXT) : $(AMGOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AMGOBJS) $(AFDLIB) $(EFENCE) $(CCMALLOC)
 
-$(DCHKPROG) : $(DCHKOBJS) $(MISCLIB) $(AFDLIB)
+$(DCHKPROG)$(EXE_EXT) : $(DCHKOBJS) $(MISCLIB) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(DCHKOBJS) $(MISCLIB) $(AFDLIB) $(SPECIAL_LIBS) $(THREAD_LIB) $(EFENCE) $(CCMALLOC)
 
-$(TTPROG) : $(TTOBJS) $(AFDLIB)
+$(TTPROG)$(EXE_EXT) : $(TTOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TTOBJS) $(AFDLIB) $(SPECIAL_LIBS)
 
-$(TITPROG) : $(TITOBJS) $(AFDLIB)
+$(TITPROG)$(EXE_EXT) : $(TITOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TITOBJS) $(AFDLIB) $(SPECIAL_LIBS)
 
-$(PSHPROG) : $(PSHOBJS) $(AFDLIB)
+$(PSHPROG)$(EXE_EXT) : $(PSHOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(PSHOBJS) $(AFDLIB) $(SPECIAL_LIBS)
 
@@ -108,9 +107,9 @@ clobber :
 	rm -f $(PROGS) $(TTPROG) $(TITPROG) $(PSHPROG) amg.debug
 
 install :
-	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cd $(INSTDIR)/bin && rm -f $(PROGS) $(TTPROG)$(EXE_EXT) $(TITPROG)$(EXE_EXT) $(PSHPROG)$(EXE_EXT)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(AMGPROG) $(INSTDIR)/bin/$(DCHKPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(AMGPROG)$(EXE_EXT) $(INSTDIR)/bin/$(DCHKPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

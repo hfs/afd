@@ -78,7 +78,6 @@ DESCR__E_M1
 #include <Xm/PushB.h>
 #include <Xm/Separator.h>
 #include <errno.h>
-#include "afd_ctrl.h"
 #include "version.h"
 #include "permission.h"
 
@@ -559,7 +558,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
 
    /* Prepare title for mon_ctrl window */
 #ifdef PRE_RELEASE
-   (void)sprintf(window_title, "AFD_MON PRE %d.%d.%d-%d ",
+   (void)sprintf(window_title, "AFD_MON %d.%d.%d-pre%d ",
                  MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)sprintf(window_title, "AFD_MON %d.%d.%d ", MAJOR, MINOR, BUG_FIX);

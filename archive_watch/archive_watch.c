@@ -184,7 +184,7 @@ main(int argc, char *argv[])
    }
 
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (PRE %d.%d.%d-%d)\n",
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d-pre%d)\n",
              ARCHIVE_WATCH, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",

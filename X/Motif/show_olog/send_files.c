@@ -150,6 +150,7 @@ send_files(int no_selected, int *select_list)
    {
       /* Determine log file and position in this log file. */
       total_no_of_items = 0;
+      rl[i].pos = -1;
       for (rl[i].file_no = 0; rl[i].file_no < no_of_log_files; rl[i].file_no++)
       {
          total_no_of_items += il[rl[i].file_no].no_of_items;
@@ -157,6 +158,13 @@ send_files(int no_selected, int *select_list)
          if (select_list[i] <= total_no_of_items)
          {
             rl[i].pos = select_list[i] - (total_no_of_items - il[rl[i].file_no].no_of_items) - 1;
+            if (rl[i].pos > il[rl[i].file_no].no_of_items)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "pos (%d) is greater then no_of_items (%d), ignoring this.",
+                          rl[i].pos, il[rl[i].file_no].no_of_items);
+               rl[i].pos = -1;
+            }
             break;
          }
       }
@@ -192,6 +200,8 @@ send_files(int no_selected, int *select_list)
                        "sysconf() error, option _SC_CLK_TCK not available.");
       }
       show_message(statusbox_w, user_message);
+      free((void *)rl);
+      free((void *)select_done_list);
       return;
    }
 

@@ -67,6 +67,8 @@ DESCR__S_M3
  **   18.03.2000 H.Kiehl Added option FTP transfer mode.
  **   03.11.2000 H.Kiehl Chmod option for FTP as well.
  **   27.01.2002 H.Kiehl Added reply-to option.
+ **   02.07.2002 H.Kiehl Added from option.
+ **   03.07.2002 H.Kiehl Added charset option.
  **
  */
 DESCR__E_M3
@@ -103,23 +105,25 @@ extern int transfer_log_fd;
 #define FORCE_COPY_FLAG           1024
 #define FILE_NAME_IS_SUBJECT_FLAG 2048
 #define REPLY_TO_FLAG             4096
-#define CHECK_ANSI_FLAG           8192
-#define CHECK_REPLY_FLAG          16384
-#define WITH_SEQUENCE_NUMBER_FLAG 32768
+#define FROM_FLAG                 8192
+#define CHECK_ANSI_FLAG           16384
+#define CHECK_REPLY_FLAG          32768
+#define WITH_SEQUENCE_NUMBER_FLAG 65536
 #define ATTACH_FILE_FLAG          131072
 #define ADD_MAIL_HEADER_FLAG      262144
 #define FTP_EXEC_FLAG             524288
-#define FILE_NAME_IS_USER_FLAG    1048576
+#define CHARSET_FLAG              1048576
+#define FILE_NAME_IS_USER_FLAG    2097152
 #ifdef _WITH_EUMETSAT_HEADERS
-#define EUMETSAT_HEADER_FLAG      2097152
+#define EUMETSAT_HEADER_FLAG      4194304
 #endif /* _WITH_EUMETSAT_HEADERS */
 #ifdef _RADAR_CHECK
-#define RADAR_FLAG                4194304
+#define RADAR_FLAG                8388608
 #endif /* _RADAR_CHECK */
-#define CHANGE_FTP_MODE_FLAG      8388608
-#define ATTACH_ALL_FILES_FLAG     16777216
+#define CHANGE_FTP_MODE_FLAG      16777216
+#define ATTACH_ALL_FILES_FLAG     33554432
 #ifdef _WITH_TRANS_EXEC
-#define TRANS_EXEC_FLAG           33554432
+#define TRANS_EXEC_FLAG           67108864
 #endif /* _WITH_TRANS_EXEC */
 
 #define MAX_HUNK                  4096
@@ -1016,6 +1020,50 @@ eval_message(char *message_name, struct job *p_db)
                        ptr++;
                     }
                  }
+            else if (((used & FROM_FLAG) == 0) &&
+                     (strncmp(ptr, FROM_ID, FROM_ID_LENGTH) == 0))
+                 {
+                    used |= FROM_FLAG;
+                    if (p_db->protocol & SMTP_FLAG)
+                    {
+                       size_t length = 0;
+
+                       ptr += FROM_ID_LENGTH;
+                       while ((*ptr == ' ') || (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       end_ptr = ptr;
+                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                       {
+                         end_ptr++;
+                         length++;
+                       }
+                       if ((p_db->from = malloc(length + 1)) == NULL)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Failed to malloc() memory, will ignore from option : %s",
+                                     strerror(errno));
+                       }
+                       else
+                       {
+                          (void)memcpy(p_db->from, ptr, length);
+                          p_db->from[length] = '\0';
+                       }
+                       ptr = end_ptr;
+                    }
+                    else
+                    {
+                       while ((*ptr != '\n') && (*ptr != '\0'))
+                       {
+                          ptr++;
+                       }
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
             else if (((used & CHECK_ANSI_FLAG) == 0) &&
                      (strncmp(ptr, ENCODE_ANSI_ID, ENCODE_ANSI_ID_LENGTH) == 0))
                  {
@@ -1207,6 +1255,50 @@ eval_message(char *message_name, struct job *p_db)
                     while ((*ptr != '\n') && (*ptr != '\0'))
                     {
                        ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used & CHARSET_FLAG) == 0) &&
+                     (strncmp(ptr, CHARSET_ID, CHARSET_ID_LENGTH) == 0))
+                 {
+                    used |= CHARSET_FLAG;
+                    if (p_db->protocol & SMTP_FLAG)
+                    {
+                       size_t length = 0;
+
+                       ptr += CHARSET_ID_LENGTH;
+                       while ((*ptr == ' ') || (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       end_ptr = ptr;
+                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                       {
+                         end_ptr++;
+                         length++;
+                       }
+                       if ((p_db->charset = malloc(length + 1)) == NULL)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Failed to malloc() memory, will ignore charset option : %s",
+                                     strerror(errno));
+                       }
+                       else
+                       {
+                          (void)memcpy(p_db->charset, ptr, length);
+                          p_db->charset[length] = '\0';
+                       }
+                       ptr = end_ptr;
+                    }
+                    else
+                    {
+                       while ((*ptr != '\n') && (*ptr != '\0'))
+                       {
+                          ptr++;
+                       }
                     }
                     while (*ptr == '\n')
                     {

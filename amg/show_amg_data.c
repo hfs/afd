@@ -1,7 +1,7 @@
 /*
- *  show_shm.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  show_amg_data.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,15 +23,15 @@
 DESCR__S_M3
 /*
  ** NAME
- **   show_shm - shows contents of all shared memory region in the AMG
+ **   show_amg_data - shows contents of the AMG data
  **
  ** SYNOPSIS
- **   void show_shm(FILE *output)
+ **   void show_amg_data(FILE *output)
  **
  ** DESCRIPTION
- **   The function show_shm() is used for debugging only. It shows
- **   the contents of all shared memory regions of the AFD. The
- **   contents is written to the file descriptor 'output'.
+ **   The function show_amg_data() is used for debugging only. It shows
+ **   the contents of the AMG data. The contents is written to the
+ **   file descriptor 'output'.
  **
  ** RETURN VALUES
  **   None.
@@ -41,31 +41,108 @@ DESCR__S_M3
  **
  ** HISTORY
  **   10.10.1995 H.Kiehl Created
+ **   16.05.2002 H.Kiehl Removed all shared memory stuff and renamed
+ **                      to show_amg_data.
  **
  */
 DESCR__E_M3
 
-#include <stdio.h>              /* fprintf()                            */
-#include <string.h>             /* strcpy(), memcpy(), strerror(),      */
-                                /* free()                               */
-#include <stdlib.h>             /* calloc()                             */
+#include <stdio.h>              /* fprintf()                             */
+#include <string.h>             /* strcpy(), memcpy(), strerror(), free()*/
+#include <stdlib.h>             /* calloc()                              */
 #include <sys/types.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <sys/stat.h>
+#ifndef _NO_MMAP
+#include <sys/mman.h>           /* mmap(), munmap()                      */
+#endif
 #include <unistd.h>
+#include <fcntl.h>              /* open()                                */
 #include <errno.h>
 #include "amgdefs.h"
 
-extern int  shm_id,                    /* The shared memory ID's for    */
-                                       /* the sorted data and pointers. */
-            data_length;               /* The size of data for each     */
-                                       /* main sorted data and pointers.*/
+/* Global variables. */
+int  sys_log_fd = STDOUT_FILENO;
+char *p_work_dir;
+
+/* Local function prototypes. */
+static void show_amg_data(FILE *, char *, off_t);
 
 
-/*############################# show_shm() #############################*/
-void
-show_shm(FILE *output)
+/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+int
+main(int argc, char *argv[])
+{
+   int         fd;
+   char        amg_data_file[MAX_PATH_LENGTH],
+               *p_mmap,
+               work_dir[MAX_PATH_LENGTH];
+   FILE        *fp;
+   struct stat stat_buf;
+
+   if (get_afd_path(&argc, argv, work_dir) < 0)
+   {
+      exit(1);
+   }
+   p_work_dir = work_dir;
+   if (argc != 2)
+   {
+      (void)fprintf(stderr, "Usage: %s <output filename>\n", argv[0]);
+      exit(1);
+   }
+   if ((fp = fopen(argv[1], "w")) == NULL)
+   {
+      (void)fprintf(stderr, "Failed to fopen() %s : %s\n",
+                    argv[1], strerror(errno));
+      exit(1);
+   }
+   (void)sprintf(amg_data_file, "%s%s%s", p_work_dir, FIFO_DIR, AMG_DATA_FILE);
+   if ((fd = open(amg_data_file, O_RDWR)) == -1)
+   {
+      (void)fprintf(stderr, "Failed to open() %s : %s\n",
+                    amg_data_file, strerror(errno));
+      exit(1);
+   }
+   if (fstat(fd, &stat_buf) == -1)
+   {
+      (void)fprintf(stderr, "Failed to fstat() %s : %s\n",
+                    amg_data_file, strerror(errno));
+      exit(1);
+   }
+#ifdef _NO_MMAP
+   if ((p_mmap = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                          MAP_SHARED, amg_data_file, 0)) == (caddr_t) -1)
+#else
+   if ((p_mmap = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                      MAP_SHARED, fd, 0)) == (caddr_t) -1)
+#endif
+   {
+      (void)fprintf(stderr, "Failed to mmap() %s : %s\n",
+                    amg_data_file, strerror(errno));
+      exit(1);
+   }
+   if (close(fd) == -1)
+   {
+      (void)fprintf(stderr, "Failed to close() %s : %s\n",
+                    amg_data_file, strerror(errno));
+   }
+   show_amg_data(fp, p_mmap, stat_buf.st_size);
+   fclose(fp);
+#ifdef _NO_MMAP
+   if (munmap_emu((void *)p_mmap) == -1)
+#else
+   if (munmap(p_mmap, stat_buf.st_size) == -1)
+#endif
+   {
+      (void)fprintf(stderr, "Failed to munmap() %s : %s\n",
+                    amg_data_file, strerror(errno));
+   }
+   exit(0);
+}
+
+
+/*########################### show_amg_data() ###########################*/
+static void
+show_amg_data(FILE *output, char *p_mmap, off_t data_length)
 {
    int            i,
                   j,
@@ -76,46 +153,16 @@ show_shm(FILE *output)
    char           option[MAX_OPTION_LENGTH],
                   *ptr = NULL,
                   *tmp_ptr = NULL,
-                  *p_offset = NULL,
-                  *p_shm = NULL,
-                  region[4];
+                  *p_offset = NULL;
    struct p_array *p_ptr;
 
-   /* Show what is stored in the shared memory area */
-   (void)fprintf(output, "\n\n=================> Contents of shared memory area <=================\n");
-   (void)fprintf(output, "                   ==============================\n");
-
-   (void)strcpy(region, "IT");
-
-   /* First show which table we are showing */
-   (void)fprintf(output, "\n\n------------------------> Contents of %3s <-------------------------\n", region);
-   (void)fprintf(output, "                          ---------------\n");
-
-   if (data_length == -1)
-   {
-      struct shmid_ds buf;
-
-      if (shmctl(shm_id, IPC_STAT, &buf) == -1)
-      {
-         (void)fprintf(stderr, "shmctl() error : %s\n", strerror(errno));
-      }
-      else
-      {
-         data_length = buf.shm_segsz;
-      }
-   }
+   /* Show what is stored in the AMG data file. */
+   (void)fprintf(output, "\n\n====================> Contents of AMG data file <===================\n");
+   (void)fprintf(output, "                      =========================\n");
 
    if (data_length > 0)
    {
-      /* Attach to shared memory regions */
-      if ((p_shm = shmat(shm_id, 0, 0)) == (void *) -1)
-      {
-         (void)fprintf(stderr, "ERROR  : Could not attach to shared memory region : %s (%s %d)\n",
-                       strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-
-      ptr = p_shm;
+      ptr = p_mmap;
 
       /* First get the no of jobs */
       no_of_jobs = *(int *)ptr;
@@ -189,18 +236,12 @@ show_shm(FILE *output)
          (void)fprintf(output, ">------------------------------------------------------------------------<\n\n");
       }
 
-      /* Detach shared memory regions */
-      if (shmdt(p_shm) < 0)
-      {
-         (void)fprintf(stderr, "WARNING: eval_dir_config() could not detach shared memory region. (%s %d)\n", __FILE__, __LINE__);
-      }
-
       /* Free memory for pointer array */
       free(tmp_ptr);
    }
    else
    {
-      (void)fprintf(output, "\n                >>>>>>>>>> NO DATA FOR %s <<<<<<<<<<\n\n", region);
+      (void)fprintf(output, "\n                >>>>>>>>>> NO DATA <<<<<<<<<<\n\n");
    }
 
    return;

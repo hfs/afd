@@ -1,6 +1,6 @@
 /*
  *  reread_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@ DESCR__S_M3
  **   17.01.1998 H.Kiehl Created
  **   04.08.2001 H.Kiehl Added changes for host_status and special flag
  **                      field fromt the HOST_CONFIG file.
+ **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **
  */
 DESCR__E_M3
@@ -63,7 +64,6 @@ DESCR__E_M3
 /* External global variables */
 extern int                        data_length,
                                   no_of_hosts,
-                                  shm_id,
                                   sys_log_fd;
 extern pid_t                      dc_pid;
 extern char                       dir_config_file[],
@@ -245,10 +245,6 @@ reread_dir_config(time_t           *dc_old_time,
                    "Found %d hosts in HOST_CONFIG.\n",
                    no_of_hosts);
 
-#ifdef _DEBUG
-         show_shm(p_debug_file);
-#endif
-
          /* Start, restart or stop jobs */
          if (data_length > 0)
          {
@@ -257,11 +253,10 @@ reread_dir_config(time_t           *dc_old_time,
                case NOT_RUNNING :
                case DIED :
                   dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
-                                            shm_id, rescan_time, max_no_proc);
+                                            rescan_time, max_no_proc);
                   if (pid_list != NULL)
                   {
                      *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
-                     *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
                   }
                   break;
 
@@ -282,11 +277,10 @@ reread_dir_config(time_t           *dc_old_time,
                   (void)amg_zombie_check(&tmp_dc_pid, 0);
 
                   dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
-                                            shm_id, rescan_time, max_no_proc);
+                                            rescan_time, max_no_proc);
                   if (pid_list != NULL)
                   {
                      *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
-                     *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
                   }
                   break;
 

@@ -6,6 +6,7 @@ SUIDMODE        = 4755
 SBINMODE        = 700
 MAKE            = make
 FORKMAKEFLAG    = 
+EXE_EXT         =
 COMPILER_FLAGS  = -O -DFTX
 #DEBUG_FLAGS     = -g -D_DEBUG -D_FIFO_DEBUG
 DEBUG_FLAGS     = 

@@ -77,14 +77,14 @@ get_job_data(unsigned int job_id,
              time_t       msg_mtime,
              off_t        msg_size)
 {
-   int         fd,
-               pos,
-               length = 0;
-   char        sheme,
-               *file_buf,
-               *ptr,
-               *p_start,
-               host_name[MAX_HOSTNAME_LENGTH + 1];
+   int  fd,
+        pos,
+        length;
+   char sheme,
+        *file_buf,
+        *ptr,
+        *p_start,
+        host_name[MAX_HOSTNAME_LENGTH + 1];
 
    (void)sprintf(p_msg_dir, "%u", job_id);
 
@@ -260,11 +260,11 @@ retry:
    }
 
    ptr += 3;
+   length = 0;
    if (*ptr == MAIL_GROUP_IDENTIFIER)
    {
       ptr++;
-      while ((*ptr != '/') && (*ptr != '.') &&
-             (*ptr != ':') && (*ptr != '\n') &&
+      while ((*ptr != '@') && (*ptr != ':') && (*ptr != '\n') &&
              (*ptr != ';') && (length < MAX_HOSTNAME_LENGTH))
       {
          if (*ptr == '\\')
@@ -338,7 +338,7 @@ retry:
       /* Store the hostname. */
       ptr += 8;
       length = 0;
-      while ((*ptr != '\n') && (length < MAX_HOSTNAME_LENGTH))
+      while ((*ptr != '\n') && (*ptr != '.') && (length < MAX_HOSTNAME_LENGTH))
       {
          if (*ptr == '\\')
          {

@@ -8,7 +8,7 @@ INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
-CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../../init_afd -I../../.. -I../show_log -I../afd_ctrl $(XINCLUDES)
+CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../../init_afd -I../../.. -I../show_log $(XINCLUDES)
 
 DIRCPROG = dir_ctrl
 DIRCOBJS = check_dir_status.o\
@@ -20,15 +20,15 @@ DIRCOBJS = check_dir_status.o\
            resize_dir_window.o\
            setup_dir_window.o
 
-PROGS    = $(DIRCPROG)
+PROGS    = $(DIRCPROG)$(EXE_EXT)
 OBJS     = $(DIRCOBJS)
-HEADERS  = ../../../init_afd/afddefs.h ../../../config.h ../afd_ctrl/afd_ctrl.h $(XCOMDIR)/x_common_defs.h dir_ctrl.h
+HEADERS  = ../../../init_afd/afddefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h dir_ctrl.h
 
 all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(DIRCPROG) : $(DIRCOBJS) $(LIB)
+$(DIRCPROG)$(EXE_EXT) : $(DIRCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(DIRCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(MATHSLIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
@@ -42,7 +42,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(DIRCPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(DIRCPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

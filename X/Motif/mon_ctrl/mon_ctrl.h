@@ -23,8 +23,15 @@
 #include "x_common_defs.h"
 #include "mondefs.h"
 
+#define BAR_LENGTH_MODIFIER            7
+#define DEFAULT_NO_OF_ROWS             50
+
 /* Definitions for the menu bar items. */
 #define MON_W                          0
+#define LOG_W                          1
+#define CONTROL_W                      2
+#define CONFIG_W                       3
+#define HELP_W                         4
 
 /* Definitions for Monitor pulldown. */
 #define MON_SYS_LOG_W                  0
@@ -46,12 +53,28 @@
 #define MON_SHOW_QUEUE_W               7
 #define MON_VIEW_LOAD_W                8
 
+/* Definitions for Control pulldown */
+#define AMG_CTRL_W                     0
+#define FD_CTRL_W                      1
+#define RR_DC_W                        2
+#define RR_HC_W                        3
+#define EDIT_HC_W                      4
+#define DIR_CTRL_W                     5
+#define STARTUP_AFD_W                  6
+#define SHUTDOWN_AFD_W                 7
+
 /* Definitions of popup selections. */
-#define MON_SYS_LOG_SEL                50
-#define MON_LOG_SEL                    51
-#define MON_INFO_SEL                   52
-#define MON_RETRY_SEL                  53
-#define MON_DISABLE_SEL                54
+#define MON_SYS_LOG_SEL                40
+#define MON_LOG_SEL                    41
+#define MON_INFO_SEL                   42
+#define MON_RETRY_SEL                  43
+#define MON_DISABLE_SEL                44
+/* NOTE: Since some of these are used by more then one */
+/*       program each may define only a certain range: */
+/*         afd_ctrl.h        0 - 39                    */
+/*         mon_ctrl.h       40 - 69                    */
+/*         dir_ctrl.h       70 - 99                    */
+/*         x_common_defs.h 100 onwards.                */
 
 /* Definitions for the Setup pulldown. */
 #define HISTORY_W                      4
@@ -172,6 +195,8 @@ signed char mon_window_size(int *, int *),
             resize_mon_window(void);
 void        check_afd_status(Widget),
             draw_afd_identifier(int, int, int),
+            draw_label_line(void),
+            draw_line_status(int, signed char),
             draw_mon_bar(int, signed char, char, int, int),
             draw_mon_blank_line(int),
             draw_mon_chars(int, char, int, int),
@@ -180,6 +205,7 @@ void        check_afd_status(Widget),
             draw_mon_proc_led(int, signed char, int, int),
             draw_remote_log_status(int, int, int, int),
             draw_remote_history(int, int, int, int),
+            init_gcs(void),
             mon_expose_handler_label(Widget, XtPointer,
                                      XmDrawingAreaCallbackStruct *),
             mon_expose_handler_line(Widget, XtPointer,

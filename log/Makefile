@@ -51,7 +51,7 @@ LDPROG   = delete_log
 LDOBJS   = delete_log.o\
            open_log_file.o
 
-PROGS    = $(SLPROG) $(RLPROG) $(TLPROG) $(TDBLPROG) $(MSLPROG) $(MLOGPROG) $(LIPROG) $(LOPROG) $(LDPROG)
+PROGS    = $(SLPROG)$(EXE_EXT) $(RLPROG)$(EXE_EXT) $(TLPROG)$(EXE_EXT) $(TDBLPROG)$(EXE_EXT) $(MSLPROG)$(EXE_EXT) $(MLOGPROG)$(EXE_EXT) $(LIPROG)$(EXE_EXT) $(LOPROG)$(EXE_EXT) $(LDPROG)$(EXE_EXT)
 OBJS     = $(SLOBJS) $(RLOBJS) $(TLOBJS) $(TDBLOBJS) $(MSLOBJS) $(MLOGOBJS) $(LIOBJS) $(LOOBJS) $(LDOBJS)
 HEADERS  = ../init_afd/afddefs.h ../config.h ../version.h logdefs.h
 
@@ -59,39 +59,39 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(SLPROG) : $(SLOBJS) $(LIB)
+$(SLPROG)$(EXE_EXT) : $(SLOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SLOBJS) $(LIB) $(EFENCE)
 
-$(RLPROG) : $(RLOBJS) $(LIB)
+$(RLPROG)$(EXE_EXT) : $(RLOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(RLOBJS) $(LIB) $(EFENCE)
 
-$(TLPROG) : $(TLOBJS) $(LIB)
+$(TLPROG)$(EXE_EXT) : $(TLOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TLOBJS) $(LIB) $(EFENCE)
 
-$(TDBLPROG) : $(TDBLOBJS) $(LIB)
+$(TDBLPROG)$(EXE_EXT) : $(TDBLOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TDBLOBJS) $(LIB) $(EFENCE)
 
-$(MSLPROG) : $(MSLOBJS) $(LIB)
+$(MSLPROG)$(EXE_EXT) : $(MSLOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MSLOBJS) $(LIB) $(EFENCE)
 
-$(MLOGPROG) : $(MLOGOBJS) $(LIB)
+$(MLOGPROG)$(EXE_EXT) : $(MLOGOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MLOGOBJS) $(LIB) $(EFENCE)
 
-$(LIPROG) : $(LIOBJS) $(LIB)
+$(LIPROG)$(EXE_EXT) : $(LIOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(LIOBJS) $(LIB) $(EFENCE)
 
-$(LOPROG) : $(LOOBJS) $(LIB)
+$(LOPROG)$(EXE_EXT) : $(LOOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(LOOBJS) $(LIB) $(EFENCE)
 
-$(LDPROG) : $(LDOBJS) $(LIB)
+$(LDPROG)$(EXE_EXT) : $(LDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(LDOBJS) $(LIB) $(EFENCE)
 

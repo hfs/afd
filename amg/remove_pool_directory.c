@@ -151,7 +151,7 @@ remove_pool_directory(char *job_dir, int dir_id)
 
    if (rmdir(job_dir) == -1)
    {
-      if (errno == ENOTEMPTY)
+      if ((errno == ENOTEMPTY) || (errno == EEXIST))
       {
          (void)rec_rmdir(job_dir);
       }

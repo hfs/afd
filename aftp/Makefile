@@ -16,7 +16,7 @@ AFTPOBJS   = aftp.o\
              init_aftp.o\
              trans_log.o
 
-PROGS      = $(AFTPPROG)
+PROGS      = $(AFTPPROG)$(EXE_EXT)
 OBJS       = $(AFTPOBJS)
 HEADERS    = ../init_afd/afddefs.h ../config.h aftpdefs.h
 
@@ -24,7 +24,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(AFTPPROG) : $(AFTPOBJS) $(LIB) $(PROTOLIB)
+$(AFTPPROG)$(EXE_EXT) : $(AFTPOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFTPOBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
@@ -39,10 +39,10 @@ install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
 	cd $(INSTDIR)/bin && chmod $(BINMODE) $(PROGS)
-	@if [ ! -r $(INSTDIR)/bin/raftp ] ; \
+	@if [ ! -r $(INSTDIR)/bin/raftp$(EXE_EXT) ] ; \
 	then \
 	   cd $(INSTDIR)/bin ; \
-	   ln -s $(AFTPPROG) raftp ; \
+	   ln -s $(AFTPPROG) raftp$(EXE_EXT) ; \
 	fi
 
 sinstall :

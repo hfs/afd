@@ -118,7 +118,6 @@ int
 main(int argc, char *argv[])
 {
    int         fd,
-               files_to_retrieve,
                j,
                status,
                no_of_bytes,
@@ -319,7 +318,7 @@ main(int argc, char *argv[])
 
    if (db.aftp_mode == RETRIEVE_MODE)
    {
-      if ((files_to_retrieve = get_remote_file_names(&file_size_to_retrieve)) > 0)
+      if (get_remote_file_names(&file_size_to_retrieve) > 0)
       {
          int   i;
          off_t offset;

@@ -17,7 +17,7 @@ EHCOBJS  = accept_drop.o\
            remove_host.o\
            start_drag.o
 
-PROGS    = $(EHCPROG)
+PROGS    = $(EHCPROG)$(EXE_EXT)
 OBJS     = $(EHCOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../config.h ../afd_ctrl/afd_ctrl.h $(XCOMDIR)/x_common_defs.h edit_hc.h
 
@@ -25,7 +25,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(EHCPROG) : $(EHCOBJS) $(LIB)
+$(EHCPROG)$(EXE_EXT) : $(EHCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(EHCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -39,7 +39,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(EHCPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(EHCPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

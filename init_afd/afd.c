@@ -30,6 +30,8 @@ DESCR__S_M1
  **          -a          only start AFD
  **          -c          only check if AFD is active
  **          -C          check if AFD is active, if not start it
+ **          -h          only check for heartbeat
+ **          -H          check heartbeat, in case none is there start AFD
  **          -b          Blocks auto restart of AFD
  **          -d          only start afd_ctrl dialog
  **          -r          Removes blocking file
@@ -46,6 +48,7 @@ DESCR__S_M1
  **          system_log      - Logs all system activities.
  **          transfer_log    - Logs all transfer activities.
  **          trans_db_log    - Logs all debug transfer activities.
+ **          receive_log     - Logs all receive activities.
  **          archive_watch   - Searches archive for old files and
  **                            removes them.
  **          input_log       - Logs all activities on input.
@@ -73,6 +76,7 @@ DESCR__S_M1
  **   13.08.1997 H.Kiehl When doing a shutdown, waiting for init_afd to
  **                      terminate.
  **   10.05.1998 H.Kiehl Added -c and -C options.
+ **   16.06.2002 H.Kiehl Added -h and -H options.
  **
  */
 DESCR__E_M1
@@ -91,15 +95,17 @@ DESCR__E_M1
 #include "permission.h"
 
 /* Some local definitions */
-#define AFD_ONLY             1
-#define AFD_CHECK_ONLY       2
-#define AFD_CHECK            3
-#define AFD_CTRL_ONLY        4
-#define SHUTDOWN_ONLY        5
-#define SILENT_SHUTDOWN_ONLY 6
-#define START_BOTH           7
-#define MAKE_BLOCK_FILE      8
-#define REMOVE_BLOCK_FILE    9
+#define AFD_ONLY                  1
+#define AFD_CHECK_ONLY            2
+#define AFD_CHECK                 3
+#define AFD_CTRL_ONLY             4
+#define SHUTDOWN_ONLY             5
+#define SILENT_SHUTDOWN_ONLY      6
+#define START_BOTH                7
+#define MAKE_BLOCK_FILE           8
+#define REMOVE_BLOCK_FILE         9
+#define AFD_HEARTBEAT_CHECK_ONLY 10
+#define AFD_HEARTBEAT_CHECK      11
 
 /* External global variables */
 int  sys_log_fd = STDERR_FILENO;
@@ -149,60 +155,60 @@ main(int argc, char *argv[])
 
    switch(get_permissions(&perm_buffer))
    {
-      case NONE     : (void)fprintf(stderr, "%s [%s]\n",
-                                    PERMISSION_DENIED_STR, user);
-                      exit(INCORRECT);
+      case NONE :
+         (void)fprintf(stderr, "%s [%s]\n", PERMISSION_DENIED_STR, user);
+         exit(INCORRECT);
 
       case SUCCESS  : /* Lets evaluate the permissions and see what */
                       /* the user may do.                           */
-                      if ((perm_buffer[0] == 'a') && (perm_buffer[1] == 'l') &&
-                          (perm_buffer[2] == 'l'))
-                      {
-                         afd_ctrl_perm = YES;
-                         shutdown_perm = YES;
-                         startup_perm  = YES;
-                      }
-                      else
-                      {
-                         if (posi(perm_buffer, AFD_CTRL_PERM) == NULL)
-                         {
-                            afd_ctrl_perm = NO_PERMISSION;
-                         }
-                         else
-                         {
-                            afd_ctrl_perm = YES;
-                         }
-                         if (posi(perm_buffer, SHUTDOWN_PERM) == NULL)
-                         {
-                            shutdown_perm = NO_PERMISSION;
-                         }
-                         else
-                         {
-                            shutdown_perm = YES;
-                         }
-                         if (posi(perm_buffer, STARTUP_PERM) == NULL)
-                         {
-                            startup_perm = NO_PERMISSION;
-                         }
-                         else
-                         {
-                            startup_perm = YES;
-                         }
-                         free(perm_buffer);
-                      }
-                      break;
+         if ((perm_buffer[0] == 'a') && (perm_buffer[1] == 'l') &&
+             (perm_buffer[2] == 'l'))
+         {
+            afd_ctrl_perm = YES;
+            shutdown_perm = YES;
+            startup_perm  = YES;
+         }
+         else
+         {
+            if (posi(perm_buffer, AFD_CTRL_PERM) == NULL)
+            {
+               afd_ctrl_perm = NO_PERMISSION;
+            }
+            else
+            {
+               afd_ctrl_perm = YES;
+            }
+            if (posi(perm_buffer, SHUTDOWN_PERM) == NULL)
+            {
+               shutdown_perm = NO_PERMISSION;
+            }
+            else
+            {
+               shutdown_perm = YES;
+            }
+            if (posi(perm_buffer, STARTUP_PERM) == NULL)
+            {
+               startup_perm = NO_PERMISSION;
+            }
+            else
+            {
+               startup_perm = YES;
+            }
+            free(perm_buffer);
+         }
+         break;
 
       case INCORRECT: /* Hmm. Something did go wrong. Since we want to */
                       /* be able to disable permission checking let    */
                       /* the user have all permissions.                */
-                      afd_ctrl_perm = YES;
-                      shutdown_perm = YES;
-                      startup_perm  = YES;
-                      break;
+         afd_ctrl_perm = YES;
+         shutdown_perm = YES;
+         startup_perm  = YES;
+         break;
 
-      default       : (void)fprintf(stderr,
-                                    "Impossible!! Remove the programmer!\n");
-                      exit(INCORRECT);
+      default :
+         (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
+         exit(INCORRECT);
    }
 
    if (argc <= 2)
@@ -232,6 +238,20 @@ main(int argc, char *argv[])
                     exit(INCORRECT);
                  }
                  start_up = AFD_CHECK;
+              }
+         else if (strcmp(argv[1], "-h") == 0) /* Only check for heartbeat. */
+              {
+                 start_up = AFD_HEARTBEAT_CHECK_ONLY;
+              }
+         else if (strcmp(argv[1], "-H") == 0) /* If there is no heartbeat start AFD. */
+              {
+                 if (startup_perm != YES)
+                 {
+                    (void)fprintf(stderr,
+                                  "You do not have the permission to start the AFD.\n");
+                    exit(INCORRECT);
+                 }
+                 start_up = AFD_HEARTBEAT_CHECK;
               }
          else if (strcmp(argv[1], "-d") == 0) /* Start afd_ctrl */
               {
@@ -519,59 +539,72 @@ main(int argc, char *argv[])
            }
            exit(0);
         }
-   else if ((start_up == AFD_CHECK) || (start_up == AFD_CHECK_ONLY))
+   else if ((start_up == AFD_CHECK) || (start_up == AFD_CHECK_ONLY) ||
+            (start_up == AFD_HEARTBEAT_CHECK) ||
+            (start_up == AFD_HEARTBEAT_CHECK_ONLY))
         {
-           if (check_afd(18L) == 1)
+           if ((start_up == AFD_CHECK) || (start_up == AFD_CHECK_ONLY))
            {
-              (void)fprintf(stderr, "AFD is active in %s\n", p_work_dir);
-              exit(AFD_IS_ACTIVE);
+              if (check_afd(18L) == 1)
+              {
+                 (void)fprintf(stderr, "AFD is active in %s\n", p_work_dir);
+                 exit(AFD_IS_ACTIVE);
+              }
            }
-           else if (start_up == AFD_CHECK)
-                {
-                   if (check_database() == -1)
-                   {
-                      (void)fprintf(stderr,
-                                    "Cannot read <%s%s%s> file : %s\nUnable to start AFD.\n",
-                                    p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
-                                    strerror(errno));
-                      exit(NO_DIR_CONFIG);
-                   }
+           else
+           {
+              if (check_afd_heartbeat(18L) == 1)
+              {
+                 (void)fprintf(stderr, "AFD is active in %s\n", p_work_dir);
+                 exit(AFD_IS_ACTIVE);
+              }
+           }
+           if ((start_up == AFD_CHECK) ||
+               (start_up == AFD_HEARTBEAT_CHECK))
+           {
+              if (check_database() == -1)
+              {
+                 (void)fprintf(stderr,
+                               "Cannot read <%s%s%s> file : %s\nUnable to start AFD.\n",
+                               p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
+                               strerror(errno));
+                 exit(NO_DIR_CONFIG);
+              }
 
-                   (void)strcpy(exec_cmd, AFD);
-                   switch(fork())
-                   {
-                      case -1 :
+              (void)strcpy(exec_cmd, AFD);
+              switch(fork())
+              {
+                 case -1 :
 
-                         /* Could not generate process */
-                         (void)fprintf(stderr,
-                                       "Could not create a new process : %s (%s %d)\n",
-                                       strerror(errno),  __FILE__, __LINE__);
-                         break;
+                    /* Could not generate process */
+                    (void)fprintf(stderr,
+                                  "Could not create a new process : %s (%s %d)\n",
+                                  strerror(errno),  __FILE__, __LINE__);
+                    break;
 
-                      case  0 :
+                 case  0 :
 
-                         /* Child process */
-                         if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
-                                    (char *) 0) == -1)
-                         {
-                            (void)fprintf(stderr,
-                                          "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                                          exec_cmd, strerror(errno), __FILE__, __LINE__);
-                            exit(1);
-                         }
-                         exit(0);
+                    /* Child process */
+                    if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
+                               (char *) 0) == -1)
+                    {
+                       (void)fprintf(stderr,
+                                     "ERROR   : Failed to execute %s : %s (%s %d)\n",
+                                     exec_cmd, strerror(errno), __FILE__, __LINE__);
+                       exit(1);
+                    }
+                    exit(0);
 
-                      default :
+                 default :
 
-                         /* Parent process */
-                         break;
-                   }
-                }
-                else
-                {
-                   (void)fprintf(stderr, "No AFD active in %s\n",
-                                 p_work_dir);
-                }
+                    /* Parent process */
+                    break;
+              }
+           }
+           else
+           {
+              (void)fprintf(stderr, "No AFD active in %s\n", p_work_dir);
+           }
 
            exit(0);
         }
@@ -801,6 +834,8 @@ usage(char *progname)
    (void)fprintf(stderr, "              -a          only start AFD\n");
    (void)fprintf(stderr, "              -c          only check if AFD is active\n");
    (void)fprintf(stderr, "              -C          check if AFD is active, if not start it\n");
+   (void)fprintf(stderr, "              -h          only check for heartbeat\n");
+   (void)fprintf(stderr, "              -H          check for heartbeat, if none start AFD\n");
    (void)fprintf(stderr, "              -b          Blocks auto restart of AFD\n");
    (void)fprintf(stderr, "              -d          only start afd_ctrl dialog\n");
    (void)fprintf(stderr, "              -r          Removes blocking file\n");

@@ -96,17 +96,11 @@ Window                     main_window;
 XmFontList                 fontlist;
 int                        char_width,
                            file_name_length,
-                           fra_fd = -1,
-                           fra_id,
                            items_selected = NO,
-                           no_of_dirs = 0,
                            no_of_search_hosts,
                            special_button_flag,
                            sys_log_fd = STDERR_FILENO,
                            toggles_set;
-#ifndef _NO_MMAP
-off_t                      fra_size;
-#endif
 Dimension                  button_height;
 time_t                     start_time_val,
                            end_time_val;
@@ -125,7 +119,6 @@ struct sol_perm            perm;
 struct delete_log          dl;
 #endif
 struct queued_file_list    *qfl;
-struct fileretrieve_status *fra;
 
 /* Local function prototypes */
 static void                init_show_queue(int *, char **),

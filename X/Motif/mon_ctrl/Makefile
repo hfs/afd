@@ -8,7 +8,7 @@ INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
-CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../../init_afd -I../../.. -I../show_log -I../afd_ctrl -I../../../afd_mon $(XINCLUDES)
+CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../../init_afd -I../../.. -I../show_log -I../../../afd_mon $(XINCLUDES)
 
 MONCPROG = mon_ctrl
 MONCOBJS = mon_ctrl.o\
@@ -20,15 +20,15 @@ MONCOBJS = mon_ctrl.o\
            setup_mon_window.o\
            mon_window_size.o
 
-PROGS    = $(MONCPROG)
+PROGS    = $(MONCPROG)$(EXE_EXT)
 OBJS     = $(MONCOBJS)
-HEADERS  = ../../../init_afd/afddefs.h ../../../config.h ../../../afd_mon/mondefs.h ../show_log/show_log.h ../afd_ctrl/afd_ctrl.h $(XCOMDIR)/x_common_defs.h mon_ctrl.h
+HEADERS  = ../../../init_afd/afddefs.h ../../../config.h ../../../afd_mon/mondefs.h ../show_log/show_log.h $(XCOMDIR)/x_common_defs.h mon_ctrl.h
 
 all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(MONCPROG) : $(MONCOBJS) $(LIB)
+$(MONCPROG)$(EXE_EXT) : $(MONCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MONCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(MATHSLIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
@@ -42,7 +42,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(SUIDMODE) $(INSTDIR)/bin/$(MONCPROG)
+	chmod $(SUIDMODE) $(INSTDIR)/bin/$(MONCPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

@@ -1,7 +1,7 @@
 /*
  *  check_dir_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   31.08.2000 H.Kiehl Created
+ **   05.05.2002 H.Kiehl Show the number files currently in the directory.
  **
  */
 DESCR__E_M3
@@ -53,7 +54,6 @@ DESCR__E_M3
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
 #include <Xm/Xm.h>
-#include "afd_ctrl.h"
 #include "dir_ctrl.h"
 
 /* External global variables. */
@@ -93,8 +93,9 @@ Widget   w;
                  location_where_changed,
                  new_bar_length,
                  old_bar_length;
-   unsigned long bytes_received;
-   unsigned int  files_received;
+   off_t         bytes_received;
+   unsigned int  files_received,
+                 prev_dir_flag;
    time_t        delta_time,
                  end_time;
 
@@ -154,8 +155,21 @@ Widget   w;
             new_connect_data[i].dir_status = fra[i].dir_status;
             new_connect_data[i].bytes_received = fra[i].bytes_received;
             new_connect_data[i].files_received = fra[i].files_received;
+            new_connect_data[i].dir_flag = fra[i].dir_flag;
+            new_connect_data[i].files_in_dir = fra[i].files_in_dir;
+            new_connect_data[i].files_queued = fra[i].files_queued;
+            new_connect_data[i].bytes_in_dir = fra[i].bytes_in_dir;
+            new_connect_data[i].bytes_in_queue = fra[i].bytes_in_queue;
             new_connect_data[i].max_process = fra[i].max_process;
             new_connect_data[i].no_of_process = fra[i].no_of_process;
+            CREATE_FC_STRING(new_connect_data[i].str_files_in_dir,
+                             new_connect_data[i].files_in_dir);
+            CREATE_FS_STRING(new_connect_data[i].str_bytes_in_dir,
+                             new_connect_data[i].bytes_in_dir);
+            CREATE_FC_STRING(new_connect_data[i].str_files_queued,
+                             new_connect_data[i].files_queued);
+            CREATE_FS_STRING(new_connect_data[i].str_bytes_queued,
+                             new_connect_data[i].bytes_in_queue);
             CREATE_EC_STRING(new_connect_data[i].str_np,
                              new_connect_data[i].no_of_process);
             new_connect_data[i].last_retrieval = fra[i].last_retrieval;
@@ -271,6 +285,28 @@ Widget   w;
          connect_data[i].max_process = fra[i].max_process;
       }
 
+      if (connect_data[i].dir_flag != fra[i].dir_flag)
+      {
+         prev_dir_flag = connect_data[i].dir_flag;
+         connect_data[i].dir_flag = fra[i].dir_flag;
+         if (x == -1)
+         {
+            locate_xy(i, &x, &y);
+         }
+         if (((prev_dir_flag & MAX_COPIED) == 0) &&
+             (connect_data[i].dir_flag & MAX_COPIED))
+         {
+            draw_dir_full_marker(i, x, y, YES);
+         }
+         else if ((prev_dir_flag & MAX_COPIED) &&
+                  ((connect_data[i].dir_flag & MAX_COPIED) == 0))
+              {
+                 draw_dir_full_marker(i, x, y, NO);
+              }
+
+         flush = YES;
+      }
+
       end_time = times(&tmsdummy);
       if ((delta_time = (end_time - connect_data[i].start_time)) == 0)
       {
@@ -382,19 +418,93 @@ Widget   w;
       if (line_style != BARS_ONLY)
       {
          /*
-          * Number of process for this directory.
+          * Number of files in directory.
           */
-         if (connect_data[i].no_of_process != fra[i].no_of_process)
+         if (connect_data[i].files_in_dir != fra[i].files_in_dir)
          {
+            connect_data[i].files_in_dir = fra[i].files_in_dir;
             if (x == -1)
             {
                locate_xy(i, &x, &y);
             }
+            CREATE_FC_STRING(connect_data[i].str_files_in_dir,
+                             connect_data[i].files_in_dir);
+            if (i < location_where_changed)
+            {
+               draw_dir_chars(i, FILES_IN_DIR, x, y);
+               flush = YES;
+            }
+         }
 
+         /*
+          * Number of bytes in directory.
+          */
+         if (connect_data[i].bytes_in_dir != fra[i].bytes_in_dir)
+         {
+            connect_data[i].bytes_in_dir = fra[i].bytes_in_dir;
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+            CREATE_FS_STRING(connect_data[i].str_bytes_in_dir,
+                             connect_data[i].bytes_in_dir);
+            if (i < location_where_changed)
+            {
+               draw_dir_chars(i, BYTES_IN_DIR, x, y);
+               flush = YES;
+            }
+         }
+
+         /*
+          * Number of files queued.
+          */
+         if (connect_data[i].files_queued != fra[i].files_queued)
+         {
+            connect_data[i].files_queued = fra[i].files_queued;
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+            CREATE_FC_STRING(connect_data[i].str_files_queued,
+                             connect_data[i].files_queued);
+            if (i < location_where_changed)
+            {
+               draw_dir_chars(i, FILES_QUEUED, x, y);
+               flush = YES;
+            }
+         }
+
+         /*
+          * Number of bytes queued.
+          */
+         if (connect_data[i].bytes_in_queue != fra[i].bytes_in_queue)
+         {
+            connect_data[i].bytes_in_queue = fra[i].bytes_in_queue;
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+            CREATE_FS_STRING(connect_data[i].str_bytes_queued,
+                             connect_data[i].bytes_in_queue);
+            if (i < location_where_changed)
+            {
+               draw_dir_chars(i, BYTES_QUEUED, x, y);
+               flush = YES;
+            }
+         }
+
+         /*
+          * Number of process for this directory.
+          */
+         if (connect_data[i].no_of_process != fra[i].no_of_process)
+         {
             connect_data[i].no_of_process = fra[i].no_of_process;
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
             CREATE_EC_STRING(connect_data[i].str_np,
                              connect_data[i].no_of_process);
-
             if (i < location_where_changed)
             {
                draw_dir_chars(i, NO_OF_DIR_PROCESS, x, y);
@@ -407,17 +517,16 @@ Widget   w;
           */
          if (connect_data[i].bytes_per_sec != connect_data[i].prev_bytes_per_sec)
          {
+            connect_data[i].prev_bytes_per_sec = connect_data[i].bytes_per_sec;
             if (x == -1)
             {
                locate_xy(i, &x, &y);
             }
-
-            connect_data[i].prev_bytes_per_sec = connect_data[i].bytes_per_sec;
-            CREATE_FS_STRING(connect_data[i].str_tr, connect_data[i].bytes_per_sec);
-
+            CREATE_FS_STRING(connect_data[i].str_tr,
+                             connect_data[i].bytes_per_sec);
             if (i < location_where_changed)
             {
-               draw_dir_chars(i, BYTE_RATE, x + (3 * glyph_width), y);
+               draw_dir_chars(i, BYTE_RATE, x, y);
                flush = YES;
             }
          }
@@ -427,17 +536,16 @@ Widget   w;
           */
          if (connect_data[i].files_per_sec != connect_data[i].prev_files_per_sec)
          {
+            connect_data[i].prev_files_per_sec = connect_data[i].files_per_sec;
             if (x == -1)
             {
                locate_xy(i, &x, &y);
             }
-
-            connect_data[i].prev_files_per_sec = connect_data[i].files_per_sec;
-            CREATE_FR_STRING(connect_data[i].str_fr, connect_data[i].files_per_sec);
-
+            CREATE_FR_STRING(connect_data[i].str_fr,
+                             connect_data[i].files_per_sec);
             if (i < location_where_changed)
             {
-               draw_dir_chars(i, FILE_RATE, x + (8 * glyph_width), y);
+               draw_dir_chars(i, FILE_RATE, x, y);
                flush = YES;
             }
          }

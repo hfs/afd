@@ -1,6 +1,6 @@
 /*
  *  check_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,6 +43,7 @@ DESCR__S_M3
  ** HISTORY
  **   02.04.1996 H.Kiehl Created
  **   03.05.1998 H.Kiehl Added wait_time parameter to function call.
+ **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **
  */
 DESCR__E_M3
@@ -52,8 +53,6 @@ DESCR__E_M3
 #include <string.h>              /* strerror(), memset()                 */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/ipc.h>
-#include <sys/shm.h>
 #include <sys/time.h>            /* struct timeval, FD_SET...            */
 #include <signal.h>              /* kill()                               */
 #include <unistd.h>              /* select()                             */
@@ -271,7 +270,7 @@ kill_jobs(void)
       exit(-12);
    }
 
-   /* Try to send kill signal to all running process */
+   /* Try to send kill signal to all running process. */
    ptr = buffer;
    for (i = 0; i <= NO_OF_PROCESS; i++)
    {
@@ -281,13 +280,6 @@ kill_jobs(void)
       }
       ptr += sizeof(pid_t);
    }
-
-   /* Remove all shared memory regions */
-   (void)shmctl((int)*(pid_t *)ptr, IPC_RMID, 0);
-   ptr += sizeof(pid_t);
-   (void)shmctl((int)*(pid_t *)ptr, IPC_RMID, 0);
-   ptr += sizeof(pid_t);
-   (void)shmctl((int)*(pid_t *)ptr, IPC_RMID, 0);
 
    (void)close(read_fd);
    free(buffer);

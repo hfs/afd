@@ -20,22 +20,28 @@ SCPPROG  = ascp1
 SCPOBJS  = ascp1.o\
            trans_log.o
 
-PROGS    = $(EPROG) $(ARGPROG)
-OBJS     = $(EOBJS) $(ARGOBJS) $(CTOBJS)
+TLOKPROG = testlock
+TLOKOBJS = testlock.o
+
+PROGS    = $(EPROG)$(EXE_EXT) $(ARGPROG)$(EXE_EXT) $(TLOKPROG)$(EXE_EXT)
+OBJS     = $(EOBJS) $(ARGOBJS) $(CTOBJS) $(TLOKOBJS)
 
 all : $(PROGS)
 
-$(EPROG) : $(EOBJS) $(LIB)
+$(EPROG)$(EXE_EXT) : $(EOBJS) $(LIB)
 	$(CC) $(CFLAGS) -o $@ $(EOBJS) $(LIB)
 
-$(ARGPROG) : $(ARGOBJS) $(LIB)
+$(ARGPROG)$(EXE_EXT) : $(ARGOBJS) $(LIB)
 	$(CC) $(CFLAGS) -o $@ $(ARGOBJS) $(LIB)
 
-$(CTPROG) : $(CTOBJS) $(LIB)
+$(CTPROG)$(EXE_EXT) : $(CTOBJS) $(LIB)
 	$(CC) $(CFLAGS) -o $@ $(CTOBJS) $(LIB)
 
-$(SCPPROG) : $(SCPOBJS) $(LIB) $(PROTOLIB)
+$(SCPPROG)$(EXE_EXT) : $(SCPOBJS) $(LIB) $(PROTOLIB)
 	$(CC) $(CFLAGS) -o $@ $(SCPOBJS) $(PROTOLIB) $(LIB)
+
+$(TLOKPROG)$(EXE_EXT) : $(TLOKOBJS) $(LIB)
+	$(CC) $(CFLAGS) -o $@ $(TLOKOBJS) $(LIB)
 
 clean :
 	rm -f $(OBJS) core

@@ -477,7 +477,7 @@ main(int argc, char *argv[])
          {
 #ifdef PRE_RELEASE
             length = sprintf(buffer,
-                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d-%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
+                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d-pre%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
                              MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
                              multipart_boundary);
 #else
@@ -489,9 +489,16 @@ main(int argc, char *argv[])
          }
          else
          {
+#ifdef PRE_RELEASE
+            length = sprintf(encode_buffer,
+                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d-pre%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
+                             MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
+                             final_filename);
+#else
             length = sprintf(encode_buffer,
                              "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
                              MAJOR, MINOR, BUG_FIX, final_filename);
+#endif
             buffer_ptr = encode_buffer;
          }
 

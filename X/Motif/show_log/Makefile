@@ -17,7 +17,7 @@ SLOGOBJS = show_log.o\
            log_callbacks.o\
            log_filter.o
 
-PROGS    = $(SLOGPROG)
+PROGS    = $(SLOGPROG)$(EXE_EXT)
 OBJS     = $(SLOGOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../config.h ../afd_ctrl/afd_ctrl.h ../../../log/logdefs.h $(XCOMDIR)/x_common_defs.h show_log.h
 
@@ -25,7 +25,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(SLOGPROG) : $(SLOGOBJS) $(LIB)
+$(SLOGPROG)$(EXE_EXT) : $(SLOGOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SLOGOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -39,7 +39,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(SLOGPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(SLOGPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

@@ -1,7 +1,7 @@
 /*
  *  dir_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -81,16 +81,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, DIR_NAME_FILE);
    if ((fd = open(file, O_RDWR)) == -1)
    {
-      (void)fprintf(stderr,
-                    "Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr,
-                    "Failed to fstat() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -98,8 +96,7 @@ main(int argc, char *argv[])
    if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
-      (void)fprintf(stderr,
-                    "Failed to mmap() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "Failed to mmap() %s : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -110,10 +107,11 @@ main(int argc, char *argv[])
    if (*no_of_dir_names > 0)
    {
       (void)fprintf(stdout, "No of directories : %d\n", *no_of_dir_names);
-      (void)fprintf(stdout, "Dir-no Dir-name\n");
+      (void)fprintf(stdout, "Dir-pos Dir-no Dir-name\n");
       for (i = 0; i < *no_of_dir_names; i++)
       {
-         (void)fprintf(stdout, "%-6d %s\n", dnb[i].dir_id, dnb[i].dir_name);
+         (void)fprintf(stdout, "%-7d %-6d %s\n",
+                       i, dnb[i].dir_id, dnb[i].dir_name);
       }
    }
    else

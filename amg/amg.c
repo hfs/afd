@@ -78,8 +78,6 @@ DESCR__E_M1
 #include <stdlib.h>                   /* atexit(), abort()               */
 #include <time.h>                     /* ctime(), time()                 */
 #include <sys/types.h>                /* fdset                           */
-#include <sys/ipc.h>
-#include <sys/shm.h>                  /* shmctl(), shmdt()               */
 #include <sys/stat.h>
 #include <sys/time.h>                 /* struct timeval                  */
 #include <sys/wait.h>                 /* waitpid()                       */
@@ -100,8 +98,6 @@ DESCR__E_M1
 FILE                       *p_debug_file;
 #endif
 int                        dnb_fd,
-                           shm_id,      /* The shared memory ID's for    */
-                                        /* the sorted data and pointers. */
                            data_length, /* The size of data for one job. */
                            max_process_per_dir = MAX_PROCESS_PER_DIR,
                            *no_of_dir_names,
@@ -277,7 +273,6 @@ main(int argc, char *argv[])
       }
 
       /* Initialise variables with default values */
-      shm_id = -1;
       (void)strcpy(amg_cmd_fifo, work_dir);
       (void)strcat(amg_cmd_fifo, FIFO_DIR);
       (void)strcpy(dc_cmd_fifo, amg_cmd_fifo);
@@ -381,7 +376,6 @@ main(int argc, char *argv[])
                             DC_PROC_NAME, __FILE__, __LINE__);
                }
             }
-            (void)shmctl(*(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))), IPC_RMID, 0);
          }
       }
 
@@ -444,7 +438,7 @@ main(int argc, char *argv[])
       }
 
       /* Open fifo to AFD to receive commands. */
-      if ((amg_cmd_fd = coe_open(amg_cmd_fifo, (O_RDONLY | O_NONBLOCK))) == -1)
+      if ((amg_cmd_fd = coe_open(amg_cmd_fifo, O_RDWR)) == -1)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Could not open fifo %s : %s (%s %d)\n",
@@ -584,10 +578,6 @@ main(int argc, char *argv[])
       (void)rec(sys_log_fd, INFO_SIGN, "Found %d hosts in HOST_CONFIG.\n",
                 no_of_hosts);
 
-#ifdef _DEBUG
-      show_shm(p_debug_file);
-#endif
-
       /*
        * Before we start any programs copy any files that are in the
        * pool directory back to their original directories (if they
@@ -627,12 +617,11 @@ main(int argc, char *argv[])
    /* Start process dir_check if database has information. */
    if (data_length > 0)
    {
-      dc_pid = make_process_amg(work_dir, DC_PROC_NAME, shm_id, rescan_time,
+      dc_pid = make_process_amg(work_dir, DC_PROC_NAME, rescan_time,
                                 max_no_proc);
       if (pid_list != NULL)
       {
          *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
-         *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
       }
    }
    else
@@ -643,7 +632,7 @@ main(int argc, char *argv[])
 
    /* Note time when AMG is started */
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (PRE %d.%d.%d-%d)\n",
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d-pre%d)\n",
              AMG, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
@@ -677,7 +666,7 @@ main(int argc, char *argv[])
       /* fifo to shutdown the AMG?                 */
       if ((status > 0) && (FD_ISSET(amg_cmd_fd, &rset)))
       {
-         if (read(amg_cmd_fd, buffer, 10) > 0)
+         if ((status = read(amg_cmd_fd, buffer, 10)) > 0)
          {
             /* Show user we got shutdown message */
             (void)rec(sys_log_fd, INFO_SIGN, "%s shutting down ....\n", AMG);
@@ -713,6 +702,20 @@ main(int argc, char *argv[])
 
             break;
          }
+         else if (status == -1)
+              {
+                 (void)rec(sys_log_fd, FATAL_SIGN,
+                           "Failed to read() from %s : %s (%s %d)\n",
+                           AMG_CMD_FIFO, strerror(errno), __FILE__, __LINE__);
+                 exit(INCORRECT);
+              }
+              else /* == 0 */
+              {
+                 (void)rec(sys_log_fd, FATAL_SIGN,
+                           "Hmm, reading zero from %s. (%s %d)\n",
+                           AMG_CMD_FIFO, __FILE__, __LINE__);
+                 exit(INCORRECT);
+              }
       }
            /* Did we receive a message from the edit_hc or */
            /* edit_dc dialog?                              */
@@ -816,8 +819,7 @@ main(int argc, char *argv[])
                           if (dc_pid == NOT_RUNNING)
                           {
                              dc_pid = make_process_amg(work_dir, DC_PROC_NAME,
-                                                       shm_id, rescan_time,
-                                                       max_no_proc);
+                                                       rescan_time, max_no_proc);
                              if (pid_list != NULL)
                              {
                                 *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
@@ -927,50 +929,23 @@ main(int argc, char *argv[])
          if ((amg_zombie_check(&dc_pid, WNOHANG) == YES) &&
              (data_length > 0))
          {
-            struct shmid_ds dummy_buf;
-
             /* So what do we do now? */
             /* For now lets only tell the user that the job died. */
             (void)rec(sys_log_fd, ERROR_SIGN,
                       "Job %s has died! (%s %d)\n",
                       DC_PROC_NAME, __FILE__, __LINE__);
 
-            /*
-             * For some unknown reason it can happen that the shared
-             * memory region is gone. If that is the case terminate AMG
-             * so init_afd can restart it.
-             */
-            if ((shmctl(shm_id, IPC_STAT, &dummy_buf) == -1) &&
-                (errno == EINVAL))
-            {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Hmmm. shmctl() reports that shmid %d is invalid. Recreating shared memory region. (%s %d)\n",
-                         shm_id, __FILE__, __LINE__);
-               exit(3);
-            }
-            dc_pid = make_process_amg(work_dir, DC_PROC_NAME, shm_id,
+            dc_pid = make_process_amg(work_dir, DC_PROC_NAME,
                                       rescan_time, max_no_proc);
             if (pid_list != NULL)
             {
                *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
-               *(pid_t *)(pid_list + ((NO_OF_PROCESS + 1) * sizeof(pid_t))) = shm_id;
             }
             (void)rec(sys_log_fd, INFO_SIGN, "Restarted %s. (%s %d)\n",
                       DC_PROC_NAME, __FILE__, __LINE__);
          }
       } /* if (dc_pid > 0) */
    } /* for (;;) */
-
-   /* Remove shared memory region */
-   if (data_length > 0)
-   {
-      if (shmctl(shm_id, IPC_RMID, 0) < 0)
-      {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not remove shared memory region %d for dir_check : %s (%s %d)\n",
-                   shm_id, strerror(errno), __FILE__, __LINE__);
-      }
-   } /* if (data_length > 0) */
 
 #ifdef _DEBUG
    /* Don't forget to close debug file */
@@ -1121,12 +1096,6 @@ amg_exit(void)
                       __FILE__, __LINE__);
          }
       }
-   }
-
-   /* Destroy all shm areas that where created. */
-   if (shm_id > -1)
-   {
-      (void)shmctl(shm_id, IPC_RMID, 0);
    }
 
    if (pid_list != NULL)

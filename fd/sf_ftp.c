@@ -156,9 +156,11 @@ main(int argc, char *argv[])
    int              exit_status = TRANSFER_SUCCESS,
                     j,
                     fd,
+#ifdef _WITH_INTERRUPT_JOB
+                    interrupt = NO,
+#endif
                     status,
                     bytes_buffered,
-                    no_of_bytes,
                     append_file_number = -1,
                     files_to_send,
                     files_send = 0,
@@ -166,7 +168,8 @@ main(int argc, char *argv[])
                     burst_counter = 0,
 #endif
                     blocksize;
-   off_t            lock_offset;
+   off_t            lock_offset,
+                    no_of_bytes;
 #ifdef _WITH_BURST_2
    int              disconnect = NO;
    unsigned int     burst_2_counter = 0,
@@ -850,6 +853,9 @@ main(int argc, char *argv[])
 #endif
 
       /* Send all files. */
+#ifdef _WITH_INTERRUPT_JOB
+      interrupt = NO;
+#endif
       p_file_name_buffer = file_name_buffer;
       p_file_size_buffer = file_size_buffer;
       for (files_send = 0; files_send < files_to_send; files_send++)
@@ -2290,6 +2296,15 @@ main(int argc, char *argv[])
             }
          } /* if (fsa[db.fsa_pos].error_counter > 0) */
 
+#ifdef _WITH_INTERRUPT_JOB
+         if ((fsa[db.fsa_pos].job_status[(int)db.job_no].special_flag & INTERRUPT_JOB) &&
+             ((files_send + 1) < files_to_send))
+         {
+            interrupt = YES;
+            break;
+         }
+#endif
+
          p_file_name_buffer += MAX_FILENAME_LENGTH;
          p_file_size_buffer++;
       } /* for (files_send = 0; files_send < files_to_send; files_send++) */
@@ -2297,7 +2312,12 @@ main(int argc, char *argv[])
 #ifdef _BURST_MODE
       search_for_files = YES;
       lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
+#ifdef _WITH_INTERRUPT_JOB
+   } while ((fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter != burst_counter) &&
+            (interrupt == NO));
+#else
    } while (fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter != burst_counter);
+#endif
    fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
 #endif /* _BURST_MODE */
 
@@ -2340,16 +2360,23 @@ main(int argc, char *argv[])
       remove_all_appends(db.job_id);
    }
 
-   /*
-    * Remove file directory.
-    */
-   if (rmdir(file_path) == -1)
+#ifdef _WITH_INTERRUPT_JOB
+   if (interrupt == NO)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to remove directory <%s> : %s [PID = %d] [job_no = %d]",
-                 file_path, strerror(errno), db.my_pid, (int)db.job_no);
-      exit_status = STILL_FILES_TO_SEND;
+#endif
+      /*
+       * Remove file directory.
+       */
+      if (rmdir(file_path) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to remove directory <%s> : %s [PID = %d] [job_no = %d]",
+                    file_path, strerror(errno), db.my_pid, (int)db.job_no);
+         exit_status = STILL_FILES_TO_SEND;
+      }
+#ifdef _WITH_INTERRUPT_JOB
    }
+#endif
 
 #ifdef _WITH_BURST_2
       burst_2_counter++;
@@ -2358,7 +2385,11 @@ main(int argc, char *argv[])
 #ifdef _BURST_MODE
       burst_2_counter += burst_counter;
 #endif /* _BURST_MODE */
+#ifdef _WITH_INTERRUPT_JOB
+   } while (check_burst_2(file_path, &files_to_send, interrupt, &values_changed) == YES);
+#else
    } while (check_burst_2(file_path, &files_to_send, &values_changed) == YES);
+#endif
    burst_2_counter--;
 #endif /* _WITH_BURST_2 */
 

@@ -353,8 +353,9 @@ stat_again:
                 * within the FSA, but the contents of the job is
                 * still the same.
                 */
-               if (CHECK_STRCMP(mdb[j].host_name,
-                                fsa[mdb[j].fsa_pos].host_alias) == 0)
+               if ((no_of_hosts > mdb[j].fsa_pos) &&
+                   (CHECK_STRCMP(mdb[j].host_name,
+                                 fsa[mdb[j].fsa_pos].host_alias) == 0))
                {
                   mdb[j].in_current_fsa = YES;
                   gotcha = YES;
@@ -765,9 +766,18 @@ list_job_to_remove(int                cache_pos,
 
          if (qb[j].pid > 0)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "AND process %d is currently distributing files! Will terminate this process.\n",
-                      qb[j].pid);
+            if (qb[j].connect_pos >= 0)
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "AND process %d is currently distributing files for host %s! Will terminate this process.\n",
+                         qb[j].pid, connection[qb[j].connect_pos].hostname);
+            }
+            else
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "AND process %d is currently distributing files! Will terminate this process.\n",
+                         qb[j].pid);
+            }
             if (kill(qb[j].pid, SIGKILL) < 0)
             {
                if (errno != ESRCH)

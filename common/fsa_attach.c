@@ -1,6 +1,6 @@
 /*
  *  fsa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -108,18 +108,10 @@ fsa_attach(void)
          /* Unmap from FSA */
          ptr = (char *)fsa - AFD_WORD_OFFSET;
 #ifdef _NO_MMAP
-         if (munmap_emu((void *)fsa) == -1)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() %s : %s",
-                       fsa_stat_file, strerror(errno));
-         }
-         else
-         {
-            fsa = NULL;
-         }
+         if (munmap_emu((void *)ptr) == -1)
 #else
          if (munmap(ptr, fsa_size) == -1)
+#endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to munmap() %s : %s",
@@ -129,7 +121,6 @@ fsa_attach(void)
          {
             fsa = NULL;
          }
-#endif
 
          timeout_loops++;
          if (timeout_loops > 100)

@@ -504,7 +504,7 @@ get_input_files(void)
                   if ((stat(queue_dir, &stat_buf) != -1) &&
                       (S_ISDIR(stat_buf.st_mode)))
                   {
-                     int gotcha = NO;
+                     int gotcha;
 
                      if (no_of_search_hosts == 0)
                      {

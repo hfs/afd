@@ -19,7 +19,7 @@ XSTATOBJS = callbacks.o\
             xshow_stat.o\
             window_size.o
 
-PROGS     = $(XSTATPROG)
+PROGS     = $(XSTATPROG)$(EXE_EXT)
 OBJS      = $(XSTATOBJS)
 HEADERS   = ../../../init_afd/afddefs.h ../../../config.h ../afd_ctrl/afd_ctrl.h ../../../statistics/statdefs.h $(XCOMDIR)/x_common_defs.h xshow_stat.h
 
@@ -27,7 +27,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(XSTATPROG) : $(XSTATOBJS) $(LIB)
+$(XSTATPROG)$(EXE_EXT) : $(XSTATOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(XSTATOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -41,7 +41,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(XSTATPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(XSTATPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

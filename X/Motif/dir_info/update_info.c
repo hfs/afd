@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ DESCR__S_M3
  **   05.08.2000 H.Kiehl Created
  **   20.07.2001 H.Kiehl Show if unknown and/or queued input files are
  **                      to be deleted.
+ **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
  **
  */
 DESCR__E_M3
@@ -252,48 +253,96 @@ Widget w;
       flush = YES;
    }
 
-   if (prev.old_file_time != fra[dir_position].old_file_time)
-   {
-      prev.old_file_time = fra[dir_position].old_file_time;
-      (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_L,
-                    prev.old_file_time / 3600);
-      XmTextSetString(text_wl[3], str_line);
-      flush = YES;
-   }
-
    if (prev.delete_files_flag != fra[dir_position].delete_files_flag)
    {
       prev.delete_files_flag = fra[dir_position].delete_files_flag;
       if (prev.delete_files_flag == 0)
       {
-         yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
-         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, yesno);
+         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
+         XmTextSetString(text_wl[3], str_line);
+         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No");
+         XmTextSetString(text_wr[3], str_line);
       }
       else
       {
          if ((prev.delete_files_flag & UNKNOWN_FILES) &&
              (prev.delete_files_flag & QUEUED_FILES))
          {
-            (void)sprintf(str_line, "%*s",
-                          DIR_INFO_LENGTH_R, "Unknown, queued");
+            char str_num[MAX_INT_LENGTH + 1 + 12];
+
+            prev.unknown_file_time = fra[dir_position].unknown_file_time;
+            (void)sprintf(str_num, "Yes (%d hours)",
+                          prev.unknown_file_time / 3600);
+            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_num);
+            XmTextSetString(text_wl[3], str_line);
+
+            prev.queued_file_time = fra[dir_position].queued_file_time;
+            (void)sprintf(str_num, "Yes (%d hours)",
+                          prev.queued_file_time / 3600);
+            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_num);
+            XmTextSetString(text_wr[3], str_line);
          }
          else
          {
             if (prev.delete_files_flag & UNKNOWN_FILES)
             {
-               (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Unknown");
+               char str_num[MAX_INT_LENGTH + 1 + 12];
+
+               prev.unknown_file_time = fra[dir_position].unknown_file_time;
+               (void)sprintf(str_num, "Yes (%d hours)",
+                             prev.unknown_file_time / 3600);
+               (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_num);
+               XmTextSetString(text_wl[3], str_line);
+
+               (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No");
+               XmTextSetString(text_wr[3], str_line);
             }
             else if (prev.delete_files_flag & QUEUED_FILES)
                  {
-                    (void)sprintf(str_line, "%*s",
-                                  DIR_INFO_LENGTH_R, "Unknown");
+                    char str_num[MAX_INT_LENGTH + 1 + 12];
+
+                    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
+                    XmTextSetString(text_wl[3], str_line);
+
+                    prev.queued_file_time = fra[dir_position].queued_file_time;
+                    (void)sprintf(str_num, "Yes (%d hours)",
+                                  prev.queued_file_time / 3600);
+                    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_num);
+                    XmTextSetString(text_wr[3], str_line);
                  }
                  else
                  {
                     (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "?");
+                    XmTextSetString(text_wl[3], str_line);
+                    XmTextSetString(text_wr[3], str_line);
                  }
          }
       }
+      flush = YES;
+   }
+
+   if ((prev.delete_files_flag & UNKNOWN_FILES) &&
+       (prev.unknown_file_time != fra[dir_position].unknown_file_time))
+   {
+      char str_num[MAX_INT_LENGTH + 1 + 12];
+
+      prev.unknown_file_time = fra[dir_position].unknown_file_time;
+      (void)sprintf(str_num, "Yes (%d hours)",
+                    prev.unknown_file_time / 3600);
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_num);
+      XmTextSetString(text_wl[3], str_line);
+      flush = YES;
+   }
+
+   if ((prev.delete_files_flag & QUEUED_FILES) &&
+       (prev.queued_file_time != fra[dir_position].queued_file_time))
+   {
+      char str_num[MAX_INT_LENGTH + 1 + 12];
+
+      prev.queued_file_time = fra[dir_position].queued_file_time;
+      (void)sprintf(str_num, "Yes (%d hours)",
+                    prev.queued_file_time / 3600);
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_num);
       XmTextSetString(text_wr[3], str_line);
       flush = YES;
    }

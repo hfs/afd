@@ -55,31 +55,34 @@ DESCR__S_M1
  **   30.06.2001 H.Kiehl Starting afdd process is now only done when
  **                      this is configured in AFD_CONFIG file.
  **   06.04.2002 H.Kiehl Added saving of old core files.
+ **   05.05.2002 H.Kiehl Monitor the number of files in full directories.
+ **   16.05.2002 H.Kiehl Included a heartbeat counter in AFD_ACTIVE_FILE.
  **
  */
 DESCR__E_M1
 
-#include <stdio.h>               /* fprintf()                           */
-#include <string.h>              /* strcpy(), strcat(), strerror()      */
-#include <stdlib.h>              /* getenv(), atexit(), exit(), abort() */
-#include <time.h>                /* time(), ctime()                     */
+#include <stdio.h>               /* fprintf()                            */
+#include <string.h>              /* strcpy(), strcat(), strerror()       */
+#include <stdlib.h>              /* getenv(), atexit(), exit(), abort()  */
+#include <time.h>                /* time(), ctime()                      */
 #include <sys/types.h>
 #ifndef _NO_MMAP
-#include <sys/mman.h>            /* mmap(), munmap()                    */
+#include <sys/mman.h>            /* mmap(), munmap()                     */
 #endif
 #include <sys/stat.h>
-#include <sys/time.h>            /* struct timeval                      */
-#include <sys/wait.h>            /* waitpid()                           */
-#include <signal.h>              /* signal()                            */
-#include <unistd.h>              /* select(), unlink(), lseek(), sleep()*/
-                                 /* gethostname(),  STDERR_FILENO       */
-#include <fcntl.h>               /* O_RDWR, O_CREAT, O_WRONLY, etc      */
-#include <limits.h>              /* LINK_MAX                            */
+#include <sys/time.h>            /* struct timeval                       */
+#include <sys/wait.h>            /* waitpid()                            */
+#include <signal.h>              /* signal()                             */
+#include <unistd.h>              /* select(), unlink(), lseek(), sleep() */
+                                 /* gethostname(),  STDERR_FILENO        */
+#include <fcntl.h>               /* O_RDWR, O_CREAT, O_WRONLY, etc       */
+#include <limits.h>              /* LINK_MAX                             */
 #include <errno.h>
 #include "amgdefs.h"
 #include "version.h"
 
-#define NO_OF_SAVED_CORE_FILES 10
+#define NO_OF_SAVED_CORE_FILES  10
+#define FULL_DIR_CHECK_INTERVAL 300 /* Every 5 minutes. */
 
 /* Global definitions */
 int                        sys_log_fd = STDERR_FILENO,
@@ -89,14 +92,17 @@ int                        sys_log_fd = STDERR_FILENO,
                            fd_cmd_fd,
                            afd_active_fd,
                            probe_only_fd,
-                           status_shm_id,
                            probe_only = 1,
+                           no_of_dirs = 0,
                            no_of_hosts = 0,
                            amg_flag = NO,
+                           fra_fd = -1,
+                           fra_id,
                            fsa_fd = -1,
                            fsa_id;
 #ifndef _NO_MMAP
-off_t                      fsa_size;
+off_t                      fra_size,
+                           fsa_size;
 #endif
 char                       *p_work_dir,
                            afd_status_file[MAX_PATH_LENGTH],
@@ -107,6 +113,7 @@ char                       *p_work_dir,
                            afd_active_file[MAX_PATH_LENGTH];
 struct afd_status          *p_afd_status;
 struct filetransfer_status *fsa;
+struct fileretrieve_status *fra;
 struct proc_table          proc_table[NO_OF_PROCESS];
 
 /* local functions */
@@ -134,8 +141,10 @@ main(int argc, char *argv[])
                   fd,
                   auto_amg_stop = NO,
                   old_afd_stat;
+   unsigned int   *heartbeat;
    off_t          offset;
-   time_t         month_check_time,
+   time_t         full_dir_check_time,
+                  month_check_time,
                   now;
    fd_set         rset;
    signed char    stop_typ = STARTUP_ID,
@@ -198,7 +207,7 @@ main(int argc, char *argv[])
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   offset = ((NO_OF_PROCESS + 1) * sizeof(pid_t)) + 1;
+   offset = ((NO_OF_PROCESS + 1) * sizeof(pid_t)) + sizeof(unsigned int) + 1;
    if (lseek(afd_active_fd, offset, SEEK_SET) == -1)
    {
       (void)fprintf(stderr, "ERROR   : lseek() error in %s : %s (%s %d)\n",
@@ -212,6 +221,21 @@ main(int argc, char *argv[])
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+#ifdef _NO_MMAP
+   if ((ptr = mmap_emu(0, offset, (PROT_READ | PROT_WRITE),
+                       MAP_SHARED, afd_active_file, 0)) == (caddr_t) -1)
+#else
+   if ((ptr = mmap(0, offset, (PROT_READ | PROT_WRITE),
+                   MAP_SHARED, afd_active_fd, 0)) == (caddr_t) -1)
+#endif
+   {
+      (void)fprintf(stderr, "ERROR   : mmap() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   offset -= (sizeof(unsigned int) + 1);
+   heartbeat = (unsigned int *)(ptr + offset);
+   *heartbeat = 0;
 
    if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
    {
@@ -459,6 +483,8 @@ main(int argc, char *argv[])
    bd_time = localtime(&now);
    current_month = bd_time->tm_mon;
    month_check_time = ((now / 86400) * 86400) + 86400;
+   full_dir_check_time = ((now / FULL_DIR_CHECK_INTERVAL) *
+                          FULL_DIR_CHECK_INTERVAL) + FULL_DIR_CHECK_INTERVAL;
 
    /* Initialise communication flag FD <-> AMG */
    p_afd_status->amg_jobs = 0;
@@ -560,7 +586,6 @@ main(int argc, char *argv[])
             fsa[i].job_status[j].file_name_in_use[0] = '\0';
          }
       }
-
       (void)fsa_detach(YES);
    }
 
@@ -572,6 +597,8 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
    for (;;)
    {
+      (*heartbeat)++;
+
       /*
        * Lets write the month into the SYSTEM_LOG once only. So check
        * every day if a new month has been reached.
@@ -616,6 +643,56 @@ main(int argc, char *argv[])
             current_month = bd_time->tm_mon;
          }
          month_check_time = ((now / 86400) * 86400) + 86400;
+      }
+
+      if (now > full_dir_check_time)
+      {
+         int files_queued = NO;
+
+         init_afd_check_fsa();
+
+         for (i = 0; i < no_of_hosts; i++)
+         {
+            if (fsa[i].host_status >= 2)
+            {
+               files_queued = YES;
+               break;
+            }
+         }
+         if (fra_attach() == SUCCESS)
+         {
+            for (i = 0; i < no_of_dirs; i++)
+            {
+               if (fra[i].dir_flag & MAX_COPIED)
+               {
+                  count_files(fra[i].url, &fra[i].files_in_dir,
+                              &fra[i].bytes_in_dir);
+               }
+               if (files_queued == NO)
+               {
+                  if (fra[i].files_queued > 0)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Hmm, the number of files in %s should be 0 but currently is %d. Resetting. (%s %d)\n",
+                               fra[i].dir_alias, fra[i].files_queued,
+                               __FILE__, __LINE__);
+                     fra[i].files_queued = 0;
+                  }
+                  if (fra[i].bytes_in_queue > 0)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Hmm, the number of bytes in %s should be 0 but currently is %d. Resetting. (%s %d)\n",
+                               fra[i].dir_alias, fra[i].bytes_in_queue,
+                               __FILE__, __LINE__);
+                     fra[i].bytes_in_queue = 0;
+                  }
+               }
+            }
+            (void)fra_detach();
+         }
+         full_dir_check_time = ((now / FULL_DIR_CHECK_INTERVAL) *
+                                FULL_DIR_CHECK_INTERVAL) +
+                               FULL_DIR_CHECK_INTERVAL;
       }
 
       /* Initialise descriptor set and timeout */
@@ -1547,8 +1624,7 @@ init_afd_check_fsa(void)
          if (munmap_emu(ptr) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap_emu() from FSA (%d) : %s",
-                       fsa_id, strerror(errno));
+                       "Failed to munmap_emu() from FSA (%d)", fsa_id);
          }
 #else
          if (munmap(ptr, fsa_size) == -1)

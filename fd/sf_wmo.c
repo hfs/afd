@@ -133,7 +133,6 @@ main(int argc, char *argv[])
    int              j,
                     fd,
                     status,
-                    no_of_bytes,
                     loops,
                     rest,
                     files_to_send,
@@ -144,7 +143,8 @@ main(int argc, char *argv[])
 #endif
                     blocksize,
                     wmo_counter_fd = -1;
-   off_t            lock_offset;
+   off_t            lock_offset,
+                    no_of_bytes;
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
    unsigned int     *ol_job_number = NULL;

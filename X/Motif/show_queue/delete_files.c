@@ -39,6 +39,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   29.07.2001 H.Kiehl Created
+ **   06.05.2002 H.Kiehl Remove files and bytes from FRA queue data.
  **
  */
 DESCR__E_M3
@@ -76,13 +77,18 @@ extern struct delete_log       dl;
 #endif
 
 /* Global variables */
-int                            fsa_fd = -1,
+int                            fra_fd = -1,
+                               fra_id,
+                               fsa_fd = -1,
                                fsa_id,
+                               no_of_dirs = 0,
                                no_of_hosts,
                                counter_fd;
 #ifndef _NO_MMAP
-off_t                          fsa_size;
+off_t                          fra_size,
+                               fsa_size;
 #endif
+struct fileretrieve_status     *fra;
 struct filetransfer_status     *fsa;
 struct afd_status              *p_afd_status;
 
@@ -217,6 +223,16 @@ delete_files(int no_selected, int *select_list)
       }
    }
 
+   if (toggles_set & SHOW_INPUT)
+   {
+      /* Map to the FRA. */
+      if (fra_attach() == INCORRECT)
+      {
+         (void)fprintf(stderr, "Failed to attach to FRA.\n");
+         exit(INCORRECT);
+      }
+   }
+
    for (i = 0; i < no_selected; i++)
    {
       if ((qfl[select_list[i] - 1].queue_type == SHOW_OUTPUT) &&
@@ -292,7 +308,7 @@ delete_files(int no_selected, int *select_list)
                *ptr = '\0';
                if (rmdir(fullname) == -1)
                {
-                  if (errno != ENOTEMPTY)
+                  if ((errno != ENOTEMPTY) && (errno != EEXIST))
                   {
                      (void)xrec(toplevel_w, INFO_DIALOG,
                                 "Failed to rmdir() <%s> : %s (%s %d)",
@@ -378,13 +394,26 @@ delete_files(int no_selected, int *select_list)
                                qfl[select_list[i] - 1].hostname,
                                qfl[select_list[i] - 1].file_name);
               }
-              if (unlink(fullname) != -1)
+              if (unlink(fullname) == -1)
               {
-                 deleted = YES;
+                 deleted = NO;
               }
               else
               {
-                 deleted = NO;
+                 if (qfl[select_list[i] - 1].hostname[0] != '\0')
+                 {
+                    int k;
+
+                    for (k = 0; k < no_of_dirs; k++)
+                    {
+                       if (qfl[select_list[i] - 1].dir_id_pos == fra[k].dir_pos)
+                       {
+                          ABS_REDUCE_QUEUE(k, 1, qfl[select_list[i] - 1].size);
+                          break;
+                       }
+                    }
+                 }
+                 deleted = YES;
               }
            }
 
@@ -478,6 +507,10 @@ delete_files(int no_selected, int *select_list)
       }
       (void)fsa_detach(NO);
       (void)detach_afd_status();
+   }
+   if (toggles_set & SHOW_OUTPUT)
+   {
+      (void)fra_detach();
    }
 
    /* Tell user what we have done. */

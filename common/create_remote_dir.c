@@ -66,20 +66,16 @@ create_remote_dir(char *url, char *remote_dir)
    char directory[MAX_RECIPIENT_LENGTH],
         host_alias[MAX_HOSTNAME_LENGTH + 1],
         *ptr = url,
-        scheme[10],
         user[MAX_USER_NAME_LENGTH];
 
    /* Save scheme. */
    i = 0;
    while ((*ptr != ':') && (*ptr != '\0') && (i < 10))
    {
-      scheme[i] = *ptr;
       i++; ptr++;
    }
    if (*ptr != '\0')
    {
-      scheme[i] = '\0';
-
       /* Away with '://' */
       ptr += 3;
 

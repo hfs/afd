@@ -292,7 +292,7 @@ move_files_back(char *pool_dir, char *orig_dir)
        */
       if (rmdir(pool_dir) == -1)
       {
-         if (errno == ENOTEMPTY)
+         if ((errno == ENOTEMPTY) || (errno == EEXIST))
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Hmm. Directory %s is not empty?! Will remove it! (%s %d)\n",

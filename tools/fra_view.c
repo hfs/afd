@@ -1,6 +1,6 @@
 /*
  *  fra_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,8 @@ DESCR__S_M1
  **   31.03.2000 H.Kiehl Created
  **   20.07.2001 H.Kiehl Show which input files are to be deleted, unknown
  **                      and/or queued.
+ **   03.05.2002 H.Kiehl Show number of files, bytes and queues.
+ **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
  **
  */
 DESCR__E_M1
@@ -159,6 +161,10 @@ main(int argc, char *argv[])
       (void)fprintf(stdout, "Number of process    : %d\n", fra[i].no_of_process);
       (void)fprintf(stdout, "Bytes received       : %lu\n", fra[i].bytes_received);
       (void)fprintf(stdout, "Files received       : %u\n", fra[i].files_received);
+      (void)fprintf(stdout, "Files in directory   : %u\n", fra[i].files_in_dir);
+      (void)fprintf(stdout, "Bytes in directory   : %lu\n", fra[i].bytes_in_dir);
+      (void)fprintf(stdout, "Files in queue(s)    : %u\n", fra[i].files_queued);
+      (void)fprintf(stdout, "Bytes in queue(s)    : %lu\n", fra[i].bytes_in_queue);
       if (fra[i].dir_status == NORMAL_STATUS)
       {
          (void)fprintf(stdout, "Directory status(%3d): NORMAL_STATUS\n",
@@ -229,8 +235,6 @@ main(int argc, char *argv[])
            {
               (void)fprintf(stdout, "Unknown\n");
            }
-      (void)fprintf(stdout, "Old file time (hours): %d\n",
-                    fra[i].old_file_time / 3600);
       if (fra[i].delete_files_flag == 0)
       {
          (void)fprintf(stdout, "Delete input files   : NO\n");
@@ -241,16 +245,24 @@ main(int argc, char *argv[])
              (fra[i].delete_files_flag & QUEUED_FILES))
          {
             (void)fprintf(stdout, "Delete input files   : Unknown and queued files\n");
+            (void)fprintf(stdout, "Unknown file time (h): %d\n",
+                          fra[i].unknown_file_time / 3600);
+            (void)fprintf(stdout, "Queued file time (h) : %d\n",
+                          fra[i].queued_file_time / 3600);
          }
          else
          {
             if (fra[i].delete_files_flag & UNKNOWN_FILES)
             {
                (void)fprintf(stdout, "Delete input files   : Unknown files\n");
+               (void)fprintf(stdout, "Unknown file time (h): %d\n",
+                             fra[i].unknown_file_time / 3600);
             }
             else if (fra[i].delete_files_flag & QUEUED_FILES)
                  {
                     (void)fprintf(stdout, "Delete input files   : Queued files\n");
+                    (void)fprintf(stdout, "Queued file time (h) : %d\n",
+                                  fra[i].queued_file_time / 3600);
                  }
                  else
                  {

@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,8 @@ DESCR__S_M3
  **                  struct directory_entry *p_de,
  **                  int                    pos_in_fm,
  **                  int                    no_of_files,
- **                  char                   link_flag)
+ **                  char                   link_flag
+ **                  off_t                  *file_size_saved)
  **
  ** DESCRIPTION
  **   When the queue has been stopped for a host, this function saves
@@ -50,6 +51,8 @@ DESCR__S_M3
  **   17.10.1997 H.Kiehl When pool is a different file system files
  **                      should be copied.
  **   18.10.1997 H.Kiehl Introduced inverse filtering.
+ **   09.06.2002 H.Kiehl Return number of files and size that have been
+ **                      saved.
  **
  */
 DESCR__E_M3
@@ -67,6 +70,7 @@ DESCR__E_M3
 /* External global variables */
 extern int  sys_log_fd;
 #ifndef _WITH_PTHREAD
+extern off_t *file_size_pool;
 extern char **file_name_pool;
 #endif
 
@@ -76,19 +80,24 @@ int
 save_files(char                   *src_path,
            char                   *dest_path,
 #ifdef _WITH_PTHREAD
+           off_t                  *file_size_pool,
            char                   **file_name_pool,
 #endif
            struct directory_entry *p_de,
            int                    pos_in_fm,
            int                    no_of_files,
-           char                   link_flag)
+           char                   link_flag,
+           off_t                  *file_size_saved)
 {
    register int i,
-                j,
-                ret;
+                j;
+   int          files_saved = 0,
+                retstat;
    char         *p_src,
                 *p_dest;
    struct stat  stat_buf;
+
+   *file_size_saved = 0;
 
    if ((stat(dest_path, &stat_buf) < 0) || (S_ISDIR(stat_buf.st_mode) == 0))
    {
@@ -131,7 +140,8 @@ save_files(char                   *src_path,
           * and pmatch() to get the names we need. Let's see
           * how things work.
           */
-         if ((ret = pmatch(p_de->fme[pos_in_fm].file_mask[j], file_name_pool[i])) == 0)
+         if ((retstat = pmatch(p_de->fme[pos_in_fm].file_mask[j],
+                               file_name_pool[i])) == 0)
          {
             (void)strcpy(p_src, file_name_pool[i]);
             (void)strcpy(p_dest, file_name_pool[i]);
@@ -140,7 +150,7 @@ save_files(char                   *src_path,
             {
                if (p_de->flag & RENAME_ONE_JOB_ONLY)
                {
-                  if (rename(src_path, dest_path) == -1)
+                  if ((retstat = rename(src_path, dest_path)) == -1)
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "Failed to rename() file <%s> to <%s> (%s %d)\n",
@@ -150,7 +160,7 @@ save_files(char                   *src_path,
                }
                else
                {
-                  if (link(src_path, dest_path) == -1)
+                  if ((retstat = link(src_path, dest_path)) == -1)
                   {
                      if (errno == EEXIST)
                      {
@@ -168,7 +178,7 @@ save_files(char                   *src_path,
                         }
                         else
                         {
-                           if (link(src_path, dest_path) == -1)
+                           if ((retstat = link(src_path, dest_path)) == -1)
                            {
                               (void)rec(sys_log_fd, WARN_SIGN,
                                         "Failed to link file <%s> to <%s> : %s (%s %d)\n",
@@ -191,7 +201,7 @@ save_files(char                   *src_path,
             }
             else
             {
-               if (copy_file(src_path, dest_path, NULL) < 0)
+               if ((retstat = copy_file(src_path, dest_path, NULL)) < 0)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
                             "Failed to copy file <%s> to <%s> (%s %d)\n",
@@ -214,10 +224,16 @@ save_files(char                   *src_path,
                }
             }
 
+            if (retstat != -1)
+            {
+               files_saved++;
+               *file_size_saved += file_size_pool[i];
+            }
+
             /* No need to test any further filters. */
             break;
          }
-         else if (ret == 1)
+         else if (retstat == 1)
               {
                  /*
                   * This file is definitely NOT wanted, no matter what the
@@ -231,5 +247,5 @@ save_files(char                   *src_path,
    *(p_dest - 1) = '\0';
    *p_src = '\0';
 
-   return(SUCCESS);
+   return(files_saved);
 }

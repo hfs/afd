@@ -72,6 +72,7 @@ DESCR__S_M1
  **                      took so long.
  **   12.04.2001 H.Kiehl Check pool directory for unfinished jobs.
  **   09.02.2002 H.Kiehl Wait for all children to terminate before exiting.
+ **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **
  */
 DESCR__E_M1
@@ -86,8 +87,6 @@ DESCR__E_M1
 #include <sys/wait.h>              /* waitpid()                          */
 #include <sys/stat.h>
 #include <sys/time.h>              /* struct timeval                     */
-#include <sys/ipc.h>
-#include <sys/shm.h>               /* shmdt()                            */
 #include <sys/mman.h>              /* munmap()                           */
 #include <fcntl.h>
 #include <unistd.h>                /* fork(), rmdir(), getuid(), getgid()*/
@@ -103,9 +102,7 @@ DESCR__E_M1
 
 
 /* global variables */
-int                        shm_id,         /* Shared memory ID of        */
-                                           /* dir_check.                 */
-                           fra_id,         /* ID of FRA.                 */
+int                        fra_id,         /* ID of FRA.                 */
                            fra_fd = -1,    /* Needed by fra_attach()     */
                            fsa_id,         /* ID of FSA.                 */
                            fsa_fd = -1,    /* Needed by fsa_attach()     */
@@ -135,8 +132,9 @@ int                        shm_id,         /* Shared memory ID of        */
                            receive_log_fd = STDERR_FILENO,
                            sys_log_fd = STDERR_FILENO,
                            *time_job_list = NULL;
-size_t                     max_copied_file_size,
-                           msg_fifo_buf_size;
+size_t                     msg_fifo_buf_size;
+off_t                      amg_data_size,
+                           max_copied_file_size;
 #ifndef _NO_MMAP
 off_t                      fra_size,
                            fsa_size;
@@ -150,8 +148,8 @@ off_t                      *file_size_pool;
 uid_t                      afd_uid;
 gid_t                      afd_gid;
 char                       *p_dir_alias,
+                           *p_mmap = NULL,
                            *p_work_dir,
-                           *p_shm = NULL,
                            first_time = YES,
                            time_dir[MAX_PATH_LENGTH],
                            *p_time_dir,
@@ -374,7 +372,7 @@ main(int argc, char *argv[])
 
    /* Tell user we are starting dir_check. */
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting dir_check (PRE %d.%d.%d-%d)\n",
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting dir_check (%d.%d.%d-pre%d)\n",
              MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)rec(sys_log_fd, INFO_SIGN, "Starting dir_check (%d.%d.%d)\n",
@@ -502,7 +500,7 @@ main(int argc, char *argv[])
                            * section. There should be no change such as a new host
                            * or a new directory entry.
                            */
-                          if (create_db(shm_id) != no_of_jobs)
+                          if (create_db() != no_of_jobs)
                           {
                              (void)rec(sys_log_fd, ERROR_SIGN,
                                        "Unexpected change in database! Terminating. (%s %d)\n",
@@ -544,7 +542,7 @@ main(int argc, char *argv[])
                   * section. There should be no change such as a new host
                   * or a new directory entry.
                   */
-                 if (create_db(shm_id) != no_of_jobs)
+                 if (create_db() != no_of_jobs)
                  {
                     (void)rec(sys_log_fd, ERROR_SIGN,
                               "Unexpected change in database! Terminating. (%s %d)\n",
@@ -563,9 +561,6 @@ main(int argc, char *argv[])
               if ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0)
               {
                  int         ret;
-#ifndef _WITH_PTHREAD
-                 time_t      dir_check_time;
-#endif
                  time_t      start_time = now + sleep_time;
                  struct stat dir_stat_buf;
 
@@ -666,7 +661,6 @@ main(int argc, char *argv[])
                   * through all directories lets always check the time
                   * and ensure we do not take too long.
                   */
-                 dir_check_time = start_time;
                  fdc = fpdc = 0;
                  for (i = 0; i < no_of_local_dirs; i++)
                  {
@@ -1164,8 +1158,8 @@ handle_dir(int    dir_no,
                  k,
                  files_moved,
                  files_linked;
-      off_t      file_size_linked;
-      size_t     total_file_size;
+      off_t      file_size_linked,
+                 total_file_size;
       char       orig_file_path[MAX_PATH_LENGTH],
                  src_file_dir[MAX_PATH_LENGTH],
                  unique_name[MAX_FILENAME_LENGTH];
@@ -1211,6 +1205,10 @@ handle_dir(int    dir_no,
                                    file_size_pool, file_name_pool,
 #endif
                                    &total_file_size);
+         if (host_name != NULL)
+         {
+            ABS_REDUCE_QUEUE(de[dir_no].fra_pos, files_moved, total_file_size);
+         }
       }
       else
       {
@@ -1475,16 +1473,20 @@ handle_dir(int    dir_no,
                         if ((db[de[dir_no].fme[j].pos[k]].time_option_type == SEND_COLLECT_TIME) &&
                             ((fsa[db[de[dir_no].fme[j].pos[k]].position].special_flag & HOST_DISABLED) == 0))
                         {
+                           off_t file_size_saved;
+
                            (void)strcpy(p_time_dir, db[de[dir_no].fme[j].pos[k]].str_job_id);
                            if (save_files(orig_file_path,
                                           time_dir,
 #ifdef _WITH_PTHREAD
+                                          file_size_pool,
                                           file_name_pool,
 #endif
                                           &de[dir_no],
                                           j,
                                           files_moved,
-                                          IN_SAME_FILESYSTEM) < 0)
+                                          IN_SAME_FILESYSTEM,
+                                          &file_size_saved) < 0)
                            {
                               (void)rec(sys_log_fd, ERROR_SIGN,
                                         "Failed to queue files for host %s (%s %d)\n",
@@ -1499,22 +1501,36 @@ handle_dir(int    dir_no,
                   {
                      if ((fsa[db[de[dir_no].fme[j].pos[k]].position].special_flag & HOST_DISABLED) == 0)
                      {
+                        int   files_saved;
+                        off_t file_size_saved;
+
                         /* Queue is paused for this host, so lets save the */
                         /* files somewhere snug and save.                  */
-                        if (save_files(orig_file_path,
-                                       db[de[dir_no].fme[j].pos[k]].paused_dir,
+                        if ((files_saved = save_files(orig_file_path,
+                                                      db[de[dir_no].fme[j].pos[k]].paused_dir,
 #ifdef _WITH_PTHREAD
-                                       file_name_pool,
+                                                      file_size_pool,
+                                                      file_name_pool,
 #endif
-                                       &de[dir_no],
-                                       j,
-                                       files_moved,
-                                       db[de[dir_no].fme[j].pos[k]].lfs) < 0)
+                                                      &de[dir_no],
+                                                      j,
+                                                      files_moved,
+                                                      db[de[dir_no].fme[j].pos[k]].lfs,
+                                                      &file_size_saved)) < 0)
                         {
                            (void)rec(sys_log_fd, ERROR_SIGN,
                                      "Failed to queue files for host %s (%s %d)\n",
                                      db[de[dir_no].fme[j].pos[k]].host_alias,
                                      __FILE__, __LINE__);
+                        }
+                        else
+                        {
+                           lock_region_w(fra_fd,
+                                         (char *)&fra[de[dir_no].fra_pos].files_queued - (char *)fra);
+                           fra[de[dir_no].fra_pos].files_queued += files_saved;
+                           fra[de[dir_no].fra_pos].bytes_in_queue += file_size_saved;
+                           unlock_region(fra_fd,
+                                         (char *)&fra[de[dir_no].fra_pos].files_queued - (char *)fra);
                         }
                      }
                   }
@@ -1531,8 +1547,8 @@ handle_dir(int    dir_no,
                if ((errno == ENOTEMPTY) || (errno == EEXIST))
                {
                   (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Hmm, strange! The directory %s should be empty!\n",
-                            orig_file_path);
+                            "Hmm, strange! The directory %s should be empty! (%s %d)\n",
+                            orig_file_path, __FILE__, __LINE__);
                   if (remove_dir(orig_file_path) < 0)
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
@@ -1660,7 +1676,7 @@ get_one_zombie(pid_t cpid)
            {
               /* abnormal termination */;
               (void)rec(sys_log_fd, ERROR_SIGN,
-                        "Abnormal termination of process dir_check (%d) (%s %d)\n",
+                        "Abnormal termination of forked process dir_check (%d) (%s %d)\n",
                         pid, __FILE__, __LINE__);
            }
       else if (WIFSTOPPED(status))
@@ -1743,12 +1759,20 @@ check_fifo(int read_fd, int write_fd)
          switch(buffer[count])
          {
             case STOP  :
-               /* Detach shared memory regions */
-               if (shmdt(p_shm) < 0)
+               if (p_mmap != NULL)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Could not detach shared memory region %d : %s (%s %d)\n",
-                            shm_id, strerror(errno), __FILE__, __LINE__);
+#ifdef _NO_MMAP
+                  if (munmap_emu((void *)p_mmap) == -1)
+#else
+                  if (munmap(p_mmap, amg_data_size) == -1)
+#endif
+                  {
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "Failed to munmap() from %s : %s (%s %d)\n",
+                               AMG_DATA_FILE, strerror(errno),
+                               __FILE__, __LINE__);
+                  }
+                  p_mmap = NULL;
                }
 
                /* free memory for pid, time and file name array */
@@ -1873,17 +1897,6 @@ sig_segv(int signo)
       {
          p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
       }
-
-      /* Detach shared memory regions */
-      if (p_shm != NULL)
-      {
-         if (shmdt(p_shm) < 0)
-         {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Could not detach shared memory region %d : %s (%s %d)\n",
-                      shm_id, strerror(errno), __FILE__, __LINE__);
-         }
-      }
    }
 
    (void)rec(sys_log_fd, FATAL_SIGN,
@@ -1919,17 +1932,6 @@ sig_bus(int signo)
       if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
       {
          p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
-
-      /* Detach shared memory regions */
-      if (p_shm != NULL)
-      {
-         if (shmdt(p_shm) < 0)
-         {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Could not detach shared memory region %d : %s (%s %d)\n",
-                      shm_id, strerror(errno), __FILE__, __LINE__);
-         }
       }
    }
 

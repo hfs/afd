@@ -118,7 +118,6 @@ remove_dir(char *dirname)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to rmdir() <%s> : %s", dirname, strerror(errno));
-      (void)closedir(dp);
       return(INCORRECT);
    }
 

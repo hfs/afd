@@ -1,6 +1,6 @@
 /*
  *  dir_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ DESCR__S_M1
  ** HISTORY
  **   05.08.2000 H.Kiehl Created
  **   20.07.2001 H.Kiehl Show if queued and/or unknown files are deleted.
+ **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
  **
  */
 DESCR__E_M1
@@ -96,21 +97,21 @@ off_t                      fra_size;
 char                       dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
                            font_name[40],
                            *p_work_dir,
-                           label_l[NO_OF_DIR_ROWS][23] =
+                           label_l[NO_OF_DIR_ROWS][22] =
                            {
-                              "Alias directory name :",
-                              "Stupid mode          :",
-                              "Force reread         :",
-                              "Old file time (hours):",
-                              "Bytes received       :",
-                              "Last retrieval       :"
+                              "Alias directory name:",
+                              "Stupid mode         :",
+                              "Force reread        :",
+                              "Delete unknown files:",
+                              "Bytes received      :",
+                              "Last retrieval      :"
                            },
                            label_r[NO_OF_DIR_ROWS][22] =
                            {
                               "Priority            :",
-                              "Remove files        :",
+                              "Remove files (input):",
                               "Report unknown files:",
-                              "Delete input files  :",
+                              "Delete queued files :",
                               "Files received      :",
                               "Next check time     :"
                            };
@@ -153,7 +154,6 @@ main(int argc, char *argv[])
                    dir_text_w,
                    button_w,
                    buttonbox_w,
-                   label_w,
                    rowcol1_w,
                    rowcol2_w,
                    h_separator1_w,
@@ -204,7 +204,7 @@ main(int argc, char *argv[])
                                   rowcol1_w,
                                   XmNfractionBase, 41,
                                   NULL);
-   label_w = XtVaCreateManagedWidget("Real directory name :",
+   XtVaCreateManagedWidget("Real directory name :",
                            xmLabelGadgetClass,  dir_text_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
@@ -237,7 +237,7 @@ main(int argc, char *argv[])
                                      rowcol1_w,
                                      XmNfractionBase, 41,
                                      NULL);
-      label_w = XtVaCreateManagedWidget("URL                 :",
+      XtVaCreateManagedWidget("URL                 :",
                               xmLabelGadgetClass,  dir_text_w,
                               XmNfontList,         fontlist,
                               XmNtopAttachment,    XmATTACH_POSITION,
@@ -338,8 +338,12 @@ main(int argc, char *argv[])
                               XmNshadowThickness,       1,
                               XmNhighlightThickness,    0,
                               XmNrightAttachment,       XmATTACH_FORM,
+                              XmNleftAttachment,        XmATTACH_WIDGET,
+                              XmNleftWidget,            label_l_widget[i],
+/*
                               XmNleftAttachment,        XmATTACH_POSITION,
-                              XmNleftPosition,          22,
+                              XmNleftPosition,          21,
+*/
                               NULL);
       XtManageChild(dir_text_w);
    }
@@ -368,7 +372,7 @@ main(int argc, char *argv[])
    }
    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, yesno);
    XmTextSetString(text_wl[2], str_line);
-   (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_L, prev.old_file_time / 3600);
+   (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_L, prev.unknown_file_time / 3600);
    XmTextSetString(text_wl[3], str_line);
    (void)sprintf(str_line, "%*lu", DIR_INFO_LENGTH_L, prev.bytes_received);
    XmTextSetString(text_wl[4], str_line);
@@ -480,33 +484,62 @@ main(int argc, char *argv[])
    XmTextSetString(text_wr[2], str_line);
    if (prev.delete_files_flag == 0)
    {
-      yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
-      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, yesno);
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
+      XmTextSetString(text_wl[3], str_line);
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No");
+      XmTextSetString(text_wr[3], str_line);
    }
    else
    {
       if ((prev.delete_files_flag & UNKNOWN_FILES) &&
           (prev.delete_files_flag & QUEUED_FILES))
       {
-         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Unknown, queued");
+         char str_num[MAX_INT_LENGTH + 1 + 12];
+
+         (void)sprintf(str_num, "Yes (%d hours)",
+                       prev.unknown_file_time / 3600);
+         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_num);
+         XmTextSetString(text_wl[3], str_line);
+
+         (void)sprintf(str_num, "Yes (%d hours)",
+                       prev.queued_file_time / 3600);
+         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_num);
+         XmTextSetString(text_wr[3], str_line);
       }
       else
       {
          if (prev.delete_files_flag & UNKNOWN_FILES)
          {
-            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Unknown");
+            char str_num[MAX_INT_LENGTH + 1 + 12];
+
+            (void)sprintf(str_num, "Yes (%d hours)",
+                          prev.unknown_file_time / 3600);
+            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_num);
+            XmTextSetString(text_wl[3], str_line);
+
+            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No");
+            XmTextSetString(text_wr[3], str_line);
          }
          else if (prev.delete_files_flag & QUEUED_FILES)
               {
-                 (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Queued");
+                 char str_num[MAX_INT_LENGTH + 1 + 12];
+
+                 (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
+                 XmTextSetString(text_wl[3], str_line);
+
+                 (void)sprintf(str_num, "Yes (%d hours)",
+                               prev.queued_file_time / 3600);
+                 (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_num);
+                 XmTextSetString(text_wr[3], str_line);
               }
               else
               {
                  (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "?");
+                 XmTextSetString(text_wl[3], str_line);
+                 XmTextSetString(text_wr[3], str_line);
               }
       }
    }
-   XmTextSetString(text_wr[3], str_line);
    (void)sprintf(str_line, "%*u", DIR_INFO_LENGTH_R, prev.files_received);
    XmTextSetString(text_wr[4], str_line);
    if (prev.time_option == YES)
@@ -752,7 +785,8 @@ init_dir_info(int *argc, char *argv[])
    prev.remove               = fra[dir_position].remove;
    prev.force_reread         = fra[dir_position].force_reread;
    prev.report_unknown_files = fra[dir_position].report_unknown_files;
-   prev.old_file_time        = fra[dir_position].old_file_time;
+   prev.unknown_file_time    = fra[dir_position].unknown_file_time;
+   prev.queued_file_time     = fra[dir_position].queued_file_time;
    prev.delete_files_flag    = fra[dir_position].delete_files_flag;
    prev.bytes_received       = fra[dir_position].bytes_received;
    prev.files_received       = fra[dir_position].files_received;

@@ -1,6 +1,6 @@
 /*
  *  draw_dir_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ DESCR__S_M3
  **   void draw_dir_bar(int pos, signed char delta, char bar_no, int x, int y)
  **   void draw_dir_blank_line(int pos)
  **   void draw_dir_chars(int pos, char type, int x, int y)
+ **   void draw_dir_full_marker(int pos, int x, int y, int dir_full)
  **   void draw_dir_identifier(int pos, int x, int y)
  **   void draw_dir_label_line(void)
  **   void draw_dir_line_status(int pos, signed char delta)
@@ -46,6 +47,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   01.09.2000 H.Kiehl Created
+ **   05.05.2002 H.Kiehl Show the number files currently in the directory.
  **
  */
 DESCR__E_M3
@@ -55,7 +57,6 @@ DESCR__E_M3
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
-#include "afd_ctrl.h"
 #include "dir_ctrl.h"
 
 extern Display                    *display;
@@ -85,6 +86,7 @@ extern int                        line_length,
                                   bar_thickness_2,
                                   x_offset_bars,
                                   x_offset_characters,
+                                  x_offset_dir_full,
                                   x_offset_type,
                                   no_of_columns;
 extern unsigned int               glyph_height,
@@ -146,18 +148,22 @@ draw_dir_label_line(void)
                 x + line_length,
                 line_height - 1);
 
-      /* Draw string "   DIR" */
+      /* Draw string "   DIR     F" */
       XDrawString(display, label_window, letter_gc,
                   x + DEFAULT_FRAME_SPACE,
                   text_offset + SPACE_ABOVE_LINE,
-                  "   DIR",
-                  6);
+                  "   DIR     F",
+                  12);
 
       /* See if we need to extend heading for "Character" display */
       if (line_style != BARS_ONLY)
       {
          /*
-          * Draw string " fc  fs tr ec  jq   at eh"
+          * Draw string " fd   bd  qc  fq   bq  pr  tr   fr"
+          *     fd - files in dir
+          *     bd - bytes in dir
+          *     fq - files in queue(s)
+          *     bq - bytes in queue(s)
           *     pr - active process
           *     tr - transfer rate
           *     fr - file rate
@@ -165,8 +171,8 @@ draw_dir_label_line(void)
          XDrawString(display, label_window, letter_gc,
                      x + x_offset_characters,
                      text_offset + SPACE_ABOVE_LINE,
-                     "pr  tr   fr",
-                     11);
+                     " fd   bd   fq   bq  pr  tr   fr",
+                     31);
       }
 
       x += line_length;
@@ -224,14 +230,20 @@ draw_dir_line_status(int pos, signed char delta)
    /* Write destination identifier to screen. */
    draw_dir_identifier(pos, x, y);
 
+   draw_dir_full_marker(pos, x, y, NO);
+
    /* Draw protocol type. */
    draw_dir_type(pos, x, y);
 
    if (line_style != BARS_ONLY)
    {
+      draw_dir_chars(pos, FILES_IN_DIR, x, y);
+      draw_dir_chars(pos, BYTES_IN_DIR, x, y);
+      draw_dir_chars(pos, FILES_QUEUED, x, y);
+      draw_dir_chars(pos, BYTES_QUEUED, x, y);
       draw_dir_chars(pos, NO_OF_DIR_PROCESS, x, y);
-      draw_dir_chars(pos, BYTE_RATE, x + (3 * glyph_width), y);
-      draw_dir_chars(pos, FILE_RATE, x + (8 * glyph_width), y);
+      draw_dir_chars(pos, BYTE_RATE, x, y);
+      draw_dir_chars(pos, FILE_RATE, x, y);
    }
 
    if (line_style != CHARACTERS_ONLY)
@@ -315,6 +327,45 @@ draw_dir_identifier(int pos, int x, int y)
 }
 
 
+/*+++++++++++++++++++++++ draw_dir_full_marker() ++++++++++++++++++++++++*/
+void
+draw_dir_full_marker(int pos, int x, int y, int dir_full)
+{
+   char str[2];
+   GC   tmp_gc;
+
+   if (dir_full == YES)
+   {
+      str[0] = '*';
+   }
+   else
+   {
+      str[0] = ' ';
+   }
+   str[1] = '\0';
+
+   if (connect_data[pos].inverse > OFF)
+   {
+      if (connect_data[pos].inverse == ON)
+      {
+         tmp_gc = normal_letter_gc;
+      }
+      else
+      {
+         tmp_gc = locked_letter_gc;
+      }
+   }
+   else
+   {
+      tmp_gc = letter_gc;
+   }
+   XDrawString(display, line_window, tmp_gc, x + x_offset_dir_full,
+               y + text_offset + SPACE_ABOVE_LINE, str, 1);
+
+   return;
+}
+
+
 /*+++++++++++++++++++++++++++ draw_dir_type() +++++++++++++++++++++++++++*/
 void
 draw_dir_type(int pos, int x, int y)
@@ -367,7 +418,6 @@ draw_dir_type(int pos, int x, int y)
    XDrawString(display, line_window, tmp_gc, x + x_offset_type,
                y + text_offset + SPACE_ABOVE_LINE, str, 4);
 
-
    return;
 }
 
@@ -376,25 +426,53 @@ draw_dir_type(int pos, int x, int y)
 void
 draw_dir_chars(int pos, char type, int x, int y)
 {
-   int        length;
+   int        length,
+              x_offset;
    char       *ptr = NULL;
    XGCValues  gc_values;
    GC         tmp_gc;
 
    switch(type)
    {
+      case FILES_IN_DIR :
+         ptr = connect_data[pos].str_files_in_dir;
+         x_offset = 0;
+         length = 4;
+         break;
+
+      case BYTES_IN_DIR :
+         ptr = connect_data[pos].str_bytes_in_dir;
+         x_offset = 5 * glyph_width;
+         length = 4;
+         break;
+
+      case FILES_QUEUED :
+         ptr = connect_data[pos].str_files_queued;
+         x_offset = 10 * glyph_width;
+         length = 4;
+         break;
+
+      case BYTES_QUEUED :
+         ptr = connect_data[pos].str_bytes_queued;
+         x_offset = 15 * glyph_width;
+         length = 4;
+         break;
+
       case NO_OF_DIR_PROCESS : 
          ptr = connect_data[pos].str_np;
+         x_offset = 20 * glyph_width;
          length = 2;
          break;
 
       case FILE_RATE : 
          ptr = connect_data[pos].str_fr;
+         x_offset = 23 * glyph_width;
          length = 4;
          break;
 
       case BYTE_RATE : 
          ptr = connect_data[pos].str_tr;
+         x_offset = 28 * glyph_width;
          length = 4;
          break;
 
@@ -425,7 +503,7 @@ draw_dir_chars(int pos, char type, int x, int y)
       tmp_gc = color_letter_gc;
    }
    XDrawImageString(display, line_window, tmp_gc,
-                    x + x_offset_characters,
+                    x + x_offset_characters + x_offset,
                     y + text_offset + SPACE_ABOVE_LINE,
                     ptr,
                     length);

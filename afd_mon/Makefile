@@ -37,7 +37,7 @@ MONPROG  = mon
 MONOBJS  = mon.o\
            tcpcmd.o
 
-PROGS    = $(MAFDPROG) $(AMONPROG) $(MONPROG) $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
+PROGS    = $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT) $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT)
 OBJS     = $(MAFDOBJS) $(AMONOBJS) $(MONOBJS) $(MSAVOBJS) $(TOPVOBJS) $(VHSTOBJS)
 HEADERS  = ../init_afd/afddefs.h ../config.h mondefs.h
 
@@ -45,27 +45,27 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(MAFDPROG) : $(MAFDOBJS) $(AFDLIB)
+$(MAFDPROG)$(EXE_EXT) : $(MAFDOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MAFDOBJS) $(AFDLIB) $(EFENCE) 
 
-$(AMONPROG) : $(AMONOBJS) $(AFDLIB)
+$(AMONPROG)$(EXE_EXT) : $(AMONOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AMONOBJS) $(AFDLIB) $(EFENCE) 
 
-$(MONPROG) : $(MONOBJS) $(AFDLIB)
+$(MONPROG)$(EXE_EXT) : $(MONOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MONOBJS) $(AFDLIB) $(SPECIAL_LIBS) $(EFENCE) 
 
-$(MSAVPROG) : $(MSAVOBJS) $(AFDLIB)
+$(MSAVPROG)$(EXE_EXT) : $(MSAVOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(MSAVOBJS) $(AFDLIB) $(EFENCE)
 
-$(TOPVPROG) : $(TOPVOBJS) $(AFDLIB)
+$(TOPVPROG)$(EXE_EXT) : $(TOPVOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TOPVOBJS) $(AFDLIB) $(EFENCE)
 
-$(VHSTPROG) : $(VHSTOBJS) $(AFDLIB)
+$(VHSTPROG)$(EXE_EXT) : $(VHSTOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(VHSTOBJS) $(AFDLIB) $(EFENCE)
 
@@ -77,13 +77,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR)/bin && rm -f $(MAFDPROG) $(AMONPROG) $(MONPROG)
-	cp -p $(MAFDPROG) $(AMONPROG) $(MONPROG) $(INSTDIR)/bin
-	cd $(INSTDIR)/bin && chmod $(BINMODE) $(AMONPROG) $(MONPROG)
-	cd $(INSTDIR)/bin && chmod $(SUIDMODE) $(MAFDPROG)
-	cd $(INSTDIR)/sbin && rm -f $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
-	cp -p $(MSAVPROG) $(TOPVPROG) $(VHSTPROG) $(INSTDIR)/sbin
-	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
+	cd $(INSTDIR)/bin && rm -f $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT)
+	cp -p $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT) $(INSTDIR)/bin
+	cd $(INSTDIR)/bin && chmod $(BINMODE) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT)
+	cd $(INSTDIR)/bin && chmod $(SUIDMODE) $(MAFDPROG)$(EXE_EXT)
+	cd $(INSTDIR)/sbin && rm -f $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT)
+	cp -p $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(INSTDIR)/sbin
+	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

@@ -133,7 +133,7 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stdout,
 #ifdef PRE_RELEASE
-                    "PRE %d.%d.%d-%d\n", MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
+                    "%d.%d.%d-pre%d\n", MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
                     "%d.%d.%d\n", MAJOR, MINOR, BUG_FIX);
 #endif

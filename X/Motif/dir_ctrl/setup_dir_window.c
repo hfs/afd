@@ -1,8 +1,8 @@
 /*
  *  setup_dir_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   31.08.2000 H.Kiehl Created
+ **   05.05.2002 H.Kiehl Show the number files currently in the directory.
  **
  */
 DESCR__E_M3
@@ -49,7 +50,6 @@ DESCR__E_M3
 #include <X11/Xlib.h>
 #include <Xm/Xm.h>
 #include <errno.h>
-#include "afd_ctrl.h"
 #include "dir_ctrl.h"
 #include "permission.h"
 
@@ -86,6 +86,7 @@ extern int                      no_of_dirs,
                                 bar_thickness_2,
                                 x_offset_bars,
                                 x_offset_characters,
+                                x_offset_dir_full,
                                 x_offset_type;
 extern unsigned int             glyph_height,
                                 glyph_width,
@@ -155,6 +156,7 @@ setup_dir_window(char *font_name)
           (dcp.show_ilog != NO_PERMISSION) ||
           (dcp.show_olog != NO_PERMISSION) ||
           (dcp.show_elog != NO_PERMISSION) ||
+          (dcp.show_queue != NO_PERMISSION) ||
           (dcp.info != NO_PERMISSION))
       {
          XtVaSetValues(mw[LOG_W], XmNfontList, fontlist, NULL);
@@ -181,6 +183,10 @@ setup_dir_window(char *font_name)
          if (dcp.show_elog != NO_PERMISSION)
          {
             XtVaSetValues(vw[DIR_DELETE_W], XmNfontList, fontlist, NULL);
+         }
+         if (dcp.show_queue != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[DIR_SHOW_QUEUE_W], XmNfontList, fontlist, NULL);
          }
          if (dcp.info != NO_PERMISSION)
          {
@@ -291,14 +297,16 @@ setup_dir_window(char *font_name)
       } /* for (i = 0; i < no_of_dirs; i++) */
    }
 
-   text_offset     = font_struct->ascent;
-   line_height     = SPACE_ABOVE_LINE + glyph_height + SPACE_BELOW_LINE;
-   bar_thickness_2 = glyph_height / 2;
-   x_offset_type   = DEFAULT_FRAME_SPACE +
-                     (MAX_DIR_ALIAS_LENGTH * glyph_width) +
-                     DEFAULT_FRAME_SPACE;
-   line_length     = x_offset_type + (3 * glyph_width) +
-                     DEFAULT_FRAME_SPACE + DEFAULT_FRAME_SPACE;
+   text_offset       = font_struct->ascent;
+   line_height       = SPACE_ABOVE_LINE + glyph_height + SPACE_BELOW_LINE;
+   bar_thickness_2   = glyph_height / 2;
+   x_offset_dir_full = DEFAULT_FRAME_SPACE +
+                       (MAX_DIR_ALIAS_LENGTH * glyph_width) +
+                       DEFAULT_FRAME_SPACE;
+   x_offset_type     = x_offset_dir_full + (1 * glyph_width) +
+                       DEFAULT_FRAME_SPACE;
+   line_length       = x_offset_type + (3 * glyph_width) +
+                       DEFAULT_FRAME_SPACE + DEFAULT_FRAME_SPACE;
 
    if (line_style == BARS_ONLY)
    {
@@ -308,12 +316,12 @@ setup_dir_window(char *font_name)
    else  if (line_style == CHARACTERS_ONLY)
          {
             x_offset_characters = line_length;
-            line_length += (12 * glyph_width) + DEFAULT_FRAME_SPACE;
+            line_length += (32 * glyph_width) + DEFAULT_FRAME_SPACE;
          }
          else
          {
             x_offset_characters = line_length;
-            x_offset_bars = line_length + (12 * glyph_width) +
+            x_offset_bars = line_length + (32 * glyph_width) +
                             DEFAULT_FRAME_SPACE;
             line_length = x_offset_bars + (int)max_bar_length +
                           DEFAULT_FRAME_SPACE;

@@ -104,145 +104,152 @@ GDDOBJS   = get_dc_data.o
 DELCPROG  = del_cache
 DELCOBJS  = del_cache.o
 
-PROGS   = $(FSAVPROG) $(FRAVPROG) $(FSAEPROG) $(RFSAPROG) $(WDIRPROG)\
-          $(DSPYPROG) $(AFDSPROG) $(BFCPROG) $(GCPROG) $(SCPROG) $(TSPROG)\
-          $(G2TPROG) $(GFSPROG) $(CFSAPROG) $(CJIDPROG) $(QSPYPROG) $(CSPYPROG)\
-          $(JSPYPROG) $(CJSPYPROG) $(RMJOBPROG) $(DATEPROG) $(FCHEKPROG)\
-          $(ACHEKPROG) $(CSTATPROG) $(UDBPROG) $(ACMDPROG) $(ACFGPROG)\
-          $(GDDPROG) # $(SYSCPROG)
+CFRAPPROG = check_fra_dir_pos
+CFRAPOBJS = check_fra_dir_pos.o
+
+PROGS   = $(FSAVPROG)$(EXE_EXT) $(FRAVPROG)$(EXE_EXT) $(FSAEPROG)$(EXE_EXT) $(RFSAPROG)$(EXE_EXT) $(WDIRPROG)$(EXE_EXT)\
+          $(DSPYPROG)$(EXE_EXT) $(AFDSPROG)$(EXE_EXT) $(BFCPROG)$(EXE_EXT) $(GCPROG)$(EXE_EXT) $(SCPROG)$(EXE_EXT) $(TSPROG)$(EXE_EXT)\
+          $(G2TPROG)$(EXE_EXT) $(GFSPROG)$(EXE_EXT) $(CFSAPROG)$(EXE_EXT) $(CJIDPROG)$(EXE_EXT) $(QSPYPROG)$(EXE_EXT) $(CSPYPROG)$(EXE_EXT)\
+          $(JSPYPROG)$(EXE_EXT) $(CJSPYPROG)$(EXE_EXT) $(RMJOBPROG)$(EXE_EXT) $(DATEPROG)$(EXE_EXT) $(FCHEKPROG)$(EXE_EXT)\
+          $(ACHEKPROG)$(EXE_EXT) $(CSTATPROG)$(EXE_EXT) $(UDBPROG)$(EXE_EXT) $(ACMDPROG)$(EXE_EXT) $(ACFGPROG)$(EXE_EXT)\
+          $(GDDPROG)$(EXE_EXT) $(CFRAPPROG)$(EXE_EXT) # $(SYSCPROG)$(EXE_EXT)
 OBJS    = $(FSAVOBJS) $(FRAVOBJS) $(FSAEOBJS) $(RFSAOBJS) $(WDIROBJS)\
           $(DSPYOBJS) $(AFDSOBJS) $(BFCOBJS) $(SCOBJS) $(GCOBJS) $(TSOBJS)\
           $(G2TOBJS) $(GFSOBJS) $(CFSAOBJS) $(CJIDOBJS) $(QSPYOBJS) $(CSPYOBJS)\
           $(JSPYOBJS) $(CJSPYOBJS) $(RMJOBOBJS) $(DATEOBJS) $(FCHEKOBJS)\
           $(ACHEKOBJS) $(CSTATOBJS) $(UDBOBJS) $(ACMDOBJS) $(ACFGOBJS)\
-          $(GDDOBJS) $(DELCOBJS) # $(SYSCOBJS)
+          $(GDDOBJS) $(DELCOBJS) $(CFRAPOBJS) # $(SYSCOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h ../fd/fddefs.h
 
 all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(ACMDPROG) : $(ACMDOBJS) $(LIB)
+$(ACMDPROG)$(EXE_EXT) : $(ACMDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(ACMDOBJS) $(LIB) $(EFENCE)
 
-$(ACFGPROG) : $(ACFGOBJS) $(LIB)
+$(ACFGPROG)$(EXE_EXT) : $(ACFGOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(ACFGOBJS) $(LIB) $(EFENCE)
 
-$(AFDSPROG) : $(AFDSOBJS) $(LIB)
+$(AFDSPROG)$(EXE_EXT) : $(AFDSOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDSOBJS) $(LIB) $(EFENCE)
 
-$(FSAVPROG) : $(FSAVOBJS) $(LIB)
+$(FSAVPROG)$(EXE_EXT) : $(FSAVOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(FSAVOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE)
 
-$(FRAVPROG) : $(FRAVOBJS) $(LIB)
+$(FRAVPROG)$(EXE_EXT) : $(FRAVOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(FRAVOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE)
 
-$(FSAEPROG) : $(FSAEOBJS) $(LIB)
+$(FSAEPROG)$(EXE_EXT) : $(FSAEOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(FSAEOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE)
 
-$(RFSAPROG) : $(RFSAOBJS) $(LIB)
+$(RFSAPROG)$(EXE_EXT) : $(RFSAOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(RFSAOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE)
 
-$(WDIRPROG) : $(WDIROBJS) $(LIB)
+$(WDIRPROG)$(EXE_EXT) : $(WDIROBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(WDIROBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE)
 
-$(BFCPROG) : $(BFCOBJS) $(LIB)
+$(BFCPROG)$(EXE_EXT) : $(BFCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(BFCOBJS) $(LIB) $(EFENCE)
 
-$(BIFCPROG) : $(BIFCOBJS) $(MISCLIB) $(LIB)
+$(BIFCPROG)$(EXE_EXT) : $(BIFCOBJS) $(MISCLIB) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(BIFCOBJS) $(MISCLIB) $(LIB) $(EFENCE)
 
-$(GCPROG) : $(GCOBJS) $(LIB)
+$(GCPROG)$(EXE_EXT) : $(GCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(GCOBJS) $(LIB) $(EFENCE)
 
-$(SCPROG) : $(SCOBJS) $(LIB)
+$(SCPROG)$(EXE_EXT) : $(SCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SCOBJS) $(LIB) $(EFENCE)
 
-$(TSPROG) : $(TSOBJS)
+$(TSPROG)$(EXE_EXT) : $(TSOBJS)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TSOBJS) $(EFENCE)
 
-$(G2TPROG) : $(G2TOBJS) $(MLIB) $(MISCLIB) $(LIB)
+$(G2TPROG)$(EXE_EXT) : $(G2TOBJS) $(MLIB) $(MISCLIB) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(G2TOBJS) $(MISCLIB) $(LIB) $(EFENCE)
 
-$(GFSPROG) : $(GFSOBJS)
+$(GFSPROG)$(EXE_EXT) : $(GFSOBJS)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(GFSOBJS) $(EFENCE)
 
-$(CFSAPROG) : $(CFSAOBJS) $(LIB)
+$(CFSAPROG)$(EXE_EXT) : $(CFSAOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(CFSAOBJS) $(LIB) $(EFENCE)
 
-$(CJIDPROG) : $(CJIDOBJS) $(LIB)
+$(CJIDPROG)$(EXE_EXT) : $(CJIDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(CJIDOBJS) $(LIB) $(EFENCE)
 
-$(CSTATPROG) : $(CSTATOBJS) $(LIB)
+$(CSTATPROG)$(EXE_EXT) : $(CSTATOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(CSTATOBJS) $(LIB) $(EFENCE)
 
-$(QSPYPROG) : $(QSPYOBJS) $(LIB)
+$(QSPYPROG)$(EXE_EXT) : $(QSPYOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(QSPYOBJS) $(LIB) $(EFENCE)
 
-$(CSPYPROG) : $(CSPYOBJS) $(LIB)
+$(CSPYPROG)$(EXE_EXT) : $(CSPYOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(CSPYOBJS) $(LIB) $(EFENCE)
 
-$(DSPYPROG) : $(DSPYOBJS) $(LIB)
+$(DSPYPROG)$(EXE_EXT) : $(DSPYOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(DSPYOBJS) $(LIB) $(EFENCE)
 
-$(JSPYPROG) : $(JSPYOBJS) $(LIB)
+$(JSPYPROG)$(EXE_EXT) : $(JSPYOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(JSPYOBJS) $(LIB) $(EFENCE)
 
-$(CJSPYPROG) : $(CJSPYOBJS) $(LIB)
+$(CJSPYPROG)$(EXE_EXT) : $(CJSPYOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(CJSPYOBJS) $(LIB) $(EFENCE)
 
-$(RMJOBPROG) : $(RMJOBOBJS) $(LIB)
+$(RMJOBPROG)$(EXE_EXT) : $(RMJOBOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(RMJOBOBJS) $(LIB) $(EFENCE)
 
-$(DATEPROG) : $(DATEOBJS) $(LIB)
+$(DATEPROG)$(EXE_EXT) : $(DATEOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(DATEOBJS) $(LIB) $(EFENCE)
 
-$(FCHEKPROG) : $(FCHEKOBJS) $(LIB)
+$(FCHEKPROG)$(EXE_EXT) : $(FCHEKOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(FCHEKOBJS) $(LIB) $(EFENCE)
 
-$(ACHEKPROG) : $(ACHEKOBJS) $(LIB)
+$(ACHEKPROG)$(EXE_EXT) : $(ACHEKOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(ACHEKOBJS) $(LIB) $(EFENCE)
 
-$(UDBPROG) : $(UDBOBJS) $(LIB)
+$(UDBPROG)$(EXE_EXT) : $(UDBOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(UDBOBJS) $(LIB) $(EFENCE)
 
-$(GDDPROG) : $(GDDOBJS) $(LIB)
+$(GDDPROG)$(EXE_EXT) : $(GDDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(GDDOBJS) $(LIB) $(EFENCE)
 
-$(DELCPROG) : $(DELCOBJS) $(LIB)
+$(DELCPROG)$(EXE_EXT) : $(DELCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(DELCOBJS) $(LIB) $(EFENCE)
 
-#$(SYSCPROG) : $(SYSCOBJS) $(LIB)
+$(CFRAPPROG)$(EXE_EXT) : $(CFRAPOBJS) $(LIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(CFRAPOBJS) $(LIB) $(EFENCE)
+
+#$(SYSCPROG)$(EXE_EXT) : $(SYSCOBJS) $(LIB)
 #	rm -f $@
 #	$(CC) $(CFLAGS) -o $@ $(SYSCOBJS) $(LIB) $(EFENCE)
 
@@ -251,20 +258,20 @@ clean :
 
 clobber :
 	$(MAKE) clean
-	rm -f $(PROGS) $(DELCPROG)
+	rm -f $(PROGS) $(DELCPROG)$(EXE_EXT)
 
 real_clobber :
 	$(MAKE) clobber
-	cd $(INSTDIR)/sbin && rm -f $(PROGS) uhc $(DELCPROG)
+	cd $(INSTDIR)/sbin && rm -f $(PROGS) uhc$(EXE_EXT) $(DELCPROG)$(EXE_EXT)
 
 install :
 	cd $(INSTDIR)/sbin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/sbin
-	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(PROGS) && chmod $(SUIDMODE) $(UDBPROG) $(ACMDPROG)
-	@if [ ! -r $(INSTDIR)/sbin/uhc ] ; \
+	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(PROGS) && chmod $(SUIDMODE) $(UDBPROG)$(EXE_EXT) $(ACMDPROG)$(EXE_EXT)
+	@if [ ! -r $(INSTDIR)/sbin/uhc$(EXE_EXT) ] ; \
 	then \
            cd $(INSTDIR)/sbin ; \
-           ln -s $(UDBPROG) uhc ; \
+           ln -s $(UDBPROG) uhc$(EXE_EXT) ; \
         fi
 
 sinstall :

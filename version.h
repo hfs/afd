@@ -30,8 +30,8 @@
  */
 #define MAJOR          1
 #define MINOR          2
-#define BUG_FIX        13
-/* #define PRE_RELEASE    4 */
+#define BUG_FIX        14
+/* #define PRE_RELEASE    9 */
 
 #define VERSION_ID     "--version"
 
@@ -51,7 +51,7 @@
 #define PRINT_VERSION(prog)                                                  \
         {                                                                    \
            (void)fprintf(stderr,                                             \
-                         "%s -- Version: PRE %d.%d.%d-%d <%s> %6.6s %s [AFD]%s%s%s%s%s%s%s%s",\
+                         "%s -- Version: %d.%d.%d-pre%d <%s> %6.6s %s [AFD]%s%s%s%s%s%s%s%s",\
                          (prog), MAJOR, MINOR, BUG_FIX, PRE_RELEASE,         \
                          AFD_MAINTAINER, __DATE__, __TIME__, COPYRIGHT_0,    \
                          COPYRIGHT_1, COPYRIGHT_2, COPYRIGHT_3, COPYRIGHT_4, \

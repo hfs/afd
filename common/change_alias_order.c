@@ -214,7 +214,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
       exit(INCORRECT);
    }
 
-   /* Write number of hosts to new shm region */
+   /* Write number of hosts to new mmap region. */
    *(int*)ptr = no_of_hosts;
 
    /* Copy configuration information from the old FSA. */

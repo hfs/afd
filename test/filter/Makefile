@@ -12,18 +12,18 @@ TF3PROG = tfilter3
 TF3OBJS = tfilter.o\
           filter3.o
 
-PROGS   = $(TF1PROG) $(TF2PROG) $(TF3PROG)
+PROGS   = $(TF1PROG)$(EXE_EXT) $(TF2PROG)$(EXE_EXT) $(TF3PROG)$(EXE_EXT)
 OBJS    = $(TF1OBJS) $(TF2OBJS) $(TF3OBJS)
 
 all : $(PROGS)
 
-$(TF1PROG) : $(TF1OBJS)
+$(TF1PROG)$(EXE_EXT) : $(TF1OBJS)
 	$(CC) $(CFLAGS) -o $@ $(TF1OBJS)
 
-$(TF2PROG) : $(TF2OBJS)
+$(TF2PROG)$(EXE_EXT) : $(TF2OBJS)
 	$(CC) $(CFLAGS) -o $@ $(TF2OBJS)
 
-$(TF3PROG) : $(TF3OBJS)
+$(TF3PROG)$(EXE_EXT) : $(TF3OBJS)
 	$(CC) $(CFLAGS) -o $@ $(TF3OBJS)
 
 clean :

@@ -107,7 +107,7 @@ handle_request(int sd, int pos)
    /* is offered here.                                               */
 #ifdef PRE_RELEASE
    (void)fprintf(p_data,
-                 "220 %s AFD server %s (PRE %d.%d.%d-%d) ready.\r\n",
+                 "220 %s AFD server %s (%d.%d.%d-pre%d) ready.\r\n",
                  hostname, afd_name, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)fprintf(p_data,
@@ -627,7 +627,7 @@ handle_request(int sd, int pos)
                                          "WD %s\r\n", p_work_dir);
                            (void)fprintf(p_data,
 #ifdef PRE_RELEASE
-                                         "AV PRE%d.%d.%d-%d\r\n",
+                                         "AV %d.%d.%d-pre%d\r\n",
                                          MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
                                          "AV %d.%d.%d\r\n",

@@ -267,7 +267,7 @@ check_fra_fd(void)
                      }
                   }
                }
-               else
+               else /* get_url_pos() == CORRECT */
                {
                   for (j = 0; j < no_remote_queued; j++)
                   {
@@ -277,7 +277,7 @@ check_fra_fd(void)
                      }
                   }
                }
-            }
+            } /* for (i = 0; i < no_of_retrieves; i++) */
          }
          if (rql != NULL)
          {
@@ -302,6 +302,7 @@ get_url_pos(char *url, char *dir_alias, int *pos)
 {
    register int i;
 
+   *pos = INCORRECT;
    for (i = 0; i < no_of_dirs; i++)
    {
       if ((fra[i].host_alias[0] != '\0') &&

@@ -104,6 +104,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
         {
            db.port = DEFAULT_SMTP_PORT;
            db.reply_to = NULL;
+           db.from = NULL;
+           db.charset = NULL;
         }
 #ifdef _WITH_SCP1_SUPPORT
    else if (protocol & SCP1_FLAG)

@@ -72,7 +72,6 @@ DESCR__E_M3
 #include <Xm/RowColumn.h>
 #include <Xm/DrawingA.h>
 #include "show_log.h"
-#include "afd_ctrl.h"
 #include "mon_ctrl.h"
 #include "permission.h"
 

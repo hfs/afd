@@ -87,13 +87,20 @@
 #define BASENAME_ID                "basename" /* If we want to send only */
                                               /* the basename of the     */
                                               /* file.                   */
+#define BASENAME_ID_LENGTH         8
 #define EXTENSION_ID               "extension"/* If we want to send      */
                                               /* files without extension.*/
+#define EXTENSION_ID_LENGTH        9
 #define ADD_PREFIX_ID              "prefix add"
 #define ADD_PREFIX_ID_LENGTH       10
 #define DEL_PREFIX_ID              "prefix del"
 #define DEL_PREFIX_ID_LENGTH       10
+#define TOUPPER_ID                 "toupper"
+#define TOUPPER_ID_LENGTH          7
+#define TOLOWER_ID                 "tolower"
+#define TOLOWER_ID_LENGTH          7
 #define TIFF2GTS_ID                "tiff2gts"
+#define TIFF2GTS_ID_LENGTH         8
 #define GTS2TIFF_ID                "gts2tiff"
 #define GTS2TIFF_ID_LENGTH         8
 #define EXTRACT_ID                 "extract"
@@ -103,9 +110,9 @@
 #ifdef _WITH_AFW2WMO
 #define AFW2WMO_ID                 "afw2wmo"
 #define AFW2WMO_ID_LENGTH          7
-#define LOCAL_OPTION_POOL_SIZE     13
+#define LOCAL_OPTION_POOL_SIZE     15
 #else
-#define LOCAL_OPTION_POOL_SIZE     12
+#define LOCAL_OPTION_POOL_SIZE     14
 #endif
 
 /* Definitions for types of time options. */
@@ -286,10 +293,10 @@ struct dir_data
                                             /* directory.                */
           unsigned char time_option;        /* Flag to indicate if the   */
                                             /* time option is used.      */
-          int           old_file_time;      /* After how many hours can  */
-                                            /* a unknown file be         */
-                                            /* declared as old.          */
-                                            /* delete unknown files.     */
+          int           unknown_file_time;  /* After how many hours can  */
+                                            /* a unknown file be deleted.*/
+          int           queued_file_time;   /* After how many hours can  */
+                                            /* a queued file be deleted. */
           int           end_character;
           int           fsa_pos;            /* FSA position, only used   */
                                             /* for retrieving files.     */
@@ -420,26 +427,26 @@ extern int    amg_zombie_check(pid_t *, int),
               com(char),
 #ifdef _WITH_PTHREAD
               check_files(struct directory_entry *, char *, char *,
-                          char *, int, off_t *, char **, size_t *),
+                          char *, int, off_t *, char **, off_t *),
               count_pool_files(int *, char *, off_t *, char **),
               link_files(char *, char *, off_t *, char **,
                          struct directory_entry *, struct instant_db *,
                          time_t *, unsigned short *, int, int,
                          char *, off_t *),
-              save_files(char *, char *, char **,
-                         struct directory_entry *, int, int, char),
+              save_files(char *, char *, off_t *, char **,
+                         struct directory_entry *, int, int, char, off_t *),
 #else
               check_files(struct directory_entry *, char *, char *,
-                          char *, int, size_t *),
+                          char *, int, off_t *),
               count_pool_files(int *, char *),
               link_files(char *, char *, struct directory_entry *,
                          struct instant_db *, time_t *, unsigned short *,
                          int, int, char *, off_t *),
               save_files(char *, char *, struct directory_entry *,
-                         int, int, char),
+                         int, int, char, off_t *),
 #endif
               check_process_list(int),
-              create_db(int),
+              create_db(void),
               eval_dir_config(size_t),
               eval_time_str(char *, struct bd_time_entry *),
               handle_options(int, char *, char *, int *, off_t *),
@@ -448,8 +455,10 @@ extern int    amg_zombie_check(pid_t *, int),
               lookup_fra_pos(char *),
               rename_files(char *, char *, int, struct instant_db *, time_t *,
                            unsigned short *, char *, off_t *);
-extern pid_t  make_process_amg(char *, char *, int, int, int);
+extern pid_t  make_process_amg(char *, char *, int, int);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *),
+              *convert_fra(int, char *, off_t *, int, unsigned char,
+                           unsigned char),
               *next(char *);
 extern void   check_old_time_jobs(int),
               clear_error_dir(void),

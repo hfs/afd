@@ -15,7 +15,7 @@ DIRIOBJS = dir_info.o\
            info_callbacks.o\
            update_info.o
 
-PROGS    = $(DIRIPROG)
+PROGS    = $(DIRIPROG)$(EXE_EXT)
 OBJS     = $(DIRIOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h dir_info.h
 
@@ -23,7 +23,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(DIRIPROG) : $(DIRIOBJS) $(LIB)
+$(DIRIPROG)$(EXE_EXT) : $(DIRIOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(DIRIOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -37,7 +37,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(DIRIPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(DIRIPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

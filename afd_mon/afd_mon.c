@@ -262,7 +262,7 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, INFO_SIGN,
              "=================> STARTUP <=================\n");
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (PRE %d.%d.%d-%d)\n",
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d-pre%d)\n",
              AFD_MON, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",

@@ -311,10 +311,9 @@ eval_config_file(char *file_name, struct data *p_db)
 void
 eval_filename_file(char *file_name, struct data *p_db)
 {
-   off_t file_size;
-   char  *buffer;
+   char *buffer;
 
-   if ((file_size = read_file(file_name, &buffer)) != INCORRECT)
+   if (read_file(file_name, &buffer) != INCORRECT)
    {
       register int i, j;
       char         *ptr = buffer;

@@ -1,6 +1,6 @@
 /*
  *  create_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,8 @@ DESCR__S_M3
  **   27.03.2000 H.Kiehl Created
  **   05.04.2001 H.Kiehl Fill file with data before it is mapped.
  **   18.04.2001 H.Kiehl Add version number to structure.
+ **   03.05.2002 H.Kiehl Added new elements to FRA structure to show
+ **                      total number of files in directory.
  **
  */
 DESCR__E_M3
@@ -92,7 +94,6 @@ create_fra(int no_of_dirs)
                               old_fra_id,
                               old_no_of_dirs = -1,
                               rest;
-   size_t                     size;
    off_t                      old_fra_size = -1;
    char                       buffer[4096],
                               fra_id_file[MAX_PATH_LENGTH],
@@ -240,14 +241,44 @@ create_fra(int no_of_dirs)
       {
          old_no_of_dirs = *(int *)ptr;
 
-         /* Now mark it as stale */
+         /* Mark it as stale */
          *(int *)ptr = STALE;
 
-         /* Move pointer to correct position so */
-         /* we can extract the relevant data.   */
-         ptr += AFD_WORD_OFFSET;
+         /* Check if the version has changed. */
+         if (*(ptr + sizeof(int) + 1 + 1 + 1) != CURRENT_FRA_VERSION)
+         {
+            unsigned char old_version = *(ptr + sizeof(int) + 1 + 1 + 1);
 
-         old_fra = (struct fileretrieve_status *)ptr;
+            /* Unmap old FRA file. */
+#ifdef _NO_MMAP
+            if (munmap_emu(ptr) == -1)
+#else
+            if (munmap(ptr, old_fra_size) == -1)
+#endif
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Failed to munmap() %s : %s (%s %d)\n",
+                         old_fra_stat, strerror(errno), __FILE__, __LINE__);
+            }
+            if ((ptr = convert_fra(old_fra_fd, old_fra_stat, &old_fra_size,
+                                   old_no_of_dirs,
+                                   old_version, CURRENT_FRA_VERSION)) == NULL)
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Failed to convert_fra() %s (%s %d)\n",
+                         old_fra_stat, __FILE__, __LINE__);
+               old_fra_id = -1;
+            }
+         } /* FRA version has changed. */
+
+         if (old_fra_id != -1)
+         {
+            /* Move pointer to correct position so */
+            /* we can extract the relevant data.   */
+            ptr += AFD_WORD_OFFSET;
+
+            old_fra = (struct fileretrieve_status *)ptr;
+         }
       }
    }
 
@@ -330,7 +361,6 @@ create_fra(int no_of_dirs)
    /*
     * Copy all the old and new data into the new mapped region.
     */
-   size = MAX_NO_PARALLEL_JOBS * sizeof(struct status);
    if (old_fra_id < 0)
    {
       /*
@@ -345,7 +375,8 @@ create_fra(int no_of_dirs)
          fra[i].protocol             = dd[i].protocol;
          fra[i].priority             = dd[i].priority;
          fra[i].delete_files_flag    = dd[i].delete_files_flag;
-         fra[i].old_file_time        = dd[i].old_file_time;
+         fra[i].unknown_file_time    = dd[i].unknown_file_time;
+         fra[i].queued_file_time     = dd[i].queued_file_time;
          fra[i].report_unknown_files = dd[i].report_unknown_files;
          fra[i].end_character        = dd[i].end_character;
          fra[i].important_dir        = dd[i].important_dir;
@@ -357,9 +388,14 @@ create_fra(int no_of_dirs)
          fra[i].dir_pos              = dd[i].dir_pos;
          fra[i].last_retrieval       = 0L;
          fra[i].bytes_received       = 0L;
+         fra[i].files_in_dir         = 0;
+         fra[i].files_queued         = 0;
+         fra[i].bytes_in_dir         = 0;
+         fra[i].bytes_in_queue       = 0;
          fra[i].files_received       = 0;
          fra[i].no_of_process        = 0;
          fra[i].dir_status           = NORMAL_STATUS;
+         fra[i].dir_flag             = 0;
          if (fra[i].time_option == YES)
          {
             (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));
@@ -380,7 +416,8 @@ create_fra(int no_of_dirs)
          fra[i].protocol             = dd[i].protocol;
          fra[i].priority             = dd[i].priority;
          fra[i].delete_files_flag    = dd[i].delete_files_flag;
-         fra[i].old_file_time        = dd[i].old_file_time;
+         fra[i].unknown_file_time    = dd[i].unknown_file_time;
+         fra[i].queued_file_time     = dd[i].queued_file_time;
          fra[i].report_unknown_files = dd[i].report_unknown_files;
          fra[i].end_character        = dd[i].end_character;
          fra[i].important_dir        = dd[i].important_dir;
@@ -420,7 +457,12 @@ create_fra(int no_of_dirs)
             fra[i].last_retrieval  = old_fra[k].last_retrieval;
             fra[i].bytes_received  = old_fra[k].bytes_received;
             fra[i].files_received  = old_fra[k].files_received;
+            fra[i].files_in_dir    = old_fra[k].files_in_dir;
+            fra[i].files_queued    = old_fra[k].files_queued;
+            fra[i].bytes_in_dir    = old_fra[k].bytes_in_dir;
+            fra[i].bytes_in_queue  = old_fra[k].bytes_in_queue;
             fra[i].dir_status      = old_fra[k].dir_status;
+            fra[i].dir_flag        = old_fra[k].dir_flag;
             fra[i].queued          = old_fra[k].queued;
          }
          else /* This directory is not in the old FRA, therefor it is new. */
@@ -428,7 +470,12 @@ create_fra(int no_of_dirs)
             fra[i].last_retrieval  = 0L;
             fra[i].bytes_received  = 0L;
             fra[i].files_received  = 0;
+            fra[i].files_in_dir    = 0;
+            fra[i].files_queued    = 0;
+            fra[i].bytes_in_dir    = 0;
+            fra[i].bytes_in_queue  = 0;
             fra[i].dir_status      = NORMAL_STATUS;
+            fra[i].dir_flag        = 0;
             fra[i].queued          = NO;
          }
       } /* for (i = 0; i < no_of_dirs; i++) */

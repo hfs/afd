@@ -28,7 +28,6 @@ DESCR__S_M3
  ** SYNOPSIS
  **   pid_t make_process_amg(char *work_dir,
  **                          char *prog_name,
- **                          int  shmid,
  **                          int  rescan_time,
  **                          int  max_process)
  **
@@ -67,18 +66,15 @@ extern int no_of_local_dirs,
 pid_t
 make_process_amg(char *work_dir,
                  char *prog_name,
-                 int  shmid,
                  int  rescan_time,
                  int  max_process)
 {
    static pid_t proc_id;
-   char         shm_str[MAX_INT_LENGTH],
-                rt_str[MAX_INT_LENGTH],
+   char         rt_str[MAX_INT_LENGTH],
                 mp_str[MAX_INT_LENGTH],
                 nd_str[MAX_INT_LENGTH];
 
-   /* First convert shmid into a char string */
-   (void)sprintf(shm_str, "%d", shmid);
+   /* First convert int's into a char string */
    (void)sprintf(rt_str, "%d", rescan_time);
    (void)sprintf(mp_str, "%d", max_process);
    (void)sprintf(nd_str, "%d", no_of_local_dirs);
@@ -92,7 +88,7 @@ make_process_amg(char *work_dir,
                exit(INCORRECT);
 
       case  0: /* Child process */
-               if (execlp(prog_name, prog_name, work_dir, shm_str,
+               if (execlp(prog_name, prog_name, work_dir,
                           rt_str, mp_str, nd_str, (char *)0) < 0)
                {                                                
                   (void)rec(sys_log_fd, ERROR_SIGN,

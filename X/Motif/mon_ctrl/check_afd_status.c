@@ -53,7 +53,6 @@ DESCR__E_M3
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
 #include <Xm/Xm.h>
-#include "afd_ctrl.h"
 #include "mon_ctrl.h"
 
 extern Display                *display;

@@ -50,6 +50,7 @@ DESCR__S_M3
  **   20.07.2001 H.Kiehl Added new option to search queue for old files,
  **                      this was WRONGLY done with the "delete unknown files"
  **                      option!
+ **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
  **
  */
 DESCR__E_M3
@@ -146,7 +147,7 @@ search_old_files(time_t now)
                       (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
                   {
                      diff_time = now - stat_buf.st_mtime;
-                     if (diff_time > fra[de[i].fra_pos].old_file_time)
+                     if (diff_time > fra[de[i].fra_pos].unknown_file_time)
                      {
                         if (unlink(tmp_dir) == -1)
                         {
@@ -242,7 +243,7 @@ search_old_files(time_t now)
                                 if (S_ISREG(stat_buf.st_mode))
                                 {
                                    diff_time = now - stat_buf.st_mtime;
-                                   if (diff_time > fra[de[i].fra_pos].old_file_time)
+                                   if (diff_time > fra[de[i].fra_pos].queued_file_time)
                                    {
                                       if (unlink(tmp_dir) == -1)
                                       {
@@ -336,7 +337,8 @@ search_old_files(time_t now)
                   (void)rec(sys_log_fd, WARN_SIGN,
                             "There are %d (%d GBytes) old (>%dh) files in %s\n",
                             file_counter - junk_files, file_size / 1073741824,
-                            fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
+                            fra[de[i].fra_pos].unknown_file_time / 3600,
+                            tmp_dir);
                }
                else if (file_size >= 1048576)
                     {
@@ -344,7 +346,7 @@ search_old_files(time_t now)
                                  "There are %d (%d MBytes) old (>%dh) files in %s\n",
                                  file_counter - junk_files,
                                  file_size / 1048576,
-                                 fra[de[i].fra_pos].old_file_time / 3600,
+                                 fra[de[i].fra_pos].unknown_file_time / 3600,
                                  tmp_dir);
                     }
                else if (file_size >= 1024)
@@ -352,7 +354,7 @@ search_old_files(time_t now)
                        (void)rec(sys_log_fd, WARN_SIGN,
                                  "There are %d (%d KBytes) old (>%dh) files in %s\n",
                                  file_counter - junk_files, file_size / 1024,
-                                 fra[de[i].fra_pos].old_file_time / 3600,
+                                 fra[de[i].fra_pos].unknown_file_time / 3600,
                                  tmp_dir);
                     }
                     else
@@ -360,7 +362,7 @@ search_old_files(time_t now)
                        (void)rec(sys_log_fd, WARN_SIGN,
                                  "There are %d (%d Bytes) old (>%dh) files in %s\n",
                                  file_counter - junk_files, file_size,
-                                 fra[de[i].fra_pos].old_file_time / 3600,
+                                 fra[de[i].fra_pos].unknown_file_time / 3600,
                                  tmp_dir);
                     }
             }

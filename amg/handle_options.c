@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,8 @@ DESCR__S_M3
  **                    (eg. file.1 -> XXXfile.1)
  **   prefix del XXX - Removes the prefix from the file name.
  **                    (eg. XXXfile.1 -> file.1)
+ **   toupper          Convert all letters of a file name to upper case.
+ **   tolower          Convert all letters of a file name to lower case.
  **   rename <rule>  - Files are being renamed by the rule <rule>.
  **                    Where <rule> is a simple string by which
  **                    the AFD can identify which rule to use in the
@@ -96,6 +98,10 @@ DESCR__S_M3
  **   26.03.2000 H.Kiehl Removed (un)gzip and (un)compress options.
  **   14.07.2000 H.Kiehl Return the exit status of the process started
  **                      with exec_cmd() when it has failed.
+ **   03.05.2002 H.Kiehl Added option execd (exec and remove original file).
+ **   16.06.2002 H.Kiehl Added option execD and remove any sub directories
+ **                      in the job directory.
+ **   29.06.2002 H.Kiehl Added options toupper and tolower.
  **
  */
 DESCR__E_M3
@@ -103,6 +109,7 @@ DESCR__E_M3
 #include <stdio.h>                 /* sprintf(), popen(), pclose()       */
 #include <string.h>                /* strlen(), strcpy(), strcmp(),      */
                                    /* strncmp(), strerror()              */
+#include <ctype.h>                 /* toupper(), tolower()               */
 #include <unistd.h>                /* unlink()                           */
 #include <stdlib.h>                /* system()                           */
 #include <time.h>                  /* time(), gmtime()                   */
@@ -130,7 +137,8 @@ static char        *p_file_name;
 #endif
 
 /* Local functions */
-static void        create_assembled_name(char *, char *);
+static void        create_assembled_name(char *, char *),
+                   delete_all_files(char *);
 #ifdef _WITH_PTHREAD
 static int         get_file_names(char *, char **, char **),
 #else
@@ -361,7 +369,10 @@ search_again:
 #else
          int  file_counter = 0;
 #endif
-         char *p_command;
+         int  on_error_delete_all;
+         char *p_command,
+              *del_orig_file,
+              *p_del_orig_file;
 
          /*
           * First lets get the command rule. The full file name
@@ -370,6 +381,32 @@ search_again:
 
          /* Extract command from local options */
          p_command = options + EXEC_ID_LENGTH;
+         if (*p_command == 'd')
+         {
+            p_command++;
+            if ((del_orig_file = malloc(MAX_PATH_LENGTH)) == NULL)
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "malloc() error : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
+            }
+            else
+            {
+               p_del_orig_file = del_orig_file +
+                                 sprintf(del_orig_file, "%s/", file_path);
+            }
+         }
+         else if (*p_command == 'D')
+              {
+                 p_command++;
+                 del_orig_file = NULL;
+                 on_error_delete_all = YES;
+              }
+              else
+              {
+                 del_orig_file = NULL;
+                 on_error_delete_all = NO;
+              }
          while (((*p_command == ' ') || (*p_command == '\t')) &&
                 ((*p_command != '\n') && (*p_command != '\0')))
          {
@@ -427,7 +464,7 @@ search_again:
                   insert_list[ii] = &tmp_option[k];
                   tmp_char = *insert_list[0];
                   *insert_list[0] = '\0';
-                  length_start = sprintf(command_str, "cd %s ; %s",
+                  length_start = sprintf(command_str, "cd %s && %s",
                                          file_path, p_command);
                   *insert_list[0] = tmp_char;
 
@@ -493,6 +530,16 @@ search_again:
                            } while (*end_ptr != '\0');
                         }
                      }
+                     if (del_orig_file != NULL)
+                     {
+                        (void)strcpy(p_del_orig_file, p_file_name);
+                        if ((unlink(del_orig_file) == -1) && (errno != ENOENT))
+                        {
+                           receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                       "Failed to unlink() %s : %s",
+                                       del_orig_file, strerror(errno));
+                        }
+                     }
 
                      p_file_name += MAX_FILENAME_LENGTH;
                   }
@@ -517,34 +564,78 @@ search_again:
             {
                int ret;
 
-               (void)sprintf(command_str, "cd %s ; %s", file_path, p_command);
+               (void)sprintf(command_str, "cd %s && %s", file_path, p_command);
 
                if ((ret = exec_cmd(command_str, return_str)) != 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to execute command %s [Return code = %d]",
                               command_str, ret);
-                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L, "%s", return_str);
+                  if (return_str[0] != '\0')
+                  {
+                     char *end_ptr = return_str,
+                          *start_ptr;
+
+                     do
+                     {
+                        start_ptr = end_ptr;
+                        while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                        {
+                           end_ptr++;
+                        }
+                        if (*end_ptr == '\n')
+                        {
+                           *end_ptr = '\0';
+                           end_ptr++;
+                        }
+                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                    "%s", start_ptr);
+                     } while (*end_ptr != '\0');
+                  }
                }
 
-               /*
-                * Recount the files regardless if the previous function
-                * call was successful or not. Even if exec_cmd() returns
-                * with an error we do not know if it did after all do
-                * somethings with the files.
-                */
-#ifdef _WITH_PTHREAD
-               *files_to_send = recount_files(file_path, file_size);
-#else
-               if ((i + 1) == no_of_options)
+               if (del_orig_file != NULL)
                {
-                  *files_to_send = recount_files(file_path, file_size);
+                  (void)strcpy(p_del_orig_file, p_file_name);
+                  if ((unlink(del_orig_file) == -1) && (errno != ENOENT))
+                  {
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                 "Failed to unlink() %s : %s",
+                                 del_orig_file, strerror(errno));
+                  }
+               }
+
+               if ((ret != 0) && (on_error_delete_all == YES))
+               {
+                  delete_all_files(file_path);
+                  *files_to_send = 0;
+                  *file_size = 0;
                }
                else
                {
-                  *files_to_send = restore_files(file_path, file_size);
-               }
+                  /*
+                   * Recount the files regardless if the previous function
+                   * call was successful or not. Even if exec_cmd() returns
+                   * with an error we do not know if it did after all do
+                   * somethings with the files.
+                   */
+#ifdef _WITH_PTHREAD
+                  *files_to_send = recount_files(file_path, file_size);
+#else
+                  if ((i + 1) == no_of_options)
+                  {
+                     *files_to_send = recount_files(file_path, file_size);
+                  }
+                  else
+                  {
+                     *files_to_send = restore_files(file_path, file_size);
+                  }
 #endif
+               }
+            }
+            if (del_orig_file != NULL)
+            {
+               free(del_orig_file);
             }
          }
          NEXT(options);
@@ -563,6 +654,8 @@ search_again:
 #else
             int file_counter = *files_to_send;
 #endif
+            int  recount_files = NO;
+
             for (j = 0; j < file_counter; j++)
             {
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
@@ -606,14 +699,39 @@ search_again:
                               "Failed to rename() %s to %s : %s",
                               fullname, newname, strerror(errno));
                }
-#ifndef _WITH_PTHREAD
                else
                {
-                  (void)strcpy(p_file_name, filename);
-               }
-#endif /* !_WITH_PTHREAD */
+                  if (recount_files == NO)
+                  {
+                     int  k;
+                     char *p_tmp_file_name;
 
+                     p_tmp_file_name = file_name_buffer;
+                     for (k = 0; k < file_counter; k++)
+                     {
+                        if (k != j)
+                        {
+                           if (strcmp(p_tmp_file_name, p_file_name) == 0)
+                           {
+                              recount_files = YES;
+                              break;
+                           }
+                        }
+                     }
+                  }
+#ifndef _WITH_PTHREAD
+                  (void)strcpy(p_file_name, filename);
+#endif /* !_WITH_PTHREAD */
+               }
                p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
             }
 #ifdef _WITH_PTHREAD
          }
@@ -636,6 +754,8 @@ search_again:
 #else
             int file_counter = *files_to_send;
 #endif
+            int  recount_files = NO;
+
             for (j = 0; j < file_counter; j++)
             {
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
@@ -679,14 +799,39 @@ search_again:
                               "Failed to rename() %s to %s : %s",
                               fullname, newname, strerror(errno));
                }
-#ifndef _WITH_PTHREAD
                else
                {
-                  (void)strcpy(p_file_name, filename);
-               }
-#endif /* !_WITH_PTHREAD */
+                  if (recount_files == NO)
+                  {
+                     int  k;
+                     char *p_tmp_file_name;
 
+                     p_tmp_file_name = file_name_buffer;
+                     for (k = 0; k < file_counter; k++)
+                     {
+                        if (k != j)
+                        {
+                           if (strcmp(p_tmp_file_name, p_file_name) == 0)
+                           {
+                              recount_files = YES;
+                              break;
+                           }
+                        }
+                     }
+                  }
+#ifndef _WITH_PTHREAD
+                  (void)strcpy(p_file_name, filename);
+#endif /* !_WITH_PTHREAD */
+               }
                p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
             }
 #ifdef _WITH_PTHREAD
          }
@@ -705,6 +850,7 @@ search_again:
 #else
          int file_counter = *files_to_send;
 #endif
+         int  recount_files = NO;
 
          /* Get the prefix */
          p_prefix = options + ADD_PREFIX_ID_LENGTH;
@@ -739,14 +885,39 @@ search_again:
                               "Failed to rename() %s to %s : %s",
                               fullname, newname, strerror(errno));
                }
-#ifndef _WITH_PTHREAD
                else
                {
-                  (void)strcpy(p_file_name, p_newname);
-               }
-#endif /* !_WITH_PTHREAD */
+                  if (recount_files == NO)
+                  {
+                     int  k;
+                     char *p_tmp_file_name;
 
+                     p_tmp_file_name = file_name_buffer;
+                     for (k = 0; k < file_counter; k++)
+                     {
+                        if (k != j)
+                        {
+                           if (strcmp(p_tmp_file_name, p_file_name) == 0)
+                           {
+                              recount_files = YES;
+                              break;
+                           }
+                        }
+                     }
+                  }
+#ifndef _WITH_PTHREAD
+                  (void)strcpy(p_file_name, p_newname);
+#endif /* !_WITH_PTHREAD */
+               }
                p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
             }
 #ifdef _WITH_PTHREAD
          }
@@ -765,6 +936,7 @@ search_again:
 #else
          int file_counter = *files_to_send;
 #endif
+         int  recount_files = NO;
 
          /* Get the prefix */
          p_prefix = options + DEL_PREFIX_ID_LENGTH;
@@ -788,7 +960,6 @@ search_again:
             for (j = 0; j < file_counter; j++)
             {
                (void)strcpy(ptr, p_file_name);
-
                if (strncmp(p_file_name, p_prefix, strlen(p_prefix)) == 0)
                {
                   /* Generate name with prefix */
@@ -800,15 +971,209 @@ search_again:
                                  "Failed to rename() %s to %s : %s",
                                  fullname, newname, strerror(errno));
                   }
-#ifndef _WITH_PTHREAD
                   else
                   {
+                     if (recount_files == NO)
+                     {
+                        int  k;
+                        char *p_tmp_file_name;
+
+                        p_tmp_file_name = file_name_buffer;
+                        for (k = 0; k < file_counter; k++)
+                        {
+                           if (k != j)
+                           {
+                              if (strcmp(p_tmp_file_name, p_file_name) == 0)
+                              {
+                                 recount_files = YES;
+                                 break;
+                              }
+                           }
+                        }
+                     }
+#ifndef _WITH_PTHREAD
                      (void)strcpy(p_file_name, p_newname);
+#endif /* !_WITH_PTHREAD */
                   }
+               }
+
+               p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
+            }
+#ifdef _WITH_PTHREAD
+         }
+
+         free(file_name_buffer);
+#endif
+         NEXT(options);
+         continue;
+      }
+
+      /* Check if it's the toupper option */
+      if (strncmp(options, TOUPPER_ID, TOUPPER_ID_LENGTH) == 0)
+      {
+#ifdef _WITH_PTHREAD
+         int  file_counter = 0;
+#else
+         int  file_counter = *files_to_send;
+#endif
+         int  recount_files = NO;
+         char *convert_ptr;
+
+         (void)strcpy(newname, file_path);
+         p_newname = newname + strlen(newname);
+         *p_newname++ = '/';
+         (void)strcpy(fullname, file_path);
+         ptr = fullname + strlen(fullname);
+         *ptr++ = '/';
+
+#ifdef _WITH_PTHREAD
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
+         {
+#endif
+            for (j = 0; j < file_counter; j++)
+            {
+               (void)strcpy(ptr, p_file_name);
+               (void)strcpy(p_newname, p_file_name);
+               convert_ptr = p_newname;
+               while (*convert_ptr != '\0')
+               {
+                  *convert_ptr = toupper((int)*convert_ptr);
+                  convert_ptr++;
+               }
+
+               if (rename(fullname, newname) == -1)
+               {
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                              "Failed to rename() %s to %s : %s",
+                              fullname, newname, strerror(errno));
+               }
+               else
+               {
+                  if (recount_files == NO)
+                  {
+                     int  k;
+                     char *p_tmp_file_name;
+
+                     p_tmp_file_name = file_name_buffer;
+                     for (k = 0; k < file_counter; k++)
+                     {
+                        if (k != j)
+                        {
+                           if (strcmp(p_tmp_file_name, p_file_name) == 0)
+                           {
+                              recount_files = YES;
+                              break;
+                           }
+                        }
+                     }
+                  }
+#ifndef _WITH_PTHREAD
+                  (void)strcpy(p_file_name, p_newname);
 #endif /* !_WITH_PTHREAD */
                }
 
                p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
+            }
+#ifdef _WITH_PTHREAD
+         }
+
+         free(file_name_buffer);
+#endif
+         NEXT(options);
+         continue;
+      }
+
+      /* Check if it's the tolower option */
+      if (strncmp(options, TOLOWER_ID, TOLOWER_ID_LENGTH) == 0)
+      {
+#ifdef _WITH_PTHREAD
+         int  file_counter = 0;
+#else
+         int  file_counter = *files_to_send;
+#endif
+         int  recount_files = NO;
+         char *convert_ptr;
+
+         (void)strcpy(newname, file_path);
+         p_newname = newname + strlen(newname);
+         *p_newname++ = '/';
+         (void)strcpy(fullname, file_path);
+         ptr = fullname + strlen(fullname);
+         *ptr++ = '/';
+
+#ifdef _WITH_PTHREAD
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
+         {
+#endif
+            for (j = 0; j < file_counter; j++)
+            {
+               (void)strcpy(ptr, p_file_name);
+               (void)strcpy(p_newname, p_file_name);
+               convert_ptr = p_newname;
+               while (*convert_ptr != '\0')
+               {
+                  *convert_ptr = tolower((int)*convert_ptr);
+                  convert_ptr++;
+               }
+
+               if (rename(fullname, newname) == -1)
+               {
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                              "Failed to rename() %s to %s : %s",
+                              fullname, newname, strerror(errno));
+               }
+               else
+               {
+                  if (recount_files == NO)
+                  {
+                     int  k;
+                     char *p_tmp_file_name;
+
+                     p_tmp_file_name = file_name_buffer;
+                     for (k = 0; k < file_counter; k++)
+                     {
+                        if (k != j)
+                        {
+                           if (strcmp(p_tmp_file_name, p_file_name) == 0)
+                           {
+                              recount_files = YES;
+                              break;
+                           }
+                        }
+                     }
+                  }
+#ifndef _WITH_PTHREAD
+                  (void)strcpy(p_file_name, p_newname);
+#endif /* !_WITH_PTHREAD */
+               }
+
+               p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
             }
 #ifdef _WITH_PTHREAD
          }
@@ -971,6 +1336,7 @@ search_again:
 #else
             int file_counter = *files_to_send;
 #endif
+            int recount_files = NO;
 
             *file_size = 0;
 
@@ -996,7 +1362,7 @@ search_again:
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "Removing corrupt file %s", p_file_name);
-                     (*files_to_send)--;
+                     recount_files = YES;
                   }
                }
                else
@@ -1004,6 +1370,14 @@ search_again:
                   *file_size += size;
                }
                p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
             }
 #ifdef _WITH_PTHREAD
          }
@@ -1026,6 +1400,7 @@ search_again:
 #else
             int file_counter = *files_to_send;
 #endif
+            int recount_files = NO;
 
             *file_size = 0;
 
@@ -1051,7 +1426,7 @@ search_again:
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "Removing corrupt file %s", p_file_name);
-                     (*files_to_send)--;
+                     recount_files = YES;
                   }
                }
                else
@@ -1059,6 +1434,14 @@ search_again:
                   *file_size += size;
                }
                p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
             }
 #ifdef _WITH_PTHREAD
          }
@@ -1312,6 +1695,12 @@ search_again:
                create_assembled_name(assembled_name, assemble_rule);
             }
          }
+         else
+         {
+            (void)strcpy(assembled_name, "no_file_name");
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                        "No file name set for assemble option in DIR_CONFIG file, set to <no_file_name>.");
+         }
 
 #ifdef _WITH_PTHREAD
          if ((file_counter = get_file_names(file_path,
@@ -1380,22 +1769,108 @@ recount_files(char *file_path, off_t *file_size)
       errno = 0;
       while ((p_dir = readdir(dp)) != NULL)
       {
-         if (p_dir->d_name[0] != '.')
+         if (((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '\0')) ||
+             ((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '.') &&
+             (p_dir->d_name[2] == '\0')))
          {
-            (void)strcpy(ptr, p_dir->d_name);
-            if (stat(fullname, &stat_buf) == -1)
+            continue;
+         }
+         (void)strcpy(ptr, p_dir->d_name);
+         if (stat(fullname, &stat_buf) == -1)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Can't access file %s : %s (%s %d)\n",
+                      fullname, strerror(errno), __FILE__, __LINE__);
+         }
+         else
+         {
+            /* Sure it is a normal file? */
+            if (S_ISREG(stat_buf.st_mode))
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Can't access file %s : %s (%s %d)\n",
-                         fullname, strerror(errno), __FILE__, __LINE__);
+               *file_size += stat_buf.st_size;
+               file_counter++;
+            }
+            else if (S_ISDIR(stat_buf.st_mode))
+                 {
+                    receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                "Currently unable to handle directories in job directories. Removing %s.",
+                                fullname);
+                    (void)rec_rmdir(fullname);
+                 }
+         }
+         errno = 0;
+      }
+      if (errno)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not readdir() %s : %s (%s %d)\n",
+                   file_path, strerror(errno), __FILE__, __LINE__);
+      }
+
+      if (closedir(dp) == -1)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not closedir() %s : %s (%s %d)\n",
+                   file_path, strerror(errno), __FILE__, __LINE__);
+      }
+   }
+
+   return(file_counter);
+}
+
+
+/*+++++++++++++++++++++++++ delete_all_files() ++++++++++++++++++++++++++*/
+static void
+delete_all_files(char *file_path)
+{
+   DIR *dp;
+
+   if ((dp = opendir(file_path)) == NULL)
+   {
+      (void)rec(sys_log_fd, WARN_SIGN,
+                "Can't access directory %s : %s (%s %d)\n",
+                file_path, strerror(errno), __FILE__, __LINE__);
+   }
+   else
+   {
+      char          *ptr,
+                    fullname[MAX_PATH_LENGTH];
+      struct stat   stat_buf;
+      struct dirent *p_dir;
+
+      (void)strcpy(fullname, file_path);
+      ptr = fullname + strlen(fullname);
+      *ptr++ = '/';
+
+      errno = 0;
+      while ((p_dir = readdir(dp)) != NULL)
+      {
+         if (((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '\0')) ||
+             ((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '.') &&
+             (p_dir->d_name[2] == '\0')))
+         {
+            continue;
+         }
+         (void)strcpy(ptr, p_dir->d_name);
+         if (stat(fullname, &stat_buf) == -1)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Can't access file %s : %s (%s %d)\n",
+                      fullname, strerror(errno), __FILE__, __LINE__);
+         }
+         else
+         {
+            if (S_ISDIR(stat_buf.st_mode))
+            {
+               (void)rec_rmdir(fullname);
             }
             else
             {
-               /* Sure it is a normal file? */
-               if (S_ISREG(stat_buf.st_mode))
+               if (unlink(fullname) == -1)
                {
-                  *file_size += stat_buf.st_size;
-                  file_counter++;
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                              "Failed to unlink() %s : %s",
+                              fullname, strerror(errno));
                }
             }
          }
@@ -1416,7 +1891,7 @@ recount_files(char *file_path, off_t *file_size)
       }
    }
 
-   return(file_counter);
+   return;
 }
 
 
@@ -1456,50 +1931,60 @@ restore_files(char *file_path, off_t *file_size)
       errno = 0;
       while ((p_dir = readdir(dp)) != NULL)
       {
-         if (p_dir->d_name[0] != '.')
+         if (((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '\0')) ||
+             ((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '.') &&
+             (p_dir->d_name[2] == '\0')))
          {
-            (void)strcpy(ptr, p_dir->d_name);
-            if (stat(fullname, &stat_buf) == -1)
+            continue;
+         }
+         (void)strcpy(ptr, p_dir->d_name);
+         if (stat(fullname, &stat_buf) == -1)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Can't access file %s : %s (%s %d)\n",
+                      fullname, strerror(errno), __FILE__, __LINE__);
+         }
+         else
+         {
+            /* Sure it is a normal file? */
+            if (S_ISREG(stat_buf.st_mode))
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Can't access file %s : %s (%s %d)\n",
-                         fullname, strerror(errno), __FILE__, __LINE__);
-            }
-            else
-            {
-               /* Sure it is a normal file? */
-               if (S_ISREG(stat_buf.st_mode))
+               if ((file_counter % 10) == 0)
                {
-                  if ((file_counter % 10) == 0)
+                  int    offset;
+                  size_t new_size;
+
+                  /* Calculate new size of file name buffer */
+                  new_size = ((file_counter / 10) + 1) * 10 *
+                             MAX_FILENAME_LENGTH;
+
+                  /* Increase the space for the file name buffer */
+                  offset = p_file_name - file_name_buffer;
+                  if ((file_name_buffer = realloc(file_name_buffer,
+                                                  new_size)) == NULL)
                   {
-                     int    offset;
-                     size_t new_size;
-
-                     /* Calculate new size of file name buffer */
-                     new_size = ((file_counter / 10) + 1) * 10 *
-                                MAX_FILENAME_LENGTH;
-
-                     /* Increase the space for the file name buffer */
-                     offset = p_file_name - file_name_buffer;
-                     if ((file_name_buffer = realloc(file_name_buffer,
-                                                     new_size)) == NULL)
-                     {
-                        (void)rec(sys_log_fd, FATAL_SIGN,
-                                  "Could not realloc() memory : %s (%s %d)\n",
-                                  strerror(errno), __FILE__, __LINE__);
-                        exit(INCORRECT);
-                     }
-
-                     /* After realloc, don't forget to position */
-                     /* pointer correctly.                      */
-                     p_file_name = file_name_buffer + offset;
+                     (void)rec(sys_log_fd, FATAL_SIGN,
+                               "Could not realloc() memory : %s (%s %d)\n",
+                               strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
                   }
-                  (void)strcpy(p_file_name, p_dir->d_name);
-                  p_file_name += MAX_FILENAME_LENGTH;
-                  *file_size += stat_buf.st_size;
-                  file_counter++;
+
+                  /* After realloc, don't forget to position */
+                  /* pointer correctly.                      */
+                  p_file_name = file_name_buffer + offset;
                }
+               (void)strcpy(p_file_name, p_dir->d_name);
+               p_file_name += MAX_FILENAME_LENGTH;
+               *file_size += stat_buf.st_size;
+               file_counter++;
             }
+            else if (S_ISDIR(stat_buf.st_mode))
+                 {
+                    receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                "Currently unable to handle directories in job directories. Removing %s.",
+                                fullname);
+                    (void)rec_rmdir(fullname);
+                 }
          }
          errno = 0;
       }
@@ -1646,65 +2131,69 @@ create_assembled_name(char *name, char *rule)
                   switch (*p_rule)
                   {
                      case 'a' : /* Short day eg. Tue */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%a",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%a",
+                                     gmtime(&current_time));
                         break;
 
                      case 'A' : /* Long day eg. Tuesday */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%A",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%A",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'b' : /* Short month eg. Jan */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%b",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%b",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'B' : /* Long month eg. January */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%B",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%B",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'd' : /* Day of month (01 - 31) */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%d",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%d",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'j' : /* Day of year (001 - 366) */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%j",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%j",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'y' : /* Year (01 - 99) */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%y",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%y",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'Y' : /* Year eg. 1999 */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%Y",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%Y",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'm' : /* Month (01 - 12) */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%m",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%m",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'H' : /* Hour (00 - 23) */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%H",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%H",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'M' : /* Minute (00 - 59) */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%M",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%M",
+                                     gmtime(&current_time));
                         break;
-                        
+
                      case 'S' : /* Second (00 - 60) */
-                        n = strftime (p_name, MAX_FILENAME_LENGTH, "%S",
-                                      gmtime(&current_time));
+                        n = strftime(p_name, MAX_FILENAME_LENGTH, "%S",
+                                     gmtime(&current_time));
                         break;
-                        
+
+                     case 'U' : /* Unix time. */
+                        n = sprintf(p_name, "%ld", current_time);
+                        break;
+
                      default  : /* Error in timeformat */
                         name[0] = '\0';
                         (void)rec(sys_log_fd, WARN_SIGN,

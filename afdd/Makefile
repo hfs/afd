@@ -19,7 +19,7 @@ AFDDOBJS = afdd.o\
 	   show_host_list.o\
 	   show_summary_stat.o
 
-PROGS   = $(AFDDPROG)
+PROGS   = $(AFDDPROG)$(EXE_EXT)
 OBJS    = $(AFDDOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h afdddefs.h
 
@@ -27,7 +27,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(AFDDPROG) : $(AFDDOBJS) $(AFDLIB)
+$(AFDDPROG)$(EXE_EXT) : $(AFDDOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(AFDDOBJS) $(AFDLIB) $(SPECIAL_LIBS)
 
@@ -41,7 +41,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(AFDDPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(AFDDPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

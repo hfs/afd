@@ -84,6 +84,9 @@ extern struct job                 db;
 int
 check_burst_2(char         *file_path,
               int          *files_to_send,
+#ifdef _WITH_INTERRUPT_JOB
+              int          interrupt,
+#endif
               unsigned int *values_changed)
 {
    int ret;
@@ -108,7 +111,7 @@ retry:
    }
    ret = NO;
    if ((fsa[db.fsa_pos].jobs_queued > 0) &&
-       (fsa[db.fsa_pos].active_transfers >= fsa[db.fsa_pos].allowed_transfers))
+       (fsa[db.fsa_pos].active_transfers == fsa[db.fsa_pos].allowed_transfers))
    {
       struct job *p_new_db = NULL;
       int        fd;
@@ -128,6 +131,12 @@ retry:
 
          fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[1] = '\0';
          fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[2] = 4;
+#ifdef _WITH_INTERRUPT_JOB
+         if (interrupt == YES)
+         {
+            fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[3] = 4;
+         }
+#endif
          fsa[db.fsa_pos].job_status[(int)db.job_no].error_file = NO;
          if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
          {

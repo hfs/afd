@@ -42,6 +42,11 @@
 #define LINKY_MAX                  4
 #endif
 
+#ifdef _CYGWIN
+#ifndef LINK_MAX
+#define LINK_MAX                   1000
+#endif
+#endif
 #ifdef _SCO
 #ifndef LINK_MAX
 #define LINK_MAX                   1000 /* SCO does not define it. */
@@ -685,6 +690,7 @@ typedef socklen_t my_socklen_t;
 #define MSG_FIFO                   "/msg.fifo"
 #define CURRENT_MSG_LIST_FILE      "/current_job_id_list"
 #define TIME_JOB_FILE              "/time_jobs"
+#define AMG_DATA_FILE              "/amg_data"
 
 #define MSG_CACHE_BUF_SIZE         10000
 
@@ -713,6 +719,9 @@ typedef socklen_t my_socklen_t;
 #define CHECK_FILE_DIR             21 /* Check for jobs without message. */
 #define DISABLE_MON                22
 #define ENABLE_MON                 23
+
+/* Defintions for directory flags. */
+#define MAX_COPIED                 1
 
 /* In process AFD we have various stop flags */
 #define STARTUP_ID                 -1
@@ -997,7 +1006,7 @@ struct bd_time_entry
        };
 
 /* Structure holding all neccessary data for retrieving files */
-#define CURRENT_FRA_VERSION 0
+#define CURRENT_FRA_VERSION 1
 struct fileretrieve_status
        {
           char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
@@ -1050,16 +1059,34 @@ struct fileretrieve_status
                                             /* queue or not.             */
           char          priority;           /* Priority of this          */
                                             /* directory.                */
-          unsigned long bytes_received;     /* No. of bytes received so  */
+          off_t         bytes_received;     /* No. of bytes received so  */
                                             /* far.                      */
           unsigned int  files_received;     /* No. of files received so  */
                                             /* far.                      */
+          unsigned int  dir_flag;           /* Flag for this directory   */
+                                            /* informing about the       */
+                                            /* following status:         */
+                                            /*+------+------------------+*/
+                                            /*|Bit(s)|     Meaning      |*/
+                                            /*+------+------------------+*/
+                                            /*|  2-32| Not used.        |*/
+                                            /*|    1 | MAX_COPIED       |*/
+                                            /*+------+------------------+*/
+          unsigned int  files_in_dir;       /* The number of files       */
+                                            /* currently in this         */
+                                            /* directory.                */
+          unsigned int  files_queued;       /* The number of files in    */
+                                            /* the queue.                */
+          off_t         bytes_in_dir;       /* No. of bytes in this      */
+                                            /* directory.                */
+          off_t         bytes_in_queue;     /* No. of bytes in queue(s). */
           time_t        last_retrieval;     /* Time of last retrieval.   */
           time_t        next_check_time;    /* Next time to check for    */
                                             /* files in directory.       */
-          int           old_file_time;      /* After how many hours can  */
-                                            /* a unknown file be         */
-                                            /* declared as old.          */
+          int           unknown_file_time;  /* After how many hours can  */
+                                            /* a unknown file be deleted.*/
+          int           queued_file_time;   /* After how many hours can  */
+                                            /* a queued file be deleted. */
           int           end_character;      /* Only pick up files where  */
                                             /* the last charachter (of   */
                                             /* the content) contains     */
@@ -1067,7 +1094,7 @@ struct fileretrieve_status
                                             /* means not to check the    */
                                             /* last character.           */
           int           dir_pos;            /* Position of the directory */
-                                            /* name int the structure    */
+                                            /* name in the structure     */
                                             /* dir_name_buf.             */
           int           fsa_pos;            /* Position of this host in  */
                                             /* FSA, to get the data that */
@@ -1310,6 +1337,33 @@ struct delete_log
            ptr++;               \
         }
 
+#define ABS_REDUCE_QUEUE(fra_pos, files, bytes)              \
+        {                                                    \
+           unsigned int tmp_files;                           \
+                                                             \
+           lock_region_w(fra_fd,                             \
+                         (char *)&fra[(fra_pos)].files_queued - (char *)fra);\
+           tmp_files = fra[(fra_pos)].files_queued;          \
+           fra[(fra_pos)].files_queued -= (files);           \
+           if (fra[(fra_pos)].files_queued > tmp_files)      \
+           {                                                 \
+              system_log(DEBUG_SIGN, __FILE__, __LINE__,     \
+                         "Files queued overflowed from %u for FRA pos %d.", \
+                         tmp_files, (fra_pos));              \
+              fra[(fra_pos)].files_queued = 0;               \
+           }                                                 \
+           fra[(fra_pos)].bytes_in_queue -= (bytes);         \
+           if (fra[(fra_pos)].bytes_in_queue < 0)            \
+           {                                                 \
+              system_log(DEBUG_SIGN, __FILE__, __LINE__,     \
+                         "Bytes queued overflowed for FRA pos %d.",\
+                         (fra_pos));                         \
+              fra[(fra_pos)].bytes_in_queue = 0;             \
+           }                                                 \
+           unlock_region(fra_fd,                             \
+                         (char *)&fra[(fra_pos)].files_queued - (char *)fra);\
+        }
+
 /* Macro to check if we can avoid a strcmp. */
 #define CHECK_STRCMP(a, b)  (*(a) != *(b) ? (int)((unsigned char) *(a) - (unsigned char) *(b)) : strcmp((a), (b)))
 
@@ -1319,9 +1373,6 @@ extern void    change_name(char *, char *, char *, char *),
                get_rename_rules(char *),
                inform_fd_about_fsa_change(void),
                init_fifos_afd(void),
-#ifdef _NO_MMAP
-               log_shmid(int, int),
-#endif
                my_usleep(unsigned long),
                rlock_region(int, off_t);
 extern char    *get_definition(char *, char *, char *, int),
@@ -1333,6 +1384,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                bin_file_chopper(char *, int *, off_t *),
                bittest(unsigned char *, int),
                check_afd(long),
+               check_afd_heartbeat(long),
 #ifdef _BURST_MODE
                check_burst(char, int, unsigned int, char *, char *, int),
 #endif
@@ -1393,6 +1445,7 @@ extern void    *attach_buf(char *, int *, size_t, char *),
                lock_region_w(int, off_t),
                change_alias_order(char **, int),
                clr_fl(int, int),
+               count_files(char *, unsigned int *, off_t *),
                daemon_init(char *),
                delete_log_ptrs(struct delete_log *),
                get_log_number(int *, int, char *, int),

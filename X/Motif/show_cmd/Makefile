@@ -16,7 +16,7 @@ SCMDOBJS = cmd_callbacks.o\
            print_data.o\
            show_cmd.o
 
-PROGS    = $(SCMDPROG)
+PROGS    = $(SCMDPROG)$(EXE_EXT)
 OBJS     = $(SCMDOBJS)
 HEADERS  = ../../../init_afd/afddefs.h ../../../config.h ../afd_ctrl/afd_ctrl.h $(XCOMDIR)/x_common_defs.h show_cmd.h
 
@@ -24,7 +24,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(SCMDPROG) : $(SCMDOBJS) $(LIB)
+$(SCMDPROG)$(EXE_EXT) : $(SCMDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SCMDOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -38,7 +38,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(SCMDPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(SCMDPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

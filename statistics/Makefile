@@ -24,7 +24,7 @@ SHOOBJS = show_stat.o\
 STBPROG = show_bench_stat
 STBOBJS = show_bench_stat.o
 
-PROGS   = $(STAPROG) $(SHOPROG) $(STBPROG)
+PROGS   = $(STAPROG)$(EXE_EXT) $(SHOPROG)$(EXE_EXT) $(STBPROG)$(EXE_EXT)
 OBJS    = $(STAOBJS) $(SHOOBJS) $(STBOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h statdefs.h
 
@@ -32,15 +32,15 @@ all : $(PROGS)
 
 $(STAOBJS) : $(HEADERS)
 
-$(STAPROG) : $(STAOBJS) $(LIB)
+$(STAPROG)$(EXE_EXT) : $(STAOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(STAOBJS) $(LIB) $(EFENCE)
 
-$(SHOPROG) : $(SHOOBJS) $(LIB)
+$(SHOPROG)$(EXE_EXT) : $(SHOOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SHOOBJS) $(LIB) $(EFENCE)
 
-$(STBPROG) : $(STBOBJS) $(LIB)
+$(STBPROG)$(EXE_EXT) : $(STBOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(STBOBJS) $(LIB) $(EFENCE)
 
@@ -49,12 +49,12 @@ clean :
 
 clobber :
 	$(MAKE) clean
-	rm -f $(PROGS) show_bench_stat
+	rm -f $(PROGS) show_bench_stat$(EXE_EXT)
 
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(STAPROG) $(INSTDIR)/bin/$(SHOPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(STAPROG)$(EXE_EXT) $(INSTDIR)/bin/$(SHOPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

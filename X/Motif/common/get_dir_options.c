@@ -1,6 +1,6 @@
 /*
  *  get_dir_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001, 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   01.07.2001 H.Kiehl Created
+ **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
  **
  */
 DESCR__E_M3
@@ -73,31 +74,28 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
    }
 
    d_o->url[0] = '\0';
+   d_o->no_of_dir_options = 0;
    for (i = 0; i < no_of_dirs; i++)
    {
       if (dir_pos == fra[i].dir_pos)
       {
-         d_o->no_of_dir_options = 0;
          (void)strcpy(d_o->dir_alias, fra[i].dir_alias);
          if (fra[i].delete_files_flag != 0)
          {
             if (fra[i].delete_files_flag & UNKNOWN_FILES)
             {
-               (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                            DEL_UNKNOWN_FILES_ID);
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+                             DEL_UNKNOWN_FILES_ID,
+                             fra[i].unknown_file_time / 3600);
                d_o->no_of_dir_options++;
             }
             if (fra[i].delete_files_flag & QUEUED_FILES)
             {
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+                             DEL_QUEUED_FILES_ID,
+                             fra[i].queued_file_time / 3600);
                (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                             DEL_QUEUED_FILES_ID);
-               d_o->no_of_dir_options++;
-            }
-
-            if (fra[i].old_file_time > 0)
-            {
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
-                             OLD_FILE_TIME_ID, fra[i].old_file_time / 3600);
                d_o->no_of_dir_options++;
             }
          }
@@ -107,20 +105,14 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
                          DONT_REP_UNKNOWN_FILES_ID);
             d_o->no_of_dir_options++;
          }
-         else if ((fra[i].old_file_time != 86400) && (fra[i].old_file_time > 0))
-              {
-                 (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                              REP_UNKNOWN_FILES_ID);
-                 d_o->no_of_dir_options++;
-
-                 if (fra[i].delete_files_flag == 0)
-                 {
-                    (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
-                                  "%s %d", OLD_FILE_TIME_ID,
-                                  fra[i].old_file_time / 3600);
-                    d_o->no_of_dir_options++;
-                 }
-              }
+#ifdef _WITH_SHOW_EVERYTHING
+         else
+         {
+            (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                         REP_UNKNOWN_FILES_ID);
+            d_o->no_of_dir_options++;
+         }
+#endif
          if (fra[i].stupid_mode == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],

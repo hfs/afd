@@ -15,7 +15,7 @@ VDCOBJS = callbacks.o\
           get_dc_data.o\
           view_dc.o
 
-PROGS   = $(VDCPROG)
+PROGS   = $(VDCPROG)$(EXE_EXT)
 OBJS    = $(VDCOBJS)
 HEADERS = ../../../init_afd/afddefs.h ../../../config.h $(XCOMDIR)/x_common_defs.h view_dc.h
 
@@ -23,7 +23,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-$(VDCPROG) : $(VDCOBJS) $(LIB)
+$(VDCPROG)$(EXE_EXT) : $(VDCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(VDCOBJS) $(LIB) $(XLIBPATH) $(XMLIBS) $(XLIBS) $(SPECIAL_LIBS) $(EFENCE)
 
@@ -37,7 +37,7 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(VDCPROG)
+	chmod $(BINMODE) $(INSTDIR)/bin/$(VDCPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)

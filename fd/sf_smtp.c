@@ -73,6 +73,9 @@ DESCR__S_M1
  **                      renaming.
  **   08.07.2000 H.Kiehl Cleaned up log output to reduce code size.
  **   19.02.2002 H.Kiehl Sending a single mail to multiple users.
+ **   02.07.2002 H.Kiehl Added from option.
+ **   03.07.2002 H.Kiehl Added charset option.
+ **   04.07.2002 H.Kiehl Add To header by default.
  **
  */
 DESCR__E_M1
@@ -144,15 +147,16 @@ main(int argc, char *argv[])
    int              j,
                     fd,
                     status,
-                    no_of_bytes,
                     loops,
                     rest,
                     mail_header_size = 0,
                     files_to_send = 0,
                     files_send,
                     blocksize,
+                    set_smtp_server,
                     write_size;
    off_t            lock_offset,
+                    no_of_bytes,
                     *p_file_size_buffer;
    char             *smtp_buffer = NULL,
                     *p_file_name_buffer,
@@ -260,6 +264,11 @@ main(int argc, char *argv[])
    if (db.smtp_server[0] == '\0')
    {
       (void)strcpy(db.smtp_server, SMTP_HOST_NAME);
+      set_smtp_server = NO;
+   }
+   else
+   {
+      set_smtp_server = YES;
    }
 
    /* Connect to remote SMTP-server */
@@ -332,14 +341,22 @@ main(int argc, char *argv[])
    }
 
    /* Prepare local and remote user name */
-   if ((ptr = getenv("LOGNAME")) != NULL)
+   if (db.from != NULL)
    {
-      (void)sprintf(local_user, "%s@%s", ptr, host_name);
+      (void)strcpy(local_user, db.from);
    }
    else
    {
-      (void)sprintf(local_user, "%s@%s", AFD_USER_NAME, host_name);
+      if ((ptr = getenv("LOGNAME")) != NULL)
+      {
+         (void)sprintf(local_user, "%s@%s", ptr, host_name);
+      }
+      else
+      {
+         (void)sprintf(local_user, "%s@%s", AFD_USER_NAME, host_name);
+      }
    }
+
    if (check_fsa() == YES)
    {
       if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
@@ -349,22 +366,29 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
    }
+
+   if (set_smtp_server == YES)
+   {
+      ptr = db.smtp_server;
+   }
+   else
+   {
+      ptr = db.hostname;
+   }
    if (db.toggle_host == YES)
    {
       if (fsa[db.fsa_pos].host_toggle == HOST_ONE)
       {
-         (void)strcpy(db.hostname,
-                      fsa[db.fsa_pos].real_hostname[HOST_TWO - 1]);
+         (void)strcpy(ptr, fsa[db.fsa_pos].real_hostname[HOST_TWO - 1]);
       }
       else
       {
-         (void)strcpy(db.hostname,
-                      fsa[db.fsa_pos].real_hostname[HOST_ONE - 1]);
+         (void)strcpy(ptr, fsa[db.fsa_pos].real_hostname[HOST_ONE - 1]);
       }
    }
    else
    {
-      (void)strcpy(db.hostname,
+      (void)strcpy(ptr,
                    fsa[db.fsa_pos].real_hostname[(int)(fsa[db.fsa_pos].host_toggle - 1)]);
    }
    if (((db.special_flag & FILE_NAME_IS_USER) == 0) && (db.group_list == NULL))
@@ -677,33 +701,49 @@ main(int argc, char *argv[])
       loops = *p_file_size_buffer / blocksize;
       rest = *p_file_size_buffer % blocksize;
 
-      if (db.reply_to != NULL)
+      if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0))
       {
          size_t length;
 
-         length = sprintf(buffer, "Reply-To: %s\n", db.reply_to);
-         if (smtp_write(buffer, NULL, length) < 0)
+         if (db.from != NULL)
          {
-            (void)rec(transfer_log_fd, INFO_SIGN,
-                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to write Reply-To to SMTP-server.");
-            (void)smtp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+            length = sprintf(buffer, "From: %s\n", db.from);
+            if (smtp_write(buffer, NULL, length) < 0)
+            {
+               (void)rec(transfer_log_fd, INFO_SIGN,
+                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write From to SMTP-server.");
+               (void)smtp_quit();
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+            }
+            no_of_bytes = length;
          }
-         no_of_bytes = length;
-      }
 
-      if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0))
-      {
+         if (db.reply_to != NULL)
+         {
+            length = sprintf(buffer, "Reply-To: %s\n", db.reply_to);
+            if (smtp_write(buffer, NULL, length) < 0)
+            {
+               (void)rec(transfer_log_fd, INFO_SIGN,
+                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write Reply-To to SMTP-server.");
+               (void)smtp_quit();
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+            }
+            no_of_bytes += length;
+         }
+
          /* Send file name as subject if wanted. */
          if (db.special_flag & MAIL_SUBJECT)
          {
-            size_t length;
-
             length = sprintf(buffer, "Subject : %s\r\n", db.subject);
             if (smtp_write(buffer, NULL, length) < 0)
             {
@@ -721,8 +761,6 @@ main(int argc, char *argv[])
          }
          else if (db.special_flag & FILE_NAME_IS_SUBJECT)
               {
-                 size_t length;
-
                  length = sprintf(buffer, "Subject : %s\r\n", final_filename);
                  if (smtp_write(buffer, NULL, length) < 0)
                  {
@@ -736,20 +774,32 @@ main(int argc, char *argv[])
                     (void)smtp_quit();
                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                  }
-
                  no_of_bytes += length;
               } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
+
+         length = sprintf(buffer, "To: %s\r\n", remote_user);
+         if (smtp_write(buffer, NULL, length) < 0)
+         {
+            (void)rec(transfer_log_fd, INFO_SIGN,
+                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write To header to SMTP-server.");
+            (void)smtp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+         }
+         no_of_bytes += length;
 
          /* Send MIME information. */
          if (db.special_flag & ATTACH_FILE)
          {
-            size_t length;
-
             if (multipart_boundary[0] != '\0')
             {
 #ifdef PRE_RELEASE
                length = sprintf(buffer,
-                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d-%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d-pre%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
                                 MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
                                 multipart_boundary);
 #else
@@ -761,9 +811,17 @@ main(int argc, char *argv[])
             }
             else
             {
+#ifdef PRE_RELEASE
+               length = sprintf(encode_buffer,
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d-pre%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
+                                final_filename, final_filename);
+#else
                length = sprintf(encode_buffer,
                                 "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
-                                MAJOR, MINOR, BUG_FIX, final_filename, final_filename);
+                                MAJOR, MINOR, BUG_FIX, final_filename,
+                                final_filename);
+#endif
                buffer_ptr = encode_buffer;
             }
 
@@ -779,21 +837,56 @@ main(int argc, char *argv[])
                (void)smtp_quit();
                exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
             }
-
             no_of_bytes += length;
          } /* if (db.special_flag & ATTACH_FILE) */
+         else if (db.charset != NULL)
+              {
+#ifdef PRE_RELEASE
+                 length = sprintf(buffer,
+                                  "MIME-Version: 1.0 (produced by AFD %d.%d.%d-pre%d)\r\nContent-Type: TEXT/PLAIN; charset=%s\r\nContent-Transfer-Encoding: 8BIT\r\n",
+                                  MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
+                                  db.charset);
+#else
+                 length = sprintf(buffer,
+                                  "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: TEXT/PLAIN; charset=%s\r\nContent-Transfer-Encoding: 8BIT\r\n",
+                                  MAJOR, MINOR, BUG_FIX, db.charset);
+#endif
+
+                 if (smtp_write(buffer, NULL, length) < 0)
+                 {
+                    (void)rec(transfer_log_fd, INFO_SIGN,
+                              "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                              "Failed to write MIME header with charset to SMTP-server.");
+                    (void)smtp_quit();
+                    exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                 }
+                 no_of_bytes += length;
+              }
 
          /* Write the mail header. */
          if (mail_header_buffer != NULL)
          {
-            int length = 0;
+            length = 0;
 
             if (db.special_flag & ATTACH_FILE)
             {
                /* Write boundary */
-               length = sprintf(encode_buffer,
-                                "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=US-ASCII\r\n\r\n",
-                                multipart_boundary);
+               if (db.charset == NULL)
+               {
+                  length = sprintf(encode_buffer,
+                                   "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=US-ASCII\r\n\r\n",
+                                   multipart_boundary);
+               }
+               else
+               {
+                  length = sprintf(encode_buffer,
+                                   "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=%s\r\nContent-Transfer-Encoding: 8BIT\r\n\r\n",
+                                   multipart_boundary, db.charset);
+               }
 
                if (smtp_write(encode_buffer, NULL, length) < 0)
                {
@@ -807,7 +900,6 @@ main(int argc, char *argv[])
                   (void)smtp_quit();
                   exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
-
                no_of_bytes += length;
             } /* if (db.special_flag & ATTACH_FILE) */
 
@@ -895,7 +987,6 @@ main(int argc, char *argv[])
                   (void)smtp_quit();
                   exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
-
                no_of_bytes += length;
             }
          } /* if (mail_header_buffer != NULL) */

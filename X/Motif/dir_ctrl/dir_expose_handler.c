@@ -57,7 +57,6 @@ DESCR__E_M3
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <Xm/Xm.h>
-#include "afd_ctrl.h"
 #include "dir_ctrl.h"
 #include "permission.h"
 

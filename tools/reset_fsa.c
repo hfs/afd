@@ -1,6 +1,6 @@
 /*
  *  reset_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   02.11.1997 H.Kiehl Created
+ **   11.06.2002 H.Kiehl Reset some more values in struct status.
  **
  */
 DESCR__E_M1
@@ -122,6 +123,16 @@ main(int argc, char *argv[])
    for (i = 0; i < fsa[position].allowed_transfers; i++)
    {
       fsa[position].job_status[i].connect_status = DISCONNECT;
+      fsa[position].job_status[i].no_of_files = 0;
+      fsa[position].job_status[i].no_of_files_done = 0;
+      fsa[position].job_status[i].file_size = 0L;
+      fsa[position].job_status[i].file_size_done = 0L;
+      fsa[position].job_status[i].file_size_in_use = 0L;
+      fsa[position].job_status[i].file_size_in_use_done = 0L;
+      fsa[position].job_status[i].file_name_in_use[0] = '\0';
+#if defined (_BURST_MODE) || defined (_WITH_BURST_2)
+      fsa[position].job_status[i].unique_name[0] = '\0';
+#endif
    }
 
    exit(SUCCESS);

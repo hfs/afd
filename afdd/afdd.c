@@ -310,7 +310,7 @@ main(int argc, char *argv[])
    } while (status == -1);
 
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s at port %d (PRE %d.%d.%d-%d)\n",
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s at port %d (%d.%d.%d-pre%d)\n",
              AFDD, port, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s at port %d (%d.%d.%d)\n",

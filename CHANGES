@@ -1032,3 +1032,51 @@
              retrieving files. Fixed.
 25.04.2002 - FD tried to burst retrieve jobs which is not possible.
 ------------------------> Released: 25.04.2002 <---------------------------
+
+
+---------------------------> Version 1.2.14 <------------------------------
+                            ----------------
+03.05.2002 - Added option execd, which works just like exec only
+             that it removes the original file after executing the
+             command.
+05.05.2002 - Dialog dir_ctrl now shows the number of files and bytes
+             in the directories and queue that are to be monitored.
+           - Automatically convert FRA when the release number (ie.
+             the structure) changes.
+13.05.2002 - Specifying a group name together with a hostname was not
+             handled correctly. Fixed.
+14.05.2002 - Reduce priority when password is wrong.
+16.05.2002 - Removed all shared memory stuff from AFD.
+           - Port to cygwin, not yet completed since fifos don´t work.
+           - Added option execD which removes ALL files if the exec
+             command failes. This only works without the %s parameter.
+22.05.2002 - Separate old file times for unknown and queued files in
+             dir_options.
+27.05.2002 - Combine FTP rename to one command, not two separate ones.
+10.06.2002 - Not specifying a filename for the assemble now gives a
+             warning in the receive log.
+11.06.2002 - The field dir_alias was not set by FD, after a DIR_CONFIG
+             update this could lead to data being written to the end
+             of the FRA. Fixed.
+14.06.2002 - Assemble MSS did not work. Fixed.
+           - Function remove_dir() called closedir() twice in case of
+             an error.
+16.06.2002 - Added option unix time to rename rule.
+           - Included option to test for AFD heartbeat.
+29.06.2002 - New options toupper and tolower to convert all letters of
+             the file name to upper or lower case.
+02.07.2002 - Added from option for mail.
+03.07.2002 - When reordering the hostnames in afd_ctrl dialog with
+             edit_hc it could happen, due to a bug in function
+             create_db(), that the files of some directories are just
+             deleted. Since there was no reliable way to reproduce this,
+             if this fix corrected it. Only time will tell.
+           - Added charset option for mail.
+04.07.2002 - For mail add To header by default.
+           - Supplying the mailserver via the server= option now works
+             correctly.
+05.07.2002 - FD sometimes crashes when some hosts are being removed
+             from the FSA. Fixed.
+08.07.2002 - Removed combination of FTP rename to one command, it caused
+             to many problems with window systems.
+------------------------> Released: 08.07.2002 <---------------------------

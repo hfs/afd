@@ -1,7 +1,7 @@
 /*
  *  eval_dir_options.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -34,8 +34,8 @@ DESCR__S_M3
  **   Reads and evaluates the directory options from one directory
  **   of the DIR_CONFIG file. It currently knows the following options:
  **
- **        delete unknown files
- **        delete queued files
+ **        delete unknown files [<value in hours>]
+ **        delete queued files [<value in hours>]
  **        do not delete unknown files           [DEFAULT]
  **        report unknown files                  [DEFAULT]
  **        do not report unknown files
@@ -71,6 +71,7 @@ DESCR__S_M3
  **   12.08.2000 H.Kiehl Addition of priority.
  **   31.08.2000 H.Kiehl Addition of option "force rereads".
  **   20.07.2001 H.Kiehl New option "delete queued files".
+ **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
  **
  */
 DESCR__E_M3
@@ -113,15 +114,18 @@ eval_dir_options(int  dir_pos,
                  char *dir_options,
                  char *old_dir_options)
 {
-   int  used = 0;          /* Used to see whether option has */
+   int  old_file_time,
+        used = 0;          /* Used to see whether option has */
                            /* already been set.              */
    char *ptr,
         *end_ptr = NULL,
         byte_buf;
 
    /* Set some default directory options. */
+   old_file_time = OLD_FILE_TIME * 3600;
    dd[dir_pos].delete_files_flag = 0;
-   dd[dir_pos].old_file_time = OLD_FILE_TIME * 3600;
+   dd[dir_pos].unknown_file_time = -1;
+   dd[dir_pos].queued_file_time = -1;
    dd[dir_pos].report_unknown_files = YES;
    dd[dir_pos].end_character = -1;
 #ifndef _WITH_PTHREAD
@@ -152,7 +156,7 @@ eval_dir_options(int  dir_pos,
       if ((length > 0) && (length != MAX_INT_LENGTH))
       {
          number[length] = '\0';
-         dd[dir_pos].old_file_time = atoi(number) * 3600;
+         old_file_time = atoi(number) * 3600;
          while ((*ptr == ' ') || (*ptr == '\t'))
          {
             ptr++;
@@ -227,14 +231,37 @@ eval_dir_options(int  dir_pos,
       }
    }
 
+   /*
+    * Now for the new directory options.
+    */
    ptr = dir_options;
    while (*ptr != '\0')
    {
       if (((used & DEL_UNKNOWN_FILES_FLAG) == 0) &&
           (strncmp(ptr, DEL_UNKNOWN_FILES_ID, DEL_UNKNOWN_FILES_ID_LENGTH) == 0))
       {
+         int  length = 0;
+         char number[MAX_INT_LENGTH + 1];
+
          used |= DEL_UNKNOWN_FILES_FLAG;
          ptr += DEL_UNKNOWN_FILES_ID_LENGTH;
+         if ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            while ((isdigit(*ptr)) && (length < MAX_INT_LENGTH))
+            {
+               number[length] = *ptr;
+               ptr++; length++;
+            }
+            if ((length > 0) && (length != MAX_INT_LENGTH))
+            {
+               number[length] = '\0';
+               dd[dir_pos].unknown_file_time = atoi(number) * 3600;
+               while ((*ptr == ' ') || (*ptr == '\t'))
+               {
+                  ptr++;
+               }
+            }
+         }
          while ((*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
@@ -261,12 +288,11 @@ eval_dir_options(int  dir_pos,
               if ((length > 0) && (length != MAX_INT_LENGTH))
               {
                  number[length] = '\0';
-                 dd[dir_pos].old_file_time = atoi(number) * 3600;
+                 old_file_time = atoi(number) * 3600;
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
                  }
-                 end_ptr = ptr;
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
@@ -327,7 +353,6 @@ eval_dir_options(int  dir_pos,
                  {
                     ptr++;
                  }
-                 end_ptr = ptr;
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
@@ -359,7 +384,6 @@ eval_dir_options(int  dir_pos,
                  {
                     ptr++;
                  }
-                 end_ptr = ptr;
               }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
@@ -428,6 +452,27 @@ eval_dir_options(int  dir_pos,
            {
               used |= DEL_QUEUED_FILES_FLAG;
               ptr += DEL_QUEUED_FILES_ID_LENGTH;
+              if ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 int  length = 0;
+                 char number[MAX_INT_LENGTH + 1];
+
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+
+                 while ((isdigit(*ptr)) && (length < MAX_INT_LENGTH))
+                 {
+                    number[length] = *ptr;
+                    ptr++; length++;
+                 }
+                 if ((length > 0) && (length != MAX_INT_LENGTH))
+                 {
+                    number[length] = '\0';
+                    dd[dir_pos].queued_file_time = atoi(number) * 3600;
+                 }
+              }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
                  ptr++;
@@ -504,6 +549,15 @@ eval_dir_options(int  dir_pos,
          ptr++;
       }
    } /* while (*ptr != '\0') */
+
+   if (dd[dir_pos].unknown_file_time == -1)
+   {
+      dd[dir_pos].unknown_file_time = old_file_time;
+   }
+   if (dd[dir_pos].queued_file_time == -1)
+   {
+      dd[dir_pos].queued_file_time = old_file_time;
+   }
 
    return;
 }

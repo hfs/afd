@@ -7,6 +7,7 @@ SBINMODE        = 700
 MAKE            = make
 FORKMAKEFLAG    =
 CC              = cc
+EXE_EXT         =
 COMPILER_FLAGS  = -O -qmaxmem=8192
 #DEBUG_FLAGS     = -g -D_DEBUG -D_FIFO_DEBUG
 DEBUG_FLAGS     =

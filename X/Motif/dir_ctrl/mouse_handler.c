@@ -69,7 +69,6 @@ DESCR__E_M3
 #include <Xm/RowColumn.h>
 #include <Xm/DrawingA.h>
 #include "show_log.h"
-#include "afd_ctrl.h"
 #include "dir_ctrl.h"
 #include "permission.h"
 
@@ -482,6 +481,15 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, SHOW_RLOG);
          break;
 
+      case SHOW_QUEUE_SEL : /* Queue */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         (void)strcpy(progname, SHOW_QUEUE);
+         break;
+
       case VIEW_FILE_LOAD_SEL : /* File Load */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
@@ -718,6 +726,15 @@ dir_popup_cb(Widget    w,
                }
                break;
 
+            case SHOW_QUEUE_SEL :
+               (void)xrec(appshell, WARN_DIALOG,
+                          "Not implemented. Tell this lazy programmer to do some work! (%s %d)",
+                          __FILE__, __LINE__);
+               free(args);
+               FREE_RT_ARRAY(dirs)
+               FREE_RT_ARRAY(hosts)
+               return;
+
             default :
                (void)xrec(appshell, WARN_DIALOG,
                           "Impossible selection! NOOO this can't be true! (%s %d)",
@@ -741,7 +758,7 @@ dir_popup_cb(Widget    w,
       make_xprocess(progname, progname, args, -1);
    }
    else if ((sel_typ == O_LOG_SEL) || (sel_typ == E_LOG_SEL) ||
-            (sel_typ == I_LOG_SEL))
+            (sel_typ == I_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
         {
            args[k + 5] = NULL;
            make_xprocess(progname, progname, args, -1);

@@ -61,6 +61,18 @@
 #define ABORT_DIALOG                    6
 #define QUESTION_DIALOG                 7
 
+/* LED indicators */
+#define AMG_LED                         0
+#define FD_LED                          1
+#define AW_LED                          2
+#define AFDD_LED                        3
+
+/* Definitions for testing connections */
+#define SHOW_PING_TEST                  "Ping"
+#define SHOW_TRACEROUTE_TEST            "Traceroute"
+#define PING_W                          0           
+#define TRACEROUTE_W                    1
+
 /* Definitions for the Setup pulldown */
 #define FONT_W                          0
 #define ROWS_W                          1
@@ -111,15 +123,37 @@
 #define STYLE_2_W                       2
 
 /* Definitions of popup selections */
-#define AFD_CTRL_SEL                    50
-#define CONTROL_AMG_SEL                 51
-#define CONTROL_FD_SEL                  52
-#define REREAD_DIR_CONFIG_SEL           53
-#define REREAD_HOST_CONFIG_SEL          54
-#define EDIT_DC_SEL                     55
-#define EDIT_HC_SEL                     56
-#define STARTUP_AFD_SEL                 57
-#define SHUTDOWN_AFD_SEL                58
+#define S_LOG_SEL                       100    /* System Log */
+#define R_LOG_SEL                       101    /* Receive Log */
+#define T_LOG_SEL                       102    /* Transfer Log */
+#define D_LOG_SEL                       103    /* Transfer Debug Log */
+#define I_LOG_SEL                       104    /* Input Log */
+#define O_LOG_SEL                       105    /* Output Log */
+#define E_LOG_SEL                       106    /* Delete Log */
+#define EXIT_SEL                        107
+#define VIEW_FILE_LOAD_SEL              108
+#define VIEW_KBYTE_LOAD_SEL             109
+#define VIEW_CONNECTION_LOAD_SEL        110
+#define VIEW_TRANSFER_LOAD_SEL          111
+#define PING_SEL                        112
+#define TRACEROUTE_SEL                  113
+#define DIR_CTRL_SEL                    114
+#define SHOW_QUEUE_SEL                  115
+#define AFD_CTRL_SEL                    116
+#define CONTROL_AMG_SEL                 117
+#define CONTROL_FD_SEL                  118
+#define REREAD_DIR_CONFIG_SEL           119
+#define REREAD_HOST_CONFIG_SEL          120
+#define EDIT_DC_SEL                     121
+#define EDIT_HC_SEL                     122
+#define STARTUP_AFD_SEL                 123
+#define SHUTDOWN_AFD_SEL                124
+/* NOTE: Since some of these are used by more then one */
+/*       program each may define only a certain range: */
+/*         afd_ctrl.h        0 - 39                    */
+/*         mon_ctrl.h       40 - 69                    */
+/*         dir_ctrl.h       70 - 99                    */
+/*         x_common_defs.h 100 onwards.                */
 
 #ifndef PI
 #define PI                              3.141592654

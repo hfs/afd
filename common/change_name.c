@@ -37,24 +37,24 @@ DESCR__S_M3
  **   described in 'rename_to_rule' and stored in to 'new_name'. To
  **   insert special terms in the new filename the '%' sign is
  **   interpreted as followed:
- **            %*n   - address n-th asterisk
- **            %?n   - address n-th question mark
- **            %on   - n-th character from the original filename
- **            %On-m - range n to m of characters from original file
- **                    name. n='^' - from the beginning
- **                          m='$' - to the end
- **            %n    - generate a 4 character unique number
- **            %tx   - insert the actual time (x = like strftime)
- **                    (a - short day "Tue",      A - long day "Tuesday",
- **                     b - short month "Jan",    B - long month "January",
- **                     d - day of month [01,31], m - month [01,12],
- **                     j - day of the year [001,366],
- **                     y - year [01,99],         Y - year 1997,
- **                     H - hour [00,23],         M - minute [00,59],
- **                     S - second [00,60]                                 )
- **            %h    - insert the hostname
- **            %%    - the '%' sign   
- **            \     - are ignored
+ **     %*n   - address n-th asterisk
+ **     %?n   - address n-th question mark
+ **     %on   - n-th character from the original filename
+ **     %On-m - range n to m of characters from original file
+ **             name. n='^' - from the beginning
+ **                   m='$' - to the end
+ **     %n    - generate a 4 character unique number
+ **     %tx   - insert the actual time (x = like strftime)
+ **             a - short day "Tue",           A - long day "Tuesday",
+ **             b - short month "Jan",         B - long month "January",
+ **             d - day of month [01,31],      m - month [01,12],
+ **             j - day of the year [001,366], y - year [01,99],
+ **             Y - year 1997,                 H - hour [00,23],
+ **             M - minute [00,59],            S - second [00,60],
+ **             U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
+ **     %h    - insert the hostname
+ **     %%    - the '%' sign   
+ **     \     - are ignored
  **
  ** RETURN VALUES
  **   None.
@@ -67,6 +67,7 @@ DESCR__S_M3
  **   15.11.1997 H.Kiehl    Insert option day of the year.
  **   07.03.2001 H.Kiehl    Put in some more syntax checks.
  **   09.10.2001 H.Kiehl    Insert option for inserting hostname.
+ **   16.06.2002 H.Kiehl    Insert option Unix time.
  **
  */
 DESCR__E_M3
@@ -399,52 +400,55 @@ change_name(char *orig_file_name,
                   switch (*ptr_rule)
                   {
                      case 'a' : /* short day of the week 'Tue' */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%a", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%a", gmtime(&time_buf));
                         break;
                      case 'A' : /* long day of the week 'Tuesday' */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%A", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%A", gmtime(&time_buf));
                         break;
                      case 'b' : /* short month 'Jan' */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%b", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%b", gmtime(&time_buf));
                         break;
                      case 'B' : /* month 'January' */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%B", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%B", gmtime(&time_buf));
                         break;
                      case 'd' : /* day of month [01,31] */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%d", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%d", gmtime(&time_buf));
                         break;
                      case 'j' : /* day of year [001,366] */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%j", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%j", gmtime(&time_buf));
                         break;
                      case 'm' : /* month [01,12] */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%m", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%m", gmtime(&time_buf));
                         break;
                      case 'y' : /* year 2char [01,99] */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%y", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%y", gmtime(&time_buf));
                         break;
                      case 'Y' : /* year 4char 1997 */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%Y", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%Y", gmtime(&time_buf));
                         break;
                      case 'H' : /* hour [00,23] */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%H", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%H", gmtime(&time_buf));
                         break;
                      case 'M' : /* minute [00,59] */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%M", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%M", gmtime(&time_buf));
                         break;
                      case 'S' : /* minute [00,59] */
-                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
-                                           "%S", gmtime(&time_buf));
+                        number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
+                                          "%S", gmtime(&time_buf));
+                        break;
+                     case 'U' : /* Unix time. */
+                        number = sprintf(ptr_newname, "%ld", time_buf);
                         break;
                      default  : /* unknown character - ignore */
                         system_log(WARN_SIGN, __FILE__, __LINE__,

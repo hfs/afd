@@ -146,8 +146,7 @@ send_files_ftp(int                no_selected,
             }
             if (ftp_type(db->transfer_mode) == SUCCESS)
             {
-               int  lstatus,
-                    ret;
+               int  lstatus;
                char file_name[MAX_FILENAME_LENGTH];
 
                if (db->debug == YES)
@@ -157,7 +156,7 @@ send_files_ftp(int                no_selected,
                }
                if (db->target_dir[0] != '\0')
                {
-                  if ((ret = ftp_cd(db->target_dir)) == SUCCESS)
+                  if (ftp_cd(db->target_dir) == SUCCESS)
                   {
                      if (db->debug == YES)
                      {
@@ -171,10 +170,6 @@ send_files_ftp(int                no_selected,
                                "Failed to change directory to %s.",
                                db->target_dir);
                   }
-               }
-               else
-               {
-                  ret = SUCCESS;
                }
 
                /* Prepare some data for send_file_ftp() */

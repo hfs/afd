@@ -111,8 +111,8 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
          if (i == MAX_HOSTNAME_LENGTH)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Unable to store group name. It is longer than %d Bytes!",
-                       MAX_USER_NAME_LENGTH);
+                       "Unable to store group name. It may only be %d characters long!",
+                       MAX_HOSTNAME_LENGTH);
             return(INCORRECT);
          }
          if (i == 0)
@@ -125,6 +125,8 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
 
          if (*ptr == '@')
          {
+            ptr++; /* Away with the @. */
+
             /* Now lets get the host alias name. */
             i = 0;
             while ((*ptr != '\0') && (*ptr != '/') &&
@@ -346,14 +348,10 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
                     i = 0;
                     while ((*ptr != '\0') && (*ptr != ' ') && (*ptr != '\t'))
                     {
-                       p_db->smtp_server[i] = p_db->hostname[i] = *ptr;
+                       p_db->smtp_server[i] = *ptr;
                        i++; ptr++;
                     }
                     p_db->smtp_server[i] = '\0';
-                    if (i > 0)
-                    {
-                       p_db->hostname[i] = '\0';
-                    }
                  }
          }
          /*
@@ -364,7 +362,14 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
       /*
        * Find position of this hostname in FSA.
        */
-      t_hostname(p_db->hostname, p_db->host_alias);
+      if (p_db->smtp_server[0] == '\0')
+      {
+         t_hostname(p_db->hostname, p_db->host_alias);
+      }
+      else
+      {
+         t_hostname(p_db->smtp_server, p_db->host_alias);
+      }
       if ((p_db->fsa_pos = get_host_position(fsa, p_db->host_alias, no_of_hosts)) < 0)
       {
          /*

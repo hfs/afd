@@ -251,6 +251,9 @@ main(int argc, char *argv[])
    unsigned short    *unique_number;
    time_t            *creation_time,
                      abnormal_term_check_time,
+#ifdef _WITH_INTERRUPT_JOB
+                     interrupt_check_time,
+#endif
                      remote_file_check_time;
    size_t            fifo_size,
                      msg_fifo_buf_size;
@@ -540,7 +543,7 @@ main(int argc, char *argv[])
 
    /* Tell user we are starting the FD */
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (PRE %d.%d.%d-%d)\n",
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d-pre%d)\n",
              FD, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
@@ -561,6 +564,11 @@ main(int argc, char *argv[])
    remote_file_check_time = ((now / remote_file_check_interval) *
                              remote_file_check_interval) +
                             remote_file_check_interval;
+#ifdef _WITH_INTERRUPT_JOB
+   interrupt_check_time = ((now / PRIORITY_INTERRUPT_CHECK_TIME) *
+                          PRIORITY_INTERRUPT_CHECK_TIME) +
+                          PRIORITY_INTERRUPT_CHECK_TIME;
+#endif
    FD_ZERO(&rset);
 
    /* Now watch and start transfer jobs */
@@ -711,6 +719,90 @@ main(int argc, char *argv[])
 
          abnormal_term_check_time = ((now / 45) * 45) + 45;
       }
+
+#ifdef _WITH_INTERRUPT_JOB
+      if (now > interrupt_check_time)
+      {
+         if (*no_msg_queued > 0)
+         {
+            int *pos_list;
+
+            if ((pos_list = malloc(no_of_hosts * sizeof(int))) == NULL)
+            {
+               (void)rec(sys_log_fd, WARN_SIGN, "malloc() error : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
+            }
+            else
+            {
+               int full_hosts = 0,
+                   hosts_done = 0;
+
+               for (i = 0; i < no_of_hosts; i++)
+               {
+                  if (fsa[i].active_transfers >= fsa[i].allowed_transfers)
+                  {
+                     pos_list[full_hosts] = i;
+                     full_hosts++;
+                  }
+               }
+               if (full_hosts > 0)
+               {
+                  for (i = 0; ((i < *no_msg_queued) && (full_hosts > hosts_done)); i++)
+                  {
+                     if (qb[i].msg_name[0] != '\0')
+                     {
+                        if (qb[i].msg_name[0] > '8')
+                        {
+                           break;
+                        }
+                        else
+                        {
+                           if (qb[i].pid == PENDING)
+                           {
+                              for (j = 0; j < full_hosts; j++)
+                              {
+                                 if ((pos_list[j] != -1) &&
+                                     (pos_list[j] == connection[qb[i].connect_pos].fsa_pos))
+                                 {
+                                    int  k,
+                                         pos = -1;
+                                    char largest_priority = '0';
+
+                                    for (k = 0; k < fsa[pos_list[j]].allowed_transfers; k++)
+                                    {
+                                       if ((fsa[pos_list[j]].job_status[k].unique_name[0] > largest_priority) &&
+                                           ((fsa[pos_list[j]].job_status[k].special_flag & INTERRUPT_JOB) == 0) &&
+                                           ((fsa[pos_list[j]].job_status[k].no_of_files - fsa[pos_list[j]].job_status[k].no_of_files_done) > 1))
+                                       {
+                                          largest_priority = fsa[pos_list[j]].job_status[k].unique_name[0];
+                                          pos = k;
+                                       }
+                                    }
+                                    if (pos > -1)
+                                    {
+                                       if (qb[i].msg_name[0] > largest_priority)
+                                       {
+                                          fsa[pos_list[j]].job_status[k].special_flag ^= INTERRUPT_JOB;
+(void)rec(sys_log_fd, DEBUG_SIGN, "Setting INTERRUPT_JOB for host %s in position %d\n", fsa[pos_list[j]].host_dsp_name, k);
+                                       }
+                                    }
+                                    hosts_done++;
+                                    pos_list[j] = -1;
+                                 }
+                              }
+                           }
+                        }
+                     }
+                  }
+               }
+               (void)free(pos_list);
+            }
+         }
+         interrupt_check_time = ((now / PRIORITY_INTERRUPT_CHECK_TIME) *
+                                PRIORITY_INTERRUPT_CHECK_TIME) +
+                                PRIORITY_INTERRUPT_CHECK_TIME;
+      }
+#endif /* _WITH_INTERRUPT_JOB */
 
       /*
        * Check if we must check for files on any remote system.
@@ -1147,20 +1239,45 @@ main(int argc, char *argv[])
                           }
                           if (gotcha == YES)
                           {
+#ifdef _WITH_INTERRUPT_JOB
+                             int interrupt = NO;
+
+                             if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[3] == 4)
+                             {
+                                interrupt = YES;
+                                if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag & INTERRUPT_JOB)
+                                {
+                                   fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag ^= INTERRUPT_JOB;
+                                }
+                             }
+#endif
                              fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].error_file = qb[i].in_error_dir;
                              fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].job_id = mdb[qb[i].pos].job_id;
                              (void)memcpy(fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name,
                                           qb[i].msg_name, MAX_MSG_NAME_LENGTH);
                              qb[i].pid = pid;
                              qb[i].connect_pos = qb[qb_pos].connect_pos;
-                             ABS_REDUCE(fsa_pos);
-                             remove_msg(qb_pos);
+#ifdef _WITH_INTERRUPT_JOB
+                             if (interrupt == NO)
+                             {
+#endif
+                                ABS_REDUCE(fsa_pos);
+                                remove_msg(qb_pos);
+#ifdef _WITH_INTERRUPT_JOB
+                             }
+#endif
                              p_afd_status->burst2_counter++;
                           }
                           else
                           {
                              fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[0] = '\0';
                              fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[1] = 1;
+#ifdef _WITH_INTERRUPT_JOB
+                             if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag & INTERRUPT_JOB)
+                             {
+                                fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag ^= INTERRUPT_JOB;
+                             }
+#endif
                           }
                        }
                        else
@@ -1865,15 +1982,22 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                   {
                      connection[pos].fra_pos = qb[qb_pos].pos;
                      connection[pos].protocol = fra[qb[qb_pos].pos].protocol;
+                     connection[pos].msg_name[0] = '\0';
+                     (void)memcpy(connection[pos].dir_alias,
+                                  fra[qb[qb_pos].pos].dir_alias,
+                                  MAX_DIR_ALIAS_LENGTH + 1);
                   }
                   else
                   {
                      connection[pos].fra_pos = -1;
                      connection[pos].protocol = mdb[qb[qb_pos].pos].type;
+                     (void)memcpy(connection[pos].msg_name, qb[qb_pos].msg_name,
+                                  MAX_MSG_NAME_LENGTH);
+                     connection[pos].dir_alias[0] = '\0';
                   }
                   connection[pos].temp_toggle = OFF;
-                  (void)strcpy(connection[pos].msg_name, qb[qb_pos].msg_name);
-                  (void)strcpy(connection[pos].hostname, fsa[fsa_pos].host_alias);
+                  (void)memcpy(connection[pos].hostname, fsa[fsa_pos].host_alias,
+                               MAX_HOSTNAME_LENGTH + 1);
                   connection[pos].fsa_pos = fsa_pos;
 #ifdef WITH_MULTI_FSA_CHECKS
                   if (fd_check_fsa() == YES)
@@ -2305,7 +2429,6 @@ zombie_check(struct connection *p_con,
             case TIMEOUT_ERROR         : /* Timeout arrived */
             case CONNECT_ERROR         : /* Failed to connect to remote host */
             case USER_ERROR            : /* User name wrong */
-            case PASSWORD_ERROR        : /* Password wrong */
             case TYPE_ERROR            : /* Setting transfer type failed */
             case LIST_ERROR            : /* Sending the LIST command failed  */
             case REMOTE_USER_ERROR     : /* Failed to send mail address. */
@@ -2334,6 +2457,7 @@ zombie_check(struct connection *p_con,
 #endif
                break;
 
+            case PASSWORD_ERROR        : /* Password wrong */
             case CHDIR_ERROR           : /* Change remote directory */
             case CLOSE_REMOTE_ERROR    : /* */
             case MOVE_ERROR            : /* Move file locally */
