@@ -28,9 +28,7 @@ extern int  scp_connect(char *, int, char *, char *, char *),
             scp_close_file(void),
             scp_cmd_connect(char *, int, char *, char *, char *),
             scp_open_file(char *, off_t, mode_t),
-            scp_write(char *, int),
-            scp_chmod(char *, char *),
-            scp_move(char *, char *);
+            scp_write(char *, int);
 extern void scp_quit(void);
 
 #endif /* __scpdefs_h */

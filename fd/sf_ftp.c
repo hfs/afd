@@ -773,8 +773,24 @@ main(int argc, char *argv[])
       {
          off_t file_size_to_send = 0;
 
-         lock_region_w(fsa_fd,
-                       (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
+         lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
+         rlock_region(fsa_fd, lock_offset);
+         if (check_fsa() == YES)
+         {
+            if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                no_of_hosts)) == INCORRECT)
+            {
+               host_deleted = YES;
+               lock_offset = -1;
+            }
+            else
+            {
+               lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
+               rlock_region(fsa_fd, lock_offset);
+               lock_region_w(fsa_fd,
+                             (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
+            }
+         }
          if ((files_to_send = get_file_names(file_path,
                                              &file_size_to_send)) < 1)
          {
@@ -791,6 +807,10 @@ main(int argc, char *argv[])
                           files_to_send, file_path, db.my_pid, (int)db.job_no);
             }
             fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
+            if (lock_offset != -1)
+            {
+               unlock_region(fsa_fd, lock_offset);
+            }
             break;
          }
          burst_counter = fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter;
@@ -799,8 +819,6 @@ main(int argc, char *argv[])
          /* Tell user we are bursting. */
          if (host_deleted == NO)
          {
-            lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
-            rlock_region(fsa_fd, lock_offset);
             if (check_fsa() == YES)
             {
                if ((db.fsa_pos = get_host_position(fsa,
@@ -821,13 +839,16 @@ main(int argc, char *argv[])
                fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = FTP_BURST_TRANSFER_ACTIVE;
                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done + files_to_send;
                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size = fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done + file_size_to_send;
-               unlock_region(fsa_fd, lock_offset);
             }
             if (fsa[db.fsa_pos].debug == YES)
             {
                msg_str[0] = '\0';
                trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Bursting.");
             }
+         }
+         if (lock_offset != -1)
+         {
+            unlock_region(fsa_fd, lock_offset);
          }
       }
 #endif

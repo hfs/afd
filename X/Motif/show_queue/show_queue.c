@@ -1,6 +1,6 @@
 /*
  *  show_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,9 @@ DESCR__S_M1
  **
  ** HISTORY
  **   21.07.2001 H.Kiehl Created
+ **   23.11.2003 H.Kiehl Disallow user to change window width even if
+ **                      window manager allows this, but allow to change
+ **                      the height.
  **
  */
 DESCR__E_M1
@@ -137,8 +140,6 @@ main(int argc, char *argv[])
                    *radio_label[] = {"Short", "Med", "Long"};
    static String   fallback_res[] =
                    {
-                      ".show_queue*mwmDecorations : 42",
-                      ".show_queue*mwmFunctions : 12",
                       ".show_queue*background : NavajoWhite2",
                       ".show_queue.mainform*background : NavajoWhite2",
                       ".show_queue.mainform*XmText.background : NavajoWhite1",
@@ -969,6 +970,12 @@ main(int argc, char *argv[])
 
    /* Free font list */
    XmFontListFree(fontlist);
+
+   /* Disallow user to change window width. */
+   XtVaSetValues(toplevel_w,
+                 XmNminWidth, char_width * (MAX_OUTPUT_LINE_LENGTH + file_name_length + 6),
+                 XmNmaxWidth, char_width * (MAX_OUTPUT_LINE_LENGTH + file_name_length + 6),
+                 NULL);
 
 #ifdef _EDITRES
    XtAddEventHandler(toplevel_w, (EventMask)0, True,

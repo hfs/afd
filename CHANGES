@@ -1240,3 +1240,36 @@
              with SOH and ending with ETX to WMO standart 8 byte length
              and 2 byte type indicator.
 ------------------------> Released: 07.10.2003 <---------------------------
+
+
+---------------------------> Version 1.2.19 <------------------------------
+                            ----------------
+20.10.2003 - If DISPLAY is localhost (ssh) get real hostname with
+             'who am i'.
+24.10.2003 - Fix a bug where show_dlog crashes when user id of the person
+             who deleted a file was longer then 14 bytes. Fixed.
+31.10.2003 - When showing DIR_CONFIG information in dialogs we failed to
+             show the number of hours for the "delete queued files"
+             option.
+05.11.2003 - When we check for permission ensure that we check the full
+             user name and not only part of it.
+22.11.2003 - If there is lot of data to be shown by show_log dialog, it
+             buffers them and then shows the buffer. It is now possible
+             to view lot of data over a slow connection.
+23.11.2003 - Allow user to change window height of show_olog, show_ilog,
+             show_dlog and show_queue dialog, but disallow to change the
+             width.
+25.11.2003 - Fix a bug that wrote garbage into the internal job database.
+             This bug was introduced in 1.2.18.
+26.11.2003 - Disallow user to change window width and height via any
+             window manager for the dialogs afd_ctrl, dir_ctrl and
+             mon_ctrl.
+01.12.2003 - The AFD monitor log did not show selected entries that had
+             the full possible name length. Fixed.
+10.12.2003 - When FD fails to fork new process it failed to reset the
+             variables for this process. Thus FD always thought this
+             process was in use.
+           - Remove control connection from sf_scp since it did not
+             work reliable. This makes it imposible to rename a file
+             on the remote side. SCP protocol was not designed for this.
+------------------------> Released: 15.12.2004 <---------------------------

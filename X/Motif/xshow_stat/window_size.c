@@ -51,6 +51,7 @@ DESCR__E_M3
 extern Display      *display;
 extern int          data_height,
                     data_length,
+                    host_counter,
                     no_of_x_data_points,
                     no_of_y_data_points,
                     stat_type,
@@ -58,6 +59,7 @@ extern int          data_height,
                     x_data_spacing,
                     x_offset_left_xaxis,
                     x_offset_right_xaxis,
+                    y_data_spacing,
                     y_offset_top_yaxis,
                     y_offset_bottom_yaxis;
 extern unsigned int glyph_height,
@@ -73,6 +75,8 @@ window_size(int *window_width,
 {
    int calc_window_width,
        calc_window_height,
+       i,
+       max_y_value,
        window_size_changed;
 
    /*

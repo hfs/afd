@@ -285,7 +285,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
    {
       size_t length;
 
-      length = strlen(p_db->soptions);
+      length = strlen(p_db->soptions) + 1;
       if (length >= (MAX_OPTION_LENGTH - 1))
       {
          (void)rec(sys_log_fd, WARN_SIGN,

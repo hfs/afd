@@ -46,6 +46,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   06.05.1997 H.Kiehl Created
+ **   05.11.2003 H.Kiehl Ensure that we do check the full username.
  **
  */
 DESCR__E_M3
@@ -110,7 +111,7 @@ get_permissions(char **perm_buffer)
 
    /* Create two buffers, one to scribble around 'buffer' the other */
    /* is returned to the calling process.                           */
-   if (((buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL) ||
+   if (((buffer = calloc(stat_buf.st_size + 1, sizeof(char))) == NULL) ||
        ((*perm_buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL))
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -119,7 +120,7 @@ get_permissions(char **perm_buffer)
       (void)close(fd);
       return(INCORRECT);
    }
-   if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+   if (read(fd, &buffer[1], stat_buf.st_size) != stat_buf.st_size)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to read() <%s>. Permission control deactivated!!! : %s",
@@ -128,7 +129,18 @@ get_permissions(char **perm_buffer)
       (void)close(fd);
       return(INCORRECT);
    }
-   if ((ptr = posi(buffer, user)) != NULL)
+   buffer[0] = '\n';
+
+   do
+   {
+      if (((ptr = posi(buffer, user)) != NULL) &&
+          ((*ptr == ' ') || (*ptr == '\t')))
+      {
+         break;
+      }
+   } while (ptr != NULL);
+
+   if (ptr != NULL)
    {
       int  i = 0;
 

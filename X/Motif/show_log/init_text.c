@@ -1,6 +1,6 @@
 /*
  *  init_text.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -370,10 +370,6 @@ init_text(void)
          *(ptr_dst + block_length) = '\0';
       }
 
-      XmTextInsert(log_output, 0, dst);
-      wpr_position = total_length;
-      XmTextShowPosition(log_output, wpr_position);
-
 #ifdef _NO_MMAP
       free(src);
 #else
@@ -383,18 +379,24 @@ init_text(void)
                     strerror(errno), __FILE__, __LINE__);
       }
 #endif
-     if (dst != NULL)
-     {
-        free((void *)dst);
-     }
+
+      XtUnmanageChild(log_output);
+      XmTextSetString(log_output, dst);
+      wpr_position = total_length;
+      XmTextShowPosition(log_output, wpr_position);
+      XtManageChild(log_output);
+      if (dst != NULL)
+      {
+         free((void *)dst);
+      }
 
       attrs.cursor = None;
       XChangeWindowAttributes(display, XtWindow(toplevel), CWCursor, &attrs);
       XFlush(display);
 
       /* Get rid of all events that have occurred */
-      XSync(XtDisplay(toplevel), False);
-      while (XCheckMaskEvent(XtDisplay(toplevel),
+      XSync(display, False);
+      while (XCheckMaskEvent(display,
                              ButtonPressMask | ButtonReleaseMask |
                              ButtonMotionMask | PointerMotionMask |
                              KeyPressMask, &event) == TRUE)

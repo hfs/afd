@@ -446,12 +446,17 @@ init_show_stat(int *argc, char *argv[], char *font_name, char *window_title)
          (*argc)--; argv++;
          i++;
       }
-      RT_ARRAY(stat_pos, host_counter, sizeof(int), int);
+      if ((stat_pos = malloc(host_counter * sizeof(int))) == NULL)
+      {
+         (void)fprintf(stderr, "ERROR   : malloc() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
       for (i = 0; i < host_counter; i++)
       {
          for (j = 0; j < no_of_hosts; j++)
          {
-            if (strcmp(host[i], stat_db[j].hostname) == 0)
+            if (strcmp(hosts[i], stat_db[j].hostname) == 0)
             {
                stat_pos[i] = j;
                break;
@@ -463,7 +468,12 @@ init_show_stat(int *argc, char *argv[], char *font_name, char *window_title)
    {
       register int i;
 
-      RT_ARRAY(stat_pos, no_of_hosts, sizeof(int), int);
+      if ((stat_pos = malloc(no_of_hosts * sizeof(int))) == NULL)
+      {
+         (void)fprintf(stderr, "ERROR   : malloc() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
       for (i = 0; i < no_of_hosts; i++)
       {
          stat_pos[i] = i;

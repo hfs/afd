@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -37,6 +37,8 @@ DESCR__S_M1
  ** HISTORY
  **   30.08.2000 H.Kiehl Created
  **   05.05.2002 H.Kiehl Show the number files currently in the directory.
+ **   26.11.2003 H.Kiehl Disallow user to change window width and height
+ **                      via any window manager.
  **
  */
 DESCR__E_M1
@@ -189,8 +191,6 @@ main(int argc, char *argv[])
    char          window_title[100];
    static String fallback_res[] =
                  {
-                    "*mwmDecorations : 42",
-                    "*mwmFunctions : 12",
                     ".dir_ctrl*background : NavajoWhite2",
                     NULL
                  };
@@ -342,6 +342,19 @@ main(int argc, char *argv[])
 
    /* Realize all widgets */
    XtRealizeWidget(appshell);
+
+   /* Disallow user to change window width and height. */
+   {
+      Dimension height;
+
+      XtVaGetValues(appshell, XmNheight, &height, NULL);
+      XtVaSetValues(appshell,
+                    XmNminWidth, window_width,
+                    XmNmaxWidth, window_width,
+                    XmNminHeight, height,
+                    XmNmaxHeight, height,
+                    NULL);
+   }
 
    /* Set some signal handlers. */
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||

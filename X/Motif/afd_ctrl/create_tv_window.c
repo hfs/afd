@@ -1,6 +1,6 @@
 /*
  *  create_tv_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,6 +36,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   06.01.1998 H.Kiehl Created
+ **   26.11.2003 H.Kiehl Disallow user to change window width and height
+ **                      via any window manager.
  **
  */
 DESCR__E_M3
@@ -130,6 +132,15 @@ create_tv_window(void)
    detailed_window_w = XmCreateDrawingArea(tv_form_w, "detailed_window_w",
                                            args, argcount);
    XtManageChild(detailed_window_w);
+
+
+   /* Disallow user to change window width and height. */
+   XtVaSetValues(appshell,
+                 XmNminWidth, tv_window_width,
+                 XmNmaxWidth, tv_window_width,
+                 XmNminHeight, tv_window_height + line_height,
+                 XmNmaxHeight, tv_window_height + line_height,
+                 NULL);
 
    /* Add expose handler for label and detailed window */
    XtAddCallback(tv_label_window_w, XmNexposeCallback,

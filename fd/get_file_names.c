@@ -134,8 +134,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    if ((dp = opendir(file_path)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not opendir() %s [%s] : %s",
-                 file_path, db.host_alias, strerror(errno));
+                 "Could not opendir() %s [%s %d] : %s",
+                 file_path, db.host_alias, (int)db.job_no, strerror(errno));
       exit(OPEN_FILE_DIR_ERROR);
    }
 

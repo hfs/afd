@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -653,6 +653,8 @@ get_data(void)
                 j,
                 start_file_no = -1,
                 end_file_no = -1;
+   time_t       end,
+                start;
    double       total_file_size,
                 total_trans_time;
    char         status_message[MAX_MESSAGE_LENGTH];
@@ -736,6 +738,7 @@ get_data(void)
    SHOW_MESSAGE();
    CHECK_INTERRUPT();
 
+   start = time(NULL);
    file_size = trans_time = 0.0;
    total_no_files = 0;
    first_date_found = -1;
@@ -753,14 +756,16 @@ get_data(void)
          break;
       }
    }
+   end = time(NULL);
 
    if (total_no_files != 0)
    {
-      (void)strcpy(status_message, " ");
+      (void)sprintf(status_message, "Search time: %lds", end - start);
    }
    else
    {
-      (void)strcpy(status_message, "No data found.");
+      (void)sprintf(status_message, "No data found. Search time: %lds",
+                    end - start);
    }
    SHOW_MESSAGE();
 
@@ -1130,22 +1135,22 @@ no_criteria(register char *ptr,
                IGNORE_ENTRY();
             }
          }
-         else if (type == SMTP)
+         else if (type == LOC)
               {
-                 if (toggles_set & SHOW_SMTP)
+                 if (toggles_set & SHOW_FILE)
                  {
-                    INSERT_TIME_TYPE(SMTP_ID_STR);
+                    INSERT_TIME_TYPE(FILE_ID_STR);
                  }
                  else
                  {
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == LOC)
+         else if (type == SMTP)
               {
-                 if (toggles_set & SHOW_FILE)
+                 if (toggles_set & SHOW_SMTP)
                  {
-                    INSERT_TIME_TYPE(FILE_ID_STR);
+                    INSERT_TIME_TYPE(SMTP_ID_STR);
                  }
                  else
                  {
@@ -1245,6 +1250,7 @@ no_criteria(register char *ptr,
          /* Write transfer duration, job ID and archive directory. */
          /* Also check if we have to check for directory name.     */
          COMMON_BLOCK();
+
          file_size += strtod(p_size, NULL);
       }
 

@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -41,6 +41,8 @@ DESCR__S_M1
  **   12.01.2000 H.Kiehl Added receive log.
  **   30.07.2001 H.Kiehl Support for the show_queue dialog.
  **   09.11.2002 H.Kiehl Short line support.
+ **   26.11.2003 H.Kiehl Disallow user to change window width and height
+ **                      via any window manager.
  **
  */
 DESCR__E_M1
@@ -248,8 +250,6 @@ main(int argc, char *argv[])
    char          window_title[100];
    static String fallback_res[] =
                  {
-                    "*mwmDecorations : 42",
-                    "*mwmFunctions : 12",
                     ".afd_ctrl*background : NavajoWhite2",
                     ".afd_ctrl.Search Host.main_form.buttonbox*background : PaleVioletRed2",
                     ".afd_ctrl.Search Host.main_form.buttonbox*foreground : Black",
@@ -481,6 +481,19 @@ main(int argc, char *argv[])
 
    /* Realize all widgets */
    XtRealizeWidget(appshell);
+
+   /* Disallow user to change window width and height. */
+   {
+      Dimension height;
+
+      XtVaGetValues(appshell, XmNheight, &height, NULL);
+      XtVaSetValues(appshell,
+                    XmNminWidth, window_width,
+                    XmNmaxWidth, window_width,
+                    XmNminHeight, height,
+                    XmNmaxHeight, height,
+                    NULL);
+   }
 
    /* Set some signal handlers. */
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||

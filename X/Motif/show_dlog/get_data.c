@@ -180,7 +180,7 @@ static void   display_data(int, time_t, time_t),
         }
 #define INSERT_TIME_TYPE(reason, reason_length)            \
         {                                                  \
-           (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+           (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
            (void)memcpy(time_buf, ptr_start_line, 10);     \
            time_buf[10] = '\0';                            \
            time_when_transmitted = (time_t)atol(time_buf); \
@@ -232,7 +232,7 @@ static void   display_data(int, time_t, time_t),
            ptr++;                                          \
            j = 0;                                          \
            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&\
-                  (j <= MAX_PROC_USER_LENGTH))             \
+                  (j < MAX_PROC_USER_LENGTH))              \
            {                                               \
               *(p_proc_user + j) = *ptr;                   \
               ptr++; j++;                                  \
@@ -292,7 +292,7 @@ static void   display_data(int, time_t, time_t),
               if ((gt_lt_sign == EQUAL_SIGN) &&                        \
                   (tmp_file_size == search_file_size))                 \
               {                                                        \
-                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
                  (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                  /* Write file size. */                                \
@@ -315,7 +315,7 @@ static void   display_data(int, time_t, time_t),
               else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
                        (tmp_file_size < search_file_size))             \
                    {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
                       (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                       /* Write file size. */                           \
@@ -338,7 +338,7 @@ static void   display_data(int, time_t, time_t),
               else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
                        (tmp_file_size > search_file_size))             \
                    {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
                       (void)memcpy(p_type, (id_string), (id_string_length)); \
                                                                        \
                       /* Write file size. */                           \
@@ -435,7 +435,7 @@ static void   display_data(int, time_t, time_t),
            if ((gt_lt_sign == EQUAL_SIGN) &&                           \
                (tmp_file_size == search_file_size))                    \
            {                                                           \
-              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
               (void)memcpy(p_type, (id_string), (id_string_length));   \
                                                                        \
               /* Write file size. */                                   \
@@ -458,7 +458,7 @@ static void   display_data(int, time_t, time_t),
            else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
                     (tmp_file_size < search_file_size))                \
                 {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
                    (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                    /* Write file size. */                              \
@@ -481,7 +481,7 @@ static void   display_data(int, time_t, time_t),
            else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
                     (tmp_file_size > search_file_size))                \
                 {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
                    (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                    /* Write file size. */                              \
@@ -1119,7 +1119,7 @@ no_criteria(register char *ptr,
          ptr++;
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&
-                (j <= MAX_PROC_USER_LENGTH))
+                (j < MAX_PROC_USER_LENGTH))
          {
             *(p_proc_user + j) = *ptr;
             ptr++; j++;
@@ -1697,7 +1697,7 @@ file_name_and_size(register char *ptr,
               }
 
          ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
-         (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);
+         (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
          (void)memcpy(time_buf, ptr_start_line, 10);
          time_buf[10] = '\0';
@@ -2574,7 +2574,7 @@ file_name_size_recipient(register char *ptr,
               }
 
          ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
-         (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);
+         (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
          (void)memcpy(time_buf, ptr_start_line, 10);
          time_buf[10] = '\0';

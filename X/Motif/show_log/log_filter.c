@@ -1,6 +1,6 @@
 /*
  *  log_filter.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   12.04.1997 H.Kiehl Created
+ **   01.12.2003 H.Kiehl Make it work for monitor log file types.
  **
  */
 DESCR__E_M3
@@ -170,7 +171,8 @@ log_filter(char *p_filter, char *p_file)
             *ptr = buffer;
             p_file_buffer += length;
             if ((buffer == '\0') &&
-                ((*p_file_buffer == ' ') || (*p_file_buffer == '[')))
+                ((*p_file_buffer == ' ') || (*p_file_buffer == '[') ||
+                 (*p_file_buffer == ':')))
             {
                return((inverse == NO) ? 0 : -1);
             }

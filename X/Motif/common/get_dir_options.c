@@ -94,8 +94,6 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                              DEL_QUEUED_FILES_ID,
                              fra[i].queued_file_time / 3600);
-               (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                            DEL_QUEUED_FILES_ID);
                d_o->no_of_dir_options++;
             }
          }

@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -81,6 +81,9 @@ DESCR__S_M3
  ** HISTORY
  **   31.03.1997 H.Kiehl Created
  **   13.02.1999 H.Kiehl Multiple recipients.
+ **   23.11.2003 H.Kiehl Disallow user to change window width even if
+ **                      window manager allows this, but allow to change
+ **                      height.
  **
  */
 DESCR__E_M3
@@ -103,7 +106,8 @@ extern Display          *display;
 extern Widget           listbox_w,
                         headingbox_w,
                         statusbox_w,
-                        summarybox_w;
+                        summarybox_w,
+                        toplevel_w;
 extern Window           main_window;
 extern int              file_name_toggle_set,
                         items_selected,
@@ -357,6 +361,7 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       int          x,
                    y,
                    no_of_items;
+      Dimension    window_width;
       unsigned int width,
                    window_height,
                    border,
@@ -378,7 +383,13 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
               XmTextSetString(headingbox_w, HEADING_LINE_LONG);
            }
 
-      XResizeWindow(display, main_window, char_width * (MAX_OUTPUT_LINE_LENGTH + file_name_length + 6), window_height);
+      window_width = char_width *
+                     (MAX_OUTPUT_LINE_LENGTH + file_name_length + 6);
+      XtVaSetValues(toplevel_w,
+                    XmNminWidth, window_width,
+                    XmNmaxWidth, window_width,
+                    NULL);
+      XResizeWindow(display, main_window, window_width, window_height);
 
       XtVaGetValues(listbox_w, XmNitemCount, &no_of_items, NULL);
       if (no_of_items > 0)

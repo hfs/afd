@@ -22,7 +22,7 @@
 DESCR__S_M3
 /*
  ** NAME
- **   remove_connection - resets data in connection ans FSA structures
+ **   remove_connection - resets data in connection and FSA structures
  **
  ** SYNOPSIS
  **   void remove_connection(struct connection *p_con,

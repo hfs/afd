@@ -1,6 +1,6 @@
 /*
  *  resize_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,6 +44,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   26.01.1996 H.Kiehl Created
+ **   26.11.2003 H.Kiehl Disallow user to change window width and height
+ **                      via any window manager.
  **
  */
 DESCR__E_M3
@@ -136,11 +138,23 @@ resize_window(void)
       }
 
       /* Resize window */
+      XtVaSetValues(appshell,
+                    XmNminWidth, window_width,
+                    XmNmaxWidth, window_width,
+                    XmNminHeight, window_height + line_height + line_height + glyph_height + magic_value,
+                    XmNmaxHeight, window_height + line_height + line_height + glyph_height + magic_value,
+                    NULL);
       XMoveResizeWindow(display, XtWindow(appshell),
                         new_x, new_y,
                         window_width,
                         window_height + line_height + line_height + glyph_height + magic_value);
 #else
+      XtVaSetValues(appshell,
+                    XmNminWidth, window_width,
+                    XmNmaxWidth, window_width,
+                    XmNminHeight, window_height + line_height + line_height + glyph_height + magic_value,
+                    XmNmaxHeight, window_height + line_height + line_height + glyph_height + magic_value,
+                    NULL);
       XResizeWindow(display, XtWindow(appshell), window_width,
                     window_height + line_height + line_height + glyph_height + magic_value);
 #endif

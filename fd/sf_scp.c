@@ -55,8 +55,11 @@ DESCR__S_M1
  **   H.Kiehl
  **
  ** HISTORY
- **   04.05.2001 H.Kiehl Created
+ **   04.05.2001 H.Kiehl        Created
  **   10.03.2003 F.Olivie (Alf) Added more proper exit status.
+ **   10.12.2003 H.Kiehl        Remove everything with ctrl connection,
+ **                             since it does not work on all systems.
+ **                             The SCP protocol was not designed for this.
  **
  */
 DESCR__E_M1
@@ -161,9 +164,6 @@ main(int argc, char *argv[])
                     search_for_files = NO,
 #endif
                     *buffer,
-                    final_filename[MAX_FILENAME_LENGTH],
-                    initial_filename[MAX_FILENAME_LENGTH],
-                    remote_filename[MAX_PATH_LENGTH],
                     fullname[MAX_PATH_LENGTH],
                     file_path[MAX_PATH_LENGTH],
                     work_dir[MAX_PATH_LENGTH];
@@ -283,40 +283,6 @@ main(int argc, char *argv[])
          msg_str[0] = '\0';
          trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                       "Connected to port %d.", db.port);
-      }
-   }
-
-   /*
-    * Since there is no way to rename files under SCP, lets try
-    * and open another normal ssh connection via which we will
-    * do the renaming.
-    */
-   if ((db.lock == DOT) || (db.lock == DOT_VMS) ||
-       (db.trans_rename_rule[0] != '\0') || (db.chmod_str[0] != '\0'))
-   {
-      if (fsa[db.fsa_pos].debug == YES)
-      {
-         msg_str[0] = '\0';
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                      "Trying to open a command connection at port %d.",
-                      db.port);
-      }
-      if ((status = scp_cmd_connect(db.hostname, db.port, db.user,
-                                    db.password, db.target_dir)) < 0)
-      {
-         msg_str[0] = '\0';
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "SSH command connection to %s at port %d failed (%d).",
-                   db.hostname, db.port, status);
-         exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
-      }
-      else
-      {
-         if (fsa[db.fsa_pos].debug == YES)
-         {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "SSH command connection to port %d.", db.port);
-         }
       }
    }
 
@@ -449,7 +415,6 @@ main(int argc, char *argv[])
       p_file_size_buffer = file_size_buffer;
       for (files_send = 0; files_send < files_to_send; files_send++)
       {
-         (void)strcpy(final_filename, p_file_name_buffer);
          (void)sprintf(fullname, "%s/%s", file_path, p_file_name_buffer);
          no_of_bytes = 0;
 
@@ -458,7 +423,8 @@ main(int argc, char *argv[])
          {
             if (check_fsa() == YES)
             {
-               if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+               if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                   no_of_hosts)) == INCORRECT)
                {
                   host_deleted = YES;
                }
@@ -468,21 +434,6 @@ main(int argc, char *argv[])
                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
                (void)strcpy(fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use,
                             p_file_name_buffer);
-            }
-         }
-
-         /* Send file in dot notation? */
-         if ((db.lock == DOT) || (db.lock == DOT_VMS))
-         {
-            (void)strcpy(initial_filename, db.lock_notation);
-            (void)strcat(initial_filename, p_file_name_buffer);
-         }
-         else
-         {
-            (void)strcpy(initial_filename, p_file_name_buffer);
-            if (db.lock == POSTFIX)
-            {
-               (void)strcat(initial_filename, db.lock_notation);
             }
          }
 
@@ -498,14 +449,14 @@ main(int argc, char *argv[])
          {
             msg_str[0] = '\0';
             trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Trying to open remote file %s.", initial_filename);
+                         "Trying to open remote file %s.", p_file_name_buffer);
          }
-         if ((status = scp_open_file(initial_filename, *p_file_size_buffer,
+         if ((status = scp_open_file(p_file_name_buffer, *p_file_size_buffer,
                                      db.chmod)) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to open remote file <%s> (%d).",
-                      initial_filename, status);
+                      p_file_name_buffer, status);
             msg_str[0] = '\0';
             trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                       fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
@@ -518,7 +469,7 @@ main(int argc, char *argv[])
             if (fsa[db.fsa_pos].debug == YES)
             {
                trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Open remote file <%s>.", initial_filename);
+                            "Open remote file <%s>.", p_file_name_buffer);
             }
          }
 
@@ -581,7 +532,7 @@ main(int argc, char *argv[])
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to write WMO header to remote file <%s> [%d]",
-                            initial_filename, status);
+                            p_file_name_buffer, status);
                   msg_str[0] = '\0';
                   trans_log(INFO_SIGN, NULL, 0,
                             "%d Bytes send in %d file(s).",
@@ -705,7 +656,7 @@ main(int argc, char *argv[])
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to write <CR><CR><LF><ETX> to remote file <%s> [%d]",
-                            initial_filename, status);
+                            p_file_name_buffer, status);
                   msg_str[0] = '\0';
                   trans_log(INFO_SIGN, NULL, 0,
                             "%d Bytes send in %d file(s).",
@@ -738,12 +689,12 @@ main(int argc, char *argv[])
          {
             msg_str[0] = '\0';
             trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Trying to close remote file %s.", initial_filename);
+                         "Trying to close remote file %s.", p_file_name_buffer);
          }
          if ((status = scp_close_file()) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to close remote file <%s>", initial_filename);
+                      "Failed to close remote file <%s>", p_file_name_buffer);
             msg_str[0] = '\0';
             trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
                       fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
@@ -758,7 +709,7 @@ main(int argc, char *argv[])
                msg_str[0] = '\0';
                trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                             "Closed data connection for file <%s>.",
-                            initial_filename);
+                            p_file_name_buffer);
             }
          }
 
@@ -768,103 +719,6 @@ main(int argc, char *argv[])
             end_time = times(&tmsdummy);
          }
 #endif
-         if (db.chmod_str[0] != '\0')
-         {
-            if (fsa[db.fsa_pos].debug == YES)
-            {
-               msg_str[0] = '\0';
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Trying to chmod %s to %s.",
-                            initial_filename, db.chmod_str);
-            }
-            if ((status = scp_chmod(initial_filename,
-                                    db.chmod_str)) != SUCCESS)
-            {
-               trans_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to chmod remote file <%s> to %s (%d).",
-                         initial_filename, db.chmod_str, status);
-               if (timeout_flag == ON)
-               {
-                  timeout_flag = OFF;
-               }
-            }
-            else if (fsa[db.fsa_pos].debug == YES)
-                 {
-                    trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                 "Changed mode of remote file <%s> to %s",
-                                 initial_filename, db.chmod_str);
-                 }
-         }
-
-         /* If we used dot notation, don't forget to rename */
-         if ((db.lock == DOT) || (db.lock == POSTFIX) || (db.lock == DOT_VMS) ||
-             (db.trans_rename_rule[0] != '\0'))
-         {
-            remote_filename[0] = '\0';
-            if (db.lock == DOT_VMS)
-            {
-               (void)strcat(final_filename, DOT_NOTATION);
-            }
-            if (db.trans_rename_rule[0] != '\0')
-            {
-               register int k;
-
-               for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
-               {
-                  if (pmatch(rule[trans_rule_pos].filter[k],
-                             final_filename) == 0)
-                  {
-                     change_name(final_filename,
-                                 rule[trans_rule_pos].filter[k],
-                                 rule[trans_rule_pos].rename_to[k],
-                                 remote_filename);
-                     break;
-                  }
-               }
-            }
-            if (remote_filename[0] == '\0')
-            {
-               (void)strcpy(remote_filename, final_filename);
-            }
-            if (fsa[db.fsa_pos].debug == YES)
-            {
-               msg_str[0] = '\0';
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Trying to move %s to %s.",
-                            initial_filename, remote_filename);
-            }
-            if ((status = scp_move(initial_filename,
-                                   remote_filename)) != SUCCESS)
-            {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to move remote file <%s> to <%s> (%d)",
-                         initial_filename, remote_filename, status);
-               msg_str[0] = '\0';
-               trans_log(INFO_SIGN, NULL, 0, "%d Bytes send in %d file(s).",
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               (void)scp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : MOVE_REMOTE_ERROR);
-            }
-            else
-            {
-               if (fsa[db.fsa_pos].debug == YES)
-               {
-                  msg_str[0] = '\0';
-                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                               "Renamed remote file <%s> to <%s>",
-                               initial_filename, remote_filename);
-               }
-            }
-            if (db.lock == DOT_VMS)
-            {
-               char *ptr;
-
-               /* Remove dot at end of name */
-               ptr = final_filename + strlen(final_filename) - 1;
-               *ptr = '\0';
-            }
-         }
 
          /* Update FSA, one file transmitted. */
          if (host_deleted == NO)
@@ -876,7 +730,8 @@ main(int argc, char *argv[])
             /* sure that it is NOT stale!            */
             if (check_fsa() == YES)
             {
-               if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+               if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                   no_of_hosts)) == INCORRECT)
                {
                   host_deleted = YES;
                }

@@ -1,6 +1,6 @@
 /*
  *  fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,6 +63,8 @@ DESCR__S_M1
  **   14.12.2000 H.Kiehl Decrease priority of a job in queue on certain
  **                      errors of sf_xxx.
  **   16.04.2002 H.Kiehl Improve speed when inserting new jobs in queue.
+ **   10.12.2003 H.Kiehl When we fail to fork we forget to reset some
+ **                      structures.
  **
  */
 DESCR__E_M1
@@ -2058,6 +2060,27 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                      }
                      qb[qb_pos].connect_pos = pos;
                      p_afd_status->no_of_transfers++;
+                  }
+                  else
+                  {
+                     fsa[fsa_pos].job_status[connection[pos].job_no].connect_status = NOT_WORKING;
+                     fsa[fsa_pos].job_status[connection[pos].job_no].no_of_files = 0;
+                     fsa[fsa_pos].job_status[connection[pos].job_no].no_of_files_done = 0;
+                     fsa[fsa_pos].job_status[connection[pos].job_no].file_size = 0;
+                     fsa[fsa_pos].job_status[connection[pos].job_no].file_size_done = 0;
+                     fsa[fsa_pos].job_status[connection[pos].job_no].file_size_in_use = 0;
+                     fsa[fsa_pos].job_status[connection[pos].job_no].file_size_in_use_done = 0;
+                     fsa[fsa_pos].job_status[connection[pos].job_no].file_name_in_use[0] = '\0';
+#ifdef _BURST_MODE
+                     fsa[fsa_pos].job_status[connection[pos].job_no].unique_name[0] = '\0';
+                     fsa[fsa_pos].job_status[connection[pos].job_no].burst_counter = 0;
+#endif
+                     connection[pos].hostname[0] = '\0';
+                     connection[pos].msg_name[0] = '\0';
+                     connection[pos].job_no = -1;
+                     connection[pos].fsa_pos = -1;
+                     connection[pos].fra_pos = -1;
+                     connection[pos].pid = 0;
                   }
                }
             }

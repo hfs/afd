@@ -30,9 +30,11 @@ DESCR__S_M3
  **
  ** DESCRIPTION
  **   Gets the username and display of the current process. This
- **   is done by reading te environment variables 'LOGNAME' and
+ **   is done by reading the environment variables 'LOGNAME' and
  **   'DISPLAY' respectivly. If not specified 'unknown' will be
- **   used for either 'LOGNAME' or 'DISPLAY'.
+ **   used for either 'LOGNAME' or 'DISPLAY'. When 'DISPLAY' is
+ **   set to 'localhost' it will try to get the remote host by
+ **   looking at the output of 'who am i'.
  **
  ** RETURN VALUES
  **   Will return the username and display in 'user'.
@@ -43,13 +45,17 @@ DESCR__S_M3
  ** HISTORY
  **   14.04.1996 H.Kiehl Created
  **   18.08.2003 H.Kiehl Build in length checks.
+ **   20.10.2003 H.Kiehl If DISPLAY is localhost (ssh) get real hostname
+ **                      with 'who am i'.
+ **   29.10.2003 H.Kiehl Try to evaluate SSH_CLIENT as well when
+ **                      DISPLAY is localhost.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>              /* NULL                                  */
-#include <string.h>             /* strcat()                              */
-#include <stdlib.h>             /* getenv()                              */
+#include <string.h>             /* strcat(), strlen(), memcpy()          */
+#include <stdlib.h>             /* getenv(), malloc(), free()            */
 #include <sys/types.h>
 #include <pwd.h>                /* getpwuid()                            */
 #include <unistd.h>             /* getuid()                              */
@@ -83,8 +89,16 @@ get_user(char *user)
       }
       else
       {
-         length = 0;
-         user[0] = '\0';
+         if (8 < MAX_FULL_USER_ID_LENGTH)
+         {
+            (void)strcpy(user, "unknown@");
+            length = 8;
+         }
+         else
+         {
+            user[0] = '\0';
+            length = 0;
+         }
       }
    }
    else
@@ -96,8 +110,8 @@ get_user(char *user)
       }
       else
       {
-         length = 0;
          user[0] = '\0';
+         length = 0;
       }
    }
 
@@ -108,6 +122,77 @@ get_user(char *user)
          size_t display_length;
 
          display_length = strlen(ptr);
+         if ((display_length >= 9) && (*ptr == 'l') && (*(ptr + 1) == 'o') &&
+             (*(ptr + 2) == 'c') && (*(ptr + 3) == 'a') &&
+             (*(ptr + 4) == 'l') && (*(ptr + 5) == 'h') &&
+             (*(ptr + 6) == 'o') && (*(ptr + 7) == 's') &&
+             (*(ptr + 8) == 't'))
+         {
+            if ((ptr = getenv("SSH_CLIENT")) != NULL)
+            {
+               char *search_ptr = ptr;
+
+               while ((*search_ptr != ' ') && (*search_ptr != '\0') &&
+                      (*search_ptr != '\t'))
+               {
+                  search_ptr++;
+               }
+               display_length = search_ptr - ptr;
+               if ((length + display_length) >= MAX_FULL_USER_ID_LENGTH)
+               {
+                  display_length = MAX_FULL_USER_ID_LENGTH - length;
+               }
+               (void)memcpy(&user[length], ptr, display_length);
+               user[length + display_length] = '\0';
+               return;
+            }
+            else
+            {
+               char *buffer;
+
+               if ((buffer = malloc(MAX_PATH_LENGTH + MAX_PATH_LENGTH)) != NULL)
+               {
+                  int ret;
+
+                  if ((ret = exec_cmd("who am i", buffer)) != INCORRECT)
+                  {
+                     char *search_ptr = buffer;
+
+                     while ((*search_ptr != '(') && (*search_ptr != '\0') &&
+                            ((search_ptr - buffer) < (MAX_PATH_LENGTH + MAX_PATH_LENGTH)))
+                     {
+                        search_ptr++;
+                     }
+                     if (*search_ptr == '(')
+                     {
+                        char *start_ptr = search_ptr + 1;
+
+                        search_ptr++;
+                        while ((*search_ptr != ')') && (*search_ptr != '\0') &&
+                               ((search_ptr - buffer) < (MAX_PATH_LENGTH + MAX_PATH_LENGTH)))
+                        {
+                           search_ptr++;
+                        }
+                        if (*search_ptr == ')')
+                        {
+                           int real_display_length = search_ptr - start_ptr;
+
+                           if ((length + real_display_length) < MAX_FULL_USER_ID_LENGTH)
+                           {
+                              (void)memcpy(&user[length], start_ptr,
+                                           real_display_length);
+                              user[length + real_display_length] = '\0';
+                              free(buffer);
+                              return;
+                           }
+                        }
+                     }
+                  }
+                  free(buffer);
+                  ptr = getenv("DISPLAY");
+               }
+            }
+         }
          if ((length + display_length) < MAX_FULL_USER_ID_LENGTH)
          {
             (void)strcpy(&user[length], ptr);
