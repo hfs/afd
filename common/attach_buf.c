@@ -114,7 +114,7 @@ attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
        */
       if (prog_name != NULL)
       {
-         if (lock_region(*fd, 0) == IS_LOCKED)
+         if (lock_region(*fd, 0) == LOCK_IS_SET)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Another <%s> is already running. Terminating.",

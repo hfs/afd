@@ -62,9 +62,10 @@
 #define INPUT_W                         4
 #define OUTPUT_W                        5
 #define DELETE_W                        6
-#define INFO_W                          7
-#define VIEW_DC_W                       8
-#define VIEW_JOB_W                      9
+#define SHOW_QUEUE_W                    7
+#define INFO_W                          8
+#define VIEW_DC_W                       9
+#define VIEW_JOB_W                     10
 
 /* Definitions for Control pulldown */
 #define AMG_CTRL_W                      0
@@ -102,6 +103,7 @@
 #define PING_SEL                        22
 #define TRACEROUTE_SEL                  23
 #define DIR_CTRL_SEL                    24
+#define SHOW_QUEUE_SEL                  25
 /* NOTE: x_common_defs.h defines from 50 onwards. */
 
 /* Definitions for testing connections */
@@ -203,6 +205,7 @@ struct afd_control_perm
           char        **show_ilog_list;
           char        **show_olog_list;
           char        **show_elog_list;
+          char        **show_queue_list;
           char        **afd_load_list;
           char        **view_jobs_list;
           char        **edit_hc_list;
@@ -227,6 +230,7 @@ struct afd_control_perm
           signed char show_ilog;             /* Show Input Log           */
           signed char show_olog;             /* Show Output Log          */
           signed char show_elog;             /* Show Delete Log          */
+          signed char show_queue;            /* Show AFD Queue           */
           signed char afd_load;              /* Show load of AFD         */
           signed char view_jobs;             /* View detailed transfer   */
           signed char edit_hc;               /* Edit HOST_CONFIG         */
@@ -261,6 +265,7 @@ struct job_data
           int           job_no;
           int           fsa_no;
           int           rotate;
+          size_t        filename_compare_length;
        };
 
 /* Function Prototypes */

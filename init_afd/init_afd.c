@@ -717,13 +717,13 @@ main(int argc, char *argv[])
                   if (fsa[i].error_counter >= (2 * fsa[i].max_errors))
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
-                               "Stopped queue for host %s, since there are to many errors. (%s %d)\n",
+                               "Stopped queue for host <%s>, since there are to many errors. (%s %d)\n",
                                fsa[i].host_alias, __FILE__, __LINE__);
                   }
                   else
                   {
                      (void)rec(sys_log_fd, INFO_SIGN,
-                               "Started queue for host %s that has been stopped due to too many errors. (%s %d)\n",
+                               "Started queue for host <%s> that has been stopped due to too many errors. (%s %d)\n",
                                fsa[i].host_alias, __FILE__, __LINE__);
                   }
                }
@@ -733,7 +733,7 @@ main(int argc, char *argv[])
                {
                   fsa[i].host_status ^= DANGER_PAUSE_QUEUE_STAT;
                   (void)rec(sys_log_fd, WARN_SIGN,
-                            "Stopped queue for host %s, since there are to many jobs in the queue. (%s %d)\n",
+                            "Stopped queue for host <%s>, since there are to many jobs in the queue. (%s %d)\n",
                             fsa[i].host_alias, __FILE__, __LINE__);
                }
                else if ((fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT) &&
@@ -742,7 +742,7 @@ main(int argc, char *argv[])
                     {
                        fsa[i].host_status ^= DANGER_PAUSE_QUEUE_STAT;
                        (void)rec(sys_log_fd, INFO_SIGN,
-                                 "Started queue for host %s, that was stopped due to too many jobs in the queue. (%s %d)\n",
+                                 "Started queue for host <%s>, that was stopped due to too many jobs in the queue. (%s %d)\n",
                                  fsa[i].host_alias, __FILE__, __LINE__);
                     }
                if ((fsa[i].total_file_counter == 0) &&
@@ -750,7 +750,7 @@ main(int argc, char *argv[])
                {
                   fsa[i].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
                   (void)rec(sys_log_fd, INFO_SIGN,
-                            "Started queue for host %s, that was locked automatically. (%s %d)\n",
+                            "Started queue for host <%s>, that was locked automatically. (%s %d)\n",
                             fsa[i].host_alias, __FILE__, __LINE__);
                }
             }

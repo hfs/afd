@@ -1,7 +1,7 @@
 /*
  *  write_host_config.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,9 @@ DESCR__S_M3
  **   write_host_config - writes the HOST_CONFIG file
  **
  ** SYNOPSIS
- **   time_t write_host_config(void)
+ **   time_t write_host_config(int              no_of_hosts,
+ **                            char             *host_config_file,
+ **                            struct host_list *hl)
  **
  ** DESCRIPTION
  **
@@ -44,6 +46,8 @@ DESCR__S_M3
  **   28.07.1998 H.Kiehl Change mode to 660 for HOST_CONFIG so when
  **                      two users use the same binaries each can edit
  **                      their own HOST_CONFIG file.
+ **   03.08.2001 H.Kiehl Remember if we stopped the queue or transfer
+ **                      and some protocol specific information.
  **
  */
 DESCR__E_M3
@@ -56,13 +60,9 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "amgdefs.h"
 
 /* External global definitions */
-extern int    sys_log_fd,
-              no_of_hosts;
-extern char   host_config_file[];
-extern struct host_list *hl;
+extern int    sys_log_fd;
 
 #define HOST_CONFIG_TEXT "#\n\
 #                Host configuration file for the AFD\n\
@@ -71,28 +71,30 @@ extern struct host_list *hl;
 # There are 12 parameters that can be configured for each remote\n\
 # host. They are:\n\
 #\n\
-#   AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB\n\
-#   |   |   |   |  |  |  |  |  |  |   |  |  |\n\
-#   |   |   |   |  |  |  |  |  |  |   |  |  +----> Number of no bursts\n\
-#   |   |   |   |  |  |  |  |  |  |   |  +-------> Transfer timeout\n\
-#   |   |   |   |  |  |  |  |  |  |   +----------> File size offset\n\
-#   |   |   |   |  |  |  |  |  |  +--------------> Successful retries\n\
-#   |   |   |   |  |  |  |  |  +-----------------> Transfer block size\n\
-#   |   |   |   |  |  |  |  +--------------------> Retry interval\n\
-#   |   |   |   |  |  |  +-----------------------> Max. errors\n\
-#   |   |   |   |  |  +--------------------------> Allowed transfers\n\
-#   |   |   |   |  +-----------------------------> Host toggle\n\
-#   |   |   |   +--------------------------------> Proxy name\n\
-#   |   |   +------------------------------------> Real hostname 2\n\
-#   |   +----------------------------------------> Real hostname 1\n\
-#   +--------------------------------------------> Alias hostname\n\
+# AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF\n\
+# |   |   |   |  |  |  |  |  |  |   |  |  |  |  |\n\
+# |   |   |   |  |  |  |  |  |  |   |  |  |  |  +-> Special flag\n\
+# |   |   |   |  |  |  |  |  |  |   |  |  |  +----> Host status\n\
+# |   |   |   |  |  |  |  |  |  |   |  |  +-------> Number of no bursts\n\
+# |   |   |   |  |  |  |  |  |  |   |  +----------> Transfer timeout\n\
+# |   |   |   |  |  |  |  |  |  |   +-------------> File size offset\n\
+# |   |   |   |  |  |  |  |  |  +-----------------> Successful retries\n\
+# |   |   |   |  |  |  |  |  +--------------------> Transfer block size\n\
+# |   |   |   |  |  |  |  +-----------------------> Retry interval\n\
+# |   |   |   |  |  |  +--------------------------> Max. errors\n\
+# |   |   |   |  |  +-----------------------------> Allowed transfers\n\
+# |   |   |   |  +--------------------------------> Proxy name\n\
+# |   |   |   +-----------------------------------> Host toggle\n\
+# |   |   +---------------------------------------> Real hostname 2\n\
+# |   +-------------------------------------------> Real hostname 1\n\
+# +-----------------------------------------------> Alias hostname\n\
 #\n\
 # Or if you prefer another view of the above:\n\
 #\n\
 #   <Alias hostname>:<Real hostname 1>:<Real hostname 2>:<Host toggle>:\n\
 #   <Proxy name>:<Allowed transfers>:<Max. errors>:<Retry interval>:\n\
 #   <Transfer block size>:<Successful retries>:<File size offset>:\n\
-#   <Transfer timeout>:<no bursts>\n\
+#   <Transfer timeout>:<no bursts>:<host status>:<special flag>\n\
 #\n\
 # The meaning of each is outlined in more detail below:\n\
 #\n\
@@ -165,13 +167,30 @@ extern struct host_list *hl;
 #                         it is possible to state the number of\n\
 #                         connections that may NOT burst.\n\
 #                         DEFAULT: 0\n\
+#   Host status         - This indicates the status of the host, currently\n\
+#                         only bits number 1, 2 and 6 can be set. The\n\
+#                         meaning is as follows (the values in brackets\n\
+#                         are the integer values that may be set):\n\
+#                         1 (1) - If set transfer is stopped for this host.\n\
+#                         2 (2) - If set queue is stopped for this host.\n\
+#                         6 (32)- If set this host is disabled.\n\
+#                         DEFAULT: 0\n\
+#   Special flag        - To set some protocol specific features for\n\
+#                         this host. The following bits can be set (again\n\
+#                         the values in bracket are the integer values\n\
+#                         that can be set):\n\
+#                         11 (1024)- FTP passive mode\n\
+#                         12 (2048)- Set FTP idle time to transfer timeout\n\
+#                         DEFAULT: 0\n\
 #\n\
-# Example: idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:0:0:1\n\n"
+# Example: idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:0:0:1:0:0\n\n"
 
 
 /*++++++++++++++++++++++++ write_host_config() ++++++++++++++++++++++++++*/
 time_t
-write_host_config(void)
+write_host_config(int              no_of_hosts,
+                  char             *host_config_file,
+                  struct host_list *p_hl)
 {
    int           i,
                  fd;
@@ -189,8 +208,10 @@ write_host_config(void)
                              MAX_INT_LENGTH +       /* Succ. retries     */
                              MAX_INT_LENGTH +       /* File size offset  */
                              MAX_INT_LENGTH +       /* Transfer timeout  */
-                             MAX_INT_LENGTH +       /* Allowed transfers */
-                             12 +                   /* Separator signs   */
+                             MAX_INT_LENGTH +       /* No. of no bursts  */
+                             MAX_INT_LENGTH +       /* Host status       */
+                             MAX_INT_LENGTH +       /* Special flag      */
+                             14 +                   /* Separator signs   */
                              2];                    /* \n and \0         */
    struct flock  wlock = {F_WRLCK, SEEK_SET, 0, 1};
    struct stat   stat_buf;
@@ -224,20 +245,23 @@ write_host_config(void)
    /* Commit data line by line. */
    for (i = 0; i < no_of_hosts; i++)
    {
-      length = sprintf(line_buffer, "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%d:%d\n",
-                       hl[i].host_alias,
-                       hl[i].real_hostname[0],
-                       hl[i].real_hostname[1],
-                       hl[i].host_toggle_str,
-                       hl[i].proxy_name,
-                       hl[i].allowed_transfers,
-                       hl[i].max_errors,
-                       hl[i].retry_interval,
-                       hl[i].transfer_blksize,
-                       hl[i].successful_retries,
-                       (int)hl[i].file_size_offset,
-                       (int)hl[i].transfer_timeout,
-                       (int)hl[i].number_of_no_bursts);
+      length = sprintf(line_buffer,
+                       "%s:%s:%s:%s:%s:%d:%d:%d:%d:%d:%d:%d:%d:%d:%u\n",
+                       p_hl[i].host_alias,
+                       p_hl[i].real_hostname[0],
+                       p_hl[i].real_hostname[1],
+                       p_hl[i].host_toggle_str,
+                       p_hl[i].proxy_name,
+                       p_hl[i].allowed_transfers,
+                       p_hl[i].max_errors,
+                       p_hl[i].retry_interval,
+                       p_hl[i].transfer_blksize,
+                       p_hl[i].successful_retries,
+                       (int)p_hl[i].file_size_offset,
+                       (int)p_hl[i].transfer_timeout,
+                       (int)p_hl[i].number_of_no_bursts,
+                       (int)p_hl[i].host_status,
+                       p_hl[i].special_flag);
 
       if (write(fd, line_buffer, length) != length)
       {

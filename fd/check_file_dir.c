@@ -279,7 +279,7 @@ add_message_to_queue(char *dir_name, char in_error_dir)
           pos,
           unique_number;
    time_t creation_time;
-   char   msg_name[40],
+   char   msg_name[MAX_MSG_NAME_LENGTH],
           msg_priority,
           *p_start,
           *ptr;

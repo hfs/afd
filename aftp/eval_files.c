@@ -59,8 +59,8 @@ extern int sys_log_fd;
 void
 eval_config_file(char *file_name, struct data *p_db)
 {
-   size_t length;
-   char   *buffer;
+   off_t length;
+   char  *buffer;
 
    if ((length = read_file(file_name, &buffer)) != INCORRECT)
    {
@@ -311,8 +311,8 @@ eval_config_file(char *file_name, struct data *p_db)
 void
 eval_filename_file(char *file_name, struct data *p_db)
 {
-   size_t file_size;
-   char   *buffer;
+   off_t file_size;
+   char  *buffer;
 
    if ((file_size = read_file(file_name, &buffer)) != INCORRECT)
    {

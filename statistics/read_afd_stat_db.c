@@ -122,7 +122,7 @@ read_afd_stat_db(int no_of_hosts)
       }
       else /* An old statistics database file exists */
       {
-         if ((lock_fd = lock_file(statistic_file, OFF)) == IS_LOCKED)
+         if ((lock_fd = lock_file(statistic_file, OFF)) == LOCK_IS_SET)
          {
             (void)rec(sys_log_fd, WARN_SIGN,
                       "Another process is currently using file %s (%s %d)\n",

@@ -41,6 +41,8 @@ DESCR__S_M3
  ** HISTORY
  **   26.08.1997 H.Kiehl Created
  **   08.09.2000 H.Kiehl Update FRA as well.
+ **   03.08.2001 H.Kiehl Remember if we stopped the queue or transfer
+ **                      and some protocol specific information.
  **
  */
 DESCR__E_M3
@@ -273,6 +275,46 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                new_fsa[i].file_size_offset = hl[i].file_size_offset;
                new_fsa[i].transfer_timeout = hl[i].transfer_timeout;
                new_fsa[i].special_flag = (new_fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
+               if (hl[i].special_flag & FTP_PASSIVE_MODE)
+               {
+                  new_fsa[i].protocol |= FTP_PASSIVE_MODE;
+               }
+               else
+               {
+                  new_fsa[i].protocol &= ~FTP_PASSIVE_MODE;
+               }
+               if (hl[i].special_flag & SET_IDLE_TIME)
+               {
+                  new_fsa[i].protocol |= SET_IDLE_TIME;
+               }
+               else
+               {
+                  new_fsa[i].protocol &= ~SET_IDLE_TIME;
+               }
+               if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
+               {
+                  new_fsa[i].special_flag |= HOST_DISABLED;
+               }
+               else
+               {
+                  new_fsa[i].special_flag &= ~HOST_DISABLED;
+               }
+               if (hl[i].host_status & STOP_TRANSFER_STAT)
+               {
+                  new_fsa[i].host_status |= STOP_TRANSFER_STAT;
+               }
+               else
+               {
+                  new_fsa[i].host_status &= ~STOP_TRANSFER_STAT;
+               }
+               if (hl[i].host_status & PAUSE_QUEUE_STAT)
+               {
+                  new_fsa[i].host_status |= PAUSE_QUEUE_STAT;
+               }
+               else
+               {
+                  new_fsa[i].host_status &= ~PAUSE_QUEUE_STAT;
+               }
             }
             else
             {

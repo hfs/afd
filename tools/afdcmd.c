@@ -40,6 +40,7 @@ DESCR__S_M1
  **                                    -F      stop FD
  **                                    -a      start AMG
  **                                    -A      stop AMG
+ **                                    -X      toggle enable/disable host
  **                                    -Y      start/stop AMG
  **                                    -Z      start/stop FD
  **                                    -v      Just print the version number.
@@ -104,21 +105,26 @@ static void                eval_input(int, char **),
 #define STOP_AMG_OPTION       4096
 #define START_STOP_AMG_OPTION 8192
 #define START_STOP_FD_OPTION  16384
+#define TOGGLE_HOST_OPTION    32768
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ afdcmd() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
-   int         errors = 0,
-               i,
-               position;
-   char        *perm_buffer,
-               *ptr,
-               user[128],
-               sys_log_fifo[MAX_PATH_LENGTH],
-               work_dir[MAX_PATH_LENGTH];
-   struct stat stat_buf;
+   int              ehc = YES,
+                    errors = 0,
+                    hosts_found,
+                    i,
+                    position;
+   char             host_config_file[MAX_PATH_LENGTH],
+                    *perm_buffer,
+                    *ptr,
+                    user[128],
+                    sys_log_fifo[MAX_PATH_LENGTH],
+                    work_dir[MAX_PATH_LENGTH];
+   struct stat      stat_buf;
+   struct host_list *hl = NULL;
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -226,6 +232,10 @@ main(int argc, char *argv[])
                                      if (options & DISABLE_HOST_OPTION)
                                      {
                                         options ^= DISABLE_HOST_OPTION;
+                                     }
+                                     if (options & TOGGLE_HOST_OPTION)
+                                     {
+                                        options ^= TOGGLE_HOST_OPTION;
                                      }
                                      (void)fprintf(stderr,
                                                    "User %s not permitted to enable/disable a host.\n",
@@ -382,6 +392,29 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   if ((options & START_QUEUE_OPTION) || (options & STOP_QUEUE_OPTION) ||
+       (options & START_TRANSFER_OPTION) || (options & STOP_TRANSFER_OPTION) ||
+       (options & DISABLE_HOST_OPTION) || (options & ENABLE_HOST_OPTION) ||
+       (options & TOGGLE_HOST_OPTION))
+   {
+      (void)sprintf(host_config_file, "%s%s%s",
+                    p_work_dir, ETC_DIR, DEFAULT_HOST_CONFIG_FILE);
+      ehc = eval_host_config(&hosts_found, host_config_file, &hl, NO);
+      if ((ehc == NO) && (no_of_hosts != hosts_found))
+      {
+         (void)rec(sys_log_fd, WARN_SIGN,
+                   "Hosts found in HOST_CONFIG (%d) and those currently storred (%d) are not the same. Unable to do any changes. (%s %d)\n",
+                   no_of_hosts, hosts_found, __FILE__, __LINE__);
+         ehc = YES;
+      }
+      else if (ehc == YES)
+           {
+              (void)rec(sys_log_fd, WARN_SIGN,
+                        "Unable to retrieve data from HOST_CONFIG, therefore no values changed in it! (%s %d)\n",
+                        __FILE__, __LINE__);
+           }
+   }
+
    for (i = 0; i < no_of_host_names; i++)
    {
       position = -1;
@@ -417,233 +450,315 @@ main(int argc, char *argv[])
       /*
        * START OUEUE
        */
-      if (options & START_QUEUE_OPTION)
+      if (ehc == NO)
       {
-         if ((fsa[position].host_status & PAUSE_QUEUE_STAT) ||
-             (fsa[position].host_status & AUTO_PAUSE_QUEUE_STAT))
+         if (options & START_QUEUE_OPTION)
          {
-            if (fsa[position].host_status & AUTO_PAUSE_QUEUE_STAT)
+            if ((fsa[position].host_status & PAUSE_QUEUE_STAT) ||
+                (fsa[position].host_status & AUTO_PAUSE_QUEUE_STAT))
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%s: STARTED queue that stopped automatically (%s) [afdcmd].\n",
-                         fsa[position].host_dsp_name,
-                         user);
-               fsa[position].host_status ^= AUTO_PAUSE_QUEUE_STAT;
+               if (fsa[position].host_status & AUTO_PAUSE_QUEUE_STAT)
+               {
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "%-*s: STARTED queue that stopped automatically (%s) [afdcmd].\n",
+                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                  fsa[position].host_status ^= AUTO_PAUSE_QUEUE_STAT;
+               }
+               else
+               {
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "%-*s: STARTED queue (%s) [afdcmd].\n",
+                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                  fsa[position].host_status ^= PAUSE_QUEUE_STAT;
+                  hl[position].host_status &= ~PAUSE_QUEUE_STAT;
+               }
             }
             else
-            {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%s: STARTED queue (%s) [afdcmd].\n",
-                         fsa[position].host_dsp_name,
-                         user);
-               fsa[position].host_status ^= PAUSE_QUEUE_STAT;
-            }
-         }
-         else
-         {
-            (void)fprintf(stderr,
-                          "INFO    : Queue for host %s is already started.\n",
-                          fsa[position].host_dsp_name);
-         }
-      }
-
-      /*
-       * STOP OUEUE
-       */
-      if (options & STOP_QUEUE_OPTION)
-      {
-         if (fsa[position].host_status & PAUSE_QUEUE_STAT)
-         {
-            (void)fprintf(stderr,
-                          "INFO    : Queue for host %s is already stopped.\n",
-                          fsa[position].host_dsp_name);
-         }
-         else
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%s: STOPPED queue (%s) [afdcmd].\n",
-                      fsa[position].host_dsp_name,
-                      user);
-            fsa[position].host_status ^= PAUSE_QUEUE_STAT;
-         }
-      }
-
-      /*
-       * START TRANSFER
-       */
-      if (options & START_TRANSFER_OPTION)
-      {
-         if (fsa[position].host_status & STOP_TRANSFER_STAT)
-         {
-            int  fd;
-            char wake_up_fifo[MAX_PATH_LENGTH];
-
-            (void)sprintf(wake_up_fifo, "%s%s%s",
-                          p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
-            if ((fd = open(wake_up_fifo, O_RDWR)) == -1)
             {
                (void)fprintf(stderr,
-                             "WARNING : Failed to open() %s : %s (%s %d)\n",
-                             FD_WAKE_UP_FIFO, strerror(errno),
-                             __FILE__, __LINE__);
-               errors++;
+                             "INFO    : Queue for host %s is already started.\n",
+                             fsa[position].host_dsp_name);
+            }
+         }
+
+         /*
+          * STOP OUEUE
+          */
+         if (options & STOP_QUEUE_OPTION)
+         {
+            if (fsa[position].host_status & PAUSE_QUEUE_STAT)
+            {
+               (void)fprintf(stderr,
+                             "INFO    : Queue for host %s is already stopped.\n",
+                             fsa[position].host_dsp_name);
             }
             else
             {
-               if (write(fd, "", 1) != 1)
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "%-*s: STOPPED queue (%s) [afdcmd].\n",
+                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               fsa[position].host_status ^= PAUSE_QUEUE_STAT;
+               hl[position].host_status |= PAUSE_QUEUE_STAT;
+            }
+         }
+
+         /*
+          * START TRANSFER
+          */
+         if (options & START_TRANSFER_OPTION)
+         {
+            if (fsa[position].host_status & STOP_TRANSFER_STAT)
+            {
+               int  fd;
+               char wake_up_fifo[MAX_PATH_LENGTH];
+
+               (void)sprintf(wake_up_fifo, "%s%s%s",
+                             p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
+               if ((fd = open(wake_up_fifo, O_RDWR)) == -1)
                {
                   (void)fprintf(stderr,
-                                "WARNING : Failed to write() to %s : %s (%s %d)\n",
+                                "WARNING : Failed to open() %s : %s (%s %d)\n",
                                 FD_WAKE_UP_FIFO, strerror(errno),
                                 __FILE__, __LINE__);
                   errors++;
                }
-               if (close(fd) == -1)
+               else
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Failed to close() FIFO %s : %s (%s %d)\n",
-                         FD_WAKE_UP_FIFO, strerror(errno),
-                         __FILE__, __LINE__);
-               }
-            }
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%s: STARTED transfer (%s) [afdcmd].\n",
-                      fsa[position].host_dsp_name, user);
-            fsa[position].host_status ^= STOP_TRANSFER_STAT;
-         }
-         else
-         {
-            (void)fprintf(stderr,
-                          "INFO    : Transfer for host %s is already started.\n",
-                          fsa[position].host_dsp_name);
-         }
-      }
-
-      /*
-       * STOP TRANSFER
-       */
-      if (options & STOP_TRANSFER_OPTION)
-      {
-         if (fsa[position].host_status & STOP_TRANSFER_STAT)
-         {
-            (void)fprintf(stderr,
-                          "INFO    : Transfer for host %s is already stopped.\n",
-                          fsa[position].host_dsp_name);
-         }
-         else
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%s: STOPPED transfer (%s) [afdcmd].\n",
-                      fsa[position].host_dsp_name, user);
-            fsa[position].host_status ^= STOP_TRANSFER_STAT;
-         }
-      }
-
-      /*
-       * ENABLE HOST
-       */
-      if (options & ENABLE_HOST_OPTION)
-      {
-         if (fsa[position].special_flag & HOST_DISABLED)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%s: ENABLED (%s) [afdcmd].\n",
-                      fsa[position].host_dsp_name,
-                      user);
-            fsa[position].special_flag ^= HOST_DISABLED;
-         }
-         else
-         {
-            (void)fprintf(stderr,
-                          "INFO    : Host %s is already enabled.\n",
-                          fsa[position].host_dsp_name);
-         }
-      }
-
-      /*
-       * DISABLE HOST
-       */
-      if (options & DISABLE_HOST_OPTION)
-      {
-         if (fsa[position].special_flag & HOST_DISABLED)
-         {
-            (void)fprintf(stderr,
-                          "INFO    : Host %s is already disabled.\n",
-                          fsa[position].host_dsp_name);
-         }
-         else
-         {
-            int    fd;
-            size_t length;
-            char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
-
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%s: DISABLED (%s) [afdcmd].\n",
-                      fsa[position].host_dsp_name,
-                      user);
-            fsa[position].special_flag ^= HOST_DISABLED;
-            length = strlen(fsa[position].host_alias) + 1;
-
-            (void)sprintf(delete_jobs_host_fifo,
-                          "%s%s%s",
-                          p_work_dir,
-                          FIFO_DIR,
-                          DELETE_JOBS_HOST_FIFO);
-            if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
-            {
-               (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
-                             DELETE_JOBS_HOST_FIFO, strerror(errno),
-                             __FILE__, __LINE__);
-               errors++;
-            }
-            else
-            {
-               if (write(fd, fsa[position].host_alias, length) != length)
-               {
-                  (void)fprintf(stderr,
-                                "Failed to write() to %s : %s (%s %d)\n",
-                                DELETE_JOBS_HOST_FIFO,
-                                strerror(errno), __FILE__, __LINE__);
-                   errors++;
-               }
-               if (close(fd) == -1)
-               {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                  if (write(fd, "", 1) != 1)
+                  {
+                     (void)fprintf(stderr,
+                                   "WARNING : Failed to write() to %s : %s (%s %d)\n",
+                                   FD_WAKE_UP_FIFO, strerror(errno),
+                                   __FILE__, __LINE__);
+                     errors++;
+                  }
+                  if (close(fd) == -1)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
                             "Failed to close() FIFO %s : %s (%s %d)\n",
-                            DELETE_JOBS_HOST_FIFO,
-                            strerror(errno),
+                            FD_WAKE_UP_FIFO, strerror(errno),
                             __FILE__, __LINE__);
+                  }
                }
-            }
-            (void)sprintf(delete_jobs_host_fifo,
-                          "%s%s%s",
-                          p_work_dir,
-                          FIFO_DIR,
-                          DEL_TIME_JOB_FIFO);
-            if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
-            {
-               (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
-                             DEL_TIME_JOB_FIFO, strerror(errno),
-                             __FILE__, __LINE__);
-               errors++;
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "%-*s: STARTED transfer (%s) [afdcmd].\n",
+                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               fsa[position].host_status ^= STOP_TRANSFER_STAT;
+               hl[position].host_status &= ~STOP_TRANSFER_STAT;
             }
             else
             {
-               if (write(fd, fsa[position].host_alias, length) != length)
+               (void)fprintf(stderr,
+                             "INFO    : Transfer for host %s is already started.\n",
+                             fsa[position].host_dsp_name);
+            }
+         }
+
+         /*
+          * STOP TRANSFER
+          */
+         if (options & STOP_TRANSFER_OPTION)
+         {
+            if (fsa[position].host_status & STOP_TRANSFER_STAT)
+            {
+               (void)fprintf(stderr,
+                             "INFO    : Transfer for host %s is already stopped.\n",
+                             fsa[position].host_dsp_name);
+            }
+            else
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "%-*s: STOPPED transfer (%s) [afdcmd].\n",
+                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               fsa[position].host_status ^= STOP_TRANSFER_STAT;
+               hl[position].host_status |= STOP_TRANSFER_STAT;
+            }
+         }
+
+         /*
+          * ENABLE HOST
+          */
+         if (options & ENABLE_HOST_OPTION)
+         {
+            if (fsa[position].special_flag & HOST_DISABLED)
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "%-*s: ENABLED (%s) [afdcmd].\n",
+                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               fsa[position].special_flag ^= HOST_DISABLED;
+               hl[position].host_status &= ~HOST_CONFIG_HOST_DISABLED;
+            }
+            else
+            {
+               (void)fprintf(stderr,
+                             "INFO    : Host %s is already enabled.\n",
+                             fsa[position].host_dsp_name);
+            }
+         }
+
+         /*
+          * DISABLE HOST
+          */
+         if (options & DISABLE_HOST_OPTION)
+         {
+            if (fsa[position].special_flag & HOST_DISABLED)
+            {
+               (void)fprintf(stderr,
+                             "INFO    : Host %s is already disabled.\n",
+                             fsa[position].host_dsp_name);
+            }
+            else
+            {
+               int    fd;
+               size_t length;
+               char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
+
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "%-*s: DISABLED (%s) [afdcmd].\n",
+                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               fsa[position].special_flag ^= HOST_DISABLED;
+               hl[position].host_status |= HOST_CONFIG_HOST_DISABLED;
+               length = strlen(fsa[position].host_alias) + 1;
+
+               (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                             p_work_dir, FIFO_DIR, DELETE_JOBS_HOST_FIFO);
+               if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
                {
-                  (void)fprintf(stderr,
-                                "Failed to write() to %s : %s (%s %d)\n",
+                  (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                                DELETE_JOBS_HOST_FIFO, strerror(errno),
+                                __FILE__, __LINE__);
+                  errors++;
+               }
+               else
+               {
+                  if (write(fd, fsa[position].host_alias, length) != length)
+                  {
+                     (void)fprintf(stderr,
+                                   "Failed to write() to %s : %s (%s %d)\n",
+                                   DELETE_JOBS_HOST_FIFO,
+                                   strerror(errno), __FILE__, __LINE__);
+                      errors++;
+                  }
+                  if (close(fd) == -1)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Failed to close() FIFO %s : %s (%s %d)\n",
+                               DELETE_JOBS_HOST_FIFO,
+                               strerror(errno), __FILE__, __LINE__);
+                  }
+               }
+               (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                             p_work_dir, FIFO_DIR, DEL_TIME_JOB_FIFO);
+               if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                                 DEL_TIME_JOB_FIFO, strerror(errno),
                                 __FILE__, __LINE__);
                   errors++;
                }
-               if (close(fd) == -1)
+               else
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Failed to close() FIFO %s : %s (%s %d)\n",
-                            DEL_TIME_JOB_FIFO,
-                            strerror(errno),
-                            __FILE__, __LINE__);
+                  if (write(fd, fsa[position].host_alias, length) != length)
+                  {
+                     (void)fprintf(stderr,
+                                   "Failed to write() to %s : %s (%s %d)\n",
+                                   DEL_TIME_JOB_FIFO, strerror(errno),
+                                   __FILE__, __LINE__);
+                     errors++;
+                  }
+                  if (close(fd) == -1)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Failed to close() FIFO %s : %s (%s %d)\n",
+                               DEL_TIME_JOB_FIFO, strerror(errno),
+                               __FILE__, __LINE__);
+                  }
+               }
+            }
+         }
+
+         /*
+          * ENABLE or DISABLE a host.
+          */
+         if (options & TOGGLE_HOST_OPTION)
+         {
+            if (fsa[position].special_flag & HOST_DISABLED)
+            {
+               /*
+                * ENABLE HOST
+                */
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "%-*s: ENABLED (%s) [afdcmd].\n",
+                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               fsa[position].special_flag ^= HOST_DISABLED;
+               hl[position].host_status &= ~HOST_CONFIG_HOST_DISABLED;
+            }
+            else /* DISABLE HOST */
+            {
+               int    fd;
+               size_t length;
+               char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
+
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "%-*s: DISABLED (%s) [afdcmd].\n",
+                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               fsa[position].special_flag ^= HOST_DISABLED;
+               hl[position].host_status |= HOST_CONFIG_HOST_DISABLED;
+               length = strlen(fsa[position].host_alias) + 1;
+
+               (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                             p_work_dir, FIFO_DIR, DELETE_JOBS_HOST_FIFO);
+               if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                                DELETE_JOBS_HOST_FIFO, strerror(errno),
+                                __FILE__, __LINE__);
+                  errors++;
+               }
+               else
+               {
+                  if (write(fd, fsa[position].host_alias, length) != length)
+                  {
+                     (void)fprintf(stderr,
+                                   "Failed to write() to %s : %s (%s %d)\n",
+                                   DELETE_JOBS_HOST_FIFO,
+                                   strerror(errno), __FILE__, __LINE__);
+                      errors++;
+                  }
+                  if (close(fd) == -1)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Failed to close() FIFO %s : %s (%s %d)\n",
+                               DELETE_JOBS_HOST_FIFO,
+                               strerror(errno), __FILE__, __LINE__);
+                  }
+               }
+               (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                             p_work_dir, FIFO_DIR, DEL_TIME_JOB_FIFO);
+               if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                                DEL_TIME_JOB_FIFO, strerror(errno),
+                                __FILE__, __LINE__);
+                  errors++;
+               }
+               else
+               {
+                  if (write(fd, fsa[position].host_alias, length) != length)
+                  {
+                     (void)fprintf(stderr,
+                                   "Failed to write() to %s : %s (%s %d)\n",
+                                   DEL_TIME_JOB_FIFO, strerror(errno),
+                                   __FILE__, __LINE__);
+                     errors++;
+                  }
+                  if (close(fd) == -1)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Failed to close() FIFO %s : %s (%s %d)\n",
+                               DEL_TIME_JOB_FIFO, strerror(errno),
+                               __FILE__, __LINE__);
+                  }
                }
             }
          }
@@ -715,21 +830,27 @@ main(int argc, char *argv[])
          if (fsa[position].debug == NO)
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%s: ENABLED debug mode by user %s [afdcmd].\n",
-                      fsa[position].host_dsp_name,
-                      user);
+                      "%-*s: ENABLED debug mode by user %s [afdcmd].\n",
+                      MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
             fsa[position].debug = YES;
          }
          else
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%s: DISABLED debug mode by user %s [afdcmd].\n",
-                      fsa[position].host_dsp_name,
-                      user);
+                      "%-*s: DISABLED debug mode by user %s [afdcmd].\n",
+                      MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
             fsa[position].debug = NO;
          }
       }
    } /* for (i = 0; i < no_of_host_names; i++) */
+
+   if (((options & START_QUEUE_OPTION) || (options & STOP_QUEUE_OPTION) ||
+        (options & START_TRANSFER_OPTION) || (options & STOP_TRANSFER_OPTION) ||
+        (options & DISABLE_HOST_OPTION) || (options & ENABLE_HOST_OPTION)) &&
+       (ehc == NO))
+   {
+      (void)write_host_config(no_of_hosts, host_config_file, hl);
+   }
 
    if (options & START_FD_OPTION)
    {
@@ -1000,6 +1121,7 @@ eval_input(int argc, char *argv[])
    /*         -F : stop FD                                   */
    /*         -a : start AMG                                 */
    /*         -A : stop AMG                                  */
+   /*         -X : toggle enable/disable host                */
    /*         -Y : start/stop AMG                            */
    /*         -Z : start/stop FD                             */
    /*                                                        */
@@ -1069,6 +1191,10 @@ eval_input(int argc, char *argv[])
 
             case 'A': /* Stop AMG */
                options ^= STOP_AMG_OPTION;
+               break;
+
+            case 'X': /* Toggle enable/disable host */
+               options ^= TOGGLE_HOST_OPTION;
                break;
 
             case 'Y': /* Start/Stop AMG */
@@ -1167,6 +1293,8 @@ usage(char *progname)
                  "                                        -A      stop AMG\n");
    (void)fprintf(stderr,
                  "                                        -Z      start/stop FD\n");
+   (void)fprintf(stderr,
+                 "                                        -X      toggle enable/disable host\n");
    (void)fprintf(stderr,
                  "                                        -Y      start/stop AMG\n");
    (void)fprintf(stderr,

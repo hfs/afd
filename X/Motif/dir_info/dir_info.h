@@ -47,7 +47,7 @@ struct prev_values
           char          force_reread;
           unsigned char report_unknown_files;
           int           old_file_time;
-          unsigned char delete_unknown_files;
+          unsigned char delete_files_flag;
           unsigned long bytes_received;
           unsigned int  files_received;
           time_t        last_retrieval;

@@ -1,6 +1,6 @@
 /*
  *  fra_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,8 @@ DESCR__S_M1
  **
  ** HISTORY
  **   31.03.2000 H.Kiehl Created
+ **   20.07.2001 H.Kiehl Show which input files are to be deleted, unknown
+ **                      and/or queued.
  **
  */
 DESCR__E_M1
@@ -229,13 +231,32 @@ main(int argc, char *argv[])
            }
       (void)fprintf(stdout, "Old file time (hours): %d\n",
                     fra[i].old_file_time / 3600);
-      if (fra[i].delete_unknown_files == NO)
+      if (fra[i].delete_files_flag == 0)
       {
-         (void)fprintf(stdout, "Delete unknown files : NO\n");
+         (void)fprintf(stdout, "Delete input files   : NO\n");
       }
       else
       {
-         (void)fprintf(stdout, "Delete unknown files : YES\n");
+         if ((fra[i].delete_files_flag & UNKNOWN_FILES) &&
+             (fra[i].delete_files_flag & QUEUED_FILES))
+         {
+            (void)fprintf(stdout, "Delete input files   : Unknown and queued\n");
+         }
+         else
+         {
+            if (fra[i].delete_files_flag & UNKNOWN_FILES)
+            {
+               (void)fprintf(stdout, "Delete input files   : Unknown\n");
+            }
+            else if (fra[i].delete_files_flag & QUEUED_FILES)
+                 {
+                    (void)fprintf(stdout, "Delete input files   : Queued\n");
+                 }
+                 else
+                 {
+                    (void)fprintf(stdout, "Delete input files   : ?\n");
+                 }
+         }
       }
       if (fra[i].report_unknown_files == NO)
       {

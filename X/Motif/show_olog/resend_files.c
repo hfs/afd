@@ -705,7 +705,7 @@ get_file(char *dest_dir, char *p_dest_dir_end)
                        overwrite++;
                        /* NOTE: Falling through! */
          case EXDEV  : /* File systems diver. */
-                       if (copy_file(archive_dir, dest_dir) < 0)
+                       if (copy_file(archive_dir, dest_dir, NULL) < 0)
                        {
                           (void)xrec(toplevel_w, ERROR_DIALOG,
                                      "Failed to copy %s to %s (%s %d)",

@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   27.01.1996 H.Kiehl Created
+ **   30.07.2001 H.Kiehl Support for show_queue dialog.
  **
  */
 DESCR__E_M3
@@ -574,24 +575,28 @@ popup_cb(Widget      w,
          XtPointer   client_data,
          XtPointer   call_data)
 {
-   int    sel_typ = (int)client_data,
-          i,
+   int              ehc = YES,
+                    sel_typ = (int)client_data,
+                    hosts_found,
+                    i,
 #ifdef _DEBUG
-          j,
+                    j,
 #endif
-          k;
-   char   host_err_no[1025],
-          progname[MAX_PROCNAME_LENGTH + 1],
-          *p_user,
-          **hosts = NULL,
-          **args = NULL,
-          log_typ[30],
-          display_error,
+                    k;
+   char             host_config_file[MAX_PATH_LENGTH],
+                    host_err_no[1025],
+                    progname[MAX_PROCNAME_LENGTH + 1],
+                    *p_user,
+                    **hosts = NULL,
+                    **args = NULL,
+                    log_typ[30],
+                    display_error,
 #ifdef _FIFO_DEBUG
-          cmd[2],
+                    cmd[2],
 #endif
-       	  err_msg[1025 + 100];
-   size_t new_size = (no_of_hosts + 8) * sizeof(char *);
+       	            err_msg[1025 + 100];
+   size_t           new_size = (no_of_hosts + 8) * sizeof(char *);
+   struct host_list *hl = NULL;
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
        ((sel_typ == QUEUE_SEL) || (sel_typ == TRANS_SEL) ||
@@ -617,6 +622,24 @@ popup_cb(Widget      w,
       case QUEUE_SEL:
       case TRANS_SEL:
       case DISABLE_SEL:
+         (void)sprintf(host_config_file, "%s%s%s",
+                       p_work_dir, ETC_DIR, DEFAULT_HOST_CONFIG_FILE);
+         ehc = eval_host_config(&hosts_found, host_config_file, &hl, NO);
+         if ((ehc == NO) && (no_of_hosts != hosts_found))
+         {
+            (void)xrec(appshell, WARN_DIALOG,
+                       "Hosts found in HOST_CONFIG (%d) and those currently storred (%d) are not the same. Unable to do any changes. (%s %d)",
+                       no_of_hosts, hosts_found, __FILE__, __LINE__);
+            ehc = YES;
+         }
+         else if (ehc == YES)
+              {
+                 (void)xrec(appshell, WARN_DIALOG,
+                            "Unable to retrieve data from HOST_CONFIG, therefore no values changed in it! (%s %d)",
+                            __FILE__, __LINE__);
+              }
+         break;
+
       case SWITCH_SEL:
       case RETRY_SEL:
       case DEBUG_SEL:
@@ -730,6 +753,15 @@ popup_cb(Widget      w,
          args[3] = "-f";
          args[4] = font_name;
          (void)strcpy(progname, SHOW_RLOG);
+         break;
+
+      case SHOW_QUEUE_SEL : /* View AFD Queue */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         (void)strcpy(progname, SHOW_QUEUE);
          break;
 
       case VIEW_FILE_LOAD_SEL : /* File Load */
@@ -953,6 +985,10 @@ popup_cb(Widget      w,
          {
             FREE_RT_ARRAY(acp.show_elog_list);
          }
+         if (acp.show_queue_list != NULL)
+         {
+            FREE_RT_ARRAY(acp.show_queue_list);
+         }
          if (acp.afd_load_list != NULL)
          {
             FREE_RT_ARRAY(acp.afd_load_list);
@@ -1007,7 +1043,7 @@ popup_cb(Widget      w,
     }
 #endif
 
-   /* Set each host */
+   /* Set each host. */
    k = display_error = 0;
    for (i = 0; i < no_of_hosts; i++)
    {
@@ -1016,175 +1052,189 @@ popup_cb(Widget      w,
          switch(sel_typ)
          {
             case QUEUE_SEL :
-               if ((fsa[i].host_status & PAUSE_QUEUE_STAT) ||
-                   (fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT))
+               if (ehc == NO)
                {
-                  if (fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT)
+                  if ((fsa[i].host_status & PAUSE_QUEUE_STAT) ||
+                      (fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT))
                   {
-                     (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: STARTED queue that stopped automatically (%s).\n",
-                               connect_data[i].host_display_str, user);
-                     fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
+                     if (fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT)
+                     {
+                        (void)rec(sys_log_fd, CONFIG_SIGN,
+                                  "%s: STARTED queue that stopped automatically (%s).\n",
+                                  connect_data[i].host_display_str, user);
+                        fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
+                     }
+                     else
+                     {
+                        (void)rec(sys_log_fd, CONFIG_SIGN,
+                                  "%s: STARTED queue (%s).\n",
+                                  connect_data[i].host_display_str, user);
+                        fsa[i].host_status ^= PAUSE_QUEUE_STAT;
+                        hl[i].host_status &= ~PAUSE_QUEUE_STAT;
+                     }
                   }
                   else
                   {
                      (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: STARTED queue (%s).\n",
+                               "%s: STOPPED queue (%s).\n",
                                connect_data[i].host_display_str, user);
                      fsa[i].host_status ^= PAUSE_QUEUE_STAT;
+                     hl[i].host_status |= PAUSE_QUEUE_STAT;
                   }
-               }
-               else
-               {
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "%s: STOPPED queue (%s).\n",
-                            connect_data[i].host_display_str, user);
-                  fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                }
                break;
                              
             case TRANS_SEL :
-               if (fsa[i].host_status & STOP_TRANSFER_STAT)
+               if (ehc == NO)
                {
-                  int  fd;
-                  char wake_up_fifo[MAX_PATH_LENGTH];
-
-                  (void)sprintf(wake_up_fifo, "%s%s%s",
-                                p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
-                  if ((fd = open(wake_up_fifo, O_RDWR)) == -1)
+                  if (fsa[i].host_status & STOP_TRANSFER_STAT)
                   {
-                     (void)xrec(appshell, ERROR_DIALOG,
-                                "Failed to open() %s : %s (%s %d)",
-                                FD_WAKE_UP_FIFO, strerror(errno),
-                                __FILE__, __LINE__);
+                     int  fd;
+                     char wake_up_fifo[MAX_PATH_LENGTH];
+
+                     (void)sprintf(wake_up_fifo, "%s%s%s",
+                                   p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
+                     if ((fd = open(wake_up_fifo, O_RDWR)) == -1)
+                     {
+                        (void)xrec(appshell, ERROR_DIALOG,
+                                   "Failed to open() %s : %s (%s %d)",
+                                   FD_WAKE_UP_FIFO, strerror(errno),
+                                   __FILE__, __LINE__);
+                     }
+                     else
+                     {
+                        char dummy;
+
+                        if (write(fd, &dummy, 1) != 1)
+                        {
+                           (void)xrec(appshell, ERROR_DIALOG,
+                                      "Failed to write() to %s : %s (%s %d)",
+                                      FD_WAKE_UP_FIFO, strerror(errno),
+                                                    __FILE__, __LINE__);
+                        }
+                        if (close(fd) == -1)
+                        {
+                           (void)rec(sys_log_fd, DEBUG_SIGN,
+                                  "Failed to close() FIFO %s : %s (%s %d)\n",
+                                  FD_WAKE_UP_FIFO, strerror(errno),
+                                  __FILE__, __LINE__);
+                        }
+                     }
+                     (void)rec(sys_log_fd, CONFIG_SIGN,
+                               "%s: STARTED transfer (%s).\n",
+                               connect_data[i].host_display_str, user);
+                     hl[i].host_status &= ~STOP_TRANSFER_STAT;
                   }
                   else
                   {
-                     char dummy;
+                     if (fsa[i].active_transfers > 0)
+                     {
+                        int m;
 
-                     if (write(fd, &dummy, 1) != 1)
-                     {
-                        (void)xrec(appshell, ERROR_DIALOG,
-                                   "Failed to write() to %s : %s (%s %d)",
-                                   FD_WAKE_UP_FIFO, strerror(errno),
-                                                 __FILE__, __LINE__);
-                     }
-                     if (close(fd) == -1)
-                     {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "Failed to close() FIFO %s : %s (%s %d)\n",
-                               FD_WAKE_UP_FIFO, strerror(errno),
-                               __FILE__, __LINE__);
-                     }
-                  }
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "%s: STARTED transfer (%s).\n",
-                            connect_data[i].host_display_str,
-                            user);
-               }
-               else
-               {
-                  if (fsa[i].active_transfers > 0)
-                  {
-                     int m;
-
-                     for (m = 0; m < fsa[i].allowed_transfers; m++)
-                     {
-                        if (fsa[i].job_status[m].proc_id > 0)
+                        for (m = 0; m < fsa[i].allowed_transfers; m++)
                         {
-                           if ((kill(fsa[i].job_status[m].proc_id, SIGINT) == -1) &&
-                               (errno != ESRCH))
+                           if (fsa[i].job_status[m].proc_id > 0)
                            {
-                              (void)rec(sys_log_fd, DEBUG_SIGN,
-                                        "Failed to kill process %d : %s (%s %d)\n",
-                                        fsa[i].job_status[m].proc_id,
-                                        strerror(errno), __FILE__, __LINE__);
+                              if ((kill(fsa[i].job_status[m].proc_id, SIGINT) == -1) &&
+                                  (errno != ESRCH))
+                              {
+                                 (void)rec(sys_log_fd, DEBUG_SIGN,
+                                           "Failed to kill process %d : %s (%s %d)\n",
+                                           fsa[i].job_status[m].proc_id,
+                                           strerror(errno), __FILE__, __LINE__);
+                              }
                            }
                         }
                      }
+                     (void)rec(sys_log_fd, CONFIG_SIGN,
+                               "%s: STOPPED transfer (%s).\n",
+                               connect_data[i].host_display_str,
+                               user);
+                     hl[i].host_status |= STOP_TRANSFER_STAT;
                   }
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "%s: STOPPED transfer (%s).\n",
-                            connect_data[i].host_display_str,
-                            user);
+                  fsa[i].host_status ^= STOP_TRANSFER_STAT;
                }
-               fsa[i].host_status ^= STOP_TRANSFER_STAT;
                break;
 
             case DISABLE_SEL:
-               if (fsa[i].special_flag & HOST_DISABLED)
+               if (ehc == NO)
                {
-                  fsa[i].special_flag ^= HOST_DISABLED;
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "%s: ENABLED (%s).\n",
-                            connect_data[i].host_display_str, user);
-               }
-               else
-               {
-                  if (xrec(appshell, QUESTION_DIALOG,
-                           "Are you shure that you want to disable %s?\nAll jobs for this host will be lost.",
-                           fsa[i].host_dsp_name) == YES)
+                  if (fsa[i].special_flag & HOST_DISABLED)
                   {
-                     int    fd;
-                     size_t length;
-                     char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
-
-                     length = strlen(fsa[i].host_alias) + 1;
                      fsa[i].special_flag ^= HOST_DISABLED;
+                     hl[i].host_status &= ~HOST_CONFIG_HOST_DISABLED;
                      (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: DISABLED (%s).\n",
+                               "%s: ENABLED (%s).\n",
                                connect_data[i].host_display_str, user);
+                  }
+                  else
+                  {
+                     if (xrec(appshell, QUESTION_DIALOG,
+                              "Are you shure that you want to disable %s?\nAll jobs for this host will be lost.",
+                              fsa[i].host_dsp_name) == YES)
+                     {
+                        int    fd;
+                        size_t length;
+                        char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
 
-                     (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
-                                   p_work_dir, FIFO_DIR, DELETE_JOBS_HOST_FIFO);
-                     if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
-                     {
-                        (void)xrec(appshell, ERROR_DIALOG,
-                                   "Failed to open() %s : %s (%s %d)",
-                                   DELETE_JOBS_HOST_FIFO, strerror(errno),
-                                   __FILE__, __LINE__);
-                     }
-                     else
-                     {
-                        if (write(fd, fsa[i].host_alias, length) != length)
+                        length = strlen(fsa[i].host_alias) + 1;
+                        fsa[i].special_flag ^= HOST_DISABLED;
+                        hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
+                        (void)rec(sys_log_fd, CONFIG_SIGN,
+                                  "%s: DISABLED (%s).\n",
+                                  connect_data[i].host_display_str, user);
+
+                        (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                                      p_work_dir, FIFO_DIR, DELETE_JOBS_HOST_FIFO);
+                        if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
                         {
                            (void)xrec(appshell, ERROR_DIALOG,
-                                      "Failed to write() to %s : %s (%s %d)",
+                                      "Failed to open() %s : %s (%s %d)",
                                       DELETE_JOBS_HOST_FIFO, strerror(errno),
                                       __FILE__, __LINE__);
                         }
-                        if (close(fd) == -1)
+                        else
                         {
-                           (void)rec(sys_log_fd, DEBUG_SIGN,
-                                     "Failed to close() FIFO %s : %s (%s %d)\n",
-                                     DELETE_JOBS_HOST_FIFO, strerror(errno),
-                                     __FILE__, __LINE__);
+                           if (write(fd, fsa[i].host_alias, length) != length)
+                           {
+                              (void)xrec(appshell, ERROR_DIALOG,
+                                         "Failed to write() to %s : %s (%s %d)",
+                                         DELETE_JOBS_HOST_FIFO, strerror(errno),
+                                         __FILE__, __LINE__);
+                           }
+                           if (close(fd) == -1)
+                           {
+                              (void)rec(sys_log_fd, DEBUG_SIGN,
+                                        "Failed to close() FIFO %s : %s (%s %d)\n",
+                                        DELETE_JOBS_HOST_FIFO, strerror(errno),
+                                        __FILE__, __LINE__);
+                           }
                         }
-                     }
-                     (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
-                                   p_work_dir, FIFO_DIR, DEL_TIME_JOB_FIFO);
-                     if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
-                     {
-                        (void)xrec(appshell, ERROR_DIALOG,
-                                   "Failed to open() %s : %s (%s %d)",
-                                   DEL_TIME_JOB_FIFO, strerror(errno),
-                                   __FILE__, __LINE__);
-                     }
-                     else
-                     {
-                        if (write(fd, fsa[i].host_alias, length) != length)
+                        (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
+                                      p_work_dir, FIFO_DIR, DEL_TIME_JOB_FIFO);
+                        if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
                         {
                            (void)xrec(appshell, ERROR_DIALOG,
-                                      "Failed to write() to %s : %s (%s %d)",
+                                      "Failed to open() %s : %s (%s %d)",
                                       DEL_TIME_JOB_FIFO, strerror(errno),
                                       __FILE__, __LINE__);
                         }
-                        if (close(fd) == -1)
+                        else
                         {
-                           (void)rec(sys_log_fd, DEBUG_SIGN,
-                                     "Failed to close() FIFO %s : %s (%s %d)\n",
-                                     DEL_TIME_JOB_FIFO, strerror(errno),
-                                     __FILE__, __LINE__);
+                           if (write(fd, fsa[i].host_alias, length) != length)
+                           {
+                              (void)xrec(appshell, ERROR_DIALOG,
+                                         "Failed to write() to %s : %s (%s %d)",
+                                         DEL_TIME_JOB_FIFO, strerror(errno),
+                                         __FILE__, __LINE__);
+                           }
+                           if (close(fd) == -1)
+                           {
+                              (void)rec(sys_log_fd, DEBUG_SIGN,
+                                        "Failed to close() FIFO %s : %s (%s %d)\n",
+                                        DEL_TIME_JOB_FIFO, strerror(errno),
+                                        __FILE__, __LINE__);
+                           }
                         }
                      }
                   }
@@ -1311,6 +1361,7 @@ popup_cb(Widget      w,
             case I_LOG_SEL :                 
             case O_LOG_SEL :                 
             case E_LOG_SEL :                 
+            case SHOW_QUEUE_SEL :                 
                (void)strcpy(hosts[k], fsa[i].host_alias);
                args[k + 5] = hosts[k];
                k++;
@@ -1425,10 +1476,15 @@ popup_cb(Widget      w,
            make_xprocess(progname, progname, args, -1);
         }
    else if ((sel_typ == O_LOG_SEL) || (sel_typ == E_LOG_SEL) ||
-            (sel_typ == I_LOG_SEL))
+            (sel_typ == I_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
         {
            args[k + 5] = NULL;
            make_xprocess(progname, progname, args, -1);
+        }
+   else if (((sel_typ == QUEUE_SEL) || (sel_typ == TRANS_SEL) ||
+             (sel_typ == DISABLE_SEL)) && (ehc == NO))
+        {
+           (void)write_host_config(no_of_hosts, host_config_file, hl);
         }
 
    /* Memory for arg list stuff no longer needed. */

@@ -250,7 +250,7 @@ static void   display_data(int, time_t, time_t),
         {                                                              \
            if ((perm.list_limit > 0) && (item_counter > perm.list_limit)) \
            {                                                           \
-              char msg_buffer[50];                                     \
+              char msg_buffer[40];                                     \
                                                                        \
               (void)sprintf(msg_buffer, "List limit (%d) reached!",    \
                             perm.list_limit);                          \

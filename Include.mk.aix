@@ -1,0 +1,19 @@
+MMAP_FLAG       =
+AR              = ar
+ARFLAGS         = rsv
+BINMODE         = 4755
+SBINMODE        = 700
+MAKE            = make
+FORKMAKEFLAG    =
+CC              = cc
+COMPILER_FLAGS  = -O -qmaxmem=8192
+#DEBUG_FLAGS     = -g -D_DEBUG -D_FIFO_DEBUG
+DEBUG_FLAGS     =
+SPECIAL_LIBS    =
+XLIBPATH        =
+XMLIBS          = -lXm
+XAWLIBS         = -lXaw
+XLIBS           = -lXmu -lXt -lX11
+XINCLUDES       =
+MATHSLIB        = -lm
+THREAD_LIB      =

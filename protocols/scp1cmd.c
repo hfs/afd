@@ -260,20 +260,20 @@ scp1_write(char *block, int size)
            {
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
                         "write() error (%d) : %s", status, strerror(errno));
-              return(INCORRECT);
+              return(errno);
            }
         }
         else if (status < 0)
              {
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
                           "select() error : %s", strerror(errno));
-                exit(INCORRECT);
+                return(INCORRECT);
              }
              else
              {
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Unknown condition.");
-                exit(INCORRECT);
+                return(INCORRECT);
              }
 #endif /* _WITH_SCP1_SUPPORT */
    

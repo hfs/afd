@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   18.01.1998 H.Kiehl Created
+ **   03.08.2001 H.Kiehl Remember if we stopped the queue or transfer
+ **                      and some protocol specific information.
  **
  */
 DESCR__E_M3
@@ -82,7 +84,7 @@ reread_host_config(time_t           *hc_old_time,
          (void)rec(sys_log_fd, INFO_SIGN,
                    "Recreating HOST_CONFIG file with %d hosts.\n",
                    no_of_hosts);
-         *hc_old_time = write_host_config();
+         *hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
       }
       else
       {
@@ -149,12 +151,13 @@ reread_host_config(time_t           *hc_old_time,
          free(hl);
          hl = NULL;
       }
-      *rewrite_host_config = eval_host_config();
 
       /*
-       * Careful! The function fsa_attach() will overwrite no_of_hosts!
-       * Store it somewhere save.
+       * Careful! The function eval_host_config() and fsa_attach()
+       * will overwrite no_of_hosts! Store it somewhere save.
        */
+      *rewrite_host_config = eval_host_config(&no_of_hosts, host_config_file,
+                                              &hl, NO);
       new_no_of_hosts = no_of_hosts;
       if (fsa_attach() == INCORRECT)
       {
@@ -277,6 +280,46 @@ reread_host_config(time_t           *hc_old_time,
                fsa[host_pos].file_size_offset = hl[i].file_size_offset;
                fsa[host_pos].transfer_timeout = hl[i].transfer_timeout;
                fsa[host_pos].special_flag = (fsa[host_pos].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
+               if (hl[i].special_flag & FTP_PASSIVE_MODE)
+               {
+                  fsa[host_pos].protocol |= FTP_PASSIVE_MODE;
+               }
+               else
+               {
+                  fsa[host_pos].protocol &= ~FTP_PASSIVE_MODE;
+               }
+               if (hl[i].special_flag & SET_IDLE_TIME)
+               {
+                  fsa[host_pos].protocol |= SET_IDLE_TIME;
+               }
+               else
+               {
+                  fsa[host_pos].protocol &= ~SET_IDLE_TIME;
+               }
+               if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
+               {
+                  fsa[host_pos].special_flag |= HOST_DISABLED;
+               }
+               else
+               {
+                  fsa[host_pos].special_flag &= ~HOST_DISABLED;
+               }
+               if (hl[i].host_status & STOP_TRANSFER_STAT)
+               {
+                  fsa[host_pos].host_status |= STOP_TRANSFER_STAT;
+               }
+               else
+               {
+                  fsa[host_pos].host_status &= ~STOP_TRANSFER_STAT;
+               }
+               if (hl[i].host_status & PAUSE_QUEUE_STAT)
+               {
+                  fsa[host_pos].host_status |= PAUSE_QUEUE_STAT;
+               }
+               else
+               {
+                  fsa[host_pos].host_status &= ~PAUSE_QUEUE_STAT;
+               }
             }
          }
          else /* host_pos == INCORRECT */

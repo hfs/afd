@@ -20,7 +20,6 @@ AMGOBJS = amg.o\
           create_sa.o\
           eval_dir_config.o\
           eval_dir_options.o\
-          eval_host_config.o\
           eval_input_amg.o\
           eval_time_str.o\
           get_hostname.o\
@@ -30,8 +29,7 @@ AMGOBJS = amg.o\
           reread_dir_config.o\
           reread_host_config.o\
           show_shm.o\
-          store_file_mask.o\
-          write_host_config.o
+          store_file_mask.o
 
 DCHKPROG= dir_check
 DCHKOBJS= check_files.o\

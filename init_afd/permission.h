@@ -59,6 +59,8 @@
 #define AFD_CMD_PERM         "afdcmd"            /* Send commands to AFD.*/
 #define AFD_CFG_PERM         "afdcfg"            /* Configure AFD.       */
 #define VIEW_DIR_CONFIG_PERM "view_dir_config"   /* Info on DIR_CONFIG   */
+#define SHOW_QUEUE_PERM      "show_queue"        /* Show + delete queue. */
+#define DELETE_QUEUE_PERM    "delete_queue"      /* Delete queue.        */
 
 #define MON_CTRL_PERM        "mon_ctrl"          /* mon_ctrl dialog      */
 #define MON_STARTUP_PERM     "mon_startup"       /* Startup AFD_MON      */

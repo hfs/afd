@@ -38,6 +38,9 @@
 #define HOST_1_ID             8
 #define HOST_2_ID             9
 
+#define FTP_ACTIVE_MODE_SEL   1
+#define FTP_PASSIVE_MODE_SEL  2
+
 #define MAX_TB_BUTTONS        8
 #define MAX_FSO_BUTTONS       14
 
@@ -65,6 +68,8 @@
 #define HOST_2_ID_CHANGED          4096
 #define HOST_SWITCH_TOGGLE_CHANGED 8192
 #define AUTO_TOGGLE_CHANGED        16384
+#define FTP_MODE_CHANGED           32768
+#define FTP_SET_IDLE_TIME_CHANGED  65536
 
 /* Structure holding all changed entries of one host */
 struct changed_entry
@@ -83,6 +88,8 @@ struct changed_entry
           unsigned char no_of_no_bursts;
           signed char   host_switch_toggle;
           signed char   auto_toggle;
+          signed char   ftp_mode;
+          signed char   set_ftp_idle_time;
        };
 
 /* Structures holding widget id's for option menu. */
@@ -121,12 +128,14 @@ extern void accept_drop(Widget, XtPointer, XmDropProcCallback),
             leave_notify(Widget, XtPointer, XtPointer),
             nob_option_changed(Widget, XtPointer, XtPointer),
             pt_option_changed(Widget, XtPointer, XtPointer),
+            radio_button(Widget, XtPointer, XtPointer),
             remove_button(Widget, XtPointer, XtPointer),
             save_input(Widget, XtPointer, XtPointer),
             selected(Widget, XtPointer, XtPointer),
             start_drag(Widget, XEvent *, String *, Cardinal *),
             submite_button(Widget, XtPointer, XtPointer),
             tb_option_changed(Widget, XtPointer, XtPointer),
+            toggle_button(Widget, XtPointer, XtPointer),
             value_change(Widget, XtPointer, XtPointer);
 
 #endif /* __edit_hc_h */

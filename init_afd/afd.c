@@ -456,7 +456,8 @@ main(int argc, char *argv[])
            if (check_database() == -1)
            {
               (void)fprintf(stderr,
-                            "ERROR   : Cannot read DIR_CONFIG file : %s\n         Unable to start AFD.\n",
+                            "ERROR   : Cannot read <%s%s%s> file : %s\n          Unable to start AFD.\n",
+                            p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
                             strerror(errno));
               exit(INCORRECT);
            }
@@ -506,7 +507,8 @@ main(int argc, char *argv[])
                    if (check_database() == -1)
                    {
                       (void)fprintf(stderr,
-                                    "Cannot read DIR_CONFIG file : %s\nUnable to start AFD.\n",
+                                    "Cannot read <%s%s%s> file : %s\nUnable to start AFD.\n",
+                                    p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
                                     strerror(errno));
                       exit(NO_DIR_CONFIG);
                    }
@@ -593,7 +595,7 @@ main(int argc, char *argv[])
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   else if (fd == IS_LOCKED)
+   else if (fd == LOCK_IS_SET)
         {
            (void)fprintf(stderr, "Someone else is trying to start the AFD!\n");
            exit(INCORRECT);
@@ -620,7 +622,8 @@ main(int argc, char *argv[])
       if (check_database() == -1)
       {
          (void)fprintf(stderr,
-                       "Cannot read DIR_CONFIG file : %s\nUnable to start AFD.\n",
+                       "Cannot read <%s%s%s> file : %s\nUnable to start AFD.\n",
+                       p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE,
                        strerror(errno));
          exit(INCORRECT);
       }

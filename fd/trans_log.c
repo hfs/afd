@@ -126,7 +126,9 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       }
       if ((file == NULL) || (line == 0))
       {
-         /* Don't write anything. */;
+         /* Don't write anything. */
+         buf[length + 1] = '\n';
+         length += 2;
       }
       else if (fsa[db.fsa_pos].protocol & SEND_FLAG)
            {

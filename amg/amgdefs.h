@@ -77,8 +77,7 @@
 /* Definitions of identifiers in options */
 #define TIME_NO_COLLECT_ID         "time no collect"
 #define TIME_NO_COLLECT_ID_LENGTH  15
-#define TIME_ID                    "time"
-#define TIME_ID_LENGTH             4
+/* NOTE: TIME_ID has already been defined in afddefs.h for [dir options]. */
 #define PRIORITY_ID                "priority"
 #define PRIORITY_ID_LENGTH         8
 #define RENAME_ID                  "rename"
@@ -129,8 +128,6 @@
 #define WMO_STANDARD               6
 #define ASCII_STANDARD             7
 
-#define NO_ACCESS                  10
-
 /* Definition of fifos for the AMG to communicate */
 /* with the above jobs.                           */
 #define DC_CMD_FIFO                "/dc_cmd.fifo"
@@ -158,9 +155,6 @@
                                               /* increase when memory is */
                                               /* used up.                */
                                               /* (* MAX_OPTION_LENGTH)   */
-#define HOST_BUF_SIZE             100         /* The initial size of the */
-                                              /* structure holding the   */
-                                              /* host list.              */
 #define JOB_TIMEOUT                30         /* This is how long AMG    */
                                               /* waits (in seconds) for  */
                                               /* a reply from a job      */
@@ -276,7 +270,11 @@ struct dir_data
                                             /* only once.                */
           unsigned int  protocol;           /* Transfer protocol that    */
                                             /* is being used.            */
-          unsigned char delete_unknown_files;
+          unsigned char delete_files_flag;  /* UNKNOWN_FILES: All unknown*/
+                                            /* files will be deleted.    */
+                                            /* QUEUED_FILES: Queues will */
+                                            /* also be checked for old   */
+                                            /* files.                    */
           unsigned char report_unknown_files;
           unsigned char force_reread;
 #ifndef _WITH_PTHREAD
@@ -402,31 +400,6 @@ struct directory_entry
                                              /* name.                    */
        };
 
-/* Structure that holds all hosts */
-struct host_list
-       {
-          char          host_alias[MAX_HOSTNAME_LENGTH + 1];
-          char          fullname[MAX_FILENAME_LENGTH];
-                                              /* This is needed when we   */
-                                              /* have hostname with []    */
-                                              /* syntax.                  */
-          char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
-          char          host_toggle_str[MAX_TOGGLE_STR_LENGTH];
-          char          proxy_name[MAX_PROXY_NAME_LENGTH + 1];
-          int           allowed_transfers;
-          int           max_errors;
-          int           retry_interval;
-          int           transfer_blksize;
-          int           successful_retries; /* NOTE: Corresponds to      */
-                                            /* max_successful_retries in */
-                                            /* FSA.                      */
-          signed char   file_size_offset;
-          long          transfer_timeout;
-          unsigned char number_of_no_bursts;
-          signed char   in_dir_config;
-          unsigned int  protocol;
-       };
-
 #define MAX_BIN_MSG_LENGTH 20
 struct message_buf
        {
@@ -466,7 +439,6 @@ extern int    amg_zombie_check(pid_t *, int),
               check_process_list(int),
               create_db(int),
               eval_dir_config(size_t, int *),
-              eval_host_config(void),
               eval_time_str(char *, struct bd_time_entry *),
               handle_options(int, char *, char *, int *, off_t *),
               in_time(time_t, struct bd_time_entry *),
@@ -475,7 +447,6 @@ extern int    amg_zombie_check(pid_t *, int),
               map_instant_db(size_t),
               rename_files(char *, char *, int, struct instant_db *, time_t *,
                            unsigned short *, char *, off_t *);
-extern time_t write_host_config(void);
 extern pid_t  make_process_amg(char *, char *, int, int, int, int);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *),
               *get_hostname(char *),

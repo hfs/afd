@@ -1,6 +1,6 @@
 /*
  *  reread_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   17.01.1998 H.Kiehl Created
+ **   04.08.2001 H.Kiehl Added changes for host_status and special flag
+ **                      field fromt the HOST_CONFIG file.
  **
  */
 DESCR__E_M3
@@ -65,6 +67,7 @@ extern int                        data_length,
                                   sys_log_fd;
 extern pid_t                      dc_pid;
 extern char                       dir_config_file[],
+                                  host_config_file[],
                                   *pid_list,
                                   *p_work_dir;
 extern struct host_list           *hl;
@@ -239,7 +242,7 @@ reread_dir_config(time_t           *dc_old_time,
           * old FSA. That what is found in the HOST_CONFIG will
           * always have a higher priority.
           */
-         *hc_old_time = write_host_config();
+         *hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
          (void)rec(sys_log_fd, INFO_SIGN,
                    "Found %d hosts in HOST_CONFIG.\n",
                    no_of_hosts);
@@ -399,6 +402,46 @@ reread_dir_config(time_t           *dc_old_time,
                        fsa[host_pos].file_size_offset = hl[i].file_size_offset;
                        fsa[host_pos].transfer_timeout = hl[i].transfer_timeout;
                        fsa[host_pos].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
+                       if (hl[i].special_flag & FTP_PASSIVE_MODE)
+                       {
+                          fsa[host_pos].protocol |= FTP_PASSIVE_MODE;
+                       }
+                       else
+                       {
+                          fsa[host_pos].protocol &= ~FTP_PASSIVE_MODE;
+                       }
+                       if (hl[i].special_flag & SET_IDLE_TIME)
+                       {
+                          fsa[host_pos].protocol |= SET_IDLE_TIME;
+                       }
+                       else
+                       {
+                          fsa[host_pos].protocol &= ~SET_IDLE_TIME;
+                       }
+                       if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
+                       {
+                          fsa[host_pos].special_flag |= HOST_DISABLED;
+                       }
+                       else
+                       {
+                          fsa[host_pos].special_flag &= ~HOST_DISABLED;
+                       }
+                       if (hl[i].host_status & STOP_TRANSFER_STAT)
+                       {
+                          fsa[host_pos].host_status |= STOP_TRANSFER_STAT;
+                       }
+                       else
+                       {
+                          fsa[host_pos].host_status &= ~STOP_TRANSFER_STAT;
+                       }
+                       if (hl[i].host_status & PAUSE_QUEUE_STAT)
+                       {
+                          fsa[host_pos].host_status |= PAUSE_QUEUE_STAT;
+                       }
+                       else
+                       {
+                          fsa[host_pos].host_status &= ~PAUSE_QUEUE_STAT;
+                       }
                     }
                  }
               } /* for (i = 0; i < no_of_hosts; i++) */
@@ -445,7 +488,7 @@ reread_dir_config(time_t           *dc_old_time,
 
    if (rewrite_host_config == YES)
    {
-      *hc_old_time = write_host_config();
+      *hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
       (void)rec(sys_log_fd, INFO_SIGN,
                 "Found %d hosts in HOST_CONFIG.\n",
                 no_of_hosts);

@@ -437,6 +437,18 @@ create_fsa(void)
          {
             fsa[i].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
          }
+         if (hl[i].special_flag & FTP_PASSIVE_MODE)
+         {
+            fsa[i].protocol |= FTP_PASSIVE_MODE;
+         }
+         if (hl[i].special_flag & SET_IDLE_TIME)
+         {
+            fsa[i].protocol |= SET_IDLE_TIME;
+         }
+         if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
+         {
+            fsa[i].special_flag |= HOST_DISABLED;
+         }
 
          /* Determine the host name to display */
          fsa[i].host_toggle         = DEFAULT_TOGGLE_HOST;
@@ -487,6 +499,14 @@ create_fsa(void)
          (void)memset(&hl[i].fullname[0], 0, MAX_FILENAME_LENGTH);
 
          fsa[i].host_status         = 0;
+         if (hl[i].host_status & STOP_TRANSFER_STAT)
+         {
+            fsa[i].host_status |= STOP_TRANSFER_STAT;
+         }
+         if (hl[i].host_status & PAUSE_QUEUE_STAT)
+         {
+            fsa[i].host_status |= PAUSE_QUEUE_STAT;
+         }
          fsa[i].error_counter       = 0;
          fsa[i].total_errors        = 0;
          fsa[i].jobs_queued         = 0;
@@ -753,10 +773,47 @@ create_fsa(void)
          }
          else
          {
-            if (fsa[i].special_flag & HOST_IN_DIR_CONFIG)
-            {
-               fsa[i].special_flag ^= HOST_IN_DIR_CONFIG;
-            }
+            fsa[i].special_flag &= ~HOST_IN_DIR_CONFIG;
+         }
+         if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
+         {
+            fsa[i].special_flag |= HOST_DISABLED;
+         }
+         else
+         {
+            fsa[i].special_flag &= ~HOST_DISABLED;
+         }
+         if (hl[i].host_status & STOP_TRANSFER_STAT)
+         {
+            fsa[i].host_status |= STOP_TRANSFER_STAT;
+         }
+         else
+         {
+            fsa[i].host_status &= ~STOP_TRANSFER_STAT;
+         }
+         if (hl[i].host_status & PAUSE_QUEUE_STAT)
+         {
+            fsa[i].host_status |= PAUSE_QUEUE_STAT;
+         }
+         else
+         {
+            fsa[i].host_status &= ~PAUSE_QUEUE_STAT;
+         }
+         if (hl[i].special_flag & FTP_PASSIVE_MODE)
+         {
+            fsa[i].protocol |= FTP_PASSIVE_MODE;
+         }
+         else
+         {
+            fsa[i].protocol &= ~FTP_PASSIVE_MODE;
+         }
+         if (hl[i].special_flag & SET_IDLE_TIME)
+         {
+            fsa[i].protocol |= SET_IDLE_TIME;
+         }
+         else
+         {
+            fsa[i].protocol &= ~SET_IDLE_TIME;
          }
       } /* for (i = 0; i < no_of_hosts; i++) */
 
@@ -939,9 +996,28 @@ create_fsa(void)
                      hl[j].transfer_timeout    = fsa[j].transfer_timeout;
                      hl[j].number_of_no_bursts = fsa[j].special_flag & NO_BURST_COUNT_MASK;
                      hl[j].in_dir_config       = NO;
-                     if (fsa[j].special_flag & HOST_IN_DIR_CONFIG)
+                     fsa[j].special_flag &= ~HOST_IN_DIR_CONFIG;
+                     hl[j].host_status = 0;
+                     if (fsa[j].special_flag & HOST_DISABLED)
                      {
-                        fsa[j].special_flag ^= HOST_IN_DIR_CONFIG;
+                        hl[j].host_status |= HOST_CONFIG_HOST_DISABLED;
+                     }
+                     if (fsa[j].host_status & STOP_TRANSFER_STAT)
+                     {
+                        hl[j].host_status |= STOP_TRANSFER_STAT;
+                     }
+                     if (fsa[j].host_status & PAUSE_QUEUE_STAT)
+                     {
+                        hl[j].host_status |= PAUSE_QUEUE_STAT;
+                     }
+                     hl[j].special_flag = 0;
+                     if (fsa[j].protocol & FTP_PASSIVE_MODE)
+                     {
+                        hl[j].special_flag |= FTP_PASSIVE_MODE;
+                     }
+                     if (fsa[j].protocol & SET_IDLE_TIME)
+                     {
+                        hl[j].special_flag |= SET_IDLE_TIME;
                      }
 
                      i++;
@@ -980,6 +1056,7 @@ create_fsa(void)
                    new_fsa_stat, strerror(errno), __FILE__, __LINE__);
       }
    }
+   fsa = NULL;
 
    /*
     * Unmap from old memory mapped region.

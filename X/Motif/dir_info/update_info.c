@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   05.08.2000 H.Kiehl Created
+ **   20.07.2001 H.Kiehl Show if unknown and/or queued input files are
+ **                      to be deleted.
  **
  */
 DESCR__E_M3
@@ -259,18 +261,39 @@ Widget w;
       flush = YES;
    }
 
-   if (prev.delete_unknown_files != fra[dir_position].delete_unknown_files)
+   if (prev.delete_files_flag != fra[dir_position].delete_files_flag)
    {
-      prev.delete_unknown_files = fra[dir_position].delete_unknown_files;
-      if (prev.delete_unknown_files == YES)
+      prev.delete_files_flag = fra[dir_position].delete_files_flag;
+      if (prev.delete_files_flag == 0)
       {
-         yesno[0] = 'Y'; yesno[1] = 'e'; yesno[2] = 's'; yesno[3] = '\0';
+         yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
+         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, yesno);
       }
       else
       {
-         yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
+         if ((prev.delete_files_flag & UNKNOWN_FILES) &&
+             (prev.delete_files_flag & QUEUED_FILES))
+         {
+            (void)sprintf(str_line, "%*s",
+                          DIR_INFO_LENGTH_R, "Unknown, queued");
+         }
+         else
+         {
+            if (prev.delete_files_flag & UNKNOWN_FILES)
+            {
+               (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Unknown");
+            }
+            else if (prev.delete_files_flag & QUEUED_FILES)
+                 {
+                    (void)sprintf(str_line, "%*s",
+                                  DIR_INFO_LENGTH_R, "Unknown");
+                 }
+                 else
+                 {
+                    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "?");
+                 }
+         }
       }
-      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, yesno);
       XmTextSetString(text_wr[3], str_line);
       flush = YES;
    }

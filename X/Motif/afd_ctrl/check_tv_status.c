@@ -181,35 +181,41 @@ check_tv_status(Widget w)
              {
                 tv_locate_xy(i, &x, &y);
              }
+             jd[i].filename_compare_length = 0;
              (void)memset(jd[i].file_name_in_use, ' ',
-                          filename_display_length);
+                          MAX_FILENAME_LENGTH - 1);
              draw_file_name(i, x, y);
              flush = YES;
           }
       }
-      else if (strncmp(jd[i].file_name_in_use,
-                       fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use,
-                       filename_display_length) != 0)
-           {
-              size_t length;
+      else
+      {
+         jd[i].filename_compare_length = strlen(fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use);
+         if (jd[i].filename_compare_length > filename_display_length)
+         {
+            jd[i].filename_compare_length = filename_display_length;
+         }
+         if (strncmp(jd[i].file_name_in_use,
+                     fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use,
+                     jd[i].filename_compare_length) != 0)
+         {
+            if (x == -1)
+            {
+               tv_locate_xy(i, &x, &y);
+            }
 
-              if (x == -1)
-              {
-                 tv_locate_xy(i, &x, &y);
-              }
-
-              (void)strncpy(jd[i].file_name_in_use,
-                            fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use,
-                            filename_display_length);
-              length = strlen(jd[i].file_name_in_use);
-              if (length < filename_display_length)
-              {
-                 (void)memset(jd[i].file_name_in_use + length, ' ',
-                              filename_display_length - length);
-              }
-              draw_file_name(i, x, y);
-              flush = YES;
-           }
+            (void)strncpy(jd[i].file_name_in_use,
+                          fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use,
+                          jd[i].filename_compare_length);
+            if (jd[i].filename_compare_length < filename_display_length)
+            {
+               (void)memset(jd[i].file_name_in_use + jd[i].filename_compare_length, ' ',
+                            filename_display_length - jd[i].filename_compare_length);
+            }
+            draw_file_name(i, x, y);
+            flush = YES;
+         }
+      }
 
       /*
        * ROTATING DASH
@@ -225,6 +231,7 @@ check_tv_status(Widget w)
             {
                tv_locate_xy(i, &x, &y);
             }
+            jd[i].rotate++;
             draw_rotating_dash(i, x, y);
          }
 #ifdef _WITH_MAP_SUPPORT

@@ -36,7 +36,7 @@ main(int argc, char *argv[])
    for (i = 1; i < (argc - 1); i++)
    {
       (void)strcpy(p_file, argv[i]);
-      if (copy_file(argv[i], target_dir) < 0)
+      if (copy_file(argv[i], target_dir, NULL) < 0)
       {
          (void)fprintf(stderr, "Failed to copy file.\n");
          exit(-1);

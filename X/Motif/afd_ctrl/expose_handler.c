@@ -1,6 +1,6 @@
 /*
  *  expose_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,7 @@ DESCR__S_M3
  **   04.08.1997 H.Kiehl Added check for backing store and save under.
  **                      Backing store now also for menu bar.
  **   10.01.1998 H.Kiehl Support for detailed view of transfers.
+ **   30.07.2001 H.Kiehl Support for the show_queue dialog.
  **
  */
 DESCR__E_M3
@@ -242,6 +243,7 @@ expose_handler_line(Widget                      w,
                    (acp.show_dlog != NO_PERMISSION) ||
                    (acp.show_ilog != NO_PERMISSION) ||
                    (acp.show_olog != NO_PERMISSION) ||
+                   (acp.show_queue != NO_PERMISSION) ||
                    (acp.show_elog != NO_PERMISSION) ||
                    (acp.view_jobs != NO_PERMISSION))
                {

@@ -16,12 +16,13 @@ SLOGPROG  = show_log
 SOLOGPROG = show_olog
 SILOGPROG = show_ilog
 SDLOGPROG = show_dlog
+SQUEPROG  = show_queue
 MONCPROG  = mon_ctrl
 MONIPROG  = mon_info
 VDCPROG   = view_dc
 #STATPROG  = show_stat
 
-PROGS = $(XAFDLIB) $(AFDCPROG) $(DIRCPROG) $(AFDIPROG) $(DIRIPROG) $(AFDLPROG) $(EHCPROG) $(SCMDPROG) $(SLOGPROG) $(SOLOGPROG) $(SILOGPROG) $(SDLOGPROG) $(MONCPROG) $(MONIPROG) $(VDCPROG)
+PROGS = $(XAFDLIB) $(AFDCPROG) $(DIRCPROG) $(AFDIPROG) $(DIRIPROG) $(AFDLPROG) $(EHCPROG) $(SCMDPROG) $(SLOGPROG) $(SOLOGPROG) $(SILOGPROG) $(SDLOGPROG) $(SQUEPROG) $(MONCPROG) $(MONIPROG) $(VDCPROG)
 
 all : $(PROGS)
 
@@ -61,6 +62,9 @@ $(SILOGPROG) : dummy
 $(SDLOGPROG) : dummy
 	cd $(@) && $(MAKE) $(FORKMAKEFLAG) all
 
+$(SQUEPROG) : dummy
+	cd $(@) && $(MAKE) $(FORKMAKEFLAG) all
+
 $(MONCPROG) : dummy
 	cd $(@) && $(MAKE) $(FORKMAKEFLAG) all
 
@@ -88,6 +92,7 @@ clean :
 	cd $(SOLOGPROG) && $(MAKE) clean
 	cd $(SILOGPROG) && $(MAKE) clean
 	cd $(SDLOGPROG) && $(MAKE) clean
+	cd $(SQUEPROG) && $(MAKE) clean
 	cd $(MONCPROG) && $(MAKE) clean
 	cd $(MONIPROG) && $(MAKE) clean
 	cd $(VDCPROG) && $(MAKE) clean
@@ -106,6 +111,7 @@ clobber :
 	cd $(SOLOGPROG) && $(MAKE) clobber
 	cd $(SILOGPROG) && $(MAKE) clobber
 	cd $(SDLOGPROG) && $(MAKE) clobber
+	cd $(SQUEPROG) && $(MAKE) clobber
 	cd $(MONCPROG) && $(MAKE) clobber
 	cd $(MONIPROG) && $(MAKE) clobber
 	cd $(VDCPROG) && $(MAKE) clobber
@@ -123,6 +129,7 @@ install :
 	cd $(SOLOGPROG) && $(MAKE) install
 	cd $(SILOGPROG) && $(MAKE) install
 	cd $(SDLOGPROG) && $(MAKE) install
+	cd $(SQUEPROG) && $(MAKE) install
 	cd $(MONCPROG) && $(MAKE) install
 	cd $(MONIPROG) && $(MAKE) install
 	cd $(VDCPROG) && $(MAKE) install

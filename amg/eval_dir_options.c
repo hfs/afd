@@ -1,7 +1,7 @@
 /*
  *  eval_dir_options.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ DESCR__S_M3
  **   of the DIR_CONFIG file. It currently knows the following options:
  **
  **        delete unknown files
+ **        delete queued files
  **        do not delete unknown files           [DEFAULT]
  **        report unknown files                  [DEFAULT]
  **        do not report unknown files
@@ -69,6 +70,7 @@ DESCR__S_M3
  **   25.03.2000 H.Kiehl Created
  **   12.08.2000 H.Kiehl Addition of priority.
  **   31.08.2000 H.Kiehl Addition of option "force rereads".
+ **   20.07.2001 H.Kiehl New option "delete queued files".
  **
  */
 DESCR__E_M3
@@ -98,35 +100,11 @@ extern struct dir_data *dd;
 #define MAX_PROCESS_FLAG                 64
 #define DO_NOT_REMOVE_FLAG               128
 #define STORE_REMOTE_LIST_FLAG           256
-#define DONT_DEL_UNKNOWN_FILES_FLAG      512
-#define REP_UNKNOWN_FILES_FLAG           1024
-#define FORCE_REREAD_FLAG                2048
-#define IMPORTANT_DIR_FLAG               4096
-
-#define DEL_UNKNOWN_FILES_ID             "delete unknown files"
-#define DEL_UNKNOWN_FILES_ID_LENGTH      20
-#define OLD_FILE_TIME_ID                 "old file time"
-#define OLD_FILE_TIME_ID_LENGTH          13
-#define DONT_REP_UNKNOWN_FILES_ID        "do not report unknown files"
-#define DONT_REP_UNKNOWN_FILES_ID_LENGTH 27
-#define END_CHARACTER_ID                 "end character"
-#define END_CHARACTER_ID_LENGTH          13
-#define TIME_ID                          "time"
-#define TIME_ID_LENGTH                   4
-#define MAX_PROCESS_ID                   "max process"
-#define MAX_PROCESS_ID_LENGTH            11
-#define DO_NOT_REMOVE_ID                 "do not remove"
-#define DO_NOT_REMOVE_ID_LENGTH          13
-#define STORE_REMOTE_LIST                "store remote list"
-#define STORE_REMOTE_LIST_LENGTH         17
-#define DONT_DEL_UNKNOWN_FILES_ID        "do not delete unknown files"
-#define DONT_DEL_UNKNOWN_FILES_ID_LENGTH 20
-#define REP_UNKNOWN_FILES_ID             "report unknown files"
-#define REP_UNKNOWN_FILES_ID_LENGTH      20
-#define FORCE_REREAD_ID                  "force reread"
-#define FORCE_REREAD_ID_LENGTH           12
-#define IMPORTANT_DIR_ID                 "important dir"
-#define IMPORTANT_DIR_ID_LENGTH          13
+#define DEL_QUEUED_FILES_FLAG            512
+#define DONT_DEL_UNKNOWN_FILES_FLAG      1024
+#define REP_UNKNOWN_FILES_FLAG           2048
+#define FORCE_REREAD_FLAG                4096
+#define IMPORTANT_DIR_FLAG               8192
 
 
 /*########################## eval_dir_options() #########################*/
@@ -142,7 +120,7 @@ eval_dir_options(int  dir_pos,
         byte_buf;
 
    /* Set some default directory options. */
-   dd[dir_pos].delete_unknown_files = NO;
+   dd[dir_pos].delete_files_flag = 0;
    dd[dir_pos].old_file_time = OLD_FILE_TIME * 3600;
    dd[dir_pos].report_unknown_files = YES;
    dd[dir_pos].end_character = -1;
@@ -191,12 +169,12 @@ eval_dir_options(int  dir_pos,
         {
            case 'd' :
            case 'D' : /* Delete unknown files. */
-              dd[dir_pos].delete_unknown_files = YES;
+              dd[dir_pos].delete_files_flag |= UNKNOWN_FILES;
               break;
 
            case 'i' :
            case 'I' : /* Do NOT delete unknown files. */
-              dd[dir_pos].delete_unknown_files = NO;
+              dd[dir_pos].delete_files_flag = 0;
               break;
 
            case 'r' :
@@ -261,7 +239,7 @@ eval_dir_options(int  dir_pos,
          {
             ptr++;
          }
-         dd[dir_pos].delete_unknown_files = YES;
+         dd[dir_pos].delete_files_flag |= UNKNOWN_FILES;
       }
       else if (((used & OLD_FILE_TIME_FLAG) == 0) &&
                (strncmp(ptr, OLD_FILE_TIME_ID, OLD_FILE_TIME_ID_LENGTH) == 0))
@@ -445,6 +423,17 @@ eval_dir_options(int  dir_pos,
               }
               dd[dir_pos].stupid_mode = NO;
            }
+      else if (((used & DEL_QUEUED_FILES_FLAG) == 0) &&
+               (strncmp(ptr, DEL_QUEUED_FILES_ID, DEL_QUEUED_FILES_ID_LENGTH) == 0))
+           {
+              used |= DEL_QUEUED_FILES_FLAG;
+              ptr += DEL_QUEUED_FILES_ID_LENGTH;
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+              dd[dir_pos].delete_files_flag |= QUEUED_FILES;
+           }
       else if (((used & DONT_DEL_UNKNOWN_FILES_FLAG) == 0) &&
                (strncmp(ptr, DONT_DEL_UNKNOWN_FILES_ID, DONT_DEL_UNKNOWN_FILES_ID_LENGTH) == 0))
            {
@@ -454,7 +443,9 @@ eval_dir_options(int  dir_pos,
               {
                  ptr++;
               }
-              dd[dir_pos].delete_unknown_files = NO;
+              /*
+               * This is dafault, actually this option is not needed.
+               */
            }
       else if (((used & REP_UNKNOWN_FILES_FLAG) == 0) &&
                (strncmp(ptr, REP_UNKNOWN_FILES_ID, REP_UNKNOWN_FILES_ID_LENGTH) == 0))

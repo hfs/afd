@@ -1661,7 +1661,8 @@ check_dummy_line:
       }
 
       /* Check if a destination was defined for the last directory. */
-      if ((dir->file == NULL) || (dir->file[0].dest[0].rc == 0))
+      if ((dir->file == NULL) || (dir->file[0].dest == NULL) ||
+          (dir->file[0].dest[0].rc == 0))
       {
          char *end_ptr;
 

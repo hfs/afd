@@ -249,85 +249,99 @@ init_sf_burst2(struct job   *p_new_db,
       lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
    }
 #endif /* _BURST_MODE */
-   files_to_send = get_file_names(file_path, &file_size_to_send);
+   if ((files_to_send = get_file_names(file_path, &file_size_to_send)) > 0)
+   {
 #ifdef _BURST_MODE
-   if ((db.protocol & FTP_FLAG)
+      if ((db.protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
-       || (db.protocol & WMO_FLAG)
+          || (db.protocol & WMO_FLAG)
 #endif
 #ifdef _WITH_SCP1_SUPPORT
-       || (db.protocol & SCP1_FLAG))
+          || (db.protocol & SCP1_FLAG))
 #else
-       )
+          )
 #endif
-   {
-      if (fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter > 0)
       {
-         fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
+         if (fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter > 0)
+         {
+            fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
+         }
+         unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
       }
-      unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
-   }
 #endif /* _BURST_MODE */
 
-   /* Do we want to display the status? */
-   if (host_deleted == NO)
-   {
-      off_t lock_offset;
-
-      lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
-      rlock_region(fsa_fd, lock_offset);
-
-      if (check_fsa() == YES)
-      {
-         if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
-                                              no_of_hosts)) == INCORRECT)
-         {
-            host_deleted = YES;
-         }
-         else
-         {
-            lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
-            rlock_region(fsa_fd, lock_offset);
-         }
-      }
+      /* Do we want to display the status? */
       if (host_deleted == NO)
       {
-         if (db.protocol & FTP_FLAG)
+         off_t lock_offset;
+
+         lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
+         rlock_region(fsa_fd, lock_offset);
+
+         if (check_fsa() == YES)
          {
-            fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = FTP_BURST_TRANSFER_ACTIVE;
+            if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                 no_of_hosts)) == INCORRECT)
+            {
+               host_deleted = YES;
+            }
+            else
+            {
+               lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
+               rlock_region(fsa_fd, lock_offset);
+            }
          }
-         else if (db.protocol & LOC_FLAG)
-              {
-                 fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = LOC_BURST_TRANSFER_ACTIVE;
-              }
-         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done + files_to_send;
-         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size = fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done + file_size_to_send;
+         if (host_deleted == NO)
+         {
+            if (db.protocol & FTP_FLAG)
+            {
+               fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = FTP_BURST2_TRANSFER_ACTIVE;
+            }
+            else if (db.protocol & LOC_FLAG)
+                 {
+                    fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = LOC_BURST_TRANSFER_ACTIVE;
+                 }
+            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done + files_to_send;
+            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size = fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done + file_size_to_send;
 #if defined (_BURST_MODE) && !defined (_OUTPUT_LOG)
-         if ((db.protocol & FTP_FLAG)
+            if ((db.protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
-             || (db.protocol & WMO_FLAG)
+                || (db.protocol & WMO_FLAG)
 #endif
 #ifdef _WITH_SCP1_SUPPORT
-             || (db.protocol & SCP1_FLAG))
+                || (db.protocol & SCP1_FLAG))
 #else
-             )
+                )
 #endif
-         {
+            {
 #endif
 #if defined (_BURST_MODE) || defined (_OUTPUT_LOG)
-            fsa[db.fsa_pos].job_status[(int)db.job_no].job_id = db.job_id;
+               fsa[db.fsa_pos].job_status[(int)db.job_no].job_id = db.job_id;
 #endif
 #if defined (_BURST_MODE) && !defined (_OUTPUT_LOG)
-         }
-         else
-         {
-            fsa[db.fsa_pos].job_status[(int)db.job_no].job_id = NO_ID;
-         }
+            }
+            else
+            {
+               fsa[db.fsa_pos].job_status[(int)db.job_no].job_id = NO_ID;
+            }
 #endif
-         unlock_region(fsa_fd, lock_offset);
+            unlock_region(fsa_fd, lock_offset);
 
-         /* Set the timeout value. */
-         transfer_timeout = fsa[db.fsa_pos].transfer_timeout;
+            /* Set the timeout value. */
+            transfer_timeout = fsa[db.fsa_pos].transfer_timeout;
+         }
+      }
+   }
+   else
+   {
+      /*
+       * It could be that all files where to old to be send.
+       */
+      /* Remove empty file directory. */
+      if (remove_dir(file_path) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to remove directory %s", file_path);
       }
    }
 #endif /* _WITH_BURST_2 */

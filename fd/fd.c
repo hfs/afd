@@ -79,7 +79,6 @@ DESCR__E_M1
 #include <sys/time.h>         /* struct timeval                          */
 #include <sys/wait.h>         /* waitpid()                               */
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
-#include <dirent.h>           /* opendir(), closedir()                   */
 #include <errno.h>
 #include "fddefs.h"
 #include "version.h"
@@ -199,18 +198,19 @@ static time_t              now;
            }                                                  \
         }
 #endif
-#define ABS_REDUCE(value)                                               \
-        {                                                               \
-           unsigned int tmp_value;                                      \
-                                                                        \
-           tmp_value = (value);                                         \
-           (value) = (value) - 1;                                       \
-           if ((value) > tmp_value)                                     \
-           {                                                            \
-              (void)rec(sys_log_fd, DEBUG_SIGN, "Ovwerflow! (%s %d)\n", \
-                        __FILE__, __LINE__);                            \
-              (value) = 0;                                              \
-           }                                                            \
+#define ABS_REDUCE(value)                                     \
+        {                                                     \
+           unsigned int tmp_value;                            \
+                                                              \
+           tmp_value = fsa[(value)].jobs_queued;              \
+           fsa[(value)].jobs_queued = fsa[(value)].jobs_queued - 1; \
+           if (fsa[(value)].jobs_queued > tmp_value)          \
+           {                                                  \
+              (void)rec(sys_log_fd, DEBUG_SIGN,               \
+                        "Overflow from <%u>. Trying to correct. (%s %d)\n", \
+                        tmp_value, __FILE__, __LINE__);       \
+              fsa[(value)].jobs_queued = recount_jobs_queued((value)); \
+           }                                                  \
         }
 #ifdef FTX
 #define WAIT_LOOPS 100
@@ -231,6 +231,7 @@ static void  remove_connection(struct connection *, int, time_t),
              sig_bus(int);
 static int   get_free_connection(void),
              get_free_disp_pos(int),
+             recount_jobs_queued(int),
              zombie_check(struct connection *, time_t, int *, int);
 static pid_t make_process(struct connection *),
              start_process(int, int, time_t, int);
@@ -258,9 +259,6 @@ main(int argc, char *argv[])
                      *fifo_buffer,
                      *msg_buffer,
                      *msg_priority,
-#ifdef _WITH_BURST_2
-                     *p_more_data,
-#endif /* _WITH_BURST_2 */
                      work_dir[MAX_PATH_LENGTH],
                      name_buffer[MAX_PATH_LENGTH];
    fd_set            rset;
@@ -299,9 +297,6 @@ main(int argc, char *argv[])
    /* Initialise variables */
    (void)strcpy(name_buffer, work_dir);
    (void)strcat(name_buffer, FIFO_DIR);
-#ifdef _WITH_BURST_2
-   p_more_data = name_buffer + strlen(name_buffer);
-#endif /* _WITH_BURST_2 */
    (void)strcat(name_buffer, SYSTEM_LOG_FIFO);
    (void)strcpy(msg_dir, work_dir);
    (void)strcat(msg_dir, AFD_MSG_DIR);
@@ -358,10 +353,6 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
    }
-#ifdef _WITH_BURST_2
-   (void)strcpy(p_more_data, MORE_DATA_FIFO);
-   p_more_data = name_buffer + strlen(name_buffer);
-#endif /* _WITH_BURST_2 */
 
    /* Open and create all fifos */
    if (init_fifos_fd() == INCORRECT)
@@ -951,82 +942,37 @@ main(int argc, char *argv[])
                         */
                        if (start_new_process == NO)
                        {
-                          int gotcha = NO,
-                              mdfd;
+                          int gotcha = NO;
 
-                          for (i = 0; i < *no_msg_queued; i++)
+                          if (fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued > 0)
                           {
-                             if ((qb[i].pid == PENDING) &&
-                                 (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos) &&
-				 (mdb[qb[i].pos].type == mdb[qb[qb_pos].pos].type))
+                             for (i = 0; i < *no_msg_queued; i++)
                              {
-                                /* Yep, there is another job pending! */
-                                gotcha = YES;
-                                break;
+                                if ((qb[i].pid == PENDING) &&
+                                    (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos) &&
+				    (mdb[qb[i].pos].type == mdb[qb[qb_pos].pos].type))
+                                {
+                                   /* Yep, there is another job pending! */
+                                   gotcha = YES;
+                                   break;
+                                }
                              }
                           }
-                          (void)sprintf(p_more_data, "%d", pid);
-                          if ((mdfd = open(name_buffer, O_RDWR)) == -1)
+                          if (gotcha == YES)
                           {
-                             (void)rec(sys_log_fd, WARN_SIGN,
-                                       "Failed to open() fifo %s : %s (%s %d)\n",
-                                       name_buffer, strerror(errno),
-                                       __FILE__, __LINE__);
-
-                             /*
-                              * The other process is waiting for a reply.
-                              * Lets kill it, we are not able to reply.
-                              */
-                             if (kill(pid, SIGINT) == -1)
-                             {
-                                (void)rec(sys_log_fd, ERROR_SIGN,
-                                          "Failed to kill process %d : %s (%s %d)\n",
-                                          pid, strerror(errno),
-                                          __FILE__, __LINE__);
-                             }
+                             fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].error_file = qb[i].in_error_dir;
+                             fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].job_id = mdb[qb[i].pos].job_id;
+                             (void)memcpy(fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name,
+                                          qb[i].msg_name, MAX_MSG_NAME_LENGTH);
+                             qb[i].pid = pid;
+                             qb[i].connect_pos = qb[qb_pos].connect_pos;
+                             ABS_REDUCE(mdb[qb[i].pos].fsa_pos);
+                             remove_msg(qb_pos);
                           }
                           else
                           {
-                             char reply_buffer[MAX_MSG_NAME_LENGTH + 1];
-
-                             /*
-                              * We need to supply the following data so that
-                              * the other process can continue:
-                              *    - if it is in the error directory
-                              *    - the message name
-                              */
-                             if (gotcha == NO)
-                             {
-                                reply_buffer[1] = '\0';
-                             }
-                             else
-                             {
-                                reply_buffer[0] = qb[i].in_error_dir;
-                                (void)memcpy(&reply_buffer[1], qb[i].msg_name, MAX_MSG_NAME_LENGTH);
-                             }
-                             if (write(mdfd, reply_buffer,
-                                       MAX_MSG_NAME_LENGTH + 1) != (MAX_MSG_NAME_LENGTH + 1))
-                             {
-                                (void)rec(sys_log_fd, ERROR_SIGN,
-                                          "write() error : %s (%s %d)\n",
-                                          strerror(errno), __FILE__, __LINE__);
-                             }
-                             else
-                             {
-                                if (gotcha == YES)
-                                {
-                                   qb[i].pid = pid;
-				   qb[i].connect_pos = qb[qb_pos].connect_pos;
-                                   ABS_REDUCE(fsa[mdb[qb[i].pos].fsa_pos].jobs_queued);
-                                   remove_msg(qb_pos);
-                                }
-                             }
-                             if (close(mdfd) == -1)
-                             {
-                                (void)rec(sys_log_fd, DEBUG_SIGN,
-                                          "close() error : %s (%s %d)\n",
-                                          strerror(errno), __FILE__, __LINE__);
-                             }
+                             fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[0] = '\0';
+                             fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[1] = 1;
                           }
                        }
                        else
@@ -1502,7 +1448,7 @@ main(int argc, char *argv[])
 #endif
                           *ptr = '\0';
 
-                          ABS_REDUCE(fsa[mdb[qb[i].pos].fsa_pos].jobs_queued);
+                          ABS_REDUCE(mdb[qb[i].pos].fsa_pos);
                           remove_msg(i);
                           break;
                        }
@@ -1617,7 +1563,7 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
 #else
       remove_files(del_dir, fsa_pos);
 #endif
-      ABS_REDUCE(fsa[fsa_pos].jobs_queued);
+      ABS_REDUCE(fsa_pos);
       pid = REMOVED;
    }
    else
@@ -1713,7 +1659,7 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                      (void)strcpy(connection[pos].hostname, fsa[fsa_pos].host_alias);
                      pid = fsa[fsa_pos].job_status[connection[pos].job_no].proc_id = connection[pos].pid;
                      fsa[fsa_pos].active_transfers += 1;
-                     ABS_REDUCE(fsa[fsa_pos].jobs_queued);
+                     ABS_REDUCE(fsa_pos);
                      if (fsa[fsa_pos].error_counter > 0)
                      {
                         fsa[fsa_pos].special_flag |= ERROR_FILE_UNDER_PROCESS;
@@ -1768,7 +1714,7 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                                  file_dir,
                                  limit) == YES)
                  {
-                    ABS_REDUCE(fsa[fsa_pos].jobs_queued);
+                    ABS_REDUCE(fsa_pos);
                     pid = REMOVED;
                  }
               }
@@ -1990,9 +1936,17 @@ zombie_check(struct connection *p_con,
                      fsa[p_con->fsa_pos].original_toggle_pos = NONE;
                      fsa[p_con->fsa_pos].host_dsp_name[(int)fsa[p_con->fsa_pos].toggle_pos] = fsa[p_con->fsa_pos].host_toggle_str[(int)fsa[p_con->fsa_pos].host_toggle];
                      (void)rec(sys_log_fd, INFO_SIGN,
-                               "Switching back to host %s after successful transfer.\n",
+                               "Switching back to host <%s> after successful transfer.\n",
                                fsa[p_con->fsa_pos].host_dsp_name);
                   }
+               }
+               if (fsa[p_con->fsa_pos].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT)
+               {
+                  fsa[p_con->fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
+                  (void)rec(sys_log_fd, INFO_SIGN,
+                            "Started queue for host <%s>, due to to many jobs in the error directory. (%s %d)\n",
+                            fsa[p_con->fsa_pos].host_alias,
+                            __FILE__, __LINE__);
                }
                fsa[p_con->fsa_pos].last_connection = now;
                break;
@@ -2485,7 +2439,11 @@ to_error_dir(int pos)
 #ifdef _LINK_MAX_TEST
           (stat_buf.st_nlink >= LINKY_MAX))
 #else
+#ifdef REDUCED_LINK_MAX
+          (stat_buf.st_nlink >= REDUCED_LINK_MAX))
+#else
           (stat_buf.st_nlink >= LINK_MAX))
+#endif
 #endif
       {
          fsa[mdb[qb[pos].pos].fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
@@ -2508,9 +2466,13 @@ to_error_dir(int pos)
 #ifdef _LINK_MAX_TEST
                    (LINKY_MAX - 2), __FILE__, __LINE__);
 #else
+#ifdef REDUCED_LINK_MAX
+                   (REDUCED_LINK_MAX - 2), __FILE__, __LINE__);
+#else
                    (LINK_MAX - 2), __FILE__, __LINE__);
 #endif
-         if (fsa[mdb[qb[pos].pos].fsa_pos].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT)
+#endif
+         if ((fsa[mdb[qb[pos].pos].fsa_pos].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT) == 0)
          {
             fsa[mdb[qb[pos].pos].fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
             (void)rec(sys_log_fd, WARN_SIGN,
@@ -2525,19 +2487,19 @@ to_error_dir(int pos)
                         "Deleting job. No more space left on device. (%s %d)\n",
                         __FILE__, __LINE__);
            }
-           else if (errno == ENOENT) /* No such file or directory */
-                {
-                   (void)rec(sys_log_fd, WARN_SIGN,
-                             "File(s) in directory %s have already been transfered. (%s %d)\n",
-                             file_dir, __FILE__, __LINE__);
-                }
-                else
-                {
-                   (void)rec(sys_log_fd, ERROR_SIGN,
-                             "Failed to rename() %s to %s : %s (%s %d)\n",
-                             file_dir, err_file_dir, strerror(errno),
-                             __FILE__, __LINE__);
-                }
+      else if (errno == ENOENT) /* No such file or directory */
+           {
+              (void)rec(sys_log_fd, WARN_SIGN,
+                        "File(s) in directory %s have already been transfered. (%s %d)\n",
+                        file_dir, __FILE__, __LINE__);
+           }
+           else
+           {
+              (void)rec(sys_log_fd, ERROR_SIGN,
+                        "Failed to rename() %s to %s : %s (%s %d)\n",
+                        file_dir, err_file_dir, strerror(errno),
+                        __FILE__, __LINE__);
+           }
 
       /*
        * Since we failed to move the files, note this in the qb structure.
@@ -2572,6 +2534,24 @@ qb_pos_pid(pid_t pid, int *qb_pos)
    *qb_pos = -1;
 
    return;
+}
+
+
+/*------------------------ recount_jobs_queued() ------------------------*/
+static int
+recount_jobs_queued(int fsa_pos)
+{
+   register int i,
+                jobs_queued = 0;
+
+   for (i = 0; i < *no_msg_queued; i++)
+   {
+      if ((qb[i].pid == PENDING) && (fsa_pos == mdb[qb[i].pos].fsa_pos))
+      {
+         jobs_queued++;
+      }
+   }
+   return(jobs_queued);
 }
 
 

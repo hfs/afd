@@ -341,7 +341,7 @@ struct job
           char          target_dir[MAX_PATH_LENGTH];
                                          /* Target directory on the      */
                                          /* remote side.                 */
-          char          msg_name[MAX_FILENAME_LENGTH];
+          char          msg_name[MAX_MSG_NAME_LENGTH];
           char          smtp_server[MAX_REAL_HOSTNAME_LENGTH];
                                          /* SMTP server name.            */
           int           no_of_restart_files;
@@ -499,7 +499,7 @@ struct retrieve_list
 
 /* Function prototypes */
 extern int   archive_file(char *, char *, struct job *),
-             check_burst_2(struct job **, char *, int *, unsigned int *),
+             check_burst_2(char *, int *, unsigned int *),
              check_file_dir(int),
              check_fra_fd(void),
              check_job_name(char *),

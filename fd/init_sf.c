@@ -62,6 +62,7 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        counter_fd,
+                                  exitflag,
                                   trans_rule_pos,
                                   user_rule_pos,
                                   fsa_fd,
@@ -130,7 +131,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.trans_exec_cmd = NULL;
 #endif
    db.special_flag = 0;
-   db.mode_flag = ACTIVE_MODE;  /* Lets first default to active mode. */
+   db.mode_flag = 0;
    db.archive_time = DEFAULT_ARCHIVE_TIME;
 #ifdef _AGE_LIMIT
    db.age_limit = DEFAULT_AGE_LIMIT;
@@ -162,6 +163,17 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       db.archive_time = 0;
    }
    db.my_pid = getpid();
+   if (db.mode_flag == 0)
+   {
+      if (fsa[db.fsa_pos].protocol & FTP_PASSIVE_MODE)
+      {
+         db.mode_flag = PASSIVE_MODE;
+      }
+      else
+      {
+         db.mode_flag = ACTIVE_MODE;
+      }
+   }
 
    /* Open/create log fifos */
    (void)strcpy(gbuf, p_work_dir);
@@ -289,6 +301,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to remove directory %s", file_path);
       }
+      exitflag = 0;
       exit(NO_FILES_TO_SEND);
    }
 

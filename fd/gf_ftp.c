@@ -67,7 +67,6 @@ int                        exitflag = IS_FAULTY_VAR,
                            rl_fd = -1,
                            trans_db_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
-                           sigpipe_flag,
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag;
 #ifndef _NO_MMAP
@@ -88,7 +87,6 @@ static void                gf_ftp_exit(void),
                            reset_values(int, off_t, int, off_t),
                            sig_bus(int),
                            sig_segv(int),
-                           sig_pipe(int),
                            sig_kill(int),
                            sig_exit(int);
 
@@ -138,7 +136,7 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
    init_gf(argc, argv, FTP_FLAG);
    msg_str[0] = '\0';
-   sigpipe_flag = timeout_flag = OFF;
+   timeout_flag = OFF;
    blocksize = fsa[db.fsa_pos].block_size;
 
    if ((signal(SIGINT, sig_kill) == SIG_ERR) ||
@@ -147,7 +145,7 @@ main(int argc, char *argv[])
        (signal(SIGSEGV, sig_segv) == SIG_ERR) ||
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR) ||
-       (signal(SIGPIPE, sig_pipe) == SIG_ERR))
+       (signal(SIGPIPE, SIG_IGN) == SIG_ERR))
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "signal() error : %s", strerror(errno));
@@ -499,8 +497,9 @@ main(int argc, char *argv[])
                {
                   if ((status = ftp_read(buffer, blocksize)) == INCORRECT)
                   {
+                     status = errno;
                      msg_str[0] = '\0';
-                     if ((sigpipe_flag == ON) && (status != EPIPE))
+                     if (status == EPIPE)
                      {
                         (void)ftp_get_reply();
                      }
@@ -938,22 +937,6 @@ gf_ftp_exit(void)
    {
       (void)close(sys_log_fd);
    }
-
-   return;
-}
-
-
-/*++++++++++++++++++++++++++++++ sig_pipe() +++++++++++++++++++++++++++++*/
-static void
-sig_pipe(int signo)
-{
-   /* Ignore any future signals of this kind. */
-   if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "signal() error : %s", strerror(errno));
-   }
-   sigpipe_flag = ON;
 
    return;
 }

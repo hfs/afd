@@ -78,35 +78,44 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
       {
          d_o->no_of_dir_options = 0;
          (void)strcpy(d_o->dir_alias, fra[i].dir_alias);
-         if (fra[i].delete_unknown_files == YES)
+         if (fra[i].delete_files_flag != 0)
          {
-            (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                         "delete unknown files");
-            d_o->no_of_dir_options++;
+            if (fra[i].delete_files_flag & UNKNOWN_FILES)
+            {
+               (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                            DEL_UNKNOWN_FILES_ID);
+               d_o->no_of_dir_options++;
+            }
+            if (fra[i].delete_files_flag & QUEUED_FILES)
+            {
+               (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                            DEL_QUEUED_FILES_ID);
+               d_o->no_of_dir_options++;
+            }
 
             if (fra[i].old_file_time > 0)
             {
-               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
-                             "old file time %d", fra[i].old_file_time / 3600);
+               (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
+                             OLD_FILE_TIME_ID, fra[i].old_file_time / 3600);
                d_o->no_of_dir_options++;
             }
          }
          if (fra[i].report_unknown_files == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                         "do not report unknown files");
+                         DONT_REP_UNKNOWN_FILES_ID);
             d_o->no_of_dir_options++;
          }
          else if ((fra[i].old_file_time != 86400) && (fra[i].old_file_time > 0))
               {
                  (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                              "report unknown files");
+                              REP_UNKNOWN_FILES_ID);
                  d_o->no_of_dir_options++;
 
-                 if (fra[i].delete_unknown_files != YES)
+                 if (fra[i].delete_files_flag == 0)
                  {
                     (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
-                                  "old file time %d",
+                                  "%s %d", OLD_FILE_TIME_ID,
                                   fra[i].old_file_time / 3600);
                     d_o->no_of_dir_options++;
                  }
@@ -114,7 +123,7 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
          if (fra[i].stupid_mode == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                         "store remote list");
+                         STORE_REMOTE_LIST);
             d_o->no_of_dir_options++;
          }
          if (fra[i].force_reread == YES)
@@ -125,7 +134,7 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
          if (fra[i].end_character != -1)
          {
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
-                          "end character %d", fra[i].end_character);
+                          "%s %d", END_CHARACTER_ID, fra[i].end_character);
             d_o->no_of_dir_options++;
          }
          if (fra[i].protocol == FTP)

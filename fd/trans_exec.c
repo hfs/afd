@@ -131,7 +131,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
       {
          *(p_tmp_dir + 5) = '/';
          (void)strcpy(p_tmp_dir + 6, p_file_name_buffer);
-         if (copy_file(fullname, file_path) < 0)
+         if (copy_file(fullname, file_path, NULL) < 0)
          {
             trans_log(WARN_SIGN, __FILE__, __LINE__,
                       "Failed to copy_file().");
@@ -176,7 +176,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                   if (mask_file_name == YES)
                   {
                      length += sprintf(command_str + length_start + length,
-                                       "%s\"%s\"", p_file_name_buffer,
+                                       "\"%s\"%s", p_file_name_buffer,
                                        insert_list[k - 1] + 2);
                   }
                   else

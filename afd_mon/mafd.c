@@ -498,7 +498,7 @@ main(int argc, char *argv[])
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   else if (fd == IS_LOCKED)
+   else if (fd == LOCK_IS_SET)
         {
            (void)fprintf(stderr, "Someone else is trying to start the AFD_MON!\n");
            exit(INCORRECT);

@@ -38,6 +38,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   17.01.1996 H.Kiehl Created
+ **   30.07.2001 H.Kiehl Support for the show_queue dialog.
  **
  */
 DESCR__E_M3
@@ -209,6 +210,7 @@ setup_window(char *font_name)
           (acp.show_ilog != NO_PERMISSION) ||
           (acp.show_olog != NO_PERMISSION) ||
           (acp.show_elog != NO_PERMISSION) ||
+          (acp.show_queue != NO_PERMISSION) ||
           (acp.info != NO_PERMISSION) ||
           (acp.view_dc != NO_PERMISSION) ||
           (acp.view_jobs != NO_PERMISSION))
@@ -241,6 +243,10 @@ setup_window(char *font_name)
          if (acp.show_elog != NO_PERMISSION)
          {
             XtVaSetValues(vw[DELETE_W], XmNfontList, fontlist, NULL);
+         }
+         if (acp.show_queue != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[SHOW_QUEUE_W], XmNfontList, fontlist, NULL);
          }
          if (acp.info != NO_PERMISSION)
          {

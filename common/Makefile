@@ -27,6 +27,8 @@ OBJS    = attach_afd_status.o\
           copy_file.o\
           daemon_init.o\
           delete_log_ptrs.o\
+          detach_afd_status.o\
+          eval_host_config.o\
           exec_cmd.o\
           fra_attach.o\
           fra_detach.o\
@@ -73,7 +75,8 @@ OBJS    = attach_afd_status.o\
           show_fifo_data.o\
           system_log.o\
           t_hostname.o\
-          unlock_region.o
+          unlock_region.o\
+          write_host_config.o
 
 
 all : $(LIB)

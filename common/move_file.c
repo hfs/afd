@@ -67,7 +67,7 @@ move_file(char *from, char *to)
 
          /* If renaming fails we assume it is because the file is */
          /* not in the same file system. Thus we have to copy it. */
-         if (copy_file(from, to) < 0)
+         if (copy_file(from, to, NULL) < 0)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to copy %s to %s", from, to);
@@ -82,7 +82,7 @@ move_file(char *from, char *to)
             /* have a continuous loop (when it is an instant    */
             /* job) trying to copy a file we cannot delete.     */
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not delete file %s : %s", from, strerror(errno));
+                       "Could not delete file <%s> : %s", from, strerror(errno));
 
             return(2);
          }
@@ -90,7 +90,7 @@ move_file(char *from, char *to)
       else
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Error when renaming %s to %s : %s",
+                    "Error when renaming <%s> to <%s> : %s",
                     from, to, strerror(errno));
          return(INCORRECT);
       }

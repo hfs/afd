@@ -25,7 +25,7 @@ DESCR__S_M3
  **   read_file - reads the contents of a file into a buffer
  **
  ** SYNOPSIS
- **   int read_file(char *filename, char **buffer)
+ **   off_t read_file(char *filename, char **buffer)
  **
  ** DESCRIPTION
  **   The function reads the contents of the file filename into a
@@ -42,6 +42,7 @@ DESCR__S_M3
  ** HISTORY
  **   12.12.1997 H.Kiehl Created
  **   01.08.1999 H.Kiehl Return the size of the file.
+ **   19.07.2001 H.Kiehl Removed fstat().
  **
  */
 DESCR__E_M3
@@ -55,56 +56,70 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 
+#define MAX_HUNK 4096
+
 
 /*############################# read_file() #############################*/
-int
+off_t
 read_file(char *filename, char **buffer)
 {
-   int         fd;
-   struct stat stat_buf;
+   int   bytes_read,
+         fd;
+   off_t bytes_buffered;
+   char  *read_ptr;
 
-   /* Open file */
+   /* Open file. */
    if ((fd = open(filename, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open %s : %s", filename, strerror(errno));
+                 "Could not open <%s> : %s", filename, strerror(errno));
       return(INCORRECT);
    }
 
-   if (fstat(fd, &stat_buf) == -1)
+   /* Allocate enough memory for the contents of the file. */
+   if ((*buffer = malloc(MAX_HUNK + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not fstat() %s : %s", filename, strerror(errno));
+                 "Could not malloc() memory : %s", strerror(errno));
       (void)close(fd);
       return(INCORRECT);
    }
+   bytes_buffered = 0;
+   read_ptr = *buffer;
 
-   /* Allocate enough memory for the contents of the file */
-   if ((*buffer = malloc(stat_buf.st_size + 1)) == NULL)
+   /* Read file into buffer. */
+   do
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not allocate memory %s", strerror(errno));
-      (void)close(fd);
-      return(INCORRECT);
-   }
-   (*buffer)[stat_buf.st_size] = '\0';
+      if ((bytes_read = read(fd, read_ptr, MAX_HUNK)) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to read <%s> : %s", filename, strerror(errno));
+         (void)close(fd);
+         free(*buffer);
+         return(INCORRECT);
+      }
+      bytes_buffered += bytes_read;
+      if (bytes_read == MAX_HUNK)
+      {
+         if ((*buffer = realloc(*buffer,
+                                bytes_buffered + MAX_HUNK + 1)) == NULL)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not realloc() memory : %s", strerror(errno));
+            (void)close(fd);
+            return(INCORRECT);
+         }
+         read_ptr = *buffer + bytes_buffered;
+      }
+   } while (bytes_read == MAX_HUNK);
+   (*buffer)[bytes_buffered] = '\0';
 
-   /* Read file into buffer */
-   if (read(fd, *buffer, stat_buf.st_size) != stat_buf.st_size)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to read %s : %s", filename, strerror(errno));
-      (void)close(fd);
-      free(*buffer);
-      return(INCORRECT);
-   }
-
-   /* Close file */
+   /* Close file. */
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
 
-   return(stat_buf.st_size);
+   return(bytes_buffered);
 }

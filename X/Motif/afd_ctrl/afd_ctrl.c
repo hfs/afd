@@ -39,6 +39,7 @@ DESCR__S_M1
  **   17.01.1996 H.Kiehl Created
  **   14.08.1997 H.Kiehl Support for multi-selection of lines.
  **   12.01.2000 H.Kiehl Added receive log.
+ **   30.07.2001 H.Kiehl Support for the show_queue dialog.
  **
  */
 DESCR__E_M1
@@ -107,7 +108,7 @@ XFontStruct                *font_struct;
 XmFontList                 fontlist = NULL;
 Widget                     mw[5],        /* Main menu */
                            ow[10],       /* Host menu */
-                           vw[10],       /* View menu */
+                           vw[11],       /* View menu */
                            cw[8],        /* Control menu */
                            sw[4],        /* Setup menu */
                            hw[3],        /* Help menu */
@@ -622,7 +623,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       exit(INCORRECT);
    }
 
-   /* Prepare title for afd_ctrl window */
+   /* Prepare title for afd_ctrl window. */
 #ifdef PRE_RELEASE
    (void)sprintf(window_title, "AFD PRE %d.%d.%d-%d ",
                  MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
@@ -1087,8 +1088,9 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    if ((acp.show_slog != NO_PERMISSION) || (acp.show_rlog != NO_PERMISSION) ||
        (acp.show_tlog != NO_PERMISSION) || (acp.show_dlog != NO_PERMISSION) ||
        (acp.show_ilog != NO_PERMISSION) || (acp.show_olog != NO_PERMISSION) ||
-       (acp.show_elog != NO_PERMISSION) || (acp.info != NO_PERMISSION) ||
-       (acp.view_dc != NO_PERMISSION) || (acp.view_jobs != NO_PERMISSION))
+       (acp.show_elog != NO_PERMISSION) || (acp.show_queue != NO_PERMISSION) ||
+       (acp.info != NO_PERMISSION) || (acp.view_dc != NO_PERMISSION) ||
+       (acp.view_jobs != NO_PERMISSION))
    {
       pull_down_w = XmCreatePulldownMenu(*menu_w,
                                               "View Pulldown", NULL, 0);
@@ -1171,6 +1173,18 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             XtAddCallback(vw[DELETE_W], XmNactivateCallback, popup_cb,
                           (XtPointer)E_LOG_SEL);
          }
+      }
+      if (acp.show_queue != NO_PERMISSION)
+      {
+         XtVaCreateManagedWidget("Separator",
+                                 xmSeparatorWidgetClass, pull_down_w,
+                                 NULL);
+         vw[SHOW_QUEUE_W] = XtVaCreateManagedWidget("Queue",
+                                 xmPushButtonWidgetClass, pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 NULL);
+         XtAddCallback(vw[SHOW_QUEUE_W], XmNactivateCallback, popup_cb,
+                       (XtPointer)SHOW_QUEUE_SEL);
       }
       if ((acp.info != NO_PERMISSION) || (acp.view_dc != NO_PERMISSION))
       {
@@ -1832,6 +1846,8 @@ eval_permissions(char *perm_buffer)
       acp.show_olog_list     = NULL;
       acp.show_elog          = YES;   /* View the delete log   */
       acp.show_elog_list     = NULL;
+      acp.show_queue         = YES;   /* View the AFD queue    */
+      acp.show_queue_list    = NULL;
       acp.view_jobs          = YES;   /* View jobs             */
       acp.view_jobs_list     = NULL;
       acp.edit_hc            = YES;   /* Edit Host Configuration */
@@ -2205,6 +2221,25 @@ eval_permissions(char *perm_buffer)
          else
          {
             acp.show_elog = NO_LIMIT;
+         }
+      }
+
+      /* May the user view the AFD queue? */
+      if ((ptr = posi(perm_buffer, SHOW_QUEUE_PERM)) == NULL)
+      {
+         /* The user may NOT view the AFD queue. */
+         acp.show_queue = NO_PERMISSION;
+      }
+      else
+      {
+         ptr--;
+         if ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            acp.show_queue = store_host_names(acp.show_queue_list, ptr + 1);
+         }
+         else
+         {
+            acp.show_queue = NO_LIMIT;
          }
       }
 

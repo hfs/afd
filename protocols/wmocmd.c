@@ -1,6 +1,6 @@
 /*
  *  wmocmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -68,8 +68,7 @@ DESCR__E_M3
 #include <netinet/in.h>       /* struct in_addr, sockaddr_in, htons()    */
 #include <netdb.h>            /* struct hostent, gethostbyname()         */
 #include <arpa/inet.h>        /* inet_addr()                             */
-#include <unistd.h>           /* select(), exit(), write(), read(),      */
-                              /* close()                                 */
+#include <unistd.h>           /* select(), write(), read(), close()      */
 #include <fcntl.h>            /* O_NONBLOCK                              */
 #include <errno.h>
 #include "wmodefs.h"
@@ -250,14 +249,14 @@ wmo_write(char *block, int size)
            {
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
                         "send() error (%d) : %s", status, strerror(errno));
-              return(INCORRECT);
+              return(errno);
            }
 #else
            if ((status = write(sock_fd, block, size)) != size)
            {
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
                         "write() error (%d) : %s", status, strerror(errno));
-              return(INCORRECT);
+              return(errno);
            }
 #endif
            if (fflush(p_data) == EOF)
@@ -272,13 +271,13 @@ wmo_write(char *block, int size)
              {
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
                           "select() error : %s", strerror(errno));
-                exit(INCORRECT);
+                return(INCORRECT);
              }
              else
              {
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Unknown condition.");
-                exit(INCORRECT);
+                return(INCORRECT);
              }
    
    return(SUCCESS);

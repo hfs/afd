@@ -47,6 +47,9 @@ DESCR__S_M3
  **   21.02.1998 H.Kiehl Added delete logging.
  **                      Search queue directories as well.
  **   04.01.2001 H.Kiehl Don't always check what the current time is.
+ **   20.07.2001 H.Kiehl Added new option to search queue for old files,
+ **                      this was WRONGLY done with the "delete unknown files"
+ **                      option!
  **
  */
 DESCR__E_M3
@@ -78,7 +81,7 @@ void
 search_old_files(time_t now)
 {
    int           i,
-                 junk_files = NO,
+                 junk_files = 0,
                  file_counter;
    time_t        diff_time;
    char          *work_ptr,
@@ -132,11 +135,16 @@ search_old_files(time_t now)
             /* Sure it is a normal file? */
             if (S_ISREG(stat_buf.st_mode))
             {
-               diff_time = now - stat_buf.st_mtime;
-               if (diff_time > fra[de[i].fra_pos].old_file_time)
+               /*
+                * Regardless of what the delete_files_flag is set, also
+                * delete old files that are of zero length or have a
+                * leading dot.
+                */
+               if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) ||
+                   (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
                {
-                  if ((fra[de[i].fra_pos].delete_unknown_files == YES) ||
-                      (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
+                  diff_time = now - stat_buf.st_mtime;
+                  if (diff_time > fra[de[i].fra_pos].old_file_time)
                   {
                      if (unlink(tmp_dir) == -1)
                      {
@@ -170,23 +178,18 @@ search_old_files(time_t now)
                         file_counter++;
                         file_size += stat_buf.st_size;
 
-                        if (fra[de[i].fra_pos].delete_unknown_files != YES)
+                        if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) == 0)
                         {
-                           junk_files = YES;
+                           junk_files++;
                         }
                      }
-                  }
-                  else
-                  {
-                     file_counter++;
-                     file_size += stat_buf.st_size;
                   }
                }
             }
                  /*
                   * Search queue directories for old files!
                   */
-            else if ((fra[de[i].fra_pos].delete_unknown_files == YES) &&
+            else if ((fra[de[i].fra_pos].delete_files_flag & QUEUED_FILES) &&
                      (S_ISDIR(stat_buf.st_mode)) &&
                      (p_dir->d_name[0] == '.'))
                  {
@@ -239,44 +242,36 @@ search_old_files(time_t now)
                                 diff_time = now - stat_buf.st_mtime;
                                 if (diff_time > fra[de[i].fra_pos].old_file_time)
                                 {
-                                   if (fra[de[i].fra_pos].delete_unknown_files == YES)
+                                   if (unlink(tmp_dir) == -1)
                                    {
-                                      if (unlink(tmp_dir) == -1)
-                                      {
-                                         (void)rec(sys_log_fd, WARN_SIGN,
-                                                   "Failed to unlink() %s : %s (%s %d)\n",
-                                                   tmp_dir, strerror(errno), __FILE__, __LINE__);
-                                      }
-                                      else
-                                      {
-#ifdef _DELETE_LOG
-                                         size_t dl_real_size;
-
-                                         (void)strcpy(dl.file_name, p_dir->d_name);
-                                         (void)sprintf(dl.host_name, "%-*s %x",
-                                                       MAX_HOSTNAME_LENGTH,
-                                                       fsa[pos].host_dsp_name,
-                                                       AGE_INPUT);
-                                         *dl.file_size = stat_buf.st_size;
-                                         *dl.job_number = de[i].dir_no;
-                                         *dl.file_name_length = strlen(p_dir->d_name);
-                                         dl_real_size = *dl.file_name_length + dl.size +
-                                                        sprintf((dl.file_name + *dl.file_name_length + 1),
-                                                                "dir_check() >%ld",
-                                                                diff_time);
-                                         if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
-                                         {
-                                            (void)rec(sys_log_fd, ERROR_SIGN,
-                                                      "write() error : %s (%s %d)\n",
-                                                      strerror(errno), __FILE__, __LINE__);
-                                         }
-#endif /* _DELETE_LOG */
-                                         file_counter++;
-                                         file_size += stat_buf.st_size;
-                                      }
+                                      (void)rec(sys_log_fd, WARN_SIGN,
+                                                "Failed to unlink() %s : %s (%s %d)\n",
+                                                tmp_dir, strerror(errno), __FILE__, __LINE__);
                                    }
                                    else
                                    {
+#ifdef _DELETE_LOG
+                                      size_t dl_real_size;
+
+                                      (void)strcpy(dl.file_name, p_dir->d_name);
+                                      (void)sprintf(dl.host_name, "%-*s %x",
+                                                    MAX_HOSTNAME_LENGTH,
+                                                    fsa[pos].host_dsp_name,
+                                                    AGE_INPUT);
+                                      *dl.file_size = stat_buf.st_size;
+                                      *dl.job_number = de[i].dir_no;
+                                      *dl.file_name_length = strlen(p_dir->d_name);
+                                      dl_real_size = *dl.file_name_length + dl.size +
+                                                     sprintf((dl.file_name + *dl.file_name_length + 1),
+                                                             "dir_check() >%ld",
+                                                             diff_time);
+                                      if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                                      {
+                                         (void)rec(sys_log_fd, ERROR_SIGN,
+                                                   "write() error : %s (%s %d)\n",
+                                                   strerror(errno), __FILE__, __LINE__);
+                                      }
+#endif /* _DELETE_LOG */
                                       file_counter++;
                                       file_size += stat_buf.st_size;
                                    }
@@ -330,37 +325,36 @@ search_old_files(time_t now)
          *(work_ptr - 1) = '\0';
 
          /* Tell user there are old files in this directory. */
-         if ((file_counter > 0) &&
+         if (((file_counter - junk_files) > 0) &&
              (fra[de[i].fra_pos].report_unknown_files == YES) &&
-             (fra[de[i].fra_pos].delete_unknown_files == NO) &&
-             (junk_files == NO))
+             ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) == 0))
          {
             if (file_size >= 1073741824)
             {
                (void)rec(sys_log_fd, WARN_SIGN,
                          "There are %d (%d GBytes) old (>%dh) files in %s\n",
-                         file_counter, file_size / 1073741824,
+                         file_counter - junk_files, file_size / 1073741824,
                          fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
             }
             else if (file_size >= 1048576)
                  {
                     (void)rec(sys_log_fd, WARN_SIGN,
                               "There are %d (%d MBytes) old (>%dh) files in %s\n",
-                              file_counter, file_size / 1048576,
+                              file_counter - junk_files, file_size / 1048576,
                               fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
                  }
             else if (file_size >= 1024)
                  {
                     (void)rec(sys_log_fd, WARN_SIGN,
                               "There are %d (%d KBytes) old (>%dh) files in %s\n",
-                              file_counter, file_size / 1024,
+                              file_counter - junk_files, file_size / 1024,
                               fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
                  }
                  else
                  {
                     (void)rec(sys_log_fd, WARN_SIGN,
                               "There are %d (%d Bytes) old (>%dh) files in %s\n",
-                              file_counter, file_size,
+                              file_counter - junk_files, file_size,
                               fra[de[i].fra_pos].old_file_time / 3600, tmp_dir);
                  }
          }

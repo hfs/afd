@@ -66,7 +66,6 @@ DESCR__E_M1
 #include <stdlib.h>                    /* malloc(), free(), abort()      */
 #include <ctype.h>                     /* isdigit()                      */
 #include <sys/types.h>
-#include <sys/stat.h>
 #ifdef _OUTPUT_LOG
 #include <sys/times.h>                 /* times(), struct tms            */
 #endif
@@ -116,7 +115,6 @@ struct delete_log          dl;
 static void sf_scp1_exit(void),
             sig_bus(int),
             sig_segv(int),
-            sig_pipe(int),
             sig_kill(int),
             sig_exit(int);
 #endif
@@ -130,12 +128,10 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
    unsigned int     ui_variable;
 #endif
-   int              j,
-                    fd,
+   int              fd,
                     status,
+                    bytes_buffered,
                     no_of_bytes,
-                    loops,
-                    rest,
                     files_to_send,
                     files_send = 0,
 #ifdef _BURST_MODE
@@ -168,7 +164,6 @@ main(int argc, char *argv[])
                     fullname[MAX_PATH_LENGTH],
                     file_path[MAX_PATH_LENGTH],
                     work_dir[MAX_PATH_LENGTH];
-   struct stat      stat_buf;
    struct job       *p_db;
 #ifdef SA_FULLDUMP
    struct sigaction sact;
@@ -211,7 +206,7 @@ main(int argc, char *argv[])
        (signal(SIGSEGV, sig_segv) == SIG_ERR) ||
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR) ||
-       (signal(SIGPIPE, sig_pipe) == SIG_ERR))
+       (signal(SIGPIPE, SIG_IGN) == SIG_ERR))
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "signal() error : %s", strerror(errno));
@@ -402,6 +397,7 @@ main(int argc, char *argv[])
       {
          (void)sprintf(fullname, "%s/%s", file_path, p_file_name_buffer);
 
+         no_of_bytes = 0;
          if (*p_file_size_buffer > 0)
          {
             /* Write status to FSA? */
@@ -482,36 +478,98 @@ main(int argc, char *argv[])
                             "Open local file <%s>", fullname);
             }
 
-            /* Read (local) and write (remote) file */
-            no_of_bytes = 0;
-            loops = *p_file_size_buffer / blocksize;
-            rest = *p_file_size_buffer % blocksize;
-
-            for (;;)
+            if (db.special_flag & FILE_NAME_IS_HEADER)
             {
-               for (j = 0; j < loops; j++)
+               int  header_length;
+               char *ptr = p_file_name_buffer;
+
+               buffer[0] = 1; /* SOH */
+               buffer[1] = '\015'; /* CR */
+               buffer[2] = '\015'; /* CR */
+               buffer[3] = '\012'; /* LF */
+               header_length = 4;
+
+               for (;;)
                {
-#ifdef _SIMULATE_SLOW_TRANSFER
-                  (void)sleep(2);
-#endif
-                  if ((status = read(fd, buffer, blocksize)) != blocksize)
+                  while ((*ptr != '_') && (*ptr != '-') &&
+                         (*ptr != ' ') && (*ptr != '\0'))
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Could not read() local file <%s> : %s",
-                               fullname, strerror(errno));
-                     msg_str[0] = '\0';
-                     trans_log(INFO_SIGN, NULL, 0,
-                               "%d Bytes send in %d file(s).",
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                     scp1_quit();
-                     exit(READ_LOCAL_ERROR);
+                     buffer[header_length] = *ptr;
+                     header_length++; ptr++;
                   }
-                  if (scp1_write(buffer, blocksize) < 0)
+                  if (*ptr == '\0')
+                  {
+                     break;
+                  }
+                  else
+                  {
+                     buffer[header_length] = ' ';
+                     header_length++; ptr++;
+                  }
+               }
+               buffer[header_length] = '\015'; /* CR */
+               buffer[header_length + 1] = '\015'; /* CR */
+               buffer[header_length + 2] = '\012'; /* LF */
+               header_length += 3;
+
+               if ((status = scp1_write(buffer, header_length)) != SUCCESS)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write WMO header to remote file <%s> [%d]",
+                            initial_filename, status);
+                  msg_str[0] = '\0';
+                  trans_log(INFO_SIGN, NULL, 0,
+                            "%d Bytes send in %d file(s).",
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  scp1_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               }
+               if (host_deleted == NO)
+               {
+                  if (check_fsa() == YES)
+                  {
+                     if ((db.fsa_pos = get_host_position(fsa,
+                                                         db.host_alias,
+                                                         no_of_hosts)) == INCORRECT)
+                     {
+                        host_deleted = YES;
+                     }
+                  }
+                  if (host_deleted == NO)
+                  {
+                     fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done += header_length;
+                     fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += header_length;
+                  }
+               }
+            }
+
+            /* Read (local) and write (remote) file. */
+            do
+            {
+#ifdef _SIMULATE_SLOW_TRANSFER
+               (void)sleep(2);
+#endif
+               if ((bytes_buffered = read(fd, buffer, blocksize)) < 0)
+               {
+                  msg_str[0] = '\0';
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Could not read() local file <%s> [%d] : %s",
+                            fullname, bytes_buffered, strerror(errno));
+                  trans_log(INFO_SIGN, NULL, 0,
+                            "%d Bytes send in %d file(s).",
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  scp1_quit();
+                  exit(READ_LOCAL_ERROR);
+               }
+               if (bytes_buffered > 0)
+               {
+                  if ((status = scp1_write(buffer, bytes_buffered)) != SUCCESS)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write block from file <%s> to remote port %d.",
-                               p_file_name_buffer, db.port);
+                               "Failed to write block from file <%s> to remote port %d [%d].",
+                               p_file_name_buffer, db.port, status);
                      msg_str[0] = '\0';
                      trans_log(INFO_SIGN, NULL, 0,
                                "%d Bytes send in %d file(s).",
@@ -521,8 +579,7 @@ main(int argc, char *argv[])
                      exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
 
-                  no_of_bytes += blocksize;
-
+                  no_of_bytes += bytes_buffered;
                   if (host_deleted == NO)
                   {
                      if (check_fsa() == YES)
@@ -539,104 +596,25 @@ main(int argc, char *argv[])
                         fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += blocksize;
                      }
                   }
-               } /* for (j = 0; j < loops; j++) */
+               } /* if (bytes_buffered > 0) */
+            } while (bytes_buffered == blocksize);
 
-               if (rest > 0)
-               {
-                  if ((status = read(fd, buffer, rest)) != rest)
-                  {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Could not read() local file <%s> : %s",
-                               fullname, strerror(errno));
-                     msg_str[0] = '\0';
-                     trans_log(INFO_SIGN, NULL, 0,
-                               "%d Bytes send in %d file(s).",
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                     scp1_quit();
-                     exit(READ_LOCAL_ERROR);
-                  }
-                  if (scp1_write(buffer, rest) < 0)
-                  {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write rest of file <%s> to remote port %d.",
-                               p_file_name_buffer, db.port);
-                     msg_str[0] = '\0';
-                     trans_log(INFO_SIGN, NULL, 0,
-                               "%d Bytes send in %d file(s).",
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                     scp1_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
-                  }
-
-                  no_of_bytes += rest;
-
-                  if (host_deleted == NO)
-                  {
-                     if (check_fsa() == YES)
-                     {
-                        if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
-                        {
-                           host_deleted = YES;
-                        }
-                     }
-                     if (host_deleted == NO)
-                     {
-                        fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes;
-                        fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done += rest;
-                        fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += rest;
-                     }
-                  }
-               }
-
-               /*
-                * Since there are always some users sending files to the
-                * AFD not in dot notation, lets check here if this is really
-                * the EOF.
-                * If not lets continue so long until we hopefully have reached
-                * the EOF.
-                * NOTE: This is NOT a fool proof way. There must be a better
-                *       way!
-                */
-               if (fstat(fd, &stat_buf) == -1)
-               {
-                  msg_str[0] = '\0';
-                  trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                            "Hmmm. Failed to stat() <%s> : %s",
-                            fullname, strerror(errno));
-                  break;
-               }
-               else
-               {
-                  if (stat_buf.st_size > *p_file_size_buffer)
-                  {
-                     loops = (stat_buf.st_size - *p_file_size_buffer) / blocksize;
-                     rest = (stat_buf.st_size - *p_file_size_buffer) % blocksize;
-                     *p_file_size_buffer = stat_buf.st_size;
-
-                     /*
-                      * Give a warning in the system log, so some action
-                      * can be taken against the originator.
-                      */
-                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "File <%s> for host %s was DEFINITELY NOT send in dot notation.",
-                                p_file_name_buffer,
-                                fsa[db.fsa_pos].host_dsp_name);
-                  }
-                  else
-                  {
-                     break;
-                  }
-               }
-            } /* for (;;) */
-
-#ifdef _OUTPUT_LOG
-            if (db.output_log == YES)
+            /*
+             * Since there are always some users sending files to the
+             * AFD not in dot notation, lets check here if the file size
+             * has changed.
+             */
+            if (no_of_bytes != *p_file_size_buffer)
             {
-               end_time = times(&tmsdummy);
+               /*
+                * Give a warning in the system log, so some action
+                * can be taken against the originator.
+                */
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "File <%s> for host %s was DEFINITELY NOT send in dot notation. Size changed from %d to %d.",
+                          p_file_name_buffer, fsa[db.fsa_pos].host_dsp_name,
+                          *p_file_size_buffer, no_of_bytes);
             }
-#endif
 
             /* Close local file */
             if (close(fd) == -1)
@@ -650,6 +628,44 @@ main(int argc, char *argv[])
                 * sf_scp1() will exit(), there is no point in stopping
                 * the transmission.
                 */
+            }
+
+            if (db.special_flag & FILE_NAME_IS_HEADER)
+            {
+               buffer[0] = '\015';
+               buffer[1] = '\015';
+               buffer[2] = '\012';
+               buffer[3] = 3;  /* ETX */
+               if ((status = scp1_write(buffer, 4)) != SUCCESS)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write <CR><CR><LF><ETX> to remote file <%s> [%d]",
+                            initial_filename, status);
+                  msg_str[0] = '\0';
+                  trans_log(INFO_SIGN, NULL, 0,
+                            "%d Bytes send in %d file(s).",
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  scp1_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               }
+
+               if (host_deleted == NO)
+               {
+                  if (check_fsa() == YES)
+                  {
+                     if ((db.fsa_pos = get_host_position(fsa, db.host_alias,
+                                                         no_of_hosts)) == INCORRECT)
+                     {
+                        host_deleted = YES;
+                     }
+                  }
+                  if (host_deleted == NO)
+                  {
+                     fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done += 4;
+                     fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += 4;
+                  }
+               }
             }
 
             if ((status = scp1_close_file()) == INCORRECT)
@@ -672,6 +688,13 @@ main(int argc, char *argv[])
                                initial_filename);
                }
             }
+
+#ifdef _OUTPUT_LOG
+            if (db.output_log == YES)
+            {
+               end_time = times(&tmsdummy);
+            }
+#endif
          }
          else
          {
@@ -725,7 +748,7 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
                ui_variable = fsa[db.fsa_pos].total_file_size;
 #endif
-               fsa[db.fsa_pos].total_file_size -= stat_buf.st_size;
+               fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
 #ifdef _VERIFY_FSA
                if (fsa[db.fsa_pos].total_file_size > ui_variable)
                {
@@ -762,7 +785,7 @@ main(int argc, char *argv[])
 
                /* Number of bytes send */
                lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
-               fsa[db.fsa_pos].bytes_send += stat_buf.st_size;
+               fsa[db.fsa_pos].bytes_send += no_of_bytes;
                unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
                unlock_region(fsa_fd, lock_offset);
             }
@@ -813,7 +836,7 @@ main(int argc, char *argv[])
                {
                   (void)strcpy(ol_file_name, p_file_name_buffer);
                   *ol_file_name_length = (unsigned short)strlen(ol_file_name);
-                  *ol_file_size = *p_file_size_buffer;
+                  *ol_file_size = no_of_bytes;
                   *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = 0;
@@ -841,7 +864,7 @@ main(int argc, char *argv[])
                   *ol_file_name_length = (unsigned short)strlen(ol_file_name);
                   (void)strcpy(&ol_file_name[*ol_file_name_length + 1],
                                &db.archive_dir[db.archive_offset]);
-                  *ol_file_size = *p_file_size_buffer;
+                  *ol_file_size = no_of_bytes;
                   *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                   *ol_transfer_time = end_time - start_time;
                   *ol_archive_name_length = (unsigned short)strlen(&ol_file_name[*ol_file_name_length + 1]);
@@ -871,7 +894,7 @@ main(int argc, char *argv[])
             {
                (void)strcpy(ol_file_name, p_file_name_buffer);
                *ol_file_name_length = (unsigned short)strlen(ol_file_name);
-               *ol_file_size = *p_file_size_buffer;
+               *ol_file_size = no_of_bytes;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
                *ol_archive_name_length = 0;
@@ -1073,19 +1096,6 @@ sf_scp1_exit(void)
    }
 
    return;
-}
-
-
-/*++++++++++++++++++++++++++++++ sig_pipe() +++++++++++++++++++++++++++++*/
-static void
-sig_pipe(int signo)
-{
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   msg_str[0] = '\0';
-   trans_log(ERROR_SIGN, __FILE__, __LINE__,
-             "Received SIGPIPE. Remote site has closed its socket.");
-
-   exit(SIG_PIPE_ERROR);
 }
 
 

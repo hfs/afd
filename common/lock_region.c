@@ -34,7 +34,7 @@ DESCR__S_M3
  **   it being unlocked again.
  **
  ** RETURN VALUES
- **   Either IS_LOCKED when the region is locked or IS_NOT_LOCKED
+ **   Either LOCK_IS_SET when the region is locked or LOCK_IS_NOT_SET
  **   when it has succesfully locked the region. The function exits
  **   with LOCK_REGION_ERROR if fcntl() call fails.
  **
@@ -72,7 +72,7 @@ lock_region(int fd, off_t offset)
       if ((errno == EACCES) || (errno == EAGAIN))
       {
          /* The file is already locked! */
-         return(IS_LOCKED);
+         return(LOCK_IS_SET);
       }
       else
       {
@@ -82,5 +82,5 @@ lock_region(int fd, off_t offset)
       }
    }
 
-   return(IS_NOT_LOCKED);
+   return(LOCK_IS_NOT_SET);
 }

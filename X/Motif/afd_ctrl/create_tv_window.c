@@ -49,24 +49,26 @@ DESCR__E_M3
 #include "permission.h"
 
 /* External global variables. */
-extern Widget                  appshell,
-                               detailed_window_w,
-                               transviewshell,
-                               tv_label_window_w;
-extern XtIntervalId            interval_id_tv;
-extern int                     filename_display_length,
-                               ft_exposure_tv_line,
-                               line_height,
-                               no_of_jobs_selected;
-extern char                    tv_window;
-extern Dimension               tv_window_width,
-                               tv_window_height;
-extern unsigned long           color_pool[];
-extern struct afd_control_perm acp;
+extern Widget                     appshell,
+                                  detailed_window_w,
+                                  transviewshell,
+                                  tv_label_window_w;
+extern XtIntervalId               interval_id_tv;
+extern int                        filename_display_length,
+                                  ft_exposure_tv_line,
+                                  line_height,
+                                  no_of_jobs_selected;
+extern char                       tv_window;
+extern Dimension                  tv_window_width,
+                                  tv_window_height;
+extern unsigned long              color_pool[];
+extern struct afd_control_perm    acp;
+extern struct job_data            *jd;
+extern struct filetransfer_status *fsa;
 
 /* Local funtion prototype definitions */
-static void                    tv_destroy(Widget, XtPointer, XEvent *),
-                               tv_input(Widget, XtPointer, XEvent *);
+static void                       tv_destroy(Widget, XtPointer, XEvent *),
+                                  tv_input(Widget, XtPointer, XEvent *);
 
 
 /*########################## create_tv_window() #########################*/
@@ -172,6 +174,10 @@ tv_input(Widget      w,
             draw_tv_label_line();
             for (i = 0; i < no_of_jobs_selected; i++)
             {
+               if (jd[i].filename_compare_length > 0)
+               {
+                  jd[i].filename_compare_length--;
+               }
                draw_detailed_line(i);
             }
          }
@@ -189,6 +195,18 @@ tv_input(Widget      w,
             draw_tv_label_line();
             for (i = 0; i < no_of_jobs_selected; i++)
             {
+               if (fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use[0] != '\0')
+               {
+                  if (strlen(fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use) > (filename_display_length - 1))
+                  {
+                     jd[i].file_name_in_use[jd[i].filename_compare_length] = fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_name_in_use[jd[i].filename_compare_length];
+                     jd[i].filename_compare_length++;
+                  }
+                  else
+                  {
+                     jd[i].file_name_in_use[filename_display_length - 1] = ' ';
+                  }
+               }
                draw_detailed_line(i);
             }
          }

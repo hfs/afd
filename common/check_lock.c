@@ -36,7 +36,7 @@ DESCR__S_M3
  ** RETURN VALUES
  **   Returns INCORRECT when it either fails to open() or lock
  **   a region. When block_flag is YES zero is returned otherwise
- **   IS_LOCKED or IS_NOT_LOCKED is returned when the region
+ **   LOCK_IS_SET or LOCK_IS_NOT_SET is returned when the region
  **   is locked or not locked respectively.
  **
  ** AUTHOR
@@ -112,11 +112,11 @@ check_lock(char *file, char block_flag)
 
       if (tlock.l_type == F_UNLCK)
       {
-         return(IS_NOT_LOCKED);
+         return(LOCK_IS_NOT_SET);
       }
       else
       {
-         return(IS_LOCKED);
+         return(LOCK_IS_SET);
       }
    }
 

@@ -38,7 +38,7 @@ DESCR__S_M3
  **    function adds new files to this job. This can only be done under
  **    the following condition:
  **
- **        - This is an FTP (or WMO when enabled) job.
+ **        - This is an FTP (or WMO or SCP1 when enabled) job.
  **        - All connections for this host are in use.
  **        - The active job is currently transmitting files.
  **        - The job ID's are the same.
@@ -64,6 +64,11 @@ DESCR__S_M3
  **                      find the lowest burst counter in bursting jobs. 
  **   30.05.1998 H.Kiehl Added support for WMO bursts.
  **   19.03.1999 H.Kiehl New parameter limit.
+ **   05.08.2001 H.Kiehl Make this bursting work better in conjunction with
+ **                      burst2.
+ **   07.08.2001 H.Kiehl Take the lowest number of bytes still to be send
+ **                      instead of the lowest number of burst to determine
+ **                      which burst should be taken.
  **
  */
 DESCR__E_M3
@@ -117,20 +122,23 @@ check_burst(char         protocol,
        (fsa[position].active_transfers >= fsa[position].allowed_transfers) &&
        ((fsa[position].special_flag & NO_BURST_COUNT_MASK) < fsa[position].allowed_transfers))
    {
-      int j,
-          status,
+      int           j,
+                    status,
 #if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
-          connect_status,
+                    connect_status,
 #endif
-#ifndef _WITH_BURST_2
-          burst_connection,
-          lowest_burst,
-#endif /* !_WITH_BURST_2 */
-          no_of_bursts = 0,
-          no_of_total_bursts = 0,
-          burst_array[MAX_NO_PARALLEL_JOBS],
-          no_of_no_bursts = 0,
-          no_burst_array[MAX_NO_PARALLEL_JOBS];
+                    burst_connection,
+                    no_of_bursts = 0,
+                    no_of_total_bursts = 0,
+                    burst_array[MAX_NO_PARALLEL_JOBS],
+                    no_of_no_bursts = 0,
+                    no_burst_array[MAX_NO_PARALLEL_JOBS];
+#ifdef _WITH_FILE_SIZE_CRITERIA
+      unsigned long lowest_bytes,
+                    tmp_lowest_bytes;
+#else
+      int           lowest_burst;
+#endif
 
 #if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
       if (protocol == FTP)
@@ -174,7 +182,8 @@ check_burst(char         protocol,
 #endif
              (fsa[position].job_status[j].burst_counter > 0))
          {
-            if (fsa[position].job_status[j].job_id == job_id)
+            if ((fsa[position].job_status[j].job_id == job_id) &&
+                (fsa[position].job_status[j].burst_counter < MAX_NO_OF_BURSTS))
             {
                burst_array[no_of_bursts] = j;
                no_of_bursts++;
@@ -205,7 +214,6 @@ check_burst(char         protocol,
       {
          if (no_of_total_bursts >= (fsa[position].allowed_transfers - (fsa[position].special_flag & NO_BURST_COUNT_MASK)))
          {
-#ifndef _WITH_BURST_2
             int burst_array_position;
 
             /*
@@ -215,6 +223,21 @@ check_burst(char         protocol,
              */
             while (no_of_bursts > 0)
             {
+#ifdef _WITH_FILE_SIZE_CRITERIA
+               lowest_bytes = fsa[position].job_status[burst_array[0]].file_size - fsa[position].job_status[burst_array[0]].file_size;
+               burst_connection = burst_array[0];
+               burst_array_position = 0;
+               for (j = 1; j < no_of_bursts; j++)
+               {
+                  tmp_lowest_bytes = fsa[position].job_status[burst_array[j]].file_size - fsa[position].job_status[burst_array[j]].file_size;
+                  if (tmp_lowest_bytes < lowest_bytes)
+                  {
+                     lowest_bytes = tmp_lowest_bytes;
+                     burst_connection = burst_array[j];
+                     burst_array_position = j;
+                  }
+               }
+#else
                lowest_burst = fsa[position].job_status[burst_array[0]].burst_counter;
                burst_connection = burst_array[0];
                burst_array_position = 0;
@@ -227,6 +250,7 @@ check_burst(char         protocol,
                      burst_array_position = j;
                   }
                }
+#endif
                if ((fsa[position].job_status[burst_connection].job_id == job_id) &&
                    ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
@@ -239,7 +263,7 @@ check_burst(char         protocol,
 #endif
                    ((limit == NO) ||
                     (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
-                   (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == IS_NOT_LOCKED))
+                   (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == LOCK_IS_NOT_SET))
                {
                   if (fsa[position].job_status[burst_connection].job_id != job_id)
                   {
@@ -269,10 +293,6 @@ check_burst(char         protocol,
                }
                no_of_bursts--;
             }
-#endif /* !_WITH_BURST_2 */
-
-            unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
-            return(NO);
          }
          else
          {
@@ -283,7 +303,8 @@ check_burst(char         protocol,
             for (j = 0; j < no_of_no_bursts; j++)
             {
                if ((fsa[position].job_status[no_burst_array[j]].job_id == job_id) &&
-                   ((fsa[position].job_status[no_burst_array[j]].connect_status == FTP_ACTIVE)
+                   ((fsa[position].job_status[no_burst_array[j]].connect_status == FTP_ACTIVE) ||
+                    (fsa[position].job_status[no_burst_array[j]].connect_status == FTP_BURST2_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
                     || (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)
 #endif
@@ -294,7 +315,7 @@ check_burst(char         protocol,
 #endif
                    ((limit == NO) ||
                     (fsa[position].job_status[no_burst_array[j]].burst_counter < MAX_NO_OF_BURSTS)) &&
-                   (lock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa) == IS_NOT_LOCKED))
+                   (lock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa) == LOCK_IS_NOT_SET))
                {
                   if (fsa[position].job_status[no_burst_array[j]].job_id != job_id)
                   {
@@ -319,7 +340,6 @@ check_burst(char         protocol,
                }
             }
 
-#ifndef _WITH_BURST_2
             /*
              * Are there any existing bursts?
              */
@@ -331,6 +351,21 @@ check_burst(char         protocol,
                 * Hmm. Failed to create a new burst. Lets try one of
                 * the existing bursts.
                 */
+#ifdef _WITH_FILE_SIZE_CRITERIA
+               lowest_bytes = fsa[position].job_status[burst_array[0]].file_size - fsa[position].job_status[burst_array[0]].file_size;
+               burst_connection = burst_array[0];
+               burst_array_position = 0;
+               for (j = 1; j < no_of_bursts; j++)
+               {
+                  tmp_lowest_bytes = fsa[position].job_status[burst_array[j]].file_size - fsa[position].job_status[burst_array[j]].file_size;
+                  if (tmp_lowest_bytes < lowest_bytes)
+                  {
+                     lowest_bytes = tmp_lowest_bytes;
+                     burst_connection = burst_array[j];
+                     burst_array_position = j;
+                  }
+               }
+#else
                lowest_burst = fsa[position].job_status[burst_array[0]].burst_counter;
                burst_connection = burst_array[0];
                burst_array_position = 0;
@@ -339,10 +374,11 @@ check_burst(char         protocol,
                   if (fsa[position].job_status[burst_array[j]].burst_counter < lowest_burst)
                   {
                      lowest_burst = fsa[position].job_status[burst_array[j]].burst_counter;
-                     burst_connection = burst_array[j];
+                     burst_connection = burst_array[j];                                    
                      burst_array_position = j;
-                  }
+                  }                           
                }
+#endif
                if ((fsa[position].job_status[burst_connection].job_id == job_id) &&
                    ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
@@ -355,7 +391,7 @@ check_burst(char         protocol,
 #endif
                    ((limit == NO) ||
                     (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
-                   (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == IS_NOT_LOCKED))
+                   (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == LOCK_IS_NOT_SET))
                {
                   if (fsa[position].job_status[burst_connection].job_id != job_id)
                   {
@@ -385,17 +421,13 @@ check_burst(char         protocol,
                }
                no_of_bursts--;
             }
-#endif /* !_WITH_BURST_2 */
-
-            unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
-            return(NO);
          }
+         unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
+         return(NO);
       }
       else
       {
-#ifndef _WITH_BURST_2
          int burst_array_position;
-#endif /* !_WITH_BURST_2 */
 
          /*
           * There is no restriction in bursting. First locate a
@@ -404,7 +436,8 @@ check_burst(char         protocol,
          for (j = 0; j < no_of_no_bursts; j++)
          {
             if ((fsa[position].job_status[no_burst_array[j]].job_id == job_id) &&
-                ((fsa[position].job_status[no_burst_array[j]].connect_status == FTP_ACTIVE)
+                ((fsa[position].job_status[no_burst_array[j]].connect_status == FTP_ACTIVE) ||
+                 (fsa[position].job_status[no_burst_array[j]].connect_status == FTP_BURST2_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
                  || (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)
 #endif
@@ -415,7 +448,7 @@ check_burst(char         protocol,
 #endif
                 ((limit == NO) ||
                  (fsa[position].job_status[no_burst_array[j]].burst_counter < MAX_NO_OF_BURSTS)) &&
-                (lock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa) == IS_NOT_LOCKED))
+                (lock_region(fsa_fd, (char *)&fsa[position].job_status[no_burst_array[j]].job_id - (char *)fsa) == LOCK_IS_NOT_SET))
             {
                if (fsa[position].job_status[no_burst_array[j]].job_id != job_id)
                {
@@ -440,13 +473,27 @@ check_burst(char         protocol,
             }
          }
 
-#ifndef _WITH_BURST_2
          /*
           * Hmm. Failed to create a new burst. Lets try one of
           * the existing bursts.
           */
          while (no_of_bursts > 0)
          {
+#ifdef _WITH_FILE_SIZE_CRITERIA
+            lowest_bytes = fsa[position].job_status[burst_array[0]].file_size - fsa[position].job_status[burst_array[0]].file_size;
+            burst_connection = burst_array[0];
+            burst_array_position = 0;
+            for (j = 1; j < no_of_bursts; j++)
+            {
+               tmp_lowest_bytes = fsa[position].job_status[burst_array[j]].file_size - fsa[position].job_status[burst_array[j]].file_size;
+               if (tmp_lowest_bytes < lowest_bytes)
+               {
+                  lowest_bytes = tmp_lowest_bytes;
+                  burst_connection = burst_array[j];
+                  burst_array_position = j;
+               }
+            }
+#else
             lowest_burst = fsa[position].job_status[burst_array[0]].burst_counter;
             burst_connection = burst_array[0];
             burst_array_position = 0;
@@ -459,6 +506,7 @@ check_burst(char         protocol,
                   burst_array_position = j;
                }
             }
+#endif
             if ((fsa[position].job_status[burst_connection].job_id == job_id) &&
                 ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
@@ -471,7 +519,7 @@ check_burst(char         protocol,
 #endif
                 ((limit == NO) ||
                  (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
-                (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == IS_NOT_LOCKED))
+                (lock_region(fsa_fd, (char *)&fsa[position].job_status[burst_connection].job_id - (char *)fsa) == LOCK_IS_NOT_SET))
             {
                if (fsa[position].job_status[burst_connection].job_id != job_id)
                {
@@ -501,7 +549,6 @@ check_burst(char         protocol,
             }
             no_of_bursts--;
          }
-#endif /* !_WITH_BURST_2 */
 
          unlock_region(fsa_fd, fsa[position].host_alias - (char *)fsa + 1);
          return(NO);

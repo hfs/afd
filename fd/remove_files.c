@@ -80,9 +80,12 @@ remove_files(char *del_dir, int fsa_pos)
 
    if ((dp = opendir(del_dir)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to opendir() %s : %s (%s %d)\n",
-                del_dir, strerror(errno), __FILE__, __LINE__);
+      if (errno != ENOENT)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Failed to opendir() %s : %s (%s %d)\n",
+                   del_dir, strerror(errno), __FILE__, __LINE__);
+      }
       return;
    }
    ptr = del_dir + strlen(del_dir);

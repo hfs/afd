@@ -793,7 +793,7 @@
              wait for all its children to return before scanning the
              directories. This could lead to very long delays, depending
              on the options in DIR_CONFIG.
-02.06.2001 - Another bad bug in dir_check. When one directory recieves files
+02.06.2001 - Another bad bug in dir_check. When one directory receives files
              at a very high rate, it can happen that dir_check ends up
              in an endless loop serving only this one directory!
 03.06.2001 - In sf_loc removed empty directory to late during a burst. FD
@@ -823,7 +823,7 @@
              does so in chunks.
 05.07.2001 - In function get_rename_rules() forgot to terminate buffer
              with a '\0'. Fixed.
-07.07.2001 - Function eval_recipient() did not initialze target_dir when
+07.07.2001 - Function eval_recipient() did not initialize target_dir when
              none was specified in recipient string.
 08.07.2001 - Most function in common now use system_log() instead of rec().
            - All sf_xxx process now use function trans_db_log() instead
@@ -835,3 +835,43 @@
 11.07.2001 - Evaluating the afd.users file could end up in an endless loop
              when there are empty spaces behind the last entry. Fixed.
 ------------------------> Released: 12.07.2001 <---------------------------
+
+
+---------------------------> Version 1.2.8 <-------------------------------
+                            ---------------
+15.07.2001 - Removed unnecessary fstat() system call in sf_ftp and sf_scp1.
+16.07.2001 - Function handle_options() and trans_exec() put the quotes for
+             file names with spaces or ";" at the wrong place. Fixed.
+           - copy_file() did not copy files of zero length. Fixed.
+17.07.2001 - sf_ftp failed to reset the ascii buffer. This could sometimes
+             lead to files being send in ASCII mode and not in binary.
+18.07.2001 - Implemented "do not remove" option for local directories.
+20.07.2001 - The directory option "delete unknown files" WRONGLY deleted
+             files in the queue as well. For this reason a new option has
+             been added "delete queued files", which will delete old
+             queued files. The old option works now as documented.
+22.07.2001 - Reduce the timeout to a maximum of 20 second for function
+             ftp_get_reply().
+25.07.2001 - Did not have enough memory in append functions to store
+             the binary zero. Fixed.
+           - Under some circumstances function check_burst_2() could
+             lead to a SIGSEGV. Hope this has been fixed.
+           - Function eval_dir_config() SIGSEGV when identifier groups
+             are not separated with an empty line. Thanks to Bellucci
+             Massimo for reporting this one.
+26.07.2001 - Added function ftp_account() required by some FTP proxies.
+29.07.2001 - New dialog show_queue to view and delete files from the
+             AFD queue.
+30.07.2001 - Function init_sf_burst2() failed to remove empty file
+             directories. Fixed.
+31.07.2001 - In function check_burst_2() forgot to set protocol.
+04.08.2001 - Added to new fields to HOST_CONFIG file to store the status
+             and some protocol specific options for this host.
+           - Updated dialog edit_hc to reflect the above changes.
+05.08.2001 - New function ftp_idle() to set idle time of remote FTP-server.
+           - Function check_burst() cooperates better with the new burst2
+             code.
+07.08.2001 - Fixed some display bugs in job details window of the
+             afd_ctrl dialog.
+           - Port to AIX.
+------------------------> Released: 08.08.2001 <---------------------------

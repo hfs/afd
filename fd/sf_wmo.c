@@ -117,7 +117,6 @@ struct delete_log          dl;
 static void sf_wmo_exit(void),
             sig_bus(int),
             sig_segv(int),
-            sig_pipe(int),
             sig_kill(int),
             sig_exit(int);
 #endif
@@ -213,7 +212,7 @@ main(int argc, char *argv[])
        (signal(SIGSEGV, sig_segv) == SIG_ERR) ||
        (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR) ||
-       (signal(SIGPIPE, sig_pipe) == SIG_ERR))
+       (signal(SIGPIPE, SIG_IGN) == SIG_ERR))
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "signal() error : %s", strerror(errno));
@@ -598,7 +597,7 @@ main(int argc, char *argv[])
                      wmo_quit();
                      exit(READ_LOCAL_ERROR);
                   }
-                  if (wmo_write(buffer, blocksize) < 0)
+                  if ((status = wmo_write(buffer, blocksize)) != SUCCESS)
                   {
                      (void)rec(transfer_log_fd, INFO_SIGN,
                                "%-*s[%d]: %d Bytes send in %d file(s).\n",
@@ -606,8 +605,8 @@ main(int argc, char *argv[])
                                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write block from file %s to remote port %d.",
-                               p_file_name_buffer, db.port);
+                               "Failed to write block from file %s to remote port %d [%d].",
+                               p_file_name_buffer, db.port, status);
                      wmo_quit();
                      exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
@@ -661,7 +660,7 @@ main(int argc, char *argv[])
                      buffer[rest + 2] = '\012';
                      buffer[rest + 3] = 3;  /* ETX */
                   }
-                  if (wmo_write(buffer, rest + end_length) < 0)
+                  if ((status = wmo_write(buffer, rest + end_length)) != SUCCESS)
                   {
                      (void)rec(transfer_log_fd, INFO_SIGN,
                                "%-*s[%d]: %d Bytes send in %d file(s).\n",
@@ -669,8 +668,8 @@ main(int argc, char *argv[])
                                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write rest of file to remote port %d.",
-                               p_file_name_buffer, db.port);
+                               "Failed to write rest of file to remote port %d [%d].",
+                               p_file_name_buffer, db.port, status);
                      wmo_quit();
                      exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
@@ -1191,20 +1190,6 @@ sf_wmo_exit(void)
    }
 
    return;
-}
-
-
-/*++++++++++++++++++++++++++++++ sig_pipe() +++++++++++++++++++++++++++++*/
-static void
-sig_pipe(int signo)
-{
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   (void)rec(transfer_log_fd, ERROR_SIGN,
-             "%-*s[%d]: Received SIGPIPE. Remote site has closed its socket. #%d (%s %d)\n",
-             MAX_HOSTNAME_LENGTH, tr_hostname,
-             (int)db.job_no, db.job_id, __FILE__, __LINE__);
-
-   exit(SIG_PIPE_ERROR);
 }
 
 

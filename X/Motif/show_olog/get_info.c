@@ -98,27 +98,26 @@ get_info(int item)
     */
    if (jd == NULL)
    {
-      int         dnb_fd,
-                  jd_fd;
+      int         fd;
       char        job_id_data_file[MAX_PATH_LENGTH];
       struct stat stat_buf;
 
       /* Map to job ID data file. */
       (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
                     JOB_ID_DATA_FILE);
-      if ((jd_fd = open(job_id_data_file, O_RDONLY)) == -1)
+      if ((fd = open(job_id_data_file, O_RDONLY)) == -1)
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
                     "Failed to open() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
-      if (fstat(jd_fd, &stat_buf) == -1)
+      if (fstat(fd, &stat_buf) == -1)
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
                     "Failed to fstat() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
-         (void)close(jd_fd);
+         (void)close(fd);
          return;
       }
       if (stat_buf.st_size > 0)
@@ -126,44 +125,44 @@ get_info(int item)
          char *ptr;
 
          if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
-                         MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
+                         MAP_SHARED, fd, 0)) == (caddr_t) -1)
          {
             (void)xrec(toplevel_w, ERROR_DIALOG,
                        "Failed to mmap() to %s : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
-            (void)close(jd_fd);
+            (void)close(fd);
             return;
          }
          no_of_job_ids = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          jd = (struct job_id_data *)ptr;
-         (void)close(jd_fd);
+         (void)close(fd);
       }
       else
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
                     "Job ID database file is empty. (%s %d)",
                     __FILE__, __LINE__);
-         (void)close(jd_fd);
+         (void)close(fd);
          return;
       }
 
       /* Map to directory name buffer. */
       (void)sprintf(job_id_data_file, "%s%s%s", p_work_dir, FIFO_DIR,
                     DIR_NAME_FILE);
-      if ((dnb_fd = open(job_id_data_file, O_RDONLY)) == -1)
+      if ((fd = open(job_id_data_file, O_RDONLY)) == -1)
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
                     "Failed to open() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
-      if (fstat(dnb_fd, &stat_buf) == -1)
+      if (fstat(fd, &stat_buf) == -1)
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
                     "Failed to fstat() %s : %s (%s %d)",
                     job_id_data_file, strerror(errno), __FILE__, __LINE__);
-         (void)close(dnb_fd);
+         (void)close(fd);
          return;
       }
       if (stat_buf.st_size > 0)
@@ -171,23 +170,24 @@ get_info(int item)
          char *ptr;
 
          if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
-                         MAP_SHARED, dnb_fd, 0)) == (caddr_t) -1)
+                         MAP_SHARED, fd, 0)) == (caddr_t) -1)
          {
             (void)xrec(toplevel_w, ERROR_DIALOG,
                        "Failed to mmap() to %s : %s (%s %d)",
                        job_id_data_file, strerror(errno), __FILE__, __LINE__);
-            (void)close(dnb_fd);
+            (void)close(fd);
             return;
          }
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
-         (void)close(dnb_fd);
+         (void)close(fd);
       }
       else
       {
          (void)xrec(toplevel_w, ERROR_DIALOG,
                     "Dirname database file is empty. (%s %d)",
                     __FILE__, __LINE__);
+         (void)close(fd);
          return;
       }
    }

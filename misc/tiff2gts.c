@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <sys/stat.h>              /* stat()                             */
 #include <sys/types.h>
 #include <sys/file.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 

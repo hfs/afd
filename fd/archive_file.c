@@ -153,7 +153,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                if (errno != EEXIST)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to create directory %s : %s",
+                             "Failed to create directory <%s> : %s",
                              p_db->archive_dir, strerror(errno));
                   p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                   return(INCORRECT);
@@ -195,12 +195,12 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                   *ptr = '\0';
                }
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Archive %s is FULL!", p_db->archive_dir);
+                          "Archive <%s> is FULL!", p_db->archive_dir);
             }
             else
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to get directory number for %s",
+                          "Failed to get directory number for <%s>",
                           p_db->archive_dir);
             }
             p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
@@ -226,12 +226,12 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                     if (dir_number == ARCHIVE_FULL)
                     {
                        system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "Archive %s is FULL!", p_db->archive_dir);
+                                  "Archive <%s> is FULL!", p_db->archive_dir);
                     }
                     else
                     {
                        system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "Failed to get directory number for %s",
+                                  "Failed to get directory number for <%s>",
                                   p_db->archive_dir);
                     }
                     p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
@@ -242,15 +242,14 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
          else if (errno == ENOSPC) /* No space left on device */
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to create unique name. Disk full.",
-                            p_db->archive_dir);
+                            "Failed to create unique name. Disk full.");
                  p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                  return(INCORRECT);
               }
               else
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to create a unique name %s : %s",
+                            "Failed to create a unique name <%s> : %s",
                             p_db->archive_dir, strerror(errno));
                  p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                  return(INCORRECT);
@@ -268,8 +267,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
 
    if (move_file(oldname, newname) < 0)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to move file %s to %s.", oldname, newname);
+      system_log(ERROR_SIGN, __FILE__, __LINE__, "move_file() error.");
    }
    else
    {
@@ -303,7 +301,7 @@ get_dir_number(char *directory)
    if ((dp = opendir(directory)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to opendir() %s : %s", directory, strerror(errno));
+                 "Failed to opendir() <%s> : %s", directory, strerror(errno));
       return(INCORRECT);
    }
 
@@ -314,7 +312,11 @@ get_dir_number(char *directory)
 #else
       if ((link_max = pathconf(directory, _PC_LINK_MAX)) == -1)
       {
+#ifdef LINUX
+         link_max = REDUCED_LINK_MAX;
+#else
          link_max = LINK_MAX;
+#endif
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "pathconf() error for _PC_LINK_MAX : %s", strerror(errno));
       }
@@ -339,7 +341,7 @@ get_dir_number(char *directory)
       if (stat(directory, &stat_buf) < 0)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Can't access %s : %s", directory, strerror(errno));
+                    "Can't access <%s> : %s", directory, strerror(errno));
          continue;
       }
 
@@ -372,7 +374,7 @@ get_dir_number(char *directory)
    if (errno)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to readdir() %s : %s", directory, strerror(errno));
+                 "Failed to readdir() <%s> : %s", directory, strerror(errno));
    }
 
    dir_number = max_dir_number;
@@ -414,7 +416,7 @@ get_dir_number(char *directory)
    if (closedir(dp) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to closedir() %s : %s", directory, strerror(errno));
+                 "Failed to closedir() <%s> : %s", directory, strerror(errno));
    }
 
    return(dir_number);

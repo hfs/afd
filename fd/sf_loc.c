@@ -117,7 +117,7 @@ main(int argc, char *argv[])
 #endif
    int              i,
                     fd,
-                    lfs = NONE,             /* local file system */
+                    lfs,                    /* local file system */
                     files_to_send = 0;
 #ifdef _WITH_BURST_2
    unsigned int     burst_2_counter = 0;
@@ -138,10 +138,6 @@ main(int argc, char *argv[])
                     source_file[MAX_PATH_LENGTH],
                     work_dir[MAX_PATH_LENGTH];
    struct job       *p_db;
-   struct stat      stat_buf;
-#ifdef _WITH_BURST_2
-   struct job       *p_new_db;
-#endif /* _WITH_BURST_2 */
 #ifdef SA_FULLDUMP
    struct sigaction sact;
 #endif
@@ -289,6 +285,8 @@ main(int argc, char *argv[])
        */
       if ((db.special_flag & FORCE_COPY) == 0)
       {
+         struct stat stat_buf;
+
          if (stat(file_path, &stat_buf) == 0)
          {
             dev_t ldv;               /* local device number (file system) */
@@ -319,7 +317,11 @@ main(int argc, char *argv[])
                       "Failed to stat() %s : %s", file_path, strerror(errno));
             exit(STAT_ERROR);
          }
-      } /* if ((db.special_flag & FORCE_COPY) == 0) */
+      }
+      else
+      {
+         lfs = NO;
+      }
 
       /* Prepare pointers and directory name */
       (void)strcpy(source_file, file_path);
@@ -411,27 +413,32 @@ main(int argc, char *argv[])
                {
                   if (unlink(p_to_name) == -1)
                   {
-                     trans_log(WARN_SIGN, __FILE__, __LINE__,
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                "Failed to unlink() <%s> : %s",
                                p_to_name, strerror(errno));
+                     trans_log(INFO_SIGN, NULL, 0,
+                               "%d Bytes copied in %d file(s).",
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                     exit(MOVE_ERROR);
                   }
                   else
                   {
                      trans_log(INFO_SIGN, __FILE__, __LINE__,
                                "File <%s> did already exist, removed it and linked again.",
                                p_to_name);
-                  }
 
-                  if (link(source_file, p_to_name) == -1)
-                  {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to link file <%s> to <%s> : %s",
-                               source_file, p_to_name, strerror(errno));
-                     trans_log(INFO_SIGN, NULL, 0,
-                               "%d Bytes copied in %d file(s).",
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                     exit(MOVE_ERROR);
+                     if (link(source_file, p_to_name) == -1)
+                     {
+                        trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Failed to link file <%s> to <%s> : %s",
+                                  source_file, p_to_name, strerror(errno));
+                        trans_log(INFO_SIGN, NULL, 0,
+                                  "%d Bytes copied in %d file(s).",
+                                  fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                                  fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                        exit(MOVE_ERROR);
+                     }
                   }
                }
                else
@@ -456,52 +463,29 @@ main(int argc, char *argv[])
                }
             }
          }
-         else if (lfs == NO)
-              {
-                 if (copy_file(source_file, p_to_name) < 0)
-                 {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                              "Failed to copy file <%s> to <%s> : %s",
-                              source_file, p_to_name, strerror(errno));
-                    trans_log(INFO_SIGN, NULL, 0,
-                              "%d Bytes copied in %d file(s).",
-                              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                              fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                    exit(MOVE_ERROR);
-                 }
-                 else
-                 {
-                    if (fsa[db.fsa_pos].debug == YES)
-                    {
-                       trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                    "Copied file <%s> to <%s>.",
-                                    source_file, p_to_name);
-                    }
-                 }
-              }
-              else /* lfs != NO && lfs != YES */
-              {
-                 if (normal_copy(source_file, p_to_name) == -1)
-                 {
-                    trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                              "Failed to copy file <%s> to <%s> : %s",
-                              source_file, p_to_name, strerror(errno));
-                    trans_log(INFO_SIGN, NULL, 0,
-                              "%d Bytes copied in %d file(s).",
-                              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                              fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                    exit(MOVE_ERROR);
-                 }
-                 else
-                 {
-                    if (fsa[db.fsa_pos].debug == YES)
-                    {
-                       trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                    "Copied file <%s> to <%s>.",
-                                    source_file, p_to_name);
-                    }
-                 }
-              }
+         else
+         {
+            if (copy_file(source_file, p_to_name, NULL) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to copy file <%s> to <%s> : %s",
+                         source_file, p_to_name, strerror(errno));
+               trans_log(INFO_SIGN, NULL, 0,
+                         "%d Bytes copied in %d file(s).",
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               exit(MOVE_ERROR);
+            }
+            else
+            {
+               if (fsa[db.fsa_pos].debug == YES)
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Copied file <%s> to <%s>.",
+                               source_file, p_to_name);
+               }
+            }
+         }
 
          if ((db.lock == DOT) || (db.lock == DOT_VMS))
          {
@@ -917,7 +901,7 @@ main(int argc, char *argv[])
       }
 #ifdef _WITH_BURST_2
       burst_2_counter++;
-   } while (check_burst_2(&p_new_db, file_path, &files_to_send, NULL) == YES);
+   } while (check_burst_2(file_path, &files_to_send, NULL) == YES);
    burst_2_counter--;
 
    i = sprintf(ff_name, "%-*s[%d]: %lu Bytes copied in %d file(s).",

@@ -1,6 +1,6 @@
 /*
  *  edit_hc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,9 @@ DESCR__S_M1
  **       - File size offset
  **       - Number of transfers that may not burst
  **       - Proxy name
+ **   additionally some protocol specific options can be set:
+ **       - FTP active/passive mode
+ **       - set FTP idle time
  **
  **   In the list widget "Alias Hostname" the user can change the order
  **   of the host names in the afd_ctrl dialog by using drag & drop.
@@ -56,6 +59,8 @@ DESCR__S_M1
  **   16.08.1997 H.Kiehl Created
  **   28.02.1998 H.Kiehl Added host switching information.
  **   21.10.1998 H.Kiehl Added Remove button to remove hosts from the FSA.
+ **   04.08.2001 H.Kiehl Added support for active or passive mode and
+ **                      FTP idle time.
  **
  */
 DESCR__E_M1
@@ -102,16 +107,22 @@ DESCR__E_M1
 /* Global variables */
 XtAppContext               app;
 Display                    *display;
-Widget                     auto_toggle_w,
+Widget                     active_mode_w,
+                           auto_toggle_w,
                            first_label_w,
+                           ftp_idle_time_w,
+                           ftp_mode_w,
                            host_1_w,
                            host_2_w,
                            host_1_label_w,
                            host_2_label_w,
                            host_list_w,
                            host_switch_toggle_w,
+                           idle_time_w,
                            max_errors_w,
+                           mode_label_w,
                            no_source_icon_w,
+                           passive_mode_w,
                            proxy_name_w,
                            real_hostname_1_w,
                            real_hostname_2_w,
@@ -895,7 +906,7 @@ main(int argc, char *argv[])
    box_w = XmCreateForm(form_w, "text_input_box", args, argcount);
 
    /* Parallel transfers */
-   label_w = XtVaCreateManagedWidget("Max. parallel transfers:",
+   label_w = XtVaCreateManagedWidget("Max. parallel transfers     :",
                                      xmLabelGadgetClass,  box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
@@ -908,7 +919,7 @@ main(int argc, char *argv[])
    create_option_menu_pt(box_w, label_w, fontlist);
 
    /* Transfer blocksize */
-   label_w = XtVaCreateManagedWidget("Transfer Blocksize     :",
+   label_w = XtVaCreateManagedWidget("Transfer Blocksize          :",
                                      xmLabelGadgetClass,  box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
@@ -921,7 +932,7 @@ main(int argc, char *argv[])
    create_option_menu_tb(box_w, label_w, fontlist);
 
    /* File size offset */
-   label_w = XtVaCreateManagedWidget("File size offset       :",
+   label_w = XtVaCreateManagedWidget("File size offset for append :",
                                      xmLabelGadgetClass,  box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
@@ -934,7 +945,7 @@ main(int argc, char *argv[])
    create_option_menu_fso(box_w, label_w, fontlist);
 
    /* File size offset */
-   label_w = XtVaCreateManagedWidget("Number of no bursts    :",
+   label_w = XtVaCreateManagedWidget("Number of no bursts         :",
                                      xmLabelGadgetClass,  box_w,
                                      XmNfontList,         fontlist,
                                      XmNtopAttachment,    XmATTACH_POSITION,
@@ -945,6 +956,112 @@ main(int argc, char *argv[])
                                      XmNleftPosition,     1,
                                      NULL);
    create_option_menu_nob(box_w, label_w, fontlist);
+   XtManageChild(box_w);
+
+/*-----------------------------------------------------------------------*/
+/*                         Horizontal Separator                          */
+/*-----------------------------------------------------------------------*/
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,        box_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopOffset,        SIDE_OFFSET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   argcount++;
+   h_separator_top_w = XmCreateSeparator(form_w, "h_separator_top",
+                                         args, argcount);
+   XtManageChild(h_separator_top_w);
+
+/*-----------------------------------------------------------------------*/
+/*                       Protocol Specific Options                       */
+/*                       -------------------------                       */
+/* Select FTP active or passive mode and set FTP idle time for remote    */
+/* FTP-server.                                                           */
+/*-----------------------------------------------------------------------*/
+   /* Create managing widget for the protocol specific option box. */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,        h_separator_top_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   argcount++;
+   box_w = XmCreateForm(form_w, "protocol_specific_box_w", args, argcount);
+
+   mode_label_w = XtVaCreateManagedWidget("FTP Mode :",
+                                xmLabelGadgetClass,  box_w,
+                                XmNfontList,         fontlist,
+                                XmNalignment,        XmALIGNMENT_END,
+                                XmNtopAttachment,    XmATTACH_FORM,
+                                XmNleftAttachment,   XmATTACH_FORM,
+                                XmNleftOffset,       5,
+                                XmNbottomAttachment, XmATTACH_FORM,
+                                NULL);
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       mode_label_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNpacking,          XmPACK_TIGHT);
+   argcount++;
+   XtSetArg(args[argcount], XmNnumColumns,       1);
+   argcount++;
+   ftp_mode_w = XmCreateRadioBox(box_w, "radiobox", args, argcount);
+   active_mode_w = XtVaCreateManagedWidget("Active",
+                                   xmToggleButtonGadgetClass, ftp_mode_w,
+                                   XmNfontList,               fontlist,
+                                   XmNset,                    True,
+                                   NULL);
+   XtAddCallback(active_mode_w, XmNdisarmCallback,
+                 (XtCallbackProc)radio_button,
+                 (XtPointer)FTP_ACTIVE_MODE_SEL);
+   passive_mode_w = XtVaCreateManagedWidget("Passive",
+                                   xmToggleButtonGadgetClass, ftp_mode_w,
+                                   XmNfontList,               fontlist,
+                                   XmNset,                    False,
+                                   NULL);
+   XtAddCallback(passive_mode_w, XmNdisarmCallback,
+                 (XtCallbackProc)radio_button,
+                 (XtPointer)FTP_PASSIVE_MODE_SEL);
+   XtManageChild(ftp_mode_w);
+
+   ftp_idle_time_w = XtVaCreateWidget("ftp_idle_time_togglebox",
+                                xmRowColumnWidgetClass, box_w,
+                                XmNorientation,      XmHORIZONTAL,
+                                XmNpacking,          XmPACK_TIGHT,
+                                XmNnumColumns,       1,
+                                XmNtopAttachment,    XmATTACH_FORM,
+                                XmNleftAttachment,   XmATTACH_WIDGET,
+                                XmNleftWidget,       ftp_mode_w,
+                                XmNbottomAttachment, XmATTACH_FORM,
+                                XmNresizable,        False,
+                                NULL);
+   idle_time_w = XtVaCreateManagedWidget("Set idle time ",
+                                xmToggleButtonGadgetClass, ftp_idle_time_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    False,
+                                NULL);
+   XtAddCallback(idle_time_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button, NULL);
+   XtManageChild(ftp_idle_time_w);
    XtManageChild(box_w);
 
 /*-----------------------------------------------------------------------*/

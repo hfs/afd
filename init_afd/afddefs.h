@@ -1,6 +1,6 @@
 /*
  *  afddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <limits.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 /* Define the language to use */
 /* #define GERMAN */
@@ -40,12 +41,13 @@
 #define LINKY_MAX                  4
 #endif
 
+#ifdef _SCO
 #ifndef LINK_MAX
 #define LINK_MAX                   1000 /* SCO does not define it. */
-#else
-#ifdef LINUX
-#define REDUCED_LINK_MAX           4096 /* Reduced for testing.    */
 #endif
+#endif
+#ifdef LINUX
+#define REDUCED_LINK_MAX           8192 /* Reduced for testing.    */
 #endif
 
 #ifdef _NO_MMAP
@@ -53,18 +55,6 @@
 #define PROT_READ                  1
 #define PROT_WRITE                 1
 #define MAP_SHARED                 1
-#endif
-
-/*
- * The definition SIZE_WHEN_TO_MMAP_COPY defines two things:
- *   - if defined function copy_file() will use mmap() to copy files
- *   - at which file size we start using mmap() to copy files
- * It seems that so far only Solaries seems to profit from using mmap()
- * to copy files. Linux and Irix do better when using a normal read()/
- * write() loop.
- */
-#ifdef _SUN
-#define SIZE_WHEN_TO_MMAP_COPY     20480
 #endif
 
 /* Define the names of the program's */
@@ -301,8 +291,9 @@
 #define DONE                       3
 #define NORMAL                     4
 #define NONE                       5
-#define IS_LOCKED                  -2
-#define IS_NOT_LOCKED              11
+#define NO_ACCESS                  10
+#define LOCK_IS_SET                -2
+#define LOCK_IS_NOT_SET            11
 #define AUTO_SIZE_DETECT           -2
 
 #define NO_PRIORITY                -1      /* For function create_name() */
@@ -359,6 +350,8 @@
 #endif
 #define SEND_FLAG                  256
 #define RETRIEVE_FLAG              512
+#define FTP_PASSIVE_MODE           1024
+#define SET_IDLE_TIME              2048
 #define SEND_FTP_FLAG              65536
 #define SEND_LOC_FLAG              131072
 #define SEND_SMTP_FLAG             262144
@@ -391,6 +384,37 @@
 #endif
 #define SMTP_SHEME                 "mailto"
 #define SMTP_SHEME_LENGTH          6
+
+
+/* Definitions for [dir options] */
+#define DEL_UNKNOWN_FILES_ID             "delete unknown files"
+#define DEL_UNKNOWN_FILES_ID_LENGTH      20
+#define DEL_QUEUED_FILES_ID              "delete queued files"
+#define DEL_QUEUED_FILES_ID_LENGTH       19
+#define OLD_FILE_TIME_ID                 "old file time"
+#define OLD_FILE_TIME_ID_LENGTH          13
+#define DONT_REP_UNKNOWN_FILES_ID        "do not report unknown files"
+#define DONT_REP_UNKNOWN_FILES_ID_LENGTH 27
+#define END_CHARACTER_ID                 "end character"
+#define END_CHARACTER_ID_LENGTH          13
+#define TIME_ID                          "time"
+#define TIME_ID_LENGTH                   4
+#define MAX_PROCESS_ID                   "max process"
+#define MAX_PROCESS_ID_LENGTH            11
+#define DO_NOT_REMOVE_ID                 "do not remove"
+#define DO_NOT_REMOVE_ID_LENGTH          13
+#define STORE_REMOTE_LIST                "store remote list"
+#define STORE_REMOTE_LIST_LENGTH         17
+#define DONT_DEL_UNKNOWN_FILES_ID        "do not delete unknown files"
+#define DONT_DEL_UNKNOWN_FILES_ID_LENGTH 20
+#define REP_UNKNOWN_FILES_ID             "report unknown files"
+#define REP_UNKNOWN_FILES_ID_LENGTH      20
+#define FORCE_REREAD_ID                  "force reread"
+#define FORCE_REREAD_ID_LENGTH           12
+#define IMPORTANT_DIR_ID                 "important dir"
+#define IMPORTANT_DIR_ID_LENGTH          13
+#define UNKNOWN_FILES                    1
+#define QUEUED_FILES                     2
 
 /* Default definitions */
 #define AFD_CONFIG_FILE            "/AFD_CONFIG"
@@ -442,6 +466,7 @@
                                          /* remote proxy name.           */
 #define MAX_MSG_NAME_LENGTH        30    /* Maximum length of message    */
                                          /* name.                        */
+                                         /* <priority>_<date>_<unique number>_<job_id> */
 #define MAX_INT_LENGTH             11    /* When storing integer values  */
                                          /* as string this is the no.    */
                                          /* characters needed to store   */
@@ -469,7 +494,6 @@
                                          /* These are displayed in the   */
                                          /* button line.                 */
 #define ARCHIVE_UNIT               86400 /* Seconds => 1 day             */
-#define UNIQUE_NAME_LENGTH         30    /* <priority>_<date>_<unique number>_<job_id> */
 #define WD_ENV_NAME                "AFD_WORK_DIR"  /* The working dir-   */
                                                    /* ectory environment */
 
@@ -479,6 +503,7 @@
 #define AUTO_PAUSE_QUEUE_STAT      4
 #define DANGER_PAUSE_QUEUE_STAT    8
 #define AUTO_PAUSE_QUEUE_LOCK_STAT 16
+#define HOST_CONFIG_HOST_DISABLED  32
 
 /* Position of each colour in global array */
 /*############################ LightBlue1 ###############################*/
@@ -529,12 +554,13 @@
 /*############################### pink ##################################*/
 #define EMAIL_ACTIVE               10
 /*############################## green ##################################*/
-#define FTP_BURST_TRANSFER_ACTIVE  11
+#define FTP_BURST2_TRANSFER_ACTIVE 11
 /*############################## green3 #################################*/
 #define CONNECTION_ESTABLISHED     12 /* AFD_MON                         */
 #define NORMAL_STATUS              12
 #define INFO_ID                    12
 #define RETRIEVE_ACTIVE            12 /* When gf_ftp retrieves files.    */
+#define FTP_BURST_TRANSFER_ACTIVE  12
 /*############################# SeaGreen ################################*/
 #define CONFIG_ID                  13
 #define TRANSFER_ACTIVE            13 /* Creating remote lockfile and    */
@@ -726,9 +752,9 @@ struct status
        {
           pid_t         proc_id;                /* Process ID of trans-  */
                                                 /* fering job.           */
-#ifdef _BURST_MODE
+#if defined (_BURST_MODE) || defined (_WITH_BURST_2)
           char          error_file;
-          char          unique_name[UNIQUE_NAME_LENGTH];
+          char          unique_name[MAX_MSG_NAME_LENGTH];
           unsigned char burst_counter;          /* Without this counter  */
                                                 /* sf_ftp() would not    */
                                                 /* know that there are   */
@@ -745,7 +771,7 @@ struct status
                                                 /* each of these is      */
                                                 /* identified by this    */
                                                 /* number.               */
-#endif /* _BURST_MODE */
+#endif
           char          connect_status;         /* The status of what    */
                                                 /* sf_xxx() is doing.    */
           int           no_of_files;            /* Total number of all   */
@@ -827,7 +853,7 @@ struct filetransfer_status
                                             /*|      | process.         |*/
                                             /*| 7    | Host is in       |*/
                                             /*|      | DIR_CONFIG file. |*/
-                                            /*| 6    | Not used.        |*/
+                                            /*| 6    | Host disabled.   |*/
                                             /*| 1 - 5| Number of jobs   |*/
                                             /*|      | that may NOT     |*/
                                             /*|      | burst.           |*/
@@ -846,7 +872,9 @@ struct filetransfer_status
                                             /*| 19   | SEND_SMTP        |*/
                                             /*| 18   | SEND_LOC         |*/
                                             /*| 17   | SEND_FTP         |*/
-                                            /*| 11-16| Not used.        |*/
+                                            /*| 13-16| Not used.        |*/
+                                            /*| 12   | SET_IDLE_TIME    |*/
+                                            /*| 11   | FTP_PASSIVE_MODE |*/
                                             /*| 10   | RETRIEVE         |*/
                                             /*| 9    | SEND             |*/
                                             /*| 7 - 8| Not used.        |*/
@@ -902,7 +930,38 @@ struct filetransfer_status
           struct status  job_status[MAX_NO_PARALLEL_JOBS];
        };
 
-/* Structure to hold all possible bits for a time entry */
+/* Structure that holds all hosts. */
+#define HOST_BUF_SIZE 100
+struct host_list
+       {
+          char          host_alias[MAX_HOSTNAME_LENGTH + 1];
+          char          fullname[MAX_FILENAME_LENGTH];
+                                              /* This is needed when we   */
+                                              /* have hostname with []    */
+                                              /* syntax.                  */
+          char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
+          char          host_toggle_str[MAX_TOGGLE_STR_LENGTH];
+          char          proxy_name[MAX_PROXY_NAME_LENGTH + 1];
+          int           allowed_transfers;
+          int           max_errors;
+          int           retry_interval;
+          int           transfer_blksize;
+          int           successful_retries; /* NOTE: Corresponds to      */
+                                            /* max_successful_retries in */
+                                            /* FSA.                      */
+          unsigned int  special_flag;       /* Mostly used for FTP, to   */
+                                            /* indicate for example:     */
+                                            /* active-, passive-mode,    */
+                                            /* send IDLE command, etc.   */
+          signed char   file_size_offset;
+          long          transfer_timeout;
+          unsigned char number_of_no_bursts;
+          unsigned char host_status;
+          signed char   in_dir_config;
+          unsigned int  protocol;
+       };
+
+/* Structure to hold all possible bits for a time entry. */
 struct bd_time_entry
        {
 #ifdef _WORKING_LONG_LONG
@@ -949,7 +1008,11 @@ struct fileretrieve_status
                                             /* only once.                */
           unsigned int  protocol;           /* Transfer protocol that    */
                                             /* is being used.            */
-          unsigned char delete_unknown_files;
+          unsigned char delete_files_flag;  /* UNKNOWN_FILES: All unknown*/
+                                            /* files will be deleted.    */
+                                            /* QUEUED_FILES: Queues will */
+                                            /* also be checked for old   */
+                                            /* files.                    */
           unsigned char report_unknown_files;
           unsigned char important_dir;      /* Directory is important.   */
                                             /* In times where all        */
@@ -1242,10 +1305,12 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                check_msa(void),
                check_msg_name(char *),
                coe_open(char *, int, ...),
-               copy_file(char *, char *),
+               copy_file(char *, char *, struct stat *),
                create_message(int, char *, char *),
                create_name(char *, signed char, time_t, int, unsigned short *, char *),
                create_remote_dir(char *, char *),
+               detach_afd_status(void),
+               eval_host_config(int *, char *, struct host_list **, int),
                exec_cmd(char *, char *),
                extract(char *, char *, int, int *, off_t *),
                fra_attach(void),
@@ -1267,21 +1332,21 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                msa_attach(void),
                msa_detach(void),
                next_counter(int *),
-               normal_copy(char *, char *),
                open_counter_file(char *),
                pmatch(char *, char *),
-               read_file(char *, char **buffer),
                rec(int, char *, char *, ...),
                rec_rmdir(char *),
                remove_dir(char *),
                send_cmd(char, int);
 extern off_t   gts2tiff(char *, char *),
+               read_file(char *, char **buffer),
                tiff2gts(char *, char *);
 #if defined (_INPUT_LOG) || defined (_OUTPUT_LOG)
 extern pid_t   start_log(char *);
 #endif
 extern ssize_t readn(int, void *, int);
-extern time_t  calc_next_time(struct bd_time_entry *);
+extern time_t  calc_next_time(struct bd_time_entry *),
+               write_host_config(int, char *, struct host_list *);
 extern void    *attach_buf(char *, int *, size_t, char *),
                bitset(unsigned char *, int),
                lock_region_w(int, off_t),

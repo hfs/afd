@@ -66,9 +66,9 @@
 /* Maximum length of the file name that is displayed */
 #define SHOW_SHORT_FORMAT       50
 #define SHOW_LONG_FORMAT        70
-#define HEADING_LINE_SHORT      "Date   Time     File name                                          File size "
+#define HEADING_LINE_SHORT      "Date   Time     File name                                           File size"
 #define SUM_SEP_LINE_SHORT      "============================================================================="
-#define HEADING_LINE_LONG       "Date   Time     File name                                                              File size "
+#define HEADING_LINE_LONG       "Date   Time     File name                                                               File size"
 #define SUM_SEP_LINE_LONG       "================================================================================================="
 
 /* Structure that holds offset (to dir ID) to each item in list. */

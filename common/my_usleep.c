@@ -40,6 +40,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   23.02.1996 H.Kiehl Created
+ **   06.08.2001 H.Kiehl Make use of tv_sec field when msec is large
+ **                      enough.
  **
  */
 DESCR__E_M3
@@ -58,8 +60,16 @@ my_usleep(unsigned long msec)
 {
    struct timeval timeout;
 
-   timeout.tv_sec = 0;
-   timeout.tv_usec = msec;
+   if (msec > 999999)
+   {
+      timeout.tv_sec = msec / 1000000;
+      timeout.tv_usec = msec % 1000000;
+   }
+   else
+   {
+      timeout.tv_sec = 0;
+      timeout.tv_usec = msec;
+   }
 
    if (select(0, (fd_set *)0, (fd_set *)0, (fd_set *)0, &timeout) < 0)
    {

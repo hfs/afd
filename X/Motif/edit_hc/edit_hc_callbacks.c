@@ -61,16 +61,22 @@ DESCR__E_M3
 
 /* External global variables */
 extern Display                    *display;
-extern Widget                     auto_toggle_w,
+extern Widget                     active_mode_w,
+                                  auto_toggle_w,
+                                  first_label_w,
+                                  ftp_idle_time_w,
+                                  ftp_mode_w,
                                   host_1_w,
                                   host_2_w,
                                   host_1_label_w,
                                   host_2_label_w,
                                   host_list_w,
                                   host_switch_toggle_w,
-                                  first_label_w,
+                                  idle_time_w,
                                   max_errors_w,
+                                  mode_label_w,
                                   no_source_icon_w,
+                                  passive_mode_w,
                                   proxy_name_w,
                                   real_hostname_1_w,
                                   real_hostname_2_w,
@@ -422,6 +428,27 @@ nob_option_changed(Widget w, XtPointer client_data, XtPointer call_data)
 
    ce[cur_pos].value_changed |= NO_OF_NO_BURST_CHANGED;
    ce[cur_pos].no_of_no_bursts = nob.value[item_no];
+
+   return;
+}
+
+
+/*########################### radio_button() ############################*/
+void
+radio_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   ce[cur_pos].value_changed |= FTP_MODE_CHANGED;
+   ce[cur_pos].ftp_mode = (int)client_data;
+
+   return;
+}
+
+
+/*########################### toggle_button() ###########################*/
+void
+toggle_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   ce[cur_pos].value_changed |= FTP_SET_IDLE_TIME_CHANGED;
 
    return;
 }
@@ -786,10 +813,34 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             tmp_ptr = fsa[cur_pos].proxy_name;
          }
          XtVaSetValues(proxy_name_w, XmNvalue, tmp_ptr, NULL);
+         XtSetSensitive(mode_label_w, True);
+         XtSetSensitive(ftp_mode_w, True);
+         if (fsa[cur_pos].protocol & FTP_PASSIVE_MODE)
+         {
+            XtVaSetValues(passive_mode_w, XmNset, True, NULL);
+            XtVaSetValues(active_mode_w, XmNset, False, NULL);
+         }
+         else
+         {
+            XtVaSetValues(passive_mode_w, XmNset, False, NULL);
+            XtVaSetValues(active_mode_w, XmNset, True, NULL);
+         }
+         XtSetSensitive(ftp_idle_time_w, True);
+         if (fsa[cur_pos].protocol & SET_IDLE_TIME)
+         {
+            XtVaSetValues(idle_time_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(idle_time_w, XmNset, False, NULL);
+         }
       }
       else
       {
          XtSetSensitive(proxy_name_w, False);
+         XtSetSensitive(mode_label_w, False);
+         XtSetSensitive(ftp_mode_w, False);
+         XtSetSensitive(ftp_idle_time_w, False);
       }
 
       if (ce[cur_pos].value_changed & MAX_ERRORS_CHANGED)
@@ -1241,6 +1292,22 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          if (ce[i].value_changed & NO_OF_NO_BURST_CHANGED)
          {
             fsa[i].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | ce[i].no_of_no_bursts;
+            changes++;
+         }
+         if (ce[i].value_changed & FTP_MODE_CHANGED)
+         {
+            if (((fsa[i].protocol & FTP_PASSIVE_MODE) &&
+                 (ce[i].ftp_mode == FTP_ACTIVE_MODE_SEL)) ||
+                (((fsa[i].protocol & FTP_PASSIVE_MODE) == 0) &&
+                 (ce[i].ftp_mode == FTP_PASSIVE_MODE_SEL)))
+            {
+               fsa[i].protocol ^= FTP_PASSIVE_MODE;
+               changes++;
+            }
+         }
+         if (ce[i].value_changed & FTP_SET_IDLE_TIME_CHANGED)
+         {
+            fsa[i].protocol ^= SET_IDLE_TIME;
             changes++;
          }
 

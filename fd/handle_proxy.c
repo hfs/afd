@@ -78,6 +78,8 @@ handle_proxy(void)
          ptr = proxy_ptr + 2;
          switch (*(proxy_ptr + 1))
          {
+            case 'a' :
+            case 'A' :
             case 'u' :
             case 'U' : /* Enter user name. */
                i = 0;
@@ -106,31 +108,65 @@ handle_proxy(void)
                   (void)strcpy(buffer, db.user);
                }
 
-               /* Send user name */
-               if (((status = ftp_user(buffer)) != SUCCESS) && (status != 230))
+               if ((*(proxy_ptr + 1) == 'U') || (*(proxy_ptr + 1) == 'u'))
                {
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to send user <%s> (%d) [Proxy].",
-                            buffer, status);
-                  (void)ftp_quit();
-                  exit(USER_ERROR);
+                  /* Send user name. */
+                  if (((status = ftp_user(buffer)) != SUCCESS) && (status != 230))
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to send user <%s> (%d) [Proxy].",
+                               buffer, status);
+                     (void)ftp_quit();
+                     exit(USER_ERROR);
+                  }
+                  else
+                  {
+                     if ((fsa[db.fsa_pos].debug == YES) &&
+                         (trans_db_log_fd != -1))
+                     {
+                        if (status != 230)
+                        {
+                           trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                        "Entered user name <%s> [Proxy].",
+                                        buffer);
+                        }
+                        else
+                        {
+                           trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                        "Entered user name <%s> [Proxy]. No password required, logged in.",
+                                        buffer);
+                        }
+                     }
+                  }
                }
                else
                {
-                  if ((fsa[db.fsa_pos].debug == YES) &&
-                      (trans_db_log_fd != -1))
+                  /* Send account name. */
+                  if (((status = ftp_account(buffer)) != SUCCESS) && (status != 230))
                   {
-                     if (status != 230)
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to send account <%s> (%d) [Proxy].",
+                               buffer, status);
+                     (void)ftp_quit();
+                     exit(USER_ERROR);
+                  }
+                  else
+                  {
+                     if ((fsa[db.fsa_pos].debug == YES) &&
+                         (trans_db_log_fd != -1))
                      {
-                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Entered user name <%s> [Proxy].",
-                                     buffer);
-                     }
-                     else
-                     {
-                        trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Entered user name <%s> [Proxy]. No password required, logged in.",
-                                     buffer);
+                        if (status != 230)
+                        {
+                           trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                        "Entered account name <%s> [Proxy].",
+                                        buffer);
+                        }
+                        else
+                        {
+                           trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                        "Entered account name <%s> [Proxy]. No password required, logged in.",
+                                        buffer);
+                        }
                      }
                   }
                }

@@ -454,7 +454,7 @@ search_again:
                         if (mask_file_name == YES)
                         {
                            length += sprintf(command_str + length_start + length,
-                                             "%s\"%s\"", p_file_name,
+                                             "\"%s\"%s", p_file_name,
                                              insert_list[k - 1] + 2);
                         }
                         else
@@ -847,7 +847,7 @@ search_again:
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
 
                buffer = NULL;
-               if ((length = read_file(fullname, &buffer)) != INCORRECT)
+               if ((length = (int)read_file(fullname, &buffer)) != INCORRECT)
                {
                   char *wmo_buffer = NULL;
 

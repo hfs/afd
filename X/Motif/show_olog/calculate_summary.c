@@ -134,14 +134,14 @@ calculate_summary(char         *summary_str,
       total_time -= (hours * 3600);
       min = total_time / 60;
       total_time -= (min * 60);
-      length = sprintf(summary_str, "%5d  %02d:%02d:%02d %d Files (",
+      length = sprintf(summary_str, "%5d  %02d:%02d:%02d %u Files (",
                        days, hours, min, (int)total_time,
                        total_no_files);
    }
    else
    {
       total_time = 0L;
-      length = sprintf(summary_str, "    0  00:00:00 %d Files (",
+      length = sprintf(summary_str, "    0  00:00:00 %u Files (",
                        total_no_files);
       file_rate = (double)total_no_files;
       file_rate_unit = 's';

@@ -45,6 +45,8 @@ DESCR__S_M1
  **   21.08.1997 H.Kiehl Show real hostname as well.
  **   12.10.1997 H.Kiehl Show bursting and mailing.
  **   05.12.2000 H.Kiehl If available show host toggle string.
+ **   04.08.2001 H.Kiehl Show more details of special_flag and added
+ **                      active|passive mode and idle time to protocol.
  **
  */
 DESCR__E_M1
@@ -198,6 +200,18 @@ main(int argc, char *argv[])
       if (fsa[j].protocol & FTP_FLAG)
       {
          (void)fprintf(stdout, "FTP ");
+         if (fsa[j].protocol & FTP_PASSIVE_MODE)
+         {
+            (void)fprintf(stdout, "passive ");
+         }
+         else
+         {
+            (void)fprintf(stdout, "active ");
+         }
+         if (fsa[j].protocol & SET_IDLE_TIME)
+         {
+            (void)fprintf(stdout, "idle ");
+         }
       }
       if (fsa[j].protocol & LOC_FLAG)
       {
@@ -298,8 +312,22 @@ main(int argc, char *argv[])
                     fsa[j].successful_retries);
       (void)fprintf(stdout, "MaxSuccessful ret. : %d\n",
                     fsa[j].max_successful_retries);
-      (void)fprintf(stdout, "Special flag       : %d\n",
+      (void)fprintf(stdout, "Special flag (%3d) : ",
                     fsa[j].special_flag);
+      if (fsa[j].special_flag & HOST_DISABLED)
+      {
+         (void)fprintf(stdout, "HOST_DISABLED ");
+      }
+      if (fsa[j].special_flag & HOST_IN_DIR_CONFIG)
+      {
+         (void)fprintf(stdout, "HOST_IN_DIR_CONFIG ");
+      }
+      if (fsa[j].special_flag & ERROR_FILE_UNDER_PROCESS)
+      {
+         (void)fprintf(stdout, "ERROR_FILE_UNDER_PROCESS ");
+      }
+      (void)fprintf(stdout, "NO_BURST=%d\n",
+                    fsa[j].special_flag & NO_BURST_COUNT_MASK);
       (void)fprintf(stdout, "Error counter      : %d\n",
                     fsa[j].error_counter);
       (void)fprintf(stdout, "Total errors       : %u\n",
@@ -333,7 +361,7 @@ main(int argc, char *argv[])
 
       (void)fprintf(stdout, "                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   \n");
       (void)fprintf(stdout, "--------------------+-----------+-----------+-----------+-----------+-----------\n");
-      (void)fprintf(stdout, "PID                 | %9d | %9d | %9d | %9d | %9d \n", fsa[j].job_status[0].proc_id, fsa[j].job_status[1].proc_id, fsa[j].job_status[2].proc_id, fsa[j].job_status[3].proc_id, fsa[j].job_status[4].proc_id);
+      (void)fprintf(stdout, "PID                 |%10d |%10d |%10d |%10d |%10d \n", fsa[j].job_status[0].proc_id, fsa[j].job_status[1].proc_id, fsa[j].job_status[2].proc_id, fsa[j].job_status[3].proc_id, fsa[j].job_status[4].proc_id);
       (void)fprintf(stdout, "Connect status      ");
       for (i = 0; i < MAX_NO_PARALLEL_JOBS; i++)
       {
@@ -357,6 +385,10 @@ main(int argc, char *argv[])
 
             case FTP_BURST_TRANSFER_ACTIVE :
                (void)fprintf(stdout, "| FTP BURST ");
+               break;
+
+            case FTP_BURST2_TRANSFER_ACTIVE :
+               (void)fprintf(stdout, "| FTP BURST2");
                break;
 
             case EMAIL_ACTIVE :
@@ -399,35 +431,35 @@ main(int argc, char *argv[])
       }
       (void)fprintf(stdout, "\n");
       (void)fprintf(stdout,
-                    "Number of files     | %9d | %9d | %9d | %9d | %9d \n",
+                    "Number of files     |%10d |%10d |%10d |%10d |%10d \n",
                     fsa[j].job_status[0].no_of_files,
                     fsa[j].job_status[1].no_of_files,
                     fsa[j].job_status[2].no_of_files,
                     fsa[j].job_status[3].no_of_files,
                     fsa[j].job_status[4].no_of_files);
       (void)fprintf(stdout,
-                    "No. of files done   | %9d | %9d | %9d | %9d | %9d \n",
+                    "No. of files done   |%10d |%10d |%10d |%10d |%10d \n",
                     fsa[j].job_status[0].no_of_files_done,
                     fsa[j].job_status[1].no_of_files_done,
                     fsa[j].job_status[2].no_of_files_done,
                     fsa[j].job_status[3].no_of_files_done,
                     fsa[j].job_status[4].no_of_files_done);
       (void)fprintf(stdout,
-                    "File size           | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    "File size           |%10lu |%10lu |%10lu |%10lu |%10lu \n",
                     fsa[j].job_status[0].file_size,
                     fsa[j].job_status[1].file_size,
                     fsa[j].job_status[2].file_size,
                     fsa[j].job_status[3].file_size,
                     fsa[j].job_status[4].file_size);
       (void)fprintf(stdout,
-                    "File size done      | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    "File size done      |%10lu |%10lu |%10lu |%10lu |%10lu \n",
                     fsa[j].job_status[0].file_size_done,
                     fsa[j].job_status[1].file_size_done,
                     fsa[j].job_status[2].file_size_done,
                     fsa[j].job_status[3].file_size_done,
                     fsa[j].job_status[4].file_size_done);
       (void)fprintf(stdout,
-                    "Bytes send          | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    "Bytes send          |%10lu |%10lu |%10lu |%10lu |%10lu \n",
                     fsa[j].job_status[0].bytes_send,
                     fsa[j].job_status[1].bytes_send,
                     fsa[j].job_status[2].bytes_send,
@@ -441,14 +473,14 @@ main(int argc, char *argv[])
                     fsa[j].job_status[3].file_name_in_use,
                     fsa[j].job_status[4].file_name_in_use);
       (void)fprintf(stdout,
-                    "File size in use    | %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    "File size in use    |%10lu |%10lu |%10lu |%10lu |%10lu \n",
                     fsa[j].job_status[0].file_size_in_use,
                     fsa[j].job_status[1].file_size_in_use,
                     fsa[j].job_status[2].file_size_in_use,
                     fsa[j].job_status[3].file_size_in_use,
                     fsa[j].job_status[4].file_size_in_use);
       (void)fprintf(stdout,
-                    "Filesize in use done| %9lu | %9lu | %9lu | %9lu | %9lu \n",
+                    "Filesize in use done|%10lu |%10lu |%10lu |%10lu |%10lu \n",
                     fsa[j].job_status[0].file_size_in_use_done,
                     fsa[j].job_status[1].file_size_in_use_done,
                     fsa[j].job_status[2].file_size_in_use_done,
@@ -470,7 +502,7 @@ main(int argc, char *argv[])
                     fsa[j].job_status[3].burst_counter,
                     fsa[j].job_status[4].burst_counter);
       (void)fprintf(stdout,
-                    "Job ID              | %9d | %9d | %9d | %9d | %9d \n",
+                    "Job ID              |%10d |%10d |%10d |%10d |%10d \n",
                     (int)fsa[j].job_status[0].job_id,
                     (int)fsa[j].job_status[1].job_id,
                     (int)fsa[j].job_status[2].job_id,

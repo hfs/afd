@@ -26,6 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int  ftp_connect(char *hostname, int port)
+ **   int  ftp_idle(int timeout)
  **   int  ftp_user(char *user)
  **   int  ftp_pass(char *password)
  **   int  ftp_type(char type)
@@ -68,6 +69,10 @@ DESCR__S_M3
  **          ftp_pass()       |
  **             |             |
  **             +<------------+
+ **             |
+ **             +-----------> ftp_idle()
+ **             |                 |
+ **             +<----------------+
  **             |
  **             V
  **          ftp_type() -----> ftp_cd()
@@ -147,32 +152,35 @@ DESCR__S_M3
  **   12.11.2000 H.Kiehl Added ftp_exec() function.
  **   21.05.2001 H.Kiehl Failed to fclose() control connection when an error
  **                      occured in ftp_quit().
+ **   22.07.2001 H.Kiehl Reduce transfer_timeout to 20 second in function
+ **                      ftp_get_reply().
+ **   26.07.2001 H.Kiehl Added ftp_account() function.
+ **   05.08.2001 H.Kiehl Added ftp_idle() function.
  */
 DESCR__E_M3
 
 
-#include <stdio.h>            /* fprintf(), fdopen(), fclose()           */
-#include <stdarg.h>           /* va_start(), va_arg(), va_end()          */
-#include <string.h>           /* memset(), memcpy(), strcpy()            */
-#include <stdlib.h>           /* strtoul()                               */
-#include <ctype.h>            /* isdigit()                               */
-#include <setjmp.h>           /* setjmp(), longjmp()                     */
-#include <signal.h>           /* signal()                                */
-#include <sys/types.h>        /* fd_set                                  */
-#include <sys/time.h>         /* struct timeval                          */
-#include <sys/socket.h>       /* socket(), shutdown(), bind(), accept(), */
-                              /* setsockopt()                            */
-#include <netinet/in.h>       /* struct in_addr, sockaddr_in, htons()    */
+#include <stdio.h>        /* fprintf(), fdopen(), fclose()               */
+#include <stdarg.h>       /* va_start(), va_arg(), va_end()              */
+#include <string.h>       /* memset(), memcpy(), strcpy()                */
+#include <stdlib.h>       /* strtoul()                                   */
+#include <ctype.h>        /* isdigit()                                   */
+#include <setjmp.h>       /* setjmp(), longjmp()                         */
+#include <signal.h>       /* signal()                                    */
+#include <sys/types.h>    /* fd_set                                      */
+#include <sys/time.h>     /* struct timeval                              */
+#include <sys/socket.h>   /* socket(), shutdown(), bind(), accept(),     */
+                          /* setsockopt()                                */
+#include <netinet/in.h>   /* struct in_addr, sockaddr_in, htons()        */
 #if defined (_WITH_TOS) && defined (IP_TOS)
 #if defined (IRIX) || defined (_SUN) || defined (_HPUX) || defined (FREEBSD)
 #include <netinet/in_systm.h>
 #endif /* IRIX || _SUN || _HPUX || FREEBSD */
-#include <netinet/ip.h>       /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT        */
+#include <netinet/ip.h>   /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT            */
 #endif
-#include <netdb.h>            /* struct hostent, gethostbyname()         */
-#include <arpa/inet.h>        /* inet_addr()                             */
-#include <unistd.h>           /* select(), exit(), write(), read(),      */
-                              /* close(), alarm()                        */
+#include <netdb.h>        /* struct hostent, gethostbyname()             */
+#include <arpa/inet.h>    /* inet_addr()                                 */
+#include <unistd.h>       /* select(), write(), read(), close(), alarm() */
 #include <errno.h>
 #include "fddefs.h"
 #include "ftpdefs.h"
@@ -391,6 +399,33 @@ ftp_user(char *user)
 }
 
 
+/*############################ ftp_account() ############################*/
+int
+ftp_account(char *user)
+{
+   int reply;
+
+   (void)fprintf(p_control, "ACCT %s\r\n", user);
+
+   if ((reply = get_reply(p_control)) < 0)
+   {
+      return(INCORRECT);
+   }
+
+   /*
+    * NOTE: We delibaretly ignore 230 here, since this means that no
+    *       password is required. Thus we do have to return the 230
+    *       so the apllication knows what to do with it.
+    */
+   if (check_reply(2, reply, 202) < 0)
+   {
+      return(reply);
+   }
+
+   return(SUCCESS);
+}
+
+
 /*############################## ftp_pass() #############################*/
 int
 ftp_pass(char *password)
@@ -404,7 +439,36 @@ ftp_pass(char *password)
       return(INCORRECT);
    }
 
+   /*
+    * If the remote server returns 332, it want's as the next step
+    * the ACCT command. We do not handle this automatically since in
+    * case of a proxy there can be more then one login name and we
+    * don't know which one to take. Thus, the user must use the
+    * proxy syntax of AFD, ie do it by hand :-(
+    */
    if (check_reply(4, reply, 230, 202, 332) < 0)
+   {
+      return(reply);
+   }
+
+   return(SUCCESS);
+}
+
+
+/*############################## ftp_idle() #############################*/
+int
+ftp_idle(int timeout)
+{
+   int reply;
+
+   (void)fprintf(p_control, "SITE IDLE %d\r\n", timeout);
+
+   if ((reply = get_reply(p_control)) < 0)
+   {
+      return(INCORRECT);
+   }
+
+   if (check_reply(2, reply, 200) < 0)
    {
       return(reply);
    }
@@ -1623,7 +1687,7 @@ ftp_write(char *block, char *buffer, int size)
         {
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__, "Unknown condition.");
-           exit(INCORRECT);
+           return(INCORRECT);
         }
    
    return(SUCCESS);
@@ -1689,14 +1753,14 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
                 msg_str[0] = '\0';
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
                           "select() error : %s", strerror(errno));
-                exit(INCORRECT);
+                return(INCORRECT);
              }
              else
              {
                 msg_str[0] = '\0';
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Unknown condition.");
-                exit(INCORRECT);
+                return(INCORRECT);
              }
    
    return(SUCCESS);
@@ -1764,14 +1828,14 @@ ftp_read(char *block, int blocksize)
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__,
                      "select() error : %s", strerror(errno));
-           exit(INCORRECT);
+           return(INCORRECT);
         }
         else
         {
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__,
                      "Unknown condition.");
-           exit(INCORRECT);
+           return(INCORRECT);
         }
 
    return(bytes_read);
@@ -1855,9 +1919,15 @@ ftp_quit(void)
 int
 ftp_get_reply(void)
 {
-   int tmp_timeout_flag = OFF,
-       reply;
+   int  tmp_timeout_flag = OFF,
+        reply;
+   long tmp_transfer_timeout = 0L;
 
+   if (transfer_timeout > 20L)
+   {
+      tmp_transfer_timeout = transfer_timeout;
+      transfer_timeout = 20L;
+   }
    if (timeout_flag == ON)
    {
       tmp_timeout_flag = ON;
@@ -1866,6 +1936,10 @@ ftp_get_reply(void)
    if ((timeout_flag == ON) && (tmp_timeout_flag == OFF))
    {
       timeout_flag = ON;
+   }
+   if (tmp_transfer_timeout > 0L)
+   {
+      transfer_timeout = tmp_transfer_timeout;
    }
 
    return(reply);
@@ -1960,14 +2034,14 @@ read_data_line(int read_fd, char *line)
                  msg_str[0] = '\0';
                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
                            "select() error : %s", strerror(errno));
-                 exit(INCORRECT);
+                 return(INCORRECT);
               }
               else
               {
                  msg_str[0] = '\0';
                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
                            "Unknown condition.");
-                 exit(INCORRECT);
+                 return(INCORRECT);
               }
       }
 
@@ -2065,14 +2139,14 @@ read_data_to_buffer(int read_fd, char ***buffer)
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
                         "select() error : %s", strerror(errno));
-              exit(INCORRECT);
+              return(INCORRECT);
            }
            else
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
                         "Unknown condition.");
-              exit(INCORRECT);
+              return(INCORRECT);
            }
    } /* for (;;) */
 }
@@ -2148,14 +2222,14 @@ read_msg(void)
                  msg_str[0] = '\0';
                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
                            "select() error : %s", strerror(errno));
-                 exit(INCORRECT);
+                 return(INCORRECT);
               }
               else
               {
                  msg_str[0] = '\0';
                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
                            "Unknown condition.");
-                 exit(INCORRECT);
+                 return(INCORRECT);
               }
       }
 

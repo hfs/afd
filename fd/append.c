@@ -85,7 +85,7 @@ log_append(int job_id, char *file_name)
    }
    buf_size = stat_buf.st_size + strlen(OPTION_IDENTIFIER) +
               RESTART_FILE_ID_LENGTH + strlen(file_name) + 4;
-   if ((buffer = malloc(buf_size)) == NULL)
+   if ((buffer = malloc(buf_size + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));
@@ -230,7 +230,7 @@ remove_append(int job_id, char *file_name)
       (void)close(fd);
       return;
    }
-   if ((buffer = malloc(stat_buf.st_size)) == NULL)
+   if ((buffer = malloc(stat_buf.st_size + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));
@@ -370,7 +370,7 @@ remove_all_appends(int job_id)
       (void)close(fd);
       return;
    }
-   if ((buffer = malloc(stat_buf.st_size)) == NULL)
+   if ((buffer = malloc(stat_buf.st_size + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));

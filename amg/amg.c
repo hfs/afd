@@ -127,7 +127,7 @@ char                       *p_work_dir,
                            dir_config_file[MAX_PATH_LENGTH];
 struct host_list           *hl;
 struct fileretrieve_status *fra;
-struct filetransfer_status *fsa;
+struct filetransfer_status *fsa = NULL;
 struct dir_name_buf        *dnb = NULL;
 #ifdef _DELETE_LOG
 struct delete_log          dl;
@@ -463,7 +463,9 @@ main(int argc, char *argv[])
 
       /* Evaluate HOST_CONFIG file. */
       hl = NULL;
-      if ((eval_host_config() == NO_ACCESS) && (first_time == NO))
+      if ((eval_host_config(&no_of_hosts, host_config_file,
+                            &hl, first_time) == NO_ACCESS) &&
+          (first_time == NO))
       {
          /*
           * Try get the host information from the current FSA.
@@ -498,6 +500,28 @@ main(int argc, char *argv[])
                hl[i].transfer_timeout    = fsa[i].transfer_timeout;
                hl[i].protocol            = fsa[i].protocol;
                hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
+               hl[i].special_flag = 0;
+               if (fsa[i].protocol & FTP_PASSIVE_MODE)
+               {
+                  hl[i].special_flag |= FTP_PASSIVE_MODE;
+               }
+               if (fsa[i].protocol & SET_IDLE_TIME)
+               {
+                  hl[i].special_flag |= SET_IDLE_TIME;
+               }
+               hl[i].host_status = 0;
+               if (fsa[i].special_flag & HOST_DISABLED)
+               {
+                  hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
+               }
+               if (fsa[i].host_status & STOP_TRANSFER_STAT)
+               {
+                  hl[i].host_status |= STOP_TRANSFER_STAT;
+               }
+               if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+               {
+                  hl[i].host_status |= PAUSE_QUEUE_STAT;
+               }
             }
 
             (void)fsa_detach();
@@ -537,7 +561,7 @@ main(int argc, char *argv[])
        * from both HOST_CONFIG and old FSA. That what is found in the
        * HOST_CONFIG will always have a higher priority.
        */
-      hc_old_time = write_host_config();
+      hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
       (void)rec(sys_log_fd, INFO_SIGN, "Found %d hosts in HOST_CONFIG.\n",
                 no_of_hosts);
 
@@ -712,6 +736,28 @@ main(int argc, char *argv[])
                              hl[i].transfer_timeout    = fsa[i].transfer_timeout;
                              hl[i].protocol            = fsa[i].protocol;
                              hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
+                             hl[i].special_flag = 0;
+                             if (fsa[i].protocol & FTP_PASSIVE_MODE)
+                             {
+                                hl[i].special_flag |= FTP_PASSIVE_MODE;
+                             }
+                             if (fsa[i].protocol & SET_IDLE_TIME)
+                             {
+                                hl[i].special_flag |= SET_IDLE_TIME;
+                             }
+                             hl[i].host_status = 0;
+                             if (fsa[i].special_flag & HOST_DISABLED)
+                             {
+                                hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
+                             }
+                             if (fsa[i].host_status & STOP_TRANSFER_STAT)
+                             {
+                                hl[i].host_status |= STOP_TRANSFER_STAT;
+                             }
+                             if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+                             {
+                                hl[i].host_status |= PAUSE_QUEUE_STAT;
+                             }
                           }
 
                           /* Increase HOST_CONFIG counter so others */
@@ -720,7 +766,7 @@ main(int argc, char *argv[])
                           (void)fsa_detach();
 
                           notify_dir_check();
-                          hc_old_time = write_host_config();
+                          hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
                           (void)rec(sys_log_fd, INFO_SIGN,
                                     "Updated HOST_CONFIG file.\n");
                           break;
@@ -803,7 +849,7 @@ main(int argc, char *argv[])
                     (void)rec(sys_log_fd, INFO_SIGN,
                               "Recreating HOST_CONFIG file with %d hosts.\n",
                               no_of_hosts);
-                    hc_old_time = write_host_config();
+                    hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
                  }
                  else
                  {

@@ -189,7 +189,7 @@ link_files(char                   *src_file_path,
             }
             else if (p_db->lfs & DO_NOT_LINK_FILES)
                  {
-                    if ((retstat = copy_file(src_file_path, dest_file_path)) < 0)
+                    if ((retstat = copy_file(src_file_path, dest_file_path, NULL)) < 0)
                     {
                        (void)rec(sys_log_fd, WARN_SIGN,
                                  "Failed to copy file %s to %s (%s %d)\n",

@@ -254,19 +254,28 @@ check_files(struct directory_entry *p_de,
                /* Generate name for the new file */
                (void)strcpy(ptr, p_dir->d_name);
 
-               if (p_de->flag & IN_SAME_FILESYSTEM)
+               if ((fra[p_de->fra_pos].remove == YES) ||
+                   (fra[p_de->fra_pos].protocol != LOC))
                {
-                  ret = move_file(fullname, tmp_file_dir);
+                  if (p_de->flag & IN_SAME_FILESYSTEM)
+                  {
+                     ret = move_file(fullname, tmp_file_dir);
+                  }
+                  else
+                  {
+                     ret = copy_file(fullname, tmp_file_dir, &stat_buf);
+                     if (unlink(fullname) == -1)
+                     {
+                        (void)rec(sys_log_fd, ERROR_SIGN,
+                                  "Failed to unlink() file %s : %s (%s %d)\n",
+                                  fullname, strerror(errno), __FILE__, __LINE__);
+                     }
+                  }
                }
                else
                {
-                  ret = copy_file(fullname, tmp_file_dir);
-                  if (unlink(fullname) == -1)
-                  {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "Failed to unlink() file %s : %s (%s %d)\n",
-                               fullname, strerror(errno), __FILE__, __LINE__);
-                  }
+                  /* Leave original files in place. */
+                  ret = copy_file(fullname, tmp_file_dir, &stat_buf);
                }
                if (ret != SUCCESS)
                {
@@ -429,22 +438,31 @@ check_files(struct directory_entry *p_de,
                            *ptr = '\0';
                         }
 
-                        /* Generate name for the new file */
+                        /* Generate name for the new file. */
                         (void)strcpy(ptr, p_dir->d_name);
-                        if (p_de->flag & IN_SAME_FILESYSTEM)
+                        if ((fra[p_de->fra_pos].remove == YES) ||
+                            (fra[p_de->fra_pos].protocol != LOC))
                         {
-                           ret = move_file(fullname, tmp_file_dir);
+                           if (p_de->flag & IN_SAME_FILESYSTEM)
+                           {
+                              ret = move_file(fullname, tmp_file_dir);
+                           }
+                           else
+                           {
+                              ret = copy_file(fullname, tmp_file_dir, &stat_buf);
+                              if (unlink(fullname) == -1)
+                              {
+                                 (void)rec(sys_log_fd, ERROR_SIGN,
+                                           "Failed to unlink() file %s : %s (%s %d)\n",
+                                           fullname, strerror(errno),
+                                           __FILE__, __LINE__);
+                              }
+                           }
                         }
                         else
                         {
-                           ret = copy_file(fullname, tmp_file_dir);
-                           if (unlink(fullname) == -1)
-                           {
-                              (void)rec(sys_log_fd, ERROR_SIGN,
-                                        "Failed to unlink() file %s : %s (%s %d)\n",
-                                        fullname, strerror(errno),
-                                        __FILE__, __LINE__);
-                           }
+                           /* Leave original files in place. */
+                           ret = copy_file(fullname, tmp_file_dir, &stat_buf);
                         }
                         if (ret != SUCCESS)
                         {

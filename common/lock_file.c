@@ -36,7 +36,7 @@ DESCR__S_M3
  **
  ** RETURN VALUES
  **   Returns INCORRECT when it fails to lock file 'file' or
- **   IS_LOCKED if it is already locked by another process.
+ **   LOCK_IS_SET if it is already locked by another process.
  **   Otherwise it returns the file-descriptor 'fd' of the
  **   file 'file'.
  **
@@ -45,7 +45,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   06.03.1996 H.Kiehl Created
- **   04.01.1997 H.Kiehl When already locked, return IS_LOCKED.
+ **   04.01.1997 H.Kiehl When already locked, return LOCK_IS_SET.
  **
  */
 DESCR__E_M3
@@ -88,7 +88,7 @@ lock_file(char *file, int block_flag)
          if ((errno == EACCES) || (errno == EAGAIN))
          {
             /* The file is already locked, so don't bother */
-            return(IS_LOCKED);
+            return(LOCK_IS_SET);
          }
          else
          {

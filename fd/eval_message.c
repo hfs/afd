@@ -75,7 +75,6 @@ DESCR__E_M3
 #include <string.h>               /* strcmp(), strncmp(), strerror()     */
 #include <ctype.h>                /* isascii()                           */
 #include <sys/types.h>
-#include <sys/stat.h>             /* fstat()                             */
 #include <grp.h>                  /* getgrnam()                          */
 #include <pwd.h>                  /* getpwnam()                          */
 #include <unistd.h>               /* read(), close(), setuid()           */
@@ -121,22 +120,23 @@ extern int transfer_log_fd;
 #define TRANS_EXEC_FLAG           16777216
 #endif /* _WITH_TRANS_EXEC */
 
+#define MAX_HUNK                  4096
+
 
 /*############################ eval_message() ###########################*/
 int
 eval_message(char *message_name, struct job *p_db)
 {
-   int         fd,
-               n,
-               used = 0;          /* Used to see whether option has      */
-                                  /* already been set.                   */
-   char        *ptr = NULL,
-               *end_ptr = NULL,
-               *msg_buf = NULL,
-               byte_buf;
-   struct stat stat_buf;
+   int  bytes_buffered,
+        fd,
+        n,
+        used = 0; /* Used to see whether option has already been set. */
+   char *ptr,
+        *end_ptr,
+        *msg_buf,
+        byte_buf;
 
-   /* Store message to buffer */
+   /* Store message to buffer. */
    if ((fd = open(message_name, O_RDONLY)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -144,16 +144,8 @@ eval_message(char *message_name, struct job *p_db)
       exit(NO_MESSAGE_FILE);
    }
 
-   /* Stat() message to get size of it */
-   if (fstat(fd, &stat_buf) == -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not fstat() %s : %s", message_name, strerror(errno));
-      exit(INCORRECT);
-   }
-
-   /* Allocate memory to store message */
-   if ((msg_buf = malloc(stat_buf.st_size + 1)) == NULL)
+   /* Allocate memory to store message. */
+   if ((msg_buf = malloc(MAX_HUNK + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not malloc() memory to read message : %s",
@@ -161,19 +153,36 @@ eval_message(char *message_name, struct job *p_db)
       exit(INCORRECT);
    }
 
-   /* Read message in one hunk. */
-   if (read(fd, msg_buf, stat_buf.st_size) != stat_buf.st_size)
+   ptr = msg_buf;
+   bytes_buffered = 0;
+   do
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to read() %s : %s", message_name, strerror(errno));
-      exit(INCORRECT);
-   }
+      if ((n = read(fd, ptr, MAX_HUNK)) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to read() %s : %s", message_name, strerror(errno));
+         exit(INCORRECT);
+      }
+      bytes_buffered += n;
+      if (n == MAX_HUNK)
+      {
+         if ((msg_buf = realloc(msg_buf, bytes_buffered + MAX_HUNK + 1)) == NULL)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not realloc() memory to read message : %s",
+                       strerror(errno));
+            exit(INCORRECT);
+         }
+         ptr = msg_buf + bytes_buffered;
+      }
+   } while (n == MAX_HUNK);
+
+   msg_buf[bytes_buffered] = '\0';
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
-   msg_buf[stat_buf.st_size] = '\0';
 
    /*
     * First let's evaluate the recipient.
@@ -866,9 +875,9 @@ eval_message(char *message_name, struct job *p_db)
                        }
                        else if (*ptr == '/')
                             {
-                               size_t length;
-                               char   *file_name = ptr,
-                                      tmp_char;
+                               off_t length;
+                               char  *file_name = ptr,
+                                     tmp_char;
 
                                while ((*ptr != '\n') && (*ptr != '\0') &&
                                       (*ptr != ' ') && (*ptr != '\t'))

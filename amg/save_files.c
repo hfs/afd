@@ -143,7 +143,7 @@ save_files(char                   *src_path,
                   if (rename(src_path, dest_path) == -1)
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to rename() file %s to %s (%s %d)\n",
+                               "Failed to rename() file <%s> to <%s> (%s %d)\n",
                                src_path, dest_path, __FILE__, __LINE__);
                      errno = 0;
                   }
@@ -161,7 +161,7 @@ save_files(char                   *src_path,
                         if (unlink(dest_path) == -1)
                         {
                            (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to unlink() file %s : %s (%s %d)\n",
+                                     "Failed to unlink() file <%s> : %s (%s %d)\n",
                                      dest_path, strerror(errno),
                                      __FILE__, __LINE__);
                            errno = 0;
@@ -171,7 +171,7 @@ save_files(char                   *src_path,
                            if (link(src_path, dest_path) == -1)
                            {
                               (void)rec(sys_log_fd, WARN_SIGN,
-                                        "Failed to link file %s to %s : %s (%s %d)\n",
+                                        "Failed to link file <%s> to <%s> : %s (%s %d)\n",
                                         src_path, dest_path, strerror(errno),
                                         __FILE__, __LINE__);
                               errno = 0;
@@ -181,7 +181,7 @@ save_files(char                   *src_path,
                      else
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to link file %s to %s : %s (%s %d)\n",
+                                  "Failed to link file <%s> to <%s> : %s (%s %d)\n",
                                   src_path, dest_path, strerror(errno),
                                   __FILE__, __LINE__);
                         errno = 0;
@@ -191,10 +191,10 @@ save_files(char                   *src_path,
             }
             else
             {
-               if (copy_file(src_path, dest_path) < 0)
+               if (copy_file(src_path, dest_path, NULL) < 0)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to copy file %s to %s (%s %d)\n",
+                            "Failed to copy file <%s> to <%s> (%s %d)\n",
                             src_path, dest_path, __FILE__, __LINE__);
                   errno = 0;
                }
@@ -205,7 +205,7 @@ save_files(char                   *src_path,
                      if (unlink(src_path) == -1)
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to unlink() file %s : %s (%s %d)\n",
+                                  "Failed to unlink() file <%s> : %s (%s %d)\n",
                                   src_path, strerror(errno),
                                   __FILE__, __LINE__);
                         errno = 0;

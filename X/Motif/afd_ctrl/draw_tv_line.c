@@ -294,7 +294,6 @@ draw_rotating_dash(int pos, int x, int y)
            jd[pos].rotate = -2;
         }
    string[1] = '\0';
-   jd[pos].rotate++;
 
    gc_values.background = color_pool[DEFAULT_BG];
    gc_values.foreground = color_pool[BLACK];

@@ -344,7 +344,7 @@ create_fra(int no_of_dirs)
          fra[i].fsa_pos              = dd[i].fsa_pos;
          fra[i].protocol             = dd[i].protocol;
          fra[i].priority             = dd[i].priority;
-         fra[i].delete_unknown_files = dd[i].delete_unknown_files;
+         fra[i].delete_files_flag    = dd[i].delete_files_flag;
          fra[i].old_file_time        = dd[i].old_file_time;
          fra[i].report_unknown_files = dd[i].report_unknown_files;
          fra[i].end_character        = dd[i].end_character;
@@ -379,7 +379,7 @@ create_fra(int no_of_dirs)
          fra[i].fsa_pos              = dd[i].fsa_pos;
          fra[i].protocol             = dd[i].protocol;
          fra[i].priority             = dd[i].priority;
-         fra[i].delete_unknown_files = dd[i].delete_unknown_files;
+         fra[i].delete_files_flag    = dd[i].delete_files_flag;
          fra[i].old_file_time        = dd[i].old_file_time;
          fra[i].report_unknown_files = dd[i].report_unknown_files;
          fra[i].end_character        = dd[i].end_character;
