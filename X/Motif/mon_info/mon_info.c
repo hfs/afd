@@ -157,6 +157,8 @@ main(int argc, char *argv[])
    XmFontList      fontlist;
    Arg             args[MAXARGS];
    Cardinal        argcount;
+   uid_t           euid, /* Effective user ID. */
+                   ruid; /* Real user ID. */
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -164,12 +166,38 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
    init_mon_info(&argc, argv);
 
+   /*
+    * SSH uses wants to look at .Xauthority and with setuid flag
+    * set we cannot do that. So when we initialize X lets temporaly
+    * disable it. After XtAppInitialize() we set it back.
+    */
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (euid != ruid)
+      {
+         if (seteuid(ruid) == -1)
+         {
+            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                          ruid, strerror(errno));
+         }
+      }
+   }
    (void)strcpy(window_title, afd_name);
    (void)strcat(window_title, " Info");
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    toplevel = XtAppInitialize(&app, "AFD", NULL, 0,
                               &argc, argv, fallback_res, args, argcount);
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
+   }
    display = XtDisplay(toplevel);
 
    /* Create managing widget */

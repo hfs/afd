@@ -114,7 +114,7 @@ check_permissions(void)
              { CURRENT_MSG_LIST_FILE, S_IFREG | FILE_MODE, FILE_MODE },
              { AMG_DATA_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
              { STATUS_SHMID_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
-             { COUNTER_FILE, (S_IFREG | S_IRUSR | S_IWUSR) },
+             { COUNTER_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
              { FSA_ID_FILE, S_IFREG | FILE_MODE, FILE_MODE },
              { FRA_ID_FILE, S_IFREG | FILE_MODE, FILE_MODE },
              { JOB_ID_FILE, S_IFREG | FILE_MODE, FILE_MODE },
@@ -144,13 +144,13 @@ check_permissions(void)
          if (stat_buf.st_mode != ckl[i].full_mode)
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "File %s has mode %d, changing to %d. (%s %d)\n",
+                      "File %s has mode %o, changing to %o. (%s %d)\n",
                       fullname, stat_buf.st_mode, ckl[i].full_mode,
                       __FILE__, __LINE__);
             if (chmod(fullname, ckl[i].mode) == -1)
             {
                (void)rec(sys_log_fd, WARN_SIGN,
-                         "Can't change mode to %d for file %s : %s (%s %d)\n",
+                         "Can't change mode to %o for file %s : %s (%s %d)\n",
                          ckl[i].mode, fullname, strerror(errno),
                          __FILE__, __LINE__);
             }

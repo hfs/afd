@@ -442,11 +442,10 @@ gts2tiff(char *path, char *filename)
       if (unlink(to) < 0)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to unlink() %s : %s (%s %d)\n",
-                     to, strerror(errno));
+                     "Failed to unlink() %s : %s", to, strerror(errno));
       }
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                  "Unusable data size (%d) for file %s (%s %d)\n",
+                  "Unusable data size (%d) for file %s",
                   stat_buf.st_size, from);
       return(stat_buf.st_size);
    }

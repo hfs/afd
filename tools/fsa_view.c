@@ -140,7 +140,7 @@ main(int argc, char *argv[])
    else if (position >= no_of_hosts)
         {
            (void)fprintf(stderr,
-                         "WARNING : There are only %d directories in the FSA. (%s %d)\n",
+                         "WARNING : There are only %d hosts in the FSA. (%s %d)\n",
                          no_of_hosts, __FILE__, __LINE__);
            exit(INCORRECT);
         }

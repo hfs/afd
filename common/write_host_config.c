@@ -48,6 +48,10 @@ DESCR__S_M3
  **                      their own HOST_CONFIG file.
  **   03.08.2001 H.Kiehl Remember if we stopped the queue or transfer
  **                      and some protocol specific information.
+ **   03.11.2004 H.Kiehl Write the new HOST_CONFIG to some temporary file
+ **                      and when done overwrite the original file.
+ **                      Otherwise when the disk is full HOST_CONFIG
+ **                      can just be an empty file!
  **
  */
 DESCR__E_M3
@@ -196,7 +200,8 @@ write_host_config(int              no_of_hosts,
                   struct host_list *p_hl)
 {
    int           i,
-                 fd;
+                 fd,
+                 lock_fd;
    static time_t mod_time;
    size_t        length;
    char          line_buffer[MAX_HOSTNAME_LENGTH +  /* Alias hostname    */
@@ -215,25 +220,52 @@ write_host_config(int              no_of_hosts,
                              MAX_INT_LENGTH +       /* Host status       */
                              MAX_INT_LENGTH +       /* Special flag      */
                              14 +                   /* Separator signs   */
-                             2];                    /* \n and \0         */
-   struct flock  wlock = {F_WRLCK, SEEK_SET, 0, 1};
+                             2],                    /* \n and \0         */
+                 *new_name,
+                 *ptr;
    struct stat   stat_buf;
 
-   if ((fd = open(host_config_file,
+   if ((lock_fd = lock_file(host_config_file, ON)) == INCORRECT)
+   {
+      exit(INCORRECT);
+   }
+   length = strlen(host_config_file);
+   if ((new_name = malloc(length + 2)) == NULL)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Could not malloc() %d bytes : %s (%s %d)\n",
+                length + 2, strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   (void)memcpy(new_name, host_config_file, length + 1);
+   ptr = new_name + length;
+   while ((*ptr != '/') && (ptr > new_name))
+   {
+      ptr--;
+   }
+   if (*ptr == '/')
+   {
+      char *copy_ptr;
+
+      ptr++;
+      *ptr = '.';
+      copy_ptr = host_config_file + (ptr - new_name);
+      ptr++;
+      do
+      {
+         *ptr = *copy_ptr;
+         ptr++; copy_ptr++;
+      } while (*copy_ptr != '\0');
+      *ptr = '\0';
+   }
+
+   if ((fd = open(new_name,
                   (O_RDWR | O_CREAT | O_TRUNC),
                   (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP))) == -1)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "Could not open() %s : %s (%s %d)\n",
-                host_config_file, strerror(errno), __FILE__, __LINE__);
+                new_name, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
-   }
-
-   /* Lock it! */
-   if (fcntl(fd, F_SETLKW, &wlock) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to lock file %s : %s (%s %d)\n",
-                host_config_file, strerror(errno), __FILE__, __LINE__);
    }
 
    /* Write introduction comment */
@@ -278,10 +310,26 @@ write_host_config(int              no_of_hosts,
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "close() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
-
-      /* If we fail to close() the file lets at least try to unlock it. */
-      unlock_region(fd, 0);
    }
+   if (unlink(host_config_file) == -1)
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to unlink() %s : %s (%s %d)\n",
+                host_config_file, strerror(errno), __FILE__, __LINE__);
+   }
+   if (rename(new_name, host_config_file) == -1)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Failed to rename() %s to %s : %s (%s %d)\n",
+                new_name, host_config_file, strerror(errno),
+                __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   if (close(lock_fd) == -1)
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN, "Failed to close() %s : %s (%s %d)\n",
+                host_config_file, strerror(errno), __FILE__, __LINE__);
+   }
+   free(new_name);
 
    if (stat(host_config_file, &stat_buf) == -1)
    {

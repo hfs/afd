@@ -55,7 +55,7 @@
 #ifdef LINUX
 #define REDUCED_LINK_MAX           8192 /* Reduced for testing.    */
 #endif /* LINUX */
-#if defined (FTX) || defined (_HPUX) || defined (IRIX) || defined (_SUN) || defined (_SCO) || defined (DARWIN)
+#if defined (FTX) || defined (_HPUX) || defined (IRIX) || defined (_SUN) || defined (_SCO) || defined (DARWIN) || defined (_SFU)
 typedef int my_socklen_t;
 #else
 #include <sys/socket.h>

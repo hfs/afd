@@ -96,7 +96,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
    if ((status = ftp_list(db.mode_flag, NLIST_CMD|BUFFERED_LIST,
                           &nlist)) != SUCCESS)
    {
-      if (status == 550)
+      if ((status == 550) || (status == 450))
       {
          remove_ls_data();
          trans_log(INFO_SIGN, __FILE__, __LINE__,

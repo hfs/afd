@@ -849,7 +849,7 @@ eval_dir_config(size_t db_size)
                   {
                      ptr++;
                   }
-                  while (*ptr == '\n')
+                  if (*ptr == '\n')
                   {
                      ptr++;
                   }
@@ -2034,6 +2034,40 @@ check_dummy_line:
    unlock_region(dnb_fd, 1);
 
    /* Free all memory we allocated. */
+   if (dnb != NULL)
+   {
+      struct stat stat_buf;
+
+      if (fstat(dnb_fd, &stat_buf) == -1)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN, "fstat() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         char *ptr = (char *)dnb - AFD_WORD_OFFSET;
+
+         if (msync(ptr, stat_buf.st_size, MS_SYNC) == -1)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }
+         if (munmap(ptr, stat_buf.st_size) == -1)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN, "munmap() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }
+         else
+         {
+            dnb = NULL;
+         }
+      }
+      if (close(dnb_fd) == -1)
+      {
+         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
+   }
    if (dd != NULL)
    {
       free((void *)dd);
@@ -2694,7 +2728,7 @@ copy_to_file(void)
                if (write(fd, buffer, 4096) != 4096)
                {
                   (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to write() to <%s> : %s",
+                            "Failed to write() to <%s> : %s (%s %d)\n",
                             amg_data_file, strerror(errno),
                             __FILE__, __LINE__);
                   exit(INCORRECT);
@@ -2703,7 +2737,7 @@ copy_to_file(void)
             else
             {
                (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Failed to write() to <%s> : %s",
+                         "Failed to write() to <%s> : %s (%s %d)\n",
                          amg_data_file, strerror(errno), __FILE__, __LINE__);
                exit(INCORRECT);
             }
@@ -2720,7 +2754,7 @@ copy_to_file(void)
                if (write(fd, buffer, rest) != rest)
                {
                   (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to write() to <%s> : %s",
+                            "Failed to write() to <%s> : %s (%s %d)\n",
                             amg_data_file, strerror(errno),
                             __FILE__, __LINE__);
                   exit(INCORRECT);
@@ -2729,7 +2763,7 @@ copy_to_file(void)
             else
             {
                (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Failed to write() to <%s> : %s",
+                         "Failed to write() to <%s> : %s (%s %d)\n",
                          amg_data_file, strerror(errno), __FILE__, __LINE__);
                exit(INCORRECT);
             }

@@ -639,6 +639,7 @@ main(int argc, char *argv[])
                               {
                                  if ((qb[j].in_error_dir != YES) &&
                                      (qb[j].pid == PENDING) &&
+                                     (qb[j].msg_name[0] != '\0') &&
                                      (mdb[qb[j].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
                                  {
                                     to_error_dir(j);
@@ -1301,6 +1302,7 @@ main(int argc, char *argv[])
                                    {
                                       if ((qb[i].in_error_dir != YES) &&
                                           (qb[i].pid == PENDING) &&
+                                          (qb[i].msg_name[0] != '\0') &&
                                           (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
                                       {
                                          to_error_dir(i);
@@ -1449,15 +1451,16 @@ main(int argc, char *argv[])
                                  msg_fifo_buf_size);
 
                     /* Queue the job order */
-                    check_queue_space();
-                    if ((pos = lookup_job_id(*job_id)) == INCORRECT)
+                    if (*msg_priority != 0)
                     {
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "Could not locate job %d (%s %d)\n",
-                                 *job_id, __FILE__, __LINE__);
-                       if (*msg_priority != 0)
+                       check_queue_space();
+                       if ((pos = lookup_job_id(*job_id)) == INCORRECT)
                        {
                           char del_dir[MAX_PATH_LENGTH];
+
+                          (void)rec(sys_log_fd, ERROR_SIGN,
+                                    "Could not locate job %d (%s %d)\n",
+                                    *job_id, __FILE__, __LINE__);
 
                           (void)sprintf(del_dir, "%s%s/%c_%ld_%04d_%u",
                                         p_work_dir, AFD_FILE_DIR, *msg_priority,
@@ -1470,104 +1473,105 @@ main(int argc, char *argv[])
                        }
                        else
                        {
-                          (void)rec(sys_log_fd, DEBUG_SIGN,
-                                    "Hmmm. Priority data is NULL! Must be reading garbage! (%s %d)\n",
-                                    __FILE__, __LINE__);
-                       }
-                    }
-                    else
-                    {
-                       int    qb_pos;
-                       double msg_number = ((double)*msg_priority - 47.0) *
-                                           (((double)*creation_time * 10000.0) +
-                                           (double)*unique_number);
+                          int    qb_pos;
+                          double msg_number = ((double)*msg_priority - 47.0) *
+                                              (((double)*creation_time * 10000.0) +
+                                              (double)*unique_number);
 
-                       if (*no_msg_queued > 0)
-                       {
-                          if (*no_msg_queued == 1)
+                          if (*no_msg_queued > 0)
                           {
-                             if (qb[0].msg_number < msg_number)
+                             if (*no_msg_queued == 1)
                              {
-                                qb_pos = 1;
+                                if (qb[0].msg_number < msg_number)
+                                {
+                                   qb_pos = 1;
+                                }
+                                else
+                                {
+                                   size_t move_size;
+
+                                   move_size = *no_msg_queued *
+                                               sizeof(struct queue_buf);
+                                   (void)memmove(&qb[1], &qb[0], move_size);
+                                   qb_pos = 0;
+                                }
                              }
                              else
                              {
-                                size_t move_size;
+                                if (msg_number < qb[0].msg_number)
+                                {
+                                   size_t move_size;
 
-                                move_size = *no_msg_queued *
-                                            sizeof(struct queue_buf);
-                                (void)memmove(&qb[1], &qb[0], move_size);
-                                qb_pos = 0;
+                                   move_size = *no_msg_queued *
+                                               sizeof(struct queue_buf);
+                                   (void)memmove(&qb[1], &qb[0], move_size);
+                                   qb_pos = 0;
+                                }
+                                else if (msg_number > qb[*no_msg_queued - 1].msg_number)
+                                     {
+                                        qb_pos = *no_msg_queued;
+                                     }
+                                     else
+                                     {
+                                        int center,
+                                            end = *no_msg_queued - 1,
+                                            start = 0;
+
+                                        for (;;)
+                                        {
+                                           center = (end - start) / 2;
+                                           if (center == 0)
+                                           {
+                                              size_t move_size;
+
+                                              move_size = (*no_msg_queued - (start + 1)) *
+                                                          sizeof(struct queue_buf);
+                                              (void)memmove(&qb[start + 2], &qb[start + 1],
+                                                            move_size);
+                                              qb_pos = start + 1;
+                                              break;
+                                           }
+                                           if (msg_number < qb[start + center].msg_number)
+                                           {
+                                              end = start + center;
+                                           }
+                                           else
+                                           {
+                                              start = start + center;
+                                           }
+                                        }
+                                     }
                              }
                           }
                           else
                           {
-                             if (msg_number < qb[0].msg_number)
-                             {
-                                size_t move_size;
+                             qb_pos = 0;
+                          }
 
-                                move_size = *no_msg_queued *
-                                            sizeof(struct queue_buf);
-                                (void)memmove(&qb[1], &qb[0], move_size);
-                                qb_pos = 0;
-                             }
-                             else if (msg_number > qb[*no_msg_queued - 1].msg_number)
-                                  {
-                                     qb_pos = *no_msg_queued;
-                                  }
-                                  else
-                                  {
-                                     int center,
-                                         end = *no_msg_queued - 1,
-                                         start = 0;
+                          (void)sprintf(qb[qb_pos].msg_name, "%c_%ld_%04d_%u",
+                                        *msg_priority, *creation_time,
+                                        *unique_number, *job_id);
+                          qb[qb_pos].msg_number = msg_number;
+                          qb[qb_pos].pid = PENDING;
+                          qb[qb_pos].creation_time = *creation_time;
+                          qb[qb_pos].pos = pos;
+                          qb[qb_pos].connect_pos = -1;
+                          qb[qb_pos].in_error_dir = NO;
+                          (*no_msg_queued)++;
+                          fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
 
-                                     for (;;)
-                                     {
-                                        center = (end - start) / 2;
-                                        if (center == 0)
-                                        {
-                                           size_t move_size;
-
-                                           move_size = (*no_msg_queued - (start + 1)) *
-                                                       sizeof(struct queue_buf);
-                                           (void)memmove(&qb[start + 2], &qb[start + 1],
-                                                         move_size);
-                                           qb_pos = start + 1;
-                                           break;
-                                        }
-                                        if (msg_number < qb[start + center].msg_number)
-                                        {
-                                           end = start + center;
-                                        }
-                                        else
-                                        {
-                                           start = start + center;
-                                        }
-                                     }
-                                  }
+                          if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter > 0)
+                          {
+                             to_error_dir(qb_pos);
                           }
                        }
-                       else
-                       {
-                          qb_pos = 0;
-                       }
-
-                       (void)sprintf(qb[qb_pos].msg_name, "%c_%ld_%04d_%u",
-                                     *msg_priority, *creation_time,
-                                     *unique_number, *job_id);
-                       qb[qb_pos].msg_number = msg_number;
-                       qb[qb_pos].pid = PENDING;
-                       qb[qb_pos].creation_time = *creation_time;
-                       qb[qb_pos].pos = pos;
-                       qb[qb_pos].connect_pos = -1;
-                       qb[qb_pos].in_error_dir = NO;
-                       (*no_msg_queued)++;
-                       fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
-
-                       if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter > 0)
-                       {
-                          to_error_dir(qb_pos);
-                       }
+                    }
+                    else
+                    {
+                       (void)rec(sys_log_fd, DEBUG_SIGN,
+                                 "Hmmm. Priority data is NULL! Must be reading garbage (creation_time:%ld job_id:%u unique_number:%u priority:%d)! (%s %d)\n",
+                                 *creation_time, *job_id, *unique_number, *msg_priority,
+                                 __FILE__, __LINE__);
                     }
                     bytes_done += msg_fifo_buf_size;
                  } while (n > bytes_done);
@@ -1926,6 +1930,7 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
 #ifdef _AGE_LIMIT
    if ((qb[qb_pos].msg_name[0] != '\0') &&
        (mdb[qb[qb_pos].pos].age_limit > 0) &&
+       (current_time > qb[qb_pos].creation_time) &&
        ((current_time - qb[qb_pos].creation_time) > mdb[qb[qb_pos].pos].age_limit))
    {
       char del_dir[MAX_PATH_LENGTH];
@@ -2142,10 +2147,9 @@ make_process(struct connection *con)
 {
    int   argcount;
    pid_t pid;
-   char  *args[12],
+   char  *args[13],
          str_job_no[3],
          str_age_limit[MAX_INT_LENGTH];
-
 
    if (con->job_no < 10)
    {
@@ -3085,6 +3089,7 @@ fd_exit(void)
                         {
                            if ((qb[j].in_error_dir != YES) &&
                                (qb[j].pid == PENDING) &&
+                               (qb[j].msg_name[0] != '\0') &&
                                (mdb[qb[j].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
                            {
                               to_error_dir(j);
@@ -3156,6 +3161,7 @@ fd_exit(void)
                         {
                            if ((qb[j].in_error_dir != YES) &&
                                (qb[j].pid == PENDING) &&
+                               (qb[j].msg_name[0] != '\0') &&
                                (mdb[qb[j].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
                            {
                               to_error_dir(j);

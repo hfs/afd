@@ -201,6 +201,8 @@ main(int argc, char *argv[])
                  menu_w;
    Arg           args[MAXARGS];
    Cardinal      argcount;
+   uid_t         euid, /* Effective user ID. */
+                 ruid; /* Real user ID. */
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -211,11 +213,38 @@ main(int argc, char *argv[])
    XSynchronize(display, 1);
 #endif
 
+   /*
+    * SSH uses wants to look at .Xauthority and with setuid flag
+    * set we cannot do that. So when we initialize X lets temporaly
+    * disable it. After XtAppInitialize() we set it back.
+    */
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (euid != ruid)
+      {
+         if (seteuid(ruid) == -1)
+         {
+            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                          ruid, strerror(errno));
+         }
+      }
+   }
+
    /* Create the top-level shell widget and initialise the toolkit */
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0, &argc, argv,
                               fallback_res, args, argcount);
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
+   }
 
    /* Get display pointer */
    if ((display = XtDisplay(appshell)) == NULL)

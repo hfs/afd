@@ -1071,8 +1071,7 @@ main(int argc, char *argv[])
                           if (proc_table[AMG_NO].pid > 0)
                           {
                              (void)rec(sys_log_fd, INFO_SIGN,
-                                       "%s is already running.\n",
-                                       AMG, __FILE__, __LINE__);
+                                       "%s is already running.\n", AMG);
                           }
                           else
                           {
@@ -1089,8 +1088,7 @@ main(int argc, char *argv[])
                           if (proc_table[FD_NO].pid > 0)
                           {
                              (void)rec(sys_log_fd, INFO_SIGN,
-                                       "%s is already running.\n",
-                                       FD, __FILE__, __LINE__);
+                                       "%s is already running.\n", FD);
                           }
                           else
                           {
@@ -1425,7 +1423,7 @@ make_process(char *progname, char *directory)
             (void)rec(sys_log_fd, ERROR_SIGN,
                       "Failed to start process %s : %s (%s %d)\n",
                       progname, strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
+            _exit(INCORRECT);
          }
          exit(SUCCESS);
 

@@ -100,6 +100,8 @@ read_setup(char *file_name,
            int  max_hostname_length)
 {
    int         fd;
+   uid_t       euid, /* Effective user ID. */
+               ruid; /* Real user ID. */
    char        *ptr,
                *buffer = NULL;
    struct stat stat_buf;
@@ -171,10 +173,39 @@ read_setup(char *file_name,
       return;
    }
 
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (euid != ruid)
+      {
+         if (seteuid(ruid) == -1)
+         {
+            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                          ruid, strerror(errno));
+         }
+      }
+   }
    if ((fd = lock_file(setup_file, ON)) < 0)
    {
       setup_file[0] = '\0';
+      if (euid != ruid)
+      {
+         if (seteuid(euid) == -1)
+         {
+            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                          euid, strerror(errno));
+         }
+      }
       return;
+   }
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
    }
 
    if ((buffer = malloc(stat_buf.st_size)) == NULL)
@@ -400,6 +431,8 @@ write_setup(int  filename_display_length,
    int         buf_length,
                fd = -1,
                length;
+   uid_t       euid, /* Effective user ID. */
+               ruid; /* Real user ID. */
    char        *buffer;
    struct stat stat_buf;
    
@@ -416,13 +449,42 @@ write_setup(int  filename_display_length,
    {
       if (errno == ENOENT)
       {
+         euid = geteuid();
+         ruid = getuid();
+         if (euid != ruid)
+         {
+            if (euid != ruid)
+            {
+               if (seteuid(ruid) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                                ruid, strerror(errno));
+               }
+            }
+         }
          if ((fd = open(setup_file, (O_WRONLY | O_CREAT | O_TRUNC),
                         (S_IRUSR | S_IWUSR))) < 0)
          {
             (void)xrec(appshell, ERROR_DIALOG,
                        "Failed to open() setup file %s : %s (%s %d)",
                        setup_file, strerror(errno), __FILE__, __LINE__);
+            if (euid != ruid)
+            {
+               if (seteuid(euid) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                                euid, strerror(errno));
+               }
+            }
             return;
+         }
+         if (euid != ruid)
+         {
+            if (seteuid(euid) == -1)
+            {
+               (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                             euid, strerror(errno));
+            }
          }
       }
    }
@@ -449,10 +511,31 @@ write_setup(int  filename_display_length,
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (euid != ruid)
+      {
+         if (seteuid(ruid) == -1)
+         {
+            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                          ruid, strerror(errno));
+         }
+      }
+   }
    if (fd == -1)
    {
       if ((fd = lock_file(setup_file, ON)) < 0)
       {
+         if (euid != ruid)
+         {
+            if (seteuid(euid) == -1)
+            {
+               (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                             euid, strerror(errno));
+            }
+         }
          return;
       }
       if (ftruncate(fd, 0) == -1)
@@ -498,6 +581,14 @@ write_setup(int  filename_display_length,
 
       if ((lock_fd = lock_file(setup_file, ON)) < 0)
       {
+         if (euid != ruid)
+         {
+            if (seteuid(euid) == -1)
+            {
+               (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                             euid, strerror(errno));
+            }
+         }
          (void)close(fd);
          return;
       }
@@ -538,6 +629,14 @@ write_setup(int  filename_display_length,
       }
       (void)close(fd);
       (void)close(lock_fd);
+   }
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
    }
    free(buffer);
 

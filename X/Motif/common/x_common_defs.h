@@ -39,6 +39,7 @@
 #define GIGABYTE                        1073741824
 #define DEFAULT_FILENAME_DISPLAY_LENGTH 25
 #define DEFAULT_NO_OF_HISTORY_LOGS      0
+#define ZOMBIE_CHECK_INTERVAL           2000 /* 2 seconds */
 
 /* Definitions for the printer interface. */
 #define SELECTION_TOGGLE                1

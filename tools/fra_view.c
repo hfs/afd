@@ -429,7 +429,7 @@ main(int argc, char *argv[])
          binstr[62] = ' ';
          ptr--;
          convert2bin(&binstr[63], *ptr);
-         binstr[71] = ' ';
+         binstr[71] = '\0';
          (void)fprintf(stdout, "Minute (uchar[8])    : %s\n", binstr);
          (void)fprintf(stdout, "Continues (uchar[8]) : %s\n", binstr);
 #endif /* _WORKING_LONG_LONG */

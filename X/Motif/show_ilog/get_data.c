@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -216,12 +216,9 @@ static void   display_data(int, time_t, time_t),
                  }                                                          \
               }                                                             \
            }                                                                \
-           else                                                             \
+           while ((*ptr != '\n') && (*ptr != '\0'))                         \
            {                                                                \
-              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))            \
-              {                                                             \
-                 ptr++;                                                     \
-              }                                                             \
+              ptr++;                                                        \
            }                                                                \
            item_counter++;                                                  \
            str_list[i] = XmStringCreateLocalized(line);                     \
@@ -717,14 +714,14 @@ no_criteria(register char *ptr,
          }
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != SEPARATOR_CHAR)
+         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\0'))
          {
             ptr++;
          }
          ptr++;
 
          /* Write file size. */
-         while (*ptr != SEPARATOR_CHAR)
+         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\0'))
          {
             ptr++;
          }
@@ -781,12 +778,9 @@ no_criteria(register char *ptr,
                }
             }
          }
-         else
+         while ((*ptr != '\n') && (*ptr != '\0'))
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
-            {
-               ptr++;
-            }
+            ptr++;
          }
 
          item_counter++;
@@ -1404,19 +1398,13 @@ recipient_only(register char *ptr,
                IGNORE_ENTRY();
             }
          }
-         else
+         while ((*ptr != '\n') && (*ptr != '\0'))
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
-            {
-               ptr++;
-            }
+            ptr++;
          }
-
          item_counter++;
          file_size += strtod(tmp_ptr, NULL);
-
          str_list[i] = XmStringCreateLocalized(line);
-
          ptr++;
       }
 
@@ -1593,19 +1581,13 @@ file_name_and_recipient(register char *ptr,
                IGNORE_ENTRY();
             }
          }
-         else
+         while ((*ptr != '\n') && (*ptr != '\0'))
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
-            {
-               ptr++;
-            }
+            ptr++;
          }
-
          item_counter++;
          file_size += strtod(tmp_ptr, NULL);
-
          str_list[i] = XmStringCreateLocalized(line);
-
          ptr++;
       }
 
@@ -1844,19 +1826,13 @@ file_size_and_recipient(register char *ptr,
                IGNORE_ENTRY();
             }
          }
-         else
+         while ((*ptr != '\n') && (*ptr != '\0'))
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
-            {
-               ptr++;
-            }
+            ptr++;
          }
-
          item_counter++;
          file_size += tmp_file_size;
-
          str_list[i] = XmStringCreateLocalized(line);
-
          ptr++;
       }
 
@@ -2049,19 +2025,13 @@ file_name_size_recipient(register char *ptr,
                IGNORE_ENTRY();
             }
          }
-         else
+         while ((*ptr != '\n') && (*ptr != '\0'))
          {
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
-            {
-               ptr++;
-            }
+            ptr++;
          }
-
          item_counter++;
          file_size += tmp_file_size;
-
          str_list[i] = XmStringCreateLocalized(line);
-
          ptr++;
       }
 

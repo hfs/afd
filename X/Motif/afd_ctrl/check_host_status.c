@@ -344,9 +344,12 @@ Widget   w;
 
       /* When no. of channels have been reduced, then delete */
       /* removed channels from end of list.                  */
-      for (i = prev_no_of_hosts; i > no_of_hosts; i--)
+      if (no_of_columns > 1)
       {
-         draw_blank_line(i - 1);
+         for (i = prev_no_of_hosts; i > no_of_hosts; i--)
+         {
+            draw_blank_line(i - 1);
+         }
       }
 
       /*

@@ -1324,3 +1324,45 @@
              cast. Fixed.
 22.06.2004 - Print the message where AFD is active to stdout not stderr.
 ------------------------> Released: 22.06.2004 <---------------------------
+
+
+---------------------------> Version 1.2.21 <------------------------------
+                            ----------------
+25.06.2004 - Set effective to real user ID in all X programs, for the
+             moment where X is initialized.
+30.06.2004 - Permission of AMG counter file where set incorrectly.
+20.07.2004 - Process FD may not try to copy fetching jobs to error
+             directory.
+08.08.2004 - AMG does not need to keep directory_names open.
+10.08.2004 - When edit_hc removes a host it only compares the host
+             name to its length but not the terminating character.
+             Thus deleting a host could lead to the removal of the
+             wrong host if the hostname is longer but has the same
+             beginning as the one to be deleted. Fixed.
+11.08.2004 - If permissions are wrong print the permission in octal
+             not decimal.
+13.08.2004 - Function system_log() opened the fifo without setting the
+             FD_CLOEXEC flag. This could result in some process using
+             more file discriptors then really necessary. Fixed.
+17.08.2004 - On some platforms XtAppAddInput() does not work correctly
+             in function make_xprocess(). Replaced with XtAppAddTimeOut().
+           - Function eval_dir_config() did not release all its memory.
+19.08.2004 - When init_afd failes to start a process and exits it may
+             NOT go through the exit handler.
+08.09.2004 - More then one comment line at end of [dir options] would
+             make AFD think that no [destination] is defined although
+             there is one. Fixed.
+26.10.2004 - When option age-limit is set and the system is under high
+             load it can happen that it throws away files although
+             the age limit has not yet been reached. Fixed.
+03.11.2004 - When writting a new HOST_CONFIG file, always write to a
+             temporary file first before we overwrite the original
+             one. This solves the problem when with empty HOST_CONFIG
+             file when the disk is full.
+09.11.2004 - afd_ctrl dialog did not pass on the fake user option -u.
+             Fixed.
+10.11.2004 - Added tool get_hostname to print out the current real
+             hostname for the given alias.
+           - Accept 450 as a normal reply for NLST when directory is
+             empty.
+------------------------> Released: 16.11.2004 <---------------------------

@@ -150,7 +150,7 @@ exec_cmd(char *cmd, char *buffer)
 
                /* Initialise descriptor set and timeout */
                FD_SET(channels[READ], &rset);
-               timeout.tv_usec = 10000;
+               timeout.tv_usec = 50000L;
                timeout.tv_sec = 0L;
 
                status = select(channels[READ] + 1, &rset, NULL, NULL, &timeout);

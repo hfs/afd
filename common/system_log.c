@@ -83,12 +83,12 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
       (void)strcpy(sys_log_fifo, p_work_dir);
       (void)strcat(sys_log_fifo, FIFO_DIR);
       (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
-      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
+      if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) == -1)
       {
          if (errno == ENOENT)
          {
             if ((make_fifo(sys_log_fifo) == SUCCESS) &&
-                ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1))
+                ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) == -1))
             {
                (void)fprintf(stderr,
                              "WARNING : Could not open fifo %s : %s (%s %d)\n",

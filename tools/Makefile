@@ -46,6 +46,9 @@ BIFCOBJS  = binfc.o
 GCPROG    = get_counter
 GCOBJS    = get_counter.o
 
+GHNPROG   = get_hostname
+GHNOBJS   = get_hostname.o
+
 SCPROG    = set_counter
 SCOBJS    = set_counter.o
 
@@ -116,13 +119,14 @@ PROGS   = $(FSAVPROG)$(EXE_EXT) $(FRAVPROG)$(EXE_EXT) $(FSAEPROG)$(EXE_EXT) $(RF
           $(JSPYPROG)$(EXE_EXT) $(CJSPYPROG)$(EXE_EXT) $(RMJOBPROG)$(EXE_EXT) $(DATEPROG)$(EXE_EXT) $(FCHEKPROG)$(EXE_EXT)\
           $(ACHEKPROG)$(EXE_EXT) $(CSTATPROG)$(EXE_EXT) $(UDBPROG)$(EXE_EXT) $(ACMDPROG)$(EXE_EXT) $(ACFGPROG)$(EXE_EXT)\
           $(GDDPROG)$(EXE_EXT) $(CFRAPPROG)$(EXE_EXT)\
-          $(GENFPROG)$(EXT_EXT) # $(SYSCPROG)$(EXE_EXT)
+          $(GENFPROG)$(EXT_EXT) $(GHNPROG)$(EXT_EXT) # $(SYSCPROG)$(EXE_EXT)
 OBJS    = $(FSAVOBJS) $(FRAVOBJS) $(FSAEOBJS) $(RFSAOBJS) $(WDIROBJS)\
           $(DSPYOBJS) $(AFDSOBJS) $(BFCOBJS) $(SCOBJS) $(GCOBJS) $(TSOBJS)\
           $(G2TOBJS) $(GFSOBJS) $(CFSAOBJS) $(CJIDOBJS) $(QSPYOBJS) $(CSPYOBJS)\
           $(JSPYOBJS) $(CJSPYOBJS) $(RMJOBOBJS) $(DATEOBJS) $(FCHEKOBJS)\
           $(ACHEKOBJS) $(CSTATOBJS) $(UDBOBJS) $(ACMDOBJS) $(ACFGOBJS)\
-          $(GDDOBJS) $(DELCOBJS) $(CFRAPOBJS) $(GENFOBJS) # $(SYSCOBJS)
+          $(GDDOBJS) $(DELCOBJS) $(CFRAPOBJS) $(GENFOBJS)\
+          $(GHNOBJS) # $(SYSCOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h ../fd/fddefs.h
 
 all : $(PROGS)
@@ -172,6 +176,10 @@ $(BIFCPROG)$(EXE_EXT) : $(BIFCOBJS) $(MISCLIB) $(LIB)
 $(GCPROG)$(EXE_EXT) : $(GCOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(GCOBJS) $(LIB) $(EFENCE)
+
+$(GHNPROG)$(EXE_EXT) : $(GHNOBJS) $(LIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(GHNOBJS) $(LIB) $(EFENCE)
 
 $(SCPROG)$(EXE_EXT) : $(SCOBJS) $(LIB)
 	rm -f $@

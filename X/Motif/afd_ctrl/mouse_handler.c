@@ -136,6 +136,7 @@ extern char                       *p_work_dir,
                                   *pid_list,
                                   *profile,
                                   line_style,
+                                  fake_user[],
                                   font_name[],
                                   *ping_cmd,
                                   *ptr_ping_cmd,
@@ -877,6 +878,7 @@ void
 popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
 {
    int              ehc = YES,
+                    offset,
                     sel_typ = (int)client_data,
                     to_long_counter = 0,
                     to_short_counter = 0,
@@ -1039,6 +1041,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_ILOG);
          break;
 
@@ -1048,6 +1060,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_OLOG);
          break;
 
@@ -1057,6 +1079,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_RLOG);
          break;
 
@@ -1066,6 +1098,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_QUEUE);
          break;
 
@@ -1121,19 +1163,6 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          make_xprocess(progname, progname, args, -1);
          return;
 
-#ifdef _WITH_VIEW_QUEUE
-      case VIEW_QUEUE_SEL : /* View Queue */
-         args[0] = progname;
-         args[1] = WORK_DIR_ID;
-         args[2] = p_work_dir;
-         args[3] = "-f";
-         args[4] = font_name;
-         args[5] = NULL;
-         (void)strcpy(progname, SHOW_QUEUE);
-         make_xprocess(progname, progname, args, -1);
-         return;
-#endif
-
       case VIEW_DC_SEL : /* View DIR_CONFIG entries */
          args[0] = progname;
          args[1] = "-f";
@@ -1178,7 +1207,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
-         args[5] = NULL;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            args[7] = NULL;
+         }
+         else
+         {
+            args[5] = NULL;
+         }
          (void)strcpy(progname, EDIT_HC);
          if ((p_user = lock_proc(EDIT_HC_LOCK_ID, YES)) != NULL)
          {
@@ -1196,19 +1234,29 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         if (profile != NULL)
+         if (fake_user[0] != '\0')
          {
-            args[3] = "-p";
-            args[4] = profile;
-            args[5] = "-f";
-            args[6] = font_name;
-            args[7] = NULL;
+            args[3] = "-u";
+            args[4] = fake_user;
+            offset = 5;
          }
          else
          {
-            args[3] = "-f";
-            args[4] = font_name;
-            args[5] = NULL;
+            offset = 3;
+         }
+         if (profile != NULL)
+         {
+            args[offset] = "-p";
+            args[offset + 1] = profile;
+            args[offset + 2] = "-f";
+            args[offset + 3] = font_name;
+            args[offset + 4] = NULL;
+         }
+         else
+         {
+            args[offset] = "-f";
+            args[offset + 1] = font_name;
+            args[offset + 2] = NULL;
          }
          (void)strcpy(progname, DIR_CTRL);
          make_xprocess(progname, progname, args, -1);
@@ -1691,7 +1739,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
             case E_LOG_SEL :
             case SHOW_QUEUE_SEL :
                (void)strcpy(hosts[k], fsa[i].host_alias);
-               args[k + 5] = hosts[k];
+               args[k + offset] = hosts[k];
                k++;
                break;
 
@@ -1806,7 +1854,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
    else if ((sel_typ == O_LOG_SEL) || (sel_typ == E_LOG_SEL) ||
             (sel_typ == I_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
         {
-           args[k + 5] = NULL;
+           args[k + offset] = NULL;
            make_xprocess(progname, progname, args, -1);
         }
    else if (((sel_typ == QUEUE_SEL) || (sel_typ == TRANS_SEL) ||
@@ -1973,7 +2021,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              __FILE__, __LINE__);
                   return;
                }
-               config_log("Stopping %d", FD);
+               config_log("Stopping %s", FD);
                if (send_cmd(STOP_FD, afd_cmd_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,

@@ -184,7 +184,7 @@ DESCR__E_M3
                           /* setsockopt()                                */
 #include <netinet/in.h>   /* struct in_addr, sockaddr_in, htons()        */
 #if defined (_WITH_TOS) && defined (IP_TOS)
-#if defined (IRIX) || defined (_SUN) || defined (_HPUX) || defined (FREEBSD) || defined (_SCO) || defined (DARWIN)
+#if defined (IRIX) || defined (_SUN) || defined (_HPUX) || defined (FREEBSD) || defined (_SCO) || defined (DARWIN) || defined (_SFU)
 #include <netinet/in_systm.h>
 #endif /* IRIX || _SUN || _HPUX || FREEBSD || _SCO */
 #include <netinet/ip.h>   /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT            */

@@ -71,7 +71,7 @@ remove_host(char *host_name)
         host_config_file[MAX_PATH_LENGTH],
         *ptr,
         *ptr_start,
-        search_string[MAX_HOSTNAME_LENGTH + 2];
+        search_string[MAX_HOSTNAME_LENGTH + 3];
 
    (void)sprintf(host_config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, DEFAULT_HOST_CONFIG_FILE);
@@ -87,6 +87,7 @@ remove_host(char *host_name)
       return(INCORRECT);
    }
    (void)strcpy(&search_string[1], host_name);
+   (void)strcat(&search_string[1], ":");
    search_string[0] = '\n';
 
    if ((ptr = posi(file_buffer, search_string)) == NULL)
@@ -99,7 +100,7 @@ remove_host(char *host_name)
                  host_name, &tmp_file[1]);
       return(INCORRECT);
    }
-   ptr_start = ptr - strlen(host_name);
+   ptr_start = ptr - (strlen(host_name) + 1); /* + 1 => ':' */
    while ((*ptr != '\n') && (*ptr != '\0'))
    {
       ptr++;
