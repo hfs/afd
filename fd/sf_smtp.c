@@ -992,7 +992,7 @@ main(int argc, char *argv[])
            } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
 
       /* Send MIME information. */
-      if ((db.special_flag & ATTACH_FILE) || (mail_header_buffer != NULL))
+      if (db.special_flag & ATTACH_FILE)
       {
          size_t length;
 
@@ -1074,7 +1074,7 @@ main(int argc, char *argv[])
          }
 
          no_of_bytes += length;
-      } /* if ((db.special_flag & ATTACH_FILE) || (mail_header_buffer != NULL)) */
+      } /* if (db.special_flag & ATTACH_FILE) */
 
       /* Write the mail header. */
       if (mail_header_buffer != NULL)

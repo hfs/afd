@@ -1522,8 +1522,7 @@ zombie_check(int qb_pos, int options)
          {
             case TRANSFER_SUCCESS      : /* Ordinary end of process. */
                faulty = NO;
-               if ((connection[qb[qb_pos].connect_pos].temp_toggle == ON) &&
-                   (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos != NONE))
+               if (fsa[connection[qb[qb_pos].connect_pos].position].original_toggle_pos == fsa[connection[qb[qb_pos].connect_pos].position].host_toggle)
                {
                   /*
                    * Do not forget to toggle back to the original

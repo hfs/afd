@@ -447,3 +447,20 @@
              a timeout. Fixed.
 01.02.2000 - Dialog edit_hc failed to reset 'File size offset' parameter.
 ------------------------> Released: 02.02.2000 <---------------------------
+
+
+---------------------------> Version 1.1.5 <-------------------------------
+                            ---------------
+24.02.2000 - Specifying only the "mail header <some file>" option caused
+             sf_smtp to SEGV. Fixed.
+02.03.2000 - Killing job details window via window manager and then
+             restart it caused afd_ctrl to crash. Fixed.
+           - Double the timeout when closing the FTP data connection.
+03.03.2000 - Switching back automatically does not work correctly when
+             the secondary host is gone. Fixed.
+05.03.2000 - When appending files where no data is send, ie the
+             whole file is send but we get a timeout closing the data
+             connection, we use the structure stat stat_buf uninitialized!
+             This can cause havoc in afd_stat!
+           - The ftp_list() function failed to close its data connection!
+------------------------> Released: 08.03.2000 <---------------------------

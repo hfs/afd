@@ -769,6 +769,14 @@ popup_cb(Widget      w,
          }
          else if ((tv_window == OFF) && (no_of_jobs_selected > 0))
               {
+                 if (transviewshell == (Widget)NULL)
+                 {
+                    create_tv_window();
+                    interval_id_tv = XtAppAddTimeOut(app,
+                                                     STARTING_REDRAW_TIME,
+                                                     (XtTimerCallbackProc)check_tv_status,
+                                                     w);
+                 }
                  XtPopup(transviewshell, XtGrabNone);
                  tv_window = ON;
               }

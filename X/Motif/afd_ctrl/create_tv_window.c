@@ -53,13 +53,19 @@ extern Widget                  appshell,
                                detailed_window_w,
                                transviewshell,
                                tv_label_window_w;
+extern XtIntervalId            interval_id_tv;
 extern int                     filename_display_length,
+                               ft_exposure_tv_line,
                                line_height,
                                no_of_jobs_selected;
+extern char                    tv_window;
 extern Dimension               tv_window_width,
                                tv_window_height;
 extern unsigned long           color_pool[];
 extern struct afd_control_perm acp;
+
+/* Local funtion prototype definitions */
+static void                    tv_destroy(Widget, XtPointer, XEvent *);
 
 
 /*########################## create_tv_window() #########################*/
@@ -130,6 +136,8 @@ create_tv_window(void)
 
    XtAddEventHandler(detailed_window_w, ButtonPressMask, False,
                      (XtEventHandler)tv_input, NULL);
+   XtAddCallback(tv_label_window_w, XmNdestroyCallback,
+                 (XtCallbackProc)tv_destroy, NULL);
 
 #ifdef _EDITRES
    XtAddEventHandler(transviewshell, (EventMask)0, True,
@@ -184,6 +192,25 @@ tv_input(Widget      w,
             }
          }
       }
+   }
+
+   return;
+}
+
+
+/*########################### tv_destroy() ##############################*/
+static void
+tv_destroy(Widget      w,
+           XtPointer   client_data,
+           XEvent      *event)
+{
+   if (tv_window == ON)
+   {
+      XtRemoveTimeOut(interval_id_tv);
+      XtDestroyWidget(transviewshell);
+      transviewshell = NULL;
+      ft_exposure_tv_line = 0;
+      tv_window = OFF;
    }
 
    return;

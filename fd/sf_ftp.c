@@ -2804,6 +2804,24 @@ main(int argc, char *argv[])
             }
             if (host_deleted == NO)
             {
+               /*
+                * We _MUST_ get the current file size via stat() when
+                * we did an append without transmitting any data. In
+                * other words, we send the complete file but did not
+                * manage to close the data connection. If we do not do
+                * it here it might cause havoc in afd_stat!!!
+                */
+               if ((append_offset == *p_file_size_buffer) &&
+                   (*p_file_size_buffer != 0))
+               {
+                  if (stat(fullname, &stat_buf) == -1)
+                  {
+                     (void)rec(transfer_log_fd, ERROR_SIGN,
+                               "Hmmm. Failed to stat() %s : %s (%s %d)\n",
+                               fullname, strerror(errno),
+                               __FILE__, __LINE__);
+                  }
+               }
                fsa[(int)db.position].job_status[(int)db.job_no].file_name_in_use[0] = '\0';
                fsa[(int)db.position].job_status[(int)db.job_no].no_of_files_done++;
                fsa[(int)db.position].job_status[(int)db.job_no].file_size_in_use = 0;

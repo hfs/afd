@@ -70,7 +70,8 @@ extern Window                  button_window,
 extern Widget                  mw[];
 extern Widget                  detailed_window_w,
                                tv_label_window_w;
-extern int                     no_of_hosts,
+extern int                     ft_exposure_tv_line,
+                               no_of_hosts,
                                no_of_jobs_selected,
                                window_width,
                                window_height,
@@ -86,9 +87,6 @@ extern int                     no_of_hosts,
 extern struct line             *connect_data;
 extern struct job_data         *jd;
 extern struct afd_control_perm acp;
-
-/* Local global variables */
-static int                     ft_exposure_tv_line = 0; /* first time exposure tv_line */
 
 
 /*######################## expose_handler_label() #######################*/

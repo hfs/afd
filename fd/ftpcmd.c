@@ -616,6 +616,22 @@ ftp_list(char *filename, char *msg)
       return(INCORRECT);
    }
 
+#ifdef _WITH_SHUTDOWN
+   if (shutdown(fileno(p_data), 1) < 0)
+   {
+      trans_log(DEBUG_SIGN, __FILE__, __LINE__,
+                "shutdown() error : %s", strerror(errno));
+   }
+#endif
+
+   if (fclose(p_data) == EOF)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                "fclose() error : %s", strerror(errno));
+      return(INCORRECT);
+   }
+   p_data = NULL;
+
    /* Read last message: 'Binary Transfer complete' */
    if ((reply = get_reply(p_control)) < 0)
    {
@@ -951,10 +967,20 @@ ftp_close_data(void)
 
    if (timeout_flag != ON)
    {
+      long tmp_ftp_timeout = ftp_timeout;
+
+      /*
+       * Since there are so many timeouts on slow lines when closing
+       * the data connection lets double the timeout and see if this
+       * helps.
+       */
+      ftp_timeout += ftp_timeout;
       if ((reply = get_reply(p_control)) < 0)
       {
+         ftp_timeout = tmp_ftp_timeout;
          return(INCORRECT);
       }
+      ftp_timeout = tmp_ftp_timeout;
 
       if (check_reply(2, reply, 226) < 0)
       {
