@@ -500,3 +500,15 @@
              even if there was already \r. Fixed.
 24.05.2000 - Solved BadDrawable bug for show_log.
 ------------------------> Released: 25.05.2000 <---------------------------
+
+
+---------------------------> Version 1.1.8 <-------------------------------
+                            ---------------                                
+24.06.2000 - When storing data in the job ID database the function
+             lookup_job_id() failed to store the last terminating NULL
+             for AMG options.
+           - Added more signal handlers to afd_ctrl.
+25.06.2000 - Priorities where ignored. Fixed.
+28.06.2000 - In sf_ftp now stopping time after closing the data
+             connection and starting when opening remote file.
+------------------------> Released: 12.07.2000 <---------------------------

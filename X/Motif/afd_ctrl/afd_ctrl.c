@@ -223,6 +223,7 @@ static void                afd_ctrl_exit(void),
                            init_popup_menu(Widget),
                            init_afd_ctrl(int *, char **, char *),
                            sig_bus(int),
+                           sig_exit(int),
                            sig_segv(int);
 
 
@@ -398,7 +399,10 @@ main(int argc, char *argv[])
    XtRealizeWidget(appshell);
 
    /* Set some signal handlers. */
-   if ((signal(SIGBUS, sig_bus) == SIG_ERR) ||
+   if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
+       (signal(SIGQUIT, sig_exit) == SIG_ERR) ||
+       (signal(SIGTERM, sig_exit) == SIG_ERR) ||
+       (signal(SIGBUS, sig_bus) == SIG_ERR) ||
        (signal(SIGSEGV, sig_segv) == SIG_ERR))
    {
       (void)xrec(appshell, WARN_DIALOG,
@@ -2197,4 +2201,12 @@ sig_bus(int signo)
    (void)fprintf(stderr, "Uuurrrggh! Received SIGBUS. (%s %d)\n",
                  __FILE__, __LINE__);
    abort();
+}
+
+
+/*++++++++++++++++++++++++++++++ sig_exit() +++++++++++++++++++++++++++++*/
+static void
+sig_exit(int signo)
+{
+   exit(INCORRECT);
 }

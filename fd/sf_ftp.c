@@ -1383,6 +1383,13 @@ main(int argc, char *argv[])
          if ((append_offset < *p_file_size_buffer) ||
              (*p_file_size_buffer == 0))
          {
+#ifdef _OUTPUT_LOG
+            if (db.output_log == YES)
+            {
+               start_time = times(&tmsdummy);
+            }
+#endif
+
             /* Open file on remote site */
             if ((status = ftp_data(initial_filename, append_offset)) != SUCCESS)
             {
@@ -1537,13 +1544,6 @@ main(int argc, char *argv[])
                   append_offset = 0;
                }
             }
-
-#ifdef _OUTPUT_LOG
-            if (db.output_log == YES)
-            {
-               start_time = times(&tmsdummy);
-            }
-#endif
 
 #ifdef _WITH_EUMETSAT_HEADERS
             if ((db.special_flag & ADD_EUMETSAT_HEADER) &&
@@ -2354,13 +2354,6 @@ main(int argc, char *argv[])
                }
             } /* for (;;) */
 
-#ifdef _OUTPUT_LOG
-            if (db.output_log == YES)
-            {
-               end_time = times(&tmsdummy);
-            }
-#endif
-
             /* Close local file */
             if (close(fd) == -1)
             {
@@ -2483,6 +2476,13 @@ main(int argc, char *argv[])
                             (int)db.job_no, msg_str);
                }
             }
+
+#ifdef _OUTPUT_LOG
+            if (db.output_log == YES)
+            {
+               end_time = times(&tmsdummy);
+            }
+#endif
 
             if (fsa[(int)db.position].debug == YES)
             {

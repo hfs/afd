@@ -253,7 +253,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
          NEXT(ptr);
       }
       (void)memcpy(jd[*no_of_job_ids].loptions, p_db->loptions,
-                   (ptr - 1 - p_db->loptions));
+                   (ptr - p_db->loptions));
    }
    if (p_db->soptions != NULL)
    {

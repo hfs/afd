@@ -1734,7 +1734,7 @@ copy_job(int              file_no,
       {
          char *tmp_ptr = &dir->file[file_no].dest[dest_no].options[i][PRIORITY_ID_LENGTH];
 
-         while ((*tmp_ptr == ' ') && (*tmp_ptr == '\t'))
+         while ((*tmp_ptr == ' ') || (*tmp_ptr == '\t'))
          {
             tmp_ptr++;
          }
