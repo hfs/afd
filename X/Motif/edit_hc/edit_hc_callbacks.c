@@ -1296,7 +1296,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
 
               (void)sprintf(msg, "Changed alias order in FSA");
               get_user(user);
-              (void)rec(sys_log_fd, INFO_SIGN, "%s (%s)\n", msg, user);
+              (void)rec(sys_log_fd, CONFIG_SIGN, "%s (%s)\n", msg, user);
            }
    }
    else
@@ -1321,7 +1321,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       char user[100];
 
       get_user(user);
-      (void)rec(sys_log_fd, INFO_SIGN, "%s (%s)\n", msg, user);
+      (void)rec(sys_log_fd, CONFIG_SIGN, "%s (%s)\n", msg, user);
 
       /*
        * Show the hosts that where changed. But ensure that the line

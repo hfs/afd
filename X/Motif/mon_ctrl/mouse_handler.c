@@ -244,7 +244,7 @@ mon_input(Widget      w,
             }
             if (gotcha == NO)
             {
-               char *args[5],
+               char *args[6],
                     progname[MAX_PATH_LENGTH];
 
                args[0] = progname;
@@ -1089,24 +1089,23 @@ start_remote_prog(Widget    w,
             }
             if (gotcha == NO)
             {
-               if (msa[i].convert_username[0] != '\0')
+               int j;
+
+               args[3] = username;
+               for (j = 0; j < MAX_CONVERT_USERNAME; j++)
                {
-                  if (strcmp(msa[i].convert_username[0], username) == 0)
+                  if (msa[i].convert_username[j][0] != '\0')
                   {
-                     args[3] = msa[i].convert_username[1];
+                     if (strcmp(msa[i].convert_username[j][0], username) == 0)
+                     {
+                        args[3] = msa[i].convert_username[j][1];
+                        break;
+                     }
                   }
-                  else
-                  {
-                     args[3] = username;
-                  }
-               }
-               else
-               {
-                  args[3] = username;
                }
                args[4] = msa[i].hostname;
                args[7] = msa[i].r_work_dir;
-               (void)strcpy(progname, "sbin/rafdd_cmd");
+               (void)sprintf(progname, "%s/sbin/rafdd_cmd", msa[i].r_work_dir);
                make_xprocess(rsh_str, prog_to_call, args, i);
                if (connect_data[i].inverse == ON)
                {
@@ -1373,24 +1372,23 @@ start_remote_prog(Widget    w,
             }
             if (gotcha == NO)
             {
-               if (msa[i].convert_username[0] != '\0')
+               int j;
+
+               args[2] = username;
+               for (j = 0; j < MAX_CONVERT_USERNAME; j++)
                {
-                  if (strcmp(msa[i].convert_username[0], username) == 0)
+                  if (msa[i].convert_username[j][0] != '\0')
                   {
-                     args[2] = msa[i].convert_username[1];
+                     if (strcmp(msa[i].convert_username[j][0], username) == 0)
+                     {
+                        args[2] = msa[i].convert_username[j][1];
+                        break;
+                     }
                   }
-                  else
-                  {
-                     args[2] = username;
-                  }
-               }
-               else
-               {
-                  args[2] = username;
                }
                args[3] = msa[i].hostname;
                args[6] = msa[i].r_work_dir;
-               (void)strcpy(progname, "sbin/rafdd_cmd");
+               (void)sprintf(progname, "%s/sbin/rafdd_cmd", msa[i].r_work_dir);
                make_xprocess(rsh_str, prog_to_call, args, i);
                if (connect_data[i].inverse == ON)
                {

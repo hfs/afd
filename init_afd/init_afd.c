@@ -492,7 +492,7 @@ main(int argc, char *argv[])
 
    /* Tell user at what time the AFD was started */
    log_pid(getpid(), 0);
-   (void)rec(sys_log_fd, INFO_SIGN,
+   (void)rec(sys_log_fd, CONFIG_SIGN,
              "=================> STARTUP <=================\n");
 #ifdef PRE_RELEASE
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (PRE %d.%d.%d-%d)\n",
@@ -1392,7 +1392,7 @@ afd_exit(void)
       (void)munmap((void *)p_afd_status, sizeof(struct afd_status));
 #endif
 
-      (void)rec(sys_log_fd, INFO_SIGN,
+      (void)rec(sys_log_fd, CONFIG_SIGN,
                 "=================> SHUTDOWN <=================\n");
 
       (void)unlink(afd_active_file);

@@ -309,8 +309,14 @@ main(int argc, char *argv[])
    if (msa[position].convert_username[0][0] != '\0')
    {
       (void)fprintf(stdout, "Convert user name  : %s -> %s\n",
-                    msa[position].convert_username[0],
-                    msa[position].convert_username[1]);
+                    msa[position].convert_username[0][0],
+                    msa[position].convert_username[0][1]);
+      for (i = 1; i < MAX_CONVERT_USERNAME; i++)
+      {
+         (void)fprintf(stdout, "                   : %s -> %s\n",
+                       msa[position].convert_username[i][0],
+                       msa[position].convert_username[i][1]);
+      }
    }
 
    exit(SUCCESS);

@@ -44,6 +44,8 @@ DESCR__S_M3
  **   31.10.1997 T.Freyberg Error messages in german.
  **   17.07.2000 H.Kiehl    Added options -c and -f.
  **   30.07.2000 H.Kiehl    Added option -x.
+ **   17.10.2000 H.Kiehl    Added support to retrieve files from a
+ **                         remote host.
  **
  */
 DESCR__E_M3
@@ -75,11 +77,19 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    int  correct = YES;                /* Was input/syntax correct?      */
 
    (void)strcpy(name, argv[0]);
+   if (argv[0][0] == 'r')
+   {
+      p_db->retrieve_mode = YES;
+   }
+   else
+   {
+      p_db->retrieve_mode = NO;
+   }
 
    /* First initialize all values with default values */
    p_db->file_size_offset = -1;       /* No appending */
    p_db->blocksize        = DEFAULT_TRANSFER_BLOCKSIZE;
-   p_db->target_dir[0]    = '\0';
+   p_db->remote_dir[0]    = '\0';
    p_db->hostname[0]      = '\0';
    p_db->lock             = DOT;
    p_db->lock_notation[0] = '.';
@@ -174,7 +184,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             else
             {
                argv++;
-               (void)strcpy(p_db->target_dir, argv[0]);
+               (void)strcpy(p_db->remote_dir, argv[0]);
                argc--;
             }
             break;
@@ -486,7 +496,9 @@ static void
 usage(void)
 {
 #ifdef _GERMAN
-   (void)fprintf(stderr, "SYNTAX: %s [Optionen] -h <Rechnername | IP Nummer> Datei(en)\n\n", name);
+   (void)fprintf(stderr, "SYNTAX: [r]%s [Optionen] -h <Rechnername | IP Nummer> Datei(en)\n\n", name);
+   (void)fprintf(stderr, "   Wenn man das Programm mit [r]%s aufruft, werden die Dateien\n", name);
+   (void)fprintf(stderr, "   abgeholt, sonst (mit %s) werden die Dateien geschickt.\n\n", name);
    (void)fprintf(stderr, "  Optionen                             Beschreibung\n");
    (void)fprintf(stderr, "  --version                          - Zeigt aktuelle Version.\n");
    (void)fprintf(stderr, "  -a <Spaltennummer>                 - Nummer der Spalte in der der Dateiname\n");
@@ -539,7 +551,9 @@ usage(void)
    (void)fprintf(stderr, "      %2d - Systemfehler malloc().\n", ALLOC_ERROR);
    (void)fprintf(stderr, "      %2d - Falsche Eingabe.\n", SYNTAX_ERROR);
 #else
-   (void)fprintf(stderr, "SYNTAX: %s [options] -h <host name | IP number> file(s)\n\n", name);
+   (void)fprintf(stderr, "SYNTAX: [r]%s [options] -h <host name | IP number> file(s)\n\n", name);
+   (void)fprintf(stderr, "   When calling it with [r]%s files will be retrieved from the\n", name);
+   (void)fprintf(stderr, "   given host, otherwise (when using %s) files will be send to that host.\n\n", name);
    (void)fprintf(stderr, "  OPTIONS                              DESCRIPTION\n");
    (void)fprintf(stderr, "  --version                          - Show current version\n");
    (void)fprintf(stderr, "  -a <file size offset>              - Offset of file name when doing a LIST\n");

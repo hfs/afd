@@ -30,6 +30,7 @@
 #define MAX_RET_MSG_LENGTH       4096  /* How much data is buffered from */
                                        /* the remote TCP port.           */
 #define MAX_VERSION_LENGTH       40
+#define MAX_CONVERT_USERNAME     5
 
 #define MON_CONFIG_FILE          "/MON_CONFIG"
 #define AFD_MON_CONFIG_FILE      "/AFD_MON_CONFIG"
@@ -65,7 +66,7 @@ struct afd_host_list
 /* Structure to hold data from AFD_MON_CONFIG file. */
 struct mon_list
        {
-          char         convert_username[2][MAX_USER_NAME_LENGTH];
+          char         convert_username[MAX_CONVERT_USERNAME][2][MAX_USER_NAME_LENGTH];
                                                  /* Command to call     */
                                                  /* remote programms.   */
           char         afd_alias[MAX_AFDNAME_LENGTH + 1];
@@ -86,7 +87,7 @@ struct mon_list
 struct mon_status_area
        {
           char         r_work_dir[MAX_PATH_LENGTH];
-          char         convert_username[2][MAX_USER_NAME_LENGTH];
+          char         convert_username[MAX_CONVERT_USERNAME][2][MAX_USER_NAME_LENGTH];
                                                  /* Command to call     */
                                                  /* remote programms.   */
           char         afd_alias[MAX_AFDNAME_LENGTH + 1];

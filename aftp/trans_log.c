@@ -147,7 +147,7 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
          length += sprintf(&buf[length], " (%s %d)\n", file, line);
       }
    }
-   if (msg_str[0] != '\0')
+   if ((msg_str[0] != '\0') && (timeout_flag == OFF))
    {
       char tmp_char;
 

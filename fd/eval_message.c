@@ -66,6 +66,7 @@ DESCR__S_M3
  **   24.08.1999 H.Kiehl Enhanced option "attach file" to support trans-
  **                      renaming.
  **   18.03.2000 H.Kiehl Added option FTP transfer mode.
+ **   03.11.2000 H.Kiehl Chmod option for FTP as well.
  **
  */
 DESCR__E_M3
@@ -76,6 +77,8 @@ DESCR__E_M3
 #include <ctype.h>                /* isascii()                           */
 #include <sys/types.h>
 #include <sys/stat.h>             /* fstat()                             */
+#include <grp.h>                  /* getgrnam()                          */
+#include <pwd.h>                  /* getpwnam()                          */
 #include <unistd.h>               /* read(), close(), setuid()           */
 #include <fcntl.h>                /* O_RDONLY, etc                       */
 #ifdef _WITH_EUMETSAT_HEADERS
@@ -86,7 +89,8 @@ DESCR__E_M3
 #include "ftpdefs.h"
 
 /* External global variables */
-extern int sys_log_fd;
+extern int sys_log_fd,
+           transfer_log_fd;
 
 #define ARCHIVE_FLAG              1
 #define AGE_LIMIT_FLAG            2
@@ -106,13 +110,14 @@ extern int sys_log_fd;
 #define WITH_SEQUENCE_NUMBER_FLAG 32768
 #define ATTACH_FILE_FLAG          131072
 #define ADD_MAIL_HEADER_FLAG      262144
+#define FTP_EXEC_FLAG             524288
 #ifdef _WITH_EUMETSAT_HEADERS
-#define EUMETSAT_HEADER_FLAG      524288
+#define EUMETSAT_HEADER_FLAG      1048576
 #endif /* _WITH_EUMETSAT_HEADERS */
 #ifdef _RADAR_CHECK
-#define RADAR_FLAG                1048576
+#define RADAR_FLAG                2097152
 #endif /* _RADAR_CHECK */
-#define CHANGE_FTP_MODE_FLAG      2097152
+#define CHANGE_FTP_MODE_FLAG      4194304
 
 
 /*############################ eval_message() ###########################*/
@@ -567,13 +572,38 @@ eval_message(char *message_name, struct job *p_db)
                        }
                        ptr = end_ptr;
                     }
-                    else
-                    {
-                       while ((*ptr != '\n') && (*ptr != '\0'))
-                       {
-                          ptr++;
-                       }
-                    }
+                    else if (p_db->protocol & FTP_FLAG)
+                         {
+                            while ((*ptr == ' ') || (*ptr == '\t'))
+                            {
+                               ptr++;
+                            }
+                            n = 0;
+                            while ((*ptr != '\n') && (*ptr != '\0') &&
+                                   (n < 4) && (isdigit(*ptr)))
+                            {
+                               p_db->chmod_str[n] = *ptr;
+                               ptr++; n++;
+                            }
+                            if (n > 1)
+                            {
+                               p_db->chmod_str[n] = '\0';
+                            }
+                            else
+                            {
+                               (void)rec(sys_log_fd, WARN_SIGN,
+                                         "Incorrect parameter for chmod option, ignoring it. (%s %d).\n",
+                                         __FILE__, __LINE__);
+                               p_db->chmod_str[0] = '\0';
+                            }
+                         }
+                         else
+                         {
+                            while ((*ptr != '\n') && (*ptr != '\0'))
+                            {
+                               ptr++;
+                            }
+                         }
                     while (*ptr == '\n')
                     {
                        ptr++;
@@ -590,6 +620,8 @@ eval_message(char *message_name, struct job *p_db)
                        if (setuid(0) != -1)
                        {
 #endif
+                          int lookup_id = NO;
+
                           while ((*ptr == ' ') || (*ptr == '\t'))
                           {
                              ptr++;
@@ -598,11 +630,34 @@ eval_message(char *message_name, struct job *p_db)
                           while ((*end_ptr != ' ') && (*end_ptr != ':') &&
                                  (*end_ptr != '\n') && (*end_ptr != '\0'))
                           {
+                             if (isdigit(*end_ptr) == 0)
+                             {
+                                lookup_id = YES;
+                             }
                              end_ptr++;
                           }
                           byte_buf = *end_ptr;
                           *end_ptr = '\0';
-                          p_db->user_id = atoi(ptr);
+                          if (lookup_id == YES)
+                          {
+                             struct passwd *pw;
+
+                             if ((pw = getpwnam(ptr)) == NULL)
+                             {
+                                (void)rec(transfer_log_fd, ERROR_SIGN,
+                                          "getpwnam() error for user %s : %s (%s %d)\n",
+                                          ptr, strerror(errno),
+                                          __FILE__, __LINE__);
+                             }
+                             else
+                             {
+                                p_db->user_id = pw->pw_uid;
+                             }
+                          }
+                          else
+                          {
+                             p_db->user_id = atoi(ptr);
+                          }
                           p_db->special_flag |= CHANGE_UID_GID;
                           *end_ptr = byte_buf;
                           ptr = end_ptr;
@@ -610,6 +665,7 @@ eval_message(char *message_name, struct job *p_db)
                               (*ptr == '.'))
                           {
                              ptr++; end_ptr++;
+                             lookup_id = NO;
                              while ((*end_ptr != ' ') && (*end_ptr != ':') &&
                                     (*end_ptr != '.') && (*end_ptr != '\n') &&
                                     (*end_ptr != '\0'))
@@ -618,7 +674,26 @@ eval_message(char *message_name, struct job *p_db)
                              }
                              byte_buf = *end_ptr;
                              *end_ptr = '\0';
-                             p_db->group_id = atoi(ptr);
+                             if (lookup_id == YES)
+                             {
+                                struct group *gr;
+
+                                if ((gr = getgrnam(ptr)) == NULL)
+                                {
+                                   (void)rec(transfer_log_fd, ERROR_SIGN,
+                                             "getgrnam() error for group %s : %s (%s %d)\n",
+                                             ptr, strerror(errno),
+                                             __FILE__, __LINE__);
+                                }
+                                else
+                                {
+                                   p_db->group_id = gr->gr_gid;
+                                }
+                             }
+                             else
+                             {
+                                p_db->group_id = atoi(ptr);
+                             }
                              *end_ptr = byte_buf;
                              ptr = end_ptr;
                           }
@@ -628,13 +703,13 @@ eval_message(char *message_name, struct job *p_db)
                        {
                           if (errno == EPERM)
                           {
-                             (void)rec(sys_log_fd, WARN_SIGN,
+                             (void)rec(transfer_log_fd, ERROR_SIGN,
                                        "Cannot change user or group ID if the program sf_xxx is not setuid root! (%s %d)\n",
                                        __FILE__, __LINE__);
                           }
                           else
                           {
-                             (void)rec(sys_log_fd, WARN_SIGN,
+                             (void)rec(transfer_log_fd, ERROR_SIGN,
                                        "setuid() error : %s (%s %d)\n",
                                        strerror(errno), __FILE__, __LINE__);
                           }
@@ -1032,6 +1107,54 @@ eval_message(char *message_name, struct job *p_db)
                        {
                           ptr++;
                        }
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used & FTP_EXEC_FLAG) == 0) &&
+                     (strncmp(ptr, FTP_EXEC_CMD, FTP_EXEC_CMD_LENGTH) == 0))
+                 {
+                    used |= FTP_EXEC_FLAG;
+                    if (p_db->protocol & FTP_FLAG)
+                    {
+                       int length = 0;
+
+                       ptr += FTP_EXEC_CMD_LENGTH;
+                       while ((*ptr == ' ') || (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       end_ptr = ptr;
+                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                       {
+                         end_ptr++;
+                         length++;
+                       }
+                       if (length > 0)
+                       {
+                          p_db->special_flag |= EXEC_FTP;
+                          byte_buf = *end_ptr;
+                          *end_ptr = '\0';
+                          if ((p_db->special_ptr = malloc(length + 1)) == NULL)
+                          {
+                             (void)rec(sys_log_fd, WARN_SIGN,
+                                       "Failed to malloc() memory, will ignore %s option : %s (%s %d)\n",
+                                       FTP_EXEC_CMD, strerror(errno),
+                                       __FILE__, __LINE__);
+                          }
+                          else
+                          {
+                             (void)strcpy(p_db->special_ptr, ptr);
+                          }
+                          *end_ptr = byte_buf;
+                       }
+                       ptr = end_ptr;
+                    }
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
                     }
                     while (*ptr == '\n')
                     {

@@ -606,14 +606,13 @@ Widget   w;
          }
       }
 
-      /* Host switched ? */
+      /* Host switched? */
       if (connect_data[i].host_toggle != fsa[i].host_toggle)
       {
          connect_data[i].host_toggle = fsa[i].host_toggle;
 
          if (fsa[i].host_toggle_str[0] != '\0')
          {
-            fsa[i].host_dsp_name[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[(int)fsa[i].host_toggle];
             connect_data[i].host_display_str[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[(int)fsa[i].host_toggle];
             connect_data[i].host_toggle_display = connect_data[i].host_display_str[(int)fsa[i].toggle_pos];
 

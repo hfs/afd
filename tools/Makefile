@@ -13,6 +13,9 @@ CFLAGS    = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../amg -I.
 ACMDPROG  = afdcmd
 ACMDOBJS  = afdcmd.o
 
+ACFGPROG  = afdcfg
+ACFGOBJS  = afdcfg.o
+
 AFDSPROG  = afd_status
 AFDSOBJS  = afd_status.o
 
@@ -102,12 +105,14 @@ PROGS   = $(FSAVPROG) $(FRAVPROG) $(FSAEPROG) $(RFSAPROG) $(WDIRPROG)\
           $(DSPYPROG) $(AFDSPROG) $(BFCPROG) $(GCPROG) $(SCPROG) $(TSPROG)\
           $(G2TPROG) $(GFSPROG) $(CFSAPROG) $(CJIDPROG) $(QSPYPROG) $(CSPYPROG)\
           $(JSPYPROG) $(CJSPYPROG) $(RMJOBPROG) $(DATEPROG) $(FCHEKPROG)\
-          $(ACHEKPROG) $(CSTATPROG) $(UDBPROG) $(ACMDPROG) $(GDDPROG) # $(SYSCPROG)
+          $(ACHEKPROG) $(CSTATPROG) $(UDBPROG) $(ACMDPROG) $(ACFGPROG)\
+          $(GDDPROG) # $(SYSCPROG)
 OBJS    = $(FSAVOBJS) $(FRAVOBJS) $(FSAEOBJS) $(RFSAOBJS) $(WDIROBJS)\
           $(DSPYOBJS) $(AFDSOBJS) $(BFCOBJS) $(SCOBJS) $(GCOBJS) $(TSOBJS)\
           $(G2TOBJS) $(GFSOBJS) $(CFSAOBJS) $(CJIDOBJS) $(QSPYOBJS) $(CSPYOBJS)\
           $(JSPYOBJS) $(CJSPYOBJS) $(RMJOBOBJS) $(DATEOBJS) $(FCHEKOBJS)\
-          $(ACHEKOBJS) $(CSTATOBJS) $(UDBOBJS) $(AOBJS) $(GDDOBJS) # $(SYSCOBJS)
+          $(ACHEKOBJS) $(CSTATOBJS) $(UDBOBJS) $(ACMDOBJS) $(ACFGOBJS)\
+          $(GDDOBJS) # $(SYSCOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h ../fd/fddefs.h
 
 all : $(PROGS)
@@ -117,6 +122,10 @@ $(OBJS) : $(HEADERS)
 $(ACMDPROG) : $(ACMDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(ACMDOBJS) $(LIB) $(EFENCE)
+
+$(ACFGPROG) : $(ACFGOBJS) $(LIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(ACFGOBJS) $(LIB) $(EFENCE)
 
 $(AFDSPROG) : $(AFDSOBJS) $(LIB)
 	rm -f $@

@@ -205,6 +205,8 @@
 #define ACTIVE_FTP_MODE_LENGTH         11
 #define PASSIVE_FTP_MODE               "mode passive"
 #define PASSIVE_FTP_MODE_LENGTH        12
+#define FTP_EXEC_CMD                   "site"
+#define FTP_EXEC_CMD_LENGTH            4
 
 /* Definition for special_flag in structure job */
 #define FILE_NAME_IS_HEADER            1
@@ -216,7 +218,7 @@
 #ifdef _WITH_EUMETSAT_HEADERS
 #define ADD_EUMETSAT_HEADER            4
 #endif
-#define SECURE_FTP                     8
+#define EXEC_FTP                       8
 #define ADD_MAIL_HEADER                8
 #define ATTACH_FILE                    16
 #define CHANGE_UID_GID                 16
@@ -305,6 +307,7 @@ struct job
 #endif
           mode_t        chmod;           /* The permissions that the     */
                                          /* file should have.            */
+          char          chmod_str[5];    /* String mode value for FTP.   */
           uid_t         user_id;         /* The user ID that the file    */
                                          /* should have.                 */
           gid_t         group_id;        /* The group ID that the file   */
@@ -372,13 +375,15 @@ struct job
                                          /*              transfer delete */
                                          /*              lock file.      */
 #ifdef _WITH_WMO_SUPPORT
-          char          file_name_is_header; /* Assumes that the file name */
-                                         /* is bulletin header.          */
+          char          file_name_is_header; /* Assumes that the file    */
+                                         /* name is bulletin header.     */
 #endif
           char          *subject;        /* Subject for mail.            */
           char          *special_ptr;    /* Used to point to allocated   */
                                          /* memory, eg for option        */
-                                         /* ADD_MAIL_HEADER_ID.          */
+                                         /* ADD_MAIL_HEADER_ID,          */
+                                         /* EUMETSAT_HEADER_ID,          */
+                                         /* FTP_EXEC_CMD.                */
           unsigned int  special_flag;    /* Special flag with the        */
                                          /* following meaning:           */
                                          /*+---+------------------------+*/
@@ -393,12 +398,11 @@ struct job
                                          /*| 3 | SMTP: File name is     |*/
                                          /*|   |       user.            |*/
                                          /*|   | FTP : Eumetsat header  |*/
-                                         /*| 4 | Secure FTP. First login|*/
-                                         /*|   | with anonymous and     |*/
-                                         /*|   | password user@host.    |*/
-                                         /*|   | Under SMTP this flag   |*/
-                                         /*|   | indicates to add a mail|*/
-                                         /*|   | header.                |*/
+                                         /*| 4 | SMTP: Add a mail header|*/
+                                         /*|   | FTP : Execute a command|*/
+                                         /*|   |       on the remote    |*/
+                                         /*|   |       host via the     |*/
+                                         /*|   |       SITE command.    |*/
                                          /*| 5 | DWD-WMO check. This    |*/
                                          /*|   | checks if the remote   |*/
                                          /*|   | site has received the  |*/

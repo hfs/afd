@@ -766,30 +766,32 @@ eval_dir_config(size_t db_size, int *dc)
             {
                ptr++;
             }
-
-            /* Check if this is a comment line. */
-            if (*ptr == '#')
+            if (*ptr != '\n')
             {
+               /* Check if this is a comment line. */
+               if (*ptr == '#')
+               {
+                  while ((*ptr != '\n') && (*ptr != '\0'))
+                  {
+                     ptr++;
+                  }
+                  while (*ptr == '\n')
+                  {
+                     ptr++;
+                  }
+                  continue;
+               }
+
                while ((*ptr != '\n') && (*ptr != '\0'))
                {
-                  ptr++;
+                  dir->dir_options[length] = *ptr;
+                  ptr++; length++;
                }
-               while (*ptr == '\n')
+               dir->dir_options[length++] = '\n';
+               if (*ptr == '\n')
                {
                   ptr++;
                }
-               continue;
-            }
-
-            while ((*ptr != '\n') && (*ptr != '\0'))
-            {
-               dir->dir_options[length] = *ptr;
-               ptr++; length++;
-            }
-            dir->dir_options[length++] = '\n';
-            if (*ptr == '\n')
-            {
-               ptr++;
             }
          }
          dir->dir_options[length] = '\0';

@@ -39,6 +39,7 @@ DESCR__S_M3
  ** HISTORY
  **   25.08.1998 H.Kiehl Created
  **   24.01.1999 H.Kiehl Added remote user name.
+ **   30.09.2000 H.Kiehl Multiple convert username.
  **
  */
 DESCR__E_M3
@@ -62,7 +63,8 @@ extern char afd_mon_db_file[];
 void
 eval_afd_mon_db(struct mon_list **nml)
 {
-   int    i;
+   int    cu_counter,
+          i;
    size_t new_size;
    char   *afdbase = NULL,
           number[MAX_INT_LENGTH + 1],
@@ -162,9 +164,12 @@ eval_afd_mon_db(struct mon_list **nml)
          (void)memset(ptr_start, 0, new_size);
       }
 
+      for (i = 0; i < MAX_CONVERT_USERNAME; i++)
+      {
+         (*nml)[no_of_afds].convert_username[i][0][0] = '\0';
+      }
       /* Store AFD alias */
       i = 0;
-      (*nml)[no_of_afds].convert_username[0][0] = '\0';
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
              (*ptr != '\0') && (i <= MAX_AFDNAME_LENGTH))
       {
@@ -402,35 +407,15 @@ eval_afd_mon_db(struct mon_list **nml)
       }
 
       /* Store Convert Username */
-      i = 0;
-      while ((*ptr != '\0') && !((*ptr == '-') && (*(ptr + 1) == '>')) &&
-             (*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
-             (i < MAX_USER_NAME_LENGTH))
-      {
-         (*nml)[no_of_afds].convert_username[0][i] = *ptr;
-         ptr++; i++;
-      }
-      if (i == MAX_USER_NAME_LENGTH)
-      {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                   (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH,
-                   __FILE__, __LINE__);
-         while ((*ptr != '\0') && !((*ptr == '-') && (*(ptr + 1) == '>')) &&
-                (*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n'))
-         {
-            ptr++;
-         }
-      }
-      (*nml)[no_of_afds].convert_username[0][i] = '\0';
-      if ((*ptr == '-') && (*(ptr + 1) == '>'))
+      cu_counter = 0;
+      do
       {
          i = 0;
-         ptr += 2;
-         while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
-                (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+         while ((*ptr != '\0') && !((*ptr == '-') && (*(ptr + 1) == '>')) &&
+                (*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
+                (i < MAX_USER_NAME_LENGTH))
          {
-            (*nml)[no_of_afds].convert_username[1][i] = *ptr;
+            (*nml)[no_of_afds].convert_username[cu_counter][0][i] = *ptr;
             ptr++; i++;
          }
          if (i == MAX_USER_NAME_LENGTH)
@@ -439,25 +424,56 @@ eval_afd_mon_db(struct mon_list **nml)
                       "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
                       (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH,
                       __FILE__, __LINE__);
-            while ((*ptr != ' ') && (*ptr != '\t') &&
-                   (*ptr != '\n') && (*ptr != '\0'))
+            while ((*ptr != '\0') && !((*ptr == '-') && (*(ptr + 1) == '>')) &&
+                   (*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n'))
             {
                ptr++;
             }
          }
-         (*nml)[no_of_afds].convert_username[1][i] = '\0';
-      }
-      else
-      {
-         (*nml)[no_of_afds].convert_username[0][0] = '\0';
-         (*nml)[no_of_afds].convert_username[1][0] = '\0';
-      }
+         (*nml)[no_of_afds].convert_username[cu_counter][0][i] = '\0';
+         if ((*ptr == '-') && (*(ptr + 1) == '>'))
+         {
+            i = 0;
+            ptr += 2;
+            while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
+                   (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+            {
+               (*nml)[no_of_afds].convert_username[cu_counter][1][i] = *ptr;
+               ptr++; i++;
+            }
+            if (i == MAX_USER_NAME_LENGTH)
+            {
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
+                         (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH,
+                         __FILE__, __LINE__);
+               while ((*ptr != ' ') && (*ptr != '\t') &&
+                      (*ptr != '\n') && (*ptr != '\0'))
+               {
+                  ptr++;
+               }
+            }
+            (*nml)[no_of_afds].convert_username[cu_counter][1][i] = '\0';
+         }
+         else
+         {
+            (*nml)[no_of_afds].convert_username[cu_counter][0][0] = '\0';
+            (*nml)[no_of_afds].convert_username[cu_counter][1][0] = '\0';
+         }
+         while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
+                (*ptr != '\0'))
+         {
+            ptr++;
+         }
+         while ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            ptr++;
+         }
+         cu_counter++;
+      } while ((cu_counter < MAX_CONVERT_USERNAME) && (*ptr != '\n') &&
+               (*ptr != '\0'));
 
       /* Ignore the rest of the line. We have everything we need. */
-      while ((*ptr == ' ') || (*ptr == '\t'))
-      {
-         ptr++;
-      }
       while ((*ptr != '\n') && (*ptr != '\0'))
       {
          ptr++;

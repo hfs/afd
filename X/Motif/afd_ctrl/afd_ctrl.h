@@ -24,7 +24,7 @@
 #include "x_common_defs.h"
 
 #define MAX_STRING_LENGTH               20
-#define DEFAULT_NO_OF_ROWS              40
+#define DEFAULT_NO_OF_ROWS              50
 #define TV_STARTING_REDRAW_TIME         100
 #define MIN_TV_REDRAW_TIME              200
 #define MAX_TV_REDRAW_TIME              800

@@ -638,7 +638,8 @@ main(int argc, char *argv[])
       /*
        * Check if we must check for files on any remote system.
        */
-      if ((p_afd_status->no_of_transfers < max_connections) &&
+      if (((*(unsigned char *)((char *)fsa - 3) & DISABLE_RETRIEVE) == 0) &&
+          (p_afd_status->no_of_transfers < max_connections) &&
           (no_of_retrieves > 0) && (time(&now) > remote_file_check_time))
       {
          for (i = 0; i < no_of_retrieves; i++)
@@ -1472,7 +1473,6 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                    * original host to see if it is working now.
                    */
                   connection[pos].error_file = qb[qb_pos].in_error_dir;
-                  connection[pos].fsa_pos = fsa_pos;
                   if (qb[qb_pos].msg_name[0] == '\0')
                   {
                      connection[pos].fra_pos = qb[qb_pos].pos;
@@ -1485,6 +1485,26 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                   }
                   connection[pos].temp_toggle = OFF;
                   (void)strcpy(connection[pos].msg_name, qb[qb_pos].msg_name);
+                  connection[pos].fsa_pos = fsa_pos;
+                  if (check_fsa() == YES)
+                  {
+                     if (check_fra_fd() == YES)
+                     {
+                        init_fra_data();
+                     }
+
+                     /*
+                      * We need to set the connection[pos].pid to a
+                      * value higher then 0 so the function get_new_positions()
+                      * also locates the new connection[pos].fsa_pos. Otherwise
+                      * from here on we point to some completely different
+                      * host and this can cause havoc when someone uses
+                      * edit_hc and changes the alias order.
+                      */
+                     get_new_positions();
+                     init_msg_buffer();
+                     fsa_pos = connection[pos].fsa_pos;
+                  }
                   (void)strcpy(fsa[fsa_pos].job_status[connection[pos].job_no].unique_name, qb[qb_pos].msg_name);
                   if ((fsa[fsa_pos].error_counter == 0) &&
                       (fsa[fsa_pos].auto_toggle == ON) &&
@@ -1511,15 +1531,6 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                   /* Create process to distribute file. */
                   if ((connection[pos].pid = make_process(&connection[pos])) > 0)
                   {
-                     if (check_fsa() == YES)
-                     {
-                        if (check_fra_fd() == YES)
-                        {
-                           init_fra_data();
-                        }
-                        get_new_positions();
-                        init_msg_buffer();
-                     }
                      (void)strcpy(connection[pos].hostname, fsa[fsa_pos].host_alias);
                      pid = fsa[fsa_pos].job_status[connection[pos].job_no].proc_id = connection[pos].pid;
                      fsa[fsa_pos].active_transfers += 1;
@@ -1773,7 +1784,7 @@ zombie_check(struct connection *p_con, int qb_pos, int options)
             case TRANSFER_SUCCESS      : /* Ordinary end of process. */
                faulty = NO;
                if (((p_con->temp_toggle == ON) &&
-                   (fsa[p_con->fsa_pos].original_toggle_pos != fsa[p_con->fsa_pos].host_toggle)) ||
+                    (fsa[p_con->fsa_pos].original_toggle_pos != fsa[p_con->fsa_pos].host_toggle)) ||
                    (fsa[p_con->fsa_pos].original_toggle_pos == fsa[p_con->fsa_pos].host_toggle))
                {
                   /*
@@ -1942,6 +1953,7 @@ zombie_check(struct connection *p_con, int qb_pos, int options)
             case GOT_KILLED : /* Process has been killed, most properly */
                               /* by this process.                       */
                faulty = NONE;
+               fsa[p_con->fsa_pos].job_status[p_con->job_no].connect_status = DISCONNECT;
                break;
 
             case NO_FILES_TO_SEND : /* There are no files to send. Most */
@@ -2085,24 +2097,27 @@ remove_connection(struct connection *p_con, int faulty)
          unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
 
          /* Check if we need to toggle hosts */
-         if ((fsa[p_con->fsa_pos].error_counter == fsa[p_con->fsa_pos].max_errors) &&
-             (fsa[p_con->fsa_pos].original_toggle_pos == NONE))
+         if (fsa[p_con->fsa_pos].auto_toggle == ON)
          {
-            fsa[p_con->fsa_pos].original_toggle_pos = fsa[p_con->fsa_pos].host_toggle;
-         }
-         if ((fsa[p_con->fsa_pos].auto_toggle == ON) &&
-             ((fsa[p_con->fsa_pos].error_counter % fsa[p_con->fsa_pos].max_errors) == 0))
-         {
-            (void)rec(sys_log_fd, INFO_SIGN,
-                      "Automatic host switch initiated for host %s\n",
-                      fsa[p_con->fsa_pos].host_dsp_name);
-            if (fsa[p_con->fsa_pos].host_toggle == HOST_ONE)
+            if ((fsa[p_con->fsa_pos].error_counter == fsa[p_con->fsa_pos].max_errors) &&
+                (fsa[p_con->fsa_pos].original_toggle_pos == NONE))
             {
-               fsa[p_con->fsa_pos].host_toggle = HOST_TWO;
+               fsa[p_con->fsa_pos].original_toggle_pos = fsa[p_con->fsa_pos].host_toggle;
             }
-            else
+            if ((fsa[p_con->fsa_pos].error_counter % fsa[p_con->fsa_pos].max_errors) == 0)
             {
-               fsa[p_con->fsa_pos].host_toggle = HOST_ONE;
+               (void)rec(sys_log_fd, INFO_SIGN,
+                         "Automatic host switch initiated for host %s\n",
+                         fsa[p_con->fsa_pos].host_dsp_name);
+               if (fsa[p_con->fsa_pos].host_toggle == HOST_ONE)
+               {
+                  fsa[p_con->fsa_pos].host_toggle = HOST_TWO;
+               }
+               else
+               {
+                  fsa[p_con->fsa_pos].host_toggle = HOST_ONE;
+               }
+               fsa[p_con->fsa_pos].host_dsp_name[(int)fsa[p_con->fsa_pos].toggle_pos] = fsa[p_con->fsa_pos].host_toggle_str[(int)fsa[p_con->fsa_pos].host_toggle];
             }
          }
       }
@@ -2162,8 +2177,8 @@ remove_connection(struct connection *p_con, int faulty)
       if (fsa[p_con->fsa_pos].active_transfers < 0)
       {
          (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "Active transfers < 0!? [%d] (%s %d)\n",
-                   fsa[p_con->fsa_pos].active_transfers,
+                   "Active transfers for FSA position %d < 0!? [%d] (%s %d)\n",
+                   p_con->fsa_pos, fsa[p_con->fsa_pos].active_transfers,
                    __FILE__, __LINE__);
          fsa[p_con->fsa_pos].active_transfers = 0;
       }

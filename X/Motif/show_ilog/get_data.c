@@ -192,7 +192,7 @@ static void   display_data(int, time_t, time_t),
               int  count = 0;                                               \
               char dir_id_str[15];                                          \
                                                                             \
-              while ((*ptr != '\n') && (*ptr != ' '))                       \
+              while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))       \
               {                                                             \
                  dir_id_str[count] = *ptr;                                  \
                  count++; ptr++;                                            \
@@ -763,7 +763,7 @@ no_criteria(register char *ptr,
             char dir_id_str[15];
 
             /* Get the job ID */
-            while ((*ptr != '\n') && (*ptr != ' '))
+            while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
             {
                dir_id_str[count] = *ptr;
                count++; ptr++;
@@ -1378,7 +1378,7 @@ recipient_only(register char *ptr,
 
          ptr++;
          count = 0;
-         while ((*ptr != '\n') && (*ptr != ' '))
+         while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
          {
             dir_id_str[count] = *ptr;
             count++; ptr++;
@@ -1574,7 +1574,7 @@ file_name_and_recipient(register char *ptr,
 
          ptr++;
          count = 0;
-         while ((*ptr != '\n') && (*ptr != ' '))
+         while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
          {
             dir_id_str[count] = *ptr;
             count++; ptr++;
@@ -1832,7 +1832,7 @@ file_size_and_recipient(register char *ptr,
 
          ptr++;
          count = 0;
-         while ((*ptr != '\n') && (*ptr != ' '))
+         while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
          {
             dir_id_str[count] = *ptr;
             count++; ptr++;
@@ -2044,7 +2044,7 @@ file_name_size_recipient(register char *ptr,
 
          ptr++;
          count = 0;
-         while ((*ptr != '\n') && (*ptr != ' '))
+         while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
          {
             dir_id_str[count] = *ptr;
             count++; ptr++;

@@ -72,6 +72,7 @@ DESCR__S_M1
  **   26.04.1999 H.Kiehl Added option "no login".
  **   29.01.2000 H.Kiehl Added ftp_size() command.
  **   08.07.2000 H.Kiehl Cleaned up log output to reduce code size.
+ **   12.11.2000 H.Kiehl Added ftp_exec() command.
  **
  */
 DESCR__E_M1
@@ -310,7 +311,7 @@ main(int argc, char *argv[])
        (status != 230))
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "FTP connection to %s at port %d failed (%d).",
+                "FTP connection to <%s> at port %d failed (%d).",
                 db.hostname, db.port, status);
       exit(CONNECT_ERROR);
    }
@@ -393,7 +394,7 @@ main(int argc, char *argv[])
    if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "Failed to set transfer mode to %c (%d).",
+                "Failed to set transfer mode to <%c> (%d).",
                 db.transfer_mode, status);
       (void)ftp_quit();
       exit(TYPE_ERROR);
@@ -413,7 +414,7 @@ main(int argc, char *argv[])
       if ((status = ftp_cd(db.target_dir)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to change directory to %s (%d).",
+                   "Failed to change directory to <%s> (%d).",
                    db.target_dir, status);
          (void)ftp_quit();
          exit(CHDIR_ERROR);
@@ -470,7 +471,7 @@ main(int argc, char *argv[])
                              DATA_WRITE)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to send lock file %s (%d).", LOCK_FILENAME, status);
+                   "Failed to send lock file <%s> (%d).", LOCK_FILENAME, status);
          (void)ftp_quit();
          exit(WRITE_LOCK_ERROR);
       }
@@ -1581,9 +1582,29 @@ main(int argc, char *argv[])
                end_time = times(&tmsdummy);
             }
 #endif
+            if (db.chmod_str[0] != '\0')
+            {
+               if ((status = ftp_chmod(initial_filename,
+                                       db.chmod_str)) != SUCCESS)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to chmod remote file %s to %s (%d).",
+                            initial_filename, db.chmod_str, status);
+                  if (timeout_flag == ON)
+                  {
+                     timeout_flag = OFF;
+                  }
+               }
+               else if ((fsa[db.fsa_pos].debug == YES) &&
+                        (trans_db_log_fd != -1))
+                    {
+                       trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                    "Changed mode of remote file %s to %s",
+                                    initial_filename, db.chmod_str);
+                    }
+            }
 
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
+            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
             {
                char line_buffer[MAX_RET_MSG_LENGTH];
 
@@ -1667,8 +1688,7 @@ main(int argc, char *argv[])
             }
             else
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                                "Renamed remote file %s to %s",
@@ -1800,6 +1820,37 @@ main(int argc, char *argv[])
             }
          }
 #endif /* _WITH_READY_FILES */
+
+         if (db.special_flag & EXEC_FTP)
+         {
+            char *p_name;
+
+            if (db.trans_rename_rule[0] != '\0')
+            {
+               p_name = remote_filename;
+            }
+            else
+            {
+               p_name = final_filename;
+            }
+            if ((status = ftp_exec(db.special_ptr, p_name)) != SUCCESS)
+            {
+               trans_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Failed to send SITE %s %s (%d).",
+                         db.special_ptr, p_name, status);
+               if (timeout_flag == ON)
+               {
+                  timeout_flag = OFF;
+               }
+            }
+            else if ((fsa[db.fsa_pos].debug == YES) &&
+                     (trans_db_log_fd != -1))
+                 {
+                    trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                 "Send SITE %s %s",
+                                 db.special_ptr, p_name);
+                 }
+         }
 
          /* Update FSA, one file transmitted. */
          if (host_deleted == NO)

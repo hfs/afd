@@ -57,6 +57,7 @@
 #define RR_DC_PERM           "reread_dir_config" /* Reread DIR_CONFIG    */
 #define RR_HC_PERM           "reread_host_config"/* Reread HOST_CONFIG   */
 #define AFD_CMD_PERM         "afdcmd"            /* Send commands to AFD.*/
+#define AFD_CFG_PERM         "afdcfg"            /* Configure AFD.       */
 #define VIEW_DIR_CONFIG_PERM "view_dir_config"   /* Info on DIR_CONFIG   */
 
 #define MON_CTRL_PERM        "mon_ctrl"          /* mon_ctrl dialog      */

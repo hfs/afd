@@ -199,7 +199,7 @@ static void   display_data(int, time_t, time_t),
               int  count = 0;                                          \
               char job_id_str[15];                                     \
                                                                        \
-              while ((*ptr != '\n') && (*ptr != ' '))                  \
+              while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))  \
               {                                                        \
                  job_id_str[count] = *ptr;                             \
                  count++; ptr++;                                       \
@@ -1088,7 +1088,7 @@ no_criteria(register char *ptr,
             char job_id_str[15];
 
             /* Get the job ID */
-            while ((*ptr != '\n') && (*ptr != ' '))
+            while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
             {
                job_id_str[count] = *ptr;
                count++; ptr++;

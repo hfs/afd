@@ -502,8 +502,8 @@ eval_dir_options(int  dir_pos,
               byte_buf = *end_ptr;
               *end_ptr = '\0';
               (void)rec(sys_log_fd, WARN_SIGN,
-                        "Unknown or duplicate option <%s> in DIR_CONFIG file. (%s %d)\n",
-                        ptr, __FILE__, __LINE__);
+                        "Unknown or duplicate option <%s> in DIR_CONFIG file for %d directory entry. (%s %d)\n",
+                        ptr, dir_pos, __FILE__, __LINE__);
               *end_ptr = byte_buf;
               ptr = end_ptr;
            }

@@ -66,7 +66,8 @@ char                       *p_work_dir;
 struct fileretrieve_status *fra;
 
 /* Local function prototypes. */
-static void usage(void);
+static void convert2bin(char *, unsigned char),
+            usage(void);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$ fra_view() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -267,15 +268,247 @@ main(int argc, char *argv[])
       }
       else
       {
+         int  byte_order = 1;
+         char binstr[72],
+              *ptr;
+
          (void)fprintf(stdout, "Time option          : YES\n");
          (void)fprintf(stdout, "Next check time      : %s",
                        ctime(&fra[i].next_check_time));
+#ifdef _WORKING_LONG_LONG
+         ptr = (char *)&fra[i].te.minute;
+         if (*(char *)&byte_order == 1)
+         {
+            ptr += 7;
+         }
+         convert2bin(binstr, *ptr);
+         binstr[8] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[9], *ptr);
+         binstr[17] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[18], *ptr);
+         binstr[26] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[27], *ptr);
+         binstr[35] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[36], *ptr);
+         binstr[44] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[45], *ptr);
+         binstr[53] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[54], *ptr);
+         binstr[62] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[63], *ptr);
+         binstr[71] = '\0';
+         (void)fprintf(stdout, "Minute (long long)   : %s\n", binstr);
+         (void)fprintf(stdout, "Continues (long long): %s\n", binstr);
+#else
+         ptr = &fra[i].te.minute[7];
+         convert2bin(binstr, *ptr);
+         binstr[8] = ' ';
+         ptr--;
+         convert2bin(&binstr[9], *ptr);
+         binstr[17] = ' ';
+         ptr--;
+         convert2bin(&binstr[18], *ptr);
+         binstr[26] = ' ';
+         ptr--;
+         convert2bin(&binstr[27], *ptr);
+         binstr[35] = ' ';
+         ptr--;
+         convert2bin(&binstr[36], *ptr);
+         binstr[44] = ' ';
+         ptr--;
+         convert2bin(&binstr[45], *ptr);
+         binstr[53] = ' ';
+         ptr--;
+         convert2bin(&binstr[54], *ptr);
+         binstr[62] = ' ';
+         ptr--;
+         convert2bin(&binstr[63], *ptr);
+         binstr[71] = ' ';
+         (void)fprintf(stdout, "Minute (uchar[8])    : %s\n", binstr);
+         (void)fprintf(stdout, "Continues (uchar[8]) : %s\n", binstr);
+#endif /* _WORKING_LONG_LONG */
+         ptr = (char *)&fra[i].te.hour;
+         if (*(char *)&byte_order == 1)
+         {
+            ptr += 3;
+         }
+         convert2bin(binstr, *ptr);
+         binstr[8] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[9], *ptr);
+         binstr[17] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[18], *ptr);
+         binstr[26] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[27], *ptr);
+         binstr[35] = '\0';
+         (void)fprintf(stdout, "Hour (uint)          : %s\n", binstr);
+         ptr = (char *)&fra[i].te.day_of_month;
+         if (*(char *)&byte_order == 1)
+         {
+            ptr += 3;
+         }
+         convert2bin(binstr, *ptr);
+         binstr[8] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[9], *ptr);
+         binstr[17] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[18], *ptr);
+         binstr[26] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[27], *ptr);
+         binstr[35] = '\0';
+         (void)fprintf(stdout, "Day of month (uint)  : %s\n", binstr);
+         ptr = (char *)&fra[i].te.month;
+         if (*(char *)&byte_order == 1)
+         {
+            ptr++;
+         }
+         convert2bin(binstr, *ptr);
+         binstr[8] = ' ';
+         if (*(char *)&byte_order == 1)
+         {
+            ptr--;
+         }
+         else
+         {
+            ptr++;
+         }
+         convert2bin(&binstr[9], *ptr);
+         binstr[17] = '\0';
+         (void)fprintf(stdout, "Month (short)        : %s\n", binstr);
+         convert2bin(binstr, fra[i].te.day_of_week);
+         binstr[8] = '\0';
+         (void)fprintf(stdout, "Day of week (uchar)  : %s\n", binstr);
       }
       (void)fprintf(stdout, "Last retrieval       : %s",
                     ctime(&fra[i].last_retrieval));
    }
 
    exit(SUCCESS);
+}
+
+
+/*+++++++++++++++++++++++++++ convert2bin() ++++++++++++++++++++++++++++*/ 
+static void
+convert2bin(char *buf, unsigned char val)
+{
+   register int i;
+
+   for (i = 0; i < 8; i++)
+   {
+      if (val & 1)
+      {
+         buf[7 - i] = '1';
+      }
+      else
+      {
+         buf[7 - i] = '0';
+      }
+      val = val >> 1;
+   }
+
+   return;
 }
 
 

@@ -93,8 +93,8 @@ move_file(char *from, char *to)
       else
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Error when renaming %s : %s (%s %d)\n",
-                   from, strerror(errno), __FILE__, __LINE__);
+                   "Error when renaming %s to %s : %s (%s %d)\n",
+                   from, to, strerror(errno), __FILE__, __LINE__);
          return(INCORRECT);
       }
    }

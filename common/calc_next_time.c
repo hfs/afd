@@ -203,7 +203,34 @@ calc_next_time(struct bd_time_entry *te)
       if (bd_time->tm_hour != i)
       {
          bd_time->tm_hour = i;
-         bd_time->tm_min = 0;
+#ifdef _WORKING_LONG_LONG
+         if (((ALL_MINUTES & te->minute) == ALL_MINUTES) ||
+             ((ALL_MINUTES & te->continuous_minute) == ALL_MINUTES))
+         {
+            bd_time->tm_min = 0;
+         }
+         else
+         {
+            for (i = 0; i < bd_time->tm_min; i++)
+            {
+               if ((te->minute & bit_array_long[i]) ||
+                   (te->continuous_minute & bit_array_long[i]))
+               {
+                  break;
+               }
+            }
+            bd_time->tm_min = i;
+         }
+#else
+         for (i = 0; i < bd_time->tm_min; i++)
+         {
+            if (bittest(te->minute, i) || bittest(te->continuous_minute, i))
+            {
+               break;
+            }
+         }
+         bd_time->tm_min = i;
+#endif
       }
    }
    bd_time->tm_sec = 0;
@@ -365,15 +392,15 @@ check_day(struct bd_time_entry *te, struct tm *bd_time)
                       __FILE__, __LINE__);
             return(INCORRECT);
          }
-         if (bd_time->tm_wday != i)
+         if ((bd_time->tm_wday - 1) != i)
          {
             if (gotcha == NEITHER)
             {
-               bd_time->tm_mday += (7 - bd_time->tm_wday + i);
+               bd_time->tm_mday += (7 - bd_time->tm_wday + i + 1);
             }
             else
             {
-               bd_time->tm_mday += (i - bd_time->tm_wday);
+               bd_time->tm_mday += (i + 1 - bd_time->tm_wday);
             }
             bd_time->tm_hour = 0;
             bd_time->tm_min = 0;

@@ -343,8 +343,11 @@ create_msa(void)
       {
          (void)strcpy(msa[i].afd_alias, ml[i].afd_alias);
          (void)strcpy(msa[i].hostname, ml[i].hostname);
-         (void)strcpy(msa[i].convert_username[0], ml[i].convert_username[0]);
-         (void)strcpy(msa[i].convert_username[1], ml[i].convert_username[1]);
+         for (k = 0; k < MAX_CONVERT_USERNAME; k++)
+         {
+            (void)strcpy(msa[i].convert_username[k][0], ml[i].convert_username[k][0]);
+            (void)strcpy(msa[i].convert_username[k][1], ml[i].convert_username[k][1]);
+         }
          (void)memset(msa[i].log_history, DEFAULT_BG,
                       (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
          msa[i].r_work_dir[0]      = '\0';
@@ -398,8 +401,11 @@ create_msa(void)
       {
          (void)strcpy(msa[i].afd_alias, ml[i].afd_alias);
          (void)strcpy(msa[i].hostname, ml[i].hostname);
-         (void)strcpy(msa[i].convert_username[0], ml[i].convert_username[0]);
-         (void)strcpy(msa[i].convert_username[1], ml[i].convert_username[1]);
+         for (k = 0; k < MAX_CONVERT_USERNAME; k++)
+         {
+            (void)strcpy(msa[i].convert_username[k][0], ml[i].convert_username[k][0]);
+            (void)strcpy(msa[i].convert_username[k][1], ml[i].convert_username[k][1]);
+         }
          msa[i].r_work_dir[0]  = '\0';
          msa[i].afd_version[0] = '\0';
          msa[i].poll_interval  = ml[i].poll_interval;
@@ -468,8 +474,11 @@ create_msa(void)
          {
             (void)strcpy(msa[i].afd_alias, ml[i].afd_alias);
             (void)strcpy(msa[i].hostname, ml[i].hostname);
-            (void)strcpy(msa[i].convert_username[0], ml[i].convert_username[0]);
-            (void)strcpy(msa[i].convert_username[1], ml[i].convert_username[1]);
+            for (k = 0; k < MAX_CONVERT_USERNAME; k++)
+            {
+               (void)strcpy(msa[i].convert_username[k][0], ml[i].convert_username[k][0]);
+               (void)strcpy(msa[i].convert_username[k][1], ml[i].convert_username[k][1]);
+            }
             (void)memset(msa[i].log_history, DEFAULT_BG,
                          (NO_OF_LOG_HISTORY * MAX_LOG_HISTORY));
             msa[i].r_work_dir[0]      = '\0';

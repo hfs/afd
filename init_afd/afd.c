@@ -456,13 +456,13 @@ main(int argc, char *argv[])
            if (check_database() == -1)
            {
               (void)fprintf(stderr,
-                            "Cannot read DIR_CONFIG file : %s\nUnable to start AFD.\n",
+                            "ERROR   : Cannot read DIR_CONFIG file : %s\n         Unable to start AFD.\n",
                             strerror(errno));
               exit(INCORRECT);
            }
 
            (void)strcpy(exec_cmd, AFD);
-           (void)rec(sys_log_fd, WARN_SIGN,
+           (void)rec(sys_log_fd, CONFIG_SIGN,
                      "AFD startup initiated by %s\n", user);
            switch(fork())
            {

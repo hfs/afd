@@ -125,7 +125,7 @@ struct sol_perm
         {                                     \
            register int i = 0;                \
                                               \
-           while (*ptr != ' ')                \
+           while ((*ptr != ' ') && (i < MAX_INT_LENGTH)) \
            {                                  \
               time_buf[i++] = *(ptr++);       \
            }                                  \

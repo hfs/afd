@@ -130,6 +130,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.lock = DEFAULT_LOCK;
    db.error_file = NO;
    db.smtp_server[0] = '\0';
+   db.chmod_str[0] = '\0';
    db.user_id = -1;
    db.group_id = -1;
    (void)strcpy(db.lock_notation, DOT_NOTATION);
@@ -159,6 +160,10 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    if ((status = eval_input_sf(argc, argv, p_db)) < 0)
    {
       exit(-status);
+   }
+   if (*(unsigned char *)((char *)fsa - 3) & DISABLE_ARCHIVE)
+   {
+      db.archive_time = 0;
    }
 
    /* Open/create log fifos */

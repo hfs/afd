@@ -10,6 +10,6 @@ SCRIPTS = rafdd_cmd
 
 install :
 	cp -p $(SCRIPTS) $(INSTDIR)
-	cd $(INSTDIR) && chmod $(BINMODE) $(SCRIPTS)
+	cd $(INSTDIR) && chmod 755 $(SCRIPTS)
 
 # Other Dependencies

@@ -22,7 +22,7 @@
 DESCR__S_M3
 /*
  ** NAME
- **   in_time - function that chacks if the given time falls into
+ **   in_time - function that checks if the given time falls into
  *              the given crontab like entry
  **
  ** SYNOPSIS

@@ -601,3 +601,45 @@
 24.09.2000 - Using rmdir() instead of unlink() in rec_rmdir() as suggested
              in man page of solaris.
 ------------------------> Released: 24.09.2000 <---------------------------
+
+
+---------------------------> Version 1.2.1 <-------------------------------
+                            ---------------                                
+29.09.2000 - In mon_ctrl and afd_ctrl, doing a Alt+Mouse button 1 caused
+             it to SEGV. Fixed.
+07.10.2000 - When transfers are active and they are being stopped, these
+             process will not be displayed in red.
+15.10.2000 - The message "switching host for" although no host switch took
+             place, is now removed.
+           - The hostname displayed by AFD, would not change when no
+             afd_ctrl dialog is open and automatic host switcing is active
+             for this host! Fixed.
+16.10.2000 - show_ilog crashes with SIGBUS when there is garbage in the
+             logfile. Fixed.
+20.10.2000 - When remote port hangs up, still trying to read from the
+             port when doing the ftp_quit(). This removes the second
+             remote hangup message in the logfile.
+           - Specifying more then one file group for retrieving files from
+             a remote host did not work. Fixed.
+31.10.2000 - Rereading DIR_CONFIG or HOST_CONFIG is now shown as config
+             in the system log.
+           - It is now possible to disable retrieving and archiving when
+             AFD is up and running.
+03.11.2000 - Chmod now also possible for FTP.
+10.11.2000 - sf_loc is now able to handle user and group names for the
+             chown option.
+12.11.2000 - sf_ftp now able to execute commands on remote host after
+             a file is send via the SITE command.
+13.11.2000 - Solved some bugs in function calc_next_time().
+           - Directory options where evaluated incorectly when the
+             line before the next identifier was filled with blank
+             lines. Thanks to Dirk Melzer for reporting this one.
+           - Bug in create_msa() prevented a proper reread of the
+             AFD_MON_CONFIG file. Fixed.
+15.11.2000 - When changing the alias order with edit_hc it sometimes
+             happens that FD picks the wrong host entry in the FSA.
+             This is hopefully fixed now.
+16.11.2000 - Hopefully retrieving of files does now work when we
+             already have retrieved part of the file in a previous
+             FTP session.
+------------------------> Released: 16.11.2000 <---------------------------

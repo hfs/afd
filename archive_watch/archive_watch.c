@@ -77,11 +77,18 @@ main(int argc, char *argv[])
    int            n,
                   status,
                   aw_cmd_fd;
-   char           buffer[DEFAULT_BUFFER_SIZE],
-                  work_dir[MAX_PATH_LENGTH],
+#ifdef _NEW_ARCHIVE_WATCH
+   size_t         buffer_size;
+#endif
+   char           archive_dir[MAX_PATH_LENGTH],
                   aw_cmd_fifo[MAX_PATH_LENGTH],
+#ifdef _NEW_ARCHIVE_WATCH
+                  *buffer,
+#else
+                  buffer[DEFAULT_BUFFER_SIZE],
+#endif
                   sys_log_fifo[MAX_PATH_LENGTH],
-                  archive_dir[MAX_PATH_LENGTH];
+                  work_dir[MAX_PATH_LENGTH];
    fd_set         rset;
    struct timeval timeout;
    struct stat    stat_buf;
@@ -160,8 +167,14 @@ main(int argc, char *argv[])
    }
 
 #ifdef _NEW_ARCHIVE_WATCH
-   sorter_pid = start_sorter_job();
-   remover_pid = start_remove_job();
+   buffer_size = 10 * (1 + sizeof(struct archive_entry));
+   if ((buffer = malloc(buffer_size)) == NULL)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "malloc() error (%d Bytes) : %s (%s %d)\n",
+                buffer_size, strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
 #endif /* _NEW_ARCHIVE_WATCH */
 
    /* Do some cleanups when we exit */
@@ -224,34 +237,68 @@ main(int argc, char *argv[])
       else if (FD_ISSET(aw_cmd_fd, &rset))
            {
               /* Read the message */
-              if ((n = read(aw_cmd_fd, buffer, 1)) > 0)
-              {
-#ifdef _FIFO_DEBUG
-                 show_fifo_data('R', "aw_cmd", buffer, n, __FILE__, __LINE__);
-#endif
-                 if (buffer[0] == STOP)
-                 {
-                    (void)rec(sys_log_fd, INFO_SIGN, "Stopped %s\n",
-                              ARCHIVE_WATCH);
-                    break;
-                 }
-                 else if (buffer[0] == RETRY)
-                      {
-                         (void)rec(sys_log_fd, INFO_SIGN, "Rescaning archive directories.\n",
-                                   ARCHIVE_WATCH);
-                         inspect_archive(archive_dir);
-#ifdef _NO_ZERO_DELETION_REPORT
-                         if (removed_archives > 0)
-                         {
-                            (void)rec(sys_log_fd, INFO_SIGN,
-                                      "Removed %d archives.\n",
-                                      removed_archives);
-                         }
+#ifdef _NEW_ARCHIVE_WATCH
+              if ((n = read(aw_cmd_fd, buffer, buffer_size)) > 0)
 #else
-                         (void)rec(sys_log_fd, INFO_SIGN, "Removed %d archives.\n",
-                                   removed_archives);
+              if ((n = read(aw_cmd_fd, buffer, DEFAULT_BUFFER_SIZE)) > 0)
+#endif
+              {
+                 while (n > 0)
+                 {
+#ifdef _FIFO_DEBUG
+                    show_fifo_data('R', "aw_cmd", buffer, n, __FILE__, __LINE__);
+#endif
+                    if (buffer[0] == STOP)
+                    {
+                       (void)rec(sys_log_fd, INFO_SIGN, "Stopped %s\n",
+                                 ARCHIVE_WATCH);
+#ifdef _NEW_ARCHIVE_WATCH
+                       free(buffer);
+#endif
+                       exit(SUCCESS);
+                    }
+                    else if (buffer[0] == RETRY)
+                         {
+                            (void)rec(sys_log_fd, INFO_SIGN, "Rescaning archive directories.\n",
+                                      ARCHIVE_WATCH);
+                            inspect_archive(archive_dir);
+#ifdef _NO_ZERO_DELETION_REPORT
+                            if (removed_archives > 0)
+                            {
+                               (void)rec(sys_log_fd, INFO_SIGN,
+                                         "Removed %d archives.\n",
+                                         removed_archives);
+                            }
+#else
+                            (void)rec(sys_log_fd, INFO_SIGN, "Removed %d archives.\n",
+                                      removed_archives);
 #endif
                       }
+#ifdef _NEW_ARCHIVE_WATCH
+                    else if (buffer[0] == NEW_ARCHIVE_ENTRY)
+                         {
+                            if (n >= (1 + sizeof(struct archive_entry))
+                            {
+                               n -= sizeof(struct archive_entry);
+                            }
+                            else
+                            {
+                               (void)rec(sys_log_fd, DEBUG_SIGN,
+                                         "Hmmm, have only %d bytes in buffer, but expect %d. (%s %d)\n",
+                                         n, 1 + sizeof(struct archive_entry),
+                                         __FILE__, __LINE__);
+                               n = 1;
+                            }
+                         }
+#endif /* _NEW_ARCHIVE_WATCH */
+                         else
+                         {
+                            (void)rec(sys_log_fd, DEBUG_SIGN,
+                                      "Hmmm..., reading garbage [%d] on fifo %s. (%s %d)\n",
+                                      buffer[0], AW_CMD_FIFO, __FILE__, __LINE__);
+                         }
+                    n--;
+                 } /* while (n > 0) */
               }
            }
       else if (status < 0)
@@ -270,6 +317,9 @@ main(int argc, char *argv[])
            }
    } /* for (;;) */
 
+#ifdef _NEW_ARCHIVE_WATCH
+   free(buffer);
+#endif
    exit(SUCCESS);
 }
 

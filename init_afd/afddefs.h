@@ -160,6 +160,10 @@
 #endif
 #endif
 
+/* Bit map flag to to enable/disable certain features in the AFD. */
+#define DISABLE_RETRIEVE           1
+#define DISABLE_ARCHIVE            2
+
 /* Bit map flag for AMG and FD communication. */
 #define INST_JOB_ACTIVE            1
 #define TIME_JOB_ACTIVE            2
@@ -644,7 +648,10 @@
  *     5     | unsigned char | Counter that is increased each time
  *           |               | there was a change in the HOST_CONFIG.
  *    -------+---------------+---------------------------------------
- *     6 - 8 | unsigned char | Not used.
+ *     6     | unsigned char | Flag to enable or disable certain
+ *           |               | features in the AFD.
+ *    -------+---------------+---------------------------------------
+ *     7 - 8 | unsigned char | Not used.
  *-----------------------------------------------------------------------*/
 #define AFD_WORD_OFFSET 8
 

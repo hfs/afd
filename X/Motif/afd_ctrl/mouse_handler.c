@@ -252,7 +252,7 @@ input(Widget      w,
             }
             if (gotcha == NO)
             {
-               char *args[5],
+               char *args[6],
                     progname[MAX_PATH_LENGTH];
 
                args[0] = progname;
@@ -830,7 +830,7 @@ popup_cb(Widget      w,
               else
               {
                  (void)xrec(appshell, INFO_DIALOG,
-                            "No job marked. Mark with CTRL + Mouse button 3.",
+                            "No job marked. Mark with CTRL + Mouse button 2 or 3.",
                             sel_typ);
               }
          return;
@@ -1629,7 +1629,7 @@ control_cb(Widget      w,
 
             if (item_no == REREAD_DIR_CONFIG_SEL)
             {
-               (void)rec(sys_log_fd, INFO_SIGN, 
+               (void)rec(sys_log_fd, CONFIG_SIGN, 
                          "Rereading DIR_CONFIG initiated by %s\n", user);
                if (send_cmd(REREAD_DIR_CONFIG, db_update_fd) < 0)
                {
@@ -1640,7 +1640,7 @@ control_cb(Widget      w,
             }
             else
             {
-               (void)rec(sys_log_fd, INFO_SIGN, 
+               (void)rec(sys_log_fd, CONFIG_SIGN, 
                          "Rereading HOST_CONFIG initiated by %s\n", user);
                if (send_cmd(REREAD_HOST_CONFIG, db_update_fd) < 0)
                {

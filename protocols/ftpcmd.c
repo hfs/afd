@@ -30,9 +30,11 @@ DESCR__S_M3
  **   int  ftp_pass(char *password)
  **   int  ftp_type(char type)
  **   int  ftp_cd(char *directory)
+ **   int  ftp_chmod(char *filename, char *mode)
  **   int  ftp_move(char *from, char *to)
  **   int  ftp_dele(char *filename)
  **   int  ftp_list(int type, ...)
+ **   int  ftp_exec(char *cmd, char *filename)
  **   int  ftp_data(char *filename, off_t seek, int mode, int type)
  **   int  ftp_close_data(int)
  **   int  ftp_write(char *block, char *buffer, int size)
@@ -141,6 +143,8 @@ DESCR__S_M3
  **                      command.
  **   20.08.2000 H.Kiehl Implemented ftp_read() function.
  **                      Implemented ftp_date() function.
+ **   03.11.2000 H.Kiehl Added ftp_chmod() function.
+ **   12.11.2000 H.Kiehl Added ftp_exec() function.
  */
 DESCR__E_M3
 
@@ -158,9 +162,9 @@ DESCR__E_M3
                               /* setsockopt()                            */
 #include <netinet/in.h>       /* struct in_addr, sockaddr_in, htons()    */
 #if defined (_WITH_TOS) && defined (IP_TOS)
-#if defined (IRIX) || defined (_SUN)
+#if defined (IRIX) || defined (_SUN) || defined (_HPUX)
 #include <netinet/in_systm.h>
-#endif /* IRIX || _SUN */
+#endif /* IRIX || _SUN || _HPUX */
 #include <netinet/ip.h>       /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT        */
 #endif
 #include <netdb.h>            /* struct hostent, gethostbyname()         */
@@ -451,6 +455,28 @@ ftp_cd(char *directory)
 }
 
 
+/*############################# ftp_chmod() #############################*/
+int
+ftp_chmod(char *filename, char *mode)
+{
+   int reply;
+
+   (void)fprintf(p_control, "SITE CHMOD %s %s\r\n", mode, filename);
+
+   if ((reply = get_reply(p_control)) < 0)
+   {
+      return(INCORRECT);
+   }
+
+   if (check_reply(3, reply, 250, 200) < 0)
+   {
+      return(reply);
+   }
+
+   return(SUCCESS);
+}
+
+
 /*############################## ftp_move() #############################*/
 int
 ftp_move(char *from, char *to)
@@ -578,6 +604,35 @@ ftp_date(char *filename, char *date)
    else
    {
       return(INCORRECT);
+   }
+
+   return(SUCCESS);
+}
+
+
+/*############################# ftp_exec() ##############################*/
+int
+ftp_exec(char *cmd, char *filename)
+{
+   int reply;
+
+   if (filename == NULL)
+   {
+      (void)fprintf(p_control, "SITE %s\r\n", cmd);
+   }
+   else
+   {
+      (void)fprintf(p_control, "SITE %s %s\r\n", cmd, filename);
+   }
+
+   if ((reply = get_reply(p_control)) < 0)
+   {
+      return(INCORRECT);
+   }
+
+   if (check_reply(3, reply, 250, 200) < 0)
+   {
+      return(reply);
    }
 
    return(SUCCESS);
@@ -834,15 +889,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
    }
    else
    {
-      cmd[0] = 'R'; cmd[1] = 'E';
-      if (seek == 0)
-      {
-         cmd[2] = 'T'; cmd[3] = 'R';
-      }
-      else
-      {
-         cmd[2] = 'S'; cmd[3] = 'T';
-      }
+      cmd[0] = 'R'; cmd[1] = 'E'; cmd[2] = 'T'; cmd[3] = 'R';
    }
    cmd[4] = '\0';
 
@@ -939,11 +986,44 @@ ftp_data(char *filename, off_t seek, int mode, int type)
             return(INCORRECT);
          }
 
+         /*
+          * When we retrieve a file and part of it has already been
+          * retrieved, tell the remote ftp server where to put the server
+          * marker. No need to resend the data we already have.
+          */
+         if ((seek > 0) && (type == DATA_READ))
+         {
+            (void)fprintf(p_control, "REST %lu\r\n", seek);
+            if ((reply = get_reply(p_control)) < 0)
+            {
+               if (timeout_flag == OFF)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to get proper reply for REST command (%d).",
+                            reply);
+               }
+               else
+               {
+                  (void)close(new_sock_fd);
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (check_reply(2, reply, 350) < 0)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to get proper reply for REST command (%d).",
+                            reply);
+               }
+            }
+         }
+
          (void)fprintf(p_control, "%s %s\r\n", cmd, filename);
 
          if ((reply = get_reply(p_control)) < 0)
          {
-            if (timeout_flag != ON)
+            if (timeout_flag == OFF)
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__,
                          "Failed to get proper reply (%d).", reply);
@@ -1027,7 +1107,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
 
          if ((reply = get_reply(p_control)) < 0)
          {
-            if (timeout_flag != ON)
+            if (timeout_flag == OFF)
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__,
                          "Failed to get proper reply (%d)", reply);
@@ -1042,11 +1122,44 @@ ftp_data(char *filename, off_t seek, int mode, int type)
             return(reply);
          }
 
+         /*
+          * When we retrieve a file and part of it has already been
+          * retrieved, tell the remote ftp server where to put the server
+          * marker. No need to resend the data we already have.
+          */
+         if ((seek > 0) && (type == DATA_READ))
+         {
+            (void)fprintf(p_control, "REST %lu\r\n", seek);
+            if ((reply = get_reply(p_control)) < 0)
+            {
+               if (timeout_flag == OFF)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to get proper reply for REST command (%d).",
+                            reply);
+               }
+               else
+               {
+                  (void)close(new_sock_fd);
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (check_reply(2, reply, 350) < 0)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to get proper reply for REST command (%d).",
+                            reply);
+               }
+            }
+         }
+
          (void)fprintf(p_control, "%s %s\r\n", cmd, filename);
 
          if ((reply = get_reply(p_control)) < 0)
          {
-            if (timeout_flag != ON)
+            if (timeout_flag == OFF)
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__,
                          "Failed to get proper reply (%d).", reply);
@@ -1268,7 +1381,7 @@ ftp_close_data(int type)
    }
    p_data = NULL;
 
-   if (timeout_flag != ON)
+   if (timeout_flag == OFF)
    {
       long tmp_ftp_timeout = transfer_timeout;
 
@@ -1576,7 +1689,7 @@ ftp_quit(void)
     * the QUIT command. Else we are again waiting 'transfer_timeout'
     * seconds for the reply!
     */
-   if (timeout_flag != ON)
+   if (timeout_flag == OFF)
    {
       if ((reply = get_reply(p_control)) < 0)
       {
@@ -1891,6 +2004,7 @@ read_msg(void)
                     {
                        trans_log(ERROR_SIGN,  __FILE__, __LINE__,
                                  "Remote hang up.");
+                       timeout_flag = NEITHER;
                     }
                     else
                     {

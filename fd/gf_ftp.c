@@ -646,6 +646,7 @@ main(int argc, char *argv[])
                      {
                         (void)rec(sys_log_fd, DEBUG_SIGN,
                                   "Total file counter for host %s less then zero. Correcting to %d. (%s %d)\n",
+                                  fsa[db.fsa_pos].host_dsp_name,
                                   files_to_retrieve - (files_retrieved + 1),
                                   __FILE__, __LINE__);
                         fsa[db.fsa_pos].total_file_counter = files_to_retrieve - (files_retrieved + 1);
@@ -773,6 +774,7 @@ main(int argc, char *argv[])
                 */
                if ((rl[i].size != -1) && (bytes_done != rl[i].size))
                {
+                  msg_str[0] = '\0';
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
                             "File size of file %s changed from %u to %u when it was retrieved.",
                             rl[i].file_name, rl[i].size, bytes_done);
@@ -783,6 +785,7 @@ main(int argc, char *argv[])
                (void)strcpy(p_local_file, rl[i].file_name);
                if (rename(local_tmp_file, local_file) == -1)
                {
+                  msg_str[0] = '\0';
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
                             "Failed to rename() %s to %s : %s",
                             local_tmp_file, local_file, strerror(errno));

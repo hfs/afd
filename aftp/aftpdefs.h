@@ -175,7 +175,7 @@ struct data
           char         hostname[MAX_FILENAME_LENGTH];
           char         user[MAX_FILENAME_LENGTH];
           char         password[MAX_FILENAME_LENGTH];
-          char         target_dir[MAX_PATH_LENGTH];
+          char         remote_dir[MAX_PATH_LENGTH];
           char         smtp_server[MAX_USER_NAME_LENGTH];
                                          /* Target directory on the remote */
                                          /* side.                          */
@@ -188,6 +188,8 @@ struct data
           char         ftp_mode;         /* How the ftp data mode is       */
                                          /* initiated, either active or    */
                                          /* passive. Default active.       */
+          char         retrieve_mode;    /* Retrieve the files instead of  */
+                                         /* sending them to the given host.*/
           char         lock;             /* The type of lock on the remote */
                                          /* site. Their are so far two     */
                                          /* possibilities:                 */

@@ -187,7 +187,7 @@ eval_config_file(char *file_name, struct data *p_db)
          }
          p_db->hostname[i] = '\0';
 
-         /* Save TCP port number */
+         /* Save TCP port number. */
          if (*ptr == ':')
          {
             char *ptr_tmp;
@@ -210,20 +210,20 @@ eval_config_file(char *file_name, struct data *p_db)
                  }
          }
 
-         /* Save the destination directory */
+         /* Save the remote directory. */
          if (*ptr == '/')
          {
             ptr++;
             i = 0;
             while ((*ptr != '\0') && (*ptr != ';'))
             {
-               p_db->target_dir[i] = *ptr;
+               p_db->remote_dir[i] = *ptr;
                i++; ptr++;
             }
-            p_db->target_dir[i] = '\0';
+            p_db->remote_dir[i] = '\0';
          }
 
-         /* Save the type code (FTP) or the server name (SMTP) */
+         /* Save the type code (FTP) or the server name (SMTP). */
          if (*ptr == ';')
          {
             int  count = 0;

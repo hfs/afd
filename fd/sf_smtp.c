@@ -264,7 +264,7 @@ main(int argc, char *argv[])
    if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "SMTP connection to %s at port %d failed (%d).",
+                "SMTP connection to <%s> at port %d failed (%d).",
                 db.smtp_server, db.port, status);
       exit(CONNECT_ERROR);
    }
@@ -287,7 +287,7 @@ main(int argc, char *argv[])
    if ((status = smtp_helo(host_name)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "Failed to send HELO to %s (%d).", db.smtp_server, status);
+                "Failed to send HELO to <%s> (%d).", db.smtp_server, status);
       (void)smtp_quit();
       exit(CONNECT_ERROR);
    }
@@ -513,7 +513,7 @@ main(int argc, char *argv[])
       if ((status = smtp_user(local_user)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to send local user %s (%d).", local_user, status);
+                   "Failed to send local user <%s> (%d).", local_user, status);
          (void)smtp_quit();
          exit(USER_ERROR);
       }
@@ -557,7 +557,7 @@ main(int argc, char *argv[])
       if ((status = smtp_rcpt(remote_user)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to send remote user %s (%d).", remote_user, status);
+                   "Failed to send remote user <%s> (%d).", remote_user, status);
          (void)smtp_quit();
          exit(REMOTE_USER_ERROR);
       }

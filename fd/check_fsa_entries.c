@@ -102,8 +102,7 @@ check_fsa_entries(void)
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Active transfers for host %s is %d. It should be 0. Correcting. (%s %d)\n",
-                      fsa[i].host_dsp_name,
-                      fsa[i].active_transfers,
+                      fsa[i].host_dsp_name, fsa[i].active_transfers,
                       __FILE__, __LINE__);
             fsa[i].active_transfers = 0;
          }
@@ -111,8 +110,7 @@ check_fsa_entries(void)
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "File counter for host %s is %d. It should be 0. Correcting. (%s %d)\n",
-                      fsa[i].host_dsp_name,
-                      fsa[i].total_file_counter,
+                      fsa[i].host_dsp_name, fsa[i].total_file_counter,
                       __FILE__, __LINE__);
             fsa[i].total_file_counter = 0;
          }
@@ -120,8 +118,7 @@ check_fsa_entries(void)
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "File size for host %s is %lu. It should be 0. Correcting. (%s %d)\n",
-                      fsa[i].host_dsp_name,
-                      fsa[i].total_file_size,
+                      fsa[i].host_dsp_name, fsa[i].total_file_size,
                       __FILE__, __LINE__);
             fsa[i].total_file_size = 0;
          }
@@ -129,8 +126,7 @@ check_fsa_entries(void)
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Error counter for host %s is %d. It should be 0. Correcting. (%s %d)\n",
-                      fsa[i].host_dsp_name,
-                      fsa[i].error_counter,
+                      fsa[i].host_dsp_name, fsa[i].error_counter,
                       __FILE__, __LINE__);
             fsa[i].error_counter = 0;
          }

@@ -333,7 +333,13 @@ o       New time option that does NOT collect
 
 
 ------------------------>>>>> Version 2.0.x <<<<<--------------------------
+o       Option chmod for FTP.                     *    [DONE]
+o       Option to execute command on the
+        remote host.                              *    [TESTING]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
+o       Reduce disk load of process
+        archive_watch.                           **    [UNDER CONSTRUCTION]
+o       Convert all dialogs to gtk+.             **    [TODO]
 o       Support for IP6.                        ***    [TODO]
 o       Dialog deleting all Jobs + files older
         than X days/hours/minutes/second.       ***    [TODO]

@@ -21,34 +21,26 @@
 #define __awdefs_h
 
 #ifdef _NEW_ARCHIVE_WATCH
+#define NEW_ARCHIVE_ENTRY               124
+
 /*
  * The archive directory is build up as follows:
- *   bsh-jade/bm13dat/0/0_916089609_3939_164
+ *   bsh-jade/bm13dat/0/0_916089609_164
  *      |        |    |            |
- *      |        |    |            +---------> priority_delete-time_unique-number_job-id
+ *      |        |    |            +---------> priority_delete-time_job-id
  *      |        |    +----------------------> directory counter
  *      |        +---------------------------> user name
  *      +------------------------------------> hostname
  *
- * From this we create two different structures, archive_directories
- * and archive_entry. The reason for spliting them up is to save
- * memory, since the first three directory entries are often the
- * same (hostname, user name and directory counter). Structure
+ * we simply use the job_id to get the data user name, host name and
+ * priority. This way we only need 12 Bytes to store one archive
+ * directory!!!
  */
-
-struct archive_directories
-       {
-          char archive_dir[MAX_HOSTNAME_LENGTH +
-                           MAX_USER_NAME_LENGTH + MAX_INT_LENGTH];
-          int  no_of_entries;
-       };
 struct archive_entry
        {
-          time_t         remove_time;
-          unsigned int   ade;   /* archive directory entry (archive_dir) */
-          unsigned int   job_id;
-          unsigned short unique_number;
-          unsigned char  priority;
+          time_t       remove_time;
+          unsigned int job_id;
+          unsigned int dir_counter;
        };
 #endif /* _NEW_ARCHIVE_WATCH */
 

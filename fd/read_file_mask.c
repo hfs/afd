@@ -69,7 +69,8 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
 {
    int         fd,
                i;
-   char        file_mask_file[MAX_PATH_LENGTH];
+   char        file_mask_file[MAX_PATH_LENGTH],
+               *ptr;
    struct stat stat_buf;
 
    (void)sprintf(file_mask_file, "%s%s%s%s/%s", p_work_dir, AFD_FILE_DIR,
@@ -93,16 +94,18 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
                 strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
+   ptr = (char *)*fml;
 
    for (i = 0; i < *nfg; i++)
    {
-      if (read(fd, fml[i], sizeof(struct file_mask)) != sizeof(struct file_mask))
+      if (read(fd, ptr, sizeof(struct file_mask)) != sizeof(struct file_mask))
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Failed to read() from %s : %s (%s %d)\n",
                    file_mask_file, strerror(errno), __FILE__, __LINE__);
          return(INCORRECT);
       }
+      ptr += sizeof(struct file_mask);
    }
    if (close(fd) == -1)
    {
