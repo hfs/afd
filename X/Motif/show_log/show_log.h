@@ -48,7 +48,7 @@
 #define MONITOR_LOG_TYPE        5
 #define MON_SYSTEM_LOG_TYPE     6
 
-#define MAX_LINE_COUNTER_DIGITS 6
+#define MAX_LINE_COUNTER_DIGITS 7
 #define LOG_START_TIMEOUT       100
 #define LOG_TIMEOUT             2000
 #define FALLING_SAND_SPEED      50

@@ -1,6 +1,6 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,6 +55,8 @@ DESCR__S_M1
  **
  ** HISTORY
  **   09.09.1998 H.Kiehl Created
+ **   27.02.2003 H.Kiehl When queue has been stopped automatically and we
+ **                      wish to start it again error counter is set to zero.
  **
  */
 DESCR__E_M1
@@ -112,7 +114,7 @@ static void                eval_input(int, char **),
 int
 main(int argc, char *argv[])
 {
-   int              ehc = YES,
+   int              ehc = YES, /* Error flag for eval_host_config() */
                     errors = 0,
                     hosts_found,
                     i,
@@ -465,6 +467,10 @@ main(int argc, char *argv[])
                   (void)rec(sys_log_fd, DEBUG_SIGN,
                             "%-*s: STARTED queue that stopped automatically (%s) [afdcmd].\n",
                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                  if (fsa[position].error_counter > 0)
+                  {
+                     fsa[position].error_counter = 0;
+                  }
                   fsa[position].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                }
                else

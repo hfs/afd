@@ -319,7 +319,7 @@ bin_file_chopper(char  *bin_file,
          {
             char *p_end;
 
-            wmoheader_from_grib(ptr - 4, p_new_file);
+            wmoheader_from_grib(ptr - 4, p_new_file, NULL);
             p_end = p_new_file + strlen(p_new_file);
             counter = 0;
             while (eaccess(new_file, F_OK) == 0)

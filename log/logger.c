@@ -188,7 +188,7 @@ check_data(long rescan_time)
             total_length += fprint_dup_msg(p_log_file,
                                            dup_msg,
                                            &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                           NULL,
+                                           NULL, 0,
                                            time(NULL));
          }
          (void)fflush(p_log_file);
@@ -307,7 +307,7 @@ check_data(long rescan_time)
                                   total_length += fprint_dup_msg(p_log_file,
                                                                  dup_msg,
                                                                  &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                                 NULL,
+                                                                 NULL, 0,
                                                                  now);
                                }
                                (void)fflush(p_log_file);
@@ -327,7 +327,7 @@ check_data(long rescan_time)
                              total_length += fprint_dup_msg(p_log_file,
                                                             dup_msg,
                                                             &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                            NULL,
+                                                            NULL, 0,
                                                             now);
                           }
                           dup_msg = 0;
@@ -352,7 +352,7 @@ check_data(long rescan_time)
                           total_length += fprint_dup_msg(p_log_file,
                                                          dup_msg,
                                                          &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                         NULL,
+                                                         NULL, 0,
                                                          now);
                        }
                        dup_msg = 0;

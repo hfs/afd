@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,6 +58,7 @@ DESCR__S_M3
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
  **   30.10.2002 H.Kiehl Take afd_file_dir as the directory to determine
  **                      if we can just move a file.
+ **   28.02.2003 H.Kiehl Added option grib2wmo.
  **
  */
 DESCR__E_M3
@@ -626,6 +627,10 @@ create_db(void)
                     }
                  }
             else if (strncmp(p_loptions, GTS2TIFF_ID, GTS2TIFF_ID_LENGTH) == 0)
+                 {
+                    db[i].lfs |= GO_PARALLEL;
+                 }
+            else if (strncmp(p_loptions, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0)
                  {
                     db[i].lfs |= GO_PARALLEL;
                  }

@@ -202,6 +202,7 @@ main(int argc, char *argv[])
 
    /* Initialise variables */
    p_work_dir = work_dir;
+   msg_str[0] = '\0';
    files_to_send = init_sf(argc, argv, file_path, WMO_FLAG);
    p_db = &db;
    blocksize = fsa[db.fsa_pos].block_size;

@@ -1,6 +1,6 @@
 /*
  *  monitor_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -53,6 +53,7 @@ DESCR__E_M1
 #include <signal.h>          /* signal()                                 */
 #include <errno.h>
 #include "logdefs.h"
+#include "mondefs.h"
 #include "version.h"
 
 
@@ -301,6 +302,7 @@ main(int argc, char *argv[])
                                                      dup_msg,
                                                      &prev_msg_str[LOG_SIGN_POSITION - 1],
                                                      &prev_msg_str[LOG_SIGN_POSITION + 3],
+                                                     MAX_AFDNAME_LENGTH,
                                                      now);
                              }
                              dup_msg = 0;
@@ -332,6 +334,7 @@ main(int argc, char *argv[])
                                                   dup_msg,
                                                   &prev_msg_str[LOG_SIGN_POSITION - 1],
                                                   &prev_msg_str[LOG_SIGN_POSITION + 3],
+                                                  MAX_AFDNAME_LENGTH,
                                                   now);
                           }
                           dup_msg = 0;

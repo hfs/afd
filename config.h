@@ -42,12 +42,6 @@
  *                          show_dlog. But note that enabling this will pose
  *                          a performance penalty, especially if lots of
  *                          files get deleted.
- * _PRIO_CHECK            - When set the FD will check for priority. Most
- *                          connections are fast enough so you do not need
- *                          to set this option. However if you do have a very
- *                          slow connection with heavy traffic it is best to
- *                          enable this feature. This will ensure that files
- *                          with a higher priority get send first.
  * _AGE_LIMIT             - Sometimes it is useful to remove files that have
  *                          reached a certain age. The age of each individual
  *                          file gets checked, and if it has reached the
@@ -102,7 +96,6 @@
 #define _INPUT_LOG
 #define _OUTPUT_LOG
 #define _DELETE_LOG
-#define _PRIO_CHECK
 #define _AGE_LIMIT
 #define _VERIFY_FSA
 #define _BURST_MODE

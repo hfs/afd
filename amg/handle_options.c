@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,11 +26,11 @@ DESCR__S_M3
  **                    the AMG
  **
  ** SYNOPSIS
- **   int handle_options(int          no_of_options,
- **                      char         *options,
- **                      char         *file_path,
- **                      int          *files_to_send,
- **                      off_t        *file_size)
+ **   int handle_options(int   no_of_options,
+ **                      char  *options,
+ **                      char  *file_path,
+ **                      int   *files_to_send,
+ **                      off_t *file_size)
  **
  ** DESCRIPTION
  **   This functions executes the options for AMG. The following
@@ -58,6 +58,9 @@ DESCR__S_M3
  **                    GTS header and only the TIFF data.
  **   gts2tiff       - This converts GTS T4 encoded files to TIFF
  **                    files.
+ **   grib2wmo       - Extract GRIBS and write them in a WMO file
+ **                    with TTAAii_CCCC_YYGGgg headers and 8 byte ASCII
+ **                    length indicator and 2 byte type indicator.
  **   extract XXX    - Extracts WMO bulletins from a file and creates
  **                    a file for each bulletin it finds. The following
  **                    WMO files for XXX are recognised:
@@ -72,7 +75,7 @@ DESCR__S_M3
  **                    MSS - Bulletins with a special four byte length
  **                          indicator used in conjunction with the MSS.
  **                    WMO - Bulletins with 8 byte ASCII length indicator
- **                          an 2 byte type indicator.
+ **                          and 2 byte type indicator.
  **   assemble XXX   - Assembles WMO bulletins that are stored as 'one file
  **                    per bulletin' into one large file. The original files
  **                    will be deleted. It can create the same file
@@ -102,6 +105,7 @@ DESCR__S_M3
  **   16.06.2002 H.Kiehl Added option execD and remove any sub directories
  **                      in the job directory.
  **   29.06.2002 H.Kiehl Added options toupper and tolower.
+ **   28.02.2003 H.Kiehl Added grib2wmo.
  **
  */
 DESCR__E_M3
@@ -149,11 +153,11 @@ static int         restore_files(char *, off_t *),
 
 /*############################ handle_options() #########################*/
 int
-handle_options(int          no_of_options,
-               char         *options,
-               char         *file_path,
-               int          *files_to_send,
-               off_t        *file_size)
+handle_options(int   no_of_options,
+               char  *options,
+               char  *file_path,
+               int   *files_to_send,
+               off_t *file_size)
 {
    int         i,
                j,
@@ -357,13 +361,16 @@ search_again:
                                * we only have one file to send, we will
                                * loose it!
                                */
-                              if ((CHECK_STRCMP(p_file_name, changed_name) != 0) &&
+                              if (((overwrite == YES) ||
+                                   (CHECK_STRCMP(p_file_name, changed_name) != 0)) &&
+#else
+                              if ((overwrite == YES) &&
+#endif
                                   (stat(newname, &stat_buf) != -1))
                               {
                                  (*files_to_send)--;
                                  *file_size -= stat_buf.st_size;
                               }
-#endif /* _WITH_PTHREAD */
                               if (rename(fullname, newname) < 0)
                               {
                                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
@@ -1487,6 +1494,103 @@ search_again:
                *files_to_send = restore_files(file_path, file_size);
 #endif
             }
+#ifdef _WITH_PTHREAD
+         }
+
+         free(file_name_buffer);
+#endif
+         NEXT(options);
+         continue;
+      }
+
+      /* Check if we want to convert GRIB files to WMO files */
+      if (strncmp(options, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0)
+      {
+#ifdef _WITH_PTHREAD
+         int  file_counter = 0;
+
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
+         {
+#else
+            int  file_counter = *files_to_send;
+#endif
+            int  recount_files = NO;
+            char cccc[4],
+                 *p_cccc;
+
+            if ((*(options + GRIB2WMO_ID_LENGTH) == ' ') ||
+                (*(options + GRIB2WMO_ID_LENGTH) == '\t'))
+            {
+               char *ptr = options + GRIB2WMO_ID_LENGTH;
+
+               while ((*ptr == ' ') || (*ptr == '\t'))
+               {
+                  ptr++;
+               }
+               j = 0;
+               while ((isalpha(*ptr)) && (j < 4))
+               {
+                  cccc[j] = *ptr;
+                  j++; ptr++;
+               }
+               if (j == 4)
+               {
+                  p_cccc = cccc;
+               }
+               else
+               {
+                  p_cccc = NULL;
+               }
+            }
+            else
+            {
+               p_cccc = NULL;
+            }
+            *file_size = 0;
+
+            /*
+             * Hopefully we have read all file names! Now it is save
+             * to convert the files.
+             */ 
+            for (j = 0; j < file_counter; j++)
+            {   
+               (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
+               size = 0;
+               (void)convert_grib2wmo(fullname, &size, p_cccc);
+               if (size == 0)
+               {
+                  if (unlink(fullname) == -1)
+                  {
+                     if (errno != ENOENT)
+                     {
+                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                    "Failed to unlink() file %s : %s",
+                                    fullname, strerror(errno));
+                     }
+                  }
+                  else
+                  {
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                 "Unable to convert, removed file %s",
+                                 p_file_name);
+                     recount_files = YES;                              
+                  }
+               }
+               else
+               {
+                  *file_size += size;
+               }
+               p_file_name += MAX_FILENAME_LENGTH;
+            }   
+            if (recount_files == YES)
+            {   
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
+            } 
 #ifdef _WITH_PTHREAD
          }
 

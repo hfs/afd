@@ -729,6 +729,7 @@ typedef socklen_t my_socklen_t;
 
 /* Defintions for directory flags. */
 #define MAX_COPIED                 1
+#define FILES_IN_QUEUE             2
 
 /* In process AFD we have various stop flags */
 #define STARTUP_ID                 -1
@@ -1076,7 +1077,8 @@ struct fileretrieve_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*|  2-32| Not used.        |*/
+                                            /*|  3-32| Not used.        |*/
+                                            /*|    2 | FILES_IN_QUEUE   |*/
                                             /*|    1 | MAX_COPIED       |*/
                                             /*+------+------------------+*/
           unsigned int  files_in_dir;       /* The number of files       */
@@ -1359,6 +1361,11 @@ struct delete_log
                          tmp_files, (fra_pos));              \
               fra[(fra_pos)].files_queued = 0;               \
            }                                                 \
+           if ((fra[(fra_pos)].files_queued == 0) &&         \
+               (fra[(fra_pos)].dir_flag & FILES_IN_QUEUE))   \
+           {                                                 \
+              fra[(fra_pos)].dir_flag ^= FILES_IN_QUEUE;     \
+           }                                                 \
            fra[(fra_pos)].bytes_in_queue -= (bytes);         \
            if (fra[(fra_pos)].bytes_in_queue < 0)            \
            {                                                 \
@@ -1403,6 +1410,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                check_msa(void),
                check_msg_name(char *),
                coe_open(char *, int, ...),
+               convert_grib2wmo(char *, off_t *, char *),
                copy_file(char *, char *, struct stat *),
                create_message(int, char *, char *),
                create_name(char *, signed char, time_t, int, unsigned short *, char *),
@@ -1469,7 +1477,7 @@ extern void    *attach_buf(char *, int *, size_t, char *),
                shutdown_afd(void),
                system_log(char *, char *, int, char *, ...),
                unlock_region(int, off_t),
-               wmoheader_from_grib(char *, char *);
+               wmoheader_from_grib(char *, char *, char *);
 #ifdef _FIFO_DEBUG
 extern void    show_fifo_data(char, char *, char *, int, char *, int);
 #endif

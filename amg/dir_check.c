@@ -197,7 +197,7 @@ static int                 get_process_pos(pid_t),
 #ifdef _WITH_PTHREAD
                            handle_dir(int, time_t, char *, char *, char *, off_t *, char **);
 #else
-                           handle_dir(int, time_t, char *, char *, char *);
+                           handle_dir(int, time_t, char *, char *, char *, int *);
 #endif
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -678,6 +678,8 @@ main(int argc, char *argv[])
                        }
                        else
                        {
+                          int pdf = NO; /* Paused dir flag. */
+
                           /*
                            * Handle any new files that have arrived.
                            */
@@ -687,7 +689,7 @@ main(int argc, char *argv[])
                              /* The directory time has changed. New files */
                              /* have arrived!                             */
                              if (handle_dir(i, start_time, NULL, NULL,
-                                            afd_file_dir) == YES)
+                                            afd_file_dir, &pdf) == YES)
                              {
                                 full_dir[fdc] = i;
                                 fdc++;
@@ -704,14 +706,42 @@ main(int argc, char *argv[])
 
                              while ((p_paused_host = check_paused_dir(&de[i],
                                                                       &nfg,
-                                                                      &dest_count)) != NULL)
+                                                                      &dest_count,
+                                                                      &pdf)) != NULL)
                              {
                                 if (handle_dir(i, start_time, p_paused_host,
-                                               NULL, afd_file_dir) == YES)
+                                               NULL, afd_file_dir, NULL) == YES)
                                 {
                                    full_paused_dir[fpdc] = i;
                                    fpdc++;
                                 }
+                                pdf = YES;
+                             }
+                          }
+                          if ((pdf == NO) &&
+                              (fra[de[i].fra_pos].dir_flag & FILES_IN_QUEUE) &&
+                              (fra[de[i].fra_pos].dir_status != DIRECTORY_ACTIVE))
+                          {
+                             fra[de[i].fra_pos].dir_flag ^= FILES_IN_QUEUE;
+                             if (fra[de[i].fra_pos].files_queued > 0)
+                             {
+                                (void)rec(sys_log_fd, DEBUG_SIGN,
+                                          "Hmm, the number of files in %s [%d] should be 0 but currently is %d. Resetting. (%s %d)\n",
+                                          fra[de[i].fra_pos].dir_alias,
+                                          de[i].fra_pos,
+                                          fra[de[i].fra_pos].files_queued,
+                                          __FILE__, __LINE__);
+                                fra[de[i].fra_pos].files_queued = 0;
+                             }
+                             if (fra[de[i].fra_pos].bytes_in_queue > 0)
+                             {
+                                (void)rec(sys_log_fd, DEBUG_SIGN,
+                                          "Hmm, the number of bytes in %s [%d] should be 0 but currently is %d. Resetting. (%s %d)\n",
+                                          fra[de[i].fra_pos].dir_alias,
+                                          de[i].fra_pos,
+                                          fra[de[i].fra_pos].bytes_in_queue,
+                                          __FILE__, __LINE__);
+                                fra[de[i].fra_pos].bytes_in_queue = 0;
                              }
                           }
                        }
@@ -781,7 +811,7 @@ main(int argc, char *argv[])
                           do
                           {
                              if ((ret = handle_dir(full_dir[i], now, NULL,
-                                                   NULL, afd_file_dir)) == NO)
+                                                   NULL, afd_file_dir, NULL)) == NO)
                              {
                                 if (i < fdc)
                                 {
@@ -830,7 +860,7 @@ main(int argc, char *argv[])
                           do
                           {
                              if ((ret = handle_dir(full_paused_dir[i], now, NULL,
-                                                   NULL, afd_file_dir)) == NO)
+                                                   NULL, afd_file_dir, NULL)) == NO)
                              {
                                 if (i < fpdc)
                                 {
@@ -1036,7 +1066,7 @@ do_one_dir(void *arg)
           nfg = 0;
 
       if ((p_paused_host = check_paused_dir(&de[data->i], &nfg,
-                                            &dest_count)) != NULL)
+                                            &dest_count, NULL)) != NULL)
       {
          now = time(NULL);
          while (handle_dir(data->i, now, p_paused_host, NULL,
@@ -1102,7 +1132,7 @@ check_pool_dir(time_t now)
             (void)handle_dir(-1, now, NULL, pool_dir, afd_file_dir,
                              data->file_size_pool, data->file_name_pool);
 #else
-            (void)handle_dir(-1, now, NULL, pool_dir, afd_file_dir);
+            (void)handle_dir(-1, now, NULL, pool_dir, afd_file_dir, NULL);
 #endif
             dir_counter++;
          }
@@ -1147,7 +1177,8 @@ handle_dir(int    dir_no,
            time_t current_time,
            char   *host_name,
            char   *pool_dir,
-           char   *afd_file_dir)
+           char   *afd_file_dir,
+           int    *pdf)
 #endif
 {
    if ((no_of_process < max_process) &&
@@ -1470,8 +1501,6 @@ handle_dir(int    dir_no,
                         if ((db[de[dir_no].fme[j].pos[k]].time_option_type == SEND_COLLECT_TIME) &&
                             ((fsa[db[de[dir_no].fme[j].pos[k]].position].special_flag & HOST_DISABLED) == 0))
                         {
-                           off_t file_size_saved;
-
                            (void)strcpy(p_time_dir, db[de[dir_no].fme[j].pos[k]].str_job_id);
                            if (save_files(orig_file_path,
                                           time_dir,
@@ -1483,7 +1512,7 @@ handle_dir(int    dir_no,
                                           j,
                                           files_moved,
                                           IN_SAME_FILESYSTEM,
-                                          &file_size_saved) < 0)
+                                          YES) < 0)
                            {
                               (void)rec(sys_log_fd, ERROR_SIGN,
                                         "Failed to queue files for host %s (%s %d)\n",
@@ -1498,37 +1527,34 @@ handle_dir(int    dir_no,
                   {
                      if ((fsa[db[de[dir_no].fme[j].pos[k]].position].special_flag & HOST_DISABLED) == 0)
                      {
-                        int   files_saved;
-                        off_t file_size_saved;
-
                         /* Queue is paused for this host, so lets save the */
                         /* files somewhere snug and save.                  */
-                        if ((files_saved = save_files(orig_file_path,
-                                                      db[de[dir_no].fme[j].pos[k]].paused_dir,
+                        if (save_files(orig_file_path,
+                                       db[de[dir_no].fme[j].pos[k]].paused_dir,
 #ifdef _WITH_PTHREAD
-                                                      file_size_pool,
-                                                      file_name_pool,
+                                       file_size_pool,
+                                       file_name_pool,
 #endif
-                                                      &de[dir_no],
-                                                      j,
-                                                      files_moved,
-                                                      db[de[dir_no].fme[j].pos[k]].lfs,
-                                                      &file_size_saved)) < 0)
+                                       &de[dir_no],
+                                       j,
+                                       files_moved,
+                                       db[de[dir_no].fme[j].pos[k]].lfs,
+                                       NO) < 0)
                         {
                            (void)rec(sys_log_fd, ERROR_SIGN,
                                      "Failed to queue files for host %s (%s %d)\n",
                                      db[de[dir_no].fme[j].pos[k]].host_alias,
                                      __FILE__, __LINE__);
                         }
+#ifndef _WITH_PTHREAD
                         else
                         {
-                           lock_region_w(fra_fd,
-                                         (char *)&fra[de[dir_no].fra_pos].files_queued - (char *)fra);
-                           fra[de[dir_no].fra_pos].files_queued += files_saved;
-                           fra[de[dir_no].fra_pos].bytes_in_queue += file_size_saved;
-                           unlock_region(fra_fd,
-                                         (char *)&fra[de[dir_no].fra_pos].files_queued - (char *)fra);
+                           if (pdf != NULL)
+                           {
+                              *pdf = YES;
+                           }
                         }
+#endif
                      }
                   }
                }
@@ -1581,6 +1607,14 @@ handle_dir(int    dir_no,
          }
       } /* if (files_moved > 0) */
 
+      if ((pool_dir == NULL) &&
+          (fra[de[dir_no].fra_pos].no_of_process == 0) &&
+          (fra[de[dir_no].fra_pos].dir_status == DIRECTORY_ACTIVE) &&
+          (fra[de[dir_no].fra_pos].dir_status != DISABLED))
+      {
+         fra[de[dir_no].fra_pos].dir_status = NORMAL_STATUS;
+      }
+
       /* In case of an empty directory, remove it! */
       if (host_name != NULL)
       {
@@ -1602,14 +1636,6 @@ handle_dir(int    dir_no,
              */
             return(NO);
          }
-      }
-
-      if ((pool_dir == NULL) &&
-          (fra[de[dir_no].fra_pos].no_of_process == 0) &&
-          (fra[de[dir_no].fra_pos].dir_status == DIRECTORY_ACTIVE) &&
-          (fra[de[dir_no].fra_pos].dir_status != DISABLED))
-      {
-         fra[de[dir_no].fra_pos].dir_status = NORMAL_STATUS;
       }
 
       if ((files_moved >= max_copied_files) ||

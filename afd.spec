@@ -1,12 +1,15 @@
 Summary: A file distribution system
 Name: afd
-Version: 1.2.15
-Release: 2
+Version: 1.2.17
+Release: 3
 License: GPL
 Group: Applications/Communications
 BuildRoot: %{_builddir}/%{name}-root
 Prefix: /opt
 Source0: src-%{version}.tar.bz2
+Source1: ftp://ftp.dwd.de/pub/afd/src-%{version}.tar.bz2
+Requires: openmotif
+BuildRequires: openmotif-devel
 URL: http://www.dwd.de/AFD/
 
 %description
@@ -46,6 +49,9 @@ fi
 /opt/%{name}/sbin/*
 
 %changelog
+*Sat Dec 14 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+- AFD requires openmotif.
+
 *Sat Mar 2 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
 - Use build root so the build version is not installed on the build system.
 

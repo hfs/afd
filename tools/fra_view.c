@@ -180,6 +180,23 @@ main(int argc, char *argv[])
               (void)fprintf(stdout, "Directory status(%3d): UNKNOWN\n",
                             fra[i].dir_status);
            }
+      if (fra[i].dir_flag == 0)
+      {
+         (void)fprintf(stdout, "Directory flag(  0)  : None\n");
+      }
+      else
+      {
+         (void)fprintf(stdout, "Directory flag(%3d)  : ", fra[i].dir_flag);
+         if (fra[i].dir_flag & MAX_COPIED)
+         {
+            (void)fprintf(stdout, "MAX_COPIED");
+         }
+         if (fra[i].dir_flag & FILES_IN_QUEUE)
+         {
+            (void)fprintf(stdout, " FILES_IN_QUEUE");
+         }
+         (void)fprintf(stdout, "\n");
+      }
       if (fra[i].force_reread == NO)
       {
          (void)fprintf(stdout, "Force reread         : NO\n");

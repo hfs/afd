@@ -258,11 +258,11 @@ clean :
 
 clobber :
 	$(MAKE) clean
-	rm -f $(PROGS) $(DELCPROG)$(EXE_EXT)
+	rm -f $(PROGS) $(DELCPROG)$(EXE_EXT) $(SYSCPROG)$(EXE_EXT)
 
 real_clobber :
 	$(MAKE) clobber
-	cd $(INSTDIR)/sbin && rm -f $(PROGS) uhc$(EXE_EXT) $(DELCPROG)$(EXE_EXT)
+	cd $(INSTDIR)/sbin && rm -f $(PROGS) uhc$(EXE_EXT) $(DELCPROG)$(EXE_EXT) $(SYSCPROG)$(EXE_EXT)
 
 install :
 	cd $(INSTDIR)/sbin && rm -f $(PROGS)

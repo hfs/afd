@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -133,10 +133,9 @@ extern int                 dnb_fd,
                            data_length,/* The size of data for one job.  */
                            sys_log_fd,
                            *no_of_dir_names,
-                           no_of_hosts,/* The number of remote hosts to  */
+                           no_of_hosts;/* The number of remote hosts to  */
                                        /* which files have to be         */
                                        /* transfered.                    */
-                           no_of_local_dirs;
 extern mode_t              create_source_dir_mode;
 extern struct host_list    *hl;        /* Structure that holds all the   */
                                        /* hosts.                         */
@@ -2203,6 +2202,7 @@ copy_job(int              file_no,
 #endif /* _WITH_AFW2WMO */
                      TIFF2GTS_ID_LENGTH,
                      GTS2TIFF_ID_LENGTH,
+                     GRIB2WMO_ID_LENGTH,
                      EXTRACT_ID_LENGTH,
                      ASSEMBLE_ID_LENGTH,
                      WMO2ASCII_ID_LENGTH
@@ -2230,6 +2230,7 @@ copy_job(int              file_no,
 #endif /* _WITH_AFW2WMO */
                      TIFF2GTS_ID,
                      GTS2TIFF_ID,
+                     GRIB2WMO_ID,
                      EXTRACT_ID,
                      ASSEMBLE_ID,
                      WMO2ASCII_ID

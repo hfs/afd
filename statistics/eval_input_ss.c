@@ -1,6 +1,6 @@
 /*
  *  eval_input_ss.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -33,21 +33,29 @@ DESCR__S_M3
  **                      int  *show_day_summary,
  **                      int  *show_hour,
  **                      int  *show_hour_summary,
+ **                      int  *show_min_range,
+ **                      int  *show_min,
  **                      int  *show_min_summary,
  **                      int  *show_year,
- **                      int  *host_counter)
+ **                      int  *host_counter,
+ **                      int  *show_time_stamp)
  **
  ** DESCRIPTION
  **   This module checks whether the syntax is correct. So far it
  **   accepts the following parameters:
- **           -f <statistic file>    path and name of the statistic file
- **           -d <x>                 show all information of day minus x
- **           -D                     show total summary on a per day basis
- **           -h <x>                 show all information of hour minus x
- **           -H                     show total summary of last 24 hours
- **           -M [<x>]               show total summary of last hour
- **           -y <x>                 show all information of year minus x
- **           -w <working directory> working directory of the AFD
+ **           -w <work dir>       working directory of the AFD
+ **           -f <statistic file> path and name of the statistic file
+ **           -d [<x>]            show all information of day minus x
+ **           -D                  show total summary on a per day basis
+ **           -h [<x>]            show all information of hour minus x
+ **           -H                  show total summary of last 24 hours
+ **           -mr <x>             show last x minutes
+ **           -m [<x>]            show all information of minute minus x
+ **           -M [<x>]            show total summary of last hour
+ **           -y <x>              show all information of year minus x
+ **           -t[u]               put in a time stamp for time the output
+ **                               is valid. With the u the time is shown
+ **                               in unix time.
  **
  ** RETURN VALUES
  **   If any of the above parameters have been specified it returns
@@ -62,6 +70,8 @@ DESCR__S_M3
  **   19.04.1998 H.Kiehl Added -D option.
  **   26.05.1998 H.Kiehl Added -H option.
  **   09.08.2002 H.Kiehl Added -M option.
+ **   16.02.2003 H.Kiehl Added -mr and -m options.
+ **   19.02.2003 H.Kiehl Added -t[u] option.
  **
  */
 DESCR__E_M3
@@ -92,9 +102,12 @@ eval_input_ss(int  argc,
               int  *show_day_summary,
               int  *show_hour,
               int  *show_hour_summary,
+              int  *show_min_range,
+              int  *show_min,
               int  *show_min_summary,
               int  *show_year,
-              int  *host_counter)
+              int  *host_counter,
+              int  *show_time_stamp)
 {
    int i,
        correct = YES;       /* Was input/syntax correct?      */
@@ -103,20 +116,15 @@ eval_input_ss(int  argc,
    /* The following while loop checks for the parameters:    */
    /*                                                        */
    /*         - f : Path and name of the statistic file.     */
-   /*                                                        */
    /*         - d : Show all information of day minus x.     */
-   /*                                                        */
    /*         - D : Show total summary on a per day basis.   */
-   /*                                                        */
    /*         - h : Show all information of hour minus x.    */
-   /*                                                        */
    /*         - H : Show total summary of last 24 hours.     */
-   /*                                                        */
+   /*         - mr: Show information of last x minutes.      */
+   /*         - m : Show all information of minute minus x.  */
    /*         - M : Show total summary of last hour.         */
-   /*                                                        */
+   /*         - t : Put in a timestamp.                      */
    /*         - y : Show all information of year minus x.    */
-   /*                                                        */
-   /*         - w : Working directory of the AFD.            */
    /*                                                        */
    /**********************************************************/
    if ((argc > 1) && (argv[1][0] == '-'))
@@ -210,6 +218,52 @@ eval_input_ss(int  argc,
                }
                break;
 
+            case 'm': /* Show minute minus x */
+
+               if ((*(argv[0] + 2) == 'r') && (*(argv[0] + 3) == '\0'))
+               {
+                  if ((argc == 1) || (*(argv + 1)[0] == '-') ||
+                      (isdigit(*(argv + 1)[0]) == 0))
+                  {
+                     *show_min_range = 0;
+                  }
+                  else
+                  {
+                     *show_min_range = atoi(*(argv + 1));
+                     if (*show_min_range > 60)
+                     {
+                        (void)fprintf(stderr,
+                                      "WARN   : Setting to 60, value given %d is to high. (%s %d)\n",
+                                      *show_min_range, __FILE__, __LINE__);
+                        *show_min_range = 60;
+                     }
+                     argc--;
+                     argv++;
+                  }
+               }
+               else
+               {
+                  if ((argc == 1) || (*(argv + 1)[0] == '-') ||
+                      (isdigit(*(argv + 1)[0]) == 0))
+                  {
+                     *show_min = 0;
+                  }
+                  else
+                  {
+                     *show_min = atoi(*(argv + 1));
+                     if (*show_min > 60)
+                     {
+                        (void)fprintf(stderr,
+                                      "WARN   : Setting to 60, value given %d is to high. (%s %d)\n",
+                                      *show_min, __FILE__, __LINE__);
+                        *show_min = 60;
+                     }
+                     argc--;
+                     argv++;
+                  }
+               }
+               break;
+
             case 'M': /* Show summary information of last hour. */
 
                if ((argc == 1) || (*(argv + 1)[0] == '-') ||
@@ -222,8 +276,27 @@ eval_input_ss(int  argc,
                else
                {
                   *show_min_summary = atoi(*(argv + 1));
+                  if (*show_min_summary > 60)
+                  {
+                     (void)fprintf(stderr,
+                                   "WARN   : Setting to 60, value given %d is to high. (%s %d)\n",
+                                   *show_min_summary, __FILE__, __LINE__);
+                     *show_min_summary = 60;
+                  }
                   argc--;
                   argv++;
+               }
+               break;
+
+            case 't': /* Put in timestamps for which time the output is valid */
+
+               if ((*(argv[0] + 2) == 'u') && (*(argv[0] + 3) == '\0'))
+               {
+                  *show_time_stamp = 2;
+               }
+               else
+               {
+                  *show_time_stamp = 1;
                }
                break;
 
@@ -289,15 +362,18 @@ static void
 usage(void)
 {
    (void)fprintf(stderr, "SYNTAX  : show_stat [options] [hostname 1 ....]\n");
-   (void)fprintf(stderr, "            -w <work dir>   Working directory of the AFD.\n");
-   (void)fprintf(stderr, "            -f <name>       Path and name of the statistics file.\n");
-   (void)fprintf(stderr, "            -d [<x>]        Show information of all days [or day minus x].\n");
-   (void)fprintf(stderr, "            -D              Show total summary on a per day basis.\n");
-   (void)fprintf(stderr, "            -h [<x>]        Show information of all hours [or hour minus x].\n");
-   (void)fprintf(stderr, "            -H              Show total summary of last 24 hours.\n");
-   (void)fprintf(stderr, "            -M              Show total summary of last hour.\n");
-   (void)fprintf(stderr, "            -y [<x>]        Show information of all years [or year minus x].\n");
-   (void)fprintf(stderr, "            --version       Show current version.\n");
+   (void)fprintf(stderr, "           -w <work dir> Working directory of the AFD.\n");
+   (void)fprintf(stderr, "           -f <name>     Path and name of the statistics file.\n");
+   (void)fprintf(stderr, "           -d [<x>]      Show information of all days [or day minus x].\n");
+   (void)fprintf(stderr, "           -D            Show total summary on a per day basis.\n");
+   (void)fprintf(stderr, "           -h [<x>]      Show information of all hours [or hour minus x].\n");
+   (void)fprintf(stderr, "           -H            Show total summary of last 24 hours.\n");
+   (void)fprintf(stderr, "           -mr <x>       Show summary of last x minutes.\n");
+   (void)fprintf(stderr, "           -m [<x>]      Show information of all minutes [or minute minus x].\n");
+   (void)fprintf(stderr, "           -M [<x>]      Show total summary of last hour.\n");
+   (void)fprintf(stderr, "           -t[u]         Put in a timestamp for when this output is valid.\n");
+   (void)fprintf(stderr, "           -y [<x>]      Show information of all years [or year minus x].\n");
+   (void)fprintf(stderr, "           --version     Show current version.\n");
 
    return;
 }

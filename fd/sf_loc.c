@@ -647,6 +647,7 @@ main(int argc, char *argv[])
 
                /* Number of bytes send */
                fsa[db.fsa_pos].bytes_send += *p_file_size_buffer;
+               fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += *p_file_size_buffer;
                unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
                unlock_region(fsa_fd, lock_offset);
             }

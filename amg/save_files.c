@@ -31,12 +31,13 @@ DESCR__S_M3
  **                  int                    pos_in_fm,
  **                  int                    no_of_files,
  **                  char                   link_flag
- **                  off_t                  *file_size_saved)
+ **                  int                    time_job)
  **
  ** DESCRIPTION
  **   When the queue has been stopped for a host, this function saves
  **   all files in the user directory into the directory .<hostname>
- **   so that no files are lost for this host.
+ **   so that no files are lost for this host. This function is also
+ **   used to save time jobs.
  **
  ** RETURN VALUES
  **   Returns SUCCESS when all files have been saved. Otherwise
@@ -53,6 +54,8 @@ DESCR__S_M3
  **   18.10.1997 H.Kiehl Introduced inverse filtering.
  **   09.06.2002 H.Kiehl Return number of files and size that have been
  **                      saved.
+ **   28.01.2002 H.Kiehl Forgot to update files and bytes received and
+ **                      reverted above change.
  **
  */
 DESCR__E_M3
@@ -68,11 +71,13 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables */
-extern int  sys_log_fd;
+extern int                        fra_fd,
+                                  sys_log_fd;
 #ifndef _WITH_PTHREAD
-extern off_t *file_size_pool;
-extern char **file_name_pool;
+extern off_t                      *file_size_pool;
+extern char                       **file_name_pool;
 #endif
+extern struct fileretrieve_status *fra;
 
 
 /*########################### save_files() ##############################*/
@@ -87,17 +92,18 @@ save_files(char                   *src_path,
            int                    pos_in_fm,
            int                    no_of_files,
            char                   link_flag,
-           off_t                  *file_size_saved)
+           int                    time_job)
 {
    register int i,
                 j;
-   int          files_saved = 0,
+   int          files_deleted = 0,
+                files_saved = 0,
                 retstat;
+   off_t        file_size_deleted = 0,
+                file_size_saved = 0;
    char         *p_src,
                 *p_dest;
    struct stat  stat_buf;
-
-   *file_size_saved = 0;
 
    if ((stat(dest_path, &stat_buf) < 0) || (S_ISDIR(stat_buf.st_mode) == 0))
    {
@@ -161,8 +167,8 @@ save_files(char                   *src_path,
                      }
                      else
                      {
-                        files_saved--;
-                        *file_size_saved -= stat_buf.st_size;
+                        files_deleted++;
+                        file_size_deleted += stat_buf.st_size;
                      }
                   }
                   if ((retstat = rename(src_path, dest_path)) == -1)
@@ -175,7 +181,7 @@ save_files(char                   *src_path,
                   else
                   {
                      files_saved++;
-                     *file_size_saved += file_size_pool[i];
+                     file_size_saved += file_size_pool[i];
                   }
                }
                else
@@ -212,8 +218,8 @@ save_files(char                   *src_path,
                         }
                         else
                         {
-                           files_saved--;
-                           *file_size_saved -= del_file_size;
+                           files_deleted++;
+                           file_size_deleted += del_file_size;
                            if ((retstat = link(src_path, dest_path)) == -1)
                            {
                               (void)rec(sys_log_fd, WARN_SIGN,
@@ -225,7 +231,7 @@ save_files(char                   *src_path,
                            else
                            {
                               files_saved++;
-                              *file_size_saved += file_size_pool[i];
+                              file_size_saved += file_size_pool[i];
                            }
                         }
                      }
@@ -241,7 +247,7 @@ save_files(char                   *src_path,
                   else
                   {
                      files_saved++;
-                     *file_size_saved += file_size_pool[i];
+                     file_size_saved += file_size_pool[i];
                   }
                }
             }
@@ -257,7 +263,7 @@ save_files(char                   *src_path,
                else
                {
                   files_saved++;
-                  *file_size_saved += file_size_pool[i];
+                  file_size_saved += file_size_pool[i];
                   if (p_de->flag & RENAME_ONE_JOB_ONLY)
                   {
                      if (unlink(src_path) == -1)
@@ -285,9 +291,33 @@ save_files(char                   *src_path,
               }
       }
    }
-
    *(p_dest - 1) = '\0';
    *p_src = '\0';
 
-   return(files_saved);
+   if (time_job == NO)
+   {
+      int   files_changed;
+      off_t size_changed;
+
+      files_changed = files_saved - files_deleted;
+      size_changed = file_size_saved - file_size_deleted;
+
+      if ((files_changed != 0) || (size_changed != 0))
+      {
+         lock_region_w(fra_fd,
+                       (char *)&fra[p_de->fra_pos].files_queued - (char *)fra);
+         if ((fra[p_de->fra_pos].dir_flag & FILES_IN_QUEUE) == 0)
+         {
+            fra[p_de->fra_pos].dir_flag ^= FILES_IN_QUEUE;
+         }
+         fra[p_de->fra_pos].files_queued += files_changed;
+         fra[p_de->fra_pos].bytes_in_queue += size_changed;
+         unlock_region(fra_fd,
+                       (char *)&fra[p_de->fra_pos].files_queued - (char *)fra);
+      }
+   }
+   fra[p_de->fra_pos].files_received -= files_saved;
+   fra[p_de->fra_pos].bytes_received -= file_size_saved;
+
+   return(SUCCESS);
 }

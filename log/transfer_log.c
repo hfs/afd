@@ -1,6 +1,6 @@
 /*
  *  transfer_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -371,6 +371,7 @@ main(int argc, char *argv[])
                                                         dup_msg,
                                                         &prev_msg_str[LOG_SIGN_POSITION - 1],
                                                         &prev_msg_str[LOG_SIGN_POSITION + 3],
+                                                        MAX_HOSTNAME_LENGTH + 3,
                                                         now);
                                 }
                                 dup_msg = 0;
@@ -402,6 +403,7 @@ main(int argc, char *argv[])
                                                      dup_msg,
                                                      &prev_msg_str[LOG_SIGN_POSITION - 1],
                                                      &prev_msg_str[LOG_SIGN_POSITION + 3],
+                                                     MAX_HOSTNAME_LENGTH + 3,
                                                      now);
                              }
                              dup_msg = 0;

@@ -134,6 +134,8 @@ Widget   w;
     */
    if (check_fsa() == YES)
    {
+      int         nll = 0,    /* Number of long lines */
+                  nsl = 0;    /* Number of short lines */
       size_t      new_size = no_of_hosts * sizeof(struct line);
       struct line *new_connect_data;
 
@@ -315,6 +317,25 @@ Widget   w;
                }
             }
             i++;
+         }
+      }
+
+      /*
+       * Ensure that the positions of all long and short lines
+       * are still correct. It could be that the host order
+       * has been changed in the HOST_CONFIG file.
+       */
+      for (i = 0; i < no_of_hosts; i++)
+      {
+         if (new_connect_data[i].long_pos == -1)
+         {
+            new_connect_data[i].short_pos = nsl;
+            nsl++;
+         }
+         else
+         {
+            new_connect_data[i].long_pos = nll;
+            nll++;
          }
       }
 

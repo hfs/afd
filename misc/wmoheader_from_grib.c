@@ -1,7 +1,7 @@
 /*
  *  wmoheader_from_grib.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002, 2003 Deutscher Wetterdienst (DWD),
+ *                           Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,13 +27,18 @@ DESCR__S_M3
  **                         of a GRIB file
  **
  ** SYNOPSIS
- **   void wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
+ **   void wmoheader_from_grib(char *grib_buffer,
+ **                            char *TTAAii_CCCC_YYGGgg,
+ **                            char *default_CCCC)
  **
  ** DESCRIPTION
- **   The function wmoheader_from_grib() tries to create a WMO header
+ **   The function wmoheader_from_grib() TRIES to create a WMO header
  **   from the buffer 'grib_buffer' of the following format:
  **           TTAAii_CCCC_YYGGgg
- **   and stores the result in the buffer 'TTAAii_CCCC_YYGGgg'.
+ **   and stores the result in the buffer 'TTAAii_CCCC_YYGGgg'. Since
+ **   there can be so many different GRIB types this code will never
+ **   be complete and there will always be assumptions being made
+ **   about somne of the letters.
  **
  **   NOTE: This code is far from complete and only works for a view
  **         grib types. Please do contact Holger.Kiehl@dwd.de if
@@ -57,7 +62,9 @@ DESCR__E_M3
 
 /*######################## wmoheader_from_grib() ########################*/
 void
-wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
+wmoheader_from_grib(char *grib_buffer,
+                    char *TTAAii_CCCC_YYGGgg,
+                    char *default_CCCC)
 {
    char AA[3],
         CCCC[5],
@@ -68,7 +75,7 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
    ptr = grib_buffer + 4;
 
    if (((unsigned char)(*(ptr + 10)) < 201) || /* PDS Octet 7 */
-       ((unsigned char)(*(ptr + 10)) > 235))   /* PDS Octet 7 */
+       ((unsigned char)(*(ptr + 10)) > 253))   /* PDS Octet 7 */
    {
       /* General International Exchange */
       TT[0] = 'H';
@@ -86,6 +93,7 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
    {
       case  1 : /* Pressure */
       case  2 : /* Pressure reduced to MSL */
+      case  3 : /* Pressure tendency (?) */
          TT[1] = 'P';
          break;
       case  6 : /* Geopotential */
@@ -93,6 +101,9 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
          TT[1] = 'H';
          break;
       case 11 : /* Temperature */
+      case 15 : /* Maximum temperature */
+      case 16 : /* Minimum temperature */
+      case 17 : /* Dew point temperature */
          TT[1] = 'T';
          break;
       case 33 : /* u-component of wind */
@@ -115,7 +126,16 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
          TT[1] = 'G';
          break;
       case 71 : /* Total Cloud Cover (?) */
+      case 72 : /* Convective cloud cover (?) */
+      case 73 : /* Low cloud cover (?) */
+      case 74 : /* Medium cloud cover (?) */
+      case 75 : /* High cloud cover (?) */
          TT[1] = 'B';
+         break;
+      case 78 : /* Convective snow */
+      case 79 : /* Large scale snow */
+      case 99 : /* Snow melt (?) */
+         TT[1] = 'S';
          break;
       case 80 : /* Water Temperature (?) */
          TT[1] = 'Z';
@@ -245,6 +265,7 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
             gds_length <<= 8;
             gds_length |= (unsigned char)*(ptr + 6 + pds_length);
 
+            /* GDS octet 11 - 13 */
             octet = (unsigned char)*(ptr + pds_length + 14);
             if (octet & 128)
             {
@@ -261,10 +282,7 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
             la1 |= (unsigned char)*(ptr + pds_length + 15);
             la1 <<= 8;
             la1 |= (unsigned char)*(ptr + pds_length + 16);
-            if (minus == YES)
-            {
-               la1 = -la1;
-            }
+            /* GDS octet 14 - 16 */
             octet = (unsigned char)*(ptr + pds_length + 17);
             if (octet & 128)
             {
@@ -281,10 +299,7 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
             lo1 |= (unsigned char)*(ptr + pds_length + 18);
             lo1 <<= 8;
             lo1 |= (unsigned char)*(ptr + pds_length + 19);
-            if (minus == YES)
-            {
-               lo1 = -lo1;
-            }
+            /* GDS octet 18 - 20 */
             octet = (unsigned char)*(ptr + pds_length + 21);
             if (octet & 128)
             {
@@ -305,6 +320,7 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
             {
                la2 = -la2;
             }
+            /* GDS octet 21 - 23 */
             octet = (unsigned char)*(ptr + pds_length + 24);
             if (octet & 128)
             {
@@ -381,8 +397,16 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
                  else
                  {
                     receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                                "La1 = %d  Lo1 = %d  La2 = %d  Lo2 = %d  Scanmode = %d [A1 = X]",
-                                la1, lo1, la2, lo2,
+                                "La1 = %d (%d.%d.%d) Lo1 = %d (%d.%d.%d) La2 = %d  Lo2 = %d  Scanmode = %d [A1 = X]",
+                                la1,
+                                (unsigned char)*(ptr + pds_length + 14),
+                                (unsigned char)*(ptr + pds_length + 15),
+                                (unsigned char)*(ptr + pds_length + 16),
+                                lo1,
+                                (unsigned char)*(ptr + pds_length + 17),
+                                (unsigned char)*(ptr + pds_length + 18),
+                                (unsigned char)*(ptr + pds_length + 19),
+                                la2, lo2,
                                 (unsigned char)(*(ptr + pds_length + 31)));
                     AA[0] = 'X';
                  }
@@ -481,29 +505,69 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
                switch(tr)
                {
                   case 0 : /* hour analysis */
+                  case 1 : /* (?) */
+                  case 2 : /* (?) */
+                  case 3 : /* (?) */
                      AA[1] = 'A';
                      break;
+                  case 4 : /* (?) */
+                  case 5 : /* (?) */
                   case 6 : /* 06 hour fcst */
+                  case 7 : /* (?) */
+                  case 8 : /* (?) */
+                  case 9 : /* (?) */
                      AA[1] = 'B';
                      break;
+                  case 10 : /* (?) */
+                  case 11 : /* (?) */
                   case 12 : /* 12 hour fcst */
+                  case 13 : /* (?) */
+                  case 14 : /* (?) */
+                  case 15 : /* (?) */
                      AA[1] = 'C';
                      break;
+                  case 16 : /* (?) */
+                  case 17 : /* (?) */
                   case 18 : /* 18 hour fcst */
+                  case 19 : /* (?) */
+                  case 20 : /* (?) */
+                  case 21 : /* (?) */
                      AA[1] = 'D';
                      break;
+                  case 22 : /* (?) */
+                  case 23 : /* (?) */
                   case 24 : /* 24 hour fcst */
+                  case 25 : /* (?) */
+                  case 26 : /* (?) */
+                  case 27 : /* (?) */
                      AA[1] = 'E';
                      break;
+                  case 28 : /* (?) */
+                  case 29 : /* (?) */
                   case 30 : /* 30 hour fcst */
+                  case 31 : /* (?) */
+                  case 32 : /* (?) */
+                  case 33 : /* (?) */
                      AA[1] = 'F';
                      break;
+                  case 34 : /* (?) */
+                  case 35 : /* (?) */
                   case 36 : /* 36 hour fcst */
+                  case 37 : /* (?) */
+                  case 38 : /* (?) */
+                  case 39 : /* (?) */
                      AA[1] = 'G';
                      break;
+                  case 40 : /* (?) */
+                  case 41 : /* (?) */
                   case 42 : /* 42 hour fcst */
+                  case 43 : /* (?) */
+                  case 44 : /* (?) */
+                  case 45 : /* (?) */
                      AA[1] = 'H';
                      break;
+                  case 46 : /* (?) */
+                  case 47 : /* (?) */
                   case 48 : /* 48 hour fcst */
                      AA[1] = 'I';
                      break;
@@ -648,6 +712,15 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
       case 1  :
          AA[1] = 'A';
          break;
+      case 2  : /* Time range */
+      case 3  : /* Average */
+      case 4  : /* Accumulation */
+      case 5  : /* Difference */
+      case 6  : /* Average */
+      case 7  : /* Average */
+         /* For these its necessary to point at GRIB PDS. */
+         AA[1] = 'Z';
+         break;
       default : /* Unknown. */
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                      "Unknown Time Range Indicator %d [A2 = Z]",
@@ -706,141 +779,157 @@ wmoheader_from_grib(char *grib_buffer, char *TTAAii_CCCC_YYGGgg)
       case 101 : /* layer between two isobaric levels */
          ii[0] = '8'; ii[1] = '7';
          break;
+#ifdef WHEN_WE_KNOW
+      case 105 : /* Land/Water Properties at Surface of Earth/Ocean */
+         ii[0] = '8'; ii[1] = '8';
+         break;
+#endif
       case 102 : /* mean sea level */
+      case 103 :
          ii[0] = '8'; ii[1] = '9';
          break;
-      default : /* Unknown */
+      default : /* Unknown, refer to GRID PDS */
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "Unknown Indicator of type of level or layer %d [ii = 00]",
+                     "Unknown Indicator of type of level or layer %d [ii = 01]",
                      (unsigned char)(*(ptr + 13)));
-         ii[0] = '0'; ii[1] = '0';
+         ii[0] = '0'; ii[1] = '1';
          break;
    }
    ii[2] = '\0';
 
    /* Get Originator CCCC. */
-   switch((unsigned char)(*(ptr + 8))) /* PDS Octet 5 */
+   if (default_CCCC == NULL)
    {
-      case 1  :
-      case 2  : /* Melbourne */
-         CCCC[0] = 'A'; CCCC[1] = 'M'; CCCC[2] = 'M'; CCCC[3] = 'C';
-         break;
-      case 76 :
-      case 4  :
-      case 5  : /* Moscow */
-         CCCC[0] = 'R'; CCCC[1] = 'U'; CCCC[2] = 'M'; CCCC[3] = 'S';
-         break;
-      case 7  : /* US Weather Service - National Met. Center */
-         /* break; */
-      case 8  : /* US National Weather Service Telecommunications Gateway */
-         CCCC[0] = 'K'; CCCC[1] = 'W'; CCCC[2] = 'B'; CCCC[3] = 'C';
-         break;
-      case 10 : /* Cairo (RSMC/RAFC) */
-         CCCC[0] = 'H'; CCCC[1] = 'E'; CCCC[2] = 'C'; CCCC[3] = 'A';
-         break;
-      case 14 : /* Nairobi (RSMC/RAFC) */
-         CCCC[0] = 'H'; CCCC[1] = 'K'; CCCC[2] = 'N'; CCCC[3] = 'C';
-         break;
-      case 24 : /* Pretoria (RSMC) */
-         CCCC[0] = 'F'; CCCC[1] = 'A'; CCCC[2] = 'P'; CCCC[3] = 'R';
-         break;
-      case 28 : /* New Delhi (RSMC/RAFC) */
-         CCCC[0] = 'D'; CCCC[1] = 'E'; CCCC[2] = 'M'; CCCC[3] = 'S';
-         break;
-      case 34 : /* Japanese Meteorological Agency - Tokyo */
-         CCCC[0] = 'R'; CCCC[1] = 'J'; CCCC[2] = 'T'; CCCC[3] = 'D';
-         break;
-      case 38 : /* Beijing (RSMC) */
-         CCCC[0] = 'B'; CCCC[1] = 'A'; CCCC[2] = 'B'; CCCC[3] = 'J';
-         break;
-      case 41 : /* Buenos Aires (RSMC/RAFC) */
-         CCCC[0] = 'S'; CCCC[1] = 'A'; CCCC[2] = 'B'; CCCC[3] = 'M';
-         break;
-      case 43 : /* Brasilia (RSMC/RAFC) */
-         CCCC[0] = 'S'; CCCC[1] = 'B'; CCCC[2] = 'B'; CCCC[3] = 'R';
-         break;
-      case 51 :
-      case 52 : /* Miami */
-         CCCC[0] = 'K'; CCCC[1] = 'N'; CCCC[2] = 'H'; CCCC[3] = 'C';
-         break;
-      case 53 : /* Canadian Meteorological Service - Montreal */
-         CCCC[0] = 'C'; CCCC[1] = 'Y'; CCCC[2] = 'U'; CCCC[3] = 'L';
-         break;
-      case 58 : /* US Navy  - Fleet Numerical Oceanography Center */
-         CCCC[0] = 'K'; CCCC[1] = 'N'; CCCC[2] = 'W'; CCCC[3] = 'C';
-         break;
-      case 59 : /* NOAA Forcast System Laboratory Boulder */
-         CCCC[0] = 'K'; CCCC[1] = 'W'; CCCC[2] = 'N'; CCCC[3] = 'P';
-         break;
-      case 69 : /* Wellington (RSMC/RAFC) */
-         CCCC[0] = 'N'; CCCC[1] = 'Z'; CCCC[2] = 'K'; CCCC[3] = 'L';
-         break;
-      case 74 : /* U.K. Met Office - Bracknell */
-         CCCC[0] = 'E'; CCCC[1] = 'G'; CCCC[2] = 'R'; CCCC[3] = 'R';
-         break;
-      case 78 : /* Offenbach (RSMC) */
-         CCCC[0] = 'E'; CCCC[1] = 'D'; CCCC[2] = 'Z'; CCCC[3] = 'W';
-         break;
-      case 80 : /* Rome (RSMC) */
-         CCCC[0] = 'L'; CCCC[1] = 'I'; CCCC[2] = 'I'; CCCC[3] = 'B';
-         break;
-      case 82 : /* Norrkoeping */
-         CCCC[0] = 'E'; CCCC[1] = 'S'; CCCC[2] = 'W'; CCCC[3] = 'I';
-         break;
-      case 216:
-      case 84 :
-      case 85 : /* Toulouse (RSMC) */
-         CCCC[0] = 'L'; CCCC[1] = 'F'; CCCC[2] = 'P'; CCCC[3] = 'W';
-         break;
-      case 86 : /* Helsinki */
-         CCCC[0] = 'E'; CCCC[1] = 'F'; CCCC[2] = 'K'; CCCC[3] = 'L';
-         break;
-      case 87 : /* Belgrade */
-         CCCC[0] = 'L'; CCCC[1] = 'Y'; CCCC[2] = 'B'; CCCC[3] = 'M';
-         break;
-      case 88 : /* Oslo */
-         CCCC[0] = 'E'; CCCC[1] = 'N'; CCCC[2] = 'M'; CCCC[3] = 'I';
-         break;
-      case 89 : /* Prague */
-         CCCC[0] = 'O'; CCCC[1] = 'K'; CCCC[2] = 'P'; CCCC[3] = 'R';
-         break;
-      case 91 : /* Ankara */
-         CCCC[0] = 'L'; CCCC[1] = 'T'; CCCC[2] = 'A'; CCCC[3] = 'A';
-         break;
-      case 94 : /* Copenhagen */
-         CCCC[0] = 'E'; CCCC[1] = 'K'; CCCC[2] = 'M'; CCCC[3] = 'I';
-         break;
-      case 96 : /* Athens */
-         CCCC[0] = 'L'; CCCC[1] = 'G'; CCCC[2] = 'A'; CCCC[3] = 'T';
-         break;
-      case 254:
-      case 97 : /* European Space Agency (ESA) */
-         CCCC[0] = 'E'; CCCC[1] = 'U'; CCCC[2] = 'M'; CCCC[3] = 'S';
-         break;
-      case 98 : /* European Center for Medium-Range Weather Forecasts - Reading */
-         CCCC[0] = 'E'; CCCC[1] = 'C'; CCCC[2] = 'M'; CCCC[3] = 'F';
-         break;
-      case 99 : /* De Bilt */
-         CCCC[0] = 'E'; CCCC[1] = 'H'; CCCC[2] = 'D'; CCCC[3] = 'B';
-         break;
-      case 110: /* Hong Kong */
-         CCCC[0] = 'V'; CCCC[1] = 'H'; CCCC[2] = 'H'; CCCC[3] = 'H';
-         break;
-      case 212: /* Lisboa */
-         CCCC[0] = 'L'; CCCC[1] = 'P'; CCCC[2] = 'M'; CCCC[3] = 'G';
-         break;
-      case 214: /* Madrid */
-         CCCC[0] = 'L'; CCCC[1] = 'E'; CCCC[2] = 'M'; CCCC[3] = 'M';
-         break;
-      case 215: /* Zurich */
-         CCCC[0] = 'L'; CCCC[1] = 'S'; CCCC[2] = 'S'; CCCC[3] = 'W';
-         break;
-      default : /* Not found. */
-         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
-                     "Unknown center identifier %d [CCCC = XXXX]",
-                     (unsigned char)(*(ptr + 8)));
-         CCCC[0] = 'X'; CCCC[1] = 'X'; CCCC[2] = 'X'; CCCC[3] = 'X';
-         break;
+      switch((unsigned char)(*(ptr + 8))) /* PDS Octet 5 */
+      {
+         case 1  :
+         case 2  : /* Melbourne */
+            CCCC[0] = 'A'; CCCC[1] = 'M'; CCCC[2] = 'M'; CCCC[3] = 'C';
+            break;
+         case 76 :
+         case 4  :
+         case 5  : /* Moscow */
+            CCCC[0] = 'R'; CCCC[1] = 'U'; CCCC[2] = 'M'; CCCC[3] = 'S';
+            break;
+         case 7  : /* US Weather Service - National Met. Center */
+            /* break; */
+         case 8  : /* US National Weather Service Telecommunications Gateway */
+            CCCC[0] = 'K'; CCCC[1] = 'W'; CCCC[2] = 'B'; CCCC[3] = 'C';
+            break;
+         case 10 : /* Cairo (RSMC/RAFC) */
+            CCCC[0] = 'H'; CCCC[1] = 'E'; CCCC[2] = 'C'; CCCC[3] = 'A';
+            break;
+         case 14 : /* Nairobi (RSMC/RAFC) */
+            CCCC[0] = 'H'; CCCC[1] = 'K'; CCCC[2] = 'N'; CCCC[3] = 'C';
+            break;
+         case 22 : /* Lagos */
+            CCCC[0] = 'D'; CCCC[1] = 'N'; CCCC[2] = 'M'; CCCC[3] = 'M';
+            break;
+         case 24 : /* Pretoria (RSMC) */
+            CCCC[0] = 'F'; CCCC[1] = 'A'; CCCC[2] = 'P'; CCCC[3] = 'R';
+            break;
+         case 28 : /* New Delhi (RSMC/RAFC) */
+            CCCC[0] = 'D'; CCCC[1] = 'E'; CCCC[2] = 'M'; CCCC[3] = 'S';
+            break;
+         case 34 : /* Japanese Meteorological Agency - Tokyo */
+            CCCC[0] = 'R'; CCCC[1] = 'J'; CCCC[2] = 'T'; CCCC[3] = 'D';
+            break;
+         case 38 : /* Beijing (RSMC) */
+            CCCC[0] = 'B'; CCCC[1] = 'A'; CCCC[2] = 'B'; CCCC[3] = 'J';
+            break;
+         case 41 : /* Buenos Aires (RSMC/RAFC) */
+            CCCC[0] = 'S'; CCCC[1] = 'A'; CCCC[2] = 'B'; CCCC[3] = 'M';
+            break;
+         case 43 : /* Brasilia (RSMC/RAFC) */
+               CCCC[0] = 'S'; CCCC[1] = 'B'; CCCC[2] = 'B'; CCCC[3] = 'R';
+            break;
+         case 51 :
+         case 52 : /* Miami */
+            CCCC[0] = 'K'; CCCC[1] = 'N'; CCCC[2] = 'H'; CCCC[3] = 'C';
+            break;
+         case 53 : /* Canadian Meteorological Service - Montreal */
+            CCCC[0] = 'C'; CCCC[1] = 'Y'; CCCC[2] = 'U'; CCCC[3] = 'L';
+            break;
+         case 58 : /* US Navy  - Fleet Numerical Oceanography Center */
+            CCCC[0] = 'K'; CCCC[1] = 'N'; CCCC[2] = 'W'; CCCC[3] = 'C';
+            break;
+         case 59 : /* NOAA Forcast System Laboratory Boulder */
+            CCCC[0] = 'K'; CCCC[1] = 'W'; CCCC[2] = 'N'; CCCC[3] = 'P';
+            break;
+         case 69 : /* Wellington (RSMC/RAFC) */
+            CCCC[0] = 'N'; CCCC[1] = 'Z'; CCCC[2] = 'K'; CCCC[3] = 'L';
+            break;
+         case 74 : /* U.K. Met Office - Bracknell */
+            CCCC[0] = 'E'; CCCC[1] = 'G'; CCCC[2] = 'R'; CCCC[3] = 'R';
+            break;
+         case 78 : /* Offenbach (RSMC) */
+            CCCC[0] = 'E'; CCCC[1] = 'D'; CCCC[2] = 'Z'; CCCC[3] = 'W';
+            break;
+         case 80 : /* Rome (RSMC) */
+            CCCC[0] = 'L'; CCCC[1] = 'I'; CCCC[2] = 'I'; CCCC[3] = 'B';
+            break;
+         case 82 : /* Norrkoeping */
+            CCCC[0] = 'E'; CCCC[1] = 'S'; CCCC[2] = 'W'; CCCC[3] = 'I';
+            break;
+         case 216:
+         case 84 :
+         case 85 : /* Toulouse (RSMC) */
+            CCCC[0] = 'L'; CCCC[1] = 'F'; CCCC[2] = 'P'; CCCC[3] = 'W';
+            break;
+         case 86 : /* Helsinki */
+            CCCC[0] = 'E'; CCCC[1] = 'F'; CCCC[2] = 'K'; CCCC[3] = 'L';
+            break;
+         case 87 : /* Belgrade */
+            CCCC[0] = 'L'; CCCC[1] = 'Y'; CCCC[2] = 'B'; CCCC[3] = 'M';
+            break;
+         case 88 : /* Oslo */
+            CCCC[0] = 'E'; CCCC[1] = 'N'; CCCC[2] = 'M'; CCCC[3] = 'I';
+            break;
+         case 89 : /* Prague */
+            CCCC[0] = 'O'; CCCC[1] = 'K'; CCCC[2] = 'P'; CCCC[3] = 'R';
+            break;
+         case 91 : /* Ankara */
+            CCCC[0] = 'L'; CCCC[1] = 'T'; CCCC[2] = 'A'; CCCC[3] = 'A';
+            break;
+         case 94 : /* Copenhagen */
+            CCCC[0] = 'E'; CCCC[1] = 'K'; CCCC[2] = 'M'; CCCC[3] = 'I';
+            break;
+         case 96 : /* Athens */
+            CCCC[0] = 'L'; CCCC[1] = 'G'; CCCC[2] = 'A'; CCCC[3] = 'T';
+            break;
+         case 254:
+         case 97 : /* European Space Agency (ESA) */
+            CCCC[0] = 'E'; CCCC[1] = 'U'; CCCC[2] = 'M'; CCCC[3] = 'S';
+            break;
+         case 98 : /* European Center for Medium-Range Weather Forecasts - Reading */
+            CCCC[0] = 'E'; CCCC[1] = 'C'; CCCC[2] = 'M'; CCCC[3] = 'F';
+            break;
+         case 99 : /* De Bilt */
+            CCCC[0] = 'E'; CCCC[1] = 'H'; CCCC[2] = 'D'; CCCC[3] = 'B';
+            break;
+         case 110: /* Hong Kong */
+            CCCC[0] = 'V'; CCCC[1] = 'H'; CCCC[2] = 'H'; CCCC[3] = 'H';
+            break;
+         case 212: /* Lisboa */
+            CCCC[0] = 'L'; CCCC[1] = 'P'; CCCC[2] = 'M'; CCCC[3] = 'G';
+            break;
+         case 214: /* Madrid */
+            CCCC[0] = 'L'; CCCC[1] = 'E'; CCCC[2] = 'M'; CCCC[3] = 'M';
+            break;
+         case 215: /* Zurich */
+            CCCC[0] = 'L'; CCCC[1] = 'S'; CCCC[2] = 'S'; CCCC[3] = 'W';
+            break;
+         default : /* Not found. */
+            receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                        "Unknown center identifier %d [CCCC = XXXX]",
+                        (unsigned char)(*(ptr + 8)));
+            CCCC[0] = 'X'; CCCC[1] = 'X'; CCCC[2] = 'X'; CCCC[3] = 'X';
+            break;
+      }
+   }
+   else
+   {
+      (void)memcpy(CCCC, default_CCCC, 4);
    }
    CCCC[4] = '\0';
 

@@ -534,7 +534,7 @@ main(int argc, char *argv[])
                 "Starting on <%s> %s", hostname, ctime(&now));
    }
 #ifdef PRE_RELEASE
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (PRE %d.%d.%d-%d)\n",
+   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d-pre%d)\n",
              AFD, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
@@ -647,18 +647,6 @@ main(int argc, char *argv[])
 
       if (now > full_dir_check_time)
       {
-         int files_queued = NO;
-
-         init_afd_check_fsa();
-
-         for (i = 0; i < no_of_hosts; i++)
-         {
-            if (fsa[i].host_status >= 2)
-            {
-               files_queued = YES;
-               break;
-            }
-         }
          if (fra_attach() == SUCCESS)
          {
             for (i = 0; i < no_of_dirs; i++)
@@ -667,25 +655,6 @@ main(int argc, char *argv[])
                {
                   count_files(fra[i].url, &fra[i].files_in_dir,
                               &fra[i].bytes_in_dir);
-               }
-               if (files_queued == NO)
-               {
-                  if (fra[i].files_queued > 0)
-                  {
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "Hmm, the number of files in %s should be 0 but currently is %d. Resetting. (%s %d)\n",
-                               fra[i].dir_alias, fra[i].files_queued,
-                               __FILE__, __LINE__);
-                     fra[i].files_queued = 0;
-                  }
-                  if (fra[i].bytes_in_queue > 0)
-                  {
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "Hmm, the number of bytes in %s should be 0 but currently is %d. Resetting. (%s %d)\n",
-                               fra[i].dir_alias, fra[i].bytes_in_queue,
-                               __FILE__, __LINE__);
-                     fra[i].bytes_in_queue = 0;
-                  }
                }
             }
             (void)fra_detach();
@@ -1505,7 +1474,7 @@ zombie_check(void)
                             (i == MAPPER_NO) ||
 #endif
                             (i == TDBLOG_NO) || (i == AW_NO) ||
-                            (i == AFDD_NO))
+                            (i == AFDD_NO) || (i == STAT_NO))
                         {
                            proc_table[i].pid = make_process(proc_table[i].proc_name, p_work_dir);
                            log_pid(proc_table[i].pid, i + 1);
@@ -1664,7 +1633,7 @@ afd_exit(void)
 
       (void)rec(sys_log_fd, INFO_SIGN,
 #ifdef PRE_RELEASE
-                "<INIT> Stopped %s (PRE %d.%d.%d-%d)\n",
+                "<INIT> Stopped %s (%d.%d.%d-pre%d)\n",
                 AFD, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
 #else
                 "<INIT> Stopped %s (%d.%d.%d)\n", AFD, MAJOR, MINOR, BUG_FIX);
@@ -1747,8 +1716,8 @@ afd_exit(void)
                }
                else
                {
-                  if ((i != DC_NO) && (proc_table[i - 1].status != NULL) &&
-                      ((i != AFDD_NO) || (*proc_table[i - 1].status != NEITHER)))
+                  if (((i - 1) != DC_NO) && (proc_table[i - 1].status != NULL) &&
+                      (((i - 1) != AFDD_NO) || (*proc_table[i - 1].status != NEITHER)))
                   {
                      *proc_table[i - 1].status = STOPPED;
                   }
@@ -1756,8 +1725,8 @@ afd_exit(void)
             }
             else
             {
-               if ((i != DC_NO) && (proc_table[i - 1].status != NULL) &&
-                   ((i != AFDD_NO) || (*proc_table[i - 1].status != NEITHER)))
+               if (((i - 1) != DC_NO) && (proc_table[i - 1].status != NULL) &&
+                   (((i - 1) != AFDD_NO) || (*proc_table[i - 1].status != NEITHER)))
                {
                   *proc_table[i - 1].status = STOPPED;
                }

@@ -67,7 +67,8 @@ extern struct filetransfer_status *fsa;
 char *
 check_paused_dir(struct directory_entry *p_de,
                  int                    *nfg,
-                 int                    *dest_count)
+                 int                    *dest_count,
+                 int                    *pdf)
 {
    register int i, j;
 
@@ -106,6 +107,14 @@ check_paused_dir(struct directory_entry *p_de,
                      return(db[p_de->fme[i].pos[j]].host_alias);
                   }
                }
+            }
+         }
+         else
+         {
+            if ((pdf != NULL) &&
+                (fsa[db[p_de->fme[i].pos[j]].position].host_status >= 2))
+            {
+               *pdf = YES;
             }
          }
       }

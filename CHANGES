@@ -1151,9 +1151,36 @@
              rule header in the rename.rule file.
 04.12.2002 - Set fonts correctly for popups from main menu in dir_ctrl
              dialog.
-10.12.2002 - New option overwrite that allows overwritting of files
+10.12.2002 - New option overwrite that allows overwriting of files
              during renaming, so no file names with a ; are created.
            - Save setup in afd_ctrl, dir_ctrl or mon_ctrl dialog did
              not work when the information to be stored was shorter
              then the original length. Fixed.
 ------------------------> Released: 11.12.2002 <---------------------------
+
+
+---------------------------> Version 1.2.17 <------------------------------
+                            ----------------
+12.12.2002 - Specifying the time behind the "delete unknown files"
+             directory option did not work correctly. Fixed.
+14.12.2002 - Hope to have made files queued counter more robust.
+           - If the host order has changed this was not reflected in
+             a running afd_ctrl dialog. Fixed.
+27.01.2003 - The new overwrite option did not subtract the size of
+             the file being removed. Fixed.
+15.02.2003 - Fixed some errors in function wmoheader_from_grib().
+16.02.2003 - Added new options -m and -mr to show_stat.
+           - Fixed some bugs in show_stat.
+17.02.2003 - Increase the number of digits shown for line counting
+             in show_log dialog.
+27.02.2003 - Set error counter to zero when queue has been stopped
+             automatically and we want to start it by hand.
+           - When no AFD_TCP_PORT is defined in AFD_CONFIG the afd_ctrl
+             dialog always short a fourth LED on schutdown. Fixed.
+01.03.2003 - Added new option grib2wmo to convert grib files to WMO
+             container files.
+04.03.2003 - The receive log did not show duplicated messages correctly.
+             Fixed.
+05.03.2003 - Fixed a bug in transfer log that sometimes did not show
+             the number of files and bytes when an error occured.
+------------------------> Released: 04.03.2003 <---------------------------

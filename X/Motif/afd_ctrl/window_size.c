@@ -186,8 +186,7 @@ window_size(int *window_width, int *window_height)
    }
    else
    {
-      int no_of_short_rows_set,
-          prev_no_of_short_rows;
+      int no_of_short_rows_set;
 
       no_of_short_rows_set = no_of_rows_set / (line_length[0] / short_line_length);
       if (no_of_short_rows_set == 0)
@@ -207,7 +206,6 @@ window_size(int *window_width, int *window_height)
       }
 
       /* How many rows do we need? */
-      prev_no_of_short_rows = no_of_short_rows;
       no_of_short_rows = no_of_short_lines / no_of_short_columns;
       if (no_of_short_lines != (no_of_short_columns * no_of_short_rows))
       {

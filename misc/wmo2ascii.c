@@ -40,8 +40,7 @@ DESCR__S_M3
  **
  **       WMO header<LF>WMO message<LF>
  **
- **   in addition <CR><CR><LF> wil be changed to <LF>.
- **
+ **   in addition <CR><CR><LF> will be changed to <LF>.
  **   The file name will not change.
  **
  ** RETURN VALUES

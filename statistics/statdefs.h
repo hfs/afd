@@ -78,8 +78,8 @@ struct afd_year_stat
        };
 
 extern void eval_input_as(int, char **, char *, char *),
-            eval_input_ss(int, char **, char *, char *, int *,
-                          int *, int *, int *, int *, int *, int *),
+            eval_input_ss(int, char **, char *, char *, int *, int *, int *,
+                          int *, int *, int *, int *, int *, int *, int *),
             read_afd_stat_db(int),
             save_old_year(int);
 extern int  locate_host(struct afdstat *, char *, int),

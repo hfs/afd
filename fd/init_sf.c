@@ -125,6 +125,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    {
       exit(INCORRECT);
    }
+   db.fsa_pos = -1; /* For exit handler. */
    db.transfer_mode = DEFAULT_TRANSFER_MODE;
    db.toggle_host = NO;
    db.protocol = protocol;

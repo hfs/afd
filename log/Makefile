@@ -7,7 +7,7 @@ include ../Include.mk
 INSTDIR  = ../..
 COMDIR   = ../common
 LIB      = $(COMDIR)/libafd.a
-CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd
+CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../afd_mon
 
 SLPROG   = system_log
 SLOBJS   = fprint_dup_msg.o\
@@ -112,3 +112,4 @@ sinstall :
 	$(MAKE) install
 
 # Other dependencies
+monitor_log.o : ../afd_mon/mondefs.h

@@ -49,6 +49,9 @@ DESCR__S_M3
  **   02.09.2002 H.Kiehl    Return file name with TIFF_END.
  **   20.11.2002 H.Kiehl    Don't mark T4 code wrong if it does not have
  **                         the 6 EOL's at end.
+ **   05.02.2003 H.Kiehl    Remove the strlen() to get header length and
+ **                         put in more size checks so we don't go beyond
+ **                         our memory.
  **
  */
 DESCR__E_M3
@@ -676,15 +679,33 @@ evaluate_wmo_stuff(char *buf, size_t size)
 
    if ((ptr = posi(buf, search_str)) != NULL)
    {
+      if ((ptr - buf) > size)
+      {
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                     "This file does not seem to have a valid WMO header.");
+         return(INCORRECT);
+      }
       if ((ptr = posi(ptr, search_str)) != NULL)
       {
 #ifdef _WITH_FILE_INFO
          bh_start = ptr - 1;
 #endif
+         if ((ptr - buf) > size)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "This file does not seem to have a valid WMO header.");
+            return(INCORRECT);
+         }
          if ((ptr = posi(ptr, search_str)) == NULL)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to find third <CR><CR><LF>.");
+            return(INCORRECT);
+         }
+         if ((ptr + 8 - buf) > size)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "This file does not seem to have a valid WMO header.");
             return(INCORRECT);
          }
 #ifdef _WITH_FILE_INFO
@@ -749,7 +770,7 @@ evaluate_wmo_stuff(char *buf, size_t size)
    }
 
    /* Determine the bulletin header length */
-   bhl = strlen(buf);
+   bhl = ptr + 8 - buf;
 
    /* Check end for <CR><CR><LF><ETX> */
    if ((buf[(size - 1)] != 3) || (buf[(size - 2)] != 10) ||

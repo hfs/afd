@@ -1,6 +1,6 @@
 /*
  *  logdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,7 +78,7 @@
 #endif
 
 /* Function prototypes. */
-extern int  fprint_dup_msg(FILE *, int, char *, char *, time_t),
+extern int  fprint_dup_msg(FILE *, int, char *, char *, int, time_t),
 #ifdef _FIFO_DEBUG
             logger(FILE *, int, char *, int);
 #else

@@ -1,6 +1,6 @@
 /*
  *  check_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -667,11 +667,7 @@ done:
    if ((files_copied >= max_copied_files) ||
        (*total_file_size >= max_copied_file_size))
    {
-      if (count_files == NO)
-      {
-         ABS_REDUCE_QUEUE(p_de->fra_pos, files_in_dir, bytes_in_dir);
-      }
-      else
+      if (count_files == YES)
       {
          if (fra[p_de->fra_pos].files_in_dir < files_in_dir)
          {
@@ -689,11 +685,7 @@ done:
    }
    else
    {
-      if (count_files == NO)
-      {
-         ABS_REDUCE_QUEUE(p_de->fra_pos, files_in_dir, bytes_in_dir);
-      }
-      else
+      if (count_files == YES)
       {
          fra[p_de->fra_pos].files_in_dir = files_in_dir;
          fra[p_de->fra_pos].bytes_in_dir = bytes_in_dir;
@@ -704,14 +696,21 @@ done:
       }
    }
 
-   if ((files_copied > 0) && (count_files == YES))
+   if (files_copied > 0)
    {
-      fra[p_de->fra_pos].files_received += files_copied;
-      fra[p_de->fra_pos].bytes_received += *total_file_size;
-      fra[p_de->fra_pos].last_retrieval = current_time;
-      receive_log(INFO_SIGN, NULL, 0, current_time,
-                  "Received %d files with %lu Bytes.",
-                  files_copied, *total_file_size);
+      if (count_files == YES)
+      {
+         fra[p_de->fra_pos].files_received += files_copied;
+         fra[p_de->fra_pos].bytes_received += *total_file_size;
+         fra[p_de->fra_pos].last_retrieval = current_time;
+         receive_log(INFO_SIGN, NULL, 0, current_time,
+                     "Received %d files with %lu Bytes.",
+                     files_copied, *total_file_size);
+      }
+      else
+      {
+         ABS_REDUCE_QUEUE(p_de->fra_pos, files_copied, *total_file_size);
+      }
    }
 #ifdef _WITH_PTHREAD
    if ((ret = pthread_mutex_unlock(&fsa_mutex)) != 0)

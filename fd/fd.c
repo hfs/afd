@@ -120,11 +120,11 @@ int                        amg_flag = NO,
 off_t                      fra_size,
                            fsa_size;
 #endif
-off_t                      *buf_file_size = NULL;  /* _PRIO_CHECK */
+off_t                      *buf_file_size = NULL;
 char                       stop_flag = 0,
                            *p_work_dir,
-                           **p_buf_name = NULL,    /* _PRIO_CHECK */
-                           *file_buffer = NULL,    /* _PRIO_CHECK */
+                           **p_buf_name = NULL,
+                           *file_buffer = NULL,
                            *p_err_file_dir,
                            *p_file_dir,
                            *p_msg_dir,

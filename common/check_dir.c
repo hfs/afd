@@ -26,7 +26,7 @@ DESCR__S_M3
  **               to create this directory
  **
  ** SYNOPSIS
- **   int check_dir(char *directory)
+ **   int check_dir(char *directory, int access_mode)
  **
  ** DESCRIPTION
  **   This function checks if the 'directory' exists and

@@ -1,6 +1,6 @@
 /*
  *  fprint_dup_msg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@ DESCR__S_M3
  **                      int    dup_msg,
  **                      char   *sign,
  **                      char   *host_pos_str,
+ **                      int    offset,
  **                      time_t now)
  **
  ** DESCRIPTION
@@ -56,6 +57,7 @@ fprint_dup_msg(FILE   *p_log_file,
                int    dup_msg,
                char   *sign,
                char   *host_pos_str,
+               int    offset,
                time_t now)
 {
    char      buf[17];
@@ -82,11 +84,12 @@ fprint_dup_msg(FILE   *p_log_file,
 
    if (host_pos_str == NULL)
    {
-      return(fprintf(p_log_file, "%sLast message repeated %d times.\n", buf, dup_msg));
+      return(fprintf(p_log_file, "%sLast message repeated %d times.\n",
+                     buf, dup_msg));
    }
    else
    {
-      char *ptr = host_pos_str + MAX_HOSTNAME_LENGTH + 3;
+      char *ptr = host_pos_str + offset;
 
       while ((*ptr != ':') && (*ptr != '\0'))
       {
@@ -95,7 +98,13 @@ fprint_dup_msg(FILE   *p_log_file,
       if (*ptr == ':')
       {
          *(ptr + 2) = '\0';
+         return(fprintf(p_log_file, "%s%sLast message repeated %d times.\n",
+                        buf, host_pos_str, dup_msg));
       }
-      return(fprintf(p_log_file, "%s%sLast message repeated %d times.\n", buf, host_pos_str, dup_msg));
+      else
+      {
+         return(fprintf(p_log_file, "%s%-*sLast message repeated %d times.\n",
+                        buf, offset, "?", dup_msg));
+      }
    }
 }

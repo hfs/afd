@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,6 +103,8 @@
 #define TIFF2GTS_ID_LENGTH         8
 #define GTS2TIFF_ID                "gts2tiff"
 #define GTS2TIFF_ID_LENGTH         8
+#define GRIB2WMO_ID                "grib2wmo"
+#define GRIB2WMO_ID_LENGTH         8
 #define EXTRACT_ID                 "extract"
 #define EXTRACT_ID_LENGTH          7
 #define ASSEMBLE_ID                "assemble"
@@ -112,9 +114,9 @@
 #ifdef _WITH_AFW2WMO
 #define AFW2WMO_ID                 "afw2wmo"
 #define AFW2WMO_ID_LENGTH          7
-#define LOCAL_OPTION_POOL_SIZE     16
+#define LOCAL_OPTION_POOL_SIZE     17
 #else
-#define LOCAL_OPTION_POOL_SIZE     15
+#define LOCAL_OPTION_POOL_SIZE     16
 #endif
 
 /* Definitions for types of time options. */
@@ -438,7 +440,7 @@ extern int    amg_zombie_check(pid_t *, int),
                          time_t *, unsigned short *, int, int,
                          char *, off_t *),
               save_files(char *, char *, off_t *, char **,
-                         struct directory_entry *, int, int, char, off_t *),
+                         struct directory_entry *, int, int, char, int),
 #else
               check_files(struct directory_entry *, char *, char *,
                           char *, int, time_t, off_t *),
@@ -447,7 +449,7 @@ extern int    amg_zombie_check(pid_t *, int),
                          struct instant_db *, time_t *, unsigned short *,
                          int, int, char *, off_t *),
               save_files(char *, char *, struct directory_entry *,
-                         int, int, char, off_t *),
+                         int, int, char, int),
 #endif
               check_process_list(int),
               create_db(void),
@@ -460,7 +462,7 @@ extern int    amg_zombie_check(pid_t *, int),
               rename_files(char *, char *, int, struct instant_db *, time_t *,
                            unsigned short *, char *, off_t *);
 extern pid_t  make_process_amg(char *, char *, int, int);
-extern char   *check_paused_dir(struct directory_entry *, int *, int *),
+extern char   *check_paused_dir(struct directory_entry *, int *, int *, int *),
               *convert_fra(int, char *, off_t *, int, unsigned char,
                            unsigned char),
               *next(char *);

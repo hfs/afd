@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,6 +47,8 @@ DESCR__S_M3
  **   27.01.1996 H.Kiehl Created
  **   30.07.2001 H.Kiehl Support for show_queue dialog.
  **   09.11.2002 H.Kiehl Short line support.
+ **   27.02.2003 H.Kiehl Set error_counter to zero when AUTO_PAUSE_QUEUE_STAT
+ **                      is set.
  **
  */
 DESCR__E_M3
@@ -1362,6 +1364,10 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                         (void)rec(sys_log_fd, CONFIG_SIGN,
                                   "%s: STARTED input queue that stopped automatically (%s).\n",
                                   connect_data[i].host_display_str, user);
+                        if (fsa[i].error_counter > 0)
+                        {
+                           fsa[i].error_counter = 0;
+                        }
                         fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                      }
                      else

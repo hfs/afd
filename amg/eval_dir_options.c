@@ -242,13 +242,17 @@ eval_dir_options(int  dir_pos,
       if (((used & DEL_UNKNOWN_FILES_FLAG) == 0) &&
           (strncmp(ptr, DEL_UNKNOWN_FILES_ID, DEL_UNKNOWN_FILES_ID_LENGTH) == 0))
       {
-         int  length = 0;
-         char number[MAX_INT_LENGTH + 1];
-
          used |= DEL_UNKNOWN_FILES_FLAG;
          ptr += DEL_UNKNOWN_FILES_ID_LENGTH;
          if ((*ptr == ' ') || (*ptr == '\t'))
          {
+            int  length = 0;
+            char number[MAX_INT_LENGTH + 1];
+
+            while ((*ptr == ' ') || (*ptr == '\t'))
+            {
+               ptr++;
+            }
             while ((isdigit(*ptr)) && (length < MAX_INT_LENGTH))
             {
                number[length] = *ptr;
@@ -463,7 +467,6 @@ eval_dir_options(int  dir_pos,
                  {
                     ptr++;
                  }
-
                  while ((isdigit(*ptr)) && (length < MAX_INT_LENGTH))
                  {
                     number[length] = *ptr;
