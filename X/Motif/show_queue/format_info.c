@@ -84,7 +84,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                 /* sprintf()                          */
-#include <stdlib.h>                /* atoi()                             */
+#include <stdlib.h>                /* atoi(), malloc(), realloc(), free()*/
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -584,7 +584,7 @@ format_input_info(char *text, int pos)
 
                if (jobs_found == 0)
                {
-                  if ((p_array = (char **)malloc(1 * sizeof(char *))) == NULL)
+                  if ((p_array = malloc(1 * sizeof(char *))) == NULL)
                   {
                      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
                                    strerror(errno), __FILE__, __LINE__);
@@ -593,8 +593,7 @@ format_input_info(char *text, int pos)
                }
                else
                {
-                  if ((p_array = (char **)realloc(p_array,
-                                                  (jobs_found * sizeof(char *)))) == NULL)
+                  if ((p_array = realloc(p_array, (jobs_found * sizeof(char *)))) == NULL)
                   {
                      (void)fprintf(stderr, "realloc() error : %s (%s %d)\n",
                                    strerror(errno), __FILE__, __LINE__);

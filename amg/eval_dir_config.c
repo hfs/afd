@@ -257,7 +257,7 @@ eval_dir_config(size_t db_size)
    struct dir_group *dir;
 
    /* Allocate memory for the directory structure. */
-   if ((dir = (struct dir_group *)malloc(sizeof(struct dir_group))) == NULL)
+   if ((dir = malloc(sizeof(struct dir_group))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
@@ -464,7 +464,7 @@ eval_dir_config(size_t db_size)
       dir->option[0] = '\0';
       while ((*ptr != '\n') && (*ptr != '\0'))
       {
-         if (*ptr == '\\')
+         if ((*ptr == '\\') && (*(ptr + 1) == '#'))
          {
             dir->location[i] = *(ptr + 1);
             i++;
@@ -861,7 +861,7 @@ eval_dir_config(size_t db_size)
 
             if (dir->fgc == 0)
             {
-               if ((dir->file = (struct file_group *)malloc(new_size)) == NULL)
+               if ((dir->file = malloc(new_size)) == NULL)
                {
                   (void)rec(sys_log_fd, FATAL_SIGN,
                             "Could not malloc() memory : %s (%s %d)\n",
@@ -871,7 +871,7 @@ eval_dir_config(size_t db_size)
             }
             else
             {
-               if ((dir->file = (struct file_group *)realloc(dir->file, new_size)) == NULL)
+               if ((dir->file = realloc(dir->file, new_size)) == NULL)
                {
                   (void)rec(sys_log_fd, FATAL_SIGN,
                             "Could not realloc() memory : %s (%s %d)\n",
@@ -1074,7 +1074,7 @@ eval_dir_config(size_t db_size)
                /* Calculate new size of destination group buffer. */
                new_size = ((dir->file[dir->fgc].dgc / DG_BUFFER_STEP_SIZE) + 1) * DG_BUFFER_STEP_SIZE * sizeof(struct dest_group);
 
-               if ((dir->file[dir->fgc].dest = (struct dest_group *)realloc(dir->file[dir->fgc].dest, new_size)) == NULL)
+               if ((dir->file[dir->fgc].dest = realloc(dir->file[dir->fgc].dest, new_size)) == NULL)
                {
                   (void)rec(sys_log_fd, FATAL_SIGN,
                             "Could not realloc() memory : %s (%s %d)\n",
@@ -1258,7 +1258,7 @@ eval_dir_config(size_t db_size)
                   /* Make sure that we did read a line. */
                   if (i != 0)
                   {
-                     char real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+                     char real_hostname[MAX_REAL_HOSTNAME_LENGTH];
 
                      /* Check if we can extract the hostname. */
                      if (get_hostname(dir->file[dir->fgc].\
@@ -1734,7 +1734,7 @@ check_dummy_line:
 
                if (no_of_local_dirs == 0)
                {
-                  if ((dd = (struct dir_data *)malloc(new_size)) == NULL)
+                  if ((dd = malloc(new_size)) == NULL)
                   {
                      (void)rec(sys_log_fd, FATAL_SIGN,
                                "malloc() error : %s (%s %d)\n",
@@ -1744,8 +1744,7 @@ check_dummy_line:
                }
                else
                {
-                  if ((dd = (struct dir_data *)realloc((char *)dd,
-                                                       new_size)) == NULL)
+                  if ((dd = realloc((char *)dd, new_size)) == NULL)
                   {
                      (void)rec(sys_log_fd, FATAL_SIGN,
                                "realloc() error : %s (%s %d)\n",
@@ -1986,7 +1985,7 @@ check_hostname_list(char *recipient, int flag)
    int          i;
    unsigned int protocol;
    char         host_alias[MAX_HOSTNAME_LENGTH + 1],
-                real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1],
+                real_hostname[MAX_REAL_HOSTNAME_LENGTH],
                 new;
 
    /* Extract only hostname. */
@@ -2205,7 +2204,8 @@ copy_job(int              file_no,
                      TIFF2GTS_ID_LENGTH,
                      GTS2TIFF_ID_LENGTH,
                      EXTRACT_ID_LENGTH,
-                     ASSEMBLE_ID_LENGTH
+                     ASSEMBLE_ID_LENGTH,
+                     WMO2ASCII_ID_LENGTH
                   };
    size_t         new_size;
    char           buffer[MAX_INT_LENGTH],
@@ -2231,7 +2231,8 @@ copy_job(int              file_no,
                      TIFF2GTS_ID,
                      GTS2TIFF_ID,
                      EXTRACT_ID,
-                     ASSEMBLE_ID
+                     ASSEMBLE_ID,
+                     WMO2ASCII_ID
                   };
    struct p_array *p_ptr = NULL;
 

@@ -101,7 +101,7 @@ get_display_data(char *search_file,
       hunk = HUNK_MAX;
    }
 
-   if ((buffer = (char *)malloc(hunk)) == NULL)
+   if ((buffer = malloc(hunk)) == NULL)
    {
       length = sprintf(reply, "500 Failed to malloc() memory : %s (%s %d)\r\n",
                        strerror(errno), __FILE__, __LINE__);

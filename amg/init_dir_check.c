@@ -157,7 +157,7 @@ init_dir_check(int    argc,
 
    /* Allocate memory for the array containing all file names to  */
    /* be send for every directory section in the DIR_CONFIG file. */
-   if ((de = (struct directory_entry *)malloc(no_of_local_dirs * sizeof(struct directory_entry))) == NULL)
+   if ((de = malloc(no_of_local_dirs * sizeof(struct directory_entry))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
@@ -212,13 +212,13 @@ init_dir_check(int    argc,
    get_afd_config_value();
 
 #ifdef _WITH_PTHREAD
-   if ((thread = (pthread_t *)malloc(no_of_local_dirs * sizeof(pthread_t))) == NULL)
+   if ((thread = malloc(no_of_local_dirs * sizeof(pthread_t))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((p_data = (struct data_t *)malloc(no_of_local_dirs * sizeof(struct data_t))) == NULL)
+   if ((p_data = malloc(no_of_local_dirs * sizeof(struct data_t))) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);

@@ -102,7 +102,7 @@ GC                         letter_gc,
 Colormap                   default_cmap;
 XFontStruct                *font_struct;
 XmFontList                 fontlist = NULL;
-Widget                     mw[3],       /* Main menu */
+Widget                     mw[4],       /* Main menu */
                            dw[3],       /* Directory menu */
                            vw[8],       /* View menu */
                            sw[4],       /* Setup menu */

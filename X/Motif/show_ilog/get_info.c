@@ -466,8 +466,7 @@ get_dir_data(int dir_pos)
                              sizeof(struct db_entry);
 
                   /* Create or increase the space for the buffer */
-                  if ((id.dbe = (struct db_entry *)realloc(id.dbe,
-                                                           new_size)) == (struct db_entry *)NULL)
+                  if ((id.dbe = realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
                   {
                      (void)xrec(toplevel_w, FATAL_DIALOG,
                                 "realloc() error : %s (%s %d)",
@@ -643,7 +642,7 @@ get_recipient_only(int dir_pos)
                new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
 
                /* Create or increase the space for the buffer */
-               if ((id.dbe = (struct db_entry *)realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
+               if ((id.dbe = realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
                {
                   (void)xrec(toplevel_w, FATAL_DIALOG,
                              "realloc() error : %s (%s %d)",

@@ -375,7 +375,7 @@ main(int argc, char *argv[])
    }
    else if (start_up == MON_CTRL_ONLY)
         {
-           (void)strcpy(exec_cmd, "mon_ctrl");
+           (void)strcpy(exec_cmd, MON_CTRL);
            if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                       (char *) 0) == -1)
            {
@@ -511,7 +511,7 @@ main(int argc, char *argv[])
       (void)close(fd);
 
       /* Another AFD_MON is active. Only start mon_ctrl. */
-      (void)strcpy(exec_cmd, "mon_ctrl");
+      (void)strcpy(exec_cmd, MON_CTRL);
       if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir, (char *) 0) == -1)
       {
          (void)fprintf(stderr,
@@ -617,7 +617,7 @@ main(int argc, char *argv[])
 
                     (void)close(read_fd);
 
-                    (void)strcpy(exec_cmd, "mon_ctrl");
+                    (void)strcpy(exec_cmd, MON_CTRL);
                     if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                                (char *) 0) == -1)
                     {

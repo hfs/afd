@@ -1,7 +1,7 @@
 /*
  *  init_asmtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   20.11.2000 H.Kiehl    Created
+ **   04.08.2002 H.Kiehl Added To:, From: and Reply-To headers.
  **
  */
 DESCR__E_M3
@@ -82,6 +83,8 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
    p_db->verbose          = NO;
    p_db->no_of_files      = 0;
    p_db->subject          = NULL;
+   p_db->from             = NULL;
+   p_db->reply_to         = NULL;
    p_db->flag             = 0;
 
    /* Evaluate all arguments with '-' */
@@ -253,6 +256,38 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
+         case 'i' : /* From header. */
+
+            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            {
+#ifdef _GERMAN
+               (void)fprintf(stderr, "ERROR   : Keine from Addresse angegeben fuer Option -i.\n");
+#else
+               (void)fprintf(stderr, "ERROR   : No from address specified for option -i.\n");
+#endif
+               correct = NO;
+            }
+            else
+            {
+               size_t length;
+
+               argv++;
+               length = strlen(argv[0]);
+               if ((p_db->from = malloc(length)) == NULL)
+               {
+                  (void)fprintf(stderr,
+                                "ERROR   : malloc() error : %s (%s %d)\n",
+                                strerror(errno), __FILE__, __LINE__);
+                  correct = NO;
+               }
+               else
+               {
+                  (void)strcpy(p_db->from, argv[0]);
+               }
+               argc--;
+            }
+            break;
+
          case 'm' : /* Mail server that will send this mail. */
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
@@ -275,6 +310,38 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
          case 'n' : /* Filename is subject. */
 
             p_db->flag |= FILE_NAME_IS_SUBJECT;
+            break;
+
+         case 'o' : /* Reply-To. */
+
+            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            {
+#ifdef _GERMAN
+               (void)fprintf(stderr, "ERROR   : Keine reply-to Addresse angegeben fuer Option -o.\n");
+#else
+               (void)fprintf(stderr, "ERROR   : No reply-to address specified for option -o.\n");
+#endif
+               correct = NO;
+            }
+            else
+            {
+               size_t length;
+
+               argv++;
+               length = strlen(argv[0]);
+               if ((p_db->reply_to = malloc(length)) == NULL)
+               {
+                  (void)fprintf(stderr,
+                                "ERROR   : malloc() error : %s (%s %d)\n",
+                                strerror(errno), __FILE__, __LINE__);
+                  correct = NO;
+               }
+               else
+               {
+                  (void)strcpy(p_db->reply_to, argv[0]);
+               }
+               argc--;
+            }
             break;
 
          case 'p' : /* Remote TCP port number */
@@ -481,6 +548,8 @@ usage(void)
    (void)fprintf(stderr, "  -m <Mailserver-addresse>   - Mailserver der die Mail verschicken.\n");
    (void)fprintf(stderr, "                               soll. Standard ist %s.\n", SMTP_HOST_NAME);
    (void)fprintf(stderr, "  -n                         - Dateiname ist das Subject.\n");
+   (void)fprintf(stderr, "  -o <Mail-addresse>         - Wo der Empfaenger seine Antwort schicken\n");
+   (void)fprintf(stderr, "                               soll.\n");
    (void)fprintf(stderr, "  -p <Portnummer>            - IP Portnummer des SMTP-Servers.\n");
    (void)fprintf(stderr, "                               Standard %d.\n", DEFAULT_SMTP_PORT);
    (void)fprintf(stderr, "  -r                         - Loescht die uebertragenen Dateien.\n");
@@ -520,11 +589,12 @@ usage(void)
    (void)fprintf(stderr, "  -f <filename>              - File containing a list of filenames\n");
    (void)fprintf(stderr, "                               that are to be send.\n");
    (void)fprintf(stderr, "  -h <hostname | IP number>  - Recipient hostname of this mail.\n");
-   (void)fprintf(stderr, "  -p <port number>           - Remote port number of SMTP-server.\n");
-   (void)fprintf(stderr, "                               Default %d.\n", DEFAULT_SMTP_PORT);
    (void)fprintf(stderr, "  -m <mailserver-address>    - Mailserver that will send this mail.\n");
    (void)fprintf(stderr, "                               Default is %s.\n", SMTP_HOST_NAME);
    (void)fprintf(stderr, "  -n                         - File name is subject.\n");
+   (void)fprintf(stderr, "  -o <mail address>          - Where the receiver should send is reply.\n");
+   (void)fprintf(stderr, "  -p <port number>           - Remote port number of SMTP-server.\n");
+   (void)fprintf(stderr, "                               Default %d.\n", DEFAULT_SMTP_PORT);
    (void)fprintf(stderr, "  -r                         - Remove transmitted file.\n");
    (void)fprintf(stderr, "  -s <subject>               - Subject of this mail.\n");
    (void)fprintf(stderr, "  -t <timout>                - SMTP timeout in seconds. Default %lds.\n", DEFAULT_TRANSFER_TIMEOUT);

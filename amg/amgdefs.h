@@ -107,12 +107,14 @@
 #define EXTRACT_ID_LENGTH          7
 #define ASSEMBLE_ID                "assemble"
 #define ASSEMBLE_ID_LENGTH         8
+#define WMO2ASCII_ID               "wmo2ascii"
+#define WMO2ASCII_ID_LENGTH        9
 #ifdef _WITH_AFW2WMO
 #define AFW2WMO_ID                 "afw2wmo"
 #define AFW2WMO_ID_LENGTH          7
-#define LOCAL_OPTION_POOL_SIZE     15
+#define LOCAL_OPTION_POOL_SIZE     16
 #else
-#define LOCAL_OPTION_POOL_SIZE     14
+#define LOCAL_OPTION_POOL_SIZE     15
 #endif
 
 /* Definitions for types of time options. */
@@ -134,6 +136,7 @@
 #define FOUR_BYTE_MRZ              5
 #define WMO_STANDARD               6
 #define ASCII_STANDARD             7
+#define FOUR_BYTE_DWD              8
 
 /* Definition of fifos for the AMG to communicate */
 /* with the above jobs.                           */
@@ -427,7 +430,7 @@ extern int    amg_zombie_check(pid_t *, int),
               com(char),
 #ifdef _WITH_PTHREAD
               check_files(struct directory_entry *, char *, char *,
-                          char *, int, off_t *, char **, off_t *),
+                          char *, int, time_t, off_t *, char **, off_t *),
               count_pool_files(int *, char *, off_t *, char **),
               link_files(char *, char *, off_t *, char **,
                          struct directory_entry *, struct instant_db *,
@@ -437,7 +440,7 @@ extern int    amg_zombie_check(pid_t *, int),
                          struct directory_entry *, int, int, char, off_t *),
 #else
               check_files(struct directory_entry *, char *, char *,
-                          char *, int, off_t *),
+                          char *, int, time_t, off_t *),
               count_pool_files(int *, char *),
               link_files(char *, char *, struct directory_entry *,
                          struct instant_db *, time_t *, unsigned short *,

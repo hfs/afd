@@ -53,7 +53,7 @@ void
 t_hostname(char *hostname, char *trunc_hostname)
 {
    int  i = 0;
-   char *ptr = NULL;
+   char *ptr;
 
    ptr = hostname;
    while ((*ptr != '\0') &&

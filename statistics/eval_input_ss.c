@@ -33,6 +33,7 @@ DESCR__S_M3
  **                      int  *show_day_summary,
  **                      int  *show_hour,
  **                      int  *show_hour_summary,
+ **                      int  *show_min_summary,
  **                      int  *show_year,
  **                      int  *host_counter)
  **
@@ -43,7 +44,8 @@ DESCR__S_M3
  **           -d <x>                 show all information of day minus x
  **           -D                     show total summary on a per day basis
  **           -h <x>                 show all information of hour minus x
- **           -D                     show total summary of last 24 hours
+ **           -H                     show total summary of last 24 hours
+ **           -M [<x>]               show total summary of last hour
  **           -y <x>                 show all information of year minus x
  **           -w <working directory> working directory of the AFD
  **
@@ -59,6 +61,7 @@ DESCR__S_M3
  **   19.09.1996 H.Kiehl Created
  **   19.04.1998 H.Kiehl Added -D option.
  **   26.05.1998 H.Kiehl Added -H option.
+ **   09.08.2002 H.Kiehl Added -M option.
  **
  */
 DESCR__E_M3
@@ -89,6 +92,7 @@ eval_input_ss(int  argc,
               int  *show_day_summary,
               int  *show_hour,
               int  *show_hour_summary,
+              int  *show_min_summary,
               int  *show_year,
               int  *host_counter)
 {
@@ -107,6 +111,8 @@ eval_input_ss(int  argc,
    /*         - h : Show all information of hour minus x.    */
    /*                                                        */
    /*         - H : Show total summary of last 24 hours.     */
+   /*                                                        */
+   /*         - M : Show total summary of last hour.         */
    /*                                                        */
    /*         - y : Show all information of year minus x.    */
    /*                                                        */
@@ -204,6 +210,23 @@ eval_input_ss(int  argc,
                }
                break;
 
+            case 'M': /* Show summary information of last hour. */
+
+               if ((argc == 1) || (*(argv + 1)[0] == '-') ||
+                   (isdigit(*(argv + 1)[0]) == 0))
+               {
+                  *show_min_summary = 0;
+                  argc--;
+                  argv++;
+               }
+               else
+               {
+                  *show_min_summary = atoi(*(argv + 1));
+                  argc--;
+                  argv++;
+               }
+               break;
+
             case 'y': /* Show year minus x */
 
                if ((argc == 1) || (*(argv + 1)[0] == '-') ||
@@ -272,6 +295,7 @@ usage(void)
    (void)fprintf(stderr, "            -D              Show total summary on a per day basis.\n");
    (void)fprintf(stderr, "            -h [<x>]        Show information of all hours [or hour minus x].\n");
    (void)fprintf(stderr, "            -H              Show total summary of last 24 hours.\n");
+   (void)fprintf(stderr, "            -M              Show total summary of last hour.\n");
    (void)fprintf(stderr, "            -y [<x>]        Show information of all years [or year minus x].\n");
    (void)fprintf(stderr, "            --version       Show current version.\n");
 

@@ -242,7 +242,7 @@ main(int argc, char *argv[])
    /*
     * The extra buffer is needed to convert LF's to CRLF.
     */
-   if ((smtp_buffer = (char *)malloc((blocksize * 2))) == NULL)
+   if ((smtp_buffer = malloc((blocksize * 2))) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "malloc() error : %s", strerror(errno));

@@ -1,6 +1,6 @@
 /*
  *  show_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,6 +35,7 @@ DESCR__S_M1
  **               -h [<x>]        Show information of all hours [or hour
  **                               minus x].
  **               -H              Show total summary of last 24 hours.
+ **               -M              Show total summary of last hour.
  **               -y [<x>]        Show information of all years [or year
  **                               minus x].
  **               --version       Show version.
@@ -56,6 +57,7 @@ DESCR__S_M1
  **   18.09.1996 H.Kiehl Created
  **   19.04.1998 H.Kiehl Added -D option.
  **   26.05.1998 H.Kiehl Added -H option.
+ **   09.08.2002 H.Kiehl Added -M option.
  **
  */
 DESCR__E_M1
@@ -103,6 +105,7 @@ main(int argc, char *argv[])
    register int   i,
                   j;
    int            position,
+                  show_min_summary = -1,
                   show_hour = -1,
                   show_hour_summary = -1,
                   show_day = -1,
@@ -131,7 +134,8 @@ main(int argc, char *argv[])
    }
    eval_input_ss(argc, argv, work_dir, statistic_file_name,
                  &show_day, &show_day_summary, &show_hour,
-                 &show_hour_summary, &show_year, &host_counter);
+                 &show_hour_summary, &show_min_summary,
+                 &show_year, &host_counter);
 
    /* Initialize variables */
    p_work_dir = work_dir;
@@ -192,10 +196,8 @@ main(int argc, char *argv[])
       /* Open file */
       if ((stat_fd = open(statistic_file, O_RDONLY)) < 0)
       {
-         (void)fprintf(stderr,
-                       "ERROR   : Failed to open() %s : %s (%s %d)\n",
-                       statistic_file, strerror(errno),
-                       __FILE__, __LINE__);
+         (void)fprintf(stderr, "ERROR   : Failed to open() %s : %s (%s %d)\n",
+                       statistic_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
@@ -537,7 +539,8 @@ main(int argc, char *argv[])
 #endif /* _NO_MMAP */
 
          if ((show_day == -1) && (show_year == -1) && (show_hour == -1) &&
-             (show_hour_summary == -1) && (show_day_summary == -1))
+             (show_hour_summary == -1) && (show_day_summary == -1) &&
+             (show_min_summary == -1))
          {
             /*
              * Show total for all host.
@@ -1126,6 +1129,180 @@ main(int argc, char *argv[])
                }
                (void)fprintf(stdout, "=======================================================================\n");
             } /* if (show_hour_summary > -1) */
+
+            /*
+             * Show summary on a per minute basis for the last hour.
+             */
+            if (show_min_summary > -1)
+            {
+               tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
+               (void)fprintf(stdout, "                    =============================\n");
+               (void)fprintf(stdout, "==================> AFD STATISTICS MINUTE SUMMARY <====================\n");
+               (void)fprintf(stdout, "                    =============================\n");
+            }
+            if (show_min_summary == 0)
+            {
+               for (j = 0; j < afd_stat[0].sec_counter; j++)
+               {
+                  (void)fprintf(stdout, "%12d:", j);
+                  nfs = nbs = nc = ne = 0.0;
+                  for (i = 0; i < no_of_hosts; i++)
+                  {
+                     nfs += (double)afd_stat[i].hour[j].nfs;
+                     nbs +=         afd_stat[i].hour[j].nbs;
+                     nc  += (double)afd_stat[i].hour[j].nc;
+                     ne  += (double)afd_stat[i].hour[j].ne;
+                  }
+                  display_data(nfs, nbs, nc, ne);
+
+                  tmp_nfs += nfs;
+                  tmp_nbs += nbs;
+                  tmp_nc  += nc;
+                  tmp_ne  += ne;
+               }
+               if (afd_stat[0].sec_counter == 0)
+               {
+                  (void)fprintf(stdout, "*%3d:", afd_stat[0].sec_counter);
+               }
+               else
+               {
+                  (void)fprintf(stdout, "        *%3d:", afd_stat[0].sec_counter);
+               }
+               nfs = nbs = nc = ne = 0.0;
+               display_data(nfs, nbs, nc, ne);
+               tmp_nfs += nfs;
+               tmp_nbs += nbs;
+               tmp_nc  += nc;
+               tmp_ne  += ne;
+               for (j = (afd_stat[0].sec_counter + 1); j < SECS_PER_HOUR; j++)
+               {
+                  (void)fprintf(stdout, "%12d:", j);
+                  nfs = nbs = nc = ne = 0.0;
+                  for (i = 0; i < no_of_hosts; i++)
+                  {
+                     nfs += (double)afd_stat[i].hour[j].nfs;
+                     nbs +=         afd_stat[i].hour[j].nbs;
+                     nc  += (double)afd_stat[i].hour[j].nc;
+                     ne  += (double)afd_stat[i].hour[j].ne;
+                  }
+                  display_data(nfs, nbs, nc, ne);
+
+                  tmp_nfs += nfs;
+                  tmp_nbs += nbs;
+                  tmp_nc  += nc;
+                  tmp_ne  += ne;
+               }
+            }
+            else if (show_min_summary > 0)
+                 {
+                    int left,
+                        sec_ints = (show_min_summary * 60) / STAT_RESCAN_TIME,
+                        tmp;
+
+                    left = afd_stat[0].sec_counter - sec_ints;
+                    if (left < 0)
+                    {
+                       for (j = (SECS_PER_HOUR + left); j < SECS_PER_HOUR; j++)
+                       {
+                          tmp = j * STAT_RESCAN_TIME;
+                          if ((tmp % 60) == 0)
+                          {
+                             (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                          }
+                          else
+                          {
+                             (void)fprintf(stdout, "%12d:", j);
+                          }
+                          nfs = nbs = nc = ne = 0.0;
+                          for (i = 0; i < no_of_hosts; i++)
+                          {
+                             nfs += (double)afd_stat[i].hour[j].nfs;
+                             nbs +=         afd_stat[i].hour[j].nbs;
+                             nc  += (double)afd_stat[i].hour[j].nc;
+                             ne  += (double)afd_stat[i].hour[j].ne;
+                          }
+                          display_data(nfs, nbs, nc, ne);
+
+                          tmp_nfs += nfs;
+                          tmp_nbs += nbs;
+                          tmp_nc  += nc;
+                          tmp_ne  += ne;
+                       }
+                       for (j = 0; j < (sec_ints - left); j++)
+                       {
+                          tmp = j * STAT_RESCAN_TIME;
+                          if ((tmp % 60) == 0)
+                          {
+                             (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                          }
+                          else
+                          {
+                             (void)fprintf(stdout, "%12d:", j);
+                          }
+                          nfs = nbs = nc = ne = 0.0;
+                          for (i = 0; i < no_of_hosts; i++)
+                          {
+                             nfs += (double)afd_stat[i].hour[j].nfs;
+                             nbs +=         afd_stat[i].hour[j].nbs;
+                             nc  += (double)afd_stat[i].hour[j].nc;
+                             ne  += (double)afd_stat[i].hour[j].ne;
+                          }
+                          display_data(nfs, nbs, nc, ne);
+
+                          tmp_nfs += nfs;
+                          tmp_nbs += nbs;
+                          tmp_nc  += nc;
+                          tmp_ne  += ne;
+                       }
+                    }
+                    else
+                    {
+                       for (j = left; j < afd_stat[0].sec_counter; j++)
+                       {
+                          tmp = j * STAT_RESCAN_TIME;
+                          if ((tmp % 60) == 0)
+                          {
+                             (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                          }
+                          else
+                          {
+                             (void)fprintf(stdout, "%12d:", j);
+                          }
+                          nfs = nbs = nc = ne = 0.0;
+                          for (i = 0; i < no_of_hosts; i++)
+                          {
+                             nfs += (double)afd_stat[i].hour[j].nfs;
+                             nbs +=         afd_stat[i].hour[j].nbs;
+                             nc  += (double)afd_stat[i].hour[j].nc;
+                             ne  += (double)afd_stat[i].hour[j].ne;
+                          }
+                          display_data(nfs, nbs, nc, ne);
+
+                          tmp_nfs += nfs;
+                          tmp_nbs += nbs;
+                          tmp_nc  += nc;
+                          tmp_ne  += ne;
+                       }
+                    }
+                 }
+
+            if (show_min_summary > -1)
+            {
+               if ((show_year > -1) || (show_day > -1) ||
+                   (show_day_summary > -1) || (show_hour > -1))
+               {
+                  (void)fprintf(stdout, "Total        ");
+                  display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
+               }
+               else
+               {
+                  total_nfs += tmp_nfs;
+                  total_nbs += tmp_nbs;
+                  total_nc  += tmp_nc;
+                  total_ne  += tmp_ne;
+               }
+               (void)fprintf(stdout, "=======================================================================\n");
+            }
 
             (void)fprintf(stdout, "Total        ");
             display_data(total_nfs, total_nbs, total_nc, total_ne);

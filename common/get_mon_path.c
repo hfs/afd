@@ -1,6 +1,6 @@
 /*
  *  get_mon_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,6 +52,9 @@ DESCR__S_M3
  **
  ** HISTORY
  **   12.09.1997 H.Kiehl Created
+ **   31.08.2002 H.Kiehl Fix buffer overflow vulnerably when storing
+ **                      AFD_WORK_DIR environment variable or -w
+ **                      command line switch for work_dir.
  **
  */
 DESCR__E_M3
@@ -67,50 +70,46 @@ DESCR__E_M3
 int
 get_mon_path(int *argc, char *argv[], char *work_dir)
 {
-   char *ptr;
-
-   ptr = work_dir;
-
    /* See if directory is passed as argument */
-   if ((*argc > 2) && (CHECK_STRCMP(argv[1], WORK_DIR_ID) == 0))
+   if (get_arg(argc, argv, WORK_DIR_ID, work_dir, MAX_PATH_LENGTH) == INCORRECT)
    {
-      (void)strcpy(work_dir, argv[2]);
-      if (*argc > 3)
-      {
-         register int i;
+      char *ptr;
 
-         for (i = 1; i < (*argc - 2); i++)
+      /* Check if the environment variable is set. */
+      if ((ptr = getenv(MON_WD_ENV_NAME)) != NULL)
+      {
+         if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH - 1) != SUCCESS)
          {
-            argv[i] = argv[i + 2];
+            (void)fprintf(stderr,
+                          "ERROR   : Buffer for storing working directory is to short!\n");
+            return(INCORRECT);
          }
       }
-      else
-      {
-         argv[1] = NULL;
-      }
-      *argc -= 2;
+      else if ((ptr = getenv(WD_ENV_NAME)) != NULL)
+           {
+              if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH - 1) != SUCCESS)
+              {
+                 (void)fprintf(stderr,
+                               "ERROR   : Buffer for storing working directory is to short!\n");
+                 return(INCORRECT);
+              }
+           }
+           else
+           {
+              (void)fprintf(stderr,
+                            "ERROR   : Failed to determine working directory!\n");
+              (void)fprintf(stderr,
+                            "          No option %s or environment variable %s set.\n",
+                            WORK_DIR_ID, WD_ENV_NAME);
+              return(INCORRECT);
+           }
    }
-        /* Check if the environment variable is set */
-   else if ((ptr = getenv(MON_WD_ENV_NAME)) != NULL)
-        {
-           (void)strcpy(work_dir, ptr);
-        }
-   else if ((ptr = getenv(WD_ENV_NAME)) != NULL)
-        {
-           (void)strcpy(work_dir, ptr);
-        }
-        else
-        {
-           (void)fprintf(stderr,
-                         "ERROR   : Failed to determine woking directory. (%s %d)\n",
-                         __FILE__, __LINE__);
-           return(INCORRECT);
-        }
 
    if (check_dir(work_dir, R_OK | X_OK) == SUCCESS)
    {
       return(SUCCESS);
    }
-
+   (void)fprintf(stderr, "ERROR   : Failed to create working directory %s.\n",
+                 work_dir);
    return(INCORRECT);
 }

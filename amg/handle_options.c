@@ -1638,6 +1638,11 @@ search_again:
               {
                  assemble_typ = FOUR_BYTE_HBF;
               }
+         else if ((*p_assemble_id == 'D') && (*(p_assemble_id + 1) == 'W') &&
+                  (*(p_assemble_id + 2) == 'D'))
+              {
+                 assemble_typ = FOUR_BYTE_DWD;
+              }
          else if ((*p_assemble_id == 'A') && (*(p_assemble_id + 1) == 'S') &&
                   (*(p_assemble_id + 2) == 'C') &&
                   (*(p_assemble_id + 3) == 'I') &&
@@ -1722,6 +1727,57 @@ search_again:
                *files_to_send = restore_files(file_path, file_size);
             }
 #else
+         }
+
+         free(file_name_buffer);
+#endif
+         NEXT(options);
+         continue;
+      }
+
+      /* Check if we want to convert WMO to ASCII */
+      if (CHECK_STRCMP(options, WMO2ASCII_ID) == 0)
+      {
+#ifdef _WITH_PTHREAD
+         int  file_counter = 0;
+
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
+         {
+#else
+            int file_counter = *files_to_send;
+#endif
+            int recount_files = NO;
+
+            *file_size = 0;
+
+            /*
+             * Hopefully we have read all file names! Now it is save
+             * to convert the files.
+             */
+            for (j = 0; j < file_counter; j++)
+            {
+               if ((wmo2ascii(file_path, p_file_name, &size)) < 0)
+               {
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                              "Removing corrupt file %s", p_file_name);
+                  recount_files = YES;
+               }
+               else
+               {
+                  *file_size += size;
+               }
+               p_file_name += MAX_FILENAME_LENGTH;
+            }
+            if (recount_files == YES)
+            {
+#ifdef _WITH_PTHREAD
+               *files_to_send = recount_files(file_path, file_size);
+#else
+               *files_to_send = restore_files(file_path, file_size);
+#endif
+            }
+#ifdef _WITH_PTHREAD
          }
 
          free(file_name_buffer);

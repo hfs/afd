@@ -27,7 +27,7 @@ DESCR__S_M3
  **                      files
  **
  ** SYNOPSIS
- **   void search_old_files(time_t now)
+ **   void search_old_files(time_t current_time)
  **
  ** DESCRIPTION
  **   This function checks the user directory for any old files.
@@ -69,6 +69,7 @@ DESCR__E_M3
 extern int                        sys_log_fd,
                                   no_of_local_dirs,
                                   no_of_hosts;
+extern char                       *p_dir_alias;
 extern struct directory_entry     *de;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
@@ -79,10 +80,10 @@ extern struct delete_log          dl;
 
 /*######################### search_old_files() ##########################*/
 void
-search_old_files(time_t now)
+search_old_files(time_t current_time)
 {
    int           i,
-                 junk_files = 0,
+                 junk_files,
                  file_counter;
    time_t        diff_time;
    char          *work_ptr,
@@ -108,6 +109,7 @@ search_old_files(time_t now)
          {
             file_counter = 0;
             file_size    = 0;
+            junk_files   = 0;
 
             work_ptr = tmp_dir + strlen(tmp_dir);
             *work_ptr++ = '/';
@@ -143,11 +145,11 @@ search_old_files(time_t now)
                    * delete old files that are of zero length or have a
                    * leading dot.
                    */
-                  if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) ||
-                      (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
+                  diff_time = current_time - stat_buf.st_mtime;
+                  if (diff_time > fra[de[i].fra_pos].unknown_file_time)
                   {
-                     diff_time = now - stat_buf.st_mtime;
-                     if (diff_time > fra[de[i].fra_pos].unknown_file_time)
+                     if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) ||
+                         (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
                      {
                         if (unlink(tmp_dir) == -1)
                         {
@@ -187,6 +189,11 @@ search_old_files(time_t now)
                            }
                         }
                      }
+                     else if (fra[de[i].fra_pos].report_unknown_files == YES)
+                          {
+                             file_counter++;
+                             file_size += stat_buf.st_size;
+                          }
                   }
                }
                     /*
@@ -242,7 +249,7 @@ search_old_files(time_t now)
                                 /* Sure it is a normal file? */
                                 if (S_ISREG(stat_buf.st_mode))
                                 {
-                                   diff_time = now - stat_buf.st_mtime;
+                                   diff_time = current_time - stat_buf.st_mtime;
                                    if (diff_time > fra[de[i].fra_pos].queued_file_time)
                                    {
                                       if (unlink(tmp_dir) == -1)
@@ -332,39 +339,49 @@ search_old_files(time_t now)
                 (fra[de[i].fra_pos].report_unknown_files == YES) &&
                 ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) == 0))
             {
+               p_dir_alias = de[i].alias;
                if (file_size >= 1073741824)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "There are %d (%d GBytes) old (>%dh) files in %s\n",
-                            file_counter - junk_files, file_size / 1073741824,
-                            fra[de[i].fra_pos].unknown_file_time / 3600,
-                            tmp_dir);
+                  receive_log(WARN_SIGN, NULL, 0, current_time,
+                              "There are %d (%d GBytes) old (>%dh) files in %s",
+                              file_counter - junk_files, file_size / 1073741824,
+                              fra[de[i].fra_pos].unknown_file_time / 3600,
+                              tmp_dir);
                }
                else if (file_size >= 1048576)
                     {
-                       (void)rec(sys_log_fd, WARN_SIGN,
-                                 "There are %d (%d MBytes) old (>%dh) files in %s\n",
-                                 file_counter - junk_files,
-                                 file_size / 1048576,
-                                 fra[de[i].fra_pos].unknown_file_time / 3600,
-                                 tmp_dir);
+                       receive_log(WARN_SIGN, NULL, 0, current_time,
+                                   "There are %d (%d MBytes) old (>%dh) files in %s",
+                                   file_counter - junk_files,
+                                   file_size / 1048576,
+                                   fra[de[i].fra_pos].unknown_file_time / 3600,
+                                   tmp_dir);
                     }
                else if (file_size >= 1024)
                     {
-                       (void)rec(sys_log_fd, WARN_SIGN,
-                                 "There are %d (%d KBytes) old (>%dh) files in %s\n",
-                                 file_counter - junk_files, file_size / 1024,
-                                 fra[de[i].fra_pos].unknown_file_time / 3600,
-                                 tmp_dir);
+                       receive_log(WARN_SIGN, NULL, 0, current_time,
+                                   "There are %d (%d KBytes) old (>%dh) files in %s",
+                                   file_counter - junk_files, file_size / 1024,
+                                   fra[de[i].fra_pos].unknown_file_time / 3600,
+                                   tmp_dir);
                     }
                     else
                     {
-                       (void)rec(sys_log_fd, WARN_SIGN,
-                                 "There are %d (%d Bytes) old (>%dh) files in %s\n",
-                                 file_counter - junk_files, file_size,
-                                 fra[de[i].fra_pos].unknown_file_time / 3600,
-                                 tmp_dir);
+                       receive_log(WARN_SIGN, NULL, 0, current_time,
+                                   "There are %d (%d Bytes) old (>%dh) files in %s",
+                                   file_counter - junk_files, file_size,
+                                   fra[de[i].fra_pos].unknown_file_time / 3600,
+                                   tmp_dir);
                     }
+            }
+            if (junk_files > 0)
+            {
+               p_dir_alias = de[i].alias;
+               receive_log(DEBUG_SIGN, NULL, 0, current_time,
+                           "Deleted %d file(s) (>%dh) that where of length 0 or had a leading dot, in %s",
+                           junk_files,
+                           fra[de[i].fra_pos].unknown_file_time / 3600,
+                           tmp_dir);
             }
          }
       }

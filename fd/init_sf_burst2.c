@@ -338,14 +338,32 @@ init_sf_burst2(struct job   *p_new_db,
    }
    else
    {
+      int ret;
+
       /*
        * It could be that all files where to old to be send.
        */
       /* Remove empty file directory. */
-      if (remove_dir(file_path) < 0)
+      if ((ret = remove_dir(file_path)) < 0)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to remove directory %s", file_path);
+         if (ret == FILE_IS_DIR)
+         {
+            if (rec_rmdir(file_path) < 0)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to rec_rmdir() %s", file_path);
+            }
+            else
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Removed directory/directories in %s", file_path);
+            }
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to remove directory %s", file_path);
+         }
       }
    }
 #endif /* _WITH_BURST_2 */

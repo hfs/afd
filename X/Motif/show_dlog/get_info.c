@@ -440,8 +440,7 @@ get_job_data(struct job_id_data *p_jd)
    id.count = 1;
 
    /* Create or increase the space for the buffer */
-   if ((id.dbe = (struct db_entry *)realloc(id.dbe,
-                                            sizeof(struct db_entry))) == (struct db_entry *)NULL)
+   if ((id.dbe = realloc(id.dbe, sizeof(struct db_entry))) == (struct db_entry *)NULL)
    {
       (void)xrec(toplevel_w, FATAL_DIALOG, "realloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
@@ -568,7 +567,7 @@ get_dir_data(int dir_pos)
             new_size = ((id.count / 10) + 1) * 10 * sizeof(struct db_entry);
 
             /* Create or increase the space for the buffer */
-            if ((id.dbe = (struct db_entry *)realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
+            if ((id.dbe = realloc(id.dbe, new_size)) == (struct db_entry *)NULL)
             {
                (void)xrec(toplevel_w, FATAL_DIALOG, "realloc() error : %s (%s %d)",
                           strerror(errno), __FILE__, __LINE__);

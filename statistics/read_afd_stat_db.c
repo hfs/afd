@@ -47,7 +47,7 @@ DESCR__E_M3
 #include <time.h>            /* time()                                   */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <stdlib.h>          /* exit()                                   */
+#include <stdlib.h>          /* exit(), malloc(), free()                 */
 #ifndef _NO_MMAP
 #include <sys/mman.h>        /* mmap(), munmap()                         */
 #endif
@@ -138,7 +138,7 @@ read_afd_stat_db(int no_of_hosts)
          }
 
 #ifdef _NO_MMAP
-         if ((old_stat_db = (struct afdstat *)malloc(stat_buf.st_size)) == NULL)
+         if ((old_stat_db = malloc(stat_buf.st_size)) == NULL)
          {
             (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
                       strerror(errno), __FILE__, __LINE__);
@@ -193,7 +193,7 @@ read_afd_stat_db(int no_of_hosts)
       exit(INCORRECT);
    }
 #ifdef _NO_MMAP
-   if ((stat_db = (struct afdstat *)malloc(stat_db_size)) == NULL)
+   if ((stat_db = malloc(stat_db_size)) == NULL)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);

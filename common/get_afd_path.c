@@ -1,6 +1,6 @@
 /*
  *  get_afd_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -53,6 +53,8 @@ DESCR__S_M3
  **                      take the home directory + .afd.
  **   22.11.1997 H.Kiehl Only accept AFD_WORK_DIR environment variable
  **                      and the command line option -w.
+ **   31.08.2002 H.Kiehl Fix buffer overflow vulnerably when storing
+ **                      AFD_WORK_DIR environment variable for work_dir.
  **
  */
 DESCR__E_M3
@@ -72,12 +74,15 @@ get_afd_path(int *argc, char *argv[], char *work_dir)
    {
       char *ptr;
 
-      ptr = work_dir;
-
       /* Check if the environment variable is set */
       if ((ptr = getenv(WD_ENV_NAME)) != NULL)
       {
-         (void)strcpy(work_dir, ptr);
+         if (my_strncpy(work_dir, ptr, MAX_PATH_LENGTH - 1) != SUCCESS)
+         {
+            (void)fprintf(stderr,
+                          "ERROR   : Buffer for storing working directory is to short!\n");
+            return(INCORRECT);
+         }
       }
       else
       {
@@ -94,7 +99,6 @@ get_afd_path(int *argc, char *argv[], char *work_dir)
    {
       return(SUCCESS);
    }
-
    (void)fprintf(stderr,
                  "ERROR   : Failed to create AFD working directory %s.\n",
                  work_dir);

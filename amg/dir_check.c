@@ -1201,6 +1201,7 @@ handle_dir(int    dir_no,
          files_moved = check_files(&de[dir_no], src_file_dir, afd_file_dir,
                                    orig_file_path,
                                    (host_name == NULL) ? YES : NO,
+                                   current_time,
 #ifdef _WITH_PTHREAD
                                    file_size_pool, file_name_pool,
 #endif

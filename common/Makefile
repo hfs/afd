@@ -63,6 +63,7 @@ OBJS    = attach_afd_status.o\
           msa_detach.o\
           msync_emu.o\
           munmap_emu.o\
+          my_strncpy.o\
           my_usleep.o\
           next_counter.o\
           open_counter_file.o\

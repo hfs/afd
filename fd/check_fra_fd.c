@@ -47,6 +47,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   23.08.2000 H.Kiehl Created
+ **   22.07.2002 H.Kiehl Consider th case when only dir_alias changes.
  **
  */
 DESCR__E_M3
@@ -316,5 +317,20 @@ get_url_pos(char *url, char *dir_alias, int *pos)
          break;
       }
    }
+
+   /* Check if only the dir_alias was changed. */
+   if (*pos == INCORRECT)
+   {
+      for (i = 0; i < no_of_dirs; i++)
+      {
+         if ((fra[i].host_alias[0] != '\0') &&
+             (CHECK_STRCMP(fra[i].url, url) == 0))
+         {
+            *pos = i;
+            return(SUCCESS);
+         }
+      }
+   }
+
    return(INCORRECT);
 }

@@ -77,7 +77,7 @@ init_fra_data(void)
          {
             size_t new_size = ((no_of_retrieves / 10) + 1) * 10 * sizeof(int);
 
-            if ((retrieve_list = (int *)realloc(retrieve_list, new_size)) == (int *)NULL)
+            if ((retrieve_list = realloc(retrieve_list, new_size)) == (int *)NULL)
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
                          "realloc() error : %s (%s %d)\n",

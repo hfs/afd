@@ -29,10 +29,6 @@
 #define SHOW_UNSENT_INPUT       4      /* All files in input dir.       */
 #define SHOW_UNSENT_OUTPUT      8      /* Files currently send by FD.   */
 
-#define EQUAL_SIGN              1
-#define LESS_THEN_SIGN          2
-#define GREATER_THEN_SIGN       3
-
 #define GOT_JOB_ID              -2
 #define GOT_JOB_ID_DIR_ONLY     -3
 #define GOT_JOB_ID_USER_ONLY    -4

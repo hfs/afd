@@ -48,7 +48,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+#include <stdlib.h>                /* malloc(), free()                   */
 #include <sys/stat.h>              /* stat()                             */
 #include <sys/types.h>
 #include <sys/file.h>
@@ -94,7 +94,7 @@ tiff2gts(char *path, char* filename)
       return(INCORRECT);
    }
 
-   if ((buf = (char *)malloc(stat_buf.st_size)) == NULL)
+   if ((buf = malloc(stat_buf.st_size)) == NULL)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "malloc() error : %s", strerror(errno));

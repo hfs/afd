@@ -181,7 +181,7 @@ main(int argc, char *argv[])
     */
    if (db.transfer_mode == 'A')
    {
-      if ((ascii_buffer = (char *)malloc((db.blocksize * 2))) == NULL)
+      if ((ascii_buffer = malloc((db.blocksize * 2))) == NULL)
       {
          (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
                    strerror(errno), __FILE__, __LINE__);

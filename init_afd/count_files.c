@@ -90,9 +90,12 @@ count_files(char *dirname, unsigned int *files, off_t *bytes)
             (void)strcpy(ptr, p_dir->d_name);
             if (stat(fullname, &stat_buf) == -1)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Can't access file %s : %s (%s %d)\n",
-                         fullname, strerror(errno), __FILE__, __LINE__);
+               if (errno != ENOENT)
+               {
+                  (void)rec(sys_log_fd, WARN_SIGN,
+                            "Can't access file %s : %s (%s %d)\n",
+                            fullname, strerror(errno), __FILE__, __LINE__);
+               }
             }
             else
             {

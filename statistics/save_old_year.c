@@ -132,7 +132,7 @@ save_old_year(int new_year)
       return;
    }
 #ifdef _NO_MMAP
-   if ((old_stat_db = (struct afd_year_stat *)malloc(old_year_stat_size)) == NULL)
+   if ((old_stat_db = malloc(old_year_stat_size)) == NULL)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);

@@ -90,7 +90,7 @@ display_file(FILE *p_data)
       hunk = HUNK_MAX;
    }
 
-   if ((buffer = (char *)malloc(hunk)) == NULL)
+   if ((buffer = malloc(hunk)) == NULL)
    {
       (void)fprintf(p_data,
                     "500 Failed to malloc() memory : %s (%s %d)\r\n",

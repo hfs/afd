@@ -38,6 +38,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   20.08.2000 H.Kiehl Created
+ **   15.07.2002 H.Kiehl Option to ignore files which have a certain size.
  **
  */
 DESCR__E_M3
@@ -647,8 +648,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
    {
       rl[*no_of_listed_files].size = -1;
    }
-   (*no_of_listed_files)++;
 
+   (*no_of_listed_files)++;
    return(0);
 }
 

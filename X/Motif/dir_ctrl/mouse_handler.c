@@ -239,7 +239,7 @@ dir_input(Widget      w,
             }
             if (gotcha == NO)
             {
-               char *args[5],
+               char *args[6],
                     progname[MAX_PATH_LENGTH];
 
                args[0] = progname;

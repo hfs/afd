@@ -105,7 +105,7 @@ copy_file(char *from, char *to, struct stat *p_stat_buf)
       int  bytes_buffered;
       char *buffer;
 
-      if ((buffer = (char *)malloc(p_stat_buf->st_blksize)) == NULL)
+      if ((buffer = malloc(p_stat_buf->st_blksize)) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to allocate memory : %s", strerror(errno));

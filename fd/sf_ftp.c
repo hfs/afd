@@ -270,7 +270,7 @@ main(int argc, char *argv[])
       {
          db.transfer_mode = 'I';
       }
-      if ((ascii_buffer = (char *)malloc((blocksize * 2))) == NULL)
+      if ((ascii_buffer = malloc((blocksize * 2))) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "malloc() error : %s", strerror(errno));
@@ -588,7 +588,7 @@ main(int argc, char *argv[])
          }
          if (ascii_buffer == NULL)
          {
-            if ((ascii_buffer = (char *)malloc((blocksize * 2))) == NULL)
+            if ((ascii_buffer = malloc((blocksize * 2))) == NULL)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "malloc() error : %s", strerror(errno));

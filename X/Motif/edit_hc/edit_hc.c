@@ -1292,7 +1292,7 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    }
 
    /* Allocate memory to store all changes */
-   if ((ce = (struct changed_entry *)malloc(no_of_hosts * sizeof(struct changed_entry))) == NULL)
+   if ((ce = malloc(no_of_hosts * sizeof(struct changed_entry))) == NULL)
    {
       (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);

@@ -31,6 +31,7 @@ DESCR__S_M3
  **                   char                   *afd_file_path,
  **                   char                   *tmp_file_dir,
  **                   int                    count_files,
+ **                   time_t                 current_time,
  **                   off_t                  *total_file_size)
  **
  ** DESCRIPTION
@@ -74,6 +75,8 @@ DESCR__S_M3
  **                      when queue is opened.
  **   03.05.2002 H.Kiehl Count total number of files and bytes in directory
  **                      regardless if they are to be retrieved or not.
+ **   12.07.2002 H.Kiehl Check if we can already delete any old files that
+ **                      have no distribution rule.
  **
  */
 DESCR__E_M3
@@ -95,6 +98,7 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 extern int                        counter_fd,
+                                  fra_fd, /* Needed by ABS_REDUCE_QUEUE()*/
                                   max_copied_files,
                                   sys_log_fd;
 extern off_t                      max_copied_file_size;
@@ -116,6 +120,9 @@ extern char                       **file_name_pool;
 extern pthread_mutex_t            fsa_mutex;
 #endif
 extern struct fileretrieve_status *fra;
+#ifdef _DELETE_LOG
+extern struct delete_log          dl;
+#endif
 
 /* Local function prototype */
 static int                        get_last_char(char *, off_t);
@@ -131,6 +138,7 @@ check_files(struct directory_entry *p_de,
                                                    /* where files are    */
                                                    /* stored.            */
             int                    count_files,
+            time_t                 current_time,
 #ifdef _WITH_PTHREAD
             off_t                  *file_size_pool,
             char                   **file_name_pool,
@@ -141,7 +149,6 @@ check_files(struct directory_entry *p_de,
                   files_in_dir = 0,
                   i,
                   ret;
-   time_t         now = 0L;
    off_t          bytes_in_dir = 0;
    char           fullname[MAX_PATH_LENGTH],
                   *ptr = NULL,
@@ -219,27 +226,30 @@ check_files(struct directory_entry *p_de,
                      *ptr = '\0';
 
                      /* Create a unique name */
-                     if (create_name(tmp_file_dir, NO_PRIORITY, time(&now),
+                     if (create_name(tmp_file_dir, NO_PRIORITY, current_time,
                                      p_de->dir_no, NULL, ptr) < 0)
                      {
                         if (errno == ENOSPC)
                         {
                            (void)rec(sys_log_fd, ERROR_SIGN,
                                      "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
-                                     DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
+                                     DISK_FULL_RESCAN_TIME,
+                                     __FILE__, __LINE__);
 
                            while (errno == ENOSPC)
                            {
                               (void)sleep(DISK_FULL_RESCAN_TIME);
                               errno = 0;
-                              if (create_name(tmp_file_dir, NO_PRIORITY, time(&now),
+                              if (create_name(tmp_file_dir, NO_PRIORITY,
+                                              current_time,
                                               p_de->dir_no, NULL, ptr) < 0)
                               {
                                  if (errno != ENOSPC)
                                  {
                                     (void)rec(sys_log_fd, FATAL_SIGN,
                                               "Failed to create a unique name : %s (%s %d)\n",
-                                              strerror(errno), __FILE__, __LINE__);
+                                              strerror(errno),
+                                              __FILE__, __LINE__);
                                     exit(INCORRECT);
                                  }
                               }
@@ -289,7 +299,8 @@ check_files(struct directory_entry *p_de,
                         {
                            (void)rec(sys_log_fd, ERROR_SIGN,
                                      "Failed to unlink() file <%s> : %s (%s %d)\n",
-                                     fullname, strerror(errno), __FILE__, __LINE__);
+                                     fullname, strerror(errno),
+                                     __FILE__, __LINE__);
                         }
                      }
                   }
@@ -321,8 +332,8 @@ check_files(struct directory_entry *p_de,
                                      strerror(errno), __FILE__, __LINE__);
 
                            /*
-                            * Since the input log is not critical, no need to
-                            * exit here.
+                            * Since the input log is not critical, no
+                            * need to exit here.
                             */
                         }
                      }
@@ -392,6 +403,8 @@ check_files(struct directory_entry *p_de,
             if ((eaccess(fullname, R_OK) == 0))
 #endif
             {
+               int gotcha = NO;
+
                /* Filter out only those files we need for this directory */
                for (i = 0; i < p_de->nfg; i++)
                {
@@ -411,28 +424,34 @@ check_files(struct directory_entry *p_de,
                               *ptr = '\0';
 
                               /* Create a unique name */
-                              if (create_name(tmp_file_dir, NO_PRIORITY, time(&now),
+                              if (create_name(tmp_file_dir, NO_PRIORITY,
+                                              current_time,
                                               p_de->dir_no, NULL, ptr) < 0)
                               {
                                  if (errno == ENOSPC)
                                  {
                                     (void)rec(sys_log_fd, ERROR_SIGN,
                                               "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
-                                              DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
+                                              DISK_FULL_RESCAN_TIME,
+                                              __FILE__, __LINE__);
 
                                     while (errno == ENOSPC)
                                     {
                                        (void)sleep(DISK_FULL_RESCAN_TIME);
                                        errno = 0;
-                                       if (create_name(tmp_file_dir, NO_PRIORITY,
-                                                       time(&now), p_de->dir_no,
+                                       if (create_name(tmp_file_dir,
+                                                       NO_PRIORITY,
+                                                       current_time,
+                                                       p_de->dir_no,
                                                        NULL, ptr) < 0)
                                        {
                                           if (errno != ENOSPC)
                                           {
                                              (void)rec(sys_log_fd, FATAL_SIGN,
                                                        "Failed to create a unique name in %s : %s (%s %d)\n",
-                                                       tmp_file_dir, strerror(errno), __FILE__, __LINE__);
+                                                       tmp_file_dir,
+                                                       strerror(errno),
+                                                       __FILE__, __LINE__);
                                              exit(INCORRECT);
                                           }
                                        }
@@ -532,10 +551,11 @@ check_files(struct directory_entry *p_de,
 
                               *total_file_size += stat_buf.st_size;
                               if ((++files_copied >= max_copied_files) ||
-                                  (*total_file_size >= max_copied_file_size))
+                               (*total_file_size >= max_copied_file_size))
                               {
                                  goto done;
                               }
+                              gotcha = YES;
                            }
 
                            /*
@@ -564,6 +584,47 @@ check_files(struct directory_entry *p_de,
                           }
                   } /* for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++) */
                } /* for (i = 0; i < p_de->nfg; i++) */
+
+               if ((gotcha == NO) &&
+                   (fra[p_de->fra_pos].delete_files_flag & UNKNOWN_FILES))
+               {
+                  time_t diff_time;
+
+                  diff_time = current_time - stat_buf.st_mtime;
+                  if (diff_time > fra[p_de->fra_pos].unknown_file_time)
+                  {
+                     if (unlink(fullname) == -1)
+                     {
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Failed to unlink() %s : %s (%s %d)\n",
+                                  fullname, strerror(errno), __FILE__, __LINE__);
+                     }
+                     else
+                     {
+#ifdef _DELETE_LOG
+                        size_t dl_real_size;
+
+                        (void)strcpy(dl.file_name, p_dir->d_name);
+                        (void)sprintf(dl.host_name, "%-*s %x",
+                                      MAX_HOSTNAME_LENGTH, "-", AGE_INPUT);
+                        *dl.file_size = stat_buf.st_size;
+                        *dl.job_number = p_de->dir_no;
+                        *dl.file_name_length = strlen(p_dir->d_name);
+                        dl_real_size = *dl.file_name_length + dl.size +
+                                       sprintf((dl.file_name + *dl.file_name_length + 1),
+                                       "dir_check() >%ld", diff_time);
+                        if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                        {
+                           (void)rec(sys_log_fd, ERROR_SIGN,
+                                     "write() error : %s (%s %d)\n",
+                                     strerror(errno), __FILE__, __LINE__);
+                        }
+#endif /* _DELETE_LOG */
+                        files_in_dir--;
+                        bytes_in_dir -= stat_buf.st_size;
+                     }
+                  }
+               }
             }
          } /* if (S_ISREG(stat_buf.st_mode)) */
       } /* while ((p_dir = readdir(dp)) != NULL) */
@@ -606,13 +667,20 @@ done:
    if ((files_copied >= max_copied_files) ||
        (*total_file_size >= max_copied_file_size))
    {
-      if (fra[p_de->fra_pos].files_in_dir < files_in_dir)
+      if (count_files == NO)
       {
-         fra[p_de->fra_pos].files_in_dir = files_in_dir;
+         ABS_REDUCE_QUEUE(p_de->fra_pos, files_in_dir, bytes_in_dir);
       }
-      if (fra[p_de->fra_pos].bytes_in_dir < bytes_in_dir)
+      else
       {
-         fra[p_de->fra_pos].bytes_in_dir = bytes_in_dir;
+         if (fra[p_de->fra_pos].files_in_dir < files_in_dir)
+         {
+            fra[p_de->fra_pos].files_in_dir = files_in_dir;
+         }
+         if (fra[p_de->fra_pos].bytes_in_dir < bytes_in_dir)
+         {
+            fra[p_de->fra_pos].bytes_in_dir = bytes_in_dir;
+         }
       }
       if ((fra[p_de->fra_pos].dir_flag & MAX_COPIED) == 0)
       {
@@ -621,8 +689,15 @@ done:
    }
    else
    {
-      fra[p_de->fra_pos].files_in_dir = files_in_dir;
-      fra[p_de->fra_pos].bytes_in_dir = bytes_in_dir;
+      if (count_files == NO)
+      {
+         ABS_REDUCE_QUEUE(p_de->fra_pos, files_in_dir, bytes_in_dir);
+      }
+      else
+      {
+         fra[p_de->fra_pos].files_in_dir = files_in_dir;
+         fra[p_de->fra_pos].bytes_in_dir = bytes_in_dir;
+      }
       if ((fra[p_de->fra_pos].dir_flag & MAX_COPIED))
       {
          fra[p_de->fra_pos].dir_flag ^= MAX_COPIED;
@@ -633,8 +708,8 @@ done:
    {
       fra[p_de->fra_pos].files_received += files_copied;
       fra[p_de->fra_pos].bytes_received += *total_file_size;
-      fra[p_de->fra_pos].last_retrieval = now;
-      receive_log(INFO_SIGN, NULL, 0, now,
+      fra[p_de->fra_pos].last_retrieval = current_time;
+      receive_log(INFO_SIGN, NULL, 0, current_time,
                   "Received %d files with %lu Bytes.",
                   files_copied, *total_file_size);
    }

@@ -371,31 +371,31 @@ create_fra(int no_of_dirs)
          (void)strcpy(fra[i].dir_alias, dd[i].dir_alias);
          (void)strcpy(fra[i].host_alias, dd[i].host_alias);
          (void)strcpy(fra[i].url, dd[i].url);
-         fra[i].fsa_pos              = dd[i].fsa_pos;
-         fra[i].protocol             = dd[i].protocol;
-         fra[i].priority             = dd[i].priority;
-         fra[i].delete_files_flag    = dd[i].delete_files_flag;
-         fra[i].unknown_file_time    = dd[i].unknown_file_time;
-         fra[i].queued_file_time     = dd[i].queued_file_time;
-         fra[i].report_unknown_files = dd[i].report_unknown_files;
-         fra[i].end_character        = dd[i].end_character;
-         fra[i].important_dir        = dd[i].important_dir;
-         fra[i].time_option          = dd[i].time_option;
-         fra[i].remove               = dd[i].remove;
-         fra[i].stupid_mode          = dd[i].stupid_mode;
-         fra[i].force_reread         = dd[i].force_reread;
-         fra[i].max_process          = dd[i].max_process;
-         fra[i].dir_pos              = dd[i].dir_pos;
-         fra[i].last_retrieval       = 0L;
-         fra[i].bytes_received       = 0L;
-         fra[i].files_in_dir         = 0;
-         fra[i].files_queued         = 0;
-         fra[i].bytes_in_dir         = 0;
-         fra[i].bytes_in_queue       = 0;
-         fra[i].files_received       = 0;
-         fra[i].no_of_process        = 0;
-         fra[i].dir_status           = NORMAL_STATUS;
-         fra[i].dir_flag             = 0;
+         fra[i].fsa_pos                = dd[i].fsa_pos;
+         fra[i].protocol               = dd[i].protocol;
+         fra[i].priority               = dd[i].priority;
+         fra[i].delete_files_flag      = dd[i].delete_files_flag;
+         fra[i].unknown_file_time      = dd[i].unknown_file_time;
+         fra[i].queued_file_time       = dd[i].queued_file_time;
+         fra[i].report_unknown_files   = dd[i].report_unknown_files;
+         fra[i].end_character          = dd[i].end_character;
+         fra[i].important_dir          = dd[i].important_dir;
+         fra[i].time_option            = dd[i].time_option;
+         fra[i].remove                 = dd[i].remove;
+         fra[i].stupid_mode            = dd[i].stupid_mode;
+         fra[i].force_reread           = dd[i].force_reread;
+         fra[i].max_process            = dd[i].max_process;
+         fra[i].dir_pos                = dd[i].dir_pos;
+         fra[i].last_retrieval         = 0L;
+         fra[i].bytes_received         = 0L;
+         fra[i].files_in_dir           = 0;
+         fra[i].files_queued           = 0;
+         fra[i].bytes_in_dir           = 0;
+         fra[i].bytes_in_queue         = 0;
+         fra[i].files_received         = 0;
+         fra[i].no_of_process          = 0;
+         fra[i].dir_status             = NORMAL_STATUS;
+         fra[i].dir_flag               = 0;
          if (fra[i].time_option == YES)
          {
             (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));
@@ -412,23 +412,23 @@ create_fra(int no_of_dirs)
          (void)strcpy(fra[i].dir_alias, dd[i].dir_alias);
          (void)strcpy(fra[i].host_alias, dd[i].host_alias);
          (void)strcpy(fra[i].url, dd[i].url);
-         fra[i].fsa_pos              = dd[i].fsa_pos;
-         fra[i].protocol             = dd[i].protocol;
-         fra[i].priority             = dd[i].priority;
-         fra[i].delete_files_flag    = dd[i].delete_files_flag;
-         fra[i].unknown_file_time    = dd[i].unknown_file_time;
-         fra[i].queued_file_time     = dd[i].queued_file_time;
-         fra[i].report_unknown_files = dd[i].report_unknown_files;
-         fra[i].end_character        = dd[i].end_character;
-         fra[i].important_dir        = dd[i].important_dir;
-         fra[i].time_option          = dd[i].time_option;
-         fra[i].remove               = dd[i].remove;
-         fra[i].stupid_mode          = dd[i].stupid_mode;
-         fra[i].force_reread         = dd[i].force_reread;
-         fra[i].max_process          = dd[i].max_process;
-         fra[i].dir_pos              = dd[i].dir_pos;
-         fra[i].no_of_process        = 0;
-         fra[i].dir_status           = NORMAL_STATUS;
+         fra[i].fsa_pos                = dd[i].fsa_pos;
+         fra[i].protocol               = dd[i].protocol;
+         fra[i].priority               = dd[i].priority;
+         fra[i].delete_files_flag      = dd[i].delete_files_flag;
+         fra[i].unknown_file_time      = dd[i].unknown_file_time;
+         fra[i].queued_file_time       = dd[i].queued_file_time;
+         fra[i].report_unknown_files   = dd[i].report_unknown_files;
+         fra[i].end_character          = dd[i].end_character;
+         fra[i].important_dir          = dd[i].important_dir;
+         fra[i].time_option            = dd[i].time_option;
+         fra[i].remove                 = dd[i].remove;
+         fra[i].stupid_mode            = dd[i].stupid_mode;
+         fra[i].force_reread           = dd[i].force_reread;
+         fra[i].max_process            = dd[i].max_process;
+         fra[i].dir_pos                = dd[i].dir_pos;
+         fra[i].no_of_process          = 0;
+         fra[i].dir_status             = NORMAL_STATUS;
          if (fra[i].time_option == YES)
          {
             (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));
@@ -454,29 +454,29 @@ create_fra(int no_of_dirs)
 
          if (gotcha == YES)
          {
-            fra[i].last_retrieval  = old_fra[k].last_retrieval;
-            fra[i].bytes_received  = old_fra[k].bytes_received;
-            fra[i].files_received  = old_fra[k].files_received;
-            fra[i].files_in_dir    = old_fra[k].files_in_dir;
-            fra[i].files_queued    = old_fra[k].files_queued;
-            fra[i].bytes_in_dir    = old_fra[k].bytes_in_dir;
-            fra[i].bytes_in_queue  = old_fra[k].bytes_in_queue;
-            fra[i].dir_status      = old_fra[k].dir_status;
-            fra[i].dir_flag        = old_fra[k].dir_flag;
-            fra[i].queued          = old_fra[k].queued;
+            fra[i].last_retrieval         = old_fra[k].last_retrieval;
+            fra[i].bytes_received         = old_fra[k].bytes_received;
+            fra[i].files_received         = old_fra[k].files_received;
+            fra[i].files_in_dir           = old_fra[k].files_in_dir;
+            fra[i].files_queued           = old_fra[k].files_queued;
+            fra[i].bytes_in_dir           = old_fra[k].bytes_in_dir;
+            fra[i].bytes_in_queue         = old_fra[k].bytes_in_queue;
+            fra[i].dir_status             = old_fra[k].dir_status;
+            fra[i].dir_flag               = old_fra[k].dir_flag;
+            fra[i].queued                 = old_fra[k].queued;
          }
          else /* This directory is not in the old FRA, therefor it is new. */
          {
-            fra[i].last_retrieval  = 0L;
-            fra[i].bytes_received  = 0L;
-            fra[i].files_received  = 0;
-            fra[i].files_in_dir    = 0;
-            fra[i].files_queued    = 0;
-            fra[i].bytes_in_dir    = 0;
-            fra[i].bytes_in_queue  = 0;
-            fra[i].dir_status      = NORMAL_STATUS;
-            fra[i].dir_flag        = 0;
-            fra[i].queued          = NO;
+            fra[i].last_retrieval         = 0L;
+            fra[i].bytes_received         = 0L;
+            fra[i].files_received         = 0;
+            fra[i].files_in_dir           = 0;
+            fra[i].files_queued           = 0;
+            fra[i].bytes_in_dir           = 0;
+            fra[i].bytes_in_queue         = 0;
+            fra[i].dir_status             = NORMAL_STATUS;
+            fra[i].dir_flag               = 0;
+            fra[i].queued                 = NO;
          }
       } /* for (i = 0; i < no_of_dirs; i++) */
    }

@@ -307,6 +307,7 @@ typedef socklen_t my_socklen_t;
 #define LOCK_IS_SET                -2
 #define LOCK_IS_NOT_SET            11
 #define AUTO_SIZE_DETECT           -2
+#define FILE_IS_DIR                -2      /* Used by remove_dir().      */
 
 #define NO_PRIORITY                -1      /* For function create_name() */
                                            /* So it knows it does not    */
@@ -314,6 +315,9 @@ typedef socklen_t my_socklen_t;
                                            /* with priority, which is    */
                                            /* used by the function       */
                                            /* check_files() of the AMG.  */
+#define EQUAL_SIGN                 1
+#define LESS_THEN_SIGN             2
+#define GREATER_THEN_SIGN          3
 
 #define INFO_SIGN                  "<I>"
 #define CONFIG_SIGN                "<C>"
@@ -431,6 +435,8 @@ typedef socklen_t my_socklen_t;
 #define FORCE_REREAD_ID_LENGTH           12
 #define IMPORTANT_DIR_ID                 "important dir"
 #define IMPORTANT_DIR_ID_LENGTH          13
+#define IGNORE_SIZE_ID                   "ignore size"
+#define IGNORE_SIZE_ID_LENGTH            11
 #define UNKNOWN_FILES                    1
 #define QUEUED_FILES                     2
 
@@ -1424,13 +1430,15 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                move_file(char *, char *),
                msa_attach(void),
                msa_detach(void),
+               my_strncpy(char *, char *, size_t),
                next_counter(int *),
                open_counter_file(char *),
                pmatch(char *, char *),
                rec(int, char *, char *, ...),
                rec_rmdir(char *),
                remove_dir(char *),
-               send_cmd(char, int);
+               send_cmd(char, int),
+               wmo2ascii(char *, char *, off_t *);
 extern off_t   gts2tiff(char *, char *),
                read_file(char *, char **buffer),
                tiff2gts(char *, char *);

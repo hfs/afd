@@ -191,7 +191,7 @@ main(int argc, char *argv[])
    {
       if (gethostname(&window_title[10], MAX_AFD_NAME_LENGTH) == 0)
       {
-         window_title[0] = toupper((int)window_title[0]);
+         window_title[10] = toupper((int)window_title[10]);
       }
    }
    argcount = 0;

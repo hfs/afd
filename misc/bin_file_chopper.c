@@ -154,7 +154,7 @@ bin_file_chopper(char  *bin_file,
       return(INCORRECT);
    }
 
-   if ((buffer = (char *)malloc(stat_buf.st_size)) == NULL)
+   if ((buffer = malloc(stat_buf.st_size)) == NULL)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "malloc() error (size = %d) : %s",

@@ -123,7 +123,7 @@ main(int argc, char *argv[])
          (void)close(fd);
          exit(INCORRECT);
       }
-      if ((buf = (char *)malloc(stat_buf.st_size)) == NULL)
+      if ((buf = malloc(stat_buf.st_size)) == NULL)
       {
          (void)fprintf(stderr, "ERROR   : Failed to allocate memory : %s\n",
                        strerror(errno));

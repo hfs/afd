@@ -313,7 +313,7 @@ main(int argc, char *argv[])
          hunk = HUNK_MAX;
       }
 
-      if ((buffer = (char *)malloc(hunk)) == NULL)
+      if ((buffer = malloc(hunk)) == NULL)
       {
          (void)fprintf(stderr, "Failed to allocate memory : %s (%s %d)\n",
                        strerror(errno), __FILE__, __LINE__);

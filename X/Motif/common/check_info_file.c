@@ -51,7 +51,7 @@ DESCR__E_M3
 #include <unistd.h>     /* read(), close()                               */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <stdlib.h>     /* free()                                        */
+#include <stdlib.h>     /* free(), malloc()                              */
 #include <fcntl.h>
 #include <errno.h>
 #include "x_common_defs.h"
@@ -131,7 +131,7 @@ check_info_file(void)
          /* Free previous memory chunk */
          free(info_data);
       }
-      if ((info_data = (char *)malloc(stat_buf.st_size + 1)) == NULL)
+      if ((info_data = malloc(stat_buf.st_size + 1)) == NULL)
       {
          (void)xrec(info_w, FATAL_DIALOG,
                     "Failed to allocate memory : %s (%s %d)",
@@ -171,7 +171,7 @@ check_info_file(void)
 static void
 fill_default_info(void)
 {
-   if ((info_data = (char *)malloc(384)) == NULL)
+   if ((info_data = malloc(384)) == NULL)
    {
       (void)xrec(info_w, FATAL_DIALOG,
                  "Failed to allocate memory : %s (%s %d)",

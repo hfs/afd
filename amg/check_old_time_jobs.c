@@ -199,15 +199,16 @@ check_old_time_jobs(int no_of_jobs)
                             * a job matching. On the other hand the less we
                             * care how well the job resembles, the higher will
                             * be the chance that we catch the wrong job in the
-                            * JID structure. The big problem here are the options.
-                            * Well, some options we do not need to worry about:
-                            * priority, time and lock. If these options cause
-                            * difficulties, then the DIR_CONFIG configuration
-                            * is broke!
+                            * JID structure. The big problem here are the
+                            * options. Well, some options we do not need to
+                            * worry about: priority, time and lock. If these
+                            * options cause difficulties, then the DIR_CONFIG
+                            * configuration is broke!
                             */
                            for (i = 0; i < no_of_jobs; i++)
                            {
-                              if ((dnb[jd[jid_pos].dir_id_pos].dir_id == db[i].dir_no) &&
+                              if ((db[i].job_id != job_id) &&
+                                  (dnb[jd[jid_pos].dir_id_pos].dir_id == db[i].dir_no) &&
                                   (jd[jid_pos].no_of_files == db[i].no_of_files))
                               {
                                  int  j;
@@ -375,6 +376,12 @@ move_time_dir(int job_id)
                    "Hmmm.. , something is wrong here!? (%s %d)\n",
                    __FILE__, __LINE__);
          *(ptr - 1) = '\0';
+         if (closedir(dp) == -1)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Could not closedir() %s : %s (%s %d)\n",
+                      time_dir, strerror(errno), __FILE__, __LINE__);
+         }
          return;
       }
       if (mkdir(to_dir, (S_IRUSR | S_IWUSR | S_IXUSR)) == -1)
@@ -408,13 +415,9 @@ move_time_dir(int job_id)
 
          if (rename(time_dir, to_dir) == -1)
          {
-            if (errno != EEXIST)
-            {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to rename() %s to %s : %s (%s %d)\n",
-                         time_dir, to_dir, strerror(errno),
-                         __FILE__, __LINE__);
-            }
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Failed to rename() %s to %s : %s (%s %d)\n",
+                      time_dir, to_dir, strerror(errno), __FILE__, __LINE__);
             if (unlink(time_dir) == -1)
             {
                if (errno != ENOENT)
@@ -444,8 +447,8 @@ move_time_dir(int job_id)
       if (rmdir(time_dir) == -1)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not rmdir() %s : %s (%s %d)\n",
-                   time_dir, strerror(errno), __FILE__, __LINE__);
+                   "Could not rmdir() %s [to_dir = %s] : %s (%s %d)\n",
+                   time_dir, to_dir, strerror(errno), __FILE__, __LINE__);
       }
    }
 #endif

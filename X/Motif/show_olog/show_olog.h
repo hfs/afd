@@ -39,10 +39,6 @@
 #define LOCAL_FILENAME          8
 #define REMOTE_FILENAME         9
 
-#define EQUAL_SIGN              1
-#define LESS_THEN_SIGN          2
-#define GREATER_THEN_SIGN       3
-
 #define GOT_JOB_ID              -2
 #define GOT_JOB_ID_DIR_ONLY     -3
 #define GOT_JOB_ID_USER_ONLY    -4

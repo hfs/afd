@@ -566,7 +566,7 @@ get_data(void)
 
    /* Allocate memory for item list */
    no_of_log_files = start_file_no - end_file_no + 1;
-   if ((il = (struct item_list *)malloc((no_of_log_files + 1) * sizeof(struct item_list))) == NULL)
+   if ((il = malloc((no_of_log_files + 1) * sizeof(struct item_list))) == NULL)
    {
       (void)xrec(toplevel_w, FATAL_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
@@ -692,7 +692,7 @@ extract_data(char *current_log_file, int file_no)
       return;
    }
 #ifdef _NO_MMAP
-   if ((src = (char *)malloc(stat_buf.st_size)) == NULL)
+   if ((src = malloc(stat_buf.st_size)) == NULL)
    {
       (void)xrec(toplevel_w, FATAL_DIALOG, "malloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);

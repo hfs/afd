@@ -46,6 +46,7 @@ DESCR__S_M3
  ** HISTORY
  **   12.10.1996 H.Kiehl    Created
  **   13.11.1996 T.Freyberg Debugged function dup_count_eols().
+ **   02.09.2002 H.Kiehl    Return file name with TIFF_END.
  **
  */
 DESCR__E_M3
@@ -641,6 +642,9 @@ gts2tiff(char *path, char *filename)
       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
+
+   /* Append TIFF ending to the original filename. */
+   (void)strcat(filename, TIFF_END);
 
    return(tiff_file_size);
 }

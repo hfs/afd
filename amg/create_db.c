@@ -79,10 +79,6 @@ DESCR__E_M3
 extern int                        no_of_hosts,
                                   no_of_local_dirs,
                                   no_of_time_jobs,
-#ifndef _WITH_PTHREAD
-                                  no_of_important_dirs,
-                                  *important_dir_no,
-#endif
 #ifdef _TEST_FILE_TABLE
                                   no_of_local_dirs,/* No. of directories */
                                                    /* in DIR_CONFIG file */
@@ -145,7 +141,7 @@ create_db(void)
                    *p_offset,
                    *p_loptions,
                    *p_file,
-                   real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+                   real_hostname[MAX_REAL_HOSTNAME_LENGTH];
    struct p_array  *p_ptr;
    struct stat     stat_buf;
 
@@ -443,7 +439,7 @@ create_db(void)
              new_size = ((de[dir_counter].nfg / FG_BUFFER_STEP_SIZE) + 1) *
                         FG_BUFFER_STEP_SIZE * sizeof(struct file_mask_entry);
 
-            if ((de[dir_counter].fme = (struct file_mask_entry *)realloc(de[dir_counter].fme, new_size)) == NULL)
+            if ((de[dir_counter].fme = realloc(de[dir_counter].fme, new_size)) == NULL)
             {
                (void)rec(sys_log_fd, FATAL_SIGN,
                          "realloc() error : %s (%s %d)\n",

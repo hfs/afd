@@ -54,7 +54,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>         /* strerror(), strcmp(), strcpy(), strcat()  */
-#include <stdlib.h>         /* calloc(), free()                          */
+#include <stdlib.h>         /* calloc(), free(), malloc()                */
 #include <unistd.h>         /* rmdir(), W_OK, F_OK                       */
 #include <time.h>           /* time()                                    */
 #include <sys/types.h>
@@ -148,8 +148,8 @@ resend_files(int no_selected, int *select_list)
    }
    overwrite = 0;
    dest_dir[0] = '\0';
-   if (((rl = (struct resend_list *)calloc(no_selected, sizeof(struct resend_list))) == NULL) ||
-       ((select_done_list = (int *)calloc(no_selected, sizeof(int))) == NULL))
+   if (((rl = calloc(no_selected, sizeof(struct resend_list))) == NULL) ||
+       ((select_done_list = calloc(no_selected, sizeof(int))) == NULL))
    {
       (void)xrec(toplevel_w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
@@ -804,7 +804,7 @@ get_file(char *dest_dir, char *p_dest_dir_end)
                   int  bytes_buffered;
                   char *buffer;
 
-                  if ((buffer = (char *)malloc(stat_buf.st_blksize)) == NULL)
+                  if ((buffer = malloc(stat_buf.st_blksize)) == NULL)
                   {
                      (void)fprintf(stderr,
                                    "malloc() error : %s (%s %d)\n",

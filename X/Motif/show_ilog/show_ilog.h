@@ -22,10 +22,6 @@
 
 #include "x_common_defs.h"
 
-#define EQUAL_SIGN              1
-#define LESS_THEN_SIGN          2
-#define GREATER_THEN_SIGN       3
-
 #define GOT_JOB_ID_DIR_ONLY     -3
 #define GOT_JOB_ID_DIR_AND_RECIPIENT -5
 

@@ -164,9 +164,9 @@ get_hostname(char *recipient, char *real_hostname)
          i++; ptr++;
       }
    }
+   real_hostname[i] = '\0';
    if ((i > 0) && (i < MAX_REAL_HOSTNAME_LENGTH))
    {
-      real_hostname[i] = '\0';
       return(SUCCESS);
    }
 

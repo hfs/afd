@@ -41,6 +41,7 @@ DESCR__S_M3
  **        do not report unknown files
  **        old file time <value in hours>        [DEFAULT 24]
  **        end character <decimal number>
+ **        ignore size <decimal number>
  **        important dir
  **        time * * * * *
  **        do not remove
@@ -72,6 +73,7 @@ DESCR__S_M3
  **   31.08.2000 H.Kiehl Addition of option "force rereads".
  **   20.07.2001 H.Kiehl New option "delete queued files".
  **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
+ **   14.08.2002 H.Kiehl Added "ignore size" option.
  **
  */
 DESCR__E_M3

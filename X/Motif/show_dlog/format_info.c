@@ -348,7 +348,7 @@ format_input_info(char *text)
 
    if (id.count > 0)
    {
-      if ((p_array = (char **)calloc(id.count, sizeof(char *))) == NULL)
+      if ((p_array = calloc(id.count, sizeof(char *))) == NULL)
       {
          (void)fprintf(stderr, "calloc() error : %s (%s %d)\n",
                        strerror(errno), __FILE__, __LINE__);

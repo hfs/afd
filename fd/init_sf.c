@@ -294,15 +294,33 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    }
    else
    {
+      int ret;
+
       /*
        * It could be that all files where to old to be send. If this is
        * the case, no need to go on.
        */
       /* Remove file directory. */
-      if (remove_dir(file_path) < 0)
+      if ((ret = remove_dir(file_path)) < 0)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to remove directory %s", file_path);
+         if (ret == FILE_IS_DIR)
+         {
+            if (rec_rmdir(file_path) < 0)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to rec_rmdir() %s", file_path);
+            }
+            else
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Removed directory/directories in %s", file_path);
+            }
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to remove directory %s", file_path);
+         }
       }
       exitflag = 0;
       exit(NO_FILES_TO_SEND);

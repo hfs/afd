@@ -427,11 +427,11 @@ change_name(char *orig_file_name,
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%m", gmtime(&time_buf));
                         break;
-                     case 'y' : /* year 2char [01,99] */
+                     case 'y' : /* year 2 chars [01,99] */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%y", gmtime(&time_buf));
                         break;
-                     case 'Y' : /* year 4char 1997 */
+                     case 'Y' : /* year 4 chars 1997 */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%Y", gmtime(&time_buf));
                         break;
@@ -443,7 +443,7 @@ change_name(char *orig_file_name,
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%M", gmtime(&time_buf));
                         break;
-                     case 'S' : /* minute [00,59] */
+                     case 'S' : /* second [00,59] */
                         number = strftime(ptr_newname, MAX_FILENAME_LENGTH,
                                           "%S", gmtime(&time_buf));
                         break;

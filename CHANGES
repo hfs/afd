@@ -1080,3 +1080,42 @@
 08.07.2002 - Removed combination of FTP rename to one command, it caused
              to many problems with window systems.
 ------------------------> Released: 08.07.2002 <---------------------------
+
+
+---------------------------> Version 1.2.15 <------------------------------
+                            ----------------
+10.07.2002 - When pexec command creates subdirectories in the files
+             directory, FD was unable to delete them and AFD would
+             constantly try to generate a new job. Fixed.
+           - Function exec_cmd() now initializes the return buffer.
+12.07.2002 - Files that have no distribution rule and where the option
+             "delete old files" is set are now deleted immediatly while
+             we are scanning for files. So setting "old file time 0"
+             will delete unknown files immediatly.
+           - Old files are now logged in the receive log.
+14.07.2002 - Fix crash of dir_ctrl dialog.
+16.07.2002 - New option wmo2ascii, to remove SOH, ETX and the two carriage
+             returns from the text.
+19.07.2002 - Code cleanups, removed some unnecessary casts.
+           - When a the queue is dequeued after an error, the queue counter
+             was not reduced. Fixed.
+22.07.2002 - Old time jobs where not removed as long as they where
+             still in job ID structure. Fixed.
+           - If the directory alias is changed for a retrieve job, FD
+             was always removing the internal retrieve directory.
+30.07.2002 - Make it possible to insert current date into the subject
+             of a mail.
+31.07.2002 - Dialog dir_ctrl segfaults when pressing ALT+mouse button 1.
+             Fixed.
+08.08.2002 - For remote directory names it is possible to have AFD insert
+             the current date, so that it will always look at different
+             directories at different times.
+           - New option to assemble DWD files.
+           - Masking the @ with a \ did not work for a remote recipient.
+             Fixed.
+31.08.2002 - Fix multiple local root exploits in get_afd_path() and
+             get_mon_path(). Thanks to Ilja of Netric (www.netric.be)
+             for finding this.
+02.09.2002 - Function handle_option() did not notice that the filename
+             is changed by gts2tiff(). Fixed.
+------------------------> Released: 04.09.2002 <---------------------------

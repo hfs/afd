@@ -33,7 +33,8 @@ DESCR__S_M3
  **   For this purpose rather use the function rec_rmdir().
  **
  ** RETURN VALUES
- **   Returns INCORRECT when it fails to delete the directory.
+ **   Returns INCORRECT when it fails to delete the directory. Or
+ **   FILE_IS_DIR is returned when there are directories in 'dirname'.
  **   When successful it will return 0.
  **
  ** AUTHOR
@@ -41,6 +42,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   10.12.2000 H.Kiehl Created
+ **   10.07.2002 H.Kiehl Return FILE_IS_DIR when there are directories
+ **                      in dirname.
  **
  */
 DESCR__E_M3
@@ -49,6 +52,7 @@ DESCR__E_M3
 #include <string.h>             /* strcpy(), strlen()                    */
 #include <unistd.h>             /* rmdir(), unlink()                     */
 #include <sys/types.h>
+#include <sys/stat.h>           /* stat()                                */
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */
 #include <errno.h>
 
@@ -93,10 +97,40 @@ remove_dir(char *dirname)
          }
          else
          {
+            int ret = INCORRECT,
+                save_errno = errno;
+
+            if (errno == EPERM)
+            {
+               struct stat stat_buf;
+
+               if (stat(dirname, &stat_buf) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to stat() %s : %s",
+                             dirname, strerror(errno));
+               }
+               else
+               {
+                  if (S_ISDIR(stat_buf.st_mode))
+                  {
+                     ret = FILE_IS_DIR;
+                  }
+               }
+            }
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to delete <%s> : %s", dirname, strerror(errno));
+                       "Failed to delete <%s> : %s",
+                       dirname, strerror(save_errno));
             (void)closedir(dp);
-            return(INCORRECT);
+            if (addchar == YES)
+            {
+               ptr[-1] = 0;
+            }
+            else
+            {
+               *ptr = '\0';
+            }
+            return(ret);
          }
       }
    }

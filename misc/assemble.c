@@ -49,6 +49,7 @@ DESCR__S_M3
  **                   4 Byte - High byte first
  **                   4 Byte - MSS standard
  **                   8 Byte - WMO standard (plus 2 Bytes type indicator)
+ **                   4 Byte - DWD
  **
  **   In addition it is possible to generate the file without a length
  **   indicator with the help of the ASCII standard method.
@@ -66,6 +67,7 @@ DESCR__S_M3
  ** HISTORY
  **   16.05.1999 H.Kiehl Created
  **   14.06.2002 H.Kiehl Fixed assembling MSS files.
+ **   08.08.2002 H.Kiehl Added new type DWD.
  **
  */
 DESCR__E_M3
@@ -174,6 +176,19 @@ assemble(char  *source_dir,
                         free(buffer);
                         return(INCORRECT);
                      }
+                     if (type == FOUR_BYTE_DWD)
+                     {
+                        if (write(to_fd, "\000\000\000\000", 4) != 4)
+                        {
+                           receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                                       "Failed to write() first four zeros : %s",
+                                       strerror(errno));
+                        }
+                        else
+                        {
+                           *file_size += 4;
+                        }
+                     }
                   }
 #ifdef _WITH_SOH_ETX_CHECK
                   if (type != ASCII_STANDARD)
@@ -235,6 +250,23 @@ assemble(char  *source_dir,
                   {
                      *file_size += stat_buf.st_size;
                   }
+                  if (type == FOUR_BYTE_DWD)
+                  {
+                     if ((length = write_length_indicator(to_fd,
+                                                          type,
+                                                          stat_buf.st_size)) < 0)
+                     {
+                        if (length == -1)
+                        {
+                           receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                       "write() error : %s", strerror(errno));
+                        }
+                     }
+                     else
+                     {
+                        *file_size += length;
+                     }
+                  }
 
 #ifdef _WITH_SOH_ETX_CHECK
                   /* Check for ETX */
@@ -275,6 +307,19 @@ assemble(char  *source_dir,
 
    if (to_fd != -1)
    {
+      if (type == FOUR_BYTE_DWD)
+      {
+         if (write(to_fd, "\000\000\000\000", 4) != 4)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "Failed to write() last four zeros : %s",
+                        strerror(errno));
+         }
+         else
+         {
+            *file_size += 4;
+         }
+      }
       if (close(to_fd) == -1)
       {
          receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
@@ -343,6 +388,7 @@ write_length_indicator(int fd, int type, int length)
          write_length = 4;
          break;
 
+      case FOUR_BYTE_DWD :
       case FOUR_BYTE_HBF : /* High byte first */
          if (*(char *)&byte_order == 1)
          {

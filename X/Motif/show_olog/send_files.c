@@ -121,8 +121,8 @@ send_files(int no_selected, int *select_list)
       show_message(statusbox_w, user_message);
       return;
    }
-   if (((rl = (struct resend_list *)calloc(no_selected, sizeof(struct resend_list))) == NULL) ||
-       ((select_done_list = (int *)calloc(no_selected, sizeof(int))) == NULL))
+   if (((rl = calloc(no_selected, sizeof(struct resend_list))) == NULL) ||
+       ((select_done_list = calloc(no_selected, sizeof(int))) == NULL))
    {
       (void)xrec(toplevel_w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);

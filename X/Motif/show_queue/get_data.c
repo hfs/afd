@@ -804,7 +804,7 @@ insert_file(char *queue_dir,
 
                            if (total_no_files == 0)
                            {
-                              if ((qfl = (struct queued_file_list *)malloc(new_size)) == NULL)
+                              if ((qfl = malloc(new_size)) == NULL)
                               {
                                  (void)xrec(toplevel_w, FATAL_DIALOG,
                                             "malloc() error : %s (%s %d)",
@@ -814,7 +814,7 @@ insert_file(char *queue_dir,
                            }
                            else
                            {
-                              if ((qfl = (struct queued_file_list *)realloc((char *)qfl, new_size)) == NULL)
+                              if ((qfl = realloc((char *)qfl, new_size)) == NULL)
                               {
                                  (void)xrec(toplevel_w, FATAL_DIALOG,
                                             "malloc() error : %s (%s %d)",

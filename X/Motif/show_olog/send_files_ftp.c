@@ -49,7 +49,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>         /* strerror(), strcmp(), strcpy(), strcat()  */
-#include <stdlib.h>         /* calloc(), free()                          */
+#include <stdlib.h>         /* malloc(), free()                          */
 #include <unistd.h>
 #include <time.h>           /* time()                                    */
 #include <sys/types.h>
@@ -113,7 +113,7 @@ send_files_ftp(int                no_selected,
       {
          db->transfer_mode = 'I';
       }
-      if ((ascii_buffer = (char *)malloc((DEFAULT_TRANSFER_BLOCKSIZE * 2))) == NULL)
+      if ((ascii_buffer = malloc((DEFAULT_TRANSFER_BLOCKSIZE * 2))) == NULL)
       {
          msg_str[0] = '\0';
          trans_log(INFO_SIGN, __FILE__, __LINE__, "malloc() error : %s",

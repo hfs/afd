@@ -112,7 +112,7 @@ get_number_of_fields(char *bin_file)
       return(INCORRECT);
    }
 
-   if ((buffer = (char *)malloc(stat_buf.st_size)) == NULL)
+   if ((buffer = malloc(stat_buf.st_size)) == NULL)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error (size = %d) : %s (%s %d)\n",
                 stat_buf.st_size, strerror(errno), __FILE__, __LINE__);

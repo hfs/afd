@@ -46,6 +46,7 @@ DESCR__S_M1
  ** HISTORY
  **   05.05.2002 H.Kiehl Created
  **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
+ **   14.08.2002 H.Kiehl Option to ignore files which have a certain size.
  **
  */
 DESCR__E_M1

@@ -45,6 +45,7 @@ DESCR__S_M3
  **   03.10.1998 H.Kiehl Try reading from pipe while program is running
  **                      to avoid any deadlocks.
  **   14.07.2000 H.Kiehl Return the exit status of the process we started.
+ **   10.07.2002 H.Kiehl Initialize the return buffer.
  **
  */
 DESCR__E_M3
@@ -112,6 +113,7 @@ exec_cmd(char *cmd, char *buffer)
             fd_set         rset;
             struct timeval timeout;
 
+            buffer[0] = '\0';
             FD_ZERO(&rset);
             for (;;)
             {

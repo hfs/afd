@@ -158,6 +158,9 @@ struct data
           long         transfer_timeout; /* When to timeout the            */
                                          /* transmitting job.              */
           char         *subject;         /* Subject of the mail.           */
+          char         *reply_to;        /* The address where the recipient*/
+                                         /* sends the reply.               */
+          char         *from;            /* The address who send this mail.*/
           char         **filename;       /* Pointer to array that holds    */
                                          /* all file names.                */
           char         hostname[MAX_FILENAME_LENGTH];

@@ -69,6 +69,8 @@ DESCR__S_M3
  **   27.01.2002 H.Kiehl Added reply-to option.
  **   02.07.2002 H.Kiehl Added from option.
  **   03.07.2002 H.Kiehl Added charset option.
+ **   30.07.2002 H.Kiehl Check if subject string contains a %t to insert
+ **                      a date.
  **
  */
 DESCR__E_M3
@@ -77,6 +79,7 @@ DESCR__E_M3
 #include <stdlib.h>               /* atoi(), malloc(), free(), strtoul() */
 #include <string.h>               /* strcmp(), strncmp(), strerror()     */
 #include <ctype.h>                /* isascii()                           */
+#include <time.h>                 /* time(), strftime(), localtime()     */
 #include <sys/types.h>
 #include <grp.h>                  /* getgrnam()                          */
 #include <pwd.h>                  /* getpwnam()                          */
@@ -871,6 +874,8 @@ eval_message(char *message_name, struct job *p_db)
                     used |= SUBJECT_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
                     {
+                       off_t length;
+
                        ptr += SUBJECT_ID_LENGTH;
                        while ((*ptr == ' ') || (*ptr == '\t'))
                        {
@@ -889,7 +894,7 @@ eval_message(char *message_name, struct job *p_db)
                           }
                           if (*ptr == '"')
                           {
-                             int  length = ptr - ptr_start + 1;
+                             length = ptr - ptr_start + 1;
 
                              if ((p_db->subject = malloc(length)) != NULL)
                              {
@@ -906,9 +911,8 @@ eval_message(char *message_name, struct job *p_db)
                        }
                        else if (*ptr == '/')
                             {
-                               off_t length;
-                               char  *file_name = ptr,
-                                     tmp_char;
+                               char *file_name = ptr,
+                                    tmp_char;
 
                                while ((*ptr != '\n') && (*ptr != '\0') &&
                                       (*ptr != ' ') && (*ptr != '\t'))
@@ -932,6 +936,183 @@ eval_message(char *message_name, struct job *p_db)
                                }
                                *ptr = tmp_char;
                             }
+
+                       /* Check if we need to insert some other info. */
+                       if ((length > 0) && (p_db->subject != NULL))
+                       {
+                          int  new_length = length;
+                          char *search_ptr = p_db->subject;
+
+                          while (*search_ptr != '\0')
+                          {
+                             if (*search_ptr == '\\')
+                             {
+                                search_ptr++;
+                             }
+                             else
+                             {
+                                if (*search_ptr == '%')
+                                {
+                                   search_ptr++;
+                                   if (*search_ptr == 't')
+                                   {
+                                      search_ptr++;
+                                      switch (*search_ptr)
+                                      {
+                                         case 'a': /* short day of the week 'Tue' */
+                                         case 'b': /* short month 'Jan' */
+                                         case 'j': /* day of year [001,366] */
+                                            new_length += 3;
+                                            break;
+                                         case 'd': /* day of month [01,31] */
+                                         case 'M': /* minute [00,59] */
+                                         case 'm': /* month [01,12] */
+                                         case 'y': /* year 2 chars [01,99] */
+                                         case 'H': /* hour [00,23] */
+                                         case 'S': /* second [00,59] */
+                                            new_length += 2;
+                                            break;
+                                         case 'Y': /* year 4 chars 1997 */
+                                            new_length += 4;
+                                            break;
+                                         case 'A': /* long day of the week 'Tuesday' */
+                                         case 'B': /* month 'January' */
+                                         case 'U': /* Unix time. */
+                                            new_length += 20;
+                                            break;
+                                      }
+                                   }
+                                }
+                             }
+                             search_ptr++;
+                          }
+                          if (new_length > length)
+                          {
+                             char *tmp_buffer;
+
+                             if ((tmp_buffer = malloc(new_length)) == NULL)
+                             {
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "malloc() error : %s",
+                                           strerror(errno));
+                             }
+                             else
+                             {
+                                int    number;
+                                time_t time_buf;
+                                char   *read_ptr = p_db->subject,
+                                       *write_ptr = tmp_buffer;
+
+                                time_buf = time(NULL);
+                                while (*read_ptr != '\0')
+                                {
+                                   if (*read_ptr == '\\')
+                                   {
+                                      read_ptr++;
+                                      *write_ptr = *read_ptr;
+                                      read_ptr++; write_ptr++;
+                                   }
+                                   else
+                                   {
+                                      if (*read_ptr == '%')
+                                      {
+                                         read_ptr++;
+                                         if (*read_ptr == 't')
+                                         {
+                                            read_ptr++;
+                                            switch (*read_ptr)
+                                            {
+                                               case 'a': /* short day of the week 'Tue' */
+                                                  number = strftime(write_ptr, 4,
+                                                                    "%a", localtime(&time_buf));
+                                                  break;
+                                               case 'b': /* short month 'Jan' */
+                                                  number = strftime(write_ptr, 4,
+                                                                    "%b", localtime(&time_buf));
+                                                  break;
+                                               case 'j': /* day of year [001,366] */
+                                                  number = strftime(write_ptr, 4,
+                                                                    "%j", localtime(&time_buf));
+                                                  break;
+                                               case 'd': /* day of month [01,31] */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%d", localtime(&time_buf));
+                                                  break;
+                                               case 'M': /* minute [00,59] */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%M", localtime(&time_buf));
+                                                  break;
+                                               case 'm': /* month [01,12] */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%m", localtime(&time_buf));
+                                                  break;
+                                               case 'y': /* year 2 chars [01,99] */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%y", localtime(&time_buf));
+                                                  break;
+                                               case 'H': /* hour [00,23] */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%H", localtime(&time_buf));
+                                                  break;
+                                               case 'S': /* second [00,59] */
+                                                  number = strftime(write_ptr, 3,
+                                                                    "%S", localtime(&time_buf));
+                                                  break;
+                                               case 'Y': /* year 4 chars 1997 */
+                                                  number = strftime(write_ptr, 5,
+                                                                    "%Y", localtime(&time_buf));
+                                                  break;
+                                               case 'A': /* long day of the week 'Tuesday' */
+                                                  number = strftime(write_ptr, 21,
+                                                                    "%A", localtime(&time_buf));
+                                                  break;
+                                               case 'B': /* month 'January' */
+                                                  number = strftime(write_ptr, 21,
+                                                                    "%B", localtime(&time_buf));
+                                                  break;
+                                               case 'U': /* Unix time. */
+                                                  number = sprintf(write_ptr, "%ld", time_buf);
+                                                  break;
+                                               default:
+                                                  number = 0;
+                                                  *write_ptr = '%';
+                                                  *(write_ptr + 1) = 't';
+                                                  *(write_ptr + 2) = *read_ptr;
+                                                  write_ptr += 3;
+                                                  break;
+                                            }
+                                            write_ptr += number;
+                                            read_ptr++;
+                                         }
+                                         else
+                                         {
+                                            *write_ptr = '%';
+                                            write_ptr++;
+                                         }
+                                      }
+                                      else
+                                      {
+                                         *write_ptr = *read_ptr;
+                                         read_ptr++; write_ptr++;
+                                      }
+                                   }
+                                }
+                                *write_ptr = '\0';
+                                if ((p_db->subject = realloc(p_db->subject, new_length)) == NULL)
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "realloc() error : %s",
+                                              strerror(errno));
+                                }
+                                else
+                                {
+                                   (void)memcpy(p_db->subject, tmp_buffer, new_length);
+                                }
+
+                                free(tmp_buffer);
+                             }
+                          }
+                       }
                     }
                     while ((*ptr != '\n') && (*ptr != '\0'))
                     {

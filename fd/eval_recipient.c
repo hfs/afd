@@ -67,6 +67,7 @@ DESCR__E_M3
 #include <stdio.h>                   /* NULL                             */
 #include <string.h>                  /* strcpy()                         */
 #include <stdlib.h>                  /* atoi()                           */
+#include <time.h>                    /* time(), strftime()               */
 #include "fddefs.h"
 
 /* Global variables */
@@ -273,8 +274,101 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
          i = 0;
          while ((*ptr != '\0') && (*ptr != ';'))
          {
-            p_db->target_dir[i] = *ptr;
-            i++; ptr++;
+            if (*ptr == '\\')
+            {
+               ptr++;
+               p_db->target_dir[i] = *ptr;
+               i++; ptr++;
+            }
+            else
+            {
+               if ((*ptr == '%') && (*(ptr + 1) == 't'))
+               {
+                  int    number;
+                  time_t time_buf;
+
+                  time_buf = time(NULL);
+                  switch(*(ptr + 2))
+                  {
+                     case 'a': /* short day of the week 'Tue' */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%a", localtime(&time_buf));
+                        break;
+                     case 'b': /* short month 'Jan' */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%b", localtime(&time_buf));
+                        break;
+                     case 'j': /* day of year [001,366] */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%j", localtime(&time_buf));
+                        break;
+                     case 'd': /* day of month [01,31] */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%d", localtime(&time_buf));
+                        break;
+                     case 'M': /* minute [00,59] */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%M", localtime(&time_buf));
+                        break;
+                     case 'm': /* month [01,12] */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%m", localtime(&time_buf));
+                        break;
+                     case 'y': /* year 2 chars [01,99] */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%y", localtime(&time_buf));
+                        break;
+                     case 'H': /* hour [00,23] */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%H", localtime(&time_buf));
+                        break;
+                     case 'S': /* second [00,59] */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%S", localtime(&time_buf));
+                        break;
+                     case 'Y': /* year 4 chars 2002 */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%Y", localtime(&time_buf));
+                        break;
+                     case 'A': /* long day of the week 'Tuesday' */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%A", localtime(&time_buf));
+                        break;
+                     case 'B': /* month 'January' */
+                        number = strftime(&p_db->target_dir[i],
+                                          MAX_PATH_LENGTH - i,
+                                          "%B", localtime(&time_buf));
+                        break;
+                     case 'U': /* Unix time. */
+                        number = sprintf(&p_db->target_dir[i], "%ld", time_buf);
+                        break;
+                     default :
+                        number = 3;
+                        p_db->target_dir[i] = '%';
+                        p_db->target_dir[i + 1] = 't';
+                        p_db->target_dir[i + 2] = *(ptr + 2);
+                        break;
+                  }
+                  i += number;
+                  ptr += 3;
+               }
+               else
+               {
+                  p_db->target_dir[i] = *ptr;
+                  i++; ptr++;
+               }
+            }
          }
          p_db->target_dir[i] = '\0';
       }
