@@ -1485,6 +1485,10 @@ popup_cb(Widget      w,
              (sel_typ == DISABLE_SEL)) && (ehc == NO))
         {
            (void)write_host_config(no_of_hosts, host_config_file, hl);
+           if (hl != NULL)
+           {
+              free(hl);
+           }
         }
 
    /* Memory for arg list stuff no longer needed. */

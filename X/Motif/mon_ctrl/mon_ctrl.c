@@ -107,7 +107,7 @@ XmFontList              fontlist = NULL;
 Widget                  mw[5],       /* Main menu */
                         ow[7],       /* Monitor menu */
                         tw[2],       /* Test (ping, traceroute) */
-                        vw[8],       /* Remote view menu */
+                        vw[9],       /* Remote view menu */
                         cw[8],       /* Remote control menu */
                         sw[5],       /* Setup menu */
                         hw[3],       /* Help menu */
@@ -910,6 +910,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
        (mcp.show_ilog != NO_PERMISSION) ||
        (mcp.show_olog != NO_PERMISSION) ||
        (mcp.show_elog != NO_PERMISSION) ||
+       (mcp.show_queue != NO_PERMISSION) ||
        (mcp.afd_load != NO_PERMISSION))
    {
       pull_down_w = XmCreatePulldownMenu(*menu_w, "View Pulldown", NULL, 0);
@@ -1006,6 +1007,18 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             XtAddCallback(vw[MON_DELETE_W], XmNactivateCallback,
                           start_remote_prog, (XtPointer)E_LOG_SEL);
          }
+      }
+      if (mcp.show_queue != NO_PERMISSION)
+      {
+         XtVaCreateManagedWidget("Separator",
+                              xmSeparatorWidgetClass, pull_down_w,
+                              NULL);
+         vw[MON_SHOW_QUEUE_W] = XtVaCreateManagedWidget("Queue",
+                              xmPushButtonWidgetClass, pull_down_w,
+                              XmNfontList,             fontlist,
+                              NULL);
+         XtAddCallback(vw[MON_SHOW_QUEUE_W], XmNactivateCallback,
+                       start_remote_prog, (XtPointer)SHOW_QUEUE_SEL);
       }
       if (mcp.afd_load != NO_PERMISSION)
       {
@@ -1646,6 +1659,7 @@ eval_permissions(char *perm_buffer)
       mcp.show_olog_list     = NULL;
       mcp.show_elog          = YES;   /* View the delete log   */
       mcp.show_elog_list     = NULL;
+      mcp.show_queue         = YES;   /* View the AFD queue    */
       mcp.edit_hc            = YES;   /* Edit Host Configuration */
       mcp.edit_hc_list       = NULL;
       mcp.dir_ctrl           = YES;
@@ -1940,6 +1954,17 @@ eval_permissions(char *perm_buffer)
          {
             mcp.show_elog = NO_LIMIT;
          }
+      }
+
+      /* May the user view the AFD queue? */
+      if ((ptr = posi(perm_buffer, SHOW_QUEUE_PERM)) == NULL)
+      {
+         /* The user may NOT view the delete log. */
+         mcp.show_queue = NO_PERMISSION;
+      }
+      else
+      {
+         mcp.show_queue = NO_LIMIT;
       }
 
       /* May the user edit the host configuration file? */

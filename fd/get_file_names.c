@@ -31,7 +31,8 @@ DESCR__S_M3
  **
  ** RETURN VALUES
  **   The number of files, total file size it has found in the directory
- **   and the directory where the files have been found.  Otherwise if
+ **   and the directory where the files have been found. If all files
+ **   are deleted due to age limit, it will return -1. Otherwise if
  **   an error occurs it will exit.
  **
  ** AUTHOR
@@ -42,6 +43,8 @@ DESCR__S_M3
  **   31.01.1997 H.Kiehl Support for age limit.
  **   14.10.1998 H.Kiehl Free unused memory.
  **   03.02.2001 H.Kiehl Sort the files by date.
+ **   21.08.2001 H.Kiehl Return -1 if all files have been deleted due
+ **                      to age limit.
  **
  */
 DESCR__E_M3
@@ -189,6 +192,31 @@ get_file_names(char *file_path, off_t *file_size_to_send)
          if ((db.age_limit > 0) &&
              ((diff_time = (now - stat_buf.st_mtime)) > db.age_limit))
          {
+            if (db.no_of_restart_files > 0)
+            {
+               int  ii;
+               char initial_filename[MAX_FILENAME_LENGTH];
+
+               if ((db.lock == DOT) || (db.lock == DOT_VMS))
+               {
+                  (void)strcpy(initial_filename, db.lock_notation);
+                  (void)strcat(initial_filename, p_dir->d_name);
+               }
+               else
+               {
+                  (void)strcpy(initial_filename, p_dir->d_name);
+               }
+
+               for (ii = 0; ii < db.no_of_restart_files; ii++)
+               {
+                  if ((strcmp(db.restart_file[ii], initial_filename) == 0) &&
+                      (append_compare(db.restart_file[ii], fullname) == YES))
+                  {
+                     remove_append(db.job_id, db.restart_file[ii]);
+                     break;
+                  }
+               }
+            }
             if (unlink(fullname) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -464,5 +492,15 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       exit(OPEN_FILE_DIR_ERROR);
    }
 
+   /*
+    * If we just return zero here when all files have been deleted
+    * due to age and sf_xxx is bursting it does not know if this
+    * is an error situation or not. So return -1 if we deleted all
+    * files.
+    */
+   if ((files_to_send == 0) && (files_not_send > 0))
+   {
+      files_to_send = -1;
+   }
    return(files_to_send);
 }

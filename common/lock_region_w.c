@@ -60,14 +60,22 @@ DESCR__E_M3
 void
 lock_region_w(int fd, off_t offset)
 {
+   int          count = 0,
+                ret;
    struct flock wlock;
 
    wlock.l_type   = F_WRLCK;
    wlock.l_whence = SEEK_SET;
    wlock.l_start  = offset;
-   wlock.l_len    = 1;
+   wlock.l_len    = (off_t)1;
 
-   if (fcntl(fd, F_SETLKW, &wlock) == -1)
+   while (((ret = fcntl(fd, F_SETLKW, &wlock)) == -1) && (errno == EAGAIN) &&
+          (count < 20))
+   {
+      my_usleep(50000L);
+      count++;
+   }
+   if (ret == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "fcntl() error : %s", strerror(errno));

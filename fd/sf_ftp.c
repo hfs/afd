@@ -314,7 +314,8 @@ main(int argc, char *argv[])
        (status != 230))
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "FTP connection to <%s> at port %d failed (%d).",
+                "FTP %s connection to <%s> at port %d failed (%d).",
+                (db.mode_flag == ACTIVE_MODE) ? "active" : "passive",
                 db.hostname, db.port, status);
       exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
    }
@@ -325,11 +326,13 @@ main(int argc, char *argv[])
          if (status == 230)
          {
             trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Connected. No user and password required, logged in.");
+                         "Connected (%s). No user and password required, logged in.",
+                         (db.mode_flag == ACTIVE_MODE) ? "active" : "passive");
          }
          else
          {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Connected.");
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Connected (%s).",
+                         (db.mode_flag == ACTIVE_MODE) ? "active" : "passive");
          }
       }
    }
@@ -783,12 +786,16 @@ main(int argc, char *argv[])
          {
             /*
              * With age limit it can happen that files_to_send is zero.
-             * Though very unlikely.
+             * If that is the case, ie files_to_send is -1, do not
+             * indicate an error.
              */
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmmm. Burst counter = %d and files_to_send = %d [%s]. How is this possible? [PID = %d] [job_no = %d] AAarrgghhhhh....",
-                       fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter,
-                       files_to_send, file_path, db.my_pid, (int)db.job_no);
+            if (files_to_send == 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm. Burst counter = %d and files_to_send = %d [%s]. How is this possible? [PID = %d] [job_no = %d] AAarrgghhhhh....",
+                          fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter,
+                          files_to_send, file_path, db.my_pid, (int)db.job_no);
+            }
             fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
             if (lock_offset != -1)
             {
@@ -1006,7 +1013,8 @@ main(int argc, char *argv[])
 
             for (ii = 0; ii < db.no_of_restart_files; ii++)
             {
-               if (strcmp(db.restart_file[ii], initial_filename) == 0)
+               if ((strcmp(db.restart_file[ii], initial_filename) == 0) &&
+                   (append_compare(db.restart_file[ii], fullname) == YES))
                {
                   append_file_number = ii;
                   break;
@@ -1922,17 +1930,13 @@ main(int argc, char *argv[])
                        fsa[db.fsa_pos].total_file_size = 0;
                     }
 #endif
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
 
                /* File counter done */
-               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
                fsa[db.fsa_pos].file_counter_done += 1;
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
 
                /* Number of bytes send */
-               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
                fsa[db.fsa_pos].bytes_send += no_of_bytes;
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
                unlock_region(fsa_fd, lock_offset);
             }
          }
@@ -2408,7 +2412,7 @@ sf_ftp_exit(void)
        (append_offset == 0) &&
        (fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done > MAX_SEND_BEFORE_APPEND))
    {
-      log_append(db.job_id, initial_filename);
+      log_append(&db, initial_filename, fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use);
    }
 
    reset_fsa((struct job *)&db, exitflag);
@@ -2485,7 +2489,7 @@ sig_bus(int signo)
 static void
 sig_kill(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   exitflag = 0;
    exit(GOT_KILLED);
 }
 
@@ -2494,6 +2498,5 @@ sig_kill(int signo)
 static void
 sig_exit(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }

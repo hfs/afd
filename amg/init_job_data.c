@@ -99,7 +99,7 @@ init_job_data(int *jid_number)
    no_of_job_ids = (int *)ptr;
    ptr += AFD_WORD_OFFSET;
    jd = (struct job_id_data *)ptr;
-   lock_region_w(jd_fd, 1);
+   lock_region_w(jd_fd, (off_t)1);
 
    /* Attach directory names. */
    new_size = (DIR_NAME_BUF_SIZE * sizeof(struct dir_name_buf)) +

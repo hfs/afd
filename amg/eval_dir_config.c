@@ -374,7 +374,7 @@ eval_dir_config(size_t db_size, int *dc)
 
    /* Lock the dir_name_buf structure so we do not get caught */
    /* when the FD is removing a directory.                    */
-   lock_region_w(dnb_fd, 1);
+   lock_region_w(dnb_fd, (off_t)1);
 
    /* Initialise variables. */
    pp = NULL;

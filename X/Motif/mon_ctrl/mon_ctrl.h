@@ -43,7 +43,8 @@
 #define MON_INPUT_W                    4
 #define MON_OUTPUT_W                   5
 #define MON_DELETE_W                   6
-#define MON_VIEW_LOAD_W                7
+#define MON_SHOW_QUEUE_W               7
+#define MON_VIEW_LOAD_W                8
 
 /* Definitions of popup selections. */
 #define MON_SYS_LOG_SEL                50
@@ -160,6 +161,7 @@ struct mon_control_perm
           signed char show_ilog;             /* Show Input Log           */
           signed char show_olog;             /* Show Output Log          */
           signed char show_elog;             /* Show Delete Log          */
+          signed char show_queue;            /* Show AFD Queue           */
           signed char afd_load;              /* Show load of AFD         */
           signed char edit_hc;               /* Edit HOST_CONFIG         */
           signed char dir_ctrl;              /* dir_ctrl dialog          */

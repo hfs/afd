@@ -30,6 +30,7 @@ DESCR__S_M3
  **                   char                   *src_file_path,
  **                   char                   *afd_file_path,
  **                   char                   *tmp_file_dir,
+ **                   int                    count_files,
  **                   size_t                 *total_file_size)
  **
  ** DESCRIPTION
@@ -68,6 +69,9 @@ DESCR__S_M3
  **                      of files, also limit the size that may be copied.
  **   05.06.1999 H.Kiehl Option to check for last character in file.
  **   25.04.2001 H.Kiehl Check if we need to move or copy a file.
+ **   27.08.2001 H.Kiehl Extra parameter to enable or disable counting
+ **                      of files on input, so we don't count files twice
+ **                      when queue is opened.
  **
  */
 DESCR__E_M3
@@ -124,6 +128,7 @@ check_files(struct directory_entry *p_de,
             char                   *tmp_file_dir,  /* Return directory   */
                                                    /* where files are    */
                                                    /* stored.            */
+            int                    count_files,
 #ifdef _WITH_PTHREAD
             off_t                  *file_size_pool,
             char                   **file_name_pool,
@@ -286,21 +291,24 @@ check_files(struct directory_entry *p_de,
                else
                {
 #ifdef _INPUT_LOG
-                  /* Log the file name in the input log. */
-                  (void)strcpy(il_file_name, p_dir->d_name);
-                  *il_file_size = stat_buf.st_size;
-                  *il_dir_number = p_de->dir_no;
-                  il_real_size = strlen(p_dir->d_name) + il_size;
-                  if (write(il_fd, il_data, il_real_size) != il_real_size)
+                  if (count_files == YES)
                   {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "write() error : %s (%s %d)\n",
-                               strerror(errno), __FILE__, __LINE__);
+                     /* Log the file name in the input log. */
+                     (void)strcpy(il_file_name, p_dir->d_name);
+                     *il_file_size = stat_buf.st_size;
+                     *il_dir_number = p_de->dir_no;
+                     il_real_size = strlen(p_dir->d_name) + il_size;
+                     if (write(il_fd, il_data, il_real_size) != il_real_size)
+                     {
+                        (void)rec(sys_log_fd, ERROR_SIGN,
+                                  "write() error : %s (%s %d)\n",
+                                  strerror(errno), __FILE__, __LINE__);
 
-                     /*
-                      * Since the input log is not critical, no need to
-                      * exit here.
-                      */
+                        /*
+                         * Since the input log is not critical, no need to
+                         * exit here.
+                         */
+                     }
                   }
 #endif
 
@@ -473,21 +481,24 @@ check_files(struct directory_entry *p_de,
                         else
                         {
 #ifdef _INPUT_LOG
-                           /* Log the file name in the input log. */
-                           (void)strcpy(il_file_name, p_dir->d_name);
-                           *il_file_size = stat_buf.st_size;
-                           *il_dir_number = p_de->dir_no;
-                           il_real_size = strlen(p_dir->d_name) + il_size;
-                           if (write(il_fd, il_data, il_real_size) != il_real_size)
+                           if (count_files == YES)
                            {
-                              (void)rec(sys_log_fd, ERROR_SIGN,
-                                        "write() error : %s (%s %d)\n",
-                                        strerror(errno), __FILE__, __LINE__);
+                              /* Log the file name in the input log. */
+                              (void)strcpy(il_file_name, p_dir->d_name);
+                              *il_file_size = stat_buf.st_size;
+                              *il_dir_number = p_de->dir_no;
+                              il_real_size = strlen(p_dir->d_name) + il_size;
+                              if (write(il_fd, il_data, il_real_size) != il_real_size)
+                              {
+                                 (void)rec(sys_log_fd, ERROR_SIGN,
+                                           "write() error : %s (%s %d)\n",
+                                           strerror(errno), __FILE__, __LINE__);
 
-                              /*
-                               * Since the input log is not critical, no need to
-                               * exit here.
-                               */
+                                 /*
+                                  * Since the input log is not critical, no need to
+                                  * exit here.
+                                  */
+                              }
                            }
 #endif
 
@@ -564,7 +575,7 @@ done:
                 src_file_path, strerror(errno), __FILE__, __LINE__);
    }
 
-   if (files_copied > 0)
+   if ((files_copied > 0) && (count_files == YES))
    {
 #ifdef _WITH_PTHREAD
       int rtn;

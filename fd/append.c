@@ -1,6 +1,6 @@
 /*
  *  append.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,9 +25,10 @@ DESCR__S_M3
  **   append - functions for appending files in FTP
  **
  ** SYNOPSIS
- **   void log_append(int job_id, char *file_name)
+ **   void log_append(struct job *p_db, char *file_name, char *source_file_name)
  **   void remove_append(int job_id, char *file_name)
  **   void remove_all_appends(int job_id)
+ **   int  append_compare(char *append_data, char *fullname)
  **
  ** DESCRIPTION
  **
@@ -41,6 +42,9 @@ DESCR__S_M3
  ** HISTORY
  **   24.01.1998 H.Kiehl Created
  **   21.09.1998 H.Kiehl Added function remove_all_appends()
+ **   23.08.2001 H.Kiehl The date of the file is now also used to decide
+ **                      if we append a file. For this reason the new
+ **                      function append_compare() was added.
  **
  */
 DESCR__E_M3
@@ -61,16 +65,17 @@ extern char *p_work_dir;
 
 /*############################ log_append() #############################*/
 void
-log_append(int job_id, char *file_name)
+log_append(struct job *p_db, char *file_name, char *source_file_name)
 {
    int         fd;
    size_t      buf_size;
+   off_t       msg_file_size;
    char        *buffer,
                *ptr,
                msg[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   (void)sprintf(msg, "%s%s/%d", p_work_dir, AFD_MSG_DIR, job_id);
+   (void)sprintf(msg, "%s%s/%d", p_work_dir, AFD_MSG_DIR, p_db->job_id);
 
    if ((fd = lock_file(msg, ON)) < 0)
    {
@@ -84,7 +89,7 @@ log_append(int job_id, char *file_name)
       return;
    }
    buf_size = stat_buf.st_size + strlen(OPTION_IDENTIFIER) +
-              RESTART_FILE_ID_LENGTH + strlen(file_name) + 4;
+              RESTART_FILE_ID_LENGTH + strlen(file_name) + 20 + 4;
    if ((buffer = malloc(buf_size + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -101,12 +106,34 @@ log_append(int job_id, char *file_name)
       return;
    }
    buffer[stat_buf.st_size] = '\0';
+   msg_file_size = stat_buf.st_size;
+
+   /* Get the date of the current file. */
+   if (p_db->error_file == YES)
+   {
+      (void)sprintf(msg, "%s%s%s/%s/%s/%s",
+                    p_work_dir, AFD_FILE_DIR, ERROR_DIR,
+                    p_db->host_alias, p_db->msg_name, source_file_name);
+   }
+   else
+   {
+      (void)sprintf(msg, "%s%s/%s/%s",
+                    p_work_dir, AFD_FILE_DIR, p_db->msg_name, source_file_name);
+   }
+   if (stat(msg, &stat_buf) == -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to stat() %s : %s", msg, strerror(errno));
+      (void)close(fd);
+      free(buffer);
+      return;
+   }
 
    /* First determine if there is an option identifier. */
    if ((ptr = posi(buffer, OPTION_IDENTIFIER)) == NULL)
    {
       /* Add the option and restart identifier. */
-      ptr = buffer + stat_buf.st_size;
+      ptr = buffer + msg_file_size;
       ptr += sprintf(ptr, "\n%s\n%s", OPTION_IDENTIFIER, RESTART_FILE_ID);
    }
    else
@@ -117,18 +144,22 @@ log_append(int job_id, char *file_name)
       if ((tmp_ptr = posi(ptr, RESTART_FILE_ID)) != NULL)
       {
          char *end_ptr,
+              file_and_date_str[MAX_FILENAME_LENGTH + 20],
               tmp_char;
 
          while (*tmp_ptr == ' ')
          {
             tmp_ptr++;
          }
+         (void)sprintf(file_and_date_str, "%s|%ld\n",
+                       file_name, stat_buf.st_mtime);
 
          /* Now check if the file name is already in the list. */
          do
          {
             end_ptr = tmp_ptr;
-            while ((*end_ptr != ' ') && (*end_ptr != '\n'))
+            while ((*end_ptr != '|') && (*end_ptr != ' ') &&
+                   (*end_ptr != '\n'))
             {
                end_ptr++;
             }
@@ -136,7 +167,75 @@ log_append(int job_id, char *file_name)
             *end_ptr = '\0';
             if (strcmp(tmp_ptr, file_name) == 0)
             {
-               /* File name is already in message. */
+               if (tmp_char == '|')
+               {
+                  int  r_length = 0,
+                       w_length;
+                  char *end_ptr_2,
+                       tmp_char_2;
+
+                  end_ptr_2 = end_ptr + 1;
+                  while ((*end_ptr_2 != ' ') && (*end_ptr_2 != '\n'))
+                  {
+                     end_ptr_2++;
+                     r_length++;
+                  }
+                  tmp_char_2 = *end_ptr_2;
+                  w_length = sprintf(end_ptr + 1, "%ld", stat_buf.st_mtime);
+                  if (w_length > r_length)
+                  {
+                     if (w_length > r_length)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                  "Uurrgghhhh, w_length [%d] is more then one character longer then r_length [%d]",
+                                  w_length, r_length);
+                        *(end_ptr + 1 + w_length) = '\n';
+                        *(end_ptr + 1 + w_length + 1) = '\0';
+                     }
+                  }
+                  else if (w_length < r_length)
+                       {
+                          (void)memmove(end_ptr + 1 + w_length + 1,
+                                        end_ptr + 1 + r_length + 1,
+                                        msg_file_size - (end_ptr + 1 + r_length + 1 - buffer));
+                          *(end_ptr + 1 + w_length) = tmp_char_2;
+                          buffer[msg_file_size - (r_length - w_length)] = '\0';
+                       }
+                       else
+                       {
+                          *(end_ptr + 1 + w_length) = tmp_char_2;
+                       }
+                  *end_ptr = tmp_char;
+                  buf_size = strlen(buffer);
+                  if (lseek(fd, 0, SEEK_SET) == -1)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Failed to lseek() in message %u : %s",
+                                p_db->job_id, strerror(errno));
+                  }
+                  else
+                  {
+                     if (write(fd, buffer, buf_size) != buf_size)
+                     {
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Failed to write() to message %u : %s",
+                                   p_db->job_id, strerror(errno));
+                     }
+                     else
+                     {
+                        if (msg_file_size > buf_size)
+                        {
+                           if (ftruncate(fd, buf_size) == -1)
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         "Failed to ftruncate() message %u : %s",
+                                         p_db->job_id, strerror(errno));
+                           }
+                        }
+                     }
+                  }
+               }
+
                free(buffer);
                if (close(fd) == -1)
                {
@@ -146,7 +245,14 @@ log_append(int job_id, char *file_name)
                }
                return;
             }
-            *end_ptr = tmp_char;
+            else
+            {
+               *end_ptr = tmp_char;
+               while ((*end_ptr != ' ') && (*end_ptr != '\n'))
+               {
+                  end_ptr++;
+               }
+            }
             tmp_ptr = end_ptr;
             while (*tmp_ptr == ' ')
             {
@@ -158,38 +264,40 @@ log_append(int job_id, char *file_name)
       }
       else
       {
-         ptr = buffer + stat_buf.st_size;
+         ptr = buffer + msg_file_size;
          ptr += sprintf(ptr, "%s", RESTART_FILE_ID);
       }
    }
 
    /* Append the file name. */
    *(ptr++) = ' ';
-   ptr += sprintf(ptr, "%s\n", file_name);
+   ptr += sprintf(ptr, "%s|%ld\n", file_name, stat_buf.st_mtime);
    *ptr = '\0';
    buf_size = strlen(buffer);
 
    if (lseek(fd, 0, SEEK_SET) == -1)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Failed to lseek() %s : %s", msg, strerror(errno));
+                 "Failed to lseek() in message %u : %s",
+                 p_db->job_id, strerror(errno));
    }
    else
    {
       if (write(fd, buffer, buf_size) != buf_size)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to write() to %s : %s", msg, strerror(errno));
+                    "Failed to write() to message %u : %s",
+                    p_db->job_id, strerror(errno));
       }
       else
       {
-         if (stat_buf.st_size > buf_size)
+         if (msg_file_size > buf_size)
          {
             if (ftruncate(fd, buf_size) == -1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to ftruncate() %s : %s",
-                          msg, strerror(errno));
+                          "Failed to ftruncate() message %u : %s",
+                          p_db->job_id, strerror(errno));
             }
          }
       }
@@ -198,7 +306,7 @@ log_append(int job_id, char *file_name)
    if (close(fd) < 0)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "Failed to close() %s : %s", msg, strerror(errno));
+                 "Failed to close() %u : %s", p_db->job_id, strerror(errno));
    }
 
    return;
@@ -211,10 +319,12 @@ remove_append(int job_id, char *file_name)
 {
    int         fd;
    size_t      length;
+   time_t      file_date;
    char        *buffer,
                *ptr,
                *tmp_ptr,
-               msg[MAX_PATH_LENGTH];
+               msg[MAX_PATH_LENGTH],
+               *search_str;
    struct stat stat_buf;
 
    (void)sprintf(msg, "%s%s/%d", p_work_dir, AFD_MSG_DIR, job_id);
@@ -247,6 +357,15 @@ remove_append(int job_id, char *file_name)
    }
    buffer[stat_buf.st_size] = '\0';
 
+   /* Retrieve file date which is stored just behind the file name. */
+   ptr = file_name;
+   while (*ptr != '\0')
+   {
+      ptr++;
+   }
+   ptr++;
+   file_date = atol(ptr);
+
    if ((ptr = posi(buffer, RESTART_FILE_ID)) == NULL)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -257,15 +376,26 @@ remove_append(int job_id, char *file_name)
       return;
    }
 
+   if ((search_str = malloc(MAX_FILENAME_LENGTH + 20)) == NULL)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
+      free(buffer);
+      (void)close(fd);
+      return;
+   }
+   (void)sprintf(search_str, "%s|%ld", file_name, file_date);
+
    /* Locate the file name */
    for (;;)
    {
-      if ((tmp_ptr = posi(ptr, file_name)) == NULL)
+      if ((tmp_ptr = posi(ptr, search_str)) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to locate %s in restart option of message %s.",
-                    file_name, msg);
+                    "Failed to locate <%s> in restart option of message %s.",
+                    search_str, msg);
          free(buffer);
+         free(search_str);
          (void)close(fd);
          return;
       }
@@ -281,7 +411,8 @@ remove_append(int job_id, char *file_name)
    }
    tmp_ptr--;
 
-   length = strlen(file_name);
+   length = strlen(search_str);
+   free(search_str);
    if (((tmp_ptr - length) == ptr) && (*tmp_ptr == '\n'))
    {
       /* This is the only file name, so lets remove the option. */
@@ -389,9 +520,11 @@ remove_all_appends(int job_id)
 
    if ((ptr = posi(buffer, RESTART_FILE_ID)) == NULL)
    {
-      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "Hmmm. <%s> identifier is already gone in message %d.",
-                 RESTART_FILE_ID, job_id);
+      /*
+       * It can very well happen that the restart identifier has been
+       * deleted by another process. So there is no need to put this
+       * into the SYSTEM_LOG.
+       */
       free(buffer);
       (void)close(fd);
       return;
@@ -440,4 +573,34 @@ remove_all_appends(int job_id)
               "Hmm. Removed all append options for JID %d.", job_id);
 
    return;
+}
+
+
+/*############################ append_compare() #########################*/
+int
+append_compare(char *append_data, char *fullname)
+{
+   struct stat stat_buf;
+
+   if (stat(fullname, &stat_buf) == -1)
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to stat() %s : %s", fullname, strerror(errno));
+   }
+   else
+   {
+      char *ptr;
+
+      ptr = append_data;
+      while (*ptr != '\0')
+      {
+         ptr++;
+      }
+      ptr++;
+      if (stat_buf.st_mtime == atol(ptr))
+      {
+         return(YES);
+      }
+   }
+   return(NO);
 }

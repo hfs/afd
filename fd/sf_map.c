@@ -452,49 +452,47 @@ main(int argc, char *argv[])
             }
 #endif
 
-            /* Total file size */
-#ifdef _VERIFY_FSA
-            ui_variable = fsa[db.fsa_pos].total_file_size;
-#endif
-            fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
-#ifdef _VERIFY_FSA
-            if (fsa[db.fsa_pos].total_file_size > ui_variable)
+            if (*p_file_size_buffer > 0)
             {
-               int   k;
-               off_t *tmp_ptr = p_file_size_buffer;
-
-               tmp_ptr++;
-               fsa[db.fsa_pos].total_file_size = 0;
-               for (k = (i + 1); k < files_to_send; k++)
-               {     
-                  fsa[db.fsa_pos].total_file_size += *tmp_ptr;
-               }
-
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file size for host %s overflowed. Correcting to %lu.",
-                          fsa[db.fsa_pos].host_dsp_name,
-                          fsa[db.fsa_pos].total_file_size);
-            }
-            else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
-                     (fsa[db.fsa_pos].total_file_size > 0))
-                 {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "fc for host %s is zero but fs is not zero. Correcting.",
-                               fsa[db.fsa_pos].host_dsp_name);
-                    fsa[db.fsa_pos].total_file_size = 0;
-                 }
+               /* Total file size */
+#ifdef _VERIFY_FSA
+               ui_variable = fsa[db.fsa_pos].total_file_size;
 #endif
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
+               fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
+#ifdef _VERIFY_FSA
+               if (fsa[db.fsa_pos].total_file_size > ui_variable)
+               {
+                  int   k;
+                  off_t *tmp_ptr = p_file_size_buffer;
+
+                  tmp_ptr++;
+                  fsa[db.fsa_pos].total_file_size = 0;
+                  for (k = (i + 1); k < files_to_send; k++)
+                  {     
+                     fsa[db.fsa_pos].total_file_size += *tmp_ptr;
+                  }
+
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Total file size for host %s overflowed. Correcting to %lu.",
+                             fsa[db.fsa_pos].host_dsp_name,
+                             fsa[db.fsa_pos].total_file_size);
+               }
+               else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
+                        (fsa[db.fsa_pos].total_file_size > 0))
+                    {
+                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                  "fc for host %s is zero but fs is not zero. Correcting.",
+                                  fsa[db.fsa_pos].host_dsp_name);
+                       fsa[db.fsa_pos].total_file_size = 0;
+                    }
+#endif
+               /* Number of bytes send */
+               fsa[db.fsa_pos].bytes_send += *p_file_size_buffer;
+            }
 
             /* File counter done */
-            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
             fsa[db.fsa_pos].file_counter_done += 1;
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
-
-            /* Number of bytes send */
-            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
-            fsa[db.fsa_pos].bytes_send += *p_file_size_buffer;
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
             unlock_region(fsa_fd, lock_offset);
          }
       }

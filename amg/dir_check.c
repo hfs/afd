@@ -1197,6 +1197,7 @@ handle_dir(int    dir_no,
          fra[de[dir_no].fra_pos].dir_status = DIRECTORY_ACTIVE;
          files_moved = check_files(&de[dir_no], src_file_dir, afd_file_dir,
                                    orig_file_path,
+                                   (host_name == NULL) ? YES : NO,
 #ifdef _WITH_PTHREAD
                                    file_size_pool, file_name_pool,
 #endif
@@ -1305,13 +1306,26 @@ handle_dir(int    dir_no,
                                           off_t          split_file_size_renamed;
                                           time_t         tmp_creation_time;
                                           unsigned short tmp_unique_number;
-                                          char           tmp_unique_name[MAX_FILENAME_LENGTH],
+                                          char           *tmp_file_name_buffer = NULL,
+                                                         tmp_unique_name[MAX_FILENAME_LENGTH],
                                                          src_file_path[MAX_PATH_LENGTH];
 
                                           (void)strcpy(src_file_path, afd_file_dir);
                                           (void)strcat(src_file_path, unique_name);
                                           (void)strcat(src_file_path, "/");
                                           tmp_unique_name[0] = '/';
+
+                                          if (loops > 0)
+                                          {
+                                             if ((tmp_file_name_buffer = malloc(files_linked * MAX_FILENAME_LENGTH)) == NULL)
+                                             {
+                                                (void)rec(sys_log_fd, ERROR_SIGN,
+                                                          "malloc() error : %s (%s %d)\n",
+                                                          strerror(errno), __FILE__, __LINE__);
+                                                exit(INCORRECT);
+                                             }
+                                             (void)memcpy(tmp_file_name_buffer, file_name_buffer, (files_linked * MAX_FILENAME_LENGTH));
+                                          }
 
                                           /*
                                            * If there are lots of files in the directory,
@@ -1329,7 +1343,7 @@ handle_dir(int    dir_no,
                                                 int file_offset;
 
                                                 file_offset = ii * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
-                                                (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH));
+                                                (void)memcpy(file_name_buffer, (tmp_file_name_buffer + file_offset), (MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH));
                                              }
                                              if ((split_files_renamed = rename_files(src_file_path,
                                                                                      afd_file_dir,
@@ -1360,7 +1374,7 @@ handle_dir(int    dir_no,
                                                 int file_offset;
 
                                                 file_offset = loops * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
-                                                (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (files_linked * MAX_FILENAME_LENGTH));
+                                                (void)memcpy(file_name_buffer, (tmp_file_name_buffer + file_offset), (files_linked * MAX_FILENAME_LENGTH));
                                              }
                                              send_message(afd_file_dir,
                                                           unique_name,
@@ -1369,6 +1383,10 @@ handle_dir(int    dir_no,
                                                           de[dir_no].fme[j].pos[k],
                                                           files_linked,
                                                           file_size_linked);
+                                          }
+                                          if (tmp_file_name_buffer != NULL)
+                                          {
+                                             free(tmp_file_name_buffer);
                                           }
                                        }
                                        else

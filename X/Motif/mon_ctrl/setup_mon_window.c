@@ -201,6 +201,7 @@ setup_mon_window(char *font_name)
           (mcp.show_ilog != NO_PERMISSION) ||
           (mcp.show_olog != NO_PERMISSION) ||
           (mcp.show_elog != NO_PERMISSION) ||
+          (mcp.show_queue != NO_PERMISSION) ||
           (mcp.afd_load != NO_PERMISSION))
       {
          XtVaSetValues(mw[LOG_W], XmNfontList, fontlist, NULL);
@@ -231,6 +232,10 @@ setup_mon_window(char *font_name)
          if (mcp.show_elog != NO_PERMISSION)
          {
             XtVaSetValues(vw[MON_DELETE_W], XmNfontList, fontlist, NULL);
+         }
+         if (mcp.show_queue != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[MON_SHOW_QUEUE_W], XmNfontList, fontlist, NULL);
          }
          if (mcp.afd_load != NO_PERMISSION)
          {

@@ -337,12 +337,16 @@ main(int argc, char *argv[])
          {
             /*
              * With age limit it can happen that files_to_send is zero.
-             * Though very unlikely.
+             * If that is the case, ie files_to_send is -1, do not
+             * indicate an error.
              */
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmmm. Burst counter = %d and files_to_send = %d [%s]. How is this possible? AAarrgghhhhh....",
-                       fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter,
-                       files_to_send, file_path);
+            if (files_to_send == 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm. Burst counter = %d and files_to_send = %d [%s]. How is this possible? AAarrgghhhhh....",
+                          fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter,
+                          files_to_send, file_path);
+            }
             fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
             if (lock_offset != -1)
             {
@@ -776,17 +780,13 @@ main(int argc, char *argv[])
                        fsa[db.fsa_pos].total_file_size = 0;
                     }
 #endif
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
 
                /* File counter done */
-               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
                fsa[db.fsa_pos].file_counter_done += 1;
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
 
                /* Number of bytes send */
-               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
                fsa[db.fsa_pos].bytes_send += no_of_bytes;
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
                unlock_region(fsa_fd, lock_offset);
             }
          }
@@ -1025,7 +1025,7 @@ main(int argc, char *argv[])
     * Remove file directory, but only when all files have
     * been transmitted.
     */
-   if ((files_to_send == files_send) || (files_to_send == 0))
+   if ((files_to_send == files_send) || (files_to_send < 1))
    {
       if (rmdir(file_path) < 0)
       {

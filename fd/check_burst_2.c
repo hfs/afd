@@ -239,7 +239,7 @@ retry:
       if (ret == YES)
       {
          *files_to_send = init_sf_burst2(p_new_db, file_path, values_changed);
-         if (*files_to_send == 0)
+         if (*files_to_send < 1)
          {
             goto retry;
          }

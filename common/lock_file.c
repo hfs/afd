@@ -63,7 +63,7 @@ int
 lock_file(char *file, int block_flag)
 {
    int          fd;
-   struct flock wlock = {F_WRLCK, SEEK_SET, 0, 1};
+   struct flock wlock = {F_WRLCK, SEEK_SET, (off_t)0, (off_t)1};
 
    if ((fd = coe_open(file, O_RDWR)) == -1)
    {

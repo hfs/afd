@@ -498,7 +498,8 @@ struct retrieve_list
        };
 
 /* Function prototypes */
-extern int   archive_file(char *, char *, struct job *),
+extern int   append_compare(char *, char *),
+             archive_file(char *, char *, struct job *),
              check_burst_2(char *, int *, unsigned int *),
              check_file_dir(int),
              check_fra_fd(void),
@@ -526,7 +527,7 @@ extern void  check_fsa_entries(void),
              init_msg_buffer(void),
              init_msg_ptrs(size_t *, time_t **, int **, unsigned short **,
                            char **, char **),
-             log_append(int, char *),
+             log_append(struct job *, char *, char *),
              output_log_ptrs(int *, unsigned int **, char **, char **,
                              unsigned short **, unsigned short **, off_t **,
                              size_t *, clock_t **, char *, int),

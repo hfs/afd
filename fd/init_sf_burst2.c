@@ -32,8 +32,8 @@ DESCR__S_M3
  ** DESCRIPTION
  **
  ** RETURN VALUES
- **   None. It will exit with INCORRECT when an error has
- **   occurred.
+ **   If successfull it will return the number of files to be send. It
+ **   will exit with INCORRECT when an error has occurred.
  **
  ** AUTHOR
  **   H.Kiehl

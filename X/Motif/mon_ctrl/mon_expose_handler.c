@@ -1,7 +1,7 @@
 /*
  *  mon_expose_handler.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -220,6 +220,7 @@ mon_expose_handler_line(Widget                      w,
                    (mcp.show_ilog != NO_PERMISSION) ||
                    (mcp.show_olog != NO_PERMISSION) ||
                    (mcp.show_elog != NO_PERMISSION) ||
+                   (mcp.show_queue != NO_PERMISSION) ||
                    (mcp.afd_load != NO_PERMISSION))
                {
                   XChangeWindowAttributes(display, XtWindow(mw[LOG_W]),

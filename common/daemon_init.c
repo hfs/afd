@@ -55,7 +55,11 @@ DESCR__E_M3
 /* External global variables */
 extern char *p_work_dir;
 
-#define _CLOSE_STDIN 1
+/*
+ * NOTE: Only define _CLOSE_STDIN if you are absolutly shure you do
+ *       not need stdin. There are always some application (eg. IDL)
+ *       that need stdin when called with the exec option.
+ */
 
 /*############################ daemon_init() ############################*/
 void

@@ -91,7 +91,8 @@ static XmTextPosition      *position_array,
                            text_position;
 
 /* Local function prototypes */
-static void                show_data(struct job_id_data *, char *);
+static void                show_data(struct job_id_data *, char *,
+                                     struct dir_options *);
 
 
 /*############################ get_dc_data() ############################*/
@@ -111,6 +112,7 @@ get_dc_data(void)
    struct stat         stat_buf;
    struct job_id_data  *jd = NULL;
    struct dir_name_buf *dnb = NULL;
+   struct dir_options  d_o;
 
    current_jid_list = NULL;
    no_of_current_jobs = 0;
@@ -310,6 +312,11 @@ get_dc_data(void)
     * Go through current job list and search the JID structure for
     * the host we are looking for.
     */
+   if (fra_attach() == INCORRECT)
+   {
+      (void)xrec(toplevel_w, ERROR_DIALOG,
+                 "Failed to attach to FRA. (%s %d)", __FILE__, __LINE__);
+   }
    if (fsa[fsa_pos].protocol & SEND_FLAG)
    {
       for (i = 0; i < no_of_current_jobs; i++)
@@ -320,7 +327,8 @@ get_dc_data(void)
             {
                if (strcmp(jd[j].host_alias, host_name) == 0)
                {
-                  show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name);
+                  get_dir_options(jd[j].dir_id_pos, &d_o);
+                  show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name, &d_o);
                }
                break;
             }
@@ -331,11 +339,6 @@ get_dc_data(void)
    {
       int k;
 
-      if (fra_attach() == INCORRECT)
-      {
-         (void)xrec(toplevel_w, ERROR_DIALOG,
-                    "Failed to attach to FRA. (%s %d)", __FILE__, __LINE__);
-      }
       for (i = 0; i < no_of_dirs; i++)
       {
          if (strcmp(fra[i].host_alias, host_name) == 0)
@@ -348,7 +351,8 @@ get_dc_data(void)
                   {
                      if (jd[k].dir_id_pos == fra[i].dir_pos)
                      {
-                        show_data(&jd[k], dnb[jd[k].dir_id_pos].dir_name);
+                        get_dir_options(jd[k].dir_id_pos, &d_o);
+                        show_data(&jd[k], dnb[jd[k].dir_id_pos].dir_name, &d_o);
                      }
                      break;
                   }
@@ -356,8 +360,8 @@ get_dc_data(void)
             }
          }
       }
-      (void)fra_detach();
    }
+   (void)fra_detach();
    (void)fsa_detach();
 
    if (job_counter > 0)
@@ -444,7 +448,7 @@ get_dc_data(void)
 
 /*++++++++++++++++++++++++++++ show_data() ++++++++++++++++++++++++++++++*/
 static void
-show_data(struct job_id_data *p_jd, char *dir_name)
+show_data(struct job_id_data *p_jd, char *dir_name, struct dir_options *d_o)
 {
    int  count,
         i,
@@ -473,6 +477,41 @@ show_data(struct job_id_data *p_jd, char *dir_name)
       max_x = count;
    }
    max_y++;
+
+   if (d_o->url[0] != '\0')
+   {
+      if (view_passwd != YES)
+      {
+         remove_passwd(d_o->url);
+      }
+      count = sprintf(text + length, "DIR-URL    : %s\n", d_o->url);
+      length += count;
+      if (count > max_x)
+      {
+         max_x = count;
+      }
+      max_y++;
+   }
+   if (d_o->no_of_dir_options > 0)
+   {
+      count = sprintf(text + length, "DIR-options: %s\n", d_o->aoptions[0]);
+      length += count;
+      if (count > max_x)
+      {
+         max_x = count;
+      }
+      max_y++;
+      for (i = 1; i < d_o->no_of_dir_options; i++)
+      {
+         count = sprintf(text + length, "             %s\n", d_o->aoptions[i]);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+         max_y++;
+      }
+   }
 
    /* Show file filters. */
    p_file = p_jd->file_list;

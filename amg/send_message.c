@@ -224,7 +224,7 @@ send_message(char           *afd_file_dir,
 static void
 store_msg(char *msg)
 {
-   lock_region_w(mb_fd, 0);
+   lock_region_w(mb_fd, (off_t)0);
    if ((*no_msg_buffered != 0) &&
        ((*no_msg_buffered % MESSAGE_BUF_STEP_SIZE) == 0))
    {

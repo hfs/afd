@@ -222,9 +222,6 @@ ftp_connect(char *hostname, int port)
 {
    int                     length,
                            reply;
-#if defined (_WITH_TOS) && defined (IP_TOS)
-   int                     tos;
-#endif
    struct sockaddr_in      sin;
    register struct hostent *p_host = NULL;
 
@@ -300,10 +297,17 @@ ftp_connect(char *hostname, int port)
       return(INCORRECT);
    }
 
+   length = 1;
+   if (setsockopt(control_fd, SOL_SOCKET, SO_OOBINLINE, (char *)&length,
+                  sizeof(length)) < 0)
+   {
+      trans_log(WARN_SIGN, __FILE__, __LINE__,
+                "setsockopt() SO_OOBINLINE error : %s", strerror(errno));
+   }
 #if defined (_WITH_TOS) && defined (IP_TOS)
-   tos = IPTOS_LOWDELAY;
-   if (setsockopt(control_fd, IPPROTO_IP, IP_TOS, (char *)&tos,
-                  sizeof(tos)) < 0)
+   length = IPTOS_LOWDELAY;
+   if (setsockopt(control_fd, IPPROTO_IP, IP_TOS, (char *)&length,
+                  sizeof(length)) < 0)
    {
       trans_log(WARN_SIGN, __FILE__, __LINE__,
                 "setsockopt() IP_TOS error : %s", strerror(errno));

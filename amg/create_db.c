@@ -850,7 +850,7 @@ write_current_msg_list(int no_of_jobs)
                 current_msg_list_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   lock_region_w(fd, 0);
+   lock_region_w(fd, (off_t)0);
 
    /* Create buffer to write ID's in one hunk. */
    buf_size = (no_of_jobs + 1) * sizeof(int);

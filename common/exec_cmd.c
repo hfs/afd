@@ -125,7 +125,6 @@ exec_cmd(char *cmd, char *buffer)
                          * If the exit status is non-zero lets assume
                          * that we have failed to execute the command.
                          */
-                        exit_status = INCORRECT;
                         set_fl(channels[READ], O_NONBLOCK);
                         if ((n = read(channels[READ], &buffer[bytes_read],
                                       (MAX_PATH_LENGTH + MAX_PATH_LENGTH - bytes_read))) < 0)

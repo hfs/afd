@@ -63,8 +63,8 @@ show_summary_stat(FILE *p_data)
 {
    int            error_hosts = 0,
                   i;
-   unsigned int   bytes_to_be_send = 0.0,
-                  files_to_be_send = 0.0,
+   unsigned int   bytes_to_be_send = 0,
+                  files_to_be_send = 0,
                   total_errors = 0;
    double         bytes_send = 0.0,
                   elapsed_time,
@@ -117,7 +117,7 @@ show_summary_stat(FILE *p_data)
    (void)fprintf(p_data, "211- AFD status summary:\r\n");
    (void)fflush(p_data);
 
-   /* Print data from structure afd_status */
+   /* Print data from structure afd_status. */
    if (start_time == 0)
    {
       elapsed_time = 1.0;
@@ -131,12 +131,10 @@ show_summary_stat(FILE *p_data)
       }
    }
    (void)fprintf(p_data, "IS %u %u %u %u %u %d %d %u\r\n",
-                 files_to_be_send,
-                 bytes_to_be_send,
+                 files_to_be_send, bytes_to_be_send,
                  (unsigned int)(delta_bytes_send / elapsed_time),
                  (unsigned int)(delta_files_send / elapsed_time),
-                 total_errors,
-                 error_hosts,
+                 total_errors, error_hosts,
                  p_afd_status->no_of_transfers,
                  p_afd_status->jobs_in_queue);
    start_time = times(&tmsdummy);

@@ -1307,17 +1307,13 @@ main(int argc, char *argv[])
                     fsa[db.fsa_pos].total_file_size = 0;
                  }
 #endif
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
 
             /* File counter done */
-            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
             fsa[db.fsa_pos].file_counter_done += 1;
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
 
             /* Number of bytes send */
-            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
             fsa[db.fsa_pos].bytes_send += stat_buf.st_size;
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
             unlock_region(fsa_fd, lock_offset);
          }
       }

@@ -293,11 +293,9 @@ init_view_dc(int *argc, char *argv[])
       case SUCCESS :
          /* Lets evaluate the permissions and see what */
          /* the user may do.                           */
-         if ((perm_buffer[0] == 'a') &&
-             (perm_buffer[1] == 'l') &&
+         if ((perm_buffer[0] == 'a') && (perm_buffer[1] == 'l') &&
              (perm_buffer[2] == 'l') &&
-             ((perm_buffer[3] == '\0') ||
-              (perm_buffer[3] == ' ') ||
+             ((perm_buffer[3] == '\0') || (perm_buffer[3] == ' ') ||
               (perm_buffer[3] == '\t')))
          {
             view_passwd = YES;

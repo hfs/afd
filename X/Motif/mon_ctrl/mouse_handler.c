@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -379,7 +379,10 @@ mon_popup_cb(Widget    w,
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
        ((sel_typ == MON_RETRY_SEL) || (sel_typ == MON_INFO_SEL) ||
-        (sel_typ == PING_SEL) || (sel_typ == TRACEROUTE_SEL)))
+        (sel_typ == PING_SEL) || (sel_typ == TRACEROUTE_SEL) ||
+        (sel_typ == VIEW_FILE_LOAD_SEL) || (sel_typ == VIEW_KBYTE_LOAD_SEL) ||
+        (sel_typ == VIEW_CONNECTION_LOAD_SEL) ||
+        (sel_typ == VIEW_TRANSFER_LOAD_SEL)))
    {
       (void)xrec(appshell, INFO_DIALOG,
                  "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
@@ -968,6 +971,13 @@ start_remote_prog(Widget    w,
          args[11] = NULL;
          break;
 
+      case SHOW_QUEUE_SEL : /* View AFD Queue */
+         (void)strcpy(prog_to_call, SHOW_QUEUE);
+         args[9] = "-f";
+         args[10] = font_name;
+         args[11] = NULL;
+         break;
+
       case VIEW_FILE_LOAD_SEL :
          (void)strcpy(prog_to_call, AFD_LOAD);
          (void)strcpy(parameter, SHOW_FILE_LOAD);
@@ -1137,6 +1147,7 @@ start_remote_prog(Widget    w,
          }
       }
    }
+   no_selected = 0;
 
    return;
 }
@@ -1246,6 +1257,13 @@ start_remote_prog(Widget    w,
 
       case E_LOG_SEL : /* Remote Delete Log */
          (void)strcpy(prog_to_call, SHOW_RLOG);
+         args[8] = "-f";
+         args[9] = font_name;
+         args[10] = NULL;
+         break;
+
+      case SHOW_QUEUE_SEL : /* View AFD Queue */
+         (void)strcpy(prog_to_call, SHOW_QUEUE);
          args[8] = "-f";
          args[9] = font_name;
          args[10] = NULL;
@@ -1405,6 +1423,7 @@ start_remote_prog(Widget    w,
          }
       }
    }
+   no_selected = 0;
 
    return;
 }

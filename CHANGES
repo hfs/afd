@@ -875,3 +875,26 @@
              afd_ctrl dialog.
            - Port to AIX.
 ------------------------> Released: 08.08.2001 <---------------------------
+
+
+---------------------------> Version 1.2.9 <-------------------------------
+                            ---------------
+14.08.2001 - Fixed a memory leak in afd_ctrl dialog.
+           - afdcmd forgot to rewrite the HOST_CONFIG file. Fixed.
+20.08.2001 - Forgot to reset no_selected in mon_ctrl dialog.
+21.08.2001 - Don't write any debug infomation during a burst when all
+             files have been deleted due to age.
+22.08.2001 - Removed some unneccessary locking from all sf_xxx process.
+           - sf_wmo took the wrong variable to reduce the number of bytes
+             still to be send when the file size was zero. Fixed.
+           - sf_ftp will now write the mode type (active/passive) used
+             when connecting to the log files.
+23.08.2001 - Made appending of files safer by checking the date of file
+             as well and not only the file name.
+24.08.2001 - Process dir_check splitted extract jobs wrongly. Fixed.
+           - The view_dc dialog now shows the directory options.
+27.08.2001 - Counted files on input twice when queue was stopped and
+             then started again. Fixed.
+           - Function remove_files() now removes any files from restart
+             option in the message file when a file is deleted due to age.
+------------------------> Released: 29.08.2001 <---------------------------

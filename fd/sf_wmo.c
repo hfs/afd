@@ -262,7 +262,7 @@ main(int argc, char *argv[])
    if ((status = wmo_connect(db.hostname, db.port)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "WMO connection to %s at port %d failed (%d).",
+                "WMO connection to <%s> at port %d failed (%d).",
                 db.hostname, db.port, status);
       exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
    }
@@ -323,7 +323,7 @@ main(int argc, char *argv[])
       if ((wmo_counter_fd = open_counter_file(counter_file_name)) < 0)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to open counter file %s.", counter_file_name);
+                    "Failed to open counter file <%s>.", counter_file_name);
       }
    }
 
@@ -354,12 +354,16 @@ main(int argc, char *argv[])
          {
             /*
              * With age limit it can happen that files_to_send is zero.
-             * Though very unlikely.
+             * If that is the case, ie files_to_send is -1, do not
+             * indicate an error.
              */
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmmm. Burst counter = %d and files_to_send = %d [%s]. How is this possible? AAarrgghhhhh....",
-                       fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter,
-                       files_to_send, file_path);
+            if (files_to_send == 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm. Burst counter = %d and files_to_send = %d [%s]. How is this possible? AAarrgghhhhh....",
+                          fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter,
+                          files_to_send, file_path);
+            }
             fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter = 0;
             if (lock_offset != -1)
             {
@@ -592,7 +596,7 @@ main(int argc, char *argv[])
                                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Could not read() local file %s : %s",
+                               "Could not read() local file <%s> : %s",
                                fullname, strerror(errno));
                      wmo_quit();
                      exit(READ_LOCAL_ERROR);
@@ -605,7 +609,7 @@ main(int argc, char *argv[])
                                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write block from file %s to remote port %d [%d].",
+                               "Failed to write block from file <%s> to remote port %d [%d].",
                                p_file_name_buffer, db.port, status);
                      wmo_quit();
                      exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
@@ -648,7 +652,7 @@ main(int argc, char *argv[])
                                fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                                fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Could not read() local file %s : %s",
+                               "Could not read() local file <%s> : %s",
                                fullname, strerror(errno));
                      wmo_quit();
                      exit(READ_LOCAL_ERROR);
@@ -706,7 +710,7 @@ main(int argc, char *argv[])
                if (fstat(fd, &stat_buf) == -1)
                {
                   (void)rec(transfer_log_fd, DEBUG_SIGN,
-                            "Hmmm. Failed to stat() %s : %s (%s %d)\n",
+                            "Hmmm. Failed to stat() <%s> : %s (%s %d)\n",
                             fullname, strerror(errno),
                             __FILE__, __LINE__);
                   break;
@@ -724,7 +728,7 @@ main(int argc, char *argv[])
                       * can be taken against the originator.
                       */
                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "File %s for host %s was DEFINITELY NOT send in dot notation.",
+                                "File <%s> for host %s was DEFINITELY NOT send in dot notation.",
                                 p_file_name_buffer,
                                 fsa[db.fsa_pos].host_dsp_name);
                   }
@@ -784,7 +788,7 @@ main(int argc, char *argv[])
          else
          {
             trans_log(WARN_SIGN, __FILE__, __LINE__,
-                      "File %s is of zero length, ignoring.",
+                      "File <%s> is of zero length, ignoring.",
                       p_file_name_buffer);
          }
 
@@ -829,49 +833,47 @@ main(int argc, char *argv[])
                }
 #endif
 
-               /* Total file size */
-#ifdef _VERIFY_FSA
-               ui_variable = fsa[db.fsa_pos].total_file_size;
-#endif
-               fsa[db.fsa_pos].total_file_size -= stat_buf.st_size;
-#ifdef _VERIFY_FSA
-               if (fsa[db.fsa_pos].total_file_size > ui_variable)
+               if (*p_file_size_buffer > 0)
                {
-                  int   k;
-                  off_t *tmp_ptr = p_file_size_buffer;
-
-                  tmp_ptr++;
-                  fsa[db.fsa_pos].total_file_size = 0;
-                  for (k = (files_send + 1); k < files_to_send; k++)
-                  {     
-                     fsa[db.fsa_pos].total_file_size += *tmp_ptr;
-                  }
-
-                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Total file size for host %s overflowed. Correcting to %lu.",
-                             fsa[db.fsa_pos].host_dsp_name,
-                             fsa[db.fsa_pos].total_file_size);
-               }
-               else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
-                        (fsa[db.fsa_pos].total_file_size > 0))
-                    {
-                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                  "fc for host %s is zero but fs is not zero. Correcting.",
-                                  fsa[db.fsa_pos].host_dsp_name);
-                       fsa[db.fsa_pos].total_file_size = 0;
-                    }
+                  /* Total file size */
+#ifdef _VERIFY_FSA
+                  ui_variable = fsa[db.fsa_pos].total_file_size;
 #endif
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
+                  fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
+#ifdef _VERIFY_FSA
+                  if (fsa[db.fsa_pos].total_file_size > ui_variable)
+                  {
+                     int   k;
+                     off_t *tmp_ptr = p_file_size_buffer;
+
+                     tmp_ptr++;
+                     fsa[db.fsa_pos].total_file_size = 0;
+                     for (k = (files_send + 1); k < files_to_send; k++)
+                     {     
+                        fsa[db.fsa_pos].total_file_size += *tmp_ptr;
+                     }
+
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "Total file size for host %s overflowed. Correcting to %lu.",
+                                fsa[db.fsa_pos].host_dsp_name,
+                                fsa[db.fsa_pos].total_file_size);
+                  }
+                  else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
+                           (fsa[db.fsa_pos].total_file_size > 0))
+                       {
+                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                     "fc for host %s is zero but fs is not zero. Correcting.",
+                                     fsa[db.fsa_pos].host_dsp_name);
+                          fsa[db.fsa_pos].total_file_size = 0;
+                       }
+#endif
+                  /* Number of bytes send */
+                  fsa[db.fsa_pos].bytes_send += *p_file_size_buffer;
+               }
 
                /* File counter done */
-               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
                fsa[db.fsa_pos].file_counter_done += 1;
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
-
-               /* Number of bytes send */
-               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
-               fsa[db.fsa_pos].bytes_send += stat_buf.st_size;
-               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
                unlock_region(fsa_fd, lock_offset);
             }
          }
@@ -1119,7 +1121,7 @@ main(int argc, char *argv[])
     * Remove file directory, but only when all files have
     * been transmitted.
     */
-   if ((files_to_send == files_send) || (files_to_send == 0))
+   if ((files_to_send == files_send) || (files_to_send < 1))
    {
       if (rmdir(file_path) < 0)
       {

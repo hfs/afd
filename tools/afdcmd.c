@@ -846,10 +846,14 @@ main(int argc, char *argv[])
 
    if (((options & START_QUEUE_OPTION) || (options & STOP_QUEUE_OPTION) ||
         (options & START_TRANSFER_OPTION) || (options & STOP_TRANSFER_OPTION) ||
-        (options & DISABLE_HOST_OPTION) || (options & ENABLE_HOST_OPTION)) &&
-       (ehc == NO))
+        (options & DISABLE_HOST_OPTION) || (options & ENABLE_HOST_OPTION) ||
+        (options & TOGGLE_HOST_OPTION)) && (ehc == NO))
    {
       (void)write_host_config(no_of_hosts, host_config_file, hl);
+      if (hl != NULL)
+      {
+         free(hl);
+      }
    }
 
    if (options & START_FD_OPTION)

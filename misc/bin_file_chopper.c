@@ -110,6 +110,7 @@ bin_file_chopper(char  *bin_file,
    size_t      length,
                total_length;
    time_t      tvalue;
+   mode_t      file_mode;
    char        *buffer,
                *p_file,
                *ptr,
@@ -144,6 +145,7 @@ bin_file_chopper(char  *bin_file,
    {
       return(INCORRECT);
    }
+   file_mode = stat_buf.st_mode;
 
    if ((fd = open(bin_file, O_RDONLY)) < 0)
    {
@@ -347,7 +349,7 @@ bin_file_chopper(char  *bin_file,
           * Store data of each bulletin into an extra file.
           */
          if ((fd = open(new_file, (O_WRONLY | O_CREAT | O_TRUNC),
-                        (S_IRUSR | S_IWUSR))) < 0)
+                        file_mode)) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
                         "Failed to open() %s : %s", new_file, strerror(errno));

@@ -85,7 +85,7 @@ store_file_mask(char *dir_alias, struct dir_group *dir)
                    file_mask_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
-      lock_region_w(fd, 0);
+      lock_region_w(fd, (off_t)0);
    }
    else
    {

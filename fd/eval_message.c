@@ -804,17 +804,42 @@ eval_message(char *message_name, struct job *p_db)
                     }
                     if (max_length > 0)
                     {
-                       int i;
+                       int  i;
+                       char *tmp_ptr;
 
                        *end_ptr = '\0';
                        p_db->no_of_restart_files++;
                        max_length++;
                        RT_ARRAY(p_db->restart_file, p_db->no_of_restart_files,
-                                max_length, char);
+                                max_length + 2, char);
+                       /*
+                        * NOTE: The + 2 is only for compatibility for
+                        *       the older restart option which did
+                        *       not store the file date.
+                        */
 
                        for (i = 0; i < p_db->no_of_restart_files; i++)
                        {
                           (void)strcpy(p_db->restart_file[i], ptr);
+                          tmp_ptr = p_db->restart_file[i];
+                          while ((*tmp_ptr != '|') && (*tmp_ptr != '\0'))
+                          {
+                             tmp_ptr++;
+                          }
+                          if (*tmp_ptr == '|')
+                          {
+                             *tmp_ptr = '\0';
+                          }
+                          else
+                          {
+                             /*
+                              * This is only for compatibility for
+                              * the older restart option which did
+                              * not store the file date.
+                              */
+                             *(tmp_ptr + 1) = '0';
+                             *(tmp_ptr + 2) = '\0';
+                          }
                           NEXT(ptr);
                        }
                     }
