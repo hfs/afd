@@ -42,6 +42,8 @@ DESCR__S_M1
  */
 
 #include <stdio.h>
+#include <string.h>                   /* strcmp() in CHECK_FOR_VERSION   */
+#include <stdlib.h>                   /* exit()                          */
 #include <time.h>                     /* ctime()                         */
 #include <unistd.h>                   /* STDERR_FILENO                   */
 #include "version.h"

@@ -63,6 +63,7 @@ DESCR__E_M3
 
 #include <stdio.h>                    /* fprintf(), fflush()             */
 #include <string.h>                   /* strcpy(), strerror()            */
+#include <stdlib.h>                   /* exit()                          */
 #include <time.h>                     /* time()                          */
 #include <signal.h>                   /* signal()                        */
 #include <sys/types.h>                /* fdset                           */

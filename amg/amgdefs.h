@@ -305,6 +305,15 @@ struct dir_data
           int           max_process;
        };
 
+/* Definitions for a flag in the structure instant_db (lfs) or */
+/* the structure directory_entry (flag).                       */
+#define IN_SAME_FILESYSTEM  1
+#define ALL_FILES           2
+#define RENAME_ONE_JOB_ONLY 4
+#define GO_PARALLEL         8
+#define SPLIT_FILE_LIST     16
+#define DO_NOT_LINK_FILES   32
+
 /* Structure that holds a single job for process dir_check */
 struct instant_db
        {
@@ -387,11 +396,12 @@ struct directory_entry
                                              /* directory and it is      */
                                              /* still the same second.   */
           struct file_mask_entry *fme;
-          char                   all_flag;   /* Set when all files in    */
+          char                   flag;       /* Flag to if all files in  */
                                              /* this directory are to be */
-                                             /* distributed. Used to     */
-                                             /* speed things up when     */
-                                             /* searching for files.     */
+                                             /* distributed (ALL_FILES)  */
+                                             /* or if this directory is  */
+                                             /* in the same filesystem   */
+                                             /* (IN_SAME_FILESYSTEM).    */
           char                   *alias;     /* Alias name of the        */
                                              /* directory.               */
           char                   *dir;       /* Pointer to directory     */
@@ -442,25 +452,20 @@ extern int    amg_zombie_check(pid_t *, int),
 #ifdef _WITH_PTHREAD
               check_files(struct directory_entry *, char *, char *,
                           char *, off_t *, char **, size_t *),
+              count_pool_files(int *, char *, off_t *, char **),
               link_files(char *, char *, off_t *, char **,
                          struct directory_entry *, struct instant_db *,
                          time_t *, unsigned short *, int, int,
                          char *, off_t *),
-              rename_files(char *, char *, off_t *, char **,
-                           struct directory_entry *, struct instant_db *,
-                           time_t *, unsigned short *, int, int, char *,
-                           off_t *, int),
               save_files(char *, char *, char **,
                          struct directory_entry *, int, int, char),
 #else
               check_files(struct directory_entry *, char *, char *,
                           char *, size_t *),
+              count_pool_files(int *, char *),
               link_files(char *, char *, struct directory_entry *,
                          struct instant_db *, time_t *, unsigned short *,
                          int, int, char *, off_t *),
-              rename_files(char *, char *, struct directory_entry *,
-                           struct instant_db *, time_t *, unsigned short *,
-                           int, int, char *, off_t *, int),
               save_files(char *, char *, struct directory_entry *,
                          int, int, char),
 #endif
@@ -469,12 +474,13 @@ extern int    amg_zombie_check(pid_t *, int),
               eval_dir_config(size_t, int *),
               eval_host_config(void),
               eval_time_str(char *, struct bd_time_entry *),
-              exec_cmd(char *, char *),
               handle_options(int, char *, char *, int *, off_t *),
               in_time(time_t, struct bd_time_entry *),
               lookup_dir_no(char *, int *),
               lookup_fra_pos(char *),
-              map_instant_db(size_t);
+              map_instant_db(size_t),
+              rename_files(char *, char *, int, struct instant_db *, time_t *,
+                           unsigned short *, char *, off_t *);
 extern time_t write_host_config(void);
 extern pid_t  make_process_amg(char *, char *, int, int, int, int);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *),

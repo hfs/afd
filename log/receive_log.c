@@ -43,6 +43,7 @@ DESCR__E_M1
 #include <stdio.h>           /* fopen(), fflush()                        */
 #include <string.h>          /* strcpy(), strcat(), strerror(), memcpy() */
 #include <stdlib.h>          /* malloc()                                 */
+#include <time.h>            /* time()                                   */
 #include <sys/types.h>       /* fdset                                    */
 #include <sys/stat.h>
 #include <sys/time.h>        /* struct timeval, time()                   */

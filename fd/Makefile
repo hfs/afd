@@ -41,6 +41,7 @@ SFFTPOBJS  = append.o\
              reset_fsa.o\
              sf_ftp.o\
              trans_db_log.o\
+             trans_exec.o\
              trans_log.o
 
 SFSMTPPROG = sf_smtp
@@ -55,6 +56,22 @@ SFSMTPOBJS = append.o\
              reset_fsa.o\
              sf_smtp.o\
              trans_db_log.o\
+             trans_exec.o\
+             trans_log.o
+
+SFSCP1PROG = sf_scp1
+SFSCP1OBJS = append.o\
+             archive_file.o\
+             eval_input_sf.o\
+             eval_recipient.o\
+             eval_message.o\
+             get_file_names.o\
+             init_sf.o\
+             output_log_ptrs.o\
+             reset_fsa.o\
+             sf_scp1.o\
+             trans_db_log.o\
+             trans_exec.o\
              trans_log.o
 
 SFWMOPROG  = sf_wmo
@@ -70,6 +87,7 @@ SFWMOOBJS  = append.o\
              reset_fsa.o\
              sf_wmo.o\
              trans_db_log.o\
+             trans_exec.o\
              trans_log.o
 
 SFMAPPROG  = sf_map
@@ -87,15 +105,18 @@ SFMAPOBJS  = append.o\
 SFLOCPROG  = sf_loc
 SFLOCOBJS  = append.o\
              archive_file.o\
+             check_burst_2.o\
              eval_input_sf.o\
              eval_message.o\
              eval_recipient.o\
              get_file_names.o\
              init_sf.o\
+             init_sf_burst2.o\
              output_log_ptrs.o\
              reset_fsa.o\
              sf_loc.o\
              trans_db_log.o\
+             trans_exec.o\
              trans_log.o
 
 GFFTPPROG  = gf_ftp
@@ -110,8 +131,8 @@ GFFTPOBJS  = eval_input_gf.o\
              trans_db_log.o\
              trans_log.o
 
-PROGS      = $(FDPROG) $(SFFTPPROG) $(SFSMTPPROG) $(SFWMOPROG) $(SFMAPPROG) $(SFLOCPROG) $(GFFTPPROG)
-OBJS       = $(FDOBJS) $(SFFTPOBJS) $(SFSMTPOBJS) $(SFWMOOBJS) $(SFMAPOBJS) $(SFLOCOBJS) $(GFFTPOBJS)
+PROGS      = $(FDPROG) $(SFFTPPROG) $(SFSMTPPROG) $(SFSCP1PROG) $(SFWMOPROG) $(SFMAPPROG) $(SFLOCPROG) $(GFFTPPROG)
+OBJS       = $(FDOBJS) $(SFFTPOBJS) $(SFSMTPOBJS) $(SFSCP1OBJS) $(SFWMOOBJS) $(SFMAPOBJS) $(SFLOCOBJS) $(GFFTPOBJS)
 HEADERS    = ../init_afd/afddefs.h ../config.h fddefs.h
 
 all : $(PROGS)
@@ -129,6 +150,10 @@ $(SFFTPPROG) : $(SFFTPOBJS) $(LIB) $(PROTOLIB)
 $(SFSMTPPROG) : $(SFSMTPOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(SFSMTPOBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
+
+$(SFSCP1PROG) : $(SFSCP1OBJS) $(LIB) $(PROTOLIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(SFSCP1OBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
 $(SFWMOPROG) : $(SFWMOOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@
@@ -162,5 +187,6 @@ install :
 fd.o sf_ftp.o sf_loc.o sf_smtp.o sf_map.o sf_wmo.o gf_ftp.o : ../version.h
 sf_ftp.o init_sf.o init_gf.o eval_message.o : ../protocols/ftpdefs.h
 sf_ftp.o : ../misc/eumetsat_header_defs.h
+sf_scp1.o init_sf.o eval_message.o : ../protocols/scp1defs.h
 sf_smtp.o init_sf.o init_gf.o : ../protocols/smtpdefs.h
 sf_wmo.o init_sf.o init_gf.o : ../protocols/wmodefs.h

@@ -54,7 +54,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <time.h>             /* strftime(), gmtime(), time()            */
+#include <time.h>             /* strftime(), localtime(), time()         */
 #include <sys/types.h>
 
 #include <Xm/Xm.h>
@@ -74,10 +74,9 @@ update_time(XtPointer clientdata, XtIntervalId id)
    char     tmp_str_line[MAX_TMP_STRING_LENGTH];
    XmString xstr;
 
-   time(&current_time);
-
+   current_time = time(NULL);
    (void)strftime(tmp_str_line, MAX_TMP_STRING_LENGTH, "%d.%m.%Y  %H:%M",
-                  gmtime(&current_time));
+                  localtime(&current_time));
    xstr = XmStringCreateLtoR(tmp_str_line, XmFONTLIST_DEFAULT_TAG);
    XtVaSetValues(w, XmNlabelString, xstr, NULL);
    XmStringFree(xstr);

@@ -66,6 +66,7 @@ DESCR__E_M3
 #include <stdio.h>            /* fprintf(), fdopen(), fclose()           */
 #include <stdarg.h>           /* va_start(), va_arg(), va_end()          */
 #include <string.h>           /* memset(), memcpy(), strcpy()            */
+#include <stdlib.h>           /* exit()                                  */
 #include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>        /* fd_set                                  */
 #include <sys/time.h>         /* struct timeval                          */

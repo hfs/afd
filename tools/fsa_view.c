@@ -1,6 +1,6 @@
 /*
  *  fsa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -213,6 +213,12 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "MAP ");
       }
 #endif
+#ifdef _WITH_SCP1_SUPPORT
+      if (fsa[j].protocol & SCP1_FLAG)
+      {
+         (void)fprintf(stdout, "SCP1 ");
+      }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
       if (fsa[j].protocol & WMO_FLAG)
       {
@@ -318,6 +324,8 @@ main(int argc, char *argv[])
                     fsa[j].bytes_send);
       (void)fprintf(stdout, "Connections        : %u\n",
                     fsa[j].connections);
+      (void)fprintf(stdout, "Jobs queued        : %u\n",
+                    fsa[j].jobs_queued);
       (void)fprintf(stdout, "Active transfers   : %d\n",
                     fsa[j].active_transfers);
       (void)fprintf(stdout, "Allowed transfers  : %d\n",
@@ -355,8 +363,16 @@ main(int argc, char *argv[])
                (void)fprintf(stdout, "|  MAILING  ");
                break;
 
-#ifdef _WITH_WMO_SUPPORT
+#ifdef _WITH_SCP1_SUPPORT
+            case SCP1_BURST_TRANSFER_ACTIVE :
+               (void)fprintf(stdout, "| SCP1 BURST");
+               break;
 
+            case SCP1_ACTIVE :
+               (void)fprintf(stdout, "| SCP1 ACTIV");
+               break;
+#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
             case WMO_BURST_TRANSFER_ACTIVE :
                (void)fprintf(stdout, "| WMO BURST ");
                break;

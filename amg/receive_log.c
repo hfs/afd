@@ -48,7 +48,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>                   /* memcpy()                        */
 #include <stdarg.h>                   /* va_start(), va_end()            */
-#include <time.h>                     /* time(), gmtime()                */
+#include <time.h>                     /* time(), localtime()             */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
 #include "amgdefs.h"
@@ -78,7 +78,7 @@ receive_log(char   *sign,
    {
       current_time = time(NULL);
    }
-   p_ts    = gmtime(&current_time);
+   p_ts    = localtime(&current_time);
    buf[0]  = (p_ts->tm_mday / 10) + '0';
    buf[1]  = (p_ts->tm_mday % 10) + '0';
    buf[2]  = ' ';

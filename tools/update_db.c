@@ -48,6 +48,7 @@ DESCR__E_M1
 
 #include <stdio.h>                       /* fprintf(), stderr            */
 #include <string.h>                      /* strcmp(), strerror()         */
+#include <stdlib.h>                      /* exit()                       */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>

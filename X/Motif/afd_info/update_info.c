@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,7 +46,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>           /* strerror()                              */
-#include <time.h>             /* strftime(), gmtime()                    */
+#include <time.h>             /* strftime(), localtime()                 */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -117,16 +117,22 @@ Widget w;
       {
          length += sprintf(&protocol_label_str[length], "SMTP ");
       }
-#ifdef _WITH_MAP_SUPPORT
-      if (fsa[host_position].protocol & MAP_FLAG)
+#ifdef _WITH_SCP1_SUPPORT
+      if (fsa[host_position].protocol & SCP1_FLAG)
       {
-         length += sprintf(&protocol_label_str[length], "MAP ");
+         length += sprintf(&protocol_label_str[length], "SCP1 ");
       }
-#endif
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
       if (fsa[host_position].protocol & WMO_FLAG)
       {
          length += sprintf(&protocol_label_str[length], "WMO ");
+      }
+#endif
+#ifdef _WITH_MAP_SUPPORT
+      if (fsa[host_position].protocol & MAP_FLAG)
+      {
+         length += sprintf(&protocol_label_str[length], "MAP ");
       }
 #endif
       text = XmStringCreateLocalized(protocol_label_str);
@@ -195,7 +201,7 @@ Widget w;
    {
       prev.last_connection = fsa[host_position].last_connection;
       (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                     gmtime(&prev.last_connection));
+                     localtime(&prev.last_connection));
       (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
       XmTextSetString(text_wl[3], str_line);
       flush = YES;
@@ -247,12 +253,15 @@ Widget w;
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT                          
-             (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+             (fsa[host_position].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_MAP_SUPPORT                          
+             (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
              (fsa[host_position].protocol & SMTP_FLAG))
          {
             get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
@@ -331,12 +340,15 @@ Widget w;
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT                          
-             (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+             (fsa[host_position].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_MAP_SUPPORT                          
+             (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
              (fsa[host_position].protocol & SMTP_FLAG))
          {
             get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
@@ -403,12 +415,12 @@ Widget w;
 
          /* Get IP for the second host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_SCP1_SUPPORT
+             (fsa[host_position].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_MAP_SUPPORT                          
              (fsa[host_position].protocol & MAP_FLAG) ||
 #endif /* _WITH_MAP_SUPPORT */
-#ifdef _WITH_WMO_SUPPORT
-             (fsa[host_position].protocol & WMO_FLAG) ||
-#endif /* _WITH_WMO_SUPPORT */
              (fsa[host_position].protocol & SMTP_FLAG))
          {
             get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
@@ -499,12 +511,15 @@ Widget w;
       {
          prev.host_file_time = stat_buf.st_mtime;
          if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT                          
-             (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+             (fsa[host_position].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
              (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_MAP_SUPPORT                          
+             (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
              (fsa[host_position].protocol & SMTP_FLAG))
          {
             get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
@@ -518,12 +533,15 @@ Widget w;
          if (fsa[host_position].toggle_pos != 0)
          {
             if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT                          
-                (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+                (fsa[host_position].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
                 (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_MAP_SUPPORT
+                (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
                 (fsa[host_position].protocol & SMTP_FLAG))
             {
                get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);

@@ -778,13 +778,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 {
    Arg      args[MAXARGS];
    Cardinal argcount;
-   Widget   mon_pull_down_w,
-            rafd_pull_down_w,
-            control_pull_down_w,
-            setup_pull_down_w,
-#ifdef _WITH_HELP_PULLDOWN
-            help_pull_down_w,
-#endif
+   Widget   pull_down_w,
             pullright_font,
             pullright_history,
             pullright_load,
@@ -810,14 +804,13 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    /**********************************************************************/
    /*                          Monitor Menu                              */
    /**********************************************************************/
-   mon_pull_down_w = XmCreatePulldownMenu(*menu_w,
-                                          "Monitor Pulldown", NULL, 0);
-   XtVaSetValues(mon_pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
+   pull_down_w = XmCreatePulldownMenu(*menu_w, "Monitor Pulldown", NULL, 0);
+   XtVaSetValues(pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
    mw[MON_W] = XtVaCreateManagedWidget("Monitor",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
                               XmNmnemonic,                'M',
-                              XmNsubMenuId,               mon_pull_down_w,
+                              XmNsubMenuId,               pull_down_w,
                               NULL);
 
    if ((mcp.show_ms_log != NO_PERMISSION) ||
@@ -831,7 +824,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.show_ms_log != NO_PERMISSION)
       {
          ow[MON_SYS_LOG_W] = XtVaCreateManagedWidget("System Log",
-                              xmPushButtonWidgetClass, mon_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(ow[MON_SYS_LOG_W], XmNactivateCallback, mon_popup_cb,
@@ -840,7 +833,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.show_mm_log != NO_PERMISSION)
       {
          ow[MON_LOG_W] = XtVaCreateManagedWidget("Monitor Log",
-                              xmPushButtonWidgetClass, mon_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(ow[MON_LOG_W], XmNactivateCallback, mon_popup_cb,
@@ -849,7 +842,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.retry != NO_PERMISSION)
       {
          ow[MON_RETRY_W] = XtVaCreateManagedWidget("Retry",
-                              xmPushButtonWidgetClass, mon_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               XmNmnemonic,             'R',
                               XmNaccelerator,          "Alt<Key>R",
@@ -860,12 +853,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if ((traceroute_cmd != NULL) || (ping_cmd != NULL))
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, mon_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
-         pullright_test = XmCreateSimplePulldownMenu(mon_pull_down_w,
+         pullright_test = XmCreateSimplePulldownMenu(pull_down_w,
                               "pullright_test", NULL, 0);
          ow[MON_TEST_W] = XtVaCreateManagedWidget("Test",
-                              xmCascadeButtonWidgetClass, mon_pull_down_w,
+                              xmCascadeButtonWidgetClass, pull_down_w,
                               XmNfontList,                fontlist,
                               XmNsubMenuId,               pullright_test,
                               NULL);
@@ -874,32 +867,32 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.info != NO_PERMISSION)
       {
          ow[MON_INFO_W] = XtVaCreateManagedWidget("Info",
-                              xmPushButtonWidgetClass, mon_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(ow[MON_INFO_W], XmNactivateCallback, mon_popup_cb,
                        (XtPointer)MON_INFO_SEL);
       }
       XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, mon_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               XmNseparatorType,       XmDOUBLE_LINE,
                               NULL);
       if (mcp.disable != NO_PERMISSION)
       {
          ow[MON_DISABLE_W] = XtVaCreateManagedWidget("Enable/Disable AFD",
-                              xmPushButtonWidgetClass, mon_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(ow[MON_DISABLE_W], XmNactivateCallback, mon_popup_cb,
                        (XtPointer)MON_DISABLE_SEL);
          XtVaCreateManagedWidget("Separator",
-                                 xmSeparatorWidgetClass, mon_pull_down_w,
+                                 xmSeparatorWidgetClass, pull_down_w,
                                  XmNseparatorType,       XmDOUBLE_LINE,
                                  NULL);
       }
    }
    ow[MON_EXIT_W] = XtVaCreateManagedWidget("Exit",
-                              xmPushButtonWidgetClass, mon_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               XmNmnemonic,             'x',
                               XmNaccelerator,          "Alt<Key>x",
@@ -919,21 +912,18 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
        (mcp.show_elog != NO_PERMISSION) ||
        (mcp.afd_load != NO_PERMISSION))
    {
-      rafd_pull_down_w = XmCreatePulldownMenu(*menu_w,
-                                              "View Pulldown", NULL, 0);
-      XtVaSetValues(rafd_pull_down_w,
-                    XmNtearOffModel, XmTEAR_OFF_ENABLED,
-                    NULL);
+      pull_down_w = XmCreatePulldownMenu(*menu_w, "View Pulldown", NULL, 0);
+      XtVaSetValues(pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
       mw[LOG_W] = XtVaCreateManagedWidget("RView",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
                               XmNmnemonic,                'R',
-                              XmNsubMenuId,               rafd_pull_down_w,
+                              XmNsubMenuId,               pull_down_w,
                               NULL);
       if (mcp.afd_ctrl != NO_PERMISSION)
       {
          vw[MON_AFD_CTRL_W] = XtVaCreateManagedWidget("AFD Control",
-                              xmPushButtonWidgetClass, rafd_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               XmNmnemonic,             'A',
                               XmNaccelerator,          "Alt<Key>A",
@@ -946,12 +936,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
           (mcp.show_tlog != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, rafd_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
          if (mcp.show_slog != NO_PERMISSION)
          {
             vw[MON_SYSTEM_W] = XtVaCreateManagedWidget("System Log",
-                                 xmPushButtonWidgetClass, rafd_pull_down_w,
+                                 xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  XmNmnemonic,             'S',
                                  XmNaccelerator,          "Alt<Key>S",
@@ -962,7 +952,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          if (mcp.show_rlog != NO_PERMISSION)
          {
             vw[MON_RECEIVE_W] = XtVaCreateManagedWidget("Receive Log",
-                                 xmPushButtonWidgetClass, rafd_pull_down_w,
+                                 xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  XmNmnemonic,             'R',
                                  XmNaccelerator,          "Alt<Key>R",
@@ -973,7 +963,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          if (mcp.show_tlog != NO_PERMISSION)
          {
             vw[MON_TRANS_W] = XtVaCreateManagedWidget("Transfer Log",
-                                 xmPushButtonWidgetClass, rafd_pull_down_w,
+                                 xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  XmNmnemonic,             'T',
                                  XmNaccelerator,          "Alt<Key>T",
@@ -987,12 +977,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
           (mcp.show_elog != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, rafd_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
          if (mcp.show_ilog != NO_PERMISSION)
          {
             vw[MON_INPUT_W] = XtVaCreateManagedWidget("Input Log",
-                              xmPushButtonWidgetClass, rafd_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(vw[MON_INPUT_W], XmNactivateCallback,
@@ -1001,7 +991,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          if (mcp.show_olog != NO_PERMISSION)
          {
             vw[MON_OUTPUT_W] = XtVaCreateManagedWidget("Output Log",
-                              xmPushButtonWidgetClass, rafd_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(vw[MON_OUTPUT_W], XmNactivateCallback,
@@ -1010,7 +1000,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          if (mcp.show_elog != NO_PERMISSION)
          {
             vw[MON_DELETE_W] = XtVaCreateManagedWidget("Delete Log",
-                              xmPushButtonWidgetClass, rafd_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(vw[MON_DELETE_W], XmNactivateCallback,
@@ -1020,13 +1010,13 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.afd_load != NO_PERMISSION)
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, rafd_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
-         pullright_load = XmCreateSimplePulldownMenu(rafd_pull_down_w,
+         pullright_load = XmCreateSimplePulldownMenu(pull_down_w,
                                                      "pullright_load",
                                                      NULL, 0);
          vw[MON_VIEW_LOAD_W] = XtVaCreateManagedWidget("Load",
-                              xmCascadeButtonWidgetClass, rafd_pull_down_w,
+                              xmCascadeButtonWidgetClass, pull_down_w,
                               XmNfontList,                fontlist,
                               XmNsubMenuId,               pullright_load,
                               NULL);
@@ -1046,21 +1036,18 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
        (mcp.startup_afd != NO_PERMISSION) ||
        (mcp.shutdown_afd != NO_PERMISSION))
    {
-      control_pull_down_w = XmCreatePulldownMenu(*menu_w,
-                                                 "Control Pulldown", NULL, 0);
-      XtVaSetValues(control_pull_down_w,
-                    XmNtearOffModel, XmTEAR_OFF_ENABLED,
-                    NULL);
+      pull_down_w = XmCreatePulldownMenu(*menu_w, "Control Pulldown", NULL, 0);
+      XtVaSetValues(pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
       mw[CONTROL_W] = XtVaCreateManagedWidget("RControl",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
                               XmNmnemonic,                'C',
-                              XmNsubMenuId,               control_pull_down_w,
+                              XmNsubMenuId,               pull_down_w,
                               NULL);
       if (mcp.amg_ctrl != NO_PERMISSION)
       {
          cw[AMG_CTRL_W] = XtVaCreateManagedWidget("Start/Stop AMG",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(cw[AMG_CTRL_W], XmNactivateCallback,
@@ -1069,7 +1056,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.fd_ctrl != NO_PERMISSION)
       {
          cw[FD_CTRL_W] = XtVaCreateManagedWidget("Start/Stop FD",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(cw[FD_CTRL_W], XmNactivateCallback,
@@ -1078,12 +1065,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if ((mcp.rr_dc != NO_PERMISSION) || (mcp.rr_hc != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, control_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
          if (mcp.rr_dc != NO_PERMISSION)
          {
             cw[RR_DC_W] = XtVaCreateManagedWidget("Reread DIR_CONFIG",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(cw[RR_DC_W], XmNactivateCallback,
@@ -1092,7 +1079,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          if (mcp.rr_hc != NO_PERMISSION)
          {
             cw[RR_HC_W] = XtVaCreateManagedWidget("Reread HOST_CONFIG",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(cw[RR_HC_W], XmNactivateCallback,
@@ -1102,10 +1089,10 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.edit_hc != NO_PERMISSION)
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, control_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
          cw[EDIT_HC_W] = XtVaCreateManagedWidget("Edit HOST_CONFIG",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(cw[EDIT_HC_W], XmNactivateCallback,
@@ -1114,10 +1101,10 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       if (mcp.dir_ctrl != NO_PERMISSION)
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, control_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
          cw[DIR_CTRL_W] = XtVaCreateManagedWidget("Directory Control",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
          XtAddCallback(cw[DIR_CTRL_W], XmNactivateCallback,
@@ -1129,12 +1116,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
           (mcp.shutdown_afd != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
-                              xmSeparatorWidgetClass, control_pull_down_w,
+                              xmSeparatorWidgetClass, pull_down_w,
                               NULL);
          if (mcp.startup_afd != NO_PERMISSION)
          {
             cw[STARTUP_AFD_W] = XtVaCreateManagedWidget("Startup AFD",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(cw[STARTUP_AFD_W], XmNactivateCallback,
@@ -1143,7 +1130,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          if (mcp.shutdown_afd != NO_PERMISSION)
          {
             cw[SHUTDOWN_AFD_W] = XtVaCreateManagedWidget("Shutdown AFD",
-                              xmPushButtonWidgetClass, control_pull_down_w,
+                              xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(cw[SHUTDOWN_AFD_W], XmNactivateCallback,
@@ -1155,51 +1142,51 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    /**********************************************************************/
    /*                           Setup Menu                               */
    /**********************************************************************/
-   setup_pull_down_w = XmCreatePulldownMenu(*menu_w, "Setup Pulldown", NULL, 0);
-   XtVaSetValues(setup_pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
-   pullright_font = XmCreateSimplePulldownMenu(setup_pull_down_w,
+   pull_down_w = XmCreatePulldownMenu(*menu_w, "Setup Pulldown", NULL, 0);
+   XtVaSetValues(pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
+   pullright_font = XmCreateSimplePulldownMenu(pull_down_w,
                                               "pullright_font", NULL, 0);
-   pullright_row = XmCreateSimplePulldownMenu(setup_pull_down_w,
+   pullright_row = XmCreateSimplePulldownMenu(pull_down_w,
                                               "pullright_row", NULL, 0);
-   pullright_line_style = XmCreateSimplePulldownMenu(setup_pull_down_w,
+   pullright_line_style = XmCreateSimplePulldownMenu(pull_down_w,
                                               "pullright_line_style", NULL, 0);
-   pullright_history = XmCreateSimplePulldownMenu(setup_pull_down_w,
+   pullright_history = XmCreateSimplePulldownMenu(pull_down_w,
                                               "pullright_history", NULL, 0);
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
                            XmNmnemonic,                'S',
-                           XmNsubMenuId,               setup_pull_down_w,
+                           XmNsubMenuId,               pull_down_w,
                            NULL);
    sw[FONT_W] = XtVaCreateManagedWidget("Font size",
-                           xmCascadeButtonWidgetClass, setup_pull_down_w,
+                           xmCascadeButtonWidgetClass, pull_down_w,
                            XmNfontList,                fontlist,
                            XmNsubMenuId,               pullright_font,
                            NULL);
    create_pullright_font(pullright_font);
    sw[ROWS_W] = XtVaCreateManagedWidget("Number of rows",
-                           xmCascadeButtonWidgetClass, setup_pull_down_w,
+                           xmCascadeButtonWidgetClass, pull_down_w,
                            XmNfontList,                fontlist,
                            XmNsubMenuId,               pullright_row,
                            NULL);
    create_pullright_row(pullright_row);
    sw[STYLE_W] = XtVaCreateManagedWidget("Line Style",
-                           xmCascadeButtonWidgetClass, setup_pull_down_w,
+                           xmCascadeButtonWidgetClass, pull_down_w,
                            XmNfontList,                fontlist,
                            XmNsubMenuId,               pullright_line_style,
                            NULL);
    create_pullright_style(pullright_line_style);
    sw[HISTORY_W] = XtVaCreateManagedWidget("History Length",
-                           xmCascadeButtonWidgetClass, setup_pull_down_w,
+                           xmCascadeButtonWidgetClass, pull_down_w,
                            XmNfontList,                fontlist,
                            XmNsubMenuId,               pullright_history,
                            NULL);
    create_pullright_history(pullright_history);
    XtVaCreateManagedWidget("Separator",
-                           xmSeparatorWidgetClass, setup_pull_down_w,
+                           xmSeparatorWidgetClass, pull_down_w,
                            NULL);
    sw[SAVE_W] = XtVaCreateManagedWidget("Save Setup",
-                           xmPushButtonWidgetClass, setup_pull_down_w,
+                           xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            XmNmnemonic,             'a',
                            XmNaccelerator,          "Alt<Key>a",
@@ -1211,24 +1198,24 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    /**********************************************************************/
    /*                            Help Menu                               */
    /**********************************************************************/
-   help_pull_down_w = XmCreatePulldownMenu(*menu_w, "Help Pulldown", NULL, 0);
-   XtVaSetValues(help_pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
+   pull_down_w = XmCreatePulldownMenu(*menu_w, "Help Pulldown", NULL, 0);
+   XtVaSetValues(pull_down_w, XmNtearOffModel, XmTEAR_OFF_ENABLED, NULL);
    mw[HELP_W] = XtVaCreateManagedWidget("Help",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
                            XmNmnemonic,                'H',
-                           XmNsubMenuId,               help_pull_down_w,
+                           XmNsubMenuId,               pull_down_w,
                            NULL);
    hw[ABOUT_W] = XtVaCreateManagedWidget("About AFD",
-                           xmPushButtonWidgetClass, help_pull_down_w,
+                           xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            NULL);
    hw[HYPER_W] = XtVaCreateManagedWidget("Hyper Help",
-                           xmPushButtonWidgetClass, help_pull_down_w,
+                           xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            NULL);
    hw[VERSION_W] = XtVaCreateManagedWidget("Version",
-                           xmPushButtonWidgetClass, help_pull_down_w,
+                           xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            NULL);
 #endif /* _WITH_HELP_PULLDOWN */

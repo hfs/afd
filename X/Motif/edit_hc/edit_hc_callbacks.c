@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -623,12 +623,15 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       last_select = cur_pos;
 
       if ((fsa[cur_pos].protocol & FTP_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT
-          (fsa[cur_pos].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+          (fsa[cur_pos].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
           (fsa[cur_pos].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_MAP_SUPPORT
+          (fsa[cur_pos].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
           (fsa[cur_pos].protocol & SMTP_FLAG))
       {
          XtSetSensitive(host_switch_toggle_w, True);
@@ -940,12 +943,15 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       }
 
       /* Set option menu for number of no bursts */
+      if ((fsa[cur_pos].protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
-      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
-          (fsa[cur_pos].protocol & WMO_FLAG))
+          || (fsa[cur_pos].protocol & WMO_FLAG)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+          || (fsa[cur_pos].protocol & SCP1_FLAG))
 #else
-      if (fsa[cur_pos].protocol & FTP_FLAG)
-#endif /* _WITH_WMO_SUPPORT */
+         )
+#endif
       {
          XtSetSensitive(nob.option_menu_w, True);
          if (ce[cur_pos].value_changed & NO_OF_NO_BURST_CHANGED)

@@ -27,6 +27,7 @@ OBJS    = attach_afd_status.o\
           copy_file.o\
           daemon_init.o\
           delete_log_ptrs.o\
+          exec_cmd.o\
           fra_attach.o\
           fra_detach.o\
           fsa_attach.o\

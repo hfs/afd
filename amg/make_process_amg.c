@@ -53,6 +53,7 @@ DESCR__E_M3
 
 #include <stdio.h>              /* sprintf()                             */
 #include <string.h>             /* strerror()                            */
+#include <stdlib.h>             /* exit()                                */
 #include <sys/types.h>
 #include <unistd.h>             /* fork(), exit()                        */
 #include <errno.h>

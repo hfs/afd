@@ -43,7 +43,7 @@ DESCR__E_M1
 #include <stdio.h>               /* fopen(), NULL                        */
 #include <string.h>              /* strcpy(), strcat(), strcmp()         */
 #include <ctype.h>               /* toupper()                            */
-#include <time.h>                /* strftime(), gmtime()                 */
+#include <time.h>                /* strftime(), localtime()              */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -373,7 +373,7 @@ main(int argc, char *argv[])
    (void)sprintf(str_line, "%*lu", DIR_INFO_LENGTH_L, prev.bytes_received);
    XmTextSetString(text_wl[4], str_line);
    (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                  gmtime(&prev.last_retrieval));
+                  localtime(&prev.last_retrieval));
    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, tmp_str_line);
    XmTextSetString(text_wl[5], str_line);
 
@@ -493,7 +493,7 @@ main(int argc, char *argv[])
    if (prev.time_option == YES)
    {
       (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                     gmtime(&prev.next_check_time));
+                     localtime(&prev.next_check_time));
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, tmp_str_line);
    }
    else

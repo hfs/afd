@@ -59,7 +59,6 @@ DESCR__E_M3
 #include <sys/wait.h>                 /* waitpid()                       */
 #include <fcntl.h>                    /* O_NONBLOCK                      */
 #include <errno.h>
-#include "amgdefs.h"
 
 #define  READ  0
 #define  WRITE 1
@@ -86,8 +85,7 @@ exec_cmd(char *cmd, char *buffer)
    switch (child_pid = fork())
    {
       case -1: /* Failed to fork */
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "fork() error : %s (%s %d)\n",
+         (void)rec(sys_log_fd, ERROR_SIGN, "fork() error : %s (%s %d)\n",
                    strerror(errno), __FILE__, __LINE__);
          return(INCORRECT);
 
@@ -132,8 +130,7 @@ exec_cmd(char *cmd, char *buffer)
                          */
                         exit_status = INCORRECT;
                         set_fl(channels[READ], O_NONBLOCK);
-                        if ((n = read(channels[READ],
-                                      &buffer[bytes_read],
+                        if ((n = read(channels[READ], &buffer[bytes_read],
                                       (MAX_PATH_LENGTH + MAX_PATH_LENGTH - bytes_read))) < 0)
                         {
                            (void)rec(sys_log_fd, ERROR_SIGN,
@@ -171,8 +168,7 @@ exec_cmd(char *cmd, char *buffer)
                        {
                           bytes_read = 0;
                        }
-                       if ((n = read(channels[READ],
-                                     &buffer[bytes_read],
+                       if ((n = read(channels[READ], &buffer[bytes_read],
                                      (MAX_PATH_LENGTH - bytes_read))) < 0)
                        {
                           (void)rec(sys_log_fd, ERROR_SIGN,
@@ -198,8 +194,7 @@ exec_cmd(char *cmd, char *buffer)
 
          if (close(channels[READ]) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "close() error : %s (%s %d)\n",
+            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
                       strerror(errno), __FILE__, __LINE__);
          }
 

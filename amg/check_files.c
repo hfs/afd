@@ -1,6 +1,6 @@
 /*
  *  check_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@ DESCR__S_M3
  **   04.03.1999 H.Kiehl When copying files don't only limit the number
  **                      of files, also limit the size that may be copied.
  **   05.06.1999 H.Kiehl Option to check for last character in file.
+ **   25.04.2001 H.Kiehl Check if we need to move or copy a file.
  **
  */
 DESCR__E_M3
@@ -130,7 +131,8 @@ check_files(struct directory_entry *p_de,
             size_t                 *total_file_size)
 {
    int            files_copied = 0,
-                  i;
+                  i,
+                  ret;
    time_t         now = 0L;
    char           fullname[MAX_PATH_LENGTH],
                   *ptr = NULL,
@@ -156,7 +158,7 @@ check_files(struct directory_entry *p_de,
       return(INCORRECT);
    }
 
-   if (p_de->all_flag == YES)
+   if (p_de->flag & ALL_FILES)
    {
       while ((p_dir = readdir(dp)) != NULL)
       {
@@ -252,10 +254,24 @@ check_files(struct directory_entry *p_de,
                /* Generate name for the new file */
                (void)strcpy(ptr, p_dir->d_name);
 
-               if (move_file(fullname, tmp_file_dir) != SUCCESS)
+               if (p_de->flag & IN_SAME_FILESYSTEM)
+               {
+                  ret = move_file(fullname, tmp_file_dir);
+               }
+               else
+               {
+                  ret = copy_file(fullname, tmp_file_dir);
+                  if (unlink(fullname) == -1)
+                  {
+                     (void)rec(sys_log_fd, ERROR_SIGN,
+                               "Failed to unlink() file %s : %s (%s %d)\n",
+                               fullname, strerror(errno), __FILE__, __LINE__);
+                  }
+               }
+               if (ret != SUCCESS)
                {
                   (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to move file %s to %s. (%s %d)\n",
+                            "Failed to move/copy file %s to %s. (%s %d)\n",
                             fullname, tmp_file_dir, __FILE__, __LINE__);
                }
                else
@@ -415,10 +431,25 @@ check_files(struct directory_entry *p_de,
 
                         /* Generate name for the new file */
                         (void)strcpy(ptr, p_dir->d_name);
-                        if (move_file(fullname, tmp_file_dir) != SUCCESS)
+                        if (p_de->flag & IN_SAME_FILESYSTEM)
+                        {
+                           ret = move_file(fullname, tmp_file_dir);
+                        }
+                        else
+                        {
+                           ret = copy_file(fullname, tmp_file_dir);
+                           if (unlink(fullname) == -1)
+                           {
+                              (void)rec(sys_log_fd, ERROR_SIGN,
+                                        "Failed to unlink() file %s : %s (%s %d)\n",
+                                        fullname, strerror(errno),
+                                        __FILE__, __LINE__);
+                           }
+                        }
+                        if (ret != SUCCESS)
                         {
                            (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to move file %s to %s. (%s %d)\n",
+                                     "Failed to move/copy file %s to %s. (%s %d)\n",
                                      fullname, tmp_file_dir, __FILE__, __LINE__);
                         }
                         else

@@ -44,6 +44,7 @@ DESCR__E_M3
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>           /* memset()                                */
 #include <stdlib.h>           /* atoi()                                  */
+#include <time.h>             /* time()                                  */
 #include <ctype.h>            /* toupper()                               */
 #include <signal.h>           /* signal()                                */
 #include <sys/time.h>

@@ -43,6 +43,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>            /* fprintf(), stderr                       */
+#include <stdlib.h>           /* exit()                                  */
 #include <math.h>             /* log10()                                 */
 #include <X11/Xlib.h>
 #include <Xm/Xm.h>

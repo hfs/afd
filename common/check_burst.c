@@ -106,10 +106,14 @@ check_burst(char         protocol,
       return(NO);
    }
 
+   if (((protocol == FTP)
 #ifdef _WITH_WMO_SUPPORT
-   if (((protocol == FTP) || (protocol == WMO)) &&
+       || (protocol == WMO)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+       || (protocol == SCP1)) &&
 #else
-   if ((protocol == FTP) &&
+       ) &&
 #endif
        (fsa[position].active_transfers >= fsa[position].allowed_transfers) &&
        ((fsa[position].special_flag & NO_BURST_COUNT_MASK) < fsa[position].allowed_transfers))
@@ -117,7 +121,7 @@ check_burst(char         protocol,
       int j,
           burst_connection,
           status,
-#ifdef _WITH_WMO_SUPPORT
+#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
           connect_status,
 #endif
           lowest_burst,
@@ -127,15 +131,30 @@ check_burst(char         protocol,
           no_of_no_bursts = 0,
           no_burst_array[MAX_NO_PARALLEL_JOBS];
 
-#ifdef _WITH_WMO_SUPPORT
+#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
       if (protocol == FTP)
       {
          connect_status = FTP_BURST_TRANSFER_ACTIVE;
       }
+#if defined (_WITH_WMO_SUPPORT) && defined (_WITH_SCP1_SUPPORT)
+      else if (protocol == SCP1)
+           {
+              connect_status = SCP1_BURST_TRANSFER_ACTIVE;
+           }
+           else
+           {
+              connect_status = WMO_BURST_TRANSFER_ACTIVE;
+           }
+#else
       else
       {
+#ifdef _WITH_SCP1_SUPPORT
+         connect_status = SCP1_BURST_TRANSFER_ACTIVE;
+#else
          connect_status = WMO_BURST_TRANSFER_ACTIVE;
+#endif
       }
+#endif
 #endif
 
       /*
@@ -147,7 +166,7 @@ check_burst(char         protocol,
 
       for (j = 0; j < fsa[position].allowed_transfers; j++)
       {
-#ifdef _WITH_WMO_SUPPORT
+#if defined (_WITH_WMO_SUPPORT) || defined (_WITH_SCP1_SUPPORT)
          if ((fsa[position].job_status[j].connect_status == connect_status) ||
 #else
          if ((fsa[position].job_status[j].connect_status == FTP_BURST_TRANSFER_ACTIVE) ||
@@ -207,11 +226,14 @@ check_burst(char         protocol,
                   }
                }
                if ((fsa[position].job_status[burst_connection].job_id == job_id) &&
+                   ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
-                   ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE) ||
-                    (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)) &&
+                    || (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+                    || (fsa[position].job_status[burst_connection].connect_status == SCP1_BURST_TRANSFER_ACTIVE)) &&
 #else
-                   (fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE) &&
+                   ) &&
 #endif
                    ((limit == NO) ||
                     (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
@@ -258,11 +280,14 @@ check_burst(char         protocol,
             for (j = 0; j < no_of_no_bursts; j++)
             {
                if ((fsa[position].job_status[no_burst_array[j]].job_id == job_id) &&
+                   ((fsa[position].job_status[no_burst_array[j]].connect_status == FTP_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
-                   ((fsa[position].job_status[no_burst_array[j]].connect_status == TRANSFER_ACTIVE) ||
-                    (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)) &&
+                    || (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+                    || (fsa[position].job_status[no_burst_array[j]].connect_status == SCP1_ACTIVE)) &&
 #else
-                   (fsa[position].job_status[no_burst_array[j]].connect_status == TRANSFER_ACTIVE) &&
+                   ) &&
 #endif
                    ((limit == NO) ||
                     (fsa[position].job_status[no_burst_array[j]].burst_counter < MAX_NO_OF_BURSTS)) &&
@@ -315,11 +340,14 @@ check_burst(char         protocol,
                   }
                }
                if ((fsa[position].job_status[burst_connection].job_id == job_id) &&
+                   ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
-                   ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE) ||
-                    (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)) &&
+                    || (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+                    || (fsa[position].job_status[burst_connection].connect_status == SCP1_BURST_TRANSFER_ACTIVE)) &&
 #else
-                   (fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE) &&
+                   ) &&
 #endif
                    ((limit == NO) ||
                     (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&
@@ -369,11 +397,14 @@ check_burst(char         protocol,
          for (j = 0; j < no_of_no_bursts; j++)
          {
             if ((fsa[position].job_status[no_burst_array[j]].job_id == job_id) &&
+                ((fsa[position].job_status[no_burst_array[j]].connect_status == FTP_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
-                ((fsa[position].job_status[no_burst_array[j]].connect_status == TRANSFER_ACTIVE) ||
-                 (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)) &&
+                 || (fsa[position].job_status[no_burst_array[j]].connect_status == WMO_ACTIVE)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+                 || (fsa[position].job_status[no_burst_array[j]].connect_status == SCP1_ACTIVE)) &&
 #else
-                (fsa[position].job_status[no_burst_array[j]].connect_status == TRANSFER_ACTIVE) &&
+                ) &&
 #endif
                 ((limit == NO) ||
                  (fsa[position].job_status[no_burst_array[j]].burst_counter < MAX_NO_OF_BURSTS)) &&
@@ -421,11 +452,14 @@ check_burst(char         protocol,
                }
             }
             if ((fsa[position].job_status[burst_connection].job_id == job_id) &&
+                ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE)
 #ifdef _WITH_WMO_SUPPORT
-                ((fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE) ||
-                 (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)) &&
+                 || (fsa[position].job_status[burst_connection].connect_status == WMO_BURST_TRANSFER_ACTIVE)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+                 || (fsa[position].job_status[burst_connection].connect_status == SCP1_BURST_TRANSFER_ACTIVE)) &&
 #else
-                (fsa[position].job_status[burst_connection].connect_status == FTP_BURST_TRANSFER_ACTIVE) &&
+                ) &&
 #endif
                 ((limit == NO) ||
                  (fsa[position].job_status[burst_connection].burst_counter < MAX_NO_OF_BURSTS)) &&

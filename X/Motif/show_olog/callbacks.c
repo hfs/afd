@@ -86,11 +86,11 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <ctype.h>             /* isdigit()                              */
-#include <stdlib.h>            /* atoi(), atol(), free()                 */
-#include <ctype.h>             /* isdigit()                              */
-#include <time.h>              /* time(), gmtime(), mktime(), strftime() */
-#include <unistd.h>            /* close()                                */
+#include <ctype.h>          /* isdigit()                                 */
+#include <stdlib.h>         /* atoi(), atol(), free()                    */
+#include <ctype.h>          /* isdigit()                                 */
+#include <time.h>           /* time(), localtime(), mktime(), strftime() */
+#include <unistd.h>         /* close()                                   */
 #include <Xm/Xm.h>
 #include <Xm/List.h>
 #include <Xm/Text.h>
@@ -1001,7 +1001,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
                {
                   char time_str[9];
 
-                  (void)strftime(time_str, 9, "%m%d%H%M", gmtime(&time_val));
+                  (void)strftime(time_str, 9, "%m%d%H%M", localtime(&time_val));
                   XmTextSetString(w, time_str);
                }
                return(time_val);
@@ -1034,7 +1034,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
 
          *value = time_val - (min * 60);
       }
-      else if (length == 5) 
+      else if (length == 5)
            {
               if ((!isdigit(numeric_str[3])) || (!isdigit(numeric_str[4])))
               {
@@ -1125,15 +1125,12 @@ eval_time(char *numeric_str, Widget w, time_t *value)
       {
          return(INCORRECT);
       }
-      bd_time = gmtime(&time_val);
+      bd_time = localtime(&time_val);
       bd_time->tm_sec  = 0;
       bd_time->tm_min  = min;
       bd_time->tm_hour = hour;
 
-      time_val = mktime(bd_time);
-      bd_time = gmtime(&time_val);
-
-      *value = mktime(bd_time) - timezone;
+      *value = mktime(bd_time);
    }
    else if (length == 6) /* DDhhmm */
         {
@@ -1158,16 +1155,13 @@ eval_time(char *numeric_str, Widget w, time_t *value)
            {
               return(INCORRECT);
            }
-           bd_time = gmtime(&time_val);
+           bd_time = localtime(&time_val);
            bd_time->tm_sec  = 0;
            bd_time->tm_min  = min;
            bd_time->tm_hour = hour;
            bd_time->tm_mday = day;
 
-           time_val = mktime(bd_time);
-           bd_time = gmtime(&time_val);
-
-           *value = mktime(bd_time) - timezone;
+           *value = mktime(bd_time);
         }
         else /* MMDDhhmm */
         {
@@ -1200,7 +1194,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
            {
               return(INCORRECT);
            }
-           bd_time = gmtime(&time_val);
+           bd_time = localtime(&time_val);
            bd_time->tm_sec  = 0;
            bd_time->tm_min  = min;
            bd_time->tm_hour = hour;
@@ -1208,7 +1202,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
            bd_time->tm_mon  = month - 1;
            bd_time->tm_isdst = 0;
 
-           *value = mktime(bd_time) - timezone;
+           *value = mktime(bd_time);
         }
 
    return(SUCCESS);

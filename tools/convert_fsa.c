@@ -49,6 +49,7 @@ DESCR__E_M1
 
 #include <stdio.h>                    /* fprintf(), sprintf()            */
 #include <string.h>                   /* strcpy(), strcat(), strerror()  */
+#include <stdlib.h>                   /* exit()                          */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifndef _NO_MMAP
@@ -302,7 +303,7 @@ main(int argc, char *argv[])
       fsa[i].last_connection = old_fsa[i].last_connection;
       fsa[i].total_file_counter = old_fsa[i].total_file_counter;
       fsa[i].total_file_size = old_fsa[i].total_file_size;
-      fsa[i].total_connect_time = (unsigned long)old_fsa[i].total_connect_time;
+      fsa[i].jobs_queued = (unsigned long)old_fsa[i].total_connect_time;
       fsa[i].file_counter_done = old_fsa[i].file_counter_done;
       fsa[i].bytes_send = old_fsa[i].bytes_send;
       fsa[i].connections = old_fsa[i].connections;

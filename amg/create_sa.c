@@ -47,6 +47,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>                 /* strcpy(), strcat(), strerror()    */
+#include <stdlib.h>                 /* exit()                            */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>                 /* close()                           */

@@ -22,14 +22,14 @@
 
 #include "x_common_defs.h"
 
-#define MAX_TITLE_CMD_LENGTH    20
-#define FALLING_SAND_SPEED      50
+#define MAX_TITLE_CMD_LENGTH 20
+#define FALLING_SAND_SPEED   50
 
 /* Function prototypes */
 extern void close_button(Widget, XtPointer, XtPointer),
             catch_child(Widget),
-            exec_cmd(char *),
             print_button(Widget, XtPointer, XtPointer),
-            repeat_button(Widget, XtPointer, XtPointer);
+            repeat_button(Widget, XtPointer, XtPointer),
+            xexec_cmd(char *);
 
 #endif /* __show_cmd_h */

@@ -44,6 +44,8 @@ DESCR__E_M3
 #include <string.h>
 #include <stdlib.h>                 /* exit()                            */
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <dirent.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -61,11 +63,13 @@ extern Widget         log_output,
                       selectlog,
                       selectscroll;
 extern XmTextPosition wpr_position;
-extern int            toggles_set,
+extern int            log_type_flag,
+                      toggles_set,
                       line_counter,
                       current_log_number;
 extern unsigned int   toggles_set_parallel_jobs,
                       total_length;
+extern ino_t          current_inode_no;
 extern char           **hosts,
                       log_dir[],
                       log_type[],
@@ -177,6 +181,20 @@ update_button(Widget w, XtPointer client_data, XtPointer call_data)
       XFlush(display);
 
       return;
+   }
+   if ((log_type_flag != TRANSFER_LOG_TYPE) &&
+       (log_type_flag != RECEIVE_LOG_TYPE) &&
+       (current_log_number == 0))
+   {
+      struct stat stat_buf;
+
+      if (fstat(fileno(p_log_file), &stat_buf) == -1)
+      {
+         (void)fprintf(stderr, "ERROR   : Could not fstat() %s : %s (%s %d)\n",
+                       log_file, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      current_inode_no = stat_buf.st_ino;
    }
    line_counter = 0;
    wpr_position = 0;

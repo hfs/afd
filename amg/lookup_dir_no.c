@@ -47,6 +47,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <string.h>           /* strcmp(), strcpy(), strerror()          */
+#include <stdlib.h>           /* exit()                                  */
 #include <errno.h>
 #include "amgdefs.h"
 

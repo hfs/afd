@@ -44,7 +44,7 @@ DESCR__E_M1
 #include <stdio.h>               /* fopen(), NULL                        */
 #include <string.h>              /* strcpy(), strcat(), strcmp()         */
 #include <ctype.h>               /* toupper()                            */
-#include <time.h>                /* strftime(), gmtime()                 */
+#include <time.h>                /* strftime(), localtime()              */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -243,7 +243,7 @@ main(int argc, char *argv[])
    (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.port);
    XmTextSetString(text_wl[1], str_line);
    (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                  gmtime(&prev.last_data_time));
+                  localtime(&prev.last_data_time));
    (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, tmp_str_line);
    XmTextSetString(text_wl[2], str_line);
    (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.max_connections);

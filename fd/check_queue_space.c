@@ -45,6 +45,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <string.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>

@@ -70,6 +70,7 @@ DESCR__S_M1
  **   09.10.1999 H.Kiehl Added new feature of important directories.
  **   04.12.2000 H.Kiehl Report the exact time when scanning of directories
  **                      took so long.
+ **   12.04.2001 H.Kiehl Check pool directory for unfinished jobs.
  **
  */
 DESCR__E_M1
@@ -79,6 +80,7 @@ DESCR__E_M1
                                    /* memcpy(), strerror(), strlen()     */
 #include <stdlib.h>                /* atoi(), calloc(), malloc(), free(),*/
                                    /* exit(), abort()                    */
+#include <time.h>                  /* time(), strftime()                 */
 #include <sys/types.h>
 #include <sys/wait.h>              /* waitpid()                          */
 #include <sys/stat.h>
@@ -88,6 +90,8 @@ DESCR__E_M1
 #include <sys/mman.h>              /* munmap()                           */
 #include <fcntl.h>
 #include <unistd.h>                /* fork(), rmdir(), getuid(), getgid()*/
+#include <dirent.h>                /* opendir(), closedir(), readdir(),  */
+                                   /* DIR, struct dirent                 */
 #include <signal.h>                /* signal()                           */
 #include <errno.h>
 #ifdef _WITH_PTHREAD
@@ -152,6 +156,7 @@ char                       *p_dir_alias,
                            time_dir[MAX_PATH_LENGTH],
                            *p_time_dir,
 #ifndef _WITH_PTHREAD
+                           *file_name_buffer = NULL,
                            **file_name_pool,
 #endif
                            afd_file_dir[MAX_PATH_LENGTH];
@@ -178,22 +183,24 @@ char                       *il_file_name,
                            *il_data;
 #endif /* _INPUT_LOG */
 
+/* Local variables. */
+static int                 in_child = NO;
+
 /* Local functions */
 #ifdef _WITH_PTHREAD
 static void                *do_one_dir(void *);
 #endif
 static void                check_fifo(int, int),
-                           get_one_zombie(void),
+                           check_pool_dir(time_t),
                            sig_bus(int),
-                           sig_segv(int),
-                           zombie_check(void);
+                           sig_segv(int);
+static pid_t               get_one_zombie(void);
 static int                 get_process_pos(pid_t),
 #ifdef _WITH_PTHREAD
-                           handle_dir(int, time_t, char *, char *, off_t *, char **);
+                           handle_dir(int, time_t, char *, char *, char *, off_t *, char **);
 #else
-                           handle_dir(int, time_t, char *, char *);
+                           handle_dir(int, time_t, char *, char *, char *);
 #endif
-
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
@@ -330,7 +337,7 @@ main(int argc, char *argv[])
    {
       p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
    }
-   (void)time(&fd_search_start_time);
+   fd_search_start_time = time(NULL);
 
    next_time_check = (fd_search_start_time / TIME_CHECK_INTERVAL) *
                       TIME_CHECK_INTERVAL + TIME_CHECK_INTERVAL;
@@ -353,6 +360,12 @@ main(int argc, char *argv[])
 #endif
 
    /*
+    * Before we start lets make shure that there are no old
+    * jobs in the pool directory.
+    */
+   check_pool_dir(fd_search_start_time);
+
+   /*
     * The following loop checks all user directories for new
     * files to arrive. When we fork to copy files from directories
     * not in the same file system as the AFD, watch the read_fin_fd
@@ -370,7 +383,7 @@ main(int argc, char *argv[])
          (void)time(&now);
       }
 #else
-      (void)time(&now);
+      now = time(NULL);
 #endif /* REPORT_DIR_TIME_INTERVAL */
       if (now >= next_rename_rule_check_time)
       {
@@ -380,7 +393,10 @@ main(int argc, char *argv[])
       }
       if (now >= next_search_time)
       {
-         zombie_check();
+         while (get_one_zombie() != -1)
+         {
+            /* Do nothing. */;
+         }
          search_old_files(now);
          next_search_time = (time(&now) / OLD_FILE_SEARCH_INTERVAL) *
                             OLD_FILE_SEARCH_INTERVAL + OLD_FILE_SEARCH_INTERVAL;
@@ -402,7 +418,7 @@ main(int argc, char *argv[])
 
             average_diff_time = average_diff_time / no_of_dir_searches;
             (void)strftime(time_str, 10, "%H:%M:%S",
-                           gmtime(&max_diff_time_time));
+                           localtime(&max_diff_time_time));
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Directory search times for %d dirs AVG: %u MAX: %ld (at %s) SEARCHES: %u\n",
                       no_of_local_dirs, average_diff_time,
@@ -450,7 +466,7 @@ main(int argc, char *argv[])
 
                  do
                  {
-                    get_one_zombie();
+                    (void)get_one_zombie();
                     count++;
                  } while (count < n);
               }
@@ -566,9 +582,12 @@ main(int argc, char *argv[])
                  }
 
                  /* Check if any process is finished. */
-                 if (no_of_process >= max_process)
+                 if (no_of_process > 0)
                  {
-                    zombie_check();
+                    while (get_one_zombie() != -1)
+                    {
+                       /* Do nothing. */;
+                    }
                  }
 
                  /*
@@ -610,7 +629,7 @@ main(int argc, char *argv[])
                           {
                              /* The directory time has changed. New files */
                              /* have arrived!                             */
-                             if (handle_dir(i, start_time, NULL,
+                             if (handle_dir(i, start_time, NULL, NULL,
                                             afd_file_dir) == YES)
                              {
                                 full_dir[fdc] = i;
@@ -631,7 +650,7 @@ main(int argc, char *argv[])
                                                                       &dest_count)) != NULL)
                              {
                                 if (handle_dir(i, start_time, p_paused_host,
-                                               afd_file_dir) == YES)
+                                               NULL, afd_file_dir) == YES)
                                 {
                                    full_paused_dir[fpdc] = i;
                                    fpdc++;
@@ -643,7 +662,10 @@ main(int argc, char *argv[])
                        /* Check if any process is finished. */
                        if (no_of_process >= max_process)
                        {
-                          zombie_check();
+                          while (get_one_zombie() != -1)
+                          {
+                             /* Do nothing. */;
+                          }
                        }
 
                        if ((fra[de[i].fra_pos].fsa_pos == -1) &&
@@ -702,7 +724,7 @@ main(int argc, char *argv[])
                            */
                           for (i = 0; i < fdc; i++)
                           {
-                             if (handle_dir(full_dir[i], now, NULL,
+                             if (handle_dir(full_dir[i], now, NULL, NULL,
                                             afd_file_dir) == NO)
                              {
                                 if (i < fdc)
@@ -723,7 +745,7 @@ main(int argc, char *argv[])
                     } /* while (fdc > 0) */
                     while (fpdc > 0)
                     {
-                       (void)time(&now);
+                       now = time(NULL);
                        diff_time = now - start_time;
 
                        if (diff_time < one_dir_copy_timeout)
@@ -748,7 +770,7 @@ main(int argc, char *argv[])
                           for (i = 0; i < fpdc; i++)
                           {
                              if (handle_dir(full_paused_dir[i], now, NULL,
-                                            afd_file_dir) == NO)
+                                            NULL, afd_file_dir) == NO)
                              {
                                 if (i < fpdc)
                                 {
@@ -769,12 +791,15 @@ main(int argc, char *argv[])
                     } /* while (fdc > 0) */
 
                     /* Check if any process is finished. */
-                    if (no_of_process >= max_process)
+                    if (no_of_process > 0)
                     {
-                       zombie_check();
+                       while (get_one_zombie() != -1)
+                       {
+                          /* Do nothing. */;
+                       }
                     }
                  }
-#endif /* _WITH_PTHREAD */
+#endif /* !_WITH_PTHREAD */
               }
               else
               {
@@ -918,12 +943,8 @@ do_one_dir(void *arg)
    {
       /* The directory time has changed. New files */
       /* have arrived!                             */
-      while (handle_dir(data->i,
-                        now,
-                        NULL,
-                        data->afd_file_dir,
-                        data->file_size_pool,
-                        data->file_name_pool) == YES)
+      while (handle_dir(data->i, now, NULL, NULL, data->afd_file_dir,
+                        data->file_size_pool, data->file_name_pool) == YES)
       {
          /*
           * There are still files left in the directory
@@ -952,16 +973,12 @@ do_one_dir(void *arg)
       int dest_count = 0,
           nfg = 0;
 
-      if ((p_paused_host = check_paused_dir(&de[data->i],
-                                            &nfg,
+      if ((p_paused_host = check_paused_dir(&de[data->i], &nfg,
                                             &dest_count)) != NULL)
       {
          now = time(NULL);
-         while (handle_dir(data->i,
-                           now,
-                           p_paused_host,
-                           data->afd_file_dir,
-                           data->file_size_pool,
+         while (handle_dir(data->i, now, p_paused_host, NULL,
+                           data->afd_file_dir, data->file_size_pool,
                            data->file_name_pool) == YES)
          {
             /*
@@ -989,24 +1006,91 @@ do_one_dir(void *arg)
 #endif
 
 
+/*++++++++++++++++++++++++ check_pool_dir() +++++++++++++++++++++++++++++*/
+static void
+check_pool_dir(time_t now)
+{
+   char pool_dir[MAX_PATH_LENGTH];
+   DIR  *dp;
+
+   (void)sprintf(pool_dir, "%s%s%s", p_work_dir, AFD_FILE_DIR, AFD_TMP_DIR);
+
+   if ((dp = opendir(pool_dir)) == NULL)
+   {
+      (void)rec(sys_log_fd, WARN_SIGN,
+                "Failed to opendir() %s : %s (%s %d)\n",
+                pool_dir, strerror(errno), __FILE__, __LINE__);
+   }
+   else
+   {
+      int           dir_counter = 0;
+      char          *work_ptr;
+      struct dirent *p_dir;
+
+      work_ptr = pool_dir + strlen(pool_dir);
+      *(work_ptr++) = '/';
+      errno = 0;
+      while ((p_dir = readdir(dp)) != NULL)
+      {
+         if (p_dir->d_name[0] != '.')
+         {
+            (void)strcpy(work_ptr, p_dir->d_name);
+            (void)strcat(work_ptr, "/");
+#ifdef _WITH_PTHREAD
+            (void)handle_dir(-1, now, NULL, pool_dir, afd_file_dir,
+                             data->file_size_pool, data->file_name_pool);
+#else
+            (void)handle_dir(-1, now, NULL, pool_dir, afd_file_dir);
+#endif
+            dir_counter++;
+         }
+         errno = 0;
+      }
+      work_ptr[-1] = '\0';
+
+      if (errno)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not readdir() %s : %s (%s %d)\n",
+                   pool_dir, strerror(errno), __FILE__, __LINE__);
+      }
+      if (closedir(dp) == -1)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not close directory %s : %s (%s %d)\n",
+                   pool_dir, strerror(errno), __FILE__, __LINE__);
+      }
+      if (dir_counter > 0)
+      {
+         (void)rec(sys_log_fd, WARN_SIGN,
+                   "Handled %d unfinished jobs in the pool directory.\n",
+                   dir_counter);
+      }
+   }
+}
+
+
 /*+++++++++++++++++++++++++++ handle_dir() ++++++++++++++++++++++++++++++*/
 static int
 #ifdef _WITH_PTHREAD
 handle_dir(int    dir_no,
            time_t current_time,
            char   *host_name,
+           char   *pool_dir,
            char   *afd_file_dir,
            off_t  *file_size_pool,
            char   **file_name_pool)
 #else
-handle_dir(int   dir_no,
+handle_dir(int    dir_no,
            time_t current_time,
-           char  *host_name,
-           char  *afd_file_dir)
+           char   *host_name,
+           char   *pool_dir,
+           char   *afd_file_dir)
 #endif
 {
    if ((no_of_process < max_process) &&
-       (fra[de[dir_no].fra_pos].no_of_process < fra[de[dir_no].fra_pos].max_process))
+       ((pool_dir != NULL) ||
+        (fra[de[dir_no].fra_pos].no_of_process < fra[de[dir_no].fra_pos].max_process)))
    {
       int        j,
                  k,
@@ -1035,30 +1119,42 @@ handle_dir(int   dir_no,
       p_time_dir = time_dir + strlen(time_dir);
 #endif
       total_file_size = 0;
-      (void)strcpy(src_file_dir, de[dir_no].dir);
 
-      if (host_name == NULL)
+      if (pool_dir == NULL)
       {
-         de[dir_no].search_time = current_time;
+         (void)strcpy(src_file_dir, de[dir_no].dir);
+
+         if (host_name == NULL)
+         {
+            de[dir_no].search_time = current_time;
+         }
+         else
+         {
+            (void)strcat(src_file_dir, "/.");
+            (void)strcat(src_file_dir, host_name);
+         }
+         p_dir_alias = de[dir_no].alias;
+
+         fra[de[dir_no].fra_pos].dir_status = DIRECTORY_ACTIVE;
+         files_moved = check_files(&de[dir_no], src_file_dir, afd_file_dir,
+                                   orig_file_path,
+#ifdef _WITH_PTHREAD
+                                   file_size_pool, file_name_pool,
+#endif
+                                   &total_file_size);
       }
       else
       {
-         (void)strcat(src_file_dir, "/.");
-         (void)strcat(src_file_dir, host_name);
-      }
-      p_dir_alias = de[dir_no].alias;
-
-      fra[de[dir_no].fra_pos].dir_status = DIRECTORY_ACTIVE;
-
-      if ((files_moved = check_files(&de[dir_no],
-                                     src_file_dir,
-                                     afd_file_dir,
-                                     orig_file_path,
+         (void)strcpy(orig_file_path, pool_dir);
 #ifdef _WITH_PTHREAD
-                                     file_size_pool,
-                                     file_name_pool,
+         files_moved = count_pool_files(&dir_no, pool_dir,
+                                        file_size_pool, file_name_pool);
+#else
+         files_moved = count_pool_files(&dir_no, pool_dir);
 #endif
-                                     &total_file_size)) > 0)
+         p_dir_alias = de[dir_no].alias;
+      }
+      if (files_moved > 0)
       {
          time_t         creation_time;
          unsigned short unique_number;
@@ -1137,6 +1233,7 @@ handle_dir(int   dir_no,
 
                                  case  0 : /* Child process */
 
+                                    in_child = YES;
                                     if ((db[de[dir_no].fme[j].pos[k]].lfs & SPLIT_FILE_LIST) &&
                                         (files_linked > MAX_FILES_TO_PROCESS))
                                     {
@@ -1165,17 +1262,21 @@ handle_dir(int   dir_no,
                                         */
                                        for (ii = 0; ii < loops; ii++)
                                        {
+                                          if (ii > 0)
+                                          {
+                                             int file_offset;
+
+                                             file_offset = ii * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
+                                             (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH));
+                                          }
                                           if ((split_files_renamed = rename_files(src_file_path,
                                                                                   afd_file_dir,
-                                                                                  &de[dir_no],
+                                                                                  files_moved,
                                                                                   &db[de[dir_no].fme[j].pos[k]],
                                                                                   &tmp_creation_time,
                                                                                   &tmp_unique_number,
-                                                                                  j,
-                                                                                  MAX_FILES_TO_PROCESS,
                                                                                   &tmp_unique_name[1],
-                                                                                  &split_file_size_renamed,
-                                                                                  ii * MAX_FILES_TO_PROCESS)) > 0)
+                                                                                  &split_file_size_renamed)) > 0)
                                           {
                                              send_message(afd_file_dir,
                                                           tmp_unique_name,
@@ -1192,6 +1293,13 @@ handle_dir(int   dir_no,
 
                                        if (files_linked > 0)
                                        {
+                                          if (loops > 0)
+                                          {
+                                             int file_offset;
+
+                                             file_offset = loops * MAX_FILES_TO_PROCESS * MAX_FILENAME_LENGTH;
+                                             (void)memcpy(file_name_buffer, (file_name_buffer + file_offset), (files_linked * MAX_FILENAME_LENGTH));
+                                          }
                                           send_message(afd_file_dir,
                                                        unique_name,
                                                        unique_number,
@@ -1242,7 +1350,7 @@ handle_dir(int   dir_no,
                                            "Unable to fork() since maximum number (%d) reached. (%s %d)\n",
                                            max_process, __FILE__, __LINE__);
                               }
-#endif
+#endif /* !_WITH_PTHREAD */
                               /*
                                * No need to fork() since files are in same
                                * file system and it is not necessary to split
@@ -1259,8 +1367,18 @@ handle_dir(int   dir_no,
                            }
 #endif
                         } /* if (files_linked > 0) */
+#ifndef _WITH_PTHREAD
+                        else
+                        {
+                           if (file_name_buffer != NULL)
+                           {
+                              free(file_name_buffer);
+                              file_name_buffer = NULL;
+                           }
+                        }
+#endif
                      }
-                     else /* Oueue files since it they are to be sent later. */
+                     else /* Oueue files since they are to be sent later. */
                      {
                         if ((db[de[dir_no].fme[j].pos[k]].time_option_type == SEND_COLLECT_TIME) &&
                             ((fsa[db[de[dir_no].fme[j].pos[k]].position].special_flag & HOST_DISABLED) == 0))
@@ -1274,7 +1392,7 @@ handle_dir(int   dir_no,
                                           &de[dir_no],
                                           j,
                                           files_moved,
-                                          db[de[dir_no].fme[j].pos[k]].lfs) < 0)
+                                          IN_SAME_FILESYSTEM) < 0)
                            {
                               (void)rec(sys_log_fd, ERROR_SIGN,
                                         "Failed to queue files for host %s (%s %d)\n",
@@ -1312,12 +1430,40 @@ handle_dir(int   dir_no,
             }
          }
 
-         /* Time to remove all files in orig_file_path */
-         if (remove_dir(orig_file_path) < 0)
+         /* Time to remove all files in orig_file_path. */
+         if ((de[dir_no].flag & RENAME_ONE_JOB_ONLY) &&
+             ((fsa[db[de[dir_no].fme[0].pos[0]].position].special_flag & HOST_DISABLED) == 0))
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to remove %s (%s %d)\n",
-                      orig_file_path, __FILE__, __LINE__);
+            if (rmdir(orig_file_path) == -1)
+            {
+               if (errno == ENOTEMPTY)
+               {
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "Hmm, strange! The directory %s should be empty!\n",
+                            orig_file_path);
+                  if (remove_dir(orig_file_path) < 0)
+                  {
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "Failed to remove %s (%s %d)\n",
+                               orig_file_path, __FILE__, __LINE__);
+                  }
+               }
+               else
+               {
+                  (void)rec(sys_log_fd, WARN_SIGN,
+                            "Failed to rmdir() %s : %s (%s %d)\n",
+                            orig_file_path, strerror(errno),
+                            __FILE__, __LINE__);
+               }
+            }
+         }
+         else
+         {
+            if (remove_dir(orig_file_path) < 0)
+            {
+               (void)rec(sys_log_fd, WARN_SIGN, "Failed to remove %s (%s %d)\n",
+                         orig_file_path, __FILE__, __LINE__);
+            }
          }
 
          if (host_name == NULL)
@@ -1353,7 +1499,8 @@ handle_dir(int   dir_no,
          }
       }
 
-      if ((fra[de[dir_no].fra_pos].no_of_process == 0) &&
+      if ((pool_dir == NULL) &&
+          (fra[de[dir_no].fra_pos].no_of_process == 0) &&
           (fra[de[dir_no].fra_pos].dir_status == DIRECTORY_ACTIVE) &&
           (fra[de[dir_no].fra_pos].dir_status != DISABLED))
       {
@@ -1381,86 +1528,17 @@ handle_dir(int   dir_no,
       else if (fra[de[dir_no].fra_pos].no_of_process >= fra[de[dir_no].fra_pos].max_process)
            {
               (void)rec(sys_log_fd, DEBUG_SIGN,
-                        "Unable to handle directory since maximum number of process (%d) reached for this directory. (%s %d)\n",
-                        fra[de[dir_no].fra_pos].max_process, __FILE__, __LINE__);
+                        "Unable to handle directory since maximum number of process (%d) reached for directory %s (%s %d)\n",
+                        fra[de[dir_no].fra_pos].max_process, de[dir_no].dir,
+                        __FILE__, __LINE__);
            }
       return(NO);
    }
 }
 
 
-/*+++++++++++++++++++++++++++++ zombie_check() ++++++++++++++++++++++++++*/
-/*
- * Description : Checks if any process is finished (zombie), if this
- *               is the case it is killed with waitpid().
- */
-static void
-zombie_check(void)
-{
-   int i,
-       status;
-
-   for (i = 0; i < no_of_process; i++)
-   {
-      /* Is process a zombie? */
-      if ((dcpl[i].pid > 0) && (waitpid(dcpl[i].pid, &status, WNOHANG) > 0))
-      {
-         if (WIFEXITED(status))
-         {
-            switch(WEXITSTATUS(status))
-            {
-               case 0 : /* Ordinary end of process */
-               case 1 : /* No files found */
-                        break;
-
-               default: /* Unknown error. */
-                        (void)rec(sys_log_fd, ERROR_SIGN,
-                                  "Unknown return status (%d) of process dir_check. (%s %d)\n",
-                                  WEXITSTATUS(status), __FILE__, __LINE__);
-                        break;
-            }
-         }
-         else if (WIFSIGNALED(status))
-              {
-                 /* abnormal termination */;
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Abnormal termination of process dir_check (%d) (%s %d)\n",
-                           dcpl[i].pid, __FILE__, __LINE__);
-              }
-          else if (WIFSTOPPED(status))
-               {
-                  /* Child stopped */;
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Process dir_check (%d) has been put to sleep. (%s %d)\n",
-                            dcpl[i].pid, __FILE__, __LINE__);
-                  continue;
-               }
-
-         /* update table */
-         no_of_process--;
-         fra[dcpl[i].fra_pos].no_of_process--;
-         if ((fra[dcpl[i].fra_pos].no_of_process == 0) &&
-             (fra[dcpl[i].fra_pos].dir_status == DIRECTORY_ACTIVE) &&
-             (fra[dcpl[i].fra_pos].dir_status != DISABLED))
-         {
-            fra[dcpl[i].fra_pos].dir_status = NORMAL_STATUS;
-         }
-         if (i < no_of_process)
-         {
-            (void)memmove(&dcpl[i], &dcpl[i + 1],
-                          ((no_of_process - i) * sizeof(struct dc_proc_list)));
-         }
-         dcpl[no_of_process].pid = -1;
-         dcpl[no_of_process].fra_pos = -1;
-         i--;
-      }
-   }
-   return;
-}
-
-
 /*+++++++++++++++++++++++++++ get_one_zombie() ++++++++++++++++++++++++++*/
-static void
+static pid_t
 get_one_zombie(void)
 {
    int   status;
@@ -1499,7 +1577,7 @@ get_one_zombie(void)
               (void)rec(sys_log_fd, ERROR_SIGN,
                         "Process dir_check (%d) has been put to sleep. (%s %d)\n",
                         pid, __FILE__, __LINE__);
-              return;
+              return(INCORRECT);
            }
 
       /* update table */
@@ -1528,7 +1606,7 @@ get_one_zombie(void)
          dcpl[no_of_process].fra_pos = -1;
       }
    }
-   return;
+   return(pid);
 }
 
 
@@ -1680,20 +1758,33 @@ check_fifo(int read_fd, int write_fd)
 static void
 sig_segv(int signo)
 {
-   /* Set flag to indicate that the the dir_check is NOT active. */
-   if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+   if (in_child == YES)
    {
-      p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
-   }
-
-   /* Detach shared memory regions */
-   if (p_shm != NULL)
-   {
-      if (shmdt(p_shm) < 0)
+      if (write(write_fin_fd, "", 1) != 1)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not detach shared memory region %d : %s (%s %d)\n",
-                   shm_id, strerror(errno), __FILE__, __LINE__);
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not write() to fifo %s : %s (%s %d)\n",
+                   fin_fifo, strerror(errno),
+                   __FILE__, __LINE__);
+      }
+   }
+   else
+   {
+      /* Set flag to indicate that the the dir_check is NOT active. */
+      if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+      {
+         p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+      }
+
+      /* Detach shared memory regions */
+      if (p_shm != NULL)
+      {
+         if (shmdt(p_shm) < 0)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Could not detach shared memory region %d : %s (%s %d)\n",
+                      shm_id, strerror(errno), __FILE__, __LINE__);
+         }
       }
    }
 
@@ -1708,20 +1799,33 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   /* Set flag to indicate that the the dir_check is NOT active. */
-   if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+   if (in_child == YES)
    {
-      p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
-   }
-
-   /* Detach shared memory regions */
-   if (p_shm != NULL)
-   {
-      if (shmdt(p_shm) < 0)
+      if (write(write_fin_fd, "", 1) != 1)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Could not detach shared memory region %d : %s (%s %d)\n",
-                   shm_id, strerror(errno), __FILE__, __LINE__);
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not write() to fifo %s : %s (%s %d)\n",
+                   fin_fifo, strerror(errno),
+                   __FILE__, __LINE__);
+      }
+   }
+   else
+   {
+      /* Set flag to indicate that the the dir_check is NOT active. */
+      if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+      {
+         p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+      }
+
+      /* Detach shared memory regions */
+      if (p_shm != NULL)
+      {
+         if (shmdt(p_shm) < 0)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Could not detach shared memory region %d : %s (%s %d)\n",
+                      shm_id, strerror(errno), __FILE__, __LINE__);
+         }
       }
    }
 

@@ -67,6 +67,10 @@
 #define SEND_FILE_SMTP             "sf_smtp"
 #define GET_FILE_SMTP              "gf_smtp"
 #define SEND_FILE_LOC              "sf_loc"
+#ifdef _WITH_SCP1_SUPPORT
+#define SEND_FILE_SCP1             "sf_scp1"
+#define GET_FILE_SCP1              "gf_scp1"
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
 #define SEND_FILE_WMO              "sf_wmo"
 #define GET_FILE_WMO               "gf_wmo"
@@ -138,6 +142,12 @@
 #define AW_LOCK_ID                 4    /* Archive watch                */
 #define AS_LOCK_ID                 5    /* AFD statistics               */
 #define NO_OF_LOCK_PROC            6
+
+/* Definitions for options needed both for AMG and FD. */
+#ifdef _WITH_TRANS_EXEC
+#define TRANS_EXEC_ID              "pexec"
+#define TRANS_EXEC_ID_LENGTH       5
+#endif /* _WITH_TRANS_EXEC */
 
 /* Commands that can be send to DB_UPDATE_FIFO of the AMG */
 #define HOST_CONFIG_UPDATE         4
@@ -283,10 +293,6 @@
 #define IS_NOT_LOCKED              11
 #define AUTO_SIZE_DETECT           -2
 
-#define GO_PARALLEL                8
-#define SPLIT_FILE_LIST            16
-#define DO_NOT_LINK_FILES          32
-
 #define NO_PRIORITY                -1      /* For function create_name() */
                                            /* So it knows it does not    */
                                            /* need to create the name    */
@@ -331,9 +337,13 @@
 #define MAP                        3
 #define MAP_FLAG                   8
 #endif
+#ifdef _WITH_SCP1_SUPPORT
+#define SCP1                       4
+#define SCP1_FLAG                  16
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
-#define WMO                        4
-#define WMO_FLAG                   16
+#define WMO                        5
+#define WMO_FLAG                   32
 #endif
 #define SEND_FLAG                  256
 #define RETRIEVE_FLAG              512
@@ -343,8 +353,11 @@
 #ifdef _WITH_MAP_SUPPORT
 #define SEND_MAP_FLAG              524288
 #endif
+#ifdef _WITH_SCP1_SUPPORT
+#define SEND_SCP1_FLAG             1048576
+#endif
 #ifdef _WITH_WMO_SUPPORT
-#define SEND_WMO_FLAG              1048576
+#define SEND_WMO_FLAG              2097152
 #endif
 #define GET_FTP_FLAG               16777216
 
@@ -352,6 +365,10 @@
 #define FTP_SHEME_LENGTH           3
 #define LOC_SHEME                  "file"
 #define LOC_SHEME_LENGTH           4
+#ifdef _WITH_SCP1_SUPPORT
+#define SCP1_SHEME                 "scp1"
+#define SCP1_SHEME_LENGTH          4
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
 #define WMO_SHEME                  "wmo"
 #define WMO_SHEME_LENGTH           3
@@ -451,54 +468,85 @@
 #define AUTO_PAUSE_QUEUE_LOCK_STAT 16
 
 /* Position of each colour in global array */
+/*############################ LightBlue1 ###############################*/
 #define DEFAULT_BG                 0  /* Background                      */
+/*############################## White ##################################*/
 #define WHITE                      1
 #define DISCONNECT                 1  /* Successful completion of        */
                                       /* operation and disconnected.     */
 #define DISABLED                   1
 #define NO_INFORMATION             1
+/*########################### lightskyblue2 #############################*/
 #define CHAR_BACKGROUND            2  /* Background color for characters.*/
 #define DISCONNECTED               2  /* AFD_MON not connected.          */
 #define CLOSING_CONNECTION         2  /* Closing an active connection.   */
+/*############################ SaddleBrown ##############################*/
 #define PAUSE_QUEUE                3
+#ifdef _WITH_SCP1_SUPPORT
+#define SCP1_ACTIVE                3
+#endif /* _WITH_SCP1_SUPPORT */
+/*############################## brown3 #################################*/
 #define AUTO_PAUSE_QUEUE           4
+#ifdef _WITH_SCP1_SUPPORT
+#define SCP1_BURST_TRANSFER_ACTIVE 4
+#endif /* _WITH_SCP1_SUPPORT */
+/*############################### Blue ##################################*/
 #define CONNECTING                 5  /* Open connection to remote host, */
                                       /* sending user and password,      */
                                       /* setting transfer type and       */
                                       /* changing directory.             */
+#define LOC_BURST_TRANSFER_ACTIVE  5
+/*############################## gray37 #################################*/
 #define LOCKED_INVERSE             6
+/*############################### gold ##################################*/
 #define TR_BAR                     7  /* Colour for transfer rate bar.   */
 #define DEBUG_MODE                 7
 #ifdef _WITH_WMO_SUPPORT
 #define WMO_ACTIVE                 7
 #endif
+/*########################### NavajoWhite1 ##############################*/
 #define LABEL_BG                   8  /* Background for label.           */
 #ifdef _WITH_MAP_SUPPORT
 #define MAP_ACTIVE                 8
 #endif
+/*############################ SteelBlue1 ###############################*/
 #define BUTTON_BACKGROUND          9  /* Background for button line in   */
                                       /* afd_ctrl dialog.                */
+#define LOC_ACTIVE                 9
+/*############################### pink ##################################*/
 #define EMAIL_ACTIVE               10
+/*############################## green ##################################*/
 #define FTP_BURST_TRANSFER_ACTIVE  11
+/*############################## green3 #################################*/
 #define CONNECTION_ESTABLISHED     12 /* AFD_MON                         */
 #define NORMAL_STATUS              12
 #define INFO_ID                    12
 #define RETRIEVE_ACTIVE            12 /* When gf_ftp retrieves files.    */
+/*############################# SeaGreen ################################*/
 #define CONFIG_ID                  13
 #define TRANSFER_ACTIVE            13 /* Creating remote lockfile and    */
                                       /* transferring files.             */
+#define FTP_ACTIVE                 13
 #define DIRECTORY_ACTIVE           13
+/*############################ DarkOrange ###############################*/
 #define STOP_TRANSFER              14 /* Transfer to this host is        */
                                       /* stopped.                        */
 #define WARNING_ID                 14
+#ifdef _WITH_TRANS_EXEC
+#define POST_EXEC                  14
+#endif
+/*############################## tomato #################################*/
 #define NOT_WORKING                15
+/*################################ Red ##################################*/
 #define NOT_WORKING2               16
 #define ERROR_ID                   16
 #define CONNECTION_DEFUNCT         16 /* AFD_MON, connection not         */
                                       /* working.                        */
+/*############################### Black #################################*/
 #define BLACK                      17
 #define FG                         17 /* Foreground                      */
 #define FAULTY_ID                  17
+/*############################## yellow #################################*/
 #ifdef _WITH_WMO_SUPPORT
 #define WMO_BURST_TRANSFER_ACTIVE  18
 #define COLOR_POOL_SIZE            19
@@ -653,11 +701,14 @@
  *     6     | unsigned char | Flag to enable or disable certain
  *           |               | features in the AFD.
  *    -------+---------------+---------------------------------------
- *     7 - 8 | unsigned char | Not used.
+ *     7     | unsigned char | Not used.
+ *    -------+---------------+---------------------------------------
+ *     8     | unsigned char | Version of this structure.
  *-----------------------------------------------------------------------*/
 #define AFD_WORD_OFFSET 8
 
 /* Structure that holds status of the file transfer for each host */
+#define CURRENT_FSA_VERSION 0
 struct status
        {
           pid_t         proc_id;                /* Process ID of trans-  */
@@ -775,8 +826,9 @@ struct filetransfer_status
                                             /*+------+------------------+*/
                                             /*| 26-32| Not used.        |*/
                                             /*| 25   | GET_FTP          |*/
-                                            /*| 22-24| Not used.        |*/
-                                            /*| 21   | SEND_WMO         |*/
+                                            /*| 23-24| Not used.        |*/
+                                            /*| 22   | SEND_WMO         |*/
+                                            /*| 21   | SEND_SCP1        |*/
                                             /*| 20   | SEND_MAP         |*/
                                             /*| 19   | SEND_SMTP        |*/
                                             /*| 18   | SEND_LOC         |*/
@@ -784,8 +836,9 @@ struct filetransfer_status
                                             /*| 11-16| Not used.        |*/
                                             /*| 10   | RETRIEVE         |*/
                                             /*| 9    | SEND             |*/
-                                            /*| 6 - 8| Not used.        |*/
-                                            /*| 5    | WMO              |*/
+                                            /*| 7 - 8| Not used.        |*/
+                                            /*| 6    | WMO              |*/
+                                            /*| 5    | SCP1             |*/
                                             /*| 4    | MAP              |*/
                                             /*| 3    | SMTP             |*/
                                             /*| 2    | LOC              |*/
@@ -822,7 +875,8 @@ struct filetransfer_status
                                             /* files still to be send.   */
           unsigned long  total_file_size;   /* The overall number of     */
                                             /* bytes still to be send.   */
-          unsigned int   total_connect_time;/******** NOT USED !!! *******/
+          unsigned int   jobs_queued;       /* The number of jobs queued */
+                                            /* by the FD.                */
           unsigned int   file_counter_done; /* No. of files done so far. */
           unsigned long  bytes_send;        /* No. of bytes send so far. */
           unsigned int   connections;       /* No. of connections.       */
@@ -852,6 +906,7 @@ struct bd_time_entry
        };
 
 /* Structure holding all neccessary data for retrieving files */
+#define CURRENT_FRA_VERSION 0
 struct fileretrieve_status
        {
           char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
@@ -1180,6 +1235,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                create_message(int, char *, char *),
                create_name(char *, signed char, time_t, int, unsigned short *, char *),
                create_remote_dir(char *, char *),
+               exec_cmd(char *, char *),
                extract(char *, char *, int, int *, off_t *),
                fra_attach(void),
                fra_detach(void),

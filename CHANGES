@@ -708,7 +708,7 @@
 
 ---------------------------> Version 1.2.4 <-------------------------------
                             ---------------                                
-03.02.2001 - sf_xxx now sorts the files by date (oldes date first) before
+03.02.2001 - sf_xxx now sorts the files by date (oldest date first) before
              it starts sending files.
 15.02.2001 - view_hosts showed garbage just behind the first real hostname.
              Fixed.
@@ -731,3 +731,55 @@
            - Show the hostname and full date where AFD was started or
              stopped in the SYSTEM_LOG.
 ------------------------> Released: 05.04.2001 <---------------------------
+
+
+---------------------------> Version 1.2.5 <-------------------------------
+                            ---------------                                
+11.04.2001 - show_olog failed to resend files from archive. Fixed.
+12.04.2001 - Process dir_check checks the pool directory at start
+             for unfinished jobs.
+16.04.2001 - Process dir_check scans the files in a job only once.
+18.04.2001 - Put a version number into FSA and FRA.
+21.04.2001 - New option "pexec" which is the same as the "exec" option
+             except that this is executed after a file has been send.
+24.04.2001 - Failed to check that MAX_PROCESS_PER_DIR may not be higher
+             than MAX_NO_OF_DIR_CHECKS in AFD_CONFIG. Fixed.
+           - Process dir_check failed to decrease its own process counter
+             for creating children when one of them terminates abnormally.
+25.04.2001 - If there is only one job per directory, rename files from
+             the pool directory into the files directory.
+26.04.2001 - When a sf_xxx process reaches a timeout it will now return
+             this status when it exits.
+09.05.2001 - When sending files via mail, the message header was not
+             separated by a second CRLF from the message body. Fixed.
+           - Sending files from the show_olog dialog would always create
+             files where the length is always a multiple of the given
+             blocksize. Fixed.
+12.05.2001 - Option "time no collect" does now see the weekday Sunday.
+14.05.2001 - In sf_ftp do the checking for duplicate files only when
+             the file size is larger then the transfer block size.
+16.05.2001 - During append sf_ftp now puts some of the numbers for the
+             file size correctly into the FSA.
+17.05.2001 - In function create_fsa() some values where incorrectly
+             initialized to zero instead of taking them from the old
+             FSA. This effected only detailed selection in afd_ctrl.
+           - Replaced gmtime() with localtime() in all log functions.
+           - Port to FreeBSD. Thanks to Ying-Chieh Liao!
+18.05.2001 - Found another silly bug when evaluating the DIR_CONFIG. It
+             didn't like a space in the empty line just before the
+             option entry when the last recipient is commented out.
+21.05.2001 - Forgot to close socket in ftp_quit() and smtp_quit() under
+             error conditions. This is harmless since we always do an exit()
+             after the quit, but who knows.
+           - The dialog show_log would scroll the SYSTEM_LOG in an endless
+             loop when this is larger than 2MB.
+23.05.2001 - New option "attach all files" to attach all files to a
+             single mail. The option "attach file" will attach each
+             file to a separate mail.
+26.05.2001 - Put in a counter for the number of jobs queued for each
+             host.
+27.05.2001 - sf_loc now checks with FD if there is a new job. This should
+             reduce the number of forks by FD.
+29.05.2001 - When disabling a host and the queue was stopped by hand,
+             files in the queue where never deleted. Fixed.
+------------------------> Released: 30.05.2001 <---------------------------

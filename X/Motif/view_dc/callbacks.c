@@ -41,7 +41,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>
+#include <stdlib.h>
 #include <Xm/Xm.h>
 #include "view_dc.h"
 

@@ -61,6 +61,10 @@
  * _BURST_MODE            - When files are currently being send via FTP and
  *                          all connections are busy, the AMG/FD will transfer
  *                          the files to the transferring process.
+ * _WITH_BURST_2          - Before a sf_xxx process exits it asks FD if
+ *                          it has another job which it can handle. This
+ *                          should reduce the number of forks by FD
+ *                          considerably. [Very experimental!]
  * _WITH_UID_CHECK        - Checks the user by checking his user ID. If this
  *                          is not set this check is done by checking the
  *                          environment name LOGNAME.
@@ -90,6 +94,10 @@
  *                          per bulletin it can happen that some bulletins
  *                          are over written. To eliminate this set this
  *                          option.
+ * _WITH_SCP1_SUPPORT     - Support for copying files via the SCP1 protocol.
+ *                          This requires a local ssh client.
+ * _WITH_TRANS_EXEC       - With option to execute a command after each
+ *                          file was send.
  *-----------------------------------------------------------------------*/
 #define _INPUT_LOG
 #define _OUTPUT_LOG
@@ -98,6 +106,7 @@
 #define _AGE_LIMIT
 #define _VERIFY_FSA
 #define _BURST_MODE
+#define _WITH_BURST_2
 #define _WITH_UID_CHECK
 /* #define _LOG_REMOVE_INFO */
 #define _WITH_SHUTDOWN
@@ -110,6 +119,8 @@
 /* #define _WITH_READY_FILES */
 /* #define _WITH_EUMETSAT_HEADERS */
 #define _WITH_UNIQUE_NUMBERS
+/* #define _WITH_SCP1_SUPPORT */
+#define _WITH_TRANS_EXEC
 
 /*-----------------------------------------------------------------------*
  * These following options are only for the dialogs of the AFD.

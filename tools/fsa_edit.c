@@ -1,7 +1,7 @@
 /*
  *  fsa_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -252,10 +252,14 @@ main(int argc, char *argv[])
                        fsa[position].active_transfers = value;
                     }
                     break;
-         case 'e' : (void)fprintf(stderr, "\n\n     Enter value [d] : ");
+         case 'e' : (void)fprintf(stderr, "\n\n     Enter value [e] : ");
                     file_name[0] = '\0';
                     (void)scanf("%s", file_name);
                     (void)strcpy(fsa[position].job_status[0].file_name_in_use, file_name);
+                    break;
+         case 'f' : (void)fprintf(stderr, "\n\n     Enter value [f] : ");
+                    (void)scanf("%d", &value);
+                    fsa[position].jobs_queued = value;
                     break;
          case 'x' :
          case 'Q' :
@@ -304,6 +308,7 @@ menu(int position)
    (void)fprintf(stdout, "        |  c  |No. of no bursts  | %14d |\n", (fsa[position].special_flag & NO_BURST_COUNT_MASK));
    (void)fprintf(stdout, "        |  d  |Active transfers  | %14d |\n", fsa[position].active_transfers);
    (void)fprintf(stdout, "        |  e  |File name         | %14s |\n", fsa[position].job_status[0].file_name_in_use);
+   (void)fprintf(stdout, "        |  f  |Jobs queued       | %14u |\n", fsa[position].jobs_queued);
    (void)fprintf(stdout, "        +-----+------------------+----------------+\n");
 
    return;

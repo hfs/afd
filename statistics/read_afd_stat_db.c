@@ -1,6 +1,6 @@
 /*
  *  read_afd_stat_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,9 +47,8 @@ DESCR__E_M3
 #include <time.h>            /* time()                                   */
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef _NO_MMAP
-#include <stdlib.h>          /* malloc(), free()                         */
-#else
+#include <stdlib.h>          /* exit()                                   */
+#ifndef _NO_MMAP
 #include <sys/mman.h>        /* mmap(), munmap()                         */
 #endif
 #include <fcntl.h>
@@ -63,12 +62,10 @@ DESCR__E_M3
 #endif
 #endif
 
-/* Global local variables */
-static size_t                     stat_db_size = 0;
-
 /* Global external variables */
 extern int                        sys_log_fd,
                                   lock_fd;
+extern size_t                     stat_db_size;
 extern char                       statistic_file[MAX_PATH_LENGTH],
                                   new_statistic_file[MAX_PATH_LENGTH];
 extern struct afdstat             *stat_db;
@@ -241,14 +238,14 @@ read_afd_stat_db(int no_of_hosts)
    /*
     * Now compare the old data with the FSA that was just read.
     */
-   time(&now);
+   now = time(NULL);
    p_ts = gmtime(&now);
    if ((old_stat_db == NULL) || (no_of_old_hosts < 1))
    {
       for (i = 0; i < no_of_hosts; i++)
       {
          (void)strcpy(stat_db[i].hostname, fsa[i].host_alias);
-         stat_db[i].start_time = time(NULL);
+         stat_db[i].start_time = now;
          if (p_ts->tm_yday >= DAYS_PER_YEAR)
          {
             stat_db[i].day_counter = 0;
@@ -277,7 +274,7 @@ read_afd_stat_db(int no_of_hosts)
                                      no_of_old_hosts)) < 0)
          {
             (void)strcpy(stat_db[i].hostname, fsa[i].host_alias);
-            stat_db[i].start_time = time(NULL);
+            stat_db[i].start_time = now;
             if (p_ts->tm_yday >= DAYS_PER_YEAR)
             {
                stat_db[i].day_counter = 0;

@@ -46,7 +46,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                    /* fprintf()                       */
-#include <time.h>                     /* gmtime()                        */
+#include <time.h>                     /* localtime()                     */
 #include "logdefs.h"
 
 
@@ -61,7 +61,7 @@ fprint_dup_msg(FILE   *p_log_file,
    char      buf[17];
    struct tm *p_ts;
 
-   p_ts    = gmtime(&now);
+   p_ts    = localtime(&now);
    buf[0]  = (p_ts->tm_mday / 10) + '0';
    buf[1]  = (p_ts->tm_mday % 10) + '0';
    buf[2]  = ' ';

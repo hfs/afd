@@ -1,19 +1,24 @@
 include ../Include.mk
 
-INSTDIR = ../../bin
-COMDIR  = ../common
-LIB     = $(COMDIR)/libafd.a
-CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd
+INSTDIR  = ../../bin
+COMDIR   = ../common
+LIB      = $(COMDIR)/libafd.a
+PROTOLIB = ../protocols/libprotocols.a
+CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../protocols -I../fd
 
-EPROG   = encode64
-EOBJS   = encode64.o\
-          encode_base64.o
+EPROG    = encode64
+EOBJS    = encode64.o\
+           encode_base64.o
 
-ARGPROG = arg
-ARGOBJS = arg.o
+ARGPROG  = arg
+ARGOBJS  = arg.o
 
-PROGS   = $(EPROG) $(ARGPROG)
-OBJS    = $(EOBJS) $(ARGOBJS)
+SCPPROG  = ascp1
+SCPOBJS  = ascp1.o\
+           trans_log.o
+
+PROGS    = $(EPROG) $(ARGPROG)
+OBJS     = $(EOBJS) $(ARGOBJS)
 
 all : $(PROGS)
 
@@ -22,6 +27,9 @@ $(EPROG) : $(EOBJS) $(LIB)
 
 $(ARGPROG) : $(ARGOBJS) $(LIB)
 	$(CC) $(CFLAGS) -o $@ $(ARGOBJS) $(LIB)
+
+$(SCPPROG) : $(SCPOBJS) $(LIB) $(PROTOLIB)
+	$(CC) $(CFLAGS) -o $@ $(SCPOBJS) $(PROTOLIB) $(LIB)
 
 clean :
 	rm -f $(OBJS) core

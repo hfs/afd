@@ -51,6 +51,7 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>       /* struct timeval                            */
+#include <sys/mman.h>       /* msync(), munmap()                         */
 #include <unistd.h>         /* STDERR_FILENO                             */
 #include <stdlib.h>         /* getenv()                                  */
 #include <fcntl.h>
@@ -69,11 +70,18 @@ int                        sys_log_fd = STDERR_FILENO,
 #ifndef _NO_MMAP
 off_t                      fsa_size;
 #endif
+size_t                     stat_db_size = 0;
 char                       *p_work_dir,
                            statistic_file[MAX_PATH_LENGTH],
                            new_statistic_file[MAX_PATH_LENGTH];
 struct afdstat             *stat_db = NULL;
 struct filetransfer_status *fsa;
+
+/* Local functions prototypes. */
+static void                sig_exit(int),
+                           sig_segv(int),
+                           sig_bus(int),
+                           stat_exit(void);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -83,6 +91,7 @@ main(int argc, char *argv[])
    register int   i,
                   j;
    int            current_year,
+                  hour,
                   status,
                   test_sec_counter,
                   test_hour_counter;
@@ -92,8 +101,7 @@ main(int argc, char *argv[])
    long int       sleep_time;
    double         d_value;           /* Temporary storage for doubles    */
    char           work_dir[MAX_PATH_LENGTH],
-                  statistic_file_name[MAX_FILENAME_LENGTH],
-                  sys_log_fifo[MAX_PATH_LENGTH];
+                  statistic_file_name[MAX_FILENAME_LENGTH];
    struct timeval timeout;
    struct stat    stat_buf;
    struct tm      *p_ts;
@@ -109,13 +117,17 @@ main(int argc, char *argv[])
    eval_input_as(argc, argv, work_dir, statistic_file_name);
 
    /* Initialize variables */
-   (void)time(&now);
+   now = time(NULL);
    p_ts = gmtime(&now);
+
+   /*
+    * NOTE: We must put the hour into a temporary storage since
+    *       function rec() uses the function localtime which seems
+    *       to overwrite our p_ts->tm_hour with local time!?
+    */
+   hour = p_ts->tm_hour;
    current_year = p_ts->tm_year + 1900;
    p_work_dir = work_dir;
-   (void)strcpy(sys_log_fifo, work_dir);
-   (void)strcat(sys_log_fifo, FIFO_DIR);
-   (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
    if (statistic_file_name[0] == '\0')
    {
       char str_year[10];
@@ -137,25 +149,34 @@ main(int argc, char *argv[])
       (void)strcat(new_statistic_file, ".NEW");
    }
 
-   /* If the process AFD has not yet created the */
-   /* system log fifo create it now.             */
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+   if (other_file == NO)
    {
-      if (make_fifo(sys_log_fifo) < 0)
+      char sys_log_fifo[MAX_PATH_LENGTH];
+
+      (void)strcpy(sys_log_fifo, work_dir);
+      (void)strcat(sys_log_fifo, FIFO_DIR);
+      (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
+
+      /* If the process AFD has not yet created the */
+      /* system log fifo create it now.             */
+      if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
       {
-         (void)fprintf(stderr,
-                       "ERROR   : Could not create fifo %s. (%s %d)\n",
-                       sys_log_fifo, __FILE__, __LINE__);
+         if (make_fifo(sys_log_fifo) < 0)
+         {
+            (void)fprintf(stderr,
+                          "ERROR   : Could not create fifo %s. (%s %d)\n",
+                          sys_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+
+      /* Open system log fifo */
+      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
+      {
+         (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
+                       sys_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-
-   /* Open system log fifo */
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
 
    /* Get the fsa_id and no of host of the FSA */
@@ -167,8 +188,7 @@ main(int argc, char *argv[])
    }
 
    /*
-    * Read old AFD statistics database file if it is there. If not
-    * creat it!
+    * Read old AFD statistics database file if it is there. If not creat it!
     */
    read_afd_stat_db(no_of_hosts);
 
@@ -184,12 +204,29 @@ main(int argc, char *argv[])
 #endif
    }
 
+   /* Do some cleanups when we exit */
+   if (atexit(stat_exit) != 0)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Could not register exit handler : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);            
+      exit(INCORRECT);
+   }
+
    /* Ignore any SIGHUP signal. */
-   if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
+   if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
+       (signal(SIGQUIT, sig_exit) == SIG_ERR) ||
+       (signal(SIGTERM, sig_exit) == SIG_ERR) ||
+       (signal(SIGSEGV, sig_segv) == SIG_ERR) ||
+       (signal(SIGBUS, sig_bus) == SIG_ERR) ||
+       (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
       (void)rec(sys_log_fd, DEBUG_SIGN, "signal() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
    }
+
+   next_rescan_time = (now / STAT_RESCAN_TIME) *
+                      STAT_RESCAN_TIME + STAT_RESCAN_TIME;
 
    /* Initialize sec_counter, hour_counter and day_counter. */
    test_sec_counter = (((p_ts->tm_min * 60) + p_ts->tm_sec) /
@@ -197,12 +234,9 @@ main(int argc, char *argv[])
    for (i = 0; i < no_of_hosts; i++)
    {
       stat_db[i].sec_counter = test_sec_counter;
-      stat_db[i].hour_counter = p_ts->tm_hour;
+      stat_db[i].hour_counter = hour;
       stat_db[i].day_counter = p_ts->tm_yday;
    }
-
-   next_rescan_time = (now / STAT_RESCAN_TIME) *
-                      STAT_RESCAN_TIME + STAT_RESCAN_TIME;
 
    for (;;)
    {
@@ -440,3 +474,57 @@ main(int argc, char *argv[])
 
    exit(SUCCESS);
 }
+
+
+/*+++++++++++++++++++++++++++++ stat_exit() +++++++++++++++++++++++++++++*/
+static void
+stat_exit(void)
+{
+   if (msync((void *)stat_db, stat_db_size, MS_ASYNC) == -1)
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
+   }
+   if (munmap((void *)stat_db, stat_db_size) == -1)
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN, "munmap() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
+   }
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++++++++ sig_segv() +++++++++++++++++++++++++++++*/
+static void                                                                
+sig_segv(int signo)
+{                  
+   (void)rec(sys_log_fd, FATAL_SIGN, "Aaarrrggh! Received SIGSEGV. (%s %d)\n",
+             __FILE__, __LINE__);                                             
+   stat_exit();
+
+   /* Dump core so we know what happened. */
+   abort();
+}
+
+
+/*++++++++++++++++++++++++++++++ sig_bus() ++++++++++++++++++++++++++++++*/
+static void
+sig_bus(int signo)
+{
+   (void)rec(sys_log_fd, FATAL_SIGN, "Uuurrrggh! Received SIGBUS. (%s %d)\n",
+             __FILE__, __LINE__);
+   stat_exit();
+
+   /* Dump core so we know what happened. */
+   abort();
+}
+
+
+/*++++++++++++++++++++++++++++++ sig_exit() +++++++++++++++++++++++++++++*/
+static void
+sig_exit(int signo)
+{
+   exit(INCORRECT);
+}
+

@@ -50,7 +50,7 @@ DESCR__E_M3
 
 #include <stdio.h>        /* sprintf()                                   */
 #include <string.h>       /* strerror()                                  */
-#include <stdlib.h>       /* malloc(), realloc(), free(), strtod()       */
+#include <stdlib.h>       /* malloc(), realloc(), free(), strtod(), abs()*/
 #include <time.h>         /* time()                                      */
 #include <unistd.h>       /* close()                                     */
 #include <sys/types.h>
@@ -203,7 +203,7 @@ static void   display_data(int, time_t, time_t),
            {                                               \
               first_date_found = time_when_transmitted;    \
            }                                               \
-           p_ts = gmtime(&time_when_transmitted);          \
+           p_ts = localtime(&time_when_transmitted);       \
            CONVERT_TIME();                                 \
            (void)memcpy(p_type, (protocol), 4);            \
         }
@@ -962,13 +962,15 @@ search_time(char   *src,
       {
          return(src + size);
       }
-      if ((search_time_val - earliest_entry) > (latest_entry - search_time_val))
+      if (abs(search_time_val - earliest_entry) >
+          abs(latest_entry - search_time_val))
       {
          /* Start search from end. */
          bs_ptr = src + size - 2;
          do
          {
             ptr = bs_ptr;
+            ptr -= 11 + MAX_HOSTNAME_LENGTH + 3;
             while (*ptr != '\n')
             {
                ptr--;
@@ -976,31 +978,31 @@ search_time(char   *src,
             bs_ptr = ptr - 1;
             ptr++;
             GET_TIME();
-         } while (time_val >= search_time_val);
+         } while ((time_val >= search_time_val) && (ptr > src));
          while (*ptr != '\n')
          {
             ptr++;
          }
-         return(ptr + 1);
       }
       else /* Start search from beginning. */
       {
          ptr = src;
          do
          {
+            ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
             while (*ptr != '\n')
             {
                ptr++;
             }
             ptr++;
             GET_TIME();
-         } while (time_val < search_time_val);
+         } while ((time_val < search_time_val) && (ptr < (src + size)));
          while (*ptr != '\n')
          {
             ptr--;
          }
-         return(ptr + 1);
       }
+      return(ptr + 1);
    }
 }
 
@@ -1097,6 +1099,19 @@ no_criteria(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 if (toggles_set & SHOW_SCP1)
+                 {
+                    INSERT_TIME_TYPE(SCP1_ID_STR);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1334,6 +1349,34 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 if (toggles_set & SHOW_SCP1)
+                 {
+                    SET_FILE_NAME_POINTER();
+                    if (sfilter(search_file_name, ptr) == 0)
+                    {
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
+                       INSERT_TIME_TYPE(SCP1_ID_STR);
+                       j = 0;
+                       while ((*ptr != ' ') && (j < file_name_length))
+                       {
+                          *(p_file_name + j) = *ptr;
+                          ptr++; j++;
+                       }
+                    }
+                    else
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1561,6 +1604,19 @@ file_size_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 if (toggles_set & SHOW_SCP1)
+                 {
+                    FILE_SIZE_ONLY(SCP1_ID_STR);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1601,7 +1657,7 @@ file_size_only(register char *ptr,
          {
             first_date_found = time_when_transmitted;
          }
-         p_ts = gmtime(&time_when_transmitted);
+         p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          if (file_name_toggle_set == REMOTE_FILENAME)
          {
@@ -1773,6 +1829,23 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 if (toggles_set & SHOW_SCP1)
+                 {
+                    SET_FILE_NAME_POINTER();
+                    if (sfilter(search_file_name, ptr) != 0)
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -1852,7 +1925,7 @@ file_name_and_size(register char *ptr,
          {
             first_date_found = time_when_transmitted;
          }
-         p_ts = gmtime(&time_when_transmitted);
+         p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          if (type == FTP)
          {
@@ -1866,6 +1939,12 @@ file_name_and_size(register char *ptr,
               {
                  (void)memcpy(p_type, FILE_ID_STR, 4);
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 (void)memcpy(p_type, SCP1_ID_STR, 4);
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2099,6 +2178,36 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 if (toggles_set & SHOW_SCP1)
+                 {
+                    int ii;
+
+                    for (ii = 0; ii < no_of_search_hosts; ii++)
+                    {
+                       if (sfilter(search_recipient[ii], ptr_start_line + 11) == 0)
+                       {
+                          current_search_host = ii;
+                          break;
+                       }
+                    }
+                    if (current_search_host != -1)
+                    {
+                       INSERT_TIME_TYPE(SCP1_ID_STR);
+                    }
+                    else
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2316,6 +2425,12 @@ file_name_and_recipient(register char *ptr,
               {
                  FILE_NAME_AND_RECIPIENT(SHOW_FILE, FILE_ID_STR);
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 FILE_NAME_AND_RECIPIENT(SHOW_SCP1, SCP1_ID_STR);
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2512,6 +2627,19 @@ file_size_and_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 if (toggles_set & SHOW_SCP1)
+                 {
+                    FILE_SIZE_AND_RECIPIENT(SCP1_ID_STR);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2552,7 +2680,7 @@ file_size_and_recipient(register char *ptr,
          {
             first_date_found = time_when_transmitted;
          }
-         p_ts = gmtime(&time_when_transmitted);
+         p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          if (file_name_toggle_set == REMOTE_FILENAME)
          {
@@ -2761,6 +2889,40 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 if (toggles_set & SHOW_SCP1)
+                 {
+                    int ii;
+
+                    for (ii = 0; ii < no_of_search_hosts; ii++)
+                    {
+                       if (sfilter(search_recipient[ii], ptr_start_line + 11) == 0)
+                       {
+                          current_search_host = ii;
+                          break;
+                       }
+                    }
+                    if (current_search_host != -1)
+                    {
+                       SET_FILE_NAME_POINTER();
+                       if (sfilter(search_file_name, ptr) != 0)
+                       {
+                          IGNORE_ENTRY();
+                       }
+                    }
+                    else
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {
@@ -2900,7 +3062,7 @@ file_name_size_recipient(register char *ptr,
          {
             first_date_found = time_when_transmitted;
          }
-         p_ts = gmtime(&time_when_transmitted);
+         p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          if (type == FTP)
          {
@@ -2914,6 +3076,12 @@ file_name_size_recipient(register char *ptr,
               {
                  (void)memcpy(p_type, FILE_ID_STR, 4);
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (type == SCP1)
+              {
+                 (void)memcpy(p_type, SCP1_ID_STR, 4);
+              }
+#endif
 #ifdef _WITH_WMO_SUPPORT
          else if (type == WMO)
               {

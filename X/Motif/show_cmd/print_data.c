@@ -42,6 +42,7 @@ DESCR__E_M3
 
 #include <stdio.h>               /* sprintf()                            */
 #include <string.h>              /* strcpy(), strcat(), strerror()       */
+#include <stdlib.h>              /* exit()                               */
 #include <unistd.h>              /* write(), close()                     */
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>                   /* memcpy()                        */
 #include <stdarg.h>                   /* va_start(), va_end()            */
-#include <time.h>                     /* time(), gmtime()                */
+#include <time.h>                     /* time(), localtime()             */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
 #include <fcntl.h>
@@ -106,8 +106,8 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
       }
    }
 
-   (void)time(&tvalue);
-   p_ts    = gmtime(&tvalue);
+   tvalue = time(NULL);
+   p_ts    = localtime(&tvalue);
    buf[0]  = (p_ts->tm_mday / 10) + '0';
    buf[1]  = (p_ts->tm_mday % 10) + '0';
    buf[2]  = ' ';

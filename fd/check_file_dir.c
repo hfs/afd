@@ -1,7 +1,7 @@
 /*
  *  check_file_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,16 +58,18 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int              *no_msg_queued,
-                        qb_fd,
-                        sys_log_fd;
-extern char             file_dir[],
-                        *p_work_dir;
-extern struct queue_buf *qb;
+extern int                        *no_msg_queued,
+                                  qb_fd,
+                                  sys_log_fd;
+extern char                       file_dir[],
+                                  *p_work_dir;
+extern struct queue_buf           *qb;
+extern struct msg_cache_buf       *mdb;
+extern struct filetransfer_status *fsa;
 
 /* Local function prototypes */
-static void             add_message_to_queue(char *, char);
-static int              check_jobs(char, int);
+static void                       add_message_to_queue(char *, char);
+static int                        check_jobs(char, int);
 
 
 /*########################## check_file_dir() ###########################*/
@@ -360,6 +362,7 @@ add_message_to_queue(char *dir_name, char in_error_dir)
       qb[qb_pos].connect_pos = -1;
       qb[qb_pos].in_error_dir = in_error_dir;
       (*no_msg_queued)++;
+      fsa[mdb[pos].fsa_pos].jobs_queued++;
    }
 
    return;

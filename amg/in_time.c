@@ -1,6 +1,6 @@
 /*
  *  in_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   07.09.2000 H.Kiehl Created
+ **   12.05.2001 H.Kiehl Failed to see sunday. Fixed.
  **
  */
 DESCR__E_M3
@@ -52,6 +53,7 @@ DESCR__E_M3
 int
 in_time(time_t current_time, struct bd_time_entry *te)
 {
+   int       wday;
    struct tm *bd_time;     /* Broken-down time */
 
    bd_time = localtime(&current_time);
@@ -60,7 +62,16 @@ in_time(time_t current_time, struct bd_time_entry *te)
    {
       if (te->day_of_month & bit_array[bd_time->tm_mday - 1])
       {
-         if (te->day_of_week & bit_array[bd_time->tm_wday - 1])
+         /*
+          * In struct tm tm_wday is 0 for Sunday. But we use 7
+          * for Sunday.
+          */
+         wday = bd_time->tm_wday;
+         if (wday == 0)
+         {
+            wday = 7;
+         }
+         if (te->day_of_week & bit_array[wday - 1])
          {
             if (te->hour & bit_array[bd_time->tm_hour])
             {

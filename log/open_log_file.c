@@ -49,6 +49,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>               /* exit()                              */
 #include <unistd.h>               /* sleep()                             */
 #include <errno.h>
 #include "logdefs.h"

@@ -49,7 +49,7 @@ DESCR__E_M3
 
 #include <stdio.h>                    /* vsprintf(), sprintf()           */
 #include <stdarg.h>                   /* va_start(), va_end()            */
-#include <time.h>                     /* time(), strftime(), gmtime()    */
+#include <time.h>                     /* time(), strftime(), localtime() */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
 #include <errno.h>
@@ -67,12 +67,12 @@ rec(int fd, char *sign, char *fmt, ...)
    struct tm *p_ts;
 #endif
 
-   (void)time(&tvalue);
+   tvalue = time(NULL);
 #ifdef _OLD_REC
-   length = strftime(buf, MAX_LINE_LENGTH, "%d %X ", gmtime(&tvalue));
+   length = strftime(buf, MAX_LINE_LENGTH, "%d %X ", localtime(&tvalue));
    length += sprintf(&buf[length], "%s ", sign);
 #else
-   p_ts    = gmtime(&tvalue);
+   p_ts    = localtime(&tvalue);
    buf[0]  = (p_ts->tm_mday / 10) + '0';
    buf[1]  = (p_ts->tm_mday % 10) + '0';
    buf[2]  = ' ';

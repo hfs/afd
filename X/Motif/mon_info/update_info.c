@@ -45,7 +45,7 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>           /* strerror()                              */
-#include <time.h>             /* strftime(), gmtime()                    */
+#include <time.h>             /* strftime(), localtime()                 */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
@@ -110,7 +110,7 @@ Widget w;
    {
       prev.last_data_time = msa[afd_position].last_data_time;
       (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                     gmtime(&prev.last_data_time));
+                     localtime(&prev.last_data_time));
       (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, tmp_str_line);
       XmTextSetString(text_wl[2], str_line);
       flush = YES;

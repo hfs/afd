@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__E_M3
 
 #include <stdio.h>               /* sprintf(), pclose()                  */
 #include <string.h>              /* strcpy(), strcat(), strerror()       */
+#include <stdlib.h>              /* exit()                               */
 #include <unistd.h>              /* write(), close()                     */
 #include <time.h>                /* strftime()                           */
 #include <sys/types.h>
@@ -297,7 +298,7 @@ write_header(int fd)
    else if ((start_time_val > 0) && (end_time_val < 0))
         {
            length = strftime(buffer, 1024, "                                AFD OUTPUT LOG\n\n\tTime Interval : %m.%d. %H:%M",
-                             gmtime(&start_time_val));
+                             localtime(&start_time_val));
            length += sprintf(&buffer[length], " - latest entry\n\
                 File name     : %s\n\
                 File size     : %s\n\
@@ -308,7 +309,7 @@ write_header(int fd)
         else if ((start_time_val < 0) && (end_time_val > 0))
              {
                 length = strftime(buffer, 1024, "                                AFD OUTPUT LOG\n\n\tTime Interval : earliest entry - %m.%d. %H:%M",
-                                  gmtime(&end_time_val));
+                                  localtime(&end_time_val));
                 length += sprintf(&buffer[length], "\n\
                 File name     : %s\n\
                 File size     : %s\n\
@@ -319,9 +320,9 @@ write_header(int fd)
              else
              {
                 length = strftime(buffer, 1024, "                                AFD OUTPUT LOG\n\n\tTime Interval : %m.%d. %H:%M",
-                                  gmtime(&start_time_val));
+                                  localtime(&start_time_val));
                 length += strftime(&buffer[length], 1024 - length, " - %m.%d. %H:%M",
-                                   gmtime(&end_time_val));
+                                   localtime(&end_time_val));
                 length += sprintf(&buffer[length], "\n\
                 File name     : %s\n\
                 File size     : %s\n\
@@ -374,6 +375,19 @@ write_header(int fd)
          length += sprintf(&buffer[length], ", %s", FILE_ID_STR);
       }
    }
+#ifdef _WITH_SCP1_SUPPORT
+   if (toggles_set & SHOW_SCP1)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "                Protocol      : SCP1");
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", SCP1");
+      }
+   }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    if (toggles_set & SHOW_WMO)
    {

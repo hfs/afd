@@ -43,6 +43,7 @@ DESCR__E_M1
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>                 /* exit()                            */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>                  /* open()                            */

@@ -136,40 +136,56 @@ save_files(char                   *src_path,
             (void)strcpy(p_src, file_name_pool[i]);
             (void)strcpy(p_dest, file_name_pool[i]);
 
-            if (link_flag & YES)
+            if (link_flag & IN_SAME_FILESYSTEM)
             {
-               if (link(src_path, dest_path) == -1)
+               if (p_de->flag & RENAME_ONE_JOB_ONLY)
                {
-                  if (errno == EEXIST)
+                  if (rename(src_path, dest_path) == -1)
                   {
-                     /*
-                      * A file with the same name already exists. Remove
-                      * this file and try to link again.
-                      */
-                     if (unlink(dest_path) == -1)
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "Failed to rename() file %s to %s (%s %d)\n",
+                               src_path, dest_path, __FILE__, __LINE__);
+                     errno = 0;
+                  }
+               }
+               else
+               {
+                  if (link(src_path, dest_path) == -1)
+                  {
+                     if (errno == EEXIST)
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to unlink() file %s : %s (%s %d)\n",
-                                  dest_path, strerror(errno), __FILE__, __LINE__);
-                        errno = 0;
+                        /*
+                         * A file with the same name already exists. Remove
+                         * this file and try to link again.
+                         */
+                        if (unlink(dest_path) == -1)
+                        {
+                           (void)rec(sys_log_fd, WARN_SIGN,
+                                     "Failed to unlink() file %s : %s (%s %d)\n",
+                                     dest_path, strerror(errno),
+                                     __FILE__, __LINE__);
+                           errno = 0;
+                        }
+                        else
+                        {
+                           if (link(src_path, dest_path) == -1)
+                           {
+                              (void)rec(sys_log_fd, WARN_SIGN,
+                                        "Failed to link file %s to %s : %s (%s %d)\n",
+                                        src_path, dest_path, strerror(errno),
+                                        __FILE__, __LINE__);
+                              errno = 0;
+                           }
+                        }
                      }
                      else
                      {
-                        if (link(src_path, dest_path) == -1)
-                        {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to link file %s to %s : %s (%s %d)\n",
-                                     src_path, dest_path, strerror(errno), __FILE__, __LINE__);
-                           errno = 0;
-                        }
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Failed to link file %s to %s : %s (%s %d)\n",
+                                  src_path, dest_path, strerror(errno),
+                                  __FILE__, __LINE__);
+                        errno = 0;
                      }
-                  }
-                  else
-                  {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to link file %s to %s : %s (%s %d)\n",
-                               src_path, dest_path, strerror(errno), __FILE__, __LINE__);
-                     errno = 0;
                   }
                }
             }
@@ -181,6 +197,20 @@ save_files(char                   *src_path,
                             "Failed to copy file %s to %s (%s %d)\n",
                             src_path, dest_path, __FILE__, __LINE__);
                   errno = 0;
+               }
+               else
+               {
+                  if (p_de->flag & RENAME_ONE_JOB_ONLY)
+                  {
+                     if (unlink(src_path) == -1)
+                     {
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Failed to unlink() file %s : %s (%s %d)\n",
+                                  src_path, strerror(errno),
+                                  __FILE__, __LINE__);
+                        errno = 0;
+                     }
+                  }
                }
             }
 

@@ -179,7 +179,7 @@ static void   display_data(int, time_t, time_t),
            {                                                \
               first_date_found = time_when_transmitted;     \
            }                                                \
-           p_ts = gmtime(&time_when_transmitted);           \
+           p_ts = localtime(&time_when_transmitted);        \
            CONVERT_TIME();                                  \
         }
 #define COMMON_BLOCK()                                                      \
@@ -614,13 +614,15 @@ search_time(char   *src,
       {
          return(src + size);
       }
-      if ((search_time_val - earliest_entry) > (latest_entry - search_time_val))
+      if (abs(search_time_val - earliest_entry) >
+          abs(latest_entry - search_time_val))
       {
          /* Start search from end. */
          bs_ptr = src + size - 2;
          do
          {
             ptr = bs_ptr;
+            ptr -= 11 + 1;
             while (*ptr != '\n')
             {
                ptr--;
@@ -628,31 +630,31 @@ search_time(char   *src,
             bs_ptr = ptr - 1;
             ptr++;
             GET_TIME();
-         } while (time_val >= search_time_val);
+         } while ((time_val >= search_time_val) && (ptr > src));
          while (*ptr != '\n')
          {
             ptr++;
          }
-         return(ptr + 1);
       }
       else /* Start search from beginning. */
       {
          ptr = src;
          do
          {
+            ptr += 11 + 1;
             while (*ptr != '\n')
             {
                ptr++;
             }
             ptr++;
             GET_TIME();
-         } while (time_val < search_time_val);
+         } while ((time_val < search_time_val) && (ptr < (src + size)));
          while (*ptr != '\n')
          {
             ptr--;
          }
-         return(ptr + 1);
       }
+      return(ptr + 1);
    }
 }
 
@@ -1089,7 +1091,7 @@ file_size_only(register char *ptr,
          {
             first_date_found = time_when_transmitted;
          }
-         p_ts = gmtime(&time_when_transmitted);
+         p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          j = 0;
          while ((*ptr != ' ') && (j < file_name_length))
@@ -1810,7 +1812,7 @@ file_size_and_recipient(register char *ptr,
          {
             first_date_found = time_when_transmitted;
          }
-         p_ts = gmtime(&time_when_transmitted);
+         p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          j = 0;
          while ((*ptr != ' ') && (j < file_name_length))

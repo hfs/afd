@@ -1,6 +1,6 @@
 /*
  *  afd_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ DESCR__E_M1
 #include <stdio.h>               /* fopen(), NULL                        */
 #include <string.h>              /* strcpy(), strcat(), strcmp()         */
 #include <ctype.h>               /* toupper()                            */
-#include <time.h>                /* strftime(), gmtime()                 */
+#include <time.h>                /* strftime(), localtime()              */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <dirent.h>
@@ -340,12 +340,15 @@ main(int argc, char *argv[])
    }
    prev.host_file_time = stat_buf.st_mtime;
    if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT
-       (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+       (fsa[host_position].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
        (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_MAP_SUPPORT
+       (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
        (fsa[host_position].protocol & SMTP_FLAG))
    {
       get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
@@ -361,7 +364,7 @@ main(int argc, char *argv[])
    (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.files_send);
    XmTextSetString(text_wl[2], str_line);
    (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                  gmtime(&prev.last_connection));
+                  localtime(&prev.last_connection));
    (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
    XmTextSetString(text_wl[3], str_line);
    (void)sprintf(str_line, "%*u", AFD_INFO_LENGTH, prev.total_errors);
@@ -481,12 +484,15 @@ main(int argc, char *argv[])
    if (prev.toggle_pos != 0)
    {
       if ((fsa[host_position].protocol & FTP_FLAG) ||
-#ifdef _WITH_MAP_SUPPORT
-          (fsa[host_position].protocol & MAP_FLAG) ||
-#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+          (fsa[host_position].protocol & SCP1_FLAG) ||
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
           (fsa[host_position].protocol & WMO_FLAG) ||
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_MAP_SUPPORT
+          (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
           (fsa[host_position].protocol & SMTP_FLAG))
       {
          get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
@@ -520,16 +526,22 @@ main(int argc, char *argv[])
    {
       length += sprintf(&protocol_label_str[length], "SMTP ");
    }
-#ifdef _WITH_MAP_SUPPORT
-   if (fsa[host_position].protocol & MAP_FLAG)
+#ifdef _WITH_SCP1_SUPPORT
+   if (fsa[host_position].protocol & SCP1_FLAG)
    {
-      length += sprintf(&protocol_label_str[length], "MAP ");
+      length += sprintf(&protocol_label_str[length], "SCP1 ");
    }
-#endif
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    if (fsa[host_position].protocol & WMO_FLAG)
    {
       length += sprintf(&protocol_label_str[length], "WMO ");
+   }
+#endif
+#ifdef _WITH_MAP_SUPPORT
+   if (fsa[host_position].protocol & MAP_FLAG)
+   {
+      length += sprintf(&protocol_label_str[length], "MAP ");
    }
 #endif
    protocol_label = XtVaCreateManagedWidget(protocol_label_str,

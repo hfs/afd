@@ -203,6 +203,19 @@ static time_t              now;
            }                                                  \
         }
 #endif
+#define ABS_REDUCE(value)                                               \
+        {                                                               \
+           unsigned int tmp_value;                                      \
+                                                                        \
+           tmp_value = (value);                                         \
+           (value) = (value) - 1;                                       \
+           if ((value) > tmp_value)                                     \
+           {                                                            \
+              (void)rec(sys_log_fd, DEBUG_SIGN, "Ovwerflow! (%s %d)\n", \
+                        __FILE__, __LINE__);                            \
+              (value) = 0;                                              \
+           }                                                            \
+        }
 #ifdef FTX
 #define WAIT_LOOPS 100
 #else
@@ -249,6 +262,10 @@ main(int argc, char *argv[])
                      *fifo_buffer,
                      *msg_buffer,
                      *msg_priority,
+#ifdef _WITH_BURST_2
+                     more_data_fifo[MAX_PATH_LENGTH],
+                     *p_more_data,
+#endif /* _WITH_BURST_2 */
                      work_dir[MAX_PATH_LENGTH],
                      sys_log_fifo[MAX_PATH_LENGTH];
    fd_set            rset;
@@ -278,6 +295,8 @@ main(int argc, char *argv[])
          (void)fprintf(stderr,
                        "Process FD already started by %s : (%s %d)\n",
                        ptr, __FILE__, __LINE__);
+	 system_log(ERROR_SIGN, __FILE__, __LINE__,
+	            "Process FD already started by %s", ptr);
          exit(INCORRECT);
       }
    }
@@ -287,6 +306,11 @@ main(int argc, char *argv[])
    (void)strcat(sys_log_fifo, FIFO_DIR);
    (void)strcpy(current_msg_list_file, sys_log_fifo);
    (void)strcat(current_msg_list_file, CURRENT_MSG_LIST_FILE);
+#ifdef _WITH_BURST_2
+   (void)strcpy(more_data_fifo, sys_log_fifo);
+   (void)strcat(more_data_fifo, MORE_DATA_FIFO);
+   p_more_data = more_data_fifo + strlen(more_data_fifo);
+#endif /* _WITH_BURST_2 */
    (void)strcpy(msg_cache_file, sys_log_fifo);
    (void)strcat(msg_cache_file, MSG_CACHE_FILE);
    (void)strcpy(msg_queue_file, sys_log_fifo);
@@ -589,6 +613,7 @@ main(int argc, char *argv[])
                                                 WNOHANG)) == YES)
                      {
                         qb[qb_pos].pid = PENDING;
+                        fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
                         if (qb[qb_pos].msg_name[0] != '\0')
                         {
                            if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
@@ -614,6 +639,7 @@ main(int argc, char *argv[])
                           }
                      else if (faulty == NONE)
                           {
+                             fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
                              qb[qb_pos].pid = PENDING;
                           }
 
@@ -649,6 +675,25 @@ main(int argc, char *argv[])
           * we have last checked.
           */
          check_msg_time();
+
+         /*
+          * Check jobs_queued counter in the FSA is still correct. If not
+          * reset it to the correct value.
+          */
+         if (*no_msg_queued == 0)
+         {
+            for (i = 0; i < no_of_hosts; i++)
+            {
+               if (fsa[i].jobs_queued != 0)
+               {
+                  (void)rec(sys_log_fd, DEBUG_SIGN,
+                            "Jobs queued for %s is %u and not zero. Reset to zero. (%s %d)\n",
+                            fsa[i].host_dsp_name, fsa[i].jobs_queued,
+                            __FILE__, __LINE__);
+                  fsa[i].jobs_queued = 0;
+               }
+            }
+         }
 
          abnormal_term_check_time = ((now / 45) * 45) + 45;
       }
@@ -697,6 +742,7 @@ main(int argc, char *argv[])
                qb[qb_pos].connect_pos = -1;
                qb[qb_pos].in_error_dir = NO;
                (*no_msg_queued)++;
+               fsa[fra[retrieve_list[i]].fsa_pos].jobs_queued++;
                fra[retrieve_list[i]].queued = YES;
 
                if ((fsa[fra[retrieve_list[i]].fsa_pos].error_counter == 0) &&
@@ -883,45 +929,153 @@ main(int argc, char *argv[])
                        faulty = NO,
                        qb_pos;
                  pid_t pid;
+#ifdef _WITH_BURST_2
+                 int   start_new_process;
+#endif /* _WITH_BURST_2 */
 
                  now = time(NULL);
 
                  do
                  {
                     pid = *(pid_t *)&fifo_buffer[bytes_done];
+#ifdef _WITH_BURST_2
+                    if (pid < 0)
+                    {
+                       pid = -pid;
+                       start_new_process = NO;
+                    }
+                    else
+                    {
+                       start_new_process = YES;
+                    }
+#endif /* _WITH_BURST_2 */
                     qb_pos_pid(pid, &qb_pos);
                     if (qb_pos != -1)
                     {
-                       if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
-                                                  now, &qb_pos, 0)) == YES)
+#ifdef _WITH_BURST_2
+                       /*
+                        * This process is ready to process more data.
+                        * Have a look in the queue if there is another
+                        * job pending for this host.
+                        */
+                       if (start_new_process == NO)
                        {
-                          qb[qb_pos].pid = PENDING;
-                          if (qb[qb_pos].msg_name[0] != '\0')
+                          int gotcha = NO,
+                              mdfd;
+
+                          for (i = 0; i < *no_msg_queued; i++)
                           {
-                             if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
+                             if ((qb[i].pid == PENDING) &&
+                                 (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos) &&
+				 (mdb[qb[i].pos].type == mdb[qb[qb_pos].pos].type))
                              {
-                                /* Move all jobs from this host */
-                                /* to the error directory.      */
-                                for (i = 0; i < *no_msg_queued; i++)
+                                /* Yep, there is another job pending! */
+                                gotcha = YES;
+                                break;
+                             }
+                          }
+                          (void)sprintf(p_more_data, "%d", pid);
+                          if ((mdfd = open(more_data_fifo, O_RDWR)) == -1)
+                          {
+                             (void)rec(sys_log_fd, WARN_SIGN,
+                                       "Failed to open() fifo %s : %s (%s %d)\n",
+                                       more_data_fifo, strerror(errno),
+                                       __FILE__, __LINE__);
+
+                             /*
+                              * The other process is waiting for a reply.
+                              * Lets kill it, we are not able to reply.
+                              */
+                             if (kill(pid, SIGINT) == -1)
+                             {
+                                (void)rec(sys_log_fd, ERROR_SIGN,
+                                          "Failed to kill process %d : %s (%s %d)\n",
+                                          pid, strerror(errno),
+                                          __FILE__, __LINE__);
+                             }
+                          }
+                          else
+                          {
+                             char reply_buffer[MAX_MSG_NAME_LENGTH + 1];
+
+                             /*
+                              * We need to supply the following data so that
+                              * the other process can continue:
+                              *    - if it is in the error directory
+                              *    - the message name
+                              */
+                             if (gotcha == NO)
+                             {
+                                reply_buffer[1] = '\0';
+                             }
+                             else
+                             {
+                                reply_buffer[0] = qb[i].in_error_dir;
+                                (void)memcpy(&reply_buffer[1], qb[i].msg_name, MAX_MSG_NAME_LENGTH);
+                             }
+                             if (write(mdfd, reply_buffer,
+                                       MAX_MSG_NAME_LENGTH + 1) != (MAX_MSG_NAME_LENGTH + 1))
+                             {
+                                (void)rec(sys_log_fd, ERROR_SIGN,
+                                          "write() error : %s (%s %d)\n",
+                                          strerror(errno), __FILE__, __LINE__);
+                             }
+                             else
+                             {
+                                if (gotcha == YES)
                                 {
-                                   if ((qb[i].in_error_dir != YES) &&
-                                       (qb[i].pid == PENDING) &&
-                                       (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                                   qb[i].pid = pid;
+				   qb[i].connect_pos = qb[qb_pos].connect_pos;
+                                   ABS_REDUCE(fsa[mdb[qb[i].pos].fsa_pos].jobs_queued);
+                                   remove_msg(qb_pos);
+                                }
+                             }
+                             if (close(mdfd) == -1)
+                             {
+                                (void)rec(sys_log_fd, DEBUG_SIGN,
+                                          "close() error : %s (%s %d)\n",
+                                          strerror(errno), __FILE__, __LINE__);
+                             }
+                          }
+                       }
+                       else
+                       {
+#endif /* _WITH_BURST_2 */
+                          if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
+                                                     now, &qb_pos, 0)) == YES)
+                          {
+                             qb[qb_pos].pid = PENDING;
+                             fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
+                             if (qb[qb_pos].msg_name[0] != '\0')
+                             {
+                                if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
+                                {
+                                   /* Move all jobs from this host */
+                                   /* to the error directory.      */
+                                   for (i = 0; i < *no_msg_queued; i++)
                                    {
-                                      to_error_dir(i);
+                                      if ((qb[i].in_error_dir != YES) &&
+                                          (qb[i].pid == PENDING) &&
+                                          (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                                      {
+                                         to_error_dir(i);
+                                      }
                                    }
                                 }
                              }
                           }
+                          else if (faulty == NO)
+                               {
+                                  remove_msg(qb_pos);
+                               }
+                          else if (faulty == NONE)
+                               {
+                                  fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
+                                  qb[qb_pos].pid = PENDING;
+                               }
+#ifdef _WITH_BURST_2
                        }
-                       else if (faulty == NO)
-                            {
-                               remove_msg(qb_pos);
-                            }
-                       else if (faulty == NONE)
-                            {
-                               qb[qb_pos].pid = PENDING;
-                            }
+#endif /* _WITH_BURST_2 */
                     }
                     bytes_done += sizeof(pid_t);
                  } while (n > bytes_done);
@@ -1081,6 +1235,7 @@ main(int argc, char *argv[])
                        qb[qb_pos].connect_pos = -1;
                        qb[qb_pos].in_error_dir = NO;
                        (*no_msg_queued)++;
+                       fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
 
                        if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter > 0)
                        {
@@ -1253,6 +1408,7 @@ main(int argc, char *argv[])
                        fsa[fsa_pos].total_file_size = 0;
                        fsa[fsa_pos].active_transfers = 0;
                        fsa[fsa_pos].error_counter = 0;
+                       fsa[fsa_pos].jobs_queued = 0;
                        for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
                        {
                           fsa[fsa_pos].job_status[j].no_of_files = 0;
@@ -1348,6 +1504,7 @@ main(int argc, char *argv[])
 #endif
                           *ptr = '\0';
 
+                          ABS_REDUCE(fsa[mdb[qb[i].pos].fsa_pos].jobs_queued);
                           remove_msg(i);
                           break;
                        }
@@ -1437,6 +1594,8 @@ main(int argc, char *argv[])
 static pid_t
 start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
 {
+   pid_t pid = PENDING;
+
 #ifdef _AGE_LIMIT
    if ((qb[qb_pos].msg_name[0] != '\0') &&
        (mdb[qb[qb_pos].pos].age_limit > 0) &&
@@ -1460,14 +1619,12 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
 #else
       remove_files(del_dir, fsa_pos);
 #endif
-
-      return(REMOVED);
+      ABS_REDUCE(fsa[fsa_pos].jobs_queued);
+      pid = REMOVED;
    }
    else
 #endif /* _AGE_LIMIT */
    {
-      pid_t pid = PENDING;
-
       if (((fsa[fsa_pos].host_status & STOP_TRANSFER_STAT) == 0) &&
           ((fsa[fsa_pos].error_counter == 0) || (retry == YES) ||
            ((fsa[fsa_pos].active_transfers == 0) &&
@@ -1558,6 +1715,7 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                      (void)strcpy(connection[pos].hostname, fsa[fsa_pos].host_alias);
                      pid = fsa[fsa_pos].job_status[connection[pos].job_no].proc_id = connection[pos].pid;
                      fsa[fsa_pos].active_transfers += 1;
+                     ABS_REDUCE(fsa[fsa_pos].jobs_queued);
                      if (fsa[fsa_pos].error_counter > 0)
                      {
                         fsa[fsa_pos].special_flag |= ERROR_FILE_UNDER_PROCESS;
@@ -1612,13 +1770,14 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                                  file_dir,
                                  limit) == YES)
                  {
+                    ABS_REDUCE(fsa[fsa_pos].jobs_queued);
                     pid = REMOVED;
                  }
               }
 #endif /* _BURST_MODE */
       }
-      return(pid);
    }
+   return(pid);
 }
 
 
@@ -1646,6 +1805,12 @@ make_process(struct connection *con)
         {
            (void)strcpy(progname, SEND_FILE_LOC);
         }
+#ifdef _WITH_SCP1_SUPPORT
+   else if (con->protocol == SCP1)
+        {
+           (void)strcpy(progname, SEND_FILE_SCP1);
+        }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    else if (con->protocol == WMO)
         {
@@ -2648,6 +2813,7 @@ fd_exit(void)
                                        WNOHANG)) == YES)
             {
                qb[qb_pos].pid = PENDING;
+               fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
                if (qb[qb_pos].msg_name[0] != '\0')
                {
                   if (fsa[connection[i].fsa_pos].error_counter == 1)
@@ -2673,6 +2839,7 @@ fd_exit(void)
                  }
             else if (faulty == NONE)
                  {
+                    fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
                     qb[qb_pos].pid = PENDING;
                  }
          }

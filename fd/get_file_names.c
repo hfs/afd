@@ -243,6 +243,14 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                                                   "%s >%ld",
                                                   SEND_FILE_LOC, diff_time);
                     }
+#ifdef _WITH_SCP1_SUPPORT
+              else if (db.protocol & SCP1_FLAG)
+                   {
+                       prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+                                                  "%s >%ld",
+                                                  SEND_FILE_SCP1, diff_time);
+                   }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
               else if (db.protocol & WMO_FLAG)
                    {

@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,7 +44,6 @@ DESCR__S_M3
  **                             - directory
  **                             - send as email
  **                             - lock type
- **                             - notify recipient
  **                             - archive time
  **                             - trans_rename_rule
  **                             - user_rename_rule
@@ -77,6 +76,9 @@ DESCR__E_M3
 #include <ctype.h>                /* isascii()                           */
 #include <sys/types.h>
 #include <sys/stat.h>             /* fstat()                             */
+#ifndef _NO_MMAP
+#include <sys/mman.h>             /* mmap(), munmap()                    */
+#endif
 #include <grp.h>                  /* getgrnam()                          */
 #include <pwd.h>                  /* getpwnam()                          */
 #include <unistd.h>               /* read(), close(), setuid()           */
@@ -118,6 +120,10 @@ extern int sys_log_fd,
 #define RADAR_FLAG                2097152
 #endif /* _RADAR_CHECK */
 #define CHANGE_FTP_MODE_FLAG      4194304
+#define ATTACH_ALL_FILES_FLAG     8388608
+#ifdef _WITH_TRANS_EXEC
+#define TRANS_EXEC_FLAG           16777216
+#endif /* _WITH_TRANS_EXEC */
 
 
 /*############################ eval_message() ###########################*/
@@ -159,19 +165,36 @@ eval_message(char *message_name, struct job *p_db)
       exit(INCORRECT);
    }
 
+#ifdef _NO_MMAP
    /* Read message in one hunk. */
-   if ((n = read(fd, msg_buf, stat_buf.st_size)) < stat_buf.st_size)
+   if (read(fd, msg_buf, stat_buf.st_size) != stat_buf.st_size)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to read() %s : %s", message_name, strerror(errno));
       exit(INCORRECT);
    }
+#else
+   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+                   MAP_SHARED, fd, 0)) == (caddr_t) -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to mmap() to %s : %s", message_name, strerror(errno));
+      exit(INCORRECT);
+   }
+   (void)memcpy(msg_buf, ptr, stat_buf.st_size);
+   if (munmap(ptr, stat_buf.st_size) == -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to munmap() %s : %s", message_name, strerror(errno));
+      exit(INCORRECT);
+   }
+#endif
    if (close(fd) == -1)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "close() error : %s", strerror(errno));
    }
-   msg_buf[n] = '\0';
+   msg_buf[stat_buf.st_size] = '\0';
 
    /*
     * First let's evaluate the recipient.
@@ -366,8 +389,6 @@ eval_message(char *message_name, struct job *p_db)
                     ptr += CHMOD_ID_LENGTH;
                     if (p_db->protocol & LOC_FLAG)
                     {
-                       int chmod_length;
-
                        while ((*ptr == ' ') || (*ptr == '\t'))
                        {
                           ptr++;
@@ -378,13 +399,13 @@ eval_message(char *message_name, struct job *p_db)
                        {
                           end_ptr++;
                        }
-                       chmod_length = end_ptr - ptr;
-                       if ((chmod_length == 3) || (chmod_length == 4))
+                       n = end_ptr - ptr;
+                       if ((n == 3) || (n == 4))
                        {
                           int error_flag = NO;
 
                           p_db->chmod = 0;
-                          if (chmod_length == 4)
+                          if (n == 4)
                           {
                              if (*ptr == '7')
                              {
@@ -1183,6 +1204,7 @@ eval_message(char *message_name, struct job *p_db)
                                      "Missing/incorrect DestEnvId. Ignoring option %s.",
                                      EUMETSAT_HEADER_ID);
                           free(p_db->special_ptr);
+                          p_db->special_ptr = NULL;
                        }
                        else
                        {
@@ -1196,6 +1218,7 @@ eval_message(char *message_name, struct job *p_db)
                                         "DestEnvId to large (%d). Ignoring option %s.",
                                         number, EUMETSAT_HEADER_ID);
                              free(p_db->special_ptr);
+                             p_db->special_ptr = NULL;
                           }
                           else
                           {
@@ -1299,6 +1322,101 @@ eval_message(char *message_name, struct job *p_db)
                        ptr++;
                     }
                  }
+            else if (((used & ATTACH_ALL_FILES_FLAG) == 0) &&
+                     (strncmp(ptr, ATTACH_ALL_FILES_ID, ATTACH_ALL_FILES_ID_LENGTH) == 0))
+                 {
+                    used |= ATTACH_ALL_FILES_FLAG;
+                    used |= ATTACH_FILE_FLAG;
+                    ptr += ATTACH_ALL_FILES_ID_LENGTH;
+                    if (p_db->protocol & SMTP_FLAG)
+                    {
+                       p_db->special_flag |= ATTACH_FILE;
+                       p_db->special_flag |= ATTACH_ALL_FILES;
+
+                       while ((*ptr == ' ') && (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       if ((*ptr != '\n') && (*ptr != '\0'))
+                       {
+                          int n = 0;
+
+                          while ((*ptr != '\n') && (*ptr != '\0') &&
+                                 (n < MAX_RULE_HEADER_LENGTH))
+                          {
+                            p_db->trans_rename_rule[n] = *ptr;
+                            ptr++; n++;
+                          }
+                          p_db->trans_rename_rule[n] = '\0';
+                          if (n == MAX_RULE_HEADER_LENGTH)
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Rule header for trans_rename option %s to long. #%d",
+                                        p_db->trans_rename_rule, p_db->job_id);
+                          }
+                          else if (n == 0)
+                               {
+                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "No rule header specified in message %d.",
+                                             p_db->job_id);
+                               }
+                       }
+                    }
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+#ifdef _WITH_TRANS_EXEC
+            else if (((used & TRANS_EXEC_FLAG) == 0) &&
+                     (strncmp(ptr, TRANS_EXEC_ID, TRANS_EXEC_ID_LENGTH) == 0))
+                 {
+                    int length = 0;
+                    used |= TRANS_EXEC_FLAG;
+
+                    ptr += TRANS_EXEC_ID_LENGTH;
+                    while ((*ptr == ' ') || (*ptr == '\t'))
+                    {
+                       ptr++;
+                    }
+                    end_ptr = ptr;
+                    while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                    {
+                      end_ptr++;
+                      length++;
+                    }
+                    if (length > 0)
+                    {
+                       p_db->special_flag |= TRANS_EXEC;
+                       byte_buf = *end_ptr;
+                       *end_ptr = '\0';
+                       if ((p_db->trans_exec_cmd = malloc(length + 1)) == NULL)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Failed to malloc() memory, will ignore %s option : %s",
+                                     TRANS_EXEC_ID, strerror(errno));
+                       }
+                       else
+                       {
+                          (void)strcpy(p_db->trans_exec_cmd, ptr);
+                       }
+                       *end_ptr = byte_buf;
+                    }
+                    ptr = end_ptr;
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+#endif /* _WITH_TRANS_EXEC */
                  else
                  {
                     /* Ignore this option */

@@ -44,7 +44,8 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>           /* strerror()                              */
-#include <time.h>             /* strftime(), gmtime()                    */
+#include <stdlib.h>           /* exit()                                  */
+#include <time.h>             /* strftime(), localtime()                 */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -294,7 +295,7 @@ Widget w;
    {
       prev.last_retrieval = fra[dir_position].last_retrieval;
       (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                     gmtime(&prev.last_retrieval));
+                     localtime(&prev.last_retrieval));
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, tmp_str_line);
       XmTextSetString(text_wl[5], str_line);
       flush = YES;
@@ -305,7 +306,7 @@ Widget w;
       if (prev.time_option == YES)
       {
          (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                        gmtime(&prev.next_check_time));
+                        localtime(&prev.next_check_time));
          (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, tmp_str_line);
       }
       else
@@ -320,7 +321,7 @@ Widget w;
         {
            prev.next_check_time = fra[dir_position].next_check_time;
            (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                          gmtime(&prev.next_check_time));
+                          localtime(&prev.next_check_time));
            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, tmp_str_line);
            XmTextSetString(text_wr[5], str_line);
            flush = YES;

@@ -606,7 +606,7 @@ get_archive_data(int pos, int file_no)
    *(p_archive_name + i++) = '/';
 
    /* Copy the file name to the archive directory. */
-   (void)strcpy((p_archive_name + i), &buffer[0]);
+   (void)strcpy((p_archive_name + i), &buffer[11 + MAX_HOSTNAME_LENGTH + 3]);
    p_file_name = p_archive_name + i;
 
    return(SUCCESS);

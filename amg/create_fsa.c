@@ -50,6 +50,7 @@ DESCR__S_M3
  ** HISTORY
  **   22.12.1997 H.Kiehl Created
  **   05.04.2001 H.Kiehl Fill file with data before it is mapped.
+ **   18.04.2001 H.Kiehl Add version number to structure.
  **
  */
 DESCR__E_M3
@@ -488,7 +489,7 @@ create_fsa(void)
          fsa[i].host_status         = 0;
          fsa[i].error_counter       = 0;
          fsa[i].total_errors        = 0;
-         fsa[i].total_connect_time  = 0;
+         fsa[i].jobs_queued         = 0;
          fsa[i].file_counter_done   = 0;
          fsa[i].bytes_send          = 0;
          fsa[i].connections         = 0;
@@ -644,7 +645,7 @@ create_fsa(void)
             fsa[i].host_status         = old_fsa[host_pos].host_status;
             fsa[i].error_counter       = old_fsa[host_pos].error_counter;
             fsa[i].total_errors        = old_fsa[host_pos].total_errors;
-            fsa[i].total_connect_time  = old_fsa[host_pos].total_connect_time;
+            fsa[i].jobs_queued         = old_fsa[host_pos].jobs_queued;
             fsa[i].file_counter_done   = old_fsa[host_pos].file_counter_done;
             fsa[i].bytes_send          = old_fsa[host_pos].bytes_send;
             fsa[i].connections         = old_fsa[host_pos].connections;
@@ -664,12 +665,6 @@ create_fsa(void)
 
             /* Copy all job entries. */
             (void)memcpy(&fsa[i].job_status, &old_fsa[host_pos].job_status, size);
-
-            for (k = 0; k < fsa[i].allowed_transfers; k++)
-            {
-               fsa[i].job_status[k].no_of_files_done = 0;
-               fsa[i].job_status[k].file_size_done = 0L;
-            }
          }
          else /* This host is not in the old FSA, therefor it is new. */
          {
@@ -723,7 +718,7 @@ create_fsa(void)
             fsa[i].host_status        = 0;
             fsa[i].error_counter      = 0;
             fsa[i].total_errors       = 0;
-            fsa[i].total_connect_time = 0;
+            fsa[i].jobs_queued        = 0;
             fsa[i].file_counter_done  = 0;
             fsa[i].bytes_send         = 0;
             fsa[i].connections        = 0;
@@ -966,6 +961,7 @@ create_fsa(void)
    /* Reposition fsa pointer after no_of_hosts */
    ptr = (char *)fsa;
    ptr -= AFD_WORD_OFFSET;
+   *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_FSA_VERSION; /* FSA version number */
    if (fsa_size > 0)
    {
 #ifdef _NO_MMAP

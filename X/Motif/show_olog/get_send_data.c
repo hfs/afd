@@ -1,6 +1,6 @@
 /*
  *  get_send_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,6 +70,9 @@ DESCR__E_M3
 #include "show_olog.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
+#ifdef _WITH_SCP1_SUPPORT
+#include "scp1defs.h"
+#endif
 
 /* Global variables */
 Widget           log_output,
@@ -177,6 +180,12 @@ get_send_data(void)
               {
                  db->port = DEFAULT_SMTP_PORT;
               }
+#ifdef _WITH_SCP1_SUPPORT
+         else if (db->protocol == SCP1)
+              {
+                 db->port = DEFAULT_SSH_PORT;
+              }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
          else if (db->protocol == WMO)
               {
@@ -367,6 +376,13 @@ get_send_data(void)
                                        pane_w, args, argcount);
       XtAddCallback(button_w, XmNactivateCallback, send_toggled,
                     (XtPointer)SMTP);
+#ifdef _WITH_SCP1_SUPPORT
+      button_w = XtCreateManagedWidget("SCP1",
+                                       xmPushButtonWidgetClass,
+                                       pane_w, args, argcount);
+      XtAddCallback(button_w, XmNactivateCallback, send_toggled,
+                    (XtPointer)SCP1);
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
       button_w = XtCreateManagedWidget("WMO",
                                        xmPushButtonWidgetClass,
@@ -1095,6 +1111,33 @@ send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(lock_box_w, True);
          XtSetSensitive(prefix_w, True);
          break;
+#ifdef _WITH_SCP1_SUPPORT
+      case SCP1 :
+         XtSetSensitive(user_name_label_w, True);
+         XtSetSensitive(user_name_w, True);
+         XtSetSensitive(password_label_w, True);
+         XtSetSensitive(password_w, True);
+         XtSetSensitive(hostname_label_w, True);
+         XtSetSensitive(hostname_w, True);
+         XtSetSensitive(target_dir_label_w, True);
+         XtSetSensitive(target_dir_w, True);
+         XtSetSensitive(port_label_w, True);
+         XtSetSensitive(port_w, True);
+         XtSetSensitive(timeout_label_w, True);
+         XtSetSensitive(timeout_w, True);
+         XtSetSensitive(mode_box_w, False);
+         XtSetSensitive(lock_box_w, True);
+         XtSetSensitive(prefix_w, True);
+         if ((db->port == 0) || (db->protocol != SCP1))
+         {
+            char str_line[MAX_PORT_DIGITS + 1];
+
+            db->port = DEFAULT_SSH_PORT;
+            (void)sprintf(str_line, "%*d", MAX_PORT_DIGITS, db->port);
+            XmTextSetString(port_w, str_line);
+         }
+         break;
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
       case WMO :
          XtSetSensitive(user_name_label_w, False);
@@ -1345,6 +1388,9 @@ transmit_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       case FTP :
       case SMTP :
+#ifdef _WITH_SCP1_SUPPORT
+      case SCP1 :
+#endif
          if (db->user[0] == '\0')
          {
             show_message(send_statusbox_w, "No user name given!");

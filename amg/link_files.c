@@ -1,6 +1,6 @@
 /*
  *  link_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ DESCR__S_M3
  **   19.06.1997 H.Kiehl Copy file when exec option is set.
  **   18.10.1997 H.Kiehl Introduced inverse filtering.
  **   26.10.1997 H.Kiehl If disk is full do not give up.
+ **   16.04.2001 H.Kiehl Buffer the file names we link.
  **
  */
 DESCR__E_M3
@@ -64,6 +65,9 @@ DESCR__E_M3
 #include <stdio.h>                 /* sprintf()                          */
 #include <string.h>                /* strcpy(), strlen(), strerror()     */
 #include <time.h>                  /* time()                             */
+#ifndef _WITH_PTHREAD
+#include <stdlib.h>                /* realloc()                          */
+#endif
 #include <sys/types.h>
 #include <unistd.h>                /* link()                             */
 #include <errno.h>
@@ -74,7 +78,8 @@ extern int   counter_fd,
              sys_log_fd;
 #ifndef _WITH_PTHREAD
 extern off_t *file_size_pool;
-extern char  **file_name_pool;
+extern char  *file_name_buffer,
+             **file_name_pool;
 #endif
 
 
@@ -96,7 +101,7 @@ link_files(char                   *src_file_path,
            off_t                  *file_size_linked)
 {
    int          files_linked = 0,
-                ret;
+                retstat;
    register int i,
                 j;
    char         *p_src = NULL,
@@ -109,7 +114,8 @@ link_files(char                   *src_file_path,
    {
       for (j = 0; j < p_de->fme[pos_in_fm].nfm; j++)
       {
-         if ((ret = pmatch(p_de->fme[pos_in_fm].file_mask[j], file_name_pool[i])) == 0)
+         if ((retstat = pmatch(p_de->fme[pos_in_fm].file_mask[j],
+                               file_name_pool[i])) == 0)
          {
             /* Only create a unique name and the corresponding */
             /* directory when we have found a file that is to  */
@@ -170,65 +176,90 @@ link_files(char                   *src_file_path,
             (void)strcpy(p_src, file_name_pool[i]);
             (void)strcpy(p_dest, file_name_pool[i]);
 
-            /* link/copy the file */
-            if (p_db->lfs & DO_NOT_LINK_FILES)
+            /* rename/link/copy the file */
+            if (p_de->flag & RENAME_ONE_JOB_ONLY)
             {
-               if (copy_file(src_file_path, dest_file_path) < 0)
+               if ((retstat = rename(src_file_path, dest_file_path)) == -1)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to copy file %s to %s (%s %d)\n",
-                            src_file_path, dest_file_path, __FILE__, __LINE__);
-               }
-               else
-               {
-                  files_linked++;
-                  *file_size_linked += file_size_pool[i];
+                            "Failed to rename() file %s to %s : %s (%s %d)\n",
+                            src_file_path, dest_file_path, strerror(errno),
+                            __FILE__, __LINE__);
                }
             }
-            else
+            else if (p_db->lfs & DO_NOT_LINK_FILES)
+                 {
+                    if ((retstat = copy_file(src_file_path, dest_file_path)) < 0)
+                    {
+                       (void)rec(sys_log_fd, WARN_SIGN,
+                                 "Failed to copy file %s to %s (%s %d)\n",
+                                 src_file_path, dest_file_path, __FILE__, __LINE__);
+                    }
+                 }
+                 else /* Just link() the files. */
+                 {
+                    if ((retstat = link(src_file_path, dest_file_path)) == -1)
+                    {
+                       if (errno == ENOSPC)
+                       {
+                          (void)rec(sys_log_fd, ERROR_SIGN,
+                                    "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
+                                    DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
+
+                          while (errno == ENOSPC)
+                          {
+                             (void)sleep(DISK_FULL_RESCAN_TIME);
+                             errno = 0;
+                             if (link(src_file_path, dest_file_path) < 0)
+                             {
+                                if (errno != ENOSPC)
+                                {
+                                   (void)rec(sys_log_fd, WARN_SIGN,
+                                             "Failed to link file %s to %s : %s (%s %d)\n",
+                                             src_file_path, dest_file_path,
+                                             strerror(errno), __FILE__, __LINE__);
+                                   break;
+                                }
+                             }
+                          }
+
+                          (void)rec(sys_log_fd, INFO_SIGN,
+                                    "Continuing after disk was full. (%s %d)\n",
+                                    __FILE__, __LINE__);
+                       }
+                       else
+                       {
+                          (void)rec(sys_log_fd, WARN_SIGN,
+                                    "Failed to link file %s to %s : %s (%s %d)\n",
+                                    src_file_path, dest_file_path,
+                                    strerror(errno), __FILE__, __LINE__);
+                       }
+                    }
+                 }
+
+            if (retstat != -1)
             {
-               if (link(src_file_path, dest_file_path) == -1)
+#ifndef _WITH_PTHREAD
+               if ((files_linked % 10) == 0)
                {
-                  if (errno == ENOSPC)
-                  {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
-                               DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
+                  size_t new_size;
 
-                     while (errno == ENOSPC)
-                     {
-                        (void)sleep(DISK_FULL_RESCAN_TIME);
-                        errno = 0;
-                        if (link(src_file_path, dest_file_path) < 0)
-                        {
-                           if (errno != ENOSPC)
-                           {
-                              (void)rec(sys_log_fd, WARN_SIGN,
-                                        "Failed to link file %s to %s : %s (%s %d)\n",
-                                        src_file_path, dest_file_path,
-                                        strerror(errno), __FILE__, __LINE__);
-                              break;
-                           }
-                        }
-                     }
+                  /* Calculate new size of file name buffer */
+                  new_size = ((files_linked / 10) + 1) * 10 * MAX_FILENAME_LENGTH;
 
-                     (void)rec(sys_log_fd, INFO_SIGN,
-                               "Continuing after disk was full. (%s %d)\n",
-                               __FILE__, __LINE__);
-                  }
-                  else
+                  /* Increase the space for the file name buffer */
+                  if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to link file %s to %s : %s (%s %d)\n",
-                               src_file_path, dest_file_path,
+                     (void)rec(sys_log_fd, FATAL_SIGN,
+                               "Could not realloc() memory : %s (%s %d)\n",
                                strerror(errno), __FILE__, __LINE__);
+                     exit(INCORRECT);
                   }
                }
-               else
-               {
-                  files_linked++;
-                  *file_size_linked += file_size_pool[i];
-               }
+               (void)strcpy((file_name_buffer + (files_linked * MAX_FILENAME_LENGTH)), file_name_pool[i]);
+#endif /* !_WITH_PTHREAD */
+               files_linked++;
+               *file_size_linked += file_size_pool[i];
             }
 
             /*
@@ -237,7 +268,7 @@ link_files(char                   *src_file_path,
              */
             break;
          }
-         else if (ret == 1)
+         else if (retstat == 1)
               {
                  /*
                   * This file is definitely NOT wanted, no matter what the

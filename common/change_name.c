@@ -367,7 +367,7 @@ change_name(char *orig_file_name,
 
                case 't' : /* insert the actual time like strftime */
 
-                  time(&time_buf);
+                  time_buf = time(NULL);
                   ptr_rule++;
                   switch (*ptr_rule)
                   {

@@ -43,6 +43,7 @@ DESCR__E_M1
 
 #include <stdio.h>              /* fprintf(), printf(), stderr           */
 #include <string.h>             /* strcpy(), strerror()                  */
+#include <stdlib.h>             /* exit()                                */
 #include <sys/types.h>
 #include <sys/stat.h>           /* stat(), S_ISDIR()                     */
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */

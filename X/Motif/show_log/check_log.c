@@ -44,6 +44,8 @@ DESCR__E_M1
 #include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <dirent.h>
 #include <X11/X.h>
 #include <X11/Xlib.h>
@@ -73,6 +75,7 @@ extern int            toggles_set,
                       no_of_hosts;
 extern unsigned int   total_length,
                       toggles_set_parallel_jobs;
+extern ino_t          current_inode_no;
 extern char           log_dir[MAX_PATH_LENGTH],
                       log_name[MAX_FILENAME_LENGTH],
                       **hosts;
@@ -99,8 +102,7 @@ Widget w;
                         cursor_counter = 1,
                         tflag = 0;
    char                 line[MAX_LINE_LENGTH + 1],
-                        str_line[MAX_LINE_COUNTER_DIGITS + 1],
-                        log_file[MAX_PATH_LENGTH];
+                        str_line[MAX_LINE_COUNTER_DIGITS + 1];
    XSetWindowAttributes attrs;
    XEvent               event;
 
@@ -198,7 +200,8 @@ Widget w;
                                 XmNmaximum,    &max_value,
                                 XmNsliderSize, &slider_size,
                                 NULL);
-                  if (((max_value - slider_size - 2) == current_value) || (first_time == YES))
+                  if (((max_value - slider_size - 2) == current_value) ||
+                       (first_time == YES))
                   {
                      XmTextShowPosition(w, wpr_position);
                   }
@@ -325,27 +328,42 @@ Widget w;
        (total_length > MAX_LOGFILE_SIZE) &&
        (current_log_number == 0))
    {
-      /* Yup, time to change the log file! */
-      if (p_log_file != NULL)
-      {
-         (void)fclose(p_log_file);
-         p_log_file = NULL;
-      }
-      (void)sprintf(log_file, "%s/%s0", log_dir, log_name);
+      char        log_file[MAX_PATH_LENGTH];
+      struct stat stat_buf;
 
-      /* Lets see if there is a new log file */
-      if ((p_log_file = fopen(log_file, "r")) != NULL)
+      /*
+       * When disk is full the process system_log/transfer_log will not
+       * be able to start a new log file. We must check if this is the
+       * case by looking at the inode number of the 'new' log file and
+       * compare this with the old one. If the inodes are the same, we
+       * know that the log process has failed to create a new log file.
+       */
+      (void)sprintf(log_file, "%s/%s0", log_dir, log_name);
+      if ((stat(log_file, &stat_buf) != -1) &&
+          (stat_buf.st_ino != current_inode_no))
       {
+         /* Yup, time to change the log file! */
+         if (p_log_file != NULL)
+         {
+            (void)fclose(p_log_file);
+            p_log_file = NULL;
+         }
+
+         /* Lets see if there is a new log file */
+         if ((p_log_file = fopen(log_file, "r")) != NULL)
+         {
 #ifdef _SLOW_COUNTER
-         old_line_counter = 0;
+            old_line_counter = 0;
 #endif
-         line_counter = 0;
-         wpr_position = 0;
-         total_length = 0;
-         XmTextSetInsertionPosition(w, wpr_position);
-         XmTextSetString(w, NULL);  /* Clears all old entries */
-         (void)sprintf(str_line, "%*d", MAX_LINE_COUNTER_DIGITS, line_counter);
-         XmTextSetString(counterbox, str_line);
+            line_counter = 0;
+            wpr_position = 0;
+            total_length = 0;
+            XmTextSetInsertionPosition(w, wpr_position);
+            XmTextSetString(w, NULL);  /* Clears all old entries */
+            (void)sprintf(str_line, "%*d", MAX_LINE_COUNTER_DIGITS, 0);
+            XmTextSetString(counterbox, str_line);
+            current_inode_no = stat_buf.st_ino;
+         }
       }
    }
 

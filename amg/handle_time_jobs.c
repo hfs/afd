@@ -66,6 +66,9 @@ extern int                        max_copied_files,
                                   *time_job_list,
                                   write_fin_fd;
 extern char                       afd_file_dir[],
+#ifndef _WITH_PTHREAD
+                                  *file_name_buffer,
+#endif
                                   fin_fifo[],
                                   time_dir[];
 extern struct dc_proc_list        *dcpl;      /* Dir Check Process List */
@@ -243,6 +246,25 @@ handle_time_dir(int time_job_no, int *no_of_process)
                }
                else
                {
+#ifndef _WITH_PTHREAD
+                  if ((files_moved % 10) == 0)
+                  {
+                     size_t new_size;
+
+                     /* Calculate new size of file name buffer */
+                     new_size = ((files_moved / 10) + 1) * 10 * MAX_FILENAME_LENGTH;
+
+                     /* Increase the space for the file name buffer */
+                     if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)
+                     {
+                        (void)rec(sys_log_fd, FATAL_SIGN,
+                                  "Could not realloc() memory : %s (%s %d)\n",
+                                  strerror(errno), __FILE__, __LINE__);
+                        exit(INCORRECT);
+                     }
+                  }
+                  (void)strcpy((file_name_buffer + (files_moved * MAX_FILENAME_LENGTH)), p_dir->d_name);
+#endif /* !_WITH_PTHREAD */
                   files_handled++;
                   files_moved++;
                   file_size_moved += stat_buf.st_size;

@@ -26,11 +26,14 @@
 #define SHOW_FTP                1
 #define SHOW_SMTP               2
 #define SHOW_FILE               4
+#ifdef _WITH_SCP1_SUPPORT
+#define SHOW_SCP1               8
+#endif
 #ifdef _WITH_WMO_SUPPORT
-#define SHOW_WMO                8
+#define SHOW_WMO                16
 #endif
 #ifdef _WITH_MAP_SUPPORT
-#define SHOW_MAP                16
+#define SHOW_MAP                32
 #endif
 
 #define LOCAL_FILENAME          8
@@ -52,6 +55,9 @@
 #define FTP_ID_STR              "FTP "
 #define SMTP_ID_STR             "SMTP"
 #define FILE_ID_STR             "FILE"
+#ifdef _WITH_SCP1_SUPPORT
+#define SCP1_ID_STR             "SCP1"
+#endif
 #ifdef _WITH_WMO_SUPPORT
 #define WMO_ID_STR              "WMO "
 #endif

@@ -310,7 +310,7 @@ main(int argc, char *argv[])
                  strerror(errno));
    }
 
-   exec_cmd(cmd);
+   xexec_cmd(cmd);
 
    /* We want the keyboard focus on the cmd output */
    XmProcessTraversal(cmd_output, XmTRAVERSE_CURRENT);

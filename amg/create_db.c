@@ -53,6 +53,8 @@ DESCR__S_M3
  **   14.08.2000 H.Kiehl File mask no longer a fixed array.
  **   04.01.2001 H.Kiehl Check for duplicate paused directories.
  **   05.04.2001 H.Kiehl Remove O_TRUNC.
+ **   25.04.2001 H.Kiehl Rename files from pool directory if there is only
+ **                      one job for this directory.
  **
  */
 DESCR__E_M3
@@ -128,6 +130,7 @@ create_db(int shmem_id)
                    k,
 #endif
                    not_in_same_file_system = 0,
+                   one_job_only_dir = 0,
                    size,
                    dir_counter = 0,
                    no_of_jobs;
@@ -237,11 +240,11 @@ create_db(int shmem_id)
    memcpy(p_ptr, ptr, size);
    p_offset = ptr + size;
 
-   de[0].nfg           = 0;
-   de[0].fme           = NULL;
-   de[0].all_flag      = NO;
-   de[0].dir           = (int)(p_ptr[0].ptr[1]) + p_offset;
-   de[0].alias         = (int)(p_ptr[0].ptr[2]) + p_offset;
+   de[0].nfg         = 0;
+   de[0].fme         = NULL;
+   de[0].flag        = 0;
+   de[0].dir         = (int)(p_ptr[0].ptr[1]) + p_offset;
+   de[0].alias       = (int)(p_ptr[0].ptr[2]) + p_offset;
    if ((de[0].fra_pos = lookup_fra_pos(de[0].alias)) == INCORRECT)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
@@ -249,9 +252,9 @@ create_db(int shmem_id)
                 de[0].alias, de[0].dir, __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   de[0].dir_no        = dnb[fra[de[0].fra_pos].dir_pos].dir_id;
-   de[0].mod_time      = -1;
-   de[0].search_time   = 0;
+   de[0].dir_no      = dnb[fra[de[0].fra_pos].dir_pos].dir_id;
+   de[0].mod_time    = -1;
+   de[0].search_time = 0;
    if (stat(de[0].dir, &stat_buf) < 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to stat() %s : %s (%s %d)\n",
@@ -261,6 +264,20 @@ create_db(int shmem_id)
       free(tmp_ptr);
       unmap_data(jd_fd, jd);
       exit(INCORRECT);
+   }
+   if (stat_buf.st_dev != ldv)
+   {
+      not_in_same_file_system++;
+   }
+   else
+   {
+      de[0].flag |= IN_SAME_FILESYSTEM;
+   }
+   if (((no_of_jobs - 1) == 0) ||
+       (de[0].dir != ((int)(p_ptr[1].ptr[1]) + p_offset)))
+   {
+      de[0].flag |= RENAME_ONE_JOB_ONLY;
+      one_job_only_dir++;
    }
 
    for (i = 0; i < no_of_jobs; i++)
@@ -293,13 +310,14 @@ create_db(int shmem_id)
          {
             (void)rec(sys_log_fd, FATAL_SIGN,
                       "Failed to locate dir alias <%s> for directory %s (%s %d)\n",
-                      de[dir_counter].alias, de[dir_counter].dir, __FILE__, __LINE__);
+                      de[dir_counter].alias, de[dir_counter].dir,
+                      __FILE__, __LINE__);
             exit(INCORRECT);
          }
          de[dir_counter].dir_no        = dnb[fra[de[dir_counter].fra_pos].dir_pos].dir_id;
          de[dir_counter].nfg           = 0;
          de[dir_counter].fme           = NULL;
-         de[dir_counter].all_flag      = NO;
+         de[dir_counter].flag          = 0;
          de[dir_counter].mod_time      = -1;
          de[dir_counter].search_time   = 0;
          if (stat(db[i].dir, &stat_buf) < 0)
@@ -317,6 +335,16 @@ create_db(int shmem_id)
          {
             not_in_same_file_system++;
          }
+         else
+         {
+            de[dir_counter].flag |= IN_SAME_FILESYSTEM;
+         }
+         if ((i == (no_of_jobs - 1)) ||
+             (db[i].dir != ((int)(p_ptr[i + 1].ptr[1]) + p_offset)))
+         {
+            de[dir_counter].flag |= RENAME_ONE_JOB_ONLY;
+            one_job_only_dir++;
+         }
       }
       db[i].dir_no = de[dir_counter].dir_no;
 
@@ -328,7 +356,7 @@ create_db(int shmem_id)
       db[i].lfs = 0;
       if (stat_buf.st_dev == ldv)
       {
-         db[i].lfs |= YES;
+         db[i].lfs |= IN_SAME_FILESYSTEM;
       }
 
       if ((i == 0) || ((i > 0) && (db[i].files != db[i - 1].files)))
@@ -362,7 +390,8 @@ create_db(int shmem_id)
             {
                ptr_start = (char *)de[dir_counter].fme;
             }
-            (void)memset(ptr_start, 0, (FG_BUFFER_STEP_SIZE * sizeof(struct file_mask_entry)));
+            (void)memset(ptr_start, 0,
+                         (FG_BUFFER_STEP_SIZE * sizeof(struct file_mask_entry)));
          }
          p_file = db[i].files;
          de[dir_counter].fme[de[dir_counter].nfg].nfm = db[i].no_of_files;
@@ -380,18 +409,18 @@ create_db(int shmem_id)
             de[dir_counter].fme[de[dir_counter].nfg].file_mask[j] = p_file;
             if ((p_file[0] == '*') && (p_file[1] == '\0'))
             {
-               de[dir_counter].all_flag = YES;
+               de[dir_counter].flag |= ALL_FILES;
             }
             NEXT(p_file);
          }
-         if ((de[dir_counter].all_flag == YES) && (db[i].no_of_files > 1))
+         if ((de[dir_counter].flag & ALL_FILES) && (db[i].no_of_files > 1))
          {
             p_file = db[i].files;
             for (j = 0; j < db[i].no_of_files; j++)
             {
                if (p_file[0] == '!')
                {
-                  de[dir_counter].all_flag = NO;
+                  de[dir_counter].flag ^= ALL_FILES;
                   break;
                }
                NEXT(p_file);
@@ -447,7 +476,7 @@ create_db(int shmem_id)
       db[i].no_of_loptions = atoi((int)(p_ptr[i].ptr[5]) + p_offset);
       db[i].next_start_time = 0;
 
-      /* Store pointer to first local option */
+      /* Store pointer to first local option. */
       if (db[i].no_of_loptions > 0)
       {
          db[i].loptions = (int)(p_ptr[i].ptr[6]) + p_offset;
@@ -529,6 +558,21 @@ create_db(int shmem_id)
       else
       {
          db[i].loptions = NULL;
+      }
+
+      /*
+       * If we have RENAME_ONE_JOB_ONLY and there are options that force
+       * us to link the file, we cannot just rename the files! We must
+       * copy them. Thus we must remove the flag when this is the case.
+       */
+      if ((i == 0) || ((i > 0) && (db[i].files != db[i - 1].files)))
+      {
+         if ((de[dir_counter].flag & RENAME_ONE_JOB_ONLY) &&
+             (db[i].lfs & DO_NOT_LINK_FILES))
+         {
+            one_job_only_dir--;
+            de[dir_counter].flag &= ~RENAME_ONE_JOB_ONLY;
+         }
       }
 
       /* Store number of standard options */
@@ -628,43 +672,54 @@ create_db(int shmem_id)
       {
          if (strcmp(db[i].recipient, LOC_SHEME) != 0)
          {
-#ifdef _WITH_WMO_SUPPORT
-            if (strcmp(db[i].recipient, WMO_SHEME) != 0)
+#ifdef _WITH_SCP1_SUPPORT
+            if (strcmp(db[i].recipient, SCP1_SHEME) != 0)
             {
-#endif
-#ifdef _WITH_MAP_SUPPORT
-               if (strcmp(db[i].recipient, MAP_SHEME) != 0)
+#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+               if (strcmp(db[i].recipient, WMO_SHEME) != 0)
                {
 #endif
-                  if (strcmp(db[i].recipient, SMTP_SHEME) != 0)
+#ifdef _WITH_MAP_SUPPORT
+                  if (strcmp(db[i].recipient, MAP_SHEME) != 0)
                   {
-                     (void)rec(sys_log_fd, FATAL_SIGN,
-                               "Unknown sheme <%s>. (%s %d)\n",
-                               db[i].recipient, __FILE__, __LINE__);
-                     p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-                     free(db); free(de);
-                     free(tmp_ptr);
-                     unmap_data(jd_fd, jd);
-                     exit(INCORRECT);
+#endif
+                     if (strcmp(db[i].recipient, SMTP_SHEME) != 0)
+                     {
+                        (void)rec(sys_log_fd, FATAL_SIGN,
+                                  "Unknown sheme <%s>. (%s %d)\n",
+                                  db[i].recipient, __FILE__, __LINE__);
+                        p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+                        free(db); free(de);
+                        free(tmp_ptr);
+                        unmap_data(jd_fd, jd);
+                        exit(INCORRECT);
+                     }
+                     else
+                     {
+                        db[i].protocol = SMTP;
+                     }
+#ifdef _WITH_MAP_SUPPORT
                   }
                   else
                   {
-                     db[i].protocol = SMTP;
+                     db[i].protocol = MAP;
                   }
-#ifdef _WITH_MAP_SUPPORT
+#endif
+#ifdef _WITH_WMO_SUPPORT
                }
                else
                {
-                  db[i].protocol = MAP;
+                  db[i].protocol = WMO;
                }
 #endif
-#ifdef _WITH_WMO_SUPPORT
+#ifdef _WITH_SCP1_SUPPORT
             }
             else
             {
-               db[i].protocol = WMO;
+               db[i].protocol = SCP1;
             }
-#endif
+#endif /* _WITH_SCP1_SUPPORT */
          }
          else
          {
@@ -716,6 +771,19 @@ create_db(int shmem_id)
       p_afd_status->start_time = time(NULL);
    }
 
+   if (one_job_only_dir > 1)
+   {
+      (void)rec(sys_log_fd, DEBUG_SIGN,
+                "%d directories with only one job and no need for linking. (%s %d)\n",
+                one_job_only_dir, __FILE__, __LINE__);
+   }
+   else if (one_job_only_dir == 1)
+        {
+           (void)rec(sys_log_fd, DEBUG_SIGN,
+                     "One directory with only one job. (%s %d)\n",
+                     __FILE__, __LINE__);
+        }
+
    if (not_in_same_file_system > 1)
    {
       (void)rec(sys_log_fd, INFO_SIGN,
@@ -744,7 +812,7 @@ create_db(int shmem_id)
          (void)fprintf(stdout, "\t\tNumber of destinations = %d\n", de[i].fme[j].dest_count);
       }
       (void)fprintf(stdout, "\tNumber of file groups  = %d\n", de[i].nfg);
-      if (de[i].all_flag == YES)
+      if (de[i].flag & ALL_FILES)
       {
          (void)fprintf(stdout, "\tAll files selected    = YES\n");
       }
@@ -861,8 +929,7 @@ write_numbers(int jid_number)
    }
    if (close(jid_fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "close() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
    }
 

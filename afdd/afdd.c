@@ -53,6 +53,7 @@ DESCR__E_M1
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>           /* memset()                                */
 #include <stdlib.h>           /* atoi(), getenv()                        */
+#include <time.h>             /* clock_t                                 */
 #include <ctype.h>            /* toupper()                               */
 #include <signal.h>           /* signal()                                */
 #include <sys/time.h>

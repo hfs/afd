@@ -361,7 +361,7 @@ draw_tv_job_number(int pos, int x, int y)
    string[1] = '\0';
 
    /* Change color of letters when background color is to dark */
-   if ((jd[pos].connect_status == TRANSFER_ACTIVE) ||
+   if ((jd[pos].connect_status == FTP_ACTIVE) ||
        (jd[pos].connect_status == CONNECTING))
    {
       gc_values.foreground = color_pool[WHITE];

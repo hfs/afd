@@ -45,6 +45,7 @@ DESCR__E_M1
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <time.h>
 #include <sys/stat.h>
 #include <unistd.h>

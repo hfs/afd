@@ -145,6 +145,8 @@ DESCR__S_M3
  **                      Implemented ftp_date() function.
  **   03.11.2000 H.Kiehl Added ftp_chmod() function.
  **   12.11.2000 H.Kiehl Added ftp_exec() function.
+ **   21.05.2001 H.Kiehl Failed to fclose() control connection when an error
+ **                      occured in ftp_quit().
  */
 DESCR__E_M3
 
@@ -162,9 +164,9 @@ DESCR__E_M3
                               /* setsockopt()                            */
 #include <netinet/in.h>       /* struct in_addr, sockaddr_in, htons()    */
 #if defined (_WITH_TOS) && defined (IP_TOS)
-#if defined (IRIX) || defined (_SUN) || defined (_HPUX)
+#if defined (IRIX) || defined (_SUN) || defined (_HPUX) || defined (FREEBSD)
 #include <netinet/in_systm.h>
-#endif /* IRIX || _SUN || _HPUX */
+#endif /* IRIX || _SUN || _HPUX || FREEBSD */
 #include <netinet/ip.h>       /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT        */
 #endif
 #include <netdb.h>            /* struct hostent, gethostbyname()         */
@@ -1810,6 +1812,7 @@ ftp_quit(void)
    {
       if ((reply = get_reply(p_control)) < 0)
       {
+         (void)fclose(p_control);
          return(INCORRECT);
       }
 
@@ -1818,6 +1821,7 @@ ftp_quit(void)
        */
       if (check_reply(3, reply, 221, 421) < 0)
       {
+         (void)fclose(p_control);
          return(reply);
       }
 #ifdef _WITH_SHUTDOWN

@@ -44,7 +44,6 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <string.h>           /* strerror()                              */
-#include <time.h>             /* strftime(), gmtime()                    */
 #include <stdlib.h>           /* free()                                  */
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -1,6 +1,6 @@
 /*
  *  show_olog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -134,18 +134,6 @@ main(int argc, char *argv[])
 {
    char            window_title[100],
                    work_dir[MAX_PATH_LENGTH],
-                   *toggle_label[] =
-                   {
-                      "FTP",
-                      "SMTP",
-                      "FILE"
-#ifdef _WITH_WMO_SUPPORT
-                      , "WMO"
-#endif
-#ifdef _WITH_MAP_SUPPORT
-                      , "MAP"
-#endif
-                   },
                    *radio_label[] = {"Short", "Med", "Long"};
    static String   fallback_res[] =
                    {
@@ -579,29 +567,38 @@ main(int argc, char *argv[])
                                 XmNbottomAttachment,    XmATTACH_FORM,
                                 XmNresizable,           False,
                                 NULL);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[0],
+   toggle_w = XtVaCreateManagedWidget("FTP",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
                                 XmNset,                    True,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_FTP);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[1],
+   toggle_w = XtVaCreateManagedWidget("SMTP",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
                                 XmNset,                    True,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_SMTP);
-   toggle_w = XtVaCreateManagedWidget(toggle_label[2],
+   toggle_w = XtVaCreateManagedWidget("FILE",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
                                 XmNset,                    True,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_FILE);
+#ifdef _WITH_SCP1_SUPPORT
+   toggle_w = XtVaCreateManagedWidget("SCP1",
+                                xmToggleButtonGadgetClass, togglebox_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    True,
+                                NULL);
+   XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggled, (XtPointer)SHOW_SCP1);
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
-   toggle_w = XtVaCreateManagedWidget(toggle_label[3],
+   toggle_w = XtVaCreateManagedWidget("WMO",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
                                 XmNset,                    True,
@@ -610,11 +607,7 @@ main(int argc, char *argv[])
                  (XtCallbackProc)toggled, (XtPointer)SHOW_WMO);
 #endif /* _WITH_WMO_SUPPORT */
 #ifdef _WITH_MAP_SUPPORT
-#ifdef _WITH_WMO_SUPPORT
-   toggle_w = XtVaCreateManagedWidget(toggle_label[4],
-#else
-   toggle_w = XtVaCreateManagedWidget(toggle_label[3],
-#endif
+   toggle_w = XtVaCreateManagedWidget("MAP",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
                                 XmNset,                    True,
@@ -626,6 +619,9 @@ main(int argc, char *argv[])
 
    toggles_set = SHOW_FTP |
                  SHOW_SMTP |
+#ifdef _WITH_SCP1_SUPPORT
+                 SHOW_SCP1 |
+#endif
 #ifdef _WITH_WMO_SUPPORT
                  SHOW_WMO |
 #endif

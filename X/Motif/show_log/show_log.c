@@ -1,6 +1,6 @@
 /*
  *  show_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,9 +53,10 @@ DESCR__E_M1
 #include <ctype.h>               /* toupper()                            */
 #include <signal.h>              /* signal()                             */
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <dirent.h>
 #include <unistd.h>              /* gethostname(), STDERR_FILENO         */
-#include <stdlib.h>              /* getenv()                             */
+#include <stdlib.h>              /* getenv(), exit()                     */
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
@@ -111,6 +112,7 @@ int            max_log_number,
                sys_log_fd = STDERR_FILENO;
 unsigned int   toggles_set_parallel_jobs,
                total_length;
+ino_t          current_inode_no;
 char           log_dir[MAX_PATH_LENGTH],
                log_type[MAX_FILENAME_LENGTH],
                log_name[MAX_FILENAME_LENGTH],
@@ -815,6 +817,19 @@ init_log_file(int *argc, char *argv[])
       (void)fprintf(stderr, "ERROR   : Could not fopen() %s : %s (%s %d)\n",
                     log_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
+   }
+   if ((log_type_flag != TRANSFER_LOG_TYPE) &&
+       (log_type_flag != RECEIVE_LOG_TYPE) && (current_log_number == 0))
+   {
+      struct stat stat_buf;
+
+      if (fstat(fileno(p_log_file), &stat_buf) == -1)
+      {
+         (void)fprintf(stderr, "ERROR   : Could not fstat() %s : %s (%s %d)\n",
+                       log_file, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      current_inode_no = stat_buf.st_ino;
    }
 
    /* Collect all hostnames */

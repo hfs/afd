@@ -74,14 +74,14 @@ DESCR__E_M1
 #endif
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
-#include <unistd.h>                    /* unlink(), close(), getpid()    */
+#include <unistd.h>                    /* unlink(), close()              */
 #include <errno.h>
 #include "fddefs.h"
 #include "wmodefs.h"
 #include "version.h"
 
 /* Global variables */
-int                        counter_fd,     /* NOT USED */
+int                        counter_fd = -1,     /* NOT USED */
                            exitflag = IS_FAULTY_VAR,
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
@@ -263,7 +263,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
                 "WMO connection to %s at port %d failed (%d).",
                 db.hostname, db.port, status);
-      exit(CONNECT_ERROR);
+      exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
    }
    else
    {
@@ -614,7 +614,7 @@ main(int argc, char *argv[])
                                "Failed to write block from file %s to remote port %d.",
                                p_file_name_buffer, db.port);
                      wmo_quit();
-                     exit(WRITE_REMOTE_ERROR);
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
 
                   no_of_bytes += blocksize;
@@ -677,7 +677,7 @@ main(int argc, char *argv[])
                                "Failed to write rest of file to remote port %d.",
                                p_file_name_buffer, db.port);
                      wmo_quit();
-                     exit(WRITE_REMOTE_ERROR);
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
 
                   no_of_bytes += rest + end_length;
@@ -755,7 +755,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to receive reply from port %d.", db.port);
                   wmo_quit();
-                  exit(CHECK_REPLY_ERROR);
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : CHECK_REPLY_ERROR);
                }
                else if (ret == NEGATIV_ACKNOWLEDGE)
                     {
@@ -882,6 +882,13 @@ main(int argc, char *argv[])
             }
          }
 
+#ifdef _WITH_TRANS_EXEC
+         if (db.special_flag & TRANS_EXEC)
+         {
+            trans_exec(file_path, fullname, p_file_name_buffer);
+         }
+#endif /* _WITH_TRANS_EXEC */
+
          /* Now archive file if necessary */
          if ((db.archive_time > 0) &&
              (p_db->archive_dir[0] != FAILED_TO_CREATE_ARCHIVE_DIR))
@@ -1001,8 +1008,6 @@ main(int argc, char *argv[])
           * After each successful transfer set error
           * counter to zero, so that other jobs can be
           * started.
-          * Also move all, error entries back to the message
-          * and file directories.
           */
          if ((*p_file_size_buffer > 0) &&
              (fsa[db.fsa_pos].error_counter > 0))
@@ -1176,16 +1181,14 @@ sf_wmo_exit(void)
    }
    else
    {
-      pid_t pid = getpid();
 #ifdef _FIFO_DEBUG
       char  cmd[2];
-#endif
-      /* Tell FD we are finished */
-#ifdef _FIFO_DEBUG
+
       cmd[0] = ACKN; cmd[1] = '\0';
       show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
 #endif
-      if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+      /* Tell FD we are finished */
+      if (write(fd, &db.my_pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));

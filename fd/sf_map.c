@@ -63,13 +63,13 @@ DESCR__E_M1
 #include <sys/times.h>                 /* times(), struct tms            */
 #endif
 #include <fcntl.h>
-#include <unistd.h>                    /* unlink(), getpid(), alarm()    */
+#include <unistd.h>                    /* unlink(), alarm()              */
 #include <errno.h>
 #include "fddefs.h"
 #include "version.h"
 
 /* Global variables */
-int                        counter_fd,    /* NOT USED */
+int                        counter_fd = -1,    /* NOT USED */
                            exitflag = IS_FAULTY_VAR,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
@@ -384,9 +384,9 @@ main(int argc, char *argv[])
                        db.hostname,                 /* Remote hostname          */
                        db.port,                     /* Schluessel der Empfangskette des MFS   */
                        &map_errno);
+            (void)alarm(0);
             if (map_errno != DB_OKAY)
             {
-               (void)alarm(0);
                if ((fsa[db.fsa_pos].debug == YES) &&
                    (trans_db_log_fd != -1))
                {
@@ -422,7 +422,6 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)alarm(0);
                if ((fsa[db.fsa_pos].debug == YES) &&
                    (trans_db_log_fd != -1))
                {
@@ -664,8 +663,6 @@ main(int argc, char *argv[])
        * After each successful transfer set error
        * counter to zero, so that other jobs can be
        * started.
-       * Also move all, error entries back to the message
-       * and file directories.
        */
       if (fsa[db.fsa_pos].error_counter > 0)
       {
@@ -783,16 +780,14 @@ sf_map_exit(void)
    }
    else
    {
-      pid_t pid = getpid();
 #ifdef _FIFO_DEBUG
       char  cmd[2];
-#endif
-      /* Tell FD we are finished */
-#ifdef _FIFO_DEBUG
+
       cmd[0] = ACKN; cmd[1] = '\0';
       show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
 #endif
-      if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+      /* Tell FD we are finished */
+      if (write(fd, &db.my_pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));

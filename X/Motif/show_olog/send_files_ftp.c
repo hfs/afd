@@ -449,7 +449,7 @@ get_archive_data(int pos, int file_no)
    *(p_archive_name + i++) = '/';
 
    /* Copy the file name to the archive directory. */
-   (void)strcpy((p_archive_name + i), &buffer[0]);
+   (void)strcpy((p_archive_name + i), &buffer[11 + MAX_HOSTNAME_LENGTH + 3]);
    p_file_name = p_archive_name + i;
 
    return(SUCCESS);
@@ -546,7 +546,7 @@ send_file_ftp(char *file_name)
                    archive_dir, strerror(errno));
          return(INCORRECT);
       }
-      if ((status = ftp_write(buffer, ascii_buffer, DEFAULT_TRANSFER_BLOCKSIZE)) != SUCCESS)
+      if ((status = ftp_write(buffer, ascii_buffer, rest)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
                    "Failed to write rest to remote file %s (%d).",

@@ -41,6 +41,7 @@ DESCR__E_M1
 
 #include <stdio.h>                    /* fprintf()                       */
 #include <string.h>                   /* strcpy(), strcat(), strerror()  */
+#include <stdlib.h>                   /* exit()                          */
 #include <unistd.h>                   /* read(), write(), close(),       */
                                       /* STDERR_FILENO                   */
 #include <sys/types.h>

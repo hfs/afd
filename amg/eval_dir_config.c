@@ -1175,7 +1175,8 @@ eval_dir_config(size_t db_size, int *dc)
                         ptr++;
                      }
                      ptr++;
-                     continue;
+
+                     goto check_dummy_line;
                   }
 
                   /* Store recipient. */
@@ -1193,23 +1194,26 @@ eval_dir_config(size_t db_size, int *dc)
 
                         switch (*tmp_ptr)
                         {
-                           case '#' :  /* Found comment. */
-                                       while ((*tmp_ptr != '\n') &&
-                                              (*tmp_ptr != '\0'))
-                                       {
-                                          tmp_ptr++;
-                                       }
-                                       ptr = tmp_ptr;
-                                       continue;
-                           case '\0':  /* Found end for this entry. */
-                                       ptr = tmp_ptr;
-                                       continue;
-                           case '\n':  /* End of line reached. */
-                                       ptr = tmp_ptr;
-                                       continue;
-                           default  :  /* Option goes on. */
-                                       ptr = tmp_ptr;
-                                       break;
+                           case '#' : /* Found comment. */
+                              while ((*tmp_ptr != '\n') && (*tmp_ptr != '\0'))
+                              {
+                                 tmp_ptr++;
+                              }
+                              ptr = tmp_ptr;
+                              continue;
+
+                           case '\0': /* Found end for this entry. */
+                              ptr = tmp_ptr;
+                              continue;
+
+                           case '\n': /* End of line reached. */
+                              ptr = tmp_ptr;
+                              continue;
+
+                           default  : /* We are at begining of a recipient */
+                                      /* line, so let us continue.         */
+                              search_ptr = ptr = tmp_ptr;
+                              break;
                         }
                      }
                      dir->file[dir->fgc].\
@@ -1269,20 +1273,38 @@ eval_dir_config(size_t db_size, int *dc)
                            {
                               if (strcmp(search_ptr - j, LOC_SHEME) != 0)
                               {
-#ifdef _WITH_WMO_SUPPORT
-                                 if (strcmp(search_ptr - j, WMO_SHEME) != 0)
+#ifdef _WITH_SCP1_SUPPORT
+                                 if (strcmp(search_ptr - j, SCP1_SHEME) != 0)
                                  {
-#endif
-#ifdef _WITH_MAP_SUPPORT
-                                    if (strcmp(search_ptr - j, MAP_SHEME) != 0)
+#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+                                    if (strcmp(search_ptr - j, WMO_SHEME) != 0)
                                     {
 #endif
-                                       if (strcmp(search_ptr - j, SMTP_SHEME) != 0)
+#ifdef _WITH_MAP_SUPPORT
+                                       if (strcmp(search_ptr - j, MAP_SHEME) != 0)
                                        {
-                                          (void)rec(sys_log_fd, WARN_SIGN,
-                                                    "Unknown sheme <%s>. Ignoring recipient at line %d. (%s %d)\n",
-                                                    search_ptr - j, count_new_lines(database, search_ptr),
-                                                    __FILE__, __LINE__);
+#endif
+                                          if (strcmp(search_ptr - j, SMTP_SHEME) != 0)
+                                          {
+                                             (void)rec(sys_log_fd, WARN_SIGN,
+                                                       "Unknown sheme <%s>. Ignoring recipient at line %d. (%s %d)\n",
+                                                       search_ptr - j, count_new_lines(database, search_ptr),
+                                                       __FILE__, __LINE__);
+                                          }
+                                          else
+                                          {
+                                             dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc++;
+                                             t_rc++;
+                                             if ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc % RECIPIENT_STEP_SIZE) == 0)
+                                             {
+                                                int new_size = ((dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc / RECIPIENT_STEP_SIZE) + 1) * RECIPIENT_STEP_SIZE;
+
+                                                REALLOC_RT_ARRAY(dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].recipient,
+                                                                 new_size, MAX_RECIPIENT_LENGTH, char);
+                                             }
+                                          }
+#ifdef _WITH_MAP_SUPPORT
                                        }
                                        else
                                        {
@@ -1296,7 +1318,8 @@ eval_dir_config(size_t db_size, int *dc)
                                                               new_size, MAX_RECIPIENT_LENGTH, char);
                                           }
                                        }
-#ifdef _WITH_MAP_SUPPORT
+#endif
+#ifdef _WITH_WMO_SUPPORT
                                     }
                                     else
                                     {
@@ -1311,7 +1334,7 @@ eval_dir_config(size_t db_size, int *dc)
                                        }
                                     }
 #endif
-#ifdef _WITH_WMO_SUPPORT
+#ifdef _WITH_SCP1_SUPPORT
                                  }
                                  else
                                  {
@@ -1325,7 +1348,7 @@ eval_dir_config(size_t db_size, int *dc)
                                                         new_size, MAX_RECIPIENT_LENGTH, char);
                                     }
                                  }
-#endif
+#endif /* _WITH_SCP1_SUPPORT */
                               }
                               else
                               {
@@ -1471,6 +1494,7 @@ eval_dir_config(size_t db_size, int *dc)
                      }
                   } /* if (i != 0) */
 
+check_dummy_line:
                   /* Check for a dummy empty line. */
                   if (*ptr != '\n')
                   {
@@ -1970,6 +1994,16 @@ check_hostname_list(char *recipient, int flag)
               protocol |= SEND_SMTP_FLAG;
            }
         }
+#ifdef _WITH_SCP1_SUPPORT
+   else if (memcmp(recipient, SCP1_SHEME, SCP1_SHEME_LENGTH) == 0)
+        {
+           protocol = SCP1_FLAG;
+           if (flag & SEND_FLAG)
+           {
+              protocol |= SEND_SCP1_FLAG;
+           }
+        }
+#endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
    else if (memcmp(recipient, WMO_SHEME, WMO_SHEME_LENGTH) == 0)
         {

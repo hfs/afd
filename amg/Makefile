@@ -8,7 +8,7 @@ INSTDIR = ../../bin
 COMDIR  = ../common
 AFDLIB  = $(COMDIR)/libafd.a
 MISCLIB = ../misc/libmisc.a
-CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../fd
+CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd
 
 AMGPROG = amg
 AMGOBJS = amg.o\
@@ -38,11 +38,11 @@ DCHKOBJS= check_files.o\
           check_paused_dir.o\
           check_old_time_jobs.o\
           clear_msg_buffer.o\
+          count_pool_files.o\
           create_db.o\
           dir_check.o\
           enter_time_job.o\
           eval_time_str.o\
-          exec_cmd.o\
           get_hostname.o\
           handle_options.o\
           handle_time_jobs.o\
@@ -67,6 +67,11 @@ TTPROG  = test_time
 TTOBJS  = eval_time_str.o\
           test_time.o
 
+TITPROG = test_in_time
+TITOBJS = eval_time_str.o\
+          in_time.o\
+          test_in_time.o
+
 PROGS   = $(AMGPROG) $(DCHKPROG)
 OBJS    = $(AMGOBJS) $(DCHKOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h amgdefs.h
@@ -87,12 +92,16 @@ $(TTPROG) : $(TTOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TTOBJS) $(AFDLIB) $(SPECIAL_LIBS)
 
+$(TITPROG) : $(TITOBJS) $(AFDLIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(TITOBJS) $(AFDLIB) $(SPECIAL_LIBS)
+
 clean :
-	rm -f $(OBJS) $(TTOBJS) core
+	rm -f $(OBJS) $(TTOBJS) $(TITOBJS) core
 
 clobber :
 	$(MAKE) clean
-	rm -f $(PROGS) $(TTPROG) amg.debug
+	rm -f $(PROGS) $(TTPROG) $(TITOBJS) amg.debug
 
 install :
 	cd $(INSTDIR) && rm -f $(PROGS)

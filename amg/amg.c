@@ -909,7 +909,7 @@ get_afd_config_value(int *rescan_time,
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
                       *rescan_time, AMG_DIR_RESCAN_TIME_DEF,
-                      DEFAULT_RESCAN_TIME);
+                      DEFAULT_RESCAN_TIME, __FILE__, __LINE__);
             *rescan_time = DEFAULT_RESCAN_TIME;
          }
       }
@@ -922,7 +922,7 @@ get_afd_config_value(int *rescan_time,
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
                       *max_no_proc, MAX_NO_OF_DIR_CHECKS_DEF,
-                      MAX_NO_OF_DIR_CHECKS);
+                      MAX_NO_OF_DIR_CHECKS, __FILE__, __LINE__);
             *max_no_proc = MAX_NO_OF_DIR_CHECKS;
          }
       }
@@ -930,13 +930,21 @@ get_afd_config_value(int *rescan_time,
                          value, MAX_INT_LENGTH) != NULL)
       {
          *max_process_per_dir = atoi(value);
-         if ((*max_process_per_dir < 1) || (*max_process_per_dir > 10240) ||
-             (*max_process_per_dir >= *max_no_proc))
+         if ((*max_process_per_dir < 1) || (*max_process_per_dir > 10240))
          {
             (void)rec(sys_log_fd, DEBUG_SIGN,
                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
                       *max_process_per_dir, MAX_PROCESS_PER_DIR_DEF,
-                      MAX_PROCESS_PER_DIR);
+                      MAX_PROCESS_PER_DIR, __FILE__, __LINE__);
+            *max_process_per_dir = MAX_PROCESS_PER_DIR;
+         }
+         if (*max_process_per_dir > *max_no_proc)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "%s (%d) may not be larger than %s (%d) in AFD_CONFIG. Setting to %d. (%s %d)\n",
+                      MAX_PROCESS_PER_DIR_DEF, *max_process_per_dir, 
+                      MAX_NO_OF_DIR_CHECKS_DEF, *max_no_proc, *max_no_proc,
+                      __FILE__, __LINE__);
             *max_process_per_dir = MAX_PROCESS_PER_DIR;
          }
       }

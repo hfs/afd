@@ -45,6 +45,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <string.h>
+#include <stdlib.h>                /* exit()                              */
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>

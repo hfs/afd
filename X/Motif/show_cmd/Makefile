@@ -12,7 +12,7 @@ CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I.
 
 SCMDPROG = show_cmd
 SCMDOBJS = cmd_callbacks.o\
-           exec_cmd.o\
+           xexec_cmd.o\
            print_data.o\
            show_cmd.o
 

@@ -50,6 +50,7 @@ DESCR__S_M3
  ** HISTORY
  **   27.03.2000 H.Kiehl Created
  **   05.04.2001 H.Kiehl Fill file with data before it is mapped.
+ **   18.04.2001 H.Kiehl Add version number to structure.
  **
  */
 DESCR__E_M3
@@ -439,6 +440,7 @@ create_fra(int no_of_dirs)
    /* Reposition fra pointer after no_of_dirs */
    ptr = (char *)fra;
    ptr -= AFD_WORD_OFFSET;
+   *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_FRA_VERSION; /* FRA version number */
    if (fra_size > 0)
    {
 #ifdef _NO_MMAP

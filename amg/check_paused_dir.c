@@ -46,6 +46,7 @@ DESCR__S_M3
  ** HISTORY
  **   06.03.1996 H.Kiehl Created
  **   04.01.2001 H.Kiehl Don't check duplicate directories.
+ **   29.05.2001 H.Kiehl Delete queue when host is disabled.
  **
  */
 DESCR__E_M3
@@ -56,6 +57,8 @@ DESCR__E_M3
 #include <unistd.h>
 #include "amgdefs.h"
 
+/* External global variables. */
+extern int                        sys_log_fd;
 extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
 
@@ -74,7 +77,9 @@ check_paused_dir(struct directory_entry *p_de,
       {
          /* Is queue stopped? (ie PAUSE_QUEUE_STAT, AUTO_PAUSE_QUEUE_STAT */
          /* or AUTO_PAUSE_QUEUE_LOCK_STAT is set)                         */
-         if ((fsa[db[p_de->fme[i].pos[j]].position].host_status < 2) &&
+         if (((fsa[db[p_de->fme[i].pos[j]].position].host_status < 2) ||
+              ((fsa[db[p_de->fme[i].pos[j]].position].special_flag & HOST_DISABLED) &&
+               (fsa[db[p_de->fme[i].pos[j]].position].host_status >= 2))) &&
              (db[p_de->fme[i].pos[j]].dup_paused_dir == NO))
          {
             struct stat stat_buf;
@@ -83,9 +88,23 @@ check_paused_dir(struct directory_entry *p_de,
             {
                if (S_ISDIR(stat_buf.st_mode))
                {
-                  *nfg = i;
-                  *dest_count = j + 1;
-                  return(db[p_de->fme[i].pos[j]].host_alias);
+                  if (fsa[db[p_de->fme[i].pos[j]].position].special_flag & HOST_DISABLED)
+                  {
+                     if (remove_dir(db[p_de->fme[i].pos[j]].paused_dir) < 0)
+                     {
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Failed to remove %s (%s %d)\n",
+                                  db[p_de->fme[i].pos[j]].paused_dir,
+                                  __FILE__, __LINE__);
+                     }
+                     return(NULL);
+                  }
+                  else
+                  {
+                     *nfg = i;
+                     *dest_count = j + 1;
+                     return(db[p_de->fme[i].pos[j]].host_alias);
+                  }
                }
             }
          }

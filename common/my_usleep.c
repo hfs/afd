@@ -45,6 +45,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <string.h>
+#include <stdlib.h>                   /* exit()                          */
 #include <sys/time.h>                 /* struct timeval                  */
 #include <sys/types.h>                /* fd_set                          */
 #include <unistd.h>                   /* select()                        */

@@ -45,6 +45,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <string.h>                 /* strerror()                        */
+#include <stdlib.h>                 /* exit()                            */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>                  /* open()                            */

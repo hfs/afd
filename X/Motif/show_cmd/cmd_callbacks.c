@@ -196,7 +196,7 @@ repeat_cmd(Widget w)
    XFlush(display);
    wpr_position = 0;
 
-   exec_cmd(cmd);
+   xexec_cmd(cmd);
 
    return;
 }

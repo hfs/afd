@@ -758,7 +758,7 @@ draw_proc_stat(int pos, int job_no, int x, int y)
    }
 
    /* Change color of letters when background color is to dark */
-   if ((connect_data[pos].connect_status[job_no] == TRANSFER_ACTIVE) ||
+   if ((connect_data[pos].connect_status[job_no] == FTP_ACTIVE) ||
        (connect_data[pos].connect_status[job_no] == CONNECTING))
    {
       gc_values.foreground = color_pool[WHITE];

@@ -96,6 +96,8 @@ DESCR__S_M3
  **   08.07.2000 H.Kiehl Cleaned up log output to reduce code size.
  **   05.08.2000 H.Kiehl Buffering read() in read_msg() to reduce number
  **                      of system calls.
+ **   21.05.2001 H.Kiehl Failed to fclose() connection when an error
+ **                      occured in smtp_quit().
  **
  */
 DESCR__E_M3
@@ -613,10 +615,12 @@ smtp_quit(void)
    {
       if ((reply = get_reply(smtp_fp)) < 0)
       {
+         (void)fclose(smtp_fp);
          return(INCORRECT);
       }
       if (check_reply(2, reply, 221) < 0)
       {
+         (void)fclose(smtp_fp);
          return(reply);
       }
 

@@ -43,6 +43,7 @@ DESCR__E_M3
 
 #include <stdio.h>               /* sprintf(), popen(), pclose()         */
 #include <string.h>              /* strcpy(), strcat(), strerror()       */
+#include <stdlib.h>              /* exit()                               */
 #include <unistd.h>              /* write(), close()                     */
 #include <time.h>                /* strftime()                           */
 #include <sys/types.h>
@@ -292,7 +293,7 @@ write_header(int fd)
    else if ((start_time_val > 0) && (end_time_val < 0))
         {
            length = strftime(buffer, 1024, "                                AFD INPUT LOG\n\n\tTime Interval : %m.%d. %H:%M",
-                             gmtime(&start_time_val));
+                             localtime(&start_time_val));
            length += sprintf(&buffer[length], " - latest entry\n\
                 File name     : %s\n\
                 File size     : %s\n\
@@ -303,7 +304,7 @@ write_header(int fd)
         else if ((start_time_val < 0) && (end_time_val > 0))
              {
                 length = strftime(buffer, 1024, "                                AFD INPUT LOG\n\n\tTime Interval : earliest entry - %m.%d. %H:%M",
-                                  gmtime(&end_time_val));
+                                  localtime(&end_time_val));
                 length += sprintf(&buffer[length], "\n\
                 File name     : %s\n\
                 File size     : %s\n\
@@ -314,10 +315,10 @@ write_header(int fd)
              else
              {
                 length = strftime(buffer, 1024, "                                AFD INPUT LOG\n\n\tTime Interval : %m.%d. %H:%M",
-                                  gmtime(&start_time_val));
+                                  localtime(&start_time_val));
                 length += strftime(&buffer[length], 1024 - length,
                                    " - %m.%d. %H:%M",
-                                   gmtime(&end_time_val));
+                                   localtime(&end_time_val));
                 length += sprintf(&buffer[length], "\n\
                 File name     : %s\n\
                 File size     : %s\n\

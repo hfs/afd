@@ -66,9 +66,10 @@ DESCR__E_M1
 #include <stdio.h>           /* fopen(), fflush()                        */
 #include <string.h>          /* strcpy(), strcat(), strerror(), memcpy() */
 #include <stdlib.h>          /* malloc()                                 */
+#include <time.h>            /* time()                                   */
 #include <sys/types.h>       /* fdset                                    */
 #include <sys/stat.h>
-#include <sys/time.h>        /* struct timeval, time()                   */
+#include <sys/time.h>        /* struct timeval                           */
 #include <unistd.h>          /* fpathconf(), sysconf()                   */
 #include <fcntl.h>           /* O_RDWR, open()                           */
 #include <signal.h>          /* signal()                                 */
@@ -283,7 +284,7 @@ main(int argc, char *argv[])
                * even though we are writting in a loop to the output
                * file.
                */
-              (void)time(&now);
+              now = time(NULL);
 
               /*
                * Aaaah. Some new data has arrived. Lets write this

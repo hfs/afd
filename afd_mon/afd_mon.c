@@ -82,6 +82,7 @@ DESCR__E_M1
 #include <stdlib.h>           /* atexit(), exit(), atoi()                */
 #include <signal.h>           /* kill(), signal()                        */
 #include <ctype.h>            /* isdigit()                               */
+#include <time.h>             /* time()                                  */
 #include <sys/types.h>
 #include <sys/wait.h>         /* waitpid()                               */
 #include <sys/time.h>         /* struct timeval                          */

@@ -64,13 +64,13 @@ DESCR__E_M1
 #endif
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
-#include <unistd.h>                    /* unlink(), getpid(), alarm()    */
+#include <unistd.h>                    /* unlink(), alarm()              */
 #include <errno.h>
 #include "fddefs.h"
 #include "version.h"
 
 /* Global variables */
-int                        counter_fd,
+int                        counter_fd = -1,
                            exitflag = IS_FAULTY_VAR,
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
@@ -113,12 +113,15 @@ int
 main(int argc, char *argv[])
 {
 #ifdef _VERIFY_FSA
-   unsigned int  ui_variable;
+   unsigned int     ui_variable;
 #endif
    int              i,
                     fd,
                     lfs = NONE,             /* local file system */
                     files_to_send = 0;
+#ifdef _WITH_BURST_2
+   unsigned int     burst_counter = 0;
+#endif
    off_t            lock_offset,
                     *p_file_size_buffer;
    char             *ptr,
@@ -136,6 +139,9 @@ main(int argc, char *argv[])
                     work_dir[MAX_PATH_LENGTH];
    struct job       *p_db;
    struct stat      stat_buf;
+#ifdef _WITH_BURST_2
+   struct job       *p_new_db;
+#endif /* _WITH_BURST_2 */
 #ifdef SA_FULLDUMP
    struct sigaction sact;
 #endif
@@ -210,7 +216,7 @@ main(int argc, char *argv[])
       }
       if (host_deleted == NO)
       {
-         fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = TRANSFER_ACTIVE;
+         fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = LOC_ACTIVE;
          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files = files_to_send;
       }
    }
@@ -224,177 +230,203 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* If we send a lockfile, do it now. */
-   if (db.lock == LOCKFILE)
+#ifdef _WITH_BURST_2
+   do
    {
-      /* Create lock file in directory */
-      (void)strcpy(lockfile, db.target_dir);
-      (void)strcat(lockfile, "/");
-      (void)strcat(lockfile, LOCK_FILENAME);
-      if ((fd = open(lockfile, (O_WRONLY | O_CREAT | O_TRUNC),
-                     (S_IRUSR | S_IWUSR))) == -1)
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to create lock file %s : %s",
-                   lockfile, strerror(errno));
-         exit(WRITE_LOCK_ERROR);
-      }
-      else
+      if (burst_counter > 0)
       {
          if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
          {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Created lockfile to %s.", lockfile);
+            (void)rec(trans_db_log_fd, INFO_SIGN,
+                      "%-*s[%d]: Bursting. (%s %d)\n", MAX_HOSTNAME_LENGTH,
+                      tr_hostname, (int)db.job_no, __FILE__, __LINE__);
          }
       }
-      if (close(fd) == -1)
+#endif /* _WITH_BURST_2 */
+      /* If we send a lockfile, do it now. */
+      if (db.lock == LOCKFILE)
       {
-         trans_log(WARN_SIGN, __FILE__, __LINE__,
-                   "Failed to close() %s : %s", lockfile, strerror(errno));
-      }
-   }
-
-   /*
-    * Since we do not know if the directory where the file
-    * will be moved is in the same file system, lets determine
-    * this by comparing the device numbers.
-    */
-   if ((db.special_flag & FORCE_COPY) == 0)
-   {
-      if (stat(file_path, &stat_buf) == 0)
-      {
-         dev_t ldv;               /* local device number (file system) */
-
-         ldv = stat_buf.st_dev;
-         if (stat(db.target_dir, &stat_buf) == 0)
+         /* Create lock file in directory */
+         (void)strcpy(lockfile, db.target_dir);
+         (void)strcat(lockfile, "/");
+         (void)strcat(lockfile, LOCK_FILENAME);
+         if ((fd = open(lockfile, (O_WRONLY | O_CREAT | O_TRUNC),
+                        (S_IRUSR | S_IWUSR))) == -1)
          {
-            if (stat_buf.st_dev == ldv)
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to create lock file %s : %s",
+                      lockfile, strerror(errno));
+            exit(WRITE_LOCK_ERROR);
+         }
+         else
+         {
+            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
             {
-               lfs = YES;
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Created lockfile to %s.", lockfile);
+            }
+         }
+         if (close(fd) == -1)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__,
+                      "Failed to close() %s : %s", lockfile, strerror(errno));
+         }
+      }
+
+      /*
+       * Since we do not know if the directory where the file
+       * will be moved is in the same file system, lets determine
+       * this by comparing the device numbers.
+       */
+      if ((db.special_flag & FORCE_COPY) == 0)
+      {
+         if (stat(file_path, &stat_buf) == 0)
+         {
+            dev_t ldv;               /* local device number (file system) */
+
+            ldv = stat_buf.st_dev;
+            if (stat(db.target_dir, &stat_buf) == 0)
+            {
+               if (stat_buf.st_dev == ldv)
+               {
+                  lfs = YES;
+               }
+               else
+               {
+                  lfs = NO;
+               }
             }
             else
             {
-               lfs = NO;
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to stat() %s : %s",
+                         db.target_dir, strerror(errno));
+               exit(STAT_ERROR);
             }
          }
          else
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to stat() %s : %s",
-                      db.target_dir, strerror(errno));
+                      "Failed to stat() %s : %s", file_path, strerror(errno));
             exit(STAT_ERROR);
          }
+      } /* if ((db.special_flag & FORCE_COPY) == 0) */
+
+      /* Prepare pointers and directory name */
+      (void)strcpy(source_file, file_path);
+      p_source_file = source_file + strlen(source_file);
+      *p_source_file++ = '/';
+      (void)strcpy(if_name, db.target_dir);
+      p_if_name = if_name + strlen(if_name);
+      *p_if_name++ = '/';
+      *p_if_name = '\0';
+      (void)strcpy(ff_name, db.target_dir);
+      p_ff_name = ff_name + strlen(ff_name);
+      *p_ff_name++ = '/';
+      *p_ff_name = '\0';
+
+      if ((db.lock == DOT) || (db.lock == DOT_VMS))
+      {
+         p_to_name = if_name;
       }
       else
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to stat() %s : %s", file_path, strerror(errno));
-         exit(STAT_ERROR);
+         p_to_name = ff_name;
       }
-   } /* if ((db.special_flag & FORCE_COPY) == 0) */
 
-   /* Prepare pointers and directory name */
-   (void)strcpy(source_file, file_path);
-   p_source_file = source_file + strlen(source_file);
-   *p_source_file++ = '/';
-   (void)strcpy(if_name, db.target_dir);
-   p_if_name = if_name + strlen(if_name);
-   *p_if_name++ = '/';
-   *p_if_name = '\0';
-   (void)strcpy(ff_name, db.target_dir);
-   p_ff_name = ff_name + strlen(ff_name);
-   *p_ff_name++ = '/';
-   *p_ff_name = '\0';
-
-   if ((db.lock == DOT) || (db.lock == DOT_VMS))
-   {
-      p_to_name = if_name;
-   }
-   else
-   {
-      p_to_name = ff_name;
-   }
-
-   /* Copy all files */
-   p_file_name_buffer = file_name_buffer;
-   p_file_size_buffer = file_size_buffer;
-   for (i = 0; i < files_to_send; i++)
-   {
-      /* Get the the name of the file we want to send next */
-      *p_ff_name = '\0';
-      (void)strcat(ff_name, p_file_name_buffer);
-      (void)strcpy(file_name, p_file_name_buffer);
-      if ((db.lock == DOT) || (db.lock == DOT_VMS))
+      /* Copy all files */
+      p_file_name_buffer = file_name_buffer;
+      p_file_size_buffer = file_size_buffer;
+      for (i = 0; i < files_to_send; i++)
       {
-         *p_if_name = '\0';
-         (void)strcat(if_name, db.lock_notation);
-         (void)strcat(if_name, p_file_name_buffer);
-      }
-      (void)strcpy(p_source_file, p_file_name_buffer);
-
-      /* Write status to FSA? */
-      if (host_deleted == NO)
-      {
-         if (check_fsa() == YES)
+         /* Get the the name of the file we want to send next */
+         *p_ff_name = '\0';
+         (void)strcat(ff_name, p_file_name_buffer);
+         (void)strcpy(file_name, p_file_name_buffer);
+         if ((db.lock == DOT) || (db.lock == DOT_VMS))
          {
-            if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
-            {
-               host_deleted = YES;
-            }
+            *p_if_name = '\0';
+            (void)strcat(if_name, db.lock_notation);
+            (void)strcat(if_name, p_file_name_buffer);
          }
+         (void)strcpy(p_source_file, p_file_name_buffer);
+
+         /* Write status to FSA? */
          if (host_deleted == NO)
          {
-            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
-            (void)strcpy(fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use,
-                         p_file_name_buffer);
-         }
-      }
-
-      if (db.trans_rename_rule[0] != '\0')
-      {
-         register int k;
-   
-         for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
-         {
-            if (pmatch(rule[trans_rule_pos].filter[k], p_file_name_buffer) == 0)
+            if (check_fsa() == YES)
             {
-               change_name(p_file_name_buffer,
-                           rule[trans_rule_pos].filter[k],
-                           rule[trans_rule_pos].rename_to[k],
-                           p_ff_name);
-               break;
+               if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
+               {
+                  host_deleted = YES;
+               }
+            }
+            if (host_deleted == NO)
+            {
+               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
+               (void)strcpy(fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use,
+                            p_file_name_buffer);
             }
          }
-      }
+
+         if (db.trans_rename_rule[0] != '\0')
+         {
+            register int k;
+   
+            for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
+            {
+               if (pmatch(rule[trans_rule_pos].filter[k], p_file_name_buffer) == 0)
+               {
+                  change_name(p_file_name_buffer,
+                              rule[trans_rule_pos].filter[k],
+                              rule[trans_rule_pos].rename_to[k],
+                              p_ff_name);
+                  break;
+               }
+            }
+         }
 
 #ifdef _OUTPUT_LOG
-      if (db.output_log == YES)
-      {
-         start_time = times(&tmsdummy);
-      }
+         if (db.output_log == YES)
+         {
+            start_time = times(&tmsdummy);
+         }
 #endif
 
-      /* Here comes the BIG move .... */
-      if (lfs == YES)
-      {
-         if (link(source_file, p_to_name) == -1)
+         /* Here comes the BIG move .... */
+         if (lfs == YES)
          {
-            if (errno == EEXIST)
+            if (link(source_file, p_to_name) == -1)
             {
-               if (unlink(p_to_name) == -1)
+               if (errno == EEXIST)
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to unlink() %s : %s",
-                            p_to_name, strerror(errno));
+                  if (unlink(p_to_name) == -1)
+                  {
+                     trans_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Failed to unlink() %s : %s",
+                               p_to_name, strerror(errno));
+                  }
+                  else
+                  {
+                     trans_log(INFO_SIGN, __FILE__, __LINE__,
+                               "File %s did already exist, removed it and linked again.",
+                               p_to_name);
+                  }
+
+                  if (link(source_file, p_to_name) == -1)
+                  {
+                     (void)rec(transfer_log_fd, INFO_SIGN,
+                               "%-*s[%d]: %d Bytes copied in %d file(s).\n",
+                               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to link file %s to %s : %s",
+                               source_file, p_to_name, strerror(errno));
+                     exit(MOVE_ERROR);
+                  }
                }
                else
-               {
-                  trans_log(INFO_SIGN, __FILE__, __LINE__,
-                            "File %s did already exist, removed it and linked again.",
-                            p_to_name);
-               }
-
-               if (link(source_file, p_to_name) == -1)
                {
                   (void)rec(transfer_log_fd, INFO_SIGN,
                             "%-*s[%d]: %d Bytes copied in %d file(s).\n",
@@ -409,271 +441,340 @@ main(int argc, char *argv[])
             }
             else
             {
+               if ((fsa[db.fsa_pos].debug == YES) &&
+                   (trans_db_log_fd != -1))
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Linked file %s to %s.", source_file, p_to_name);
+               }
+            }
+         }
+         else if (lfs == NO)
+              {
+                 if (copy_file(source_file, p_to_name) < 0)
+                 {
+                    (void)rec(transfer_log_fd, INFO_SIGN,
+                              "%-*s[%d]: %d Bytes copied in %d file(s).\n",
+                              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                              "Failed to copy file %s to %s : %s",
+                              source_file, p_to_name, strerror(errno));
+                    exit(MOVE_ERROR);
+                 }
+                 else
+                 {
+                    if ((fsa[db.fsa_pos].debug == YES) &&
+                        (trans_db_log_fd != -1))
+                    {
+                       trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                    "Copied file %s to %s.",
+                                    source_file, p_to_name);
+                    }
+                 }
+              }
+              else /* lfs != NO && lfs != YES */
+              {
+                 if (normal_copy(source_file, p_to_name) == -1)
+                 {
+                    (void)rec(transfer_log_fd, INFO_SIGN,
+                              "%-*s[%d]: %d Bytes copied in %d file(s).\n",
+                              MAX_HOSTNAME_LENGTH, tr_hostname,
+                              (int)db.job_no,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                              "Failed to copy file %s to %s : %s",
+                              source_file, p_to_name, strerror(errno));
+                    exit(MOVE_ERROR);
+                 }
+                 else
+                 {
+                    if ((fsa[db.fsa_pos].debug == YES) &&
+                        (trans_db_log_fd != -1))
+                    {
+                       trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                    "Copied file %s to %s.",
+                                    source_file, p_to_name);
+                    }
+                 }
+              }
+
+         if ((db.lock == DOT) || (db.lock == DOT_VMS))
+         {
+            if (db.lock == DOT_VMS)
+            {
+               (void)strcat(ff_name, DOT_NOTATION);
+            }
+            if (rename(if_name, ff_name) == -1)
+            {
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes copied in %d file(s).\n",
                          MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to link file %s to %s : %s",
-                         source_file, p_to_name, strerror(errno));
-               exit(MOVE_ERROR);
-            }
-         }
-         else
-         {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
-            {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Linked file %s to %s.", source_file, p_to_name);
-            }
-         }
-      }
-      else if (lfs == NO)
-           {
-              if (copy_file(source_file, p_to_name) < 0)
-              {
-                 (void)rec(transfer_log_fd, INFO_SIGN,
-                           "%-*s[%d]: %d Bytes copied in %d file(s).\n",
-                           MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                           fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                           fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Failed to copy file %s to %s : %s",
-                           source_file, p_to_name, strerror(errno));
-                 exit(MOVE_ERROR);
-              }
-              else
-              {
-                 if ((fsa[db.fsa_pos].debug == YES) &&
-                     (trans_db_log_fd != -1))
-                 {
-                    trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                 "Copied file %s to %s.",
-                                 source_file, p_to_name);
-                 }
-              }
-           }
-           else /* lfs != NO && lfs != YES */
-           {
-              if (normal_copy(source_file, p_to_name) == -1)
-              {
-                 (void)rec(transfer_log_fd, INFO_SIGN,
-                           "%-*s[%d]: %d Bytes copied in %d file(s).\n",
-                           MAX_HOSTNAME_LENGTH, tr_hostname,
-                           (int)db.job_no,
-                           fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                           fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Failed to copy file %s to %s : %s",
-                           source_file, p_to_name, strerror(errno));
-                 exit(MOVE_ERROR);
-              }
-              else
-              {
-                 if ((fsa[db.fsa_pos].debug == YES) &&
-                     (trans_db_log_fd != -1))
-                 {
-                    trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                                 "Copied file %s to %s.",
-                                 source_file, p_to_name);
-                 }
-              }
-           }
-
-      if ((db.lock == DOT) || (db.lock == DOT_VMS))
-      {
-         if (db.lock == DOT_VMS)
-         {
-            (void)strcat(ff_name, DOT_NOTATION);
-         }
-         if (rename(if_name, ff_name) == -1)
-         {
-            (void)rec(transfer_log_fd, INFO_SIGN,
-                      "%-*s[%d]: %d Bytes copied in %d file(s).\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to rename() file %s to %s : %s",
-                      if_name, ff_name, strerror(errno));
-            exit(RENAME_ERROR);
-         }
-         else
-         {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
-            {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Renamed file %s to %s.", if_name, ff_name);
-            }
-         }
-         if (db.lock == DOT_VMS)
-         {
-            /* Take away the dot at the end */
-            ptr = ff_name + strlen(ff_name) - 1;
-            *ptr = '\0';
-         }
-      }
-
-#ifdef _OUTPUT_LOG
-      if (db.output_log == YES)
-      {
-         end_time = times(&tmsdummy);
-      }
-#endif
-
-      if (db.special_flag & CHANGE_PERMISSION)
-      {
-         if (chmod(ff_name, db.chmod) == -1)
-         {
-            trans_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Failed to chmod() file %s : %s",
-                      ff_name, strerror(errno));
-         }
-         else
-         {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
-            {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Changed permission of file %s to %d",
-                            ff_name, db.chmod);
-            }
-         }
-      } /* if (db.special_flag & CHANGE_PERMISSION) */
-
-      if (db.special_flag & CHANGE_UID_GID)
-      {
-         if (chown(ff_name, db.user_id, db.group_id) == -1)
-         {
-            trans_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Failed to chown() of file %s : %s",
-                      ff_name, strerror(errno));
-         }
-         else
-         {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
-            {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Changed owner of file %s to %d:%d.",
-                            ff_name, db.user_id, db.group_id);
-            }
-         }
-      } /* if (db.special_flag & CHANGE_UID_GID) */
-
-      /* Tell FSA we have copied a file !!!! */
-      if (host_deleted == NO)
-      {
-         lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
-         rlock_region(fsa_fd, lock_offset);
-
-         /* Before we read from the FSA lets make */
-         /* sure that it is NOT stale!            */
-         if (check_fsa() == YES)
-         {
-            if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
-            {
-               host_deleted = YES;
+                         "Failed to rename() file %s to %s : %s",
+                         if_name, ff_name, strerror(errno));
+               exit(RENAME_ERROR);
             }
             else
             {
-               lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
-               rlock_region(fsa_fd, lock_offset);
+               if ((fsa[db.fsa_pos].debug == YES) &&
+                   (trans_db_log_fd != -1))
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Renamed file %s to %s.", if_name, ff_name);
+               }
+            }
+            if (db.lock == DOT_VMS)
+            {
+               /* Take away the dot at the end */
+               ptr = ff_name + strlen(ff_name) - 1;
+               *ptr = '\0';
             }
          }
+
+#ifdef _OUTPUT_LOG
+         if (db.output_log == YES)
+         {
+            end_time = times(&tmsdummy);
+         }
+#endif
+
+         if (db.special_flag & CHANGE_PERMISSION)
+         {
+            if (chmod(ff_name, db.chmod) == -1)
+            {
+               trans_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Failed to chmod() file %s : %s",
+                         ff_name, strerror(errno));
+            }
+            else
+            {
+               if ((fsa[db.fsa_pos].debug == YES) &&
+                   (trans_db_log_fd != -1))
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Changed permission of file %s to %d",
+                               ff_name, db.chmod);
+               }
+            }
+         } /* if (db.special_flag & CHANGE_PERMISSION) */
+
+         if (db.special_flag & CHANGE_UID_GID)
+         {
+            if (chown(ff_name, db.user_id, db.group_id) == -1)
+            {
+               trans_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Failed to chown() of file %s : %s",
+                         ff_name, strerror(errno));
+            }
+            else
+            {
+               if ((fsa[db.fsa_pos].debug == YES) &&
+                   (trans_db_log_fd != -1))
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Changed owner of file %s to %d:%d.",
+                               ff_name, db.user_id, db.group_id);
+               }
+            }
+         } /* if (db.special_flag & CHANGE_UID_GID) */
+
+         /* Tell FSA we have copied a file !!!! */
          if (host_deleted == NO)
          {
-            fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use[0] = '\0';
-            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done = i + 1;
-            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done += *p_file_size_buffer;
-            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use = 0;
-            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use_done = 0;
+            lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
+            rlock_region(fsa_fd, lock_offset);
 
-            /* Total file counter */
-            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
-            fsa[db.fsa_pos].total_file_counter -= 1;
-#ifdef _VERIFY_FSA
-            if (fsa[db.fsa_pos].total_file_counter < 0)
+            /* Before we read from the FSA lets make */
+            /* sure that it is NOT stale!            */
+            if (check_fsa() == YES)
             {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file counter for host %s less then zero. Correcting to %d.",
-                          fsa[db.fsa_pos].host_dsp_name,
-                          files_to_send - (i + 1));
-               fsa[db.fsa_pos].total_file_counter = files_to_send - (i + 1);
-            }
-#endif
-
-            /* Total file size */
-#ifdef _VERIFY_FSA
-            ui_variable = fsa[db.fsa_pos].total_file_size;
-#endif
-            fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
-#ifdef _VERIFY_FSA
-            if (fsa[db.fsa_pos].total_file_size > ui_variable)
-            {
-               int   k;
-               off_t *tmp_ptr = p_file_size_buffer;
-
-               tmp_ptr++;
-               fsa[db.fsa_pos].total_file_size = 0;
-               for (k = (i + 1); k < files_to_send; k++)
+               if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
                {
-                  fsa[db.fsa_pos].total_file_size += *tmp_ptr;
+                  host_deleted = YES;
                }
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file size for host %s overflowed. Correcting to %lu.",
-                          fsa[db.fsa_pos].host_dsp_name,
-                          fsa[db.fsa_pos].total_file_size);
+               else
+               {
+                  lock_offset = (char *)&fsa[db.fsa_pos] - (char *)fsa;
+                  rlock_region(fsa_fd, lock_offset);
+               }
             }
-            else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
-                     (fsa[db.fsa_pos].total_file_size > 0))
-                 {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "fc for host %s is zero but fs is not zero. Correcting.",
-                               fsa[db.fsa_pos].host_dsp_name);
-                    fsa[db.fsa_pos].total_file_size = 0;
-                 }
+            if (host_deleted == NO)
+            {
+               fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use[0] = '\0';
+               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done++;
+               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done += *p_file_size_buffer;
+               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use = 0;
+               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_in_use_done = 0;
+
+               /* Total file counter */
+               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
+               fsa[db.fsa_pos].total_file_counter -= 1;
+#ifdef _VERIFY_FSA
+               if (fsa[db.fsa_pos].total_file_counter < 0)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Total file counter for host %s less then zero. Correcting to %d.",
+                             fsa[db.fsa_pos].host_dsp_name,
+                             files_to_send - (i + 1));
+                  fsa[db.fsa_pos].total_file_counter = files_to_send - (i + 1);
+               }
 #endif
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
 
-            /* File counter done */
-            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
-            fsa[db.fsa_pos].file_counter_done += 1;
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
+               /* Total file size */
+#ifdef _VERIFY_FSA
+               ui_variable = fsa[db.fsa_pos].total_file_size;
+#endif
+               fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
+#ifdef _VERIFY_FSA
+               if (fsa[db.fsa_pos].total_file_size > ui_variable)
+               {
+                  int   k;
+                  off_t *tmp_ptr = p_file_size_buffer;
 
-            /* Number of bytes send */
-            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
-            fsa[db.fsa_pos].bytes_send += *p_file_size_buffer;
-            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
-            unlock_region(fsa_fd, lock_offset);
+                  tmp_ptr++;
+                  fsa[db.fsa_pos].total_file_size = 0;
+                  for (k = (i + 1); k < files_to_send; k++)
+                  {
+                     fsa[db.fsa_pos].total_file_size += *tmp_ptr;
+                  }
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Total file size for host %s overflowed. Correcting to %lu.",
+                             fsa[db.fsa_pos].host_dsp_name,
+                             fsa[db.fsa_pos].total_file_size);
+               }
+               else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
+                        (fsa[db.fsa_pos].total_file_size > 0))
+                    {
+                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                  "fc for host %s is zero but fs is not zero. Correcting.",
+                                  fsa[db.fsa_pos].host_dsp_name);
+                       fsa[db.fsa_pos].total_file_size = 0;
+                    }
+#endif
+               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_counter - (char *)fsa);
+
+               /* File counter done */
+               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
+               fsa[db.fsa_pos].file_counter_done += 1;
+               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].file_counter_done - (char *)fsa);
+
+               /* Number of bytes send */
+               lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+               fsa[db.fsa_pos].bytes_send += *p_file_size_buffer;
+               unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].bytes_send - (char *)fsa);
+               unlock_region(fsa_fd, lock_offset);
+            }
          }
-      }
 
-      /* Now archive file if necessary */
-      if ((db.archive_time > 0) &&
-          (p_db->archive_dir[0] != FAILED_TO_CREATE_ARCHIVE_DIR))
-      {
-         /*
-          * By telling the function archive_file() that this
-          * is the first time to archive a file for this job
-          * (in struct p_db) it does not always have to check
-          * whether the directory has been created or not. And
-          * we ensure that we do not create duplicate names
-          * when adding ARCHIVE_UNIT * db.archive_time to
-          * msg_name.
-          */
-         if (archive_file(file_path, file_name, p_db) < 0)
+#ifdef _WITH_TRANS_EXEC
+         if (db.special_flag & TRANS_EXEC)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to archive file %s", file_name);
+            trans_exec(file_path, ff_name, p_file_name_buffer);
+         }
+#endif /* _WITH_TRANS_EXEC */
 
+
+         /* Now archive file if necessary */
+         if ((db.archive_time > 0) &&
+             (p_db->archive_dir[0] != FAILED_TO_CREATE_ARCHIVE_DIR))
+         {
             /*
-             * NOTE: We _MUST_ delete the file we just send,
-             *       else the file directory will run full!
+             * By telling the function archive_file() that this
+             * is the first time to archive a file for this job
+             * (in struct p_db) it does not always have to check
+             * whether the directory has been created or not. And
+             * we ensure that we do not create duplicate names
+             * when adding ARCHIVE_UNIT * db.archive_time to
+             * msg_name.
              */
+            if (archive_file(file_path, file_name, p_db) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to archive file %s", file_name);
+
+               /*
+                * NOTE: We _MUST_ delete the file we just send,
+                *       else the file directory will run full!
+                */
+               if (unlink(source_file) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Could not unlink() local file %s after copying it successfully : %s",
+                             source_file, strerror(errno));
+               }
+
+#ifdef _OUTPUT_LOG
+               if (db.output_log == YES)
+               {
+                  if (db.trans_rename_rule[0] != '\0')
+                  {
+                     (void)sprintf(ol_file_name, "%s /%s", p_file_name_buffer,
+                                   ff_name);
+                  }
+                  else
+                  {
+                     (void)strcpy(ol_file_name, p_file_name_buffer);
+                  }
+                  *ol_file_size = *p_file_size_buffer;
+                  *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
+                  *ol_transfer_time = end_time - start_time;
+                  ol_real_size = strlen(p_file_name_buffer) + ol_size;
+                  if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "write() error : %s", strerror(errno));
+                  }
+               }
+#endif
+            }
+            else
+            {
+               if ((fsa[db.fsa_pos].debug == YES) &&
+                   (trans_db_log_fd != -1))
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Archived file %s.", file_name);
+               }
+
+#ifdef _OUTPUT_LOG
+               if (db.output_log == YES)
+               {
+                  if (db.trans_rename_rule[0] != '\0')
+                  {
+                     *ol_file_name_length = (unsigned short)sprintf(ol_file_name,
+                                                                    "%s /%s",
+                                                                    p_file_name_buffer,
+                                                                    ff_name);
+                  }
+                  else
+                  {
+                     (void)strcpy(ol_file_name, p_file_name_buffer);
+                        *ol_file_name_length = (unsigned short)strlen(ol_file_name);
+                  }
+                  (void)strcpy(&ol_file_name[*ol_file_name_length + 1], &db.archive_dir[db.archive_offset]);
+                  *ol_file_size = *p_file_size_buffer;
+                  *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
+                  *ol_transfer_time = end_time - start_time;
+                  ol_real_size = *ol_file_name_length +
+                                 strlen(&ol_file_name[*ol_file_name_length + 1]) +
+                                 ol_size;
+                  if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "write() error : %s", strerror(errno));
+                  }
+               }
+#endif
+            }
+         }
+         else
+         {
+            /* Delete the file we just have copied */
             if (unlink(source_file) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -696,7 +797,7 @@ main(int argc, char *argv[])
                *ol_file_size = *p_file_size_buffer;
                *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
                *ol_transfer_time = end_time - start_time;
-               ol_real_size = strlen(p_file_name_buffer) + ol_size;
+               ol_real_size = strlen(ol_file_name) + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -705,184 +806,129 @@ main(int argc, char *argv[])
             }
 #endif
          }
-         else
-         {
-            if ((fsa[db.fsa_pos].debug == YES) &&
-                (trans_db_log_fd != -1))
-            {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Archived file %s.", file_name);
-            }
 
-#ifdef _OUTPUT_LOG
-            if (db.output_log == YES)
-            {
-               if (db.trans_rename_rule[0] != '\0')
-               {
-                  *ol_file_name_length = (unsigned short)sprintf(ol_file_name,
-                                                                 "%s /%s",
-                                                                 p_file_name_buffer,
-                                                                 ff_name);
-               }
-               else
-               {
-                  (void)strcpy(ol_file_name, p_file_name_buffer);
-                  *ol_file_name_length = (unsigned short)strlen(ol_file_name);
-               }
-               (void)strcpy(&ol_file_name[*ol_file_name_length + 1], &db.archive_dir[db.archive_offset]);
-               *ol_file_size = *p_file_size_buffer;
-               *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
-               *ol_transfer_time = end_time - start_time;
-               ol_real_size = *ol_file_name_length +
-                              strlen(&ol_file_name[*ol_file_name_length + 1]) +
-                              ol_size;
-               if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "write() error : %s", strerror(errno));
-               }
-            }
-#endif
-         }
-      }
-      else
-      {
-         /* Delete the file we just have copied */
-         if (unlink(source_file) == -1)
+         /*
+          * After each successful transfer set error
+          * counter to zero, so that other jobs can be
+          * started.
+          */
+         if (fsa[db.fsa_pos].error_counter > 0)
          {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not unlink() local file %s after copying it successfully : %s",
-                       source_file, strerror(errno));
-         }
+            int  fd,
+                 j;
+            char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
-#ifdef _OUTPUT_LOG
-         if (db.output_log == YES)
-         {
-            if (db.trans_rename_rule[0] != '\0')
+            lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
+            fsa[db.fsa_pos].error_counter = 0;
+
+            /*
+             * Wake up FD!
+             */
+            (void)sprintf(fd_wake_up_fifo, "%s%s%s",
+                          p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
+            if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
             {
-               (void)sprintf(ol_file_name, "%s /%s", p_file_name_buffer,
-                             ff_name);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to open() FIFO %s : %s",
+                          fd_wake_up_fifo, strerror(errno));
             }
             else
             {
-               (void)strcpy(ol_file_name, p_file_name_buffer);
+               if (write(fd, "", 1) != 1)
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to write() to FIFO %s : %s",
+                             fd_wake_up_fifo, strerror(errno));
+               }
+               if (close(fd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s",
+                             fd_wake_up_fifo, strerror(errno));
+               }
             }
-            *ol_file_size = *p_file_size_buffer;
-            *ol_job_number = fsa[db.fsa_pos].job_status[(int)db.job_no].job_id;
-            *ol_transfer_time = end_time - start_time;
-            ol_real_size = strlen(ol_file_name) + ol_size;
-            if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
+
+            /*
+             * Remove the error condition (NOT_WORKING) from all jobs
+             * of this host.
+             */
+            for (j = 0; j < fsa[db.fsa_pos].allowed_transfers; j++)
             {
-               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "write() error : %s", strerror(errno));
+               if ((j != db.job_no) &&
+                   (fsa[db.fsa_pos].job_status[j].connect_status == NOT_WORKING))
+               {
+                  fsa[db.fsa_pos].job_status[j].connect_status = DISCONNECT;
+               }
             }
-         }
-#endif
-      }
+            unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
 
-      /*
-       * After each successful transfer set error
-       * counter to zero, so that other jobs can be
-       * started.
-       * Also move all, error entries back to the message
-       * and file directories.
-       */
-      if (fsa[db.fsa_pos].error_counter > 0)
+            /*
+             * Since we have successfully transmitted a file, no need to
+             * have the queue stopped anymore.
+             */
+            if (fsa[db.fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT)
+            {
+               fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
+               system_log(INFO_SIGN, __FILE__, __LINE__,
+                          "Starting queue for %s that was stopped by init_afd.",
+                          fsa[db.fsa_pos].host_alias);
+            }
+         } /* if (fsa[db.fsa_pos].error_counter > 0) */
+
+         p_file_name_buffer += MAX_FILENAME_LENGTH;
+         p_file_size_buffer++;
+      } /* for (i = 0; i < files_to_send; i++) */
+
+      /* Do not forget to remove lock file if we have created one */
+      if ((db.lock == LOCKFILE) && (fsa[db.fsa_pos].active_transfers == 1))
       {
-         int  fd,
-              j;
-         char fd_wake_up_fifo[MAX_PATH_LENGTH];
-
-         lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
-         fsa[db.fsa_pos].error_counter = 0;
-
-         /*
-          * Wake up FD!
-          */
-         (void)sprintf(fd_wake_up_fifo, "%s%s%s",
-                       p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
-         if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
+         if (unlink(lockfile) == -1)
          {
-            system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Failed to open() FIFO %s : %s",
-                       fd_wake_up_fifo, strerror(errno));
+            (void)rec(transfer_log_fd, INFO_SIGN,
+                      "%-*s[%d]: %d Bytes copied in %d file(s).\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to unlink() lock file %s : %s",
+                      lockfile, strerror(errno));
+            exit(REMOVE_LOCKFILE_ERROR);
          }
          else
          {
-            if (write(fd, "", 1) != 1)
+            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
             {
-               system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to write() to FIFO %s : %s",
-                          fd_wake_up_fifo, strerror(errno));
-            }
-            if (close(fd) == -1)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Failed to close() FIFO %s : %s",
-                          fd_wake_up_fifo, strerror(errno));
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Removed lock file %s.", lockfile);
             }
          }
+      }
+#ifdef _WITH_BURST_2
+      burst_counter++;
+   } while (check_burst_2(&p_new_db, file_path, &files_to_send) == YES);
+   burst_counter--;
 
-         /*
-          * Remove the error condition (NOT_WORKING) from all jobs
-          * of this host.
-          */
-         for (j = 0; j < fsa[db.fsa_pos].allowed_transfers; j++)
-         {
-            if ((j != db.job_no) &&
-                (fsa[db.fsa_pos].job_status[j].connect_status == NOT_WORKING))
-            {
-               fsa[db.fsa_pos].job_status[j].connect_status = DISCONNECT;
-            }
-         }
-         unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].error_counter - (char *)fsa);
-
-         /*
-          * Since we have successfully transmitted a file, no need to
-          * have the queue stopped anymore.
-          */
-         if (fsa[db.fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT)
-         {
-            fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
-            system_log(INFO_SIGN, __FILE__, __LINE__,
-                       "Starting queue for %s that was stopped by init_afd.",
-                       fsa[db.fsa_pos].host_alias);
-         }
-      } /* if (fsa[db.fsa_pos].error_counter > 0) */
-
-      p_file_name_buffer += MAX_FILENAME_LENGTH;
-      p_file_size_buffer++;
-   } /* for (i = 0; i < files_to_send; i++) */
-
-   /* Do not forget to remove lock file if we have created one */
-   if ((db.lock == LOCKFILE) && (fsa[db.fsa_pos].active_transfers == 1))
+   i = sprintf(ff_name, "%-*s[%d]: %lu Bytes copied in %d file(s).",
+               MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+               fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+               fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+   if (burst_counter == 1)
    {
-      if (unlink(lockfile) == -1)
-      {
-         (void)rec(transfer_log_fd, INFO_SIGN,
-                   "%-*s[%d]: %d Bytes copied in %d file(s).\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                   fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to unlink() lock file %s : %s",
-                   lockfile, strerror(errno));
-         exit(REMOVE_LOCKFILE_ERROR);
-      }
-      else
-      {
-         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
-         {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Removed lock file %s.", lockfile);
-         }
-      }
+      (void)strcat(ff_name, " [BURST]");
    }
+   else if (burst_counter > 1)
+        {
+           (void)sprintf(ff_name + i, " [BURST * %d]", burst_counter);
+        }
+
+   (void)rec(transfer_log_fd, INFO_SIGN, "%s\n", ff_name);
+#else
 
    (void)rec(transfer_log_fd, INFO_SIGN,
              "%-*s[%d]: %d Bytes copied in %d file(s).\n",
              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done, i);
+#endif /* _WITH_BURST_2 */
 
    /*
     * Remove file directory.
@@ -930,16 +976,14 @@ sf_loc_exit(void)
    }
    else
    {
-      pid_t pid = getpid();
 #ifdef _FIFO_DEBUG
       char  cmd[2];
-#endif
-      /* Tell FD we are finished */
-#ifdef _FIFO_DEBUG
+
       cmd[0] = ACKN; cmd[1] = '\0';
       show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
 #endif
-      if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+      /* Tell FD we are finished */
+      if (write(fd, &db.my_pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));

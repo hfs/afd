@@ -1,6 +1,6 @@
 /*
  *  init_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,6 +53,9 @@ DESCR__E_M3
 #include "fddefs.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
+#ifdef _WITH_SCP1_SUPPORT
+#include "scp1defs.h"
+#endif
 #ifdef _WITH_WMO_SUPPORT
 #include "wmodefs.h"
 #endif
@@ -85,7 +88,6 @@ int
 init_sf(int argc, char *argv[], char *file_path, int protocol)
 {
    int        files_to_send = 0,
-              length,
               status;
    off_t      lock_offset,
               file_size_to_send = 0;
@@ -103,6 +105,13 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
         {
            db.port = DEFAULT_SMTP_PORT;
         }
+#ifdef _WITH_SCP1_SUPPORT
+   else if (protocol & SCP1_FLAG)
+        {
+           db.port = DEFAULT_SSH_PORT;
+           db.chmod = FILE_MODE;
+        }
+#endif
 #ifdef _WITH_WMO_SUPPORT
    else if (protocol & WMO_FLAG)
         {
@@ -118,6 +127,11 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.toggle_host = NO;
    db.protocol = protocol;
    db.special_ptr = NULL;
+   db.subject = NULL;
+#ifdef _WITH_TRANS_EXEC
+   db.trans_exec_cmd = NULL;
+#endif
+   db.special_flag = 0;
    db.mode_flag = ACTIVE_MODE;  /* Lets first default to active mode. */
    db.archive_time = DEFAULT_ARCHIVE_TIME;
 #ifdef _AGE_LIMIT
@@ -130,6 +144,10 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.error_file = NO;
    db.smtp_server[0] = '\0';
    db.chmod_str[0] = '\0';
+   db.trans_rename_rule[0] = '\0';
+   db.user_rename_rule[0] = '\0';
+   db.no_of_restart_files = 0;
+   db.restart_file = NULL;
    db.user_id = -1;
    db.group_id = -1;
    (void)strcpy(db.lock_notation, DOT_NOTATION);
@@ -145,6 +163,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    {
       db.archive_time = 0;
    }
+   db.my_pid = getpid();
 
    /* Open/create log fifos */
    (void)strcpy(gbuf, p_work_dir);
@@ -208,20 +227,6 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       }
    }
 
-   /* Initialise file source directory. */
-   if (db.error_file == YES)
-   {
-      length = sprintf(file_path, "%s%s%s/%s/%s", p_work_dir, AFD_FILE_DIR,
-                       ERROR_DIR, db.host_alias, db.msg_name) + 1;
-   }
-   else
-   {
-      length = sprintf(file_path, "%s%s/%s",
-                       p_work_dir, AFD_FILE_DIR, db.msg_name) + 1;
-   }
-   RT_ARRAY(p_db->filename, 1, length, char);
-   (void)strcpy(db.filename[0], file_path);
-
    /*
     * Open the AFD counter file. This is needed when trans_rename is
     * used or user renaming (SMTP).
@@ -265,11 +270,15 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    }
 
 #ifdef _BURST_MODE
+   if ((protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
-   if ((protocol & FTP_FLAG) || (protocol & WMO_FLAG))
-#else
-   if (protocol & FTP_FLAG)
+       || (protocol & WMO_FLAG)
 #endif /* _WITH_WMO_SUPPORT */
+#ifdef _WITH_SCP1_SUPPORT
+       || (protocol & SCP1_FLAG))
+#else
+       )
+#endif
    {
       lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
    }
@@ -277,10 +286,14 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    if ((files_to_send = get_file_names(file_path, &file_size_to_send)) > 0)
    {
 #ifdef _BURST_MODE
+      if ((protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
-      if ((protocol & FTP_FLAG) || (protocol & WMO_FLAG))
+          || (protocol & WMO_FLAG)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+          || (protocol & SCP1_FLAG))
 #else
-      if (protocol & FTP_FLAG)
+          )
 #endif
       {
          if (fsa[db.fsa_pos].job_status[(int)db.job_no].burst_counter > 0)
@@ -289,7 +302,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          }
          unlock_region(fsa_fd, (char *)&fsa[db.fsa_pos].job_status[(int)db.job_no].job_id - (char *)fsa);
       }
-#endif
+#endif /* _BURST_MODE */
    }
    else
    {
@@ -331,10 +344,14 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done = 0;
          fsa[db.fsa_pos].job_status[(int)db.job_no].connect_status = CONNECTING;
 #if defined (_BURST_MODE) && !defined (_OUTPUT_LOG)
+         if ((protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
-         if ((protocol & FTP_FLAG) || (protocol & WMO_FLAG))
+             || (protocol & WMO_FLAG)
+#endif
+#ifdef _WITH_SCP1_SUPPORT
+             || (protocol & SCP1_FLAG))
 #else
-         if (protocol & FTP_FLAG)
+             )
 #endif
          {
 #endif

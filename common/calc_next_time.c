@@ -48,6 +48,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
+#include <stdlib.h>                 /* exit()                            */
 #include <time.h>
 #include "bit_array.h"
 
@@ -69,7 +70,7 @@ calc_next_time(struct bd_time_entry *te)
    time_t    current_time;
    struct tm *bd_time;     /* Broken-down time */
 
-   (void)time(&current_time);
+   current_time = time(NULL);
    bd_time = localtime(&current_time);
    bd_time->tm_min++;
    if (bd_time->tm_min == 60)

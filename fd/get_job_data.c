@@ -167,47 +167,58 @@ retry:
       {
          if (strcmp(p_start, LOC_SHEME) != 0)
          {
-#ifdef _WITH_WMO_SUPPORT
-            if (strcmp(p_start, WMO_SHEME) != 0)
+#ifdef _WITH_SCP1_SUPPORT
+            if (strcmp(p_start, SCP1_SHEME) != 0)
             {
-#endif
-#ifdef _WITH_MAP_SUPPORT
-               if (strcmp(p_start, MAP_SHEME) != 0)
+#endif /* _WITH_SCP1_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+               if (strcmp(p_start, WMO_SHEME) != 0)
                {
 #endif
-                  if (strcmp(p_start, SMTP_SHEME) != 0)
+#ifdef _WITH_MAP_SUPPORT
+                  if (strcmp(p_start, MAP_SHEME) != 0)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Removing %s because of unknown sheme [%s]. (%s %d)\n",
-                               msg_dir, p_start, __FILE__, __LINE__);
-                     if (unlink(msg_dir) == -1)
+#endif
+                     if (strcmp(p_start, SMTP_SHEME) != 0)
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to unlink() %s : %s (%s %d)\n",
-                                  msg_dir, strerror(errno),
-                                  __FILE__, __LINE__);
+                                  "Removing %s because of unknown sheme [%s]. (%s %d)\n",
+                                  msg_dir, p_start, __FILE__, __LINE__);
+                        if (unlink(msg_dir) == -1)
+                        {
+                           (void)rec(sys_log_fd, WARN_SIGN,
+                                     "Failed to unlink() %s : %s (%s %d)\n",
+                                     msg_dir, strerror(errno),
+                                     __FILE__, __LINE__);
+                        }
+                        free(file_buf);
+                        return(INCORRECT);
                      }
-                     free(file_buf);
-                     return(INCORRECT);
+                     else
+                     {
+                        sheme = SMTP;
+                     }
+#ifdef _WITH_MAP_SUPPORT
                   }
                   else
                   {
-                     sheme = SMTP;
+                     sheme = MAP;
                   }
-#ifdef _WITH_MAP_SUPPORT
+#endif
+#ifdef _WITH_WMO_SUPPORT
                }
                else
                {
-                  sheme = MAP;
+                  sheme = WMO;
                }
 #endif
-#ifdef _WITH_WMO_SUPPORT
+#ifdef _WITH_SCP1_SUPPORT
             }
             else
             {
-               sheme = WMO;
+               sheme = SCP1;
             }
-#endif
+#endif /* _WITH_SCP1_SUPPORT */
          }
          else
          {
@@ -250,8 +261,7 @@ retry:
       ptr++;
       while ((*ptr != '/') && (*ptr != '.') &&
              (*ptr != ':') && (*ptr != '\n') &&
-             (*ptr != ';') &&
-             (length < MAX_HOSTNAME_LENGTH))
+             (*ptr != ';') && (length < MAX_HOSTNAME_LENGTH))
       {
          if (*ptr == '\\')
          {

@@ -22,13 +22,13 @@
 DESCR__S_M3
 /*
  ** NAME
- **   exec_cmd - executes a shell command
+ **   xexec_cmd - executes a shell command
  **
  ** SYNOPSIS
- **   void exec_cmd(char *cmd)
+ **   void xexec_cmd(char *cmd)
  **
  ** DESCRIPTION
- **   exec_cmd() executes a command specified in 'cmd' by calling
+ **   xexec_cmd() executes a command specified in 'cmd' by calling
  **   /bin/sh -c 'cmd', and returns after the command has been
  **   completed. All output is written to the text widget cmd_output.
  **
@@ -74,9 +74,9 @@ extern XtInputId      cmd_input_id;
 static void           read_data(XtPointer, int *, XtInputId *);
 
 
-/*############################## exec_cmd() #############################*/
+/*############################# xexec_cmd() #############################*/
 void
-exec_cmd(char *cmd)
+xexec_cmd(char *cmd)
 {
    int channels[2];
 

@@ -447,9 +447,9 @@ main(int argc, char *argv[])
    /*
     * Determine current month.
     */
-   time(&now);
+   now = time(NULL);
 
-   bd_time = gmtime(&now);
+   bd_time = localtime(&now);
    current_month = bd_time->tm_mon;
    month_check_time = ((now / 86400) * 86400) + 86400;
 
@@ -563,7 +563,7 @@ main(int argc, char *argv[])
        */
       if (time(&now) > month_check_time)
       {
-         bd_time = gmtime(&now);
+         bd_time = localtime(&now);
          if (bd_time->tm_mon != current_month)
          {
             char month[15];

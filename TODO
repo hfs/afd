@@ -246,7 +246,7 @@ o       Support to send files via WMO TCP
 o       Send message names via fifo to the FD
         and create messages only ones. So the
         FD does not need to read each message
-        everytime a new job arrives.           ****    [DONE]
+        every time a new job arrives.          ****    [DONE]
 o       Process that logs all deleted files.      *    [DONE]
 o       Search input queue for old files.        **    [DONE]
 o       Clear pool directory at start.            *    [DONE]
@@ -339,9 +339,16 @@ o       Option to execute command on the
 o       Ageing priorities for process FD.       ***    [DONE]
 o       Reduce disk load of process
         archive_watch.                           **    [DONE]
+o       Option to attach all files in one mail.   *    [DONE]
 o       Rename log, so it is possible to trace
         files.                                   **    [UNDER CONSTRUCTION]
+o       Support for the SCP1 protocol (SSH1).    **    [UNDER CONSTRUCTION]
+o       Use GNU autoconfig and automake to build
+        AFD.                                      *    [TODO]
 o       Convert all dialogs to gtk+.             **    [TODO]
+o       Before any sf_xxx process terminate
+        they should check with FD if there is
+        anoter job for them to do.              ***    [TODO]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
 o       Support for IP6.                        ***    [TODO]
 o       Dialog deleting all Jobs + files older
@@ -350,11 +357,6 @@ o       Implement tar/un-tar command.            **    [TODO]
 o       A SSL FTP client (sf_sftp).              **    [TODO]
 o       Write process sf_sql to send files to
         a database.                              **    [TODO]
-o       Do some heavy stress test shutting
-        down some process under heavy load,
-        to see if AFD recovers properly and no
-        files are lost.                           *    [TODO]
-o       Implement the notify option.              *    [TODO]
 o       Implement context sensitive help for
         the 'afd_ctrl' dialog.                    *    [TODO]
 o       Create process that can do multi-casting.**    [TODO]

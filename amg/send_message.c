@@ -52,6 +52,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <string.h>          /* strcpy(), strcat(), strerror(), memcpy() */
+#include <stdlib.h>          /* exit()                                   */
 #include <unistd.h>          /* write()                                  */
 #ifdef _WITH_PTHREAD                                                            
 #include <pthread.h>                                                            

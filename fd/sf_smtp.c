@@ -94,7 +94,7 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-int                        counter_fd,
+int                        counter_fd = -1,
                            exitflag = IS_FAULTY_VAR,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
@@ -265,7 +265,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
                 "SMTP connection to <%s> at port %d failed (%d).",
                 db.smtp_server, db.port, status);
-      exit(CONNECT_ERROR);
+      exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
    }
    else
    {
@@ -288,7 +288,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
                 "Failed to send HELO to <%s> (%d).", db.smtp_server, status);
       (void)smtp_quit();
-      exit(CONNECT_ERROR);
+      exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
    }
    else
    {
@@ -495,90 +495,99 @@ main(int argc, char *argv[])
       }
    } /* if (db.special_flag & ADD_MAIL_HEADER) */
 
+   if ((db.special_flag & ATTACH_ALL_FILES) &&
+       (multipart_boundary[0] == '\0'))
+   {
+      (void)sprintf(multipart_boundary, "----%s", db.msg_name);
+   }
+
    /* Send all files */
    p_file_name_buffer = file_name_buffer;
    p_file_size_buffer = file_size_buffer;
    for (files_send = 0; files_send < files_to_send; files_send++)
    {
-      /* Send local user name */
-      if ((status = smtp_user(local_user)) != SUCCESS)
+      if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0))
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to send local user <%s> (%d).", local_user, status);
-         (void)smtp_quit();
-         exit(USER_ERROR);
-      }
-      else
-      {
-         if ((fsa[db.fsa_pos].debug == YES) &&
-             (trans_db_log_fd != -1))
+         /* Send local user name */
+         if ((status = smtp_user(local_user)) != SUCCESS)
          {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Entered local user name %s.", local_user);
-         }
-      }
-
-      if (db.special_flag & FILE_NAME_IS_USER)
-      {
-         if (db.user_rename_rule[0] != '\0')
-         {
-            register int k;
-
-            for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
-            {
-               if (pmatch(rule[user_rule_pos].filter[k],
-                          p_file_name_buffer) == 0)
-               {
-                  change_name(p_file_name_buffer,
-                              rule[user_rule_pos].filter[k],
-                              rule[user_rule_pos].rename_to[k],
-                              db.user);
-                  break;
-               }
-            }
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to send local user <%s> (%d).", local_user, status);
+            (void)smtp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
          }
          else
          {
-            (void)strcpy(db.user, p_file_name_buffer);
+            if ((fsa[db.fsa_pos].debug == YES) &&
+                (trans_db_log_fd != -1))
+            {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Entered local user name %s.", local_user);
+            }
          }
-         (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
-      } /* if (db.special_flag & FILE_NAME_IS_USER) */
-   
-      /* Send remote user name */
-      if ((status = smtp_rcpt(remote_user)) != SUCCESS)
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to send remote user <%s> (%d).", remote_user, status);
-         (void)smtp_quit();
-         exit(REMOTE_USER_ERROR);
-      }
-      else
-      {
-         if ((fsa[db.fsa_pos].debug == YES) &&
-             (trans_db_log_fd != -1))
-         {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Remote address %s accepted by SMTP-server.",
-                         remote_user);
-         }
-      }
 
-      /* Enter data mode */
-      if ((status = smtp_open()) != SUCCESS)
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to set DATA mode (%d).", status);
-         (void)smtp_quit();
-         exit(DATA_ERROR);
-      }
-      else
-      {
-         if ((fsa[db.fsa_pos].debug == YES) &&
-             (trans_db_log_fd != -1))
+         if (db.special_flag & FILE_NAME_IS_USER)
          {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Set DATA mode.");
+            if (db.user_rename_rule[0] != '\0')
+            {
+               register int k;
+
+               for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
+               {
+                  if (pmatch(rule[user_rule_pos].filter[k],
+                             p_file_name_buffer) == 0)
+                  {
+                     change_name(p_file_name_buffer,
+                                 rule[user_rule_pos].filter[k],
+                                 rule[user_rule_pos].rename_to[k],
+                                 db.user);
+                     break;
+                  }
+               }
+            }
+            else
+            {
+               (void)strcpy(db.user, p_file_name_buffer);
+            }
+            (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
+         } /* if (db.special_flag & FILE_NAME_IS_USER) */
+   
+         /* Send remote user name */
+         if ((status = smtp_rcpt(remote_user)) != SUCCESS)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to send remote user <%s> (%d).", remote_user, status);
+            (void)smtp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : REMOTE_USER_ERROR);
          }
-      }
+         else
+         {
+            if ((fsa[db.fsa_pos].debug == YES) &&
+                (trans_db_log_fd != -1))
+            {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Remote address %s accepted by SMTP-server.",
+                            remote_user);
+            }
+         }
+
+         /* Enter data mode */
+         if ((status = smtp_open()) != SUCCESS)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to set DATA mode (%d).", status);
+            (void)smtp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : DATA_ERROR);
+         }
+         else
+         {
+            if ((fsa[db.fsa_pos].debug == YES) &&
+                (trans_db_log_fd != -1))
+            {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Set DATA mode.");
+            }
+         }
+      } /* if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0)) */
 
       /* Get the the name of the file we want to send next */
       (void)strcpy(final_filename, p_file_name_buffer);
@@ -643,103 +652,15 @@ main(int argc, char *argv[])
       loops = *p_file_size_buffer / blocksize;
       rest = *p_file_size_buffer % blocksize;
 
-      /* Send file name as subject if wanted. */
-      if (db.special_flag & MAIL_SUBJECT)
+      if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0))
       {
-         size_t length;
-
-         length = sprintf(buffer, "Subject : %s\r\n", db.subject);
-         if (smtp_write(buffer, NULL, length) < 0)
+         /* Send file name as subject if wanted. */
+         if (db.special_flag & MAIL_SUBJECT)
          {
-            (void)rec(transfer_log_fd, INFO_SIGN,
-                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to write subject to SMTP-server.");
-            (void)smtp_quit();
-            exit(WRITE_REMOTE_ERROR);
-         }
-         no_of_bytes = length;
-      }
-      else if (db.special_flag & FILE_NAME_IS_SUBJECT)
-           {
-              size_t length;
+            size_t length;
 
-              length = sprintf(buffer, "Subject : %s\r\n", final_filename);
-              if (smtp_write(buffer, NULL, length) < 0)
-              {
-                 (void)rec(transfer_log_fd, INFO_SIGN,
-                           "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                           MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                           fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                           fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Failed to write the filename as subject to SMTP-server.");
-                 (void)smtp_quit();
-                 exit(WRITE_REMOTE_ERROR);
-              }
-
-              no_of_bytes = length;
-           } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
-
-      /* Send MIME information. */
-      if (db.special_flag & ATTACH_FILE)
-      {
-         size_t length;
-
-         if (multipart_boundary[0] != '\0')
-         {
-#ifdef PRE_RELEASE
-            length = sprintf(buffer,
-                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d-%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
-                             MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
-                             multipart_boundary);
-#else
-            length = sprintf(buffer,
-                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
-                             MAJOR, MINOR, BUG_FIX, multipart_boundary);
-#endif
-            buffer_ptr = buffer;
-         }
-         else
-         {
-            length = sprintf(encode_buffer,
-                             "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
-                             MAJOR, MINOR, BUG_FIX, final_filename);
-            buffer_ptr = encode_buffer;
-         }
-
-         if (smtp_write(buffer_ptr, NULL, length) < 0)
-         {
-            (void)rec(transfer_log_fd, INFO_SIGN,
-                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to write start of multipart boundary to SMTP-server.");
-            (void)smtp_quit();
-            exit(WRITE_REMOTE_ERROR);
-         }
-
-         no_of_bytes += length;
-      } /* if (db.special_flag & ATTACH_FILE) */
-
-      /* Write the mail header. */
-      if (mail_header_buffer != NULL)
-      {
-         int length = 0;
-
-         if (db.special_flag & ATTACH_FILE)
-         {
-            /* Write boundary */
-            length = sprintf(encode_buffer,
-                             "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=US-ASCII\r\n\r\n",
-                             multipart_boundary);
-
-            if (smtp_write(encode_buffer, NULL, length) < 0)
+            length = sprintf(buffer, "Subject : %s\r\n", db.subject);
+            if (smtp_write(buffer, NULL, length) < 0)
             {
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s[%d]: %d Bytes send in %d file(s).\n",
@@ -747,75 +668,241 @@ main(int argc, char *argv[])
                          fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                          fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to write the Content-Type (TEXT/PLAIN) to SMTP-server.");
+                         "Failed to write subject to SMTP-server.");
                (void)smtp_quit();
-               exit(WRITE_REMOTE_ERROR);
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+            }
+            no_of_bytes = length;
+         }
+         else if (db.special_flag & FILE_NAME_IS_SUBJECT)
+              {
+                 size_t length;
+
+                 length = sprintf(buffer, "Subject : %s\r\n", final_filename);
+                 if (smtp_write(buffer, NULL, length) < 0)
+                 {
+                    (void)rec(transfer_log_fd, INFO_SIGN,
+                              "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                              MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                              fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                              "Failed to write the filename as subject to SMTP-server.");
+                    (void)smtp_quit();
+                    exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                 }
+
+                 no_of_bytes = length;
+              } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
+
+         /* Send MIME information. */
+         if (db.special_flag & ATTACH_FILE)
+         {
+            size_t length;
+
+            if (multipart_boundary[0] != '\0')
+            {
+#ifdef PRE_RELEASE
+               length = sprintf(buffer,
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d-%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
+                                MAJOR, MINOR, BUG_FIX, PRE_RELEASE,
+                                multipart_boundary);
+#else
+               length = sprintf(buffer,
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: MULTIPART/MIXED; BOUNDARY=\"%s\"\r\n",
+                                MAJOR, MINOR, BUG_FIX, multipart_boundary);
+#endif
+               buffer_ptr = buffer;
+            }
+            else
+            {
+               length = sprintf(encode_buffer,
+                                "MIME-Version: 1.0 (produced by AFD %d.%d.%d)\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n",
+                                MAJOR, MINOR, BUG_FIX, final_filename);
+               buffer_ptr = encode_buffer;
+            }
+
+            if (smtp_write(buffer_ptr, NULL, length) < 0)
+            {
+               (void)rec(transfer_log_fd, INFO_SIGN,
+                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write start of multipart boundary to SMTP-server.");
+               (void)smtp_quit();
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
             }
 
             no_of_bytes += length;
          } /* if (db.special_flag & ATTACH_FILE) */
 
-         /* Now lets write the message. */
-         if (db.special_flag & ENCODE_ANSI)
+         /* Write the mail header. */
+         if (mail_header_buffer != NULL)
          {
-            if (smtp_write_iso8859(mail_header_buffer,
-                                   extra_mail_header_buffer,
-                                   mail_header_size) < 0)
-            {
-               (void)rec(transfer_log_fd, INFO_SIGN,
-                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to write the mail header content to SMTP-server.");
-               (void)smtp_quit();
-               exit(WRITE_REMOTE_ERROR);
-            }
-         }
-         else
-         {
-            if (smtp_write(mail_header_buffer, extra_mail_header_buffer,
-                           mail_header_size) < 0)
-            {
-               (void)rec(transfer_log_fd, INFO_SIGN,
-                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to write the mail header content to SMTP-server.");
-               (void)smtp_quit();
-               exit(WRITE_REMOTE_ERROR);
-            }
-         }
-         no_of_bytes += length;
+            int length = 0;
 
-         if (db.special_flag & ATTACH_FILE)
-         {
-            /* Write boundary */
-            if (db.trans_rename_rule[0] != '\0')
+            if (db.special_flag & ATTACH_FILE)
             {
-               int  k;
-               char new_filename[MAX_FILENAME_LENGTH];
+               /* Write boundary */
+               length = sprintf(encode_buffer,
+                                "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=US-ASCII\r\n\r\n",
+                                multipart_boundary);
 
-               new_filename[0] = '\0';
-               for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
+               if (smtp_write(encode_buffer, NULL, length) < 0)
                {
-                  if (pmatch(rule[trans_rule_pos].filter[k],
-                             final_filename) == 0)
+                  (void)rec(transfer_log_fd, INFO_SIGN,
+                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write the Content-Type (TEXT/PLAIN) to SMTP-server.");
+                  (void)smtp_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               }
+
+               no_of_bytes += length;
+            } /* if (db.special_flag & ATTACH_FILE) */
+
+            /* Now lets write the message. */
+            if (db.special_flag & ENCODE_ANSI)
+            {
+               if (smtp_write_iso8859(mail_header_buffer,
+                                      extra_mail_header_buffer,
+                                      mail_header_size) < 0)
+               {
+                  (void)rec(transfer_log_fd, INFO_SIGN,
+                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write the mail header content to SMTP-server.");
+                  (void)smtp_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               }
+            }
+            else
+            {
+               if (smtp_write(mail_header_buffer, extra_mail_header_buffer,
+                              mail_header_size) < 0)
+               {
+                  (void)rec(transfer_log_fd, INFO_SIGN,
+                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write the mail header content to SMTP-server.");
+                  (void)smtp_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               }
+            }
+            no_of_bytes += length;
+
+            if (db.special_flag & ATTACH_FILE)
+            {
+               /* Write boundary */
+               if (db.trans_rename_rule[0] != '\0')
+               {
+                  int  k;
+                  char new_filename[MAX_FILENAME_LENGTH];
+
+                  new_filename[0] = '\0';
+                  for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
                   {
-                     change_name(final_filename,
-                                 rule[trans_rule_pos].filter[k],
-                                 rule[trans_rule_pos].rename_to[k],
-                                 new_filename);
-                     break;
+                     if (pmatch(rule[trans_rule_pos].filter[k],
+                                final_filename) == 0)
+                     {
+                        change_name(final_filename,
+                                    rule[trans_rule_pos].filter[k],
+                                    rule[trans_rule_pos].rename_to[k],
+                                    new_filename);
+                        break;
+                     }
                   }
+                  if (new_filename[0] == '\0')
+                  {
+                     (void)strcpy(new_filename, final_filename);
+                  }
+                  length = sprintf(encode_buffer,
+                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n",
+                                   multipart_boundary, new_filename);
                }
-               if (new_filename[0] == '\0')
+               else
                {
-                  (void)strcpy(new_filename, final_filename);
+                  length = sprintf(encode_buffer,
+                                   "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n",
+                                   multipart_boundary, final_filename);
                }
+
+               if (smtp_write(encode_buffer, NULL, length) < 0)
+               {
+                  (void)rec(transfer_log_fd, INFO_SIGN,
+                            "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                            MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                            fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to write the Content-Type (APPLICATION/octet-stream) to SMTP-server.");
+                  (void)smtp_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               }
+
+               no_of_bytes += length;
+            }
+         } /* if (mail_header_buffer != NULL) */
+
+         /*
+          * We need a second CRLF to indicate end of header. The stuff
+          * that follows is the message body.
+          */
+         if (smtp_write("\r\n", NULL, 2) < 0)
+         {
+            (void)rec(transfer_log_fd, INFO_SIGN,
+                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write second CRLF to indicate end of header.");
+            (void)smtp_quit();
+            exit(WRITE_REMOTE_ERROR);
+         }
+      } /* if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0)) */
+
+      if ((db.special_flag & ATTACH_ALL_FILES) &&
+          ((mail_header_buffer == NULL) || (files_send != 0)))
+      {
+         int length = 0;
+
+         /* Write boundary */
+         if (db.trans_rename_rule[0] != '\0')
+         {
+            int  k;
+            char new_filename[MAX_FILENAME_LENGTH];
+
+            new_filename[0] = '\0';
+            for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
+            {
+               if (pmatch(rule[trans_rule_pos].filter[k],
+                          final_filename) == 0)
+               {
+                  change_name(final_filename,
+                              rule[trans_rule_pos].filter[k],
+                              rule[trans_rule_pos].rename_to[k],
+                              new_filename);
+                  break;
+               }
+            }
+            if (new_filename[0] == '\0')
+            {
+               (void)strcpy(new_filename, final_filename);
+            }
+            if (files_send == 0)
+            {
                length = sprintf(encode_buffer,
                                 "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
                                 multipart_boundary, new_filename);
@@ -823,26 +910,41 @@ main(int argc, char *argv[])
             else
             {
                length = sprintf(encode_buffer,
+                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
+                                multipart_boundary, new_filename);
+            }
+         }
+         else
+         {
+            if (files_send == 0)
+            {
+               length = sprintf(encode_buffer,
                                 "\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
                                 multipart_boundary, final_filename);
             }
-
-            if (smtp_write(encode_buffer, NULL, length) < 0)
+            else
             {
-               (void)rec(transfer_log_fd, INFO_SIGN,
-                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to write the Content-Type (APPLICATION/octet-stream) to SMTP-server.");
-               (void)smtp_quit();
-               exit(WRITE_REMOTE_ERROR);
+               length = sprintf(encode_buffer,
+                                "\r\n\r\n--%s\r\nContent-Type: APPLICATION/octet-stream; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\n\r\n",
+                                multipart_boundary, final_filename);
             }
-
-            no_of_bytes += length;
          }
-      } /* if (mail_header_buffer != NULL) */
+
+         if (smtp_write(encode_buffer, NULL, length) < 0)
+         {
+            (void)rec(transfer_log_fd, INFO_SIGN,
+                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write the Content-Type (APPLICATION/octet-stream) to SMTP-server.");
+            (void)smtp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+         }
+
+         no_of_bytes += length;
+      }
 
       for (;;)
       {
@@ -877,7 +979,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to write data from the source file to the SMTP-server.");
                   (void)smtp_quit();
-                  exit(WRITE_REMOTE_ERROR);
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
             }
             else
@@ -894,7 +996,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                "Failed to write data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit(WRITE_REMOTE_ERROR);
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
                }
                else
@@ -909,7 +1011,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                "Failed to write data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit(WRITE_REMOTE_ERROR);
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
                }
                write_size = blocksize;
@@ -965,7 +1067,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to write the rest data from the source file to the SMTP-server.");
                   (void)smtp_quit();
-                  exit(WRITE_REMOTE_ERROR);
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
             }
             else
@@ -982,7 +1084,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                "Failed to write the rest data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit(WRITE_REMOTE_ERROR);
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
                }
                else
@@ -997,7 +1099,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                "Failed to write the rest data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit(WRITE_REMOTE_ERROR);
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
                }
                write_size = rest;
@@ -1064,28 +1166,32 @@ main(int argc, char *argv[])
       } /* for (;;) */
 
       /* Write boundary end if neccessary. */
-      if ((db.special_flag & ATTACH_FILE) && (mail_header_buffer != NULL))
+      if (((db.special_flag & ATTACH_ALL_FILES) == 0) ||
+          (files_send == (files_to_send - 1)))
       {
-         int length;
-
-         /* Write boundary */
-         length = sprintf(buffer, "\r\n--%s--\r\n", multipart_boundary);
-
-         if (smtp_write(buffer, NULL, length) < 0)
+         if ((db.special_flag & ATTACH_FILE) && (multipart_boundary[0] != '\0'))
          {
-            (void)rec(transfer_log_fd, INFO_SIGN,
-                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to write end of multipart boundary to SMTP-server.");
-            (void)smtp_quit();
-            exit(WRITE_REMOTE_ERROR);
-         }
+            int length;
 
-         no_of_bytes += length;
-      } /* if ((db.special_flag & ATTACH_FILE) && (mail_header_buffer != NULL)) */
+            /* Write boundary */
+            length = sprintf(buffer, "\r\n--%s--\r\n", multipart_boundary);
+
+            if (smtp_write(buffer, NULL, length) < 0)
+            {
+               (void)rec(transfer_log_fd, INFO_SIGN,
+                         "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                         MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                         fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to write end of multipart boundary to SMTP-server.");
+               (void)smtp_quit();
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+            }
+
+            no_of_bytes += length;
+         } /* if ((db.special_flag & ATTACH_FILE) && (multipart_boundary[0] != '\0')) */
+      }
 
 #ifdef _OUTPUT_LOG
       if (db.output_log == YES)
@@ -1108,24 +1214,28 @@ main(int argc, char *argv[])
           */
       }
 
-      /* Close remote file */
-      if ((status = smtp_close()) != SUCCESS)
+      if (((db.special_flag & ATTACH_ALL_FILES) == 0) ||
+          (files_send == (files_to_send - 1)))
       {
-         (void)rec(transfer_log_fd, INFO_SIGN,
-                   "%-*s[%d]: %d Bytes send in %d file(s).\n",
-                   MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
-                   fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
-                   fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
-         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to close data mode (%d).", status);
-         (void)smtp_quit();
-         exit(CLOSE_REMOTE_ERROR);
-      }
-      else
-      {
-         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+         /* Close remote file */
+         if ((status = smtp_close()) != SUCCESS)
          {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Closing data mode.");
+            (void)rec(transfer_log_fd, INFO_SIGN,
+                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to close data mode (%d).", status);
+            (void)smtp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
+         }
+         else
+         {
+            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+            {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Closing data mode.");
+            }
          }
       }
 
@@ -1217,6 +1327,13 @@ main(int argc, char *argv[])
             unlock_region(fsa_fd, lock_offset);
          }
       }
+
+#ifdef _WITH_TRANS_EXEC
+      if (db.special_flag & TRANS_EXEC)
+      {
+         trans_exec(file_path, fullname, p_file_name_buffer);
+      }
+#endif /* _WITH_TRANS_EXEC */
 
       /* Now archive file if necessary */
       if ((db.archive_time > 0) &&
@@ -1332,8 +1449,6 @@ main(int argc, char *argv[])
        * After each successful transfer set error
        * counter to zero, so that other jobs can be
        * started.
-       * Also move all, error entries back to the message
-       * and file directories.
        */
       if (fsa[db.fsa_pos].error_counter > 0)
       {
@@ -1494,16 +1609,14 @@ sf_smtp_exit(void)
    }
    else
    {
-      pid_t pid = getpid();
 #ifdef _FIFO_DEBUG
       char  cmd[2];
-#endif
-      /* Tell FD we are finished */
-#ifdef _FIFO_DEBUG
+
       cmd[0] = ACKN; cmd[1] = '\0';
       show_fifo_data('W', "sf_fin", cmd, 1, __FILE__, __LINE__);
 #endif
-      if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+      /* Tell FD we are finished */
+      if (write(fd, &db.my_pid, sizeof(pid_t)) != sizeof(pid_t))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));

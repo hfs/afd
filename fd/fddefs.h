@@ -186,6 +186,8 @@
 #define ADD_MAIL_HEADER_ID_LENGTH      11
 #define ATTACH_FILE_ID                 "attach file"
 #define ATTACH_FILE_ID_LENGTH          11
+#define ATTACH_ALL_FILES_ID            "attach all files"
+#define ATTACH_ALL_FILES_ID_LENGTH     16
 #ifdef _WITH_EUMETSAT_HEADERS
 #define EUMETSAT_HEADER_ID             "eumetsat"
 #define EUMETSAT_HEADER_ID_LENGTH      8
@@ -231,11 +233,19 @@
 #endif
 #define ENCODE_ANSI                    32
 #define CHANGE_PERMISSION              64
+#define ATTACH_ALL_FILES               64
 /* NOTE:  ERROR_FILE_UNDER_PROCESS 128 is defined in afddefs.h!!! */
 #define MAIL_SUBJECT                   256
 #define FORCE_COPY                     256
 #define CHANGE_FTP_MODE                512 /* We might at a latter stage */
                                            /* change the default mode.   */
+#ifdef _WITH_TRANS_EXEC
+#define TRANS_EXEC                     1024
+#endif /* _WITH_TRANS_EXEC */
+
+#ifdef _WITH_BURST_2
+#define MORE_DATA_FIFO                 "/more_data_"
+#endif /* _WITH_BURST_2 */
 
 #ifdef _NEW_STUFF
 /* Structure for holding all append data. */
@@ -296,6 +306,8 @@ struct job
                                          /* other options, etc), each of */
                                          /* these is identified by this  */
                                          /* number.                      */
+          pid_t         my_pid;          /* The process id of this       */
+                                         /* process.                     */
 #ifdef _AGE_LIMIT
           int           age_limit;       /* If date of file is older     */
                                          /* then age limit, file gets    */
@@ -315,8 +327,6 @@ struct job
                                          /* should have.                 */
           gid_t         group_id;        /* The group ID that the file   */
                                          /* should have.                 */
-          char          **filename;      /* Pointer to array that holds  */
-                                         /* all file names.              */
           char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char          hostname[MAX_FILENAME_LENGTH];
           char          host_alias[MAX_HOSTNAME_LENGTH + 1];
@@ -382,6 +392,9 @@ struct job
                                          /* name is bulletin header.     */
 #endif
           char          *subject;        /* Subject for mail.            */
+#ifdef _WITH_TRANS_EXEC
+          char          *trans_exec_cmd; /* String holding the exec cmd. */
+#endif /* _WITH_TRANS_EXEC */
           char          *special_ptr;    /* Used to point to allocated   */
                                          /* memory, eg for option        */
                                          /* ADD_MAIL_HEADER_ID,          */
@@ -423,9 +436,10 @@ struct job
                                          /*| 8 | Error file under       |*/
                                          /*|   | process.               |*/
                                          /*| 9 | SMTP: Subject          |*/
+#ifdef _WITH_TRANS_EXEC
+                                         /*|10 | Trans EXEC.            |*/
+#endif /* _WITH_TRANS_EXEC */
                                          /*+---+------------------------+*/
-          char          notify;          /* Flag to notify remote user   */
-                                         /* that his files have arrived. */
           char          job_no;          /* The job number of current    */
                                          /* transfer process.            */
 #ifdef _OUTPUT_LOG
@@ -479,6 +493,7 @@ struct retrieve_list
 
 /* Function prototypes */
 extern int   archive_file(char *, char *, struct job *),
+             check_burst_2(struct job **, char *, int *),
              check_file_dir(int),
              check_fra_fd(void),
              check_job_name(char *),
@@ -491,6 +506,7 @@ extern int   archive_file(char *, char *, struct job *),
              get_remote_file_names(off_t *),
              init_fifos_fd(void),
              init_sf(int, char **, char *, int),
+             init_sf_burst2(struct job *, char *),
              lookup_job_id(int),
              read_file_mask(char *, int *, struct file_mask **),
              recreate_msg(unsigned int),
@@ -519,5 +535,6 @@ extern void  check_fsa_entries(void),
              reset_fsa(struct job *, int),
              system_log(char *, char *, int, char *, ...),
              trans_db_log(char *, char *, int, char *, ...),
+             trans_exec(char *, char *, char *),
              trans_log(char *, char *, int, char *, ...);
 #endif /* __fddefs_h */
