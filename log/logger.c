@@ -257,7 +257,7 @@ check_data(long rescan_time)
               while (count < n)
               {
                  length = 0;
-                 while ((*ptr != '\n') && (count != n))
+                 while ((count < n) && (*ptr != '\n'))
                  {
                     if (*ptr >= ' ')
                     {
@@ -266,7 +266,7 @@ check_data(long rescan_time)
                     }
                     ptr++; count++;
                  }
-                 if (*ptr == '\n')
+                 if ((count < n) && (*ptr == '\n'))
                  {
                     ptr++; count++;
                  }

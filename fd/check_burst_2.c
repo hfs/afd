@@ -1,6 +1,6 @@
 /*
  *  check_burst_2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001, 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,6 +50,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   27.05.2001 H.Kiehl Created
+ **   22.01.2005 H.Kiehl Check that ports are the some, otherwise don't
+ **                      burst.
  **
  */
 DESCR__E_M3
@@ -203,7 +205,7 @@ retry:
                      p_new_db->mode_flag            = 0;
                      p_new_db->archive_time         = DEFAULT_ARCHIVE_TIME;
 #ifdef _AGE_LIMIT
-                     p_new_db->age_limit            = db.age_limit;
+                     p_new_db->age_limit            = DEFAULT_AGE_LIMIT;
 #endif
 #ifdef _OUTPUT_LOG
                      p_new_db->output_log           = YES;
@@ -239,6 +241,10 @@ retry:
                           {
                              p_new_db->port = DEFAULT_SMTP_PORT;
                           }
+                          else
+                          {
+                             p_new_db->port = -1;
+                          }
                      (void)strcpy(p_new_db->lock_notation, DOT_NOTATION);
                      (void)sprintf(msg_name, "%s%s/%u",
                                    p_work_dir, AFD_MSG_DIR, db.job_id);
@@ -255,15 +261,26 @@ retry:
                      }
                      else
                      {
-                        if (p_new_db->mode_flag == 0)
+                        /*
+                         * Ports must be the same!
+                         */
+                        if (p_new_db->port != db.port)
                         {
-                           p_new_db->mode_flag = PASSIVE_MODE;
+                           free(p_new_db);
+                           p_new_db = NULL;
                         }
                         else
                         {
-                           p_new_db->mode_flag = ACTIVE_MODE;
+                           if (p_new_db->mode_flag == 0)
+                           {
+                              p_new_db->mode_flag = PASSIVE_MODE;
+                           }
+                           else
+                           {
+                              p_new_db->mode_flag = ACTIVE_MODE;
+                           }
+                           ret = YES;
                         }
-                        ret = YES;
                      }
                   }
                }

@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,6 +96,10 @@ init_gf(int argc, char *argv[], int protocol)
            db.port = DEFAULT_WMO_PORT;
         }
 #endif
+        else
+        {
+           db.port = -1;
+        }
 
    if (get_afd_path(&argc, argv, p_work_dir) < 0)
    {
@@ -105,6 +109,7 @@ init_gf(int argc, char *argv[], int protocol)
    db.toggle_host = NO;
    db.error_file = NO;
    db.protocol = protocol;
+   db.fsa_pos = -1;
    db.special_ptr = NULL;
 
    if ((status = eval_input_gf(argc, argv, p_db)) < 0)

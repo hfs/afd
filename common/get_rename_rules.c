@@ -383,7 +383,7 @@ get_rename_rules(char *rule_file, int verbose)
                                        if (more_data == YES)
                                        {
                                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                     "In rule [%s] the rule %s %s has data following the rename to part. Ignoring it!",
+                                                     "In rule [%s] the rule %s %s has data after the rename-to-part. Ignoring it!",
                                                      rule[i].header,
                                                      rule[i].filter[j],
                                                      rule[i].rename_to[j]);

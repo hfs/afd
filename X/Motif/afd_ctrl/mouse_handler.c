@@ -491,7 +491,7 @@ input(Widget w, XtPointer client_data, XEvent *event)
                         }
 
                         /* Fill job_data structure. */
-                        init_jd_structure(&jd[0], select_no, job_no);
+                        init_jd_structure(&jd[0], pos, job_no);
 
                         if ((transviewshell == (Widget)NULL) ||
                             (XtIsRealized(transviewshell) == False) ||
@@ -900,7 +900,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                     cmd[2],
 #endif
        	            err_msg[1025 + 100];
-   size_t           new_size = (no_of_hosts + 8) * sizeof(char *);
+   size_t           new_size = (no_of_hosts + 9) * sizeof(char *);
    struct host_list *hl = NULL;
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
@@ -915,7 +915,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                  "You must first select a host!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
-   RT_ARRAY(hosts, no_of_hosts, (MAX_HOSTNAME_LENGTH + 1), char);
+   RT_ARRAY(hosts, no_of_hosts, (MAX_HOSTNAME_LENGTH + 2), char);
    if ((args = malloc(new_size)) == NULL)
    {
       (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
@@ -1170,7 +1170,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[3] = WORK_DIR_ID;
          args[4] = p_work_dir;
          args[5] = "-h";
-         args[7] = NULL;
+         if (fake_user[0] != '\0')
+         {
+            args[7] = "-u";
+            args[8] = fake_user;
+            args[9] = NULL;
+         }
+         else
+         {
+            args[7] = NULL;
+         }
          (void)strcpy(progname, VIEW_DC);
          break;
 

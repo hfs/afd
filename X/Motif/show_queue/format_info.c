@@ -593,7 +593,7 @@ format_input_info(char *text, int pos)
                }
                else
                {
-                  if ((p_array = realloc(p_array, (jobs_found * sizeof(char *)))) == NULL)
+                  if ((p_array = realloc(p_array, ((jobs_found + 1) * sizeof(char *)))) == NULL)
                   {
                      (void)fprintf(stderr, "realloc() error : %s (%s %d)\n",
                                    strerror(errno), __FILE__, __LINE__);

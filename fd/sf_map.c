@@ -71,6 +71,7 @@ DESCR__E_M1
 /* Global variables */
 int                        counter_fd = -1,    /* NOT USED */
                            exitflag = IS_FAULTY_VAR,
+                           files_to_delete,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
                            trans_rule_pos,/* NOT USED */
@@ -91,7 +92,8 @@ char                       host_deleted = NO,
                            *p_work_dir = NULL,
                            msg_str[1],
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
-                           *file_name_buffer;
+                           *del_file_name_buffer = NULL,
+                           *file_name_buffer = NULL;
 struct filetransfer_status *fsa;
 struct job                 db;
 struct rule                *rule;      /* NOT USED */
@@ -127,7 +129,7 @@ main(int argc, char *argv[])
 {
 #ifdef _WITH_MAP_SUPPORT
 #ifdef _VERIFY_FSA
-   unsigned int     ui_variable;
+   unsigned long    ul_variable;
 #endif
    int              i,
                     files_to_send = 0;
@@ -456,11 +458,11 @@ main(int argc, char *argv[])
             {
                /* Total file size */
 #ifdef _VERIFY_FSA
-               ui_variable = fsa[db.fsa_pos].total_file_size;
+               ul_variable = fsa[db.fsa_pos].total_file_size;
 #endif
                fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
 #ifdef _VERIFY_FSA
-               if (fsa[db.fsa_pos].total_file_size > ui_variable)
+               if (fsa[db.fsa_pos].total_file_size > ul_variable)
                {
                   int   k;
                   off_t *tmp_ptr = p_file_size_buffer;

@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2004 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -606,6 +606,44 @@ main(int argc, char *argv[])
          free(dl.data);
       }
 #endif
+
+      /* Free dir name buffer which is no longer needed. */
+      if (dnb != NULL)
+      {
+         struct stat stat_buf;
+
+         if (fstat(dnb_fd, &stat_buf) == -1)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN, "fstat() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }
+         else
+         {
+            char *ptr = (char *)dnb - AFD_WORD_OFFSET;
+
+            if (msync(ptr, stat_buf.st_size, MS_SYNC) == -1)
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "msync() error : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
+            }
+            if (munmap(ptr, stat_buf.st_size) == -1)
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "munmap() error : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
+            }
+            else
+            {
+               dnb = NULL;
+            }
+         }
+         if (close(dnb_fd) == -1)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }
+      }
 
       /* First create the fifo to communicate with other process */
       (void)unlink(dc_cmd_fifo);

@@ -105,6 +105,7 @@ DESCR__E_M1
 /* Global variables */
 int                        counter_fd = -1,
                            exitflag = IS_FAULTY_VAR,
+                           files_to_delete,
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
                            trans_rule_pos,
@@ -129,7 +130,8 @@ off_t                      fsa_size;
 off_t                      append_offset = 0,
                            *file_size_buffer = NULL;
 long                       transfer_timeout;
-char                       *file_name_buffer = NULL,
+char                       *del_file_name_buffer = NULL,
+                           *file_name_buffer = NULL,
                            host_deleted = NO,
                            initial_filename[MAX_FILENAME_LENGTH],
                            msg_str[MAX_RET_MSG_LENGTH],
@@ -158,7 +160,7 @@ int
 main(int argc, char *argv[])
 {
 #ifdef _VERIFY_FSA
-   unsigned int     ui_variable;
+   unsigned long    ul_variable;
 #endif
    int              exit_status = TRANSFER_SUCCESS,
                     j,
@@ -853,6 +855,34 @@ main(int argc, char *argv[])
       }
 #endif
 
+      /* Delete all remote files we have send but have been deleted */
+      /* due to age-limit.                                          */
+      if ((files_to_delete > 0) && (del_file_name_buffer != NULL))
+      {
+         int  i;
+         char *p_del_file_name = del_file_name_buffer;
+
+         for (i = 0; i < files_to_delete; i++)
+         {
+            if ((status = ftp_dele(p_del_file_name)) != SUCCESS)
+            {
+               trans_log(DEBUG_SIGN, __FILE__, __LINE__,
+                         "Failed to delete `%s' (%d).",
+                         p_del_file_name, status);
+            }
+            else
+            {
+
+               if (fsa[db.fsa_pos].debug == YES)
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Deleted `%s'.", p_del_file_name);
+               }
+            }
+            p_del_file_name += MAX_FILENAME_LENGTH;
+         }
+      }
+
       /* Send all files. */
 #ifdef _WITH_INTERRUPT_JOB
       interrupt = NO;
@@ -946,11 +976,11 @@ main(int argc, char *argv[])
 
                         /* Total file size */
 #ifdef _VERIFY_FSA
-                        ui_variable = fsa[db.fsa_pos].total_file_size;
+                        ul_variable = fsa[db.fsa_pos].total_file_size;
 #endif
                         fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
 #ifdef _VERIFY_FSA
-                        if (fsa[db.fsa_pos].total_file_size > ui_variable)
+                        if (fsa[db.fsa_pos].total_file_size > ul_variable)
                         {
                            system_log(INFO_SIGN, __FILE__, __LINE__,
                                       "Total file size for host %s overflowed. Correcting.",
@@ -1953,11 +1983,11 @@ main(int argc, char *argv[])
 
                /* Total file size */
 #ifdef _VERIFY_FSA
-               ui_variable = fsa[db.fsa_pos].total_file_size;
+               ul_variable = fsa[db.fsa_pos].total_file_size;
 #endif
                fsa[db.fsa_pos].total_file_size -= *p_file_size_buffer;
 #ifdef _VERIFY_FSA
-               if (fsa[db.fsa_pos].total_file_size > ui_variable)
+               if (fsa[db.fsa_pos].total_file_size > ul_variable)
                {
                   int   k;
                   off_t *tmp_ptr = p_file_size_buffer;

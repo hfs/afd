@@ -1366,3 +1366,33 @@
            - Accept 450 as a normal reply for NLST when directory is
              empty.
 ------------------------> Released: 16.11.2004 <---------------------------
+
+
+---------------------------> Version 1.2.22 <------------------------------
+                            ----------------
+28.11.2004 - Report old files with a leading dot.
+14.12.2004 - Dialog show_queue did not show every 1000th file. Fixed.
+           - Dialog show_queue was very slow due to some old debug
+             code that was no longer needed.
+20.12.2004 - Delete remote file if we delete it localy and appending
+             is set.
+05.01.2005 - When initializing variables for bursting, age_limit was
+             sometimes reset incorrectly, causing files to be deleted
+             due to age that actually had no age limit.
+14.01.2005 - Dialog afd_ctrl did not show the correct hosts in transfer
+             and transfer debug log, when the host alias was the full
+             length and host switching was activated.
+           - When job details window is closed via window manager,
+             reset all values of this window.
+19.01.2005 - write_host_config() may not exit if HOST_CONFIG is not
+             there.
+22.01.2005 - Only do BURST2 when ports are the same.
+30.01.2005 - In 1.2.21 released directory name buffer to early causing
+             amg to always crash when there are any unfinished jobs after
+             an unclean shutdown.
+           - Fix error in fd exit handler.
+31.01.2005 - The detailed window showed the incorrect hostname when
+             short lines are being used. Fixed.
+03.02.2005 - Fake user was not passed to view_dc when called from
+             afd_ctrl dialog. Fixed.
+------------------------> Released: 04.02.2005 <---------------------------

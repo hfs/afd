@@ -120,6 +120,10 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
            db.port = DEFAULT_WMO_PORT;
         }
 #endif
+        else
+        {
+           db.port = -1;
+        }
 
    if (get_afd_path(&argc, argv, p_work_dir) < 0)
    {

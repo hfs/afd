@@ -3082,7 +3082,7 @@ fd_exit(void)
                   if (qb[qb_pos].msg_name[0] != '\0')
                   {
                      fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
-                     if (fsa[connection[i].fsa_pos].error_counter == 1)
+                     if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
                      {
                         /* Move all jobs from this host to the error directory. */
                         for (j = 0; j < *no_msg_queued; j++)

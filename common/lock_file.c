@@ -1,6 +1,6 @@
 /*
  *  lock_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,8 @@ DESCR__S_M3
  ** HISTORY
  **   06.03.1996 H.Kiehl Created
  **   04.01.1997 H.Kiehl When already locked, return LOCK_IS_SET.
+ **   19.01.2005 H.Kiehl When lock file is not there, return
+ **                      LOCKFILE_NOT_THERE.
  **
  */
 DESCR__E_M3
@@ -67,9 +69,16 @@ lock_file(char *file, int block_flag)
 
    if ((fd = coe_open(file, O_RDWR)) == -1)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not open() <%s> : %s", file, strerror(errno));
-      return(INCORRECT);
+      if (errno == ENOENT)
+      {
+         return(LOCKFILE_NOT_THERE);
+      }
+      else
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not open() <%s> : %s", file, strerror(errno));
+         return(INCORRECT);
+      }
    }
 
    if (block_flag == ON)

@@ -51,6 +51,7 @@ DESCR__E_M3
 #include "permission.h"
 
 /* External global variables. */
+extern Display                    *display;
 extern Widget                     appshell,
                                   detailed_window_w,
                                   transviewshell,
@@ -59,6 +60,7 @@ extern XtIntervalId               interval_id_tv;
 extern int                        filename_display_length,
                                   ft_exposure_tv_line,
                                   line_height,
+                                  no_of_hosts,
                                   no_of_jobs_selected;
 extern char                       tv_window;
 extern Dimension                  tv_window_width,
@@ -67,6 +69,7 @@ extern unsigned long              color_pool[];
 extern struct afd_control_perm    acp;
 extern struct job_data            *jd;
 extern struct filetransfer_status *fsa;
+extern struct line                *connect_data;
 
 /* Local funtion prototype definitions */
 static void                       tv_destroy(Widget, XtPointer, XEvent *),
@@ -236,6 +239,35 @@ tv_destroy(Widget      w,
 {
    if (tv_window == ON)
    {
+      if (no_of_jobs_selected > 0)
+      {
+         int flush = NO,
+             gotcha,
+             i, j;
+
+         for (i = 0; i < no_of_hosts; i++)
+         {
+            gotcha = NO;
+            for (j = 0; j < connect_data[i].allowed_transfers; j++)
+            {
+               if (connect_data[i].detailed_selection[j] == YES)
+               {
+                  connect_data[i].detailed_selection[j] = NO;
+                  gotcha = YES;
+               }
+            }
+            if (gotcha == YES)
+            {
+               draw_line_status(i, 1);
+               flush = YES;
+            }
+         }
+         if (flush == YES)
+         {
+            XFlush(display);
+         }
+         no_of_jobs_selected = 0;
+      }
       XtRemoveTimeOut(interval_id_tv);
       XtDestroyWidget(transviewshell);
       transviewshell = NULL;

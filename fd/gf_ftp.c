@@ -628,7 +628,7 @@ main(int argc, char *argv[])
                   if (host_deleted == NO)
                   {
 #ifdef _VERIFY_FSA
-                     unsigned int ui_variable;
+                     unsigned long ul_variable;
 #endif
 
                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_name_in_use[0] = '\0';
@@ -654,11 +654,11 @@ main(int argc, char *argv[])
                      if (rl[i].size != -1)
                      {
 #ifdef _VERIFY_FSA
-                        ui_variable = fsa[db.fsa_pos].total_file_size;
+                        ul_variable = fsa[db.fsa_pos].total_file_size;
 #endif
                         fsa[db.fsa_pos].total_file_size -= rl[i].size;
 #ifdef _VERIFY_FSA
-                        if (fsa[db.fsa_pos].total_file_size > ui_variable)
+                        if (fsa[db.fsa_pos].total_file_size > ul_variable)
                         {
                            off_t new_size = file_size_to_retrieve - file_size_retrieved;
 
@@ -825,7 +825,7 @@ reset_values(int files_retrieved,
              off_t file_size_to_retrieve)
 {
 #ifdef _VERIFY_FSA
-   unsigned int ui_variable;
+   unsigned long ul_variable;
 #endif
 
    if (((files_retrieved < files_to_retrieve) ||
@@ -864,11 +864,11 @@ reset_values(int files_retrieved,
          if (file_size_retrieved < file_size_to_retrieve)
          {
 #ifdef _VERIFY_FSA
-            ui_variable = fsa[db.fsa_pos].total_file_size;
+            ul_variable = fsa[db.fsa_pos].total_file_size;
 #endif
             fsa[db.fsa_pos].total_file_size -= (file_size_to_retrieve - file_size_retrieved);
 #ifdef _VERIFY_FSA
-            if (fsa[db.fsa_pos].total_file_size > ui_variable)
+            if (fsa[db.fsa_pos].total_file_size > ul_variable)
             {
                fsa[db.fsa_pos].total_file_size = 0;
                system_log(DEBUG_SIGN, __FILE__, __LINE__,

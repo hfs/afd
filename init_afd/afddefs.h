@@ -310,6 +310,7 @@ typedef socklen_t my_socklen_t;
 #define NONE                       5
 #define NO_ACCESS                  10
 #define LOCK_IS_SET                -2
+#define LOCKFILE_NOT_THERE         -3
 #define LOCK_IS_NOT_SET            11
 #define AUTO_SIZE_DETECT           -2
 #define FILE_IS_DIR                -2      /* Used by remove_dir().      */

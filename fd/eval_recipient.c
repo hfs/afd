@@ -1,6 +1,6 @@
 /*
  *  eval_recipient.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -61,6 +61,8 @@ DESCR__S_M3
  **                      in password.
  **   15.12.2001 H.Kiehl When server= is set take this as hostname.
  **   19.02.2002 H.Kiehl Added the ability to read recipient group file.
+ **   28.01.2005 H.Kiehl Don't keep the error time indefinite long, for
+ **                      retrieving remote files.
  **
  */
 DESCR__E_M3
@@ -294,7 +296,36 @@ eval_recipient(char       *recipient,
                   int    number;
                   time_t time_buf;
 
-                  if ((next_check_time > 0) && (p_db->error_file == YES))
+                  if (p_db->fsa_pos == -1)
+                  {
+                     /*
+                      * Mail has no destination path, so we can savelly
+                      * assume that p_db->hostname is our host_alias.
+                      */
+                     t_hostname(p_db->hostname, p_db->host_alias);
+                     if ((p_db->fsa_pos = get_host_position(fsa,
+                                                            p_db->host_alias,
+                                                            no_of_hosts)) < 0)
+                     {
+                        if (full_msg_path != NULL)
+                        {
+                           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                      "The message in %s contains a hostname (%s) that is not in the FSA.",
+                                      full_msg_path, p_db->host_alias);
+                        }
+                        else
+                        {
+                           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                      "Failed to locate host %s in the FSA.",
+                                      p_db->host_alias);
+                        }
+                        return(INCORRECT);
+                     }
+                  }
+
+                  if ((next_check_time > 0) && (p_db->error_file == YES) &&
+                      (fsa[p_db->fsa_pos].error_counter > 0) &&
+                      (fsa[p_db->fsa_pos].error_counter < fsa[p_db->fsa_pos].max_errors))
                   {
                      time_buf = next_check_time;
                   }

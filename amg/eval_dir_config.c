@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -2034,40 +2034,6 @@ check_dummy_line:
    unlock_region(dnb_fd, 1);
 
    /* Free all memory we allocated. */
-   if (dnb != NULL)
-   {
-      struct stat stat_buf;
-
-      if (fstat(dnb_fd, &stat_buf) == -1)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN, "fstat() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
-      }
-      else
-      {
-         char *ptr = (char *)dnb - AFD_WORD_OFFSET;
-
-         if (msync(ptr, stat_buf.st_size, MS_SYNC) == -1)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
-         }
-         if (munmap(ptr, stat_buf.st_size) == -1)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN, "munmap() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
-         }
-         else
-         {
-            dnb = NULL;
-         }
-      }
-      if (close(dnb_fd) == -1)
-      {
-         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
-      }
-   }
    if (dd != NULL)
    {
       free((void *)dd);

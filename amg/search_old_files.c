@@ -54,6 +54,7 @@ DESCR__S_M3
  **   22.09.2003 H.Kiehl If old_file_time is 0, do not delete incoming dot
  **                      files.
  **   04.02.2004 H.Kiehl Don't delete files that are to be distributed!
+ **   28.11.2004 H.Kiehl Report old files with a leading dot.
  **
  */
 DESCR__E_M3
@@ -161,34 +162,36 @@ search_old_files(time_t current_time)
                          (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
                      {
                         delete_file = YES;
-                        if ((de[i].flag & ALL_FILES) ||
-                            ((p_dir->d_name[0] == '.') && (diff_time < 60)))
+                        if (stat_buf.st_size != 0)
                         {
-                           delete_file = NO;
-                        }
-                        else
-                        {
-                           if (p_dir->d_name[0] == '.')
+                           if (de[i].flag & ALL_FILES)
                            {
-                              ptr = &p_dir->d_name[1];
+                              delete_file = NO;
                            }
                            else
                            {
-                              ptr = p_dir->d_name;
-                           }
-                           for (j = 0; j < de[i].nfg; j++)
-                           {
-                              for (k = 0; ((k < de[i].fme[j].nfm) && (j < de[i].nfg)); k++)
+                              if (p_dir->d_name[0] == '.')
                               {
-                                 if ((ret = pmatch(de[i].fme[j].file_mask[k], ptr)) == 0)
+                                 ptr = &p_dir->d_name[1];
+                              }
+                              else
+                              {
+                                 ptr = p_dir->d_name;
+                              }
+                              for (j = 0; j < de[i].nfg; j++)
+                              {
+                                 for (k = 0; ((k < de[i].fme[j].nfm) && (j < de[i].nfg)); k++)
                                  {
-                                    delete_file = NO;
-                                    j = de[i].nfg;
+                                    if ((ret = pmatch(de[i].fme[j].file_mask[k], ptr)) == 0)
+                                    {
+                                       delete_file = NO;
+                                       j = de[i].nfg;
+                                    }
+                                    else if (ret == 1)
+                                         {
+                                            break;
+                                         }
                                  }
-                                 else if (ret == 1)
-                                      {
-                                         break;
-                                      }
                               }
                            }
                         }
@@ -233,6 +236,11 @@ search_old_files(time_t current_time)
                               }
                            }
                         }
+                        else if (fra[de[i].fra_pos].report_unknown_files == YES)
+                             {
+                                file_counter++;
+                                file_size += stat_buf.st_size;
+                             }
                      }
                      else if (fra[de[i].fra_pos].report_unknown_files == YES)
                           {

@@ -1,6 +1,6 @@
 /*
  *  get_file_names.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ DESCR__S_M3
  **   03.02.2001 H.Kiehl Sort the files by date.
  **   21.08.2001 H.Kiehl Return -1 if all files have been deleted due
  **                      to age limit.
+ **   20.12.2004 H.Kiehl Addition of delete file name buffer.
  **
  */
 DESCR__E_M3
@@ -66,13 +67,15 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* Global variables */
-extern int                        transfer_log_fd,
+extern int                        files_to_delete,
+                                  transfer_log_fd,
                                   fsa_fd;
 extern off_t                      *file_size_buffer;
 extern char                       *p_work_dir,
 #ifdef _AGE_LIMIT
                                   tr_hostname[MAX_HOSTNAME_LENGTH + 1],
 #endif
+                                  *del_file_name_buffer,
                                   *file_name_buffer;
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
@@ -101,7 +104,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    time_t        *mtime_buffer = NULL,
                  *p_mtime;
 #endif /* _WITH_FILE_NAME_SORTING */
-   char          *p_file_name,
+   char          *p_del_file_name,
+                 *p_file_name,
                  *p_source_file,
                  fullname[MAX_PATH_LENGTH];
    struct stat   stat_buf;
@@ -155,6 +159,13 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       file_size_buffer = NULL;
    }
    p_file_size = file_size_buffer;
+   if (del_file_name_buffer != NULL)
+   {
+      free(del_file_name_buffer);
+      del_file_name_buffer = NULL;
+   }
+   p_del_file_name = del_file_name_buffer;
+   files_to_delete = 0;
 #ifdef _WITH_FILE_NAME_SORTING
    p_mtime = mtime_buffer;
 #endif /* _WITH_FILE_NAME_SORTING */
@@ -193,6 +204,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
          if ((db.age_limit > 0) &&
              ((diff_time = (now - stat_buf.st_mtime)) > db.age_limit))
          {
+            char file_to_remove[MAX_FILENAME_LENGTH];
+
+            file_to_remove[0] = '\0';
             if (db.no_of_restart_files > 0)
             {
                int  ii;
@@ -213,6 +227,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                   if ((CHECK_STRCMP(db.restart_file[ii], initial_filename) == 0) &&
                       (append_compare(db.restart_file[ii], fullname) == YES))
                   {
+                     (void)strcpy(file_to_remove, db.restart_file[ii]);
                      remove_append(db.job_id, db.restart_file[ii]);
                      break;
                   }
@@ -315,6 +330,29 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                              "write() error : %s", strerror(errno));
                }
 #endif /* _DELETE_LOG */
+               if (file_to_remove[0] != '\0')
+               {
+                  if ((files_to_delete % 10) == 0)
+                  {
+                     /* Increase the space for the delete file name buffer */
+                     new_size = ((files_to_delete / 10) + 1) *
+                                10 * MAX_FILENAME_LENGTH;
+                     offset = p_del_file_name - del_file_name_buffer;
+                     if ((del_file_name_buffer = realloc(del_file_name_buffer,
+                                                         new_size)) == NULL)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "Could not realloc() memory : %s",
+                                   strerror(errno));
+                        exit(ALLOC_ERROR);
+                     }
+                     p_del_file_name = del_file_name_buffer + offset;
+                  }
+                  (void)strcpy(p_del_file_name, file_to_remove);
+                  p_del_file_name += MAX_FILENAME_LENGTH;
+                  files_to_delete++;
+               }
+
                files_not_send++;
                file_size_not_send += stat_buf.st_size;
             }
@@ -434,7 +472,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    if (files_not_send > 0)
    {
 #ifdef _VERIFY_FSA
-      unsigned int ui_variable;
+      unsigned long ul_variable;
 #endif
 
       /* Total file counter */
@@ -443,7 +481,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #ifdef _VERIFY_FSA
       if (fsa[db.fsa_pos].total_file_counter < 0)
       {
-         system_log(INFO_SIGN, __FILE__, __LINE__,
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Total file counter for host %s less then zero. Correcting.",
                     fsa[db.fsa_pos].host_dsp_name);
          fsa[db.fsa_pos].total_file_counter = 0;
@@ -454,13 +492,14 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       /* Total file size */
       lock_region_w(fsa_fd, (char *)&fsa[db.fsa_pos].total_file_size - (char *)fsa);
 #ifdef _VERIFY_FSA
-      ui_variable = fsa[db.fsa_pos].total_file_size;
+      ul_variable = fsa[db.fsa_pos].total_file_size;
 #endif
+
       fsa[db.fsa_pos].total_file_size -= file_size_not_send;
 #ifdef _VERIFY_FSA
-      if (fsa[db.fsa_pos].total_file_size > ui_variable)
+      if (fsa[db.fsa_pos].total_file_size > ul_variable)
       {
-         system_log(INFO_SIGN, __FILE__, __LINE__,
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Total file size for host %s overflowed. Correcting.",
                     fsa[db.fsa_pos].host_dsp_name);
          fsa[db.fsa_pos].total_file_size = 0;
@@ -468,7 +507,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
                (fsa[db.fsa_pos].total_file_size > 0))
            {
-              system_log(INFO_SIGN, __FILE__, __LINE__,
+              system_log(DEBUG_SIGN, __FILE__, __LINE__,
                          "fc for host %s is zero but fs is not zero. Correcting.",
                          fsa[db.fsa_pos].host_dsp_name);
               fsa[db.fsa_pos].total_file_size = 0;

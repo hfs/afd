@@ -109,7 +109,6 @@ struct sol_perm
            xstr = XmStringCreateLtoR(status_message, XmFONTLIST_DEFAULT_TAG); \
            XtVaSetValues(statusbox_w, XmNlabelString, xstr, NULL);            \
            XmStringFree(xstr);                                                \
-           XmUpdateDisplay(toplevel_w);                                       \
         }
 #define CHECK_INTERRUPT()                                                  \
         {                                                                  \

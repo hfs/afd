@@ -81,7 +81,8 @@ resize_tv_window(void)
    Arg               args[5];
    Cardinal          argcount;
 
-   if (tv_window_size(&tv_window_width, &tv_window_height) == YES)
+   if ((transviewshell != (Widget)NULL) &&
+       (tv_window_size(&tv_window_width, &tv_window_height) == YES))
    {
       argcount = 0;
       XtSetArg(args[argcount], XmNheight, tv_window_height);

@@ -939,6 +939,7 @@ eval_message(char *message_name, struct job *p_db)
                              if ((p_db->subject = malloc(length)) != NULL)
                              {
                                 (void)memcpy(p_db->subject, ptr_start, length - 1);
+                                p_db->subject[length - 1] = '\0';
                                 p_db->special_flag |= MAIL_SUBJECT;
                              }
                              else

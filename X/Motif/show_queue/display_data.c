@@ -193,14 +193,12 @@ display_data(void)
                     MAX_DISPLAYED_FILE_SIZE, qfl[lines_displayed].size);
 
       str_list[i] = XmStringCreateLocalized(line);
-      if ((i != 0) && ((i % LINES_BUFFERED) == 0))
+      if (i == LINES_BUFFERED)
       {
-         int j;
-
-         XmListAddItemsUnselected(listbox_w, str_list, i, 0);
-         for (j = 0; j < i; j++)
+         XmListAddItemsUnselected(listbox_w, str_list, LINES_BUFFERED + 1, 0);
+         for (i = 0; i < LINES_BUFFERED; i++)
          {
-            XmStringFree(str_list[j]);
+            XmStringFree(str_list[i]);
          }
          i = 0;
       }

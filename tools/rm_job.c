@@ -401,7 +401,7 @@ remove_job(char *del_dir, int fsa_pos)
    if ((number_deleted > 0) && (fsa_pos != -1))
    {
 #ifdef _VERIFY_FSA
-      unsigned int ui_variable;
+      unsigned long ul_variable;
 #endif
 
       /* Total file counter */
@@ -421,11 +421,11 @@ remove_job(char *del_dir, int fsa_pos)
       /* Total file size */
       lock_region_w(fsa_fd, (char *)&fsa[fsa_pos].total_file_size - (char *)fsa);
 #ifdef _VERIFY_FSA
-      ui_variable = fsa[fsa_pos].total_file_size;
+      ul_variable = fsa[fsa_pos].total_file_size;
 #endif
       fsa[fsa_pos].total_file_size -= file_size_deleted;
 #ifdef _VERIFY_FSA
-      if (fsa[fsa_pos].total_file_size > ui_variable)
+      if (fsa[fsa_pos].total_file_size > ul_variable)
       {
          (void)rec(sys_log_fd, INFO_SIGN,
                    "Total file size for host %s overflowed. Correcting. (%s %d)\n",

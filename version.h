@@ -30,14 +30,14 @@
  */
 #define MAJOR          1
 #define MINOR          2
-#define BUG_FIX        21
-/* #define PRE_RELEASE    1 */
+#define BUG_FIX        22
+/* #define PRE_RELEASE    3 */
 
 #define VERSION_ID     "--version"
 
 #define AFD_MAINTAINER "Holger.Kiehl@dwd.de"
 
-#define COPYRIGHT_0 "\n\n   Copyright (C) 1995 - 2004 Deutscher Wetterdienst, Holger Kiehl.\n\n"
+#define COPYRIGHT_0 "\n\n   Copyright (C) 1995 - 2005 Deutscher Wetterdienst, Holger Kiehl.\n\n"
 #define COPYRIGHT_1 "   This program is free software;  you can redistribute  it and/or\n"
 #define COPYRIGHT_2 "   modify it under the terms set out in the  COPYING  file,  which\n"
 #define COPYRIGHT_3 "   is included in the AFD source distribution.\n\n"
