@@ -144,7 +144,8 @@ Widget w;
    if (strcmp(prev.real_hostname[0], fsa[host_position].real_hostname[0]) != 0)
    {
       (void)strcpy(prev.real_hostname[0], fsa[host_position].real_hostname[0]);
-      (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, prev.real_hostname[0]);
+      (void)sprintf(str_line, "%*s",
+                    AFD_INFO_LENGTH, prev.real_hostname[0]);
       XmTextSetString(text_wl[1], str_line);
       flush = YES;
    }
@@ -201,8 +202,8 @@ Widget w;
    if (prev.last_connection != fsa[host_position].last_connection)
    {
       prev.last_connection = fsa[host_position].last_connection;
-      (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
-                     gmtime(&prev.last_connection));
+      (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH,
+                     "%d.%m.%Y  %H:%M:%S", gmtime(&prev.last_connection));
       (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
       XmTextSetString(text_wl[3], str_line);
       flush = YES;

@@ -691,6 +691,7 @@ main(int argc, char *argv[])
                   /* we do a shutdown as quick as   */
                   /* possible by killing all jobs.  */
                   stop_flag = (int)buffer;
+                  loop_counter = 0;
                   (void)rec(sys_log_fd, INFO_SIGN, "FD shutting down ...\n");
 
                   exit(SUCCESS);
@@ -917,7 +918,28 @@ main(int argc, char *argv[])
                      */
                     if ((stop_flag == 0) && (*no_msg_queued > 1))
                     {
-                       START_PROCESS();
+                       /*
+                        * If the number of messages queued is very large
+                        * and most messages belong to a host that is very
+                        * slow, new messages will only be processed very
+                        * slowly when we always scan the whole queue.
+                        */
+                       if (*no_msg_queued < 1000)
+                       {
+                          START_PROCESS();
+                       }
+                       else
+                       {
+                          if (loop_counter > 100)
+                          {
+                             START_PROCESS();
+                             loop_counter = 0;
+                          }
+                          else
+                          {
+                             loop_counter++;
+                          }
+                       }
                     }
                  }
               }
@@ -2205,7 +2227,7 @@ get_afd_config_value(void)
    {
       char value[MAX_INT_LENGTH];
 
-      if (get_definition(buffer, MAX_CONNECTIONS_DEF, value, MAX_INT_LENGTH) == SUCCESS)
+      if (get_definition(buffer, MAX_CONNECTIONS_DEF, value, MAX_INT_LENGTH) != NULL)
       {
          max_connections = atoi(value);
          if ((max_connections < 1) ||

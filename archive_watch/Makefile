@@ -27,7 +27,7 @@ clean :
 	rm -f $(AWOBJS) core
 
 clobber :
-	make clean
+	$(MAKE) clean
 	rm -f $(PROGS)
 
 install :

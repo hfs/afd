@@ -24,92 +24,92 @@ PROGS = $(XAFDLIB) $(AFDCPROG) $(AFDIPROG) $(AFDLPROG) $(EHCPROG) $(SCMDPROG) $(
 all : $(PROGS)
 
 $(XAFDLIB) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(AFDCPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(AFDIPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(AFDLPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(EHCPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(SCMDPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(SLOGPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(SOLOGPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(SILOGPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(SDLOGPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(MONCPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(MONIPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(VDCPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 #$(STATPROG) : dummy
-#	cd $(@) ; $(MAKE) all
+#	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 dummy :
 
 clean :
-	cd $(XAFDLIB) ; make clean
-	cd $(AFDCPROG) ; make clean
-	cd $(AFDIPROG) ; make clean
-	cd $(AFDLPROG) ; make clean
-	cd $(EHCPROG) ; make clean
-	cd $(SCMDPROG) ; make clean
-	cd $(SLOGPROG) ; make clean
-	cd $(SOLOGPROG) ; make clean
-	cd $(SILOGPROG) ; make clean
-	cd $(SDLOGPROG) ; make clean
-	cd $(MONCPROG) ; make clean
-	cd $(MONIPROG) ; make clean
-	cd $(VDCPROG) ; make clean
-#	cd $(STATPROG) ; make clean
+	cd $(XAFDLIB) ; $(MAKE) clean
+	cd $(AFDCPROG) ; $(MAKE) clean
+	cd $(AFDIPROG) ; $(MAKE) clean
+	cd $(AFDLPROG) ; $(MAKE) clean
+	cd $(EHCPROG) ; $(MAKE) clean
+	cd $(SCMDPROG) ; $(MAKE) clean
+	cd $(SLOGPROG) ; $(MAKE) clean
+	cd $(SOLOGPROG) ; $(MAKE) clean
+	cd $(SILOGPROG) ; $(MAKE) clean
+	cd $(SDLOGPROG) ; $(MAKE) clean
+	cd $(MONCPROG) ; $(MAKE) clean
+	cd $(MONIPROG) ; $(MAKE) clean
+	cd $(VDCPROG) ; $(MAKE) clean
+#	cd $(STATPROG) ; $(MAKE) clean
 
 clobber :
-	cd $(XAFDLIB) ; make clobber
-	cd $(AFDCPROG) ; make clobber
-	cd $(AFDIPROG) ; make clobber
-	cd $(AFDLPROG) ; make clobber
-	cd $(EHCPROG) ; make clobber
-	cd $(SCMDPROG) ; make clobber
-	cd $(SLOGPROG) ; make clobber
-	cd $(SOLOGPROG) ; make clobber
-	cd $(SILOGPROG) ; make clobber
-	cd $(SDLOGPROG) ; make clobber
-	cd $(MONCPROG) ; make clobber
-	cd $(MONIPROG) ; make clobber
-	cd $(VDCPROG) ; make clobber
-#	cd $(STATPROG) ; make clobber
+	cd $(XAFDLIB) ; $(MAKE) clobber
+	cd $(AFDCPROG) ; $(MAKE) clobber
+	cd $(AFDIPROG) ; $(MAKE) clobber
+	cd $(AFDLPROG) ; $(MAKE) clobber
+	cd $(EHCPROG) ; $(MAKE) clobber
+	cd $(SCMDPROG) ; $(MAKE) clobber
+	cd $(SLOGPROG) ; $(MAKE) clobber
+	cd $(SOLOGPROG) ; $(MAKE) clobber
+	cd $(SILOGPROG) ; $(MAKE) clobber
+	cd $(SDLOGPROG) ; $(MAKE) clobber
+	cd $(MONCPROG) ; $(MAKE) clobber
+	cd $(MONIPROG) ; $(MAKE) clobber
+	cd $(VDCPROG) ; $(MAKE) clobber
+#	cd $(STATPROG) ; $(MAKE) clobber
 
 install :
-	cd $(AFDCPROG) ; make install
-	cd $(AFDIPROG) ; make install
-	cd $(AFDLPROG) ; make install
-	cd $(EHCPROG) ; make install
-	cd $(SCMDPROG) ; make install
-	cd $(SLOGPROG) ; make install
-	cd $(SOLOGPROG) ; make install
-	cd $(SILOGPROG) ; make install
-	cd $(SDLOGPROG) ; make install
-	cd $(MONCPROG) ; make install
-	cd $(MONIPROG) ; make install
-	cd $(VDCPROG) ; make install
-#	cd $(STATPROG) ; make install
+	cd $(AFDCPROG) ; $(MAKE) install
+	cd $(AFDIPROG) ; $(MAKE) install
+	cd $(AFDLPROG) ; $(MAKE) install
+	cd $(EHCPROG) ; $(MAKE) install
+	cd $(SCMDPROG) ; $(MAKE) install
+	cd $(SLOGPROG) ; $(MAKE) install
+	cd $(SOLOGPROG) ; $(MAKE) install
+	cd $(SILOGPROG) ; $(MAKE) install
+	cd $(SDLOGPROG) ; $(MAKE) install
+	cd $(MONCPROG) ; $(MAKE) install
+	cd $(MONIPROG) ; $(MAKE) install
+	cd $(VDCPROG) ; $(MAKE) install
+#	cd $(STATPROG) ; $(MAKE) install

@@ -4,6 +4,7 @@ ARFLAGS         = rsv
 BINMODE         = 4755
 SBINMODE        = 755
 MAKE            = make
+FORKMAKEFLAG    = 
 COMPILER_FLAGS  = -O2 ${MMAP_FLAG}
 #DEBUG_FLAGS     = -g -D_DEBUG -D_FIFO_DEBUG
 DEBUG_FLAGS     = 

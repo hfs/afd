@@ -546,6 +546,7 @@ extern void check_nummeric(Widget, XtPointer, XtPointer),
             show_info(char *),                    /* show_?log */
             show_message(char *),                 /* show_?log */
             update_time(XtPointer, XtIntervalId), /* show_?log */
+            wait_visible(Widget),
             write_setup(void);
 
 #endif /* __x_common_defs_h */

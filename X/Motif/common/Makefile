@@ -21,6 +21,7 @@ OBJS    = check_info_file.o\
           show_message.o\
           store_host_names.o\
           update_time.o\
+          wait_visible.o\
           xrec.o
 
 all : $(LIB)
@@ -34,7 +35,7 @@ clean :
 	rm -f $(OBJS) core
 
 clobber :
-	make clean
+	$(MAKE) clean
 	rm -f $(LIB)
 
 # Other Dependencies

@@ -61,7 +61,6 @@ DESCR__E_M1
 
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
-#include <Xm/TextF.h>
 #include <Xm/ToggleBG.h>
 #include <Xm/PushB.h>
 #include <Xm/PushBG.h>
@@ -320,7 +319,7 @@ main(int argc, char *argv[])
                               XmNleftPosition,     1,
                               XmNalignment,        XmALIGNMENT_END,
                               NULL);
-      text_wl[i] = XtVaCreateManagedWidget("text_wl", xmTextFieldWidgetClass, fsa_text,
+      text_wl[i] = XtVaCreateManagedWidget("text_wl", xmTextWidgetClass, fsa_text,
                                            XmNfontList,              fontlist,
                                            XmNcolumns,               AFD_INFO_LENGTH,
                                            XmNtraversalOn,           False,
@@ -452,7 +451,7 @@ main(int argc, char *argv[])
                               XmNleftPosition,     1,
                               XmNalignment,        XmALIGNMENT_END,
                               NULL);
-      text_wr[i] = XtVaCreateManagedWidget("text_wr", xmTextFieldWidgetClass, fsa_text,
+      text_wr[i] = XtVaCreateManagedWidget("text_wr", xmTextWidgetClass, fsa_text,
                                            XmNfontList,              fontlist,
                                            XmNcolumns,               AFD_INFO_LENGTH,
                                            XmNtraversalOn,           False,
@@ -630,6 +629,7 @@ main(int argc, char *argv[])
 
    /* Realize all widgets */
    XtRealizeWidget(toplevel);
+   wait_visible(toplevel);
 
    /* Read and display the information file */
    check_info_file();

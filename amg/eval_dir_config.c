@@ -286,7 +286,8 @@ eval_dir_config(size_t db_size)
    {
       count_new_lines(ptr, search_ptr, &line_counter);
 
-      if (*(search_ptr - strlen(DIR_IDENTIFIER) - 2) != '\n')
+      tmp_ptr = search_ptr - strlen(DIR_IDENTIFIER) - 2;
+      if ((tmp_ptr > database) && (*tmp_ptr != '\n'))
       {
          ptr = search_ptr;
          continue;

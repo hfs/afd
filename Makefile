@@ -28,86 +28,86 @@ all : $(PROGS)
 everything : $(PROGS) $(AFDMONPROG)
 
 $(AFDLIB) : dummy
-	cd $(COMMONDIR) ; $(MAKE) all
+	cd $(COMMONDIR) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(MISCDIR) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(IAFDPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(AMGPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(FDPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(LOGPROGS) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(MAINTPROGS) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(AWPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(AFDDPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(AFDMONPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(STAPROG) : dummy
-	cd $(@) ; $(MAKE) all
+	cd $(@) ; $(MAKE) $(FORKMAKEFLAG) all
 
 $(XPROG) : dummy
-	cd $(@)/$(WIDGET_SET) ; make all
+	cd $(@)/$(WIDGET_SET) ; $(MAKE) all
 
 dummy :
 
 clean :
-	cd $(COMMONDIR) ; make clean
-	cd $(IAFDPROG) ; make clean
-	cd $(AMGPROG) ; make clean
-	cd $(FDPROG) ; make clean
-	cd $(LOGPROGS) ; make clean
-	cd $(MISCDIR) ; make clean
-	cd $(MAINTPROGS) ; make clean
-	cd $(AWPROG) ; make clean
-	cd $(AFDDPROG) ; make clean
-	cd $(AFDMONPROG) ; make clean
-	cd $(STAPROG) ; make clean
-	cd $(XPROG)/$(WIDGET_SET) ; make clean
+	cd $(COMMONDIR) ; $(MAKE) clean
+	cd $(IAFDPROG) ; $(MAKE) clean
+	cd $(AMGPROG) ; $(MAKE) clean
+	cd $(FDPROG) ; $(MAKE) clean
+	cd $(LOGPROGS) ; $(MAKE) clean
+	cd $(MISCDIR) ; $(MAKE) clean
+	cd $(MAINTPROGS) ; $(MAKE) clean
+	cd $(AWPROG) ; $(MAKE) clean
+	cd $(AFDDPROG) ; $(MAKE) clean
+	cd $(AFDMONPROG) ; $(MAKE) clean
+	cd $(STAPROG) ; $(MAKE) clean
+	cd $(XPROG)/$(WIDGET_SET) ; $(MAKE) clean
 
 clobber :
-	cd $(COMMONDIR) ; make clobber
-	cd $(IAFDPROG) ; make clobber
-	cd $(AMGPROG) ; make clobber
-	cd $(FDPROG) ; make clobber
-	cd $(LOGPROGS) ; make clobber
-	cd $(MISCDIR) ; make clobber
-	cd $(MAINTPROGS) ; make clobber
-	cd $(AWPROG) ; make clobber
-	cd $(AFDDPROG) ; make clobber
-	cd $(AFDMONPROG) ; make clobber
-	cd $(STAPROG) ; make clobber
-	cd $(XPROG)/$(WIDGET_SET) ; make clobber
+	cd $(COMMONDIR) ; $(MAKE) clobber
+	cd $(IAFDPROG) ; $(MAKE) clobber
+	cd $(AMGPROG) ; $(MAKE) clobber
+	cd $(FDPROG) ; $(MAKE) clobber
+	cd $(LOGPROGS) ; $(MAKE) clobber
+	cd $(MISCDIR) ; $(MAKE) clobber
+	cd $(MAINTPROGS) ; $(MAKE) clobber
+	cd $(AWPROG) ; $(MAKE) clobber
+	cd $(AFDDPROG) ; $(MAKE) clobber
+	cd $(AFDMONPROG) ; $(MAKE) clobber
+	cd $(STAPROG) ; $(MAKE) clobber
+	cd $(XPROG)/$(WIDGET_SET) ; $(MAKE) clobber
 
 real_clobber :
-	make clobber
-	cd $(MAINTPROGS) ; make real_clobber
+	$(MAKE) clobber
+	cd $(MAINTPROGS) ; $(MAKE) real_clobber
 	rm -f $(INSTALLDIR)/*
 	rm -f ../fifodir/*.fifo* ../fifodir/amg_counter
 
 install :
-	cd $(IAFDPROG) ; make install
-	cd $(AMGPROG) ; make install
-	cd $(FDPROG) ; make install
-	cd $(LOGPROGS) ; make install
-	cd $(MISCDIR) ; make install
-	cd $(MAINTPROGS) ; make install
-	cd $(AWPROG) ; make install
-	cd $(AFDDPROG) ; make install
-	cd $(AFDMONPROG) ; make install
-	cd $(STAPROG) ; make install
-	cd $(XPROG)/$(WIDGET_SET) ; make install
+	cd $(IAFDPROG) ; $(MAKE) install
+	cd $(AMGPROG) ; $(MAKE) install
+	cd $(FDPROG) ; $(MAKE) install
+	cd $(LOGPROGS) ; $(MAKE) install
+	cd $(MISCDIR) ; $(MAKE) install
+	cd $(MAINTPROGS) ; $(MAKE) install
+	cd $(AWPROG) ; $(MAKE) install
+	cd $(AFDDPROG) ; $(MAKE) install
+	cd $(AFDMONPROG) ; $(MAKE) install
+	cd $(STAPROG) ; $(MAKE) install
+	cd $(XPROG)/$(WIDGET_SET) ; $(MAKE) install

@@ -78,18 +78,21 @@ struct mon_status_area *msa;
 struct afd_host_list   *ahl = NULL;
 
 /* Local functions prototypes */
-static int             evaluate_message(int);
+static int             evaluate_message(int *);
 static void            mon_exit(void),
                        sig_bus(int),
                        sig_exit(int),
                        sig_segv(int);
+
+/* #define _DEBUG_PRINT 1 */
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ mon() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
-   int            bytes_read,
+   int            bytes_done,
+                  bytes_buffered = 0,
                   retry_fd,
                   status;
    time_t         new_day_time,
@@ -270,7 +273,7 @@ main(int argc, char *argv[])
                    "%-*s: ========> AFDD Connected <========\n",
                    MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
                    __FILE__, __LINE__);
-         if ((bytes_read = tcp_cmd(START_STAT_CMD)) < 0)
+         if ((bytes_buffered = tcp_cmd(START_STAT_CMD)) < 0)
          {
             if (timeout_flag == OFF)
             {
@@ -296,7 +299,7 @@ main(int argc, char *argv[])
          else
          {
 /*
-            if (evaluate_message(bytes_read) == AFDD_SHUTTING_DOWN)
+            if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
             {
                timeout_flag = ON;
                (void)tcp_quit();
@@ -323,6 +326,27 @@ main(int argc, char *argv[])
                   new_day_time = (now / 86400) * 86400 + 86400;
                }
 
+               while (bytes_buffered > 0)
+               {
+                  if ((bytes_buffered = read_msg()) == INCORRECT)
+                  {
+                     bytes_buffered -= bytes_done;
+                     goto done;
+                  }
+                  else
+                  {
+                     if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
+                     {
+                        bytes_buffered -= bytes_done;
+                        timeout_flag = ON;
+                        (void)tcp_quit();
+                        timeout_flag = OFF;
+                        goto done;
+                     }
+                     bytes_buffered -= bytes_done;
+                  }
+               }
+
                /* Initialise descriptor set and timeout */
                FD_ZERO(&rset);
                FD_SET(sock_fd, &rset);
@@ -335,24 +359,29 @@ main(int argc, char *argv[])
                if (FD_ISSET(sock_fd, &rset))
                {
                   msa[afd_no].last_data_time = time(NULL);
-                  if ((bytes_read = read_msg()) == INCORRECT)
+                  do
                   {
-                     break;
-                  }
-                  else
-                  {
-                     if (evaluate_message(bytes_read) == AFDD_SHUTTING_DOWN)
+                     if ((bytes_buffered = read_msg()) == INCORRECT)
                      {
-                        timeout_flag = ON;
-                        (void)tcp_quit();
-                        timeout_flag = OFF;
-                        break;
+                        goto done;
                      }
-                  }
+                     else
+                     {
+                        if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
+                        {
+                           bytes_buffered -= bytes_done;
+                           timeout_flag = ON;
+                           (void)tcp_quit();
+                           timeout_flag = OFF;
+                           goto done;
+                        }
+                        bytes_buffered -= bytes_done;
+                     }
+                  } while (bytes_buffered > 0);
                }
                else if (status == 0)
                     {
-                       if (tcp_cmd(STAT_CMD) < 0)
+                       if ((bytes_buffered = tcp_cmd(STAT_CMD)) < 0)
                        {
                           if (timeout_flag == OFF)
                           {
@@ -379,13 +408,15 @@ main(int argc, char *argv[])
                        else
                        {
                           msa[afd_no].last_data_time = time(NULL);
-                          if (evaluate_message(bytes_read) == AFDD_SHUTTING_DOWN)
+                          if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
                           {
+                             bytes_buffered -= bytes_done;
                              timeout_flag = ON;
                              (void)tcp_quit();
                              timeout_flag = OFF;
                              break;
                           }
+                          bytes_buffered -= bytes_done;
                        }
                     }
                     else
@@ -398,6 +429,8 @@ main(int argc, char *argv[])
             } /* for (;;) */
          }
       }
+
+done:
 
       msa[afd_no].tr = 0;
       msa[afd_no].connect_status = DISCONNECTED;
@@ -452,12 +485,23 @@ main(int argc, char *argv[])
 /*                     hostnames                                         */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
 static int
-evaluate_message(int bytes_read)
+evaluate_message(int *bytes_done)
 {
    char *ptr,
         *ptr_start;
 
    /* Evaluate what is returned and store in MSA. */
+   ptr = msg_str;
+   for (;;)
+   {
+      if (((*ptr == '\n') && (*(ptr - 1) == '\r')) ||
+          (*ptr == '\0'))
+      {
+         break;
+      }
+      ptr++;
+   }
+   *bytes_done = ptr - msg_str + 2;
    ptr = msg_str;
    if ((*ptr == 'I') && (*(ptr + 1) == 'S'))
    {
@@ -564,6 +608,13 @@ evaluate_message(int bytes_read)
             }
          }
       }
+#ifdef _DEBUG_PRINT
+      (void)fprintf(stderr, "IS %d %d %d %d %d %d %d\n",
+                    msa[afd_no].fc, msa[afd_no].fs, msa[afd_no].tr,
+                    msa[afd_no].fr, msa[afd_no].ec,
+                    msa[afd_no].host_error_counter,
+                    msa[afd_no].jobs_in_queue);
+#endif /* _DEBUG_PRINT */
    }
    /*
     * Status of AMG
@@ -577,6 +628,9 @@ evaluate_message(int bytes_read)
               ptr++;
            }
            msa[afd_no].amg = (char)atoi(ptr_start);
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "AM %d\n", msa[afd_no].amg);
+#endif /* _DEBUG_PRINT */
         }
    /*
     * Status of FD
@@ -590,6 +644,9 @@ evaluate_message(int bytes_read)
               ptr++;
            }
            msa[afd_no].fd = (char)atoi(ptr_start);
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "FD %d\n", msa[afd_no].fd);
+#endif /* _DEBUG_PRINT */
         }
    /*
     * Status of archive watch
@@ -603,6 +660,9 @@ evaluate_message(int bytes_read)
               ptr++;
            }
            msa[afd_no].archive_watch = (char)atoi(ptr_start);
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "AW %d\n", msa[afd_no].archive_watch);
+#endif /* _DEBUG_PRINT */
         }
    /*
     * Number of hosts
@@ -654,6 +714,9 @@ evaluate_message(int bytes_read)
                  ahl = (struct afd_host_list *)ahl_ptr;
               }
            }
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "NH %d\n", msa[afd_no].no_of_hosts);
+#endif /* _DEBUG_PRINT */
         }
    /*
     * Maximum number of connections.
@@ -667,6 +730,9 @@ evaluate_message(int bytes_read)
               ptr++;
            }
            msa[afd_no].max_connections = atoi(ptr_start);
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "MC %d\n", msa[afd_no].max_connections);
+#endif /* _DEBUG_PRINT */
         }
    /*
     * System log radar
@@ -681,7 +747,15 @@ evaluate_message(int bytes_read)
            }
            if (*ptr == ' ')
            {
-              int i;
+              int  i;
+#ifdef _DEBUG_PRINT
+              int  length;
+              char fifo_buf[(LOG_FIFO_SIZE * 4) + 4];
+
+              fifo_buf[0] = 'S';
+              fifo_buf[1] = 'R';
+              length = 2;
+#endif /* _DEBUG_PRINT */
 
               /* Store system log entry counter. */
               *ptr = '\0';
@@ -703,8 +777,15 @@ evaluate_message(int bytes_read)
                     msa[afd_no].sys_log_fifo[i] = (char)atoi(ptr_start);
                     ptr++;
                     ptr_start = ptr;
+#ifdef _DEBUG_PRINT
+                    length += sprintf(&fifo_buf[length], " %d",
+                                      (int)msa[afd_no].sys_log_fifo[i]);
+#endif /* _DEBUG_PRINT */
                  }
               } /* for (i = 0; i < LOG_FIFO_SIZE; i++) */
+#ifdef _DEBUG_PRINT
+              (void)fprintf(stderr, "%s\n", fifo_buf);
+#endif /* _DEBUG_PRINT */
            }
         }
    /*
@@ -764,6 +845,12 @@ evaluate_message(int bytes_read)
                        ahl[pos].real_hostname[1][0] = '\0';
                     }
                  }
+#ifdef _DEBUG_PRINT
+                 (void)fprintf(stderr, "HL %d %s %s %s\n",
+                               pos, ahl[pos].host_alias,
+                               ahl[pos].real_hostname[0],
+                               ahl[pos].real_hostname[1]);
+#endif /* _DEBUG_PRINT */
               }
               else
               {
@@ -779,15 +866,18 @@ evaluate_message(int bytes_read)
     */
    else if ((*ptr == 'A') && (*(ptr + 1) == 'V'))
         {
-           if ((bytes_read - 3) < MAX_VERSION_LENGTH)
+           if ((*bytes_done - 3) < MAX_VERSION_LENGTH)
            {
               (void)strcpy(msa[afd_no].afd_version, ptr + 3);
+#ifdef _DEBUG_PRINT
+              (void)fprintf(stderr, "AV %s\n", msa[afd_no].afd_version);
+#endif /* _DEBUG_PRINT */
            }
            else
            {
               (void)rec(sys_log_fd, WARN_SIGN,
                         "Version is %d Bytes long, but can handle only %d Bytes. (%s %d)\n",
-                        bytes_read - 3, MAX_VERSION_LENGTH,
+                        *bytes_done - 3, MAX_VERSION_LENGTH,
                         __FILE__, __LINE__);
            }
         }
@@ -796,15 +886,18 @@ evaluate_message(int bytes_read)
     */
    else if ((*ptr == 'W') && (*(ptr + 1) == 'D'))
         {
-           if ((bytes_read - 3) < MAX_PATH_LENGTH)
+           if ((*bytes_done - 3) < MAX_PATH_LENGTH)
            {
               (void)strcpy(msa[afd_no].r_work_dir, ptr + 3);
+#ifdef _DEBUG_PRINT
+              (void)fprintf(stderr, "WD %s\n", msa[afd_no].r_work_dir);
+#endif /* _DEBUG_PRINT */
            }
            else
            {
               (void)rec(sys_log_fd, WARN_SIGN,
                         "Path is %d Bytes long, but can handle only %d Bytes. (%s %d)\n",
-                        bytes_read - 3, MAX_PATH_LENGTH,
+                        *bytes_done - 3, MAX_PATH_LENGTH,
                         __FILE__, __LINE__);
            }
         }
@@ -812,9 +905,15 @@ evaluate_message(int bytes_read)
             (*(ptr + 3) == '-'))
         {
            /* Ignore this, not of intrest! */;
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "%s\n", ptr);
+#endif /* _DEBUG_PRINT */
         }
    else if (strcmp(ptr, AFDD_SHUTDOWN_MESSAGE) == 0)
         {
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "%s\n", ptr);
+#endif /* _DEBUG_PRINT */
            (void)rec(mon_log_fd, WARN_SIGN,
                      "%-*s: ========> AFDD SHUTDOWN <========\n",
                      MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias);

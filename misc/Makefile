@@ -69,7 +69,7 @@ clean :
 	rm -f $(OBJS) core
 
 clobber :
-	make clean
+	$(MAKE) clean
 	@if [ "$(MMAP_FLAG)" = "-D_NO_MMAP" ] ; \
 	then \
 	   rm -f mapper ; \

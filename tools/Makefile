@@ -186,11 +186,11 @@ clean :
 	rm -f $(OBJS) *.o core
 
 clobber :
-	make clean
+	$(MAKE) clean
 	rm -f $(PROGS)
 
 real_clobber :
-	make clobber
+	$(MAKE) clobber
 	cd $(INSTDIR) ; rm -f $(PROGS) uhc
 
 install :

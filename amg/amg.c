@@ -144,6 +144,7 @@ int
 main(int argc, char *argv[])
 {
    int              i,
+                    first_time = NO,
                     amg_cmd_fd,              /* File descriptor of the   */
                                              /* used by the controlling  */
                                              /* program AFD.             */
@@ -355,6 +356,14 @@ main(int argc, char *argv[])
     * Create and initialize AMG counter file. Do it here to
     * avoid having two dir_checks trying to do the same.
     */
+   if ((stat(counter_file, &stat_buf) == -1) && (errno == ENOENT))
+   {
+      /*
+       * Lets assume when there is no counter file that this is the
+       * first time that AFD is started.
+       */
+      first_time = YES;
+   }
    if ((fd = coe_open(counter_file, O_RDWR | O_CREAT,
                       S_IRUSR | S_IWUSR)) == -1)
    {
@@ -433,7 +442,7 @@ main(int argc, char *argv[])
 
    /* Evaluate HOST_CONFIG file */
    hl = NULL;
-   if (eval_host_config() == NO_ACCESS)
+   if ((eval_host_config() == NO_ACCESS) && (first_time == NO))
    {
       /*
        * Try get the host information from the current FSA.

@@ -393,6 +393,7 @@ smtp_write(char *block, char *buffer, int size)
    int          status,
                 write_fd = fileno(smtp_fp);
    char         *ptr = block;
+   static char  last_char = 0;
    fd_set       wset;
 
    /* Initialise descriptor set */
@@ -416,14 +417,26 @@ smtp_write(char *block, char *buffer, int size)
            {
               if (*ptr == '\n')
               {
-                 buffer[count++] = '\r';
-                 buffer[count++] = '\n';
+                 if (((i > 0) && (*(ptr - 1) == '\r')) ||
+                     ((i == 0) && (last_char == '\r')))
+                 {
+                    buffer[count++] = *ptr;
+                 }
+                 else
+                 {
+                    buffer[count++] = '\r';
+                    buffer[count++] = '\n';
+                 }
               }
               else
               {
                  buffer[count++] = *ptr;
               }
               ptr++;
+           }
+           if (i > 0)
+           {
+              last_char = *(ptr - 1);
            }
            size = count;
            ptr = buffer;
@@ -478,6 +491,7 @@ smtp_write_iso8859(char *block, char *buffer, int size)
    int           status,
                  write_fd = fileno(smtp_fp);
    unsigned char *ptr = (unsigned char *)block;
+   static char   last_char = 0;
    fd_set        wset;
 
    /* Initialise descriptor set */
@@ -501,8 +515,16 @@ smtp_write_iso8859(char *block, char *buffer, int size)
            {
               if (*ptr == '\n')
               {
-                 buffer[count++] = '\r';
-                 buffer[count++] = '\n';
+                 if (((i > 0) && (*(ptr - 1) == '\r')) ||
+                     ((i == 0) && (last_char == '\r')))
+                 {
+                    buffer[count++] = *ptr;
+                 }
+                 else
+                 {
+                    buffer[count++] = '\r';
+                    buffer[count++] = '\n';
+                 }
               }
               else
               {
@@ -541,6 +563,10 @@ smtp_write_iso8859(char *block, char *buffer, int size)
                  count++;
               }
               ptr++;
+           }
+           if (i > 0)
+           {
+              last_char = *(ptr - 1);
            }
            size = count;
            ptr = (unsigned char *)buffer;

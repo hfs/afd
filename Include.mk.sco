@@ -6,6 +6,7 @@ ARFLAGS              = rsv
 BINMODE              = 4755
 SBINMODE             = 755
 MAKE                 = make
+FORKMAKEFLAG         = 
 #COMPILER_FLAGS       = ${WARN_OPTIONS} ${OPTIMIZATION_OPTIONS}
 COMPILER_FLAGS       = ${WARN_OPTIONS} -g
 #DEBUG_FLAGS          = -D_DEBUG -D_FIFO_DEBUG

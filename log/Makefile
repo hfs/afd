@@ -72,7 +72,7 @@ clean :
 	rm -f $(OBJS) core
 
 clobber :
-	make clean
+	$(MAKE) clean
 	rm -f $(PROGS)
 
 install :

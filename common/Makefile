@@ -80,7 +80,7 @@ clean :
 	rm -f $(OBJS)
 
 clobber :
-	make clean
+	$(MAKE) clean
 	rm -f $(LIB)
 
 # Other Dependencies

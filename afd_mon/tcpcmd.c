@@ -269,7 +269,7 @@ tcp_connect(char *hostname, int port)
 int
 tcp_cmd(char *cmd)
 {
-   int bytes_read;
+   int bytes_buffered;
 
    (void)fprintf(p_control, "%s\r\n", cmd);
    (void)fflush(p_control);
@@ -281,7 +281,7 @@ tcp_cmd(char *cmd)
    if ((msg_str[0] == '2') && (msg_str[1] == '1') &&
        (msg_str[2] == '1') && (msg_str[3] == '-'))
    {
-      if ((bytes_read = read_msg()) == INCORRECT)
+      if ((bytes_buffered = read_msg()) == INCORRECT)
       {
          return(INCORRECT);
       }
@@ -292,7 +292,7 @@ tcp_cmd(char *cmd)
              (msg_str[2] - '0'));
    }
 
-   return(bytes_read);
+   return(bytes_buffered);
 }
 
 
@@ -393,79 +393,98 @@ get_reply(void)
 int
 read_msg(void)
 {
-   int           i = 0,
-                 status;
-   unsigned char char_buf;
-   fd_set        rset;
+   static int  bytes_buffered,
+               bytes_read = 0;
+   static char *read_ptr = NULL;
+
+   if (bytes_read == 0)
+   {
+      bytes_buffered = 0;
+   }
+   else
+   {
+      memmove(msg_str, read_ptr + 1, bytes_read);
+      bytes_buffered = bytes_read;
+      read_ptr = msg_str;
+   }
 
    for (;;)
    {
-      /* Initialise descriptor set */
-      FD_ZERO(&rset);
-      FD_SET(sock_fd, &rset);
-      timeout.tv_usec = 0L;
-      timeout.tv_sec = tcp_timeout;
-
-      /* Wait for message x seconds and then continue. */
-      status = select(sock_fd + 1, &rset, NULL, NULL, &timeout);
-
-      if (status == 0)
+      if (bytes_read <= 0)
       {
-         /* timeout has arrived */
-         timeout_flag = ON;
-         return(INCORRECT);
-      }
-      else if (FD_ISSET(sock_fd, &rset))
-           {
-              if ((status = read(sock_fd, &char_buf, 1)) != 1)
+         int    status;
+         fd_set rset;
+
+         /* Initialise descriptor set */
+         FD_ZERO(&rset);
+         FD_SET(sock_fd, &rset);
+         timeout.tv_usec = 0L;
+         timeout.tv_sec = tcp_timeout;
+
+         /* Wait for message x seconds and then continue. */
+         status = select(sock_fd + 1, &rset, NULL, NULL, &timeout);
+
+         if (status == 0)
+         {
+            /* timeout has arrived */
+            timeout_flag = ON;
+            bytes_read = 0;
+            return(INCORRECT);
+         }
+         else if (FD_ISSET(sock_fd, &rset))
               {
-                 if (status == 0)
+                 if ((bytes_read = read(sock_fd, &msg_str[bytes_buffered],
+                                        (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
                  {
-                    (void)rec(mon_log_fd, ERROR_SIGN,
-                              "%-*s: Remote hang up. (%s %d)\n",
-                              MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                              __FILE__, __LINE__);
+                    if (bytes_read == 0)
+                    {
+                       (void)rec(mon_log_fd, ERROR_SIGN,
+                                 "%-*s: Remote hang up. (%s %d)\n",
+                                 MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
+                                 __FILE__, __LINE__);
+                    }
+                    else
+                    {
+                       (void)rec(mon_log_fd, ERROR_SIGN,
+                                 "%-*s: read() error (after reading %d Bytes) : %s (%s %d)\n",
+                                 MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
+                                 bytes_buffered, strerror(errno), __FILE__, __LINE__);
+                    }
+                    bytes_read = 0;
+                    return(INCORRECT);
                  }
-                 else
-                 {
-                    (void)rec(mon_log_fd, ERROR_SIGN,
-                              "%-*s: read() error (after reading %d Bytes) : %s (%s %d)\n",
-                              MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                              i, strerror(errno), __FILE__, __LINE__);
-                 }
-                 return(INCORRECT);
+                 read_ptr = &msg_str[bytes_buffered];
+                 bytes_buffered += bytes_read;
               }
-              if ((char_buf == '\n') && (msg_str[i - 1] == '\r'))
-              {
-                 msg_str[i - 1] = '\0';
-                 return(i);
-              }
-              if (i > MAX_RET_MSG_LENGTH)
+         else if (status < 0)
               {
                  (void)rec(mon_log_fd, ERROR_SIGN,
-                           "%-*s: Buffer for reading message to small. (%s %d)\n",
+                           "%-*s: select() error : %s (%s %d)\n",
                            MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                           __FILE__, __LINE__);
-                 return(INCORRECT);
+                           strerror(errno), __FILE__, __LINE__);
+                 exit(INCORRECT);
               }
-              msg_str[i] = char_buf;
-              i++;
-           }
-      else if (status < 0)
-           {
-              (void)rec(mon_log_fd, ERROR_SIGN,
-                        "%-*s: select() error : %s (%s %d)\n",
-                        MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                        strerror(errno), __FILE__, __LINE__);
-              exit(INCORRECT);
-           }
-           else
-           {
-              (void)rec(sys_log_fd, ERROR_SIGN,
-                        "Unknown condition. (%s %d)\n",
-                        __FILE__, __LINE__);
-              exit(INCORRECT);
-           }
+              else
+              {
+                 (void)rec(sys_log_fd, ERROR_SIGN,
+                           "Unknown condition. (%s %d)\n",
+                           __FILE__, __LINE__);
+                 exit(INCORRECT);
+              }
+      }
+
+      /* Evaluate what we have read. */
+      do
+      {
+         if ((*read_ptr == '\n') && (*(read_ptr - 1) == '\r'))
+         {                                                                
+            *(read_ptr - 1) = '\0';
+            bytes_read--;
+            return(bytes_buffered);
+         }
+         read_ptr++;
+         bytes_read--;
+      } while(bytes_read > 0);
    } /* for (;;) */
 }
 

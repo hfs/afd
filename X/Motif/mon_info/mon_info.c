@@ -59,7 +59,6 @@ DESCR__E_M1
 
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
-#include <Xm/TextF.h>
 #include <Xm/ToggleBG.h>
 #include <Xm/PushB.h>
 #include <Xm/PushBG.h>
@@ -214,20 +213,20 @@ main(int argc, char *argv[])
                               XmNalignment,        XmALIGNMENT_END,
                               NULL);
       text_wl[i] = XtVaCreateManagedWidget("text_wl",
-                                           xmTextFieldWidgetClass,   msa_text_w,
-                                           XmNfontList,              fontlist,
-                                           XmNcolumns,               MON_INFO_LENGTH,
-                                           XmNtraversalOn,           False,
-                                           XmNeditable,              False,
-                                           XmNcursorPositionVisible, False,
-                                           XmNmarginHeight,          1,
-                                           XmNmarginWidth,           1,
-                                           XmNshadowThickness,       1,
-                                           XmNhighlightThickness,    0,
-                                           XmNrightAttachment,       XmATTACH_FORM,
-                                           XmNleftAttachment,        XmATTACH_POSITION,
-                                           XmNleftPosition,          22,
-                                           NULL);
+                              xmTextWidgetClass,         msa_text_w,
+                              XmNfontList,              fontlist,
+                              XmNcolumns,               MON_INFO_LENGTH,
+                              XmNtraversalOn,           False,
+                              XmNeditable,              False,
+                              XmNcursorPositionVisible, False,
+                              XmNmarginHeight,          1,
+                              XmNmarginWidth,           1,
+                              XmNshadowThickness,       1,
+                              XmNhighlightThickness,    0,
+                              XmNrightAttachment,       XmATTACH_FORM,
+                              XmNleftAttachment,        XmATTACH_POSITION,
+                              XmNleftPosition,          22,
+                              NULL);
       XtManageChild(msa_text_w);
    }
    XtManageChild(rowcol1_w);
@@ -304,20 +303,20 @@ main(int argc, char *argv[])
                               XmNalignment,        XmALIGNMENT_END,
                               NULL);
       text_wr[i] = XtVaCreateManagedWidget("text_wr",
-                                           xmTextFieldWidgetClass,   msa_text_w,
-                                           XmNfontList,              fontlist,
-                                           XmNcolumns,               MON_INFO_LENGTH,
-                                           XmNtraversalOn,           False,
-                                           XmNeditable,              False,
-                                           XmNcursorPositionVisible, False,
-                                           XmNmarginHeight,          1,
-                                           XmNmarginWidth,           1,
-                                           XmNshadowThickness,       1,
-                                           XmNhighlightThickness,    0,
-                                           XmNrightAttachment,       XmATTACH_FORM,
-                                           XmNleftAttachment,        XmATTACH_POSITION,
-                                           XmNleftPosition,          20,
-                                           NULL);
+                              xmTextWidgetClass,        msa_text_w,
+                              XmNfontList,              fontlist,
+                              XmNcolumns,               MON_INFO_LENGTH,
+                              XmNtraversalOn,           False,
+                              XmNeditable,              False,
+                              XmNcursorPositionVisible, False,
+                              XmNmarginHeight,          1,
+                              XmNmarginWidth,           1,
+                              XmNshadowThickness,       1,
+                              XmNhighlightThickness,    0,
+                              XmNrightAttachment,       XmATTACH_FORM,
+                              XmNleftAttachment,        XmATTACH_POSITION,
+                              XmNleftPosition,          20,
+                              NULL);
       XtManageChild(msa_text_w);
    }
    XtManageChild(rowcol2_w);
@@ -428,6 +427,7 @@ main(int argc, char *argv[])
 
    /* Realize all widgets */
    XtRealizeWidget(toplevel);
+   wait_visible(toplevel);
 
    /* Read and display the information file */
    check_info_file();

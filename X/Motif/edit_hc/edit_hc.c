@@ -1025,6 +1025,7 @@ main(int argc, char *argv[])
 
    /* Realize all widgets */
    XtRealizeWidget(toplevel_w);
+   wait_visible(toplevel_w);
 
    /* Set some signal handlers. */
    if ((signal(SIGBUS, sig_bus) == SIG_ERR) ||

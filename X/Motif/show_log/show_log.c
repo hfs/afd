@@ -672,6 +672,7 @@ main(int argc, char *argv[])
 
    /* Realize all widgets */
    XtRealizeWidget(toplevel);
+   wait_visible(toplevel);
 
 
    /* Set some signal handlers. */

@@ -427,7 +427,7 @@
 25.12.1999 - Limit the number of process that dir_check may generate
              on a per directory basis.
 28.12.1999 - Lots of code cleanups for show_xlog.
-30.12.1999 - Test option for mon_ctrl dialog (ping, traceroute).
+30.12.1999 - Test option for afd_ctrl dialog (ping, traceroute).
 01.01.2000 - Test option for mon_ctrl dialog (ping, traceroute).
 08.01.2000 - Minor bug fixes in AMG and FD.
 09.01.2000 - Limit number of process per directory for dir_check().
@@ -467,10 +467,9 @@
 
 
 ---------------------------> Version 1.1.6 <-------------------------------
-                            ---------------
+                            ---------------                                
 11.03.2000 - Switching back automatically did still not work correctly!
              Hopefully this is fixed now.
-22.03.2000 - Addition of another special proxy case.
 03.04.2000 - dir_check terminates normally when it no longer can access
              one of the directories that have to be monitored. Fixed.
 04.04.2000 - Specifying "priority1" would result in AMG ignoring this
@@ -482,3 +481,22 @@
 27.04.2000 - Blush, blush, failed to close() the file when using
              assemble()! Fixed.
 ------------------------> Released: 27.04.2000 <---------------------------
+
+
+---------------------------> Version 1.1.7 <-------------------------------
+                            ---------------                                
+07.05.2000 - Using buffered read() for afd_mon process.
+08.05.2000 - If the number of messages queued is very large and most
+             messages belong to a host that has a very slow network
+             connection, FD becomes very slow.
+09.05.2000 - Reading from AFD_CONFIG file the value for MAX_CONNECTIONS
+             always failed silently. Fixed.
+12.05.2000 - AMG does not evaluate the DIR_CONFIG when the first line
+             starts with the [directory] identifier. Thanks to
+             Tasos Tsiolakidis for finding this bug.
+13.05.2000 - Speedup initialization of AFD when it is started the first
+             time.
+16.05.2000 - smtp_write() would always insert a \r in front of a \n
+             even if there was already \r. Fixed.
+24.05.2000 - Solved BadDrawable bug for show_log.
+------------------------> Released: 25.05.2000 <---------------------------

@@ -83,7 +83,7 @@ clean :
 	rm -f $(OBJS) $(TTOBJS) core
 
 clobber :
-	make clean
+	$(MAKE) clean
 	rm -f $(PROGS) $(TTPROG) amg.debug
 
 install :

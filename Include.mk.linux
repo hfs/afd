@@ -15,7 +15,8 @@ OPTIMIZATION_OPTIONS = -O2 \
                        -m486
 BINMODE              = 4755
 SBINMODE             = 755
-MAKE                 = make -j3
+MAKE                 = make
+FORKMAKEFLAG         = -j3
 AR                   = ar
 ARFLAGS              = rsv
 MMAP_FLAG            = 

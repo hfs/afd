@@ -45,7 +45,7 @@ clean :
 	rm -f $(OBJS) core
 
 clobber :
-	make clean
+	$(MAKE) clean
 	rm -f $(PROGS) show_bench_stat
 
 install :
