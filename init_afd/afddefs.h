@@ -1,6 +1,6 @@
 /*
  *  afddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,10 +46,16 @@
 #ifndef LINK_MAX
 #define LINK_MAX                   1000 /* SCO does not define it. */
 #endif
-#endif
+#endif /* _SCO */
 #ifdef LINUX
 #define REDUCED_LINK_MAX           8192 /* Reduced for testing.    */
-#endif
+#endif /* LINUX */
+#if defined (FTX) || defined (_HPUX) || defined (IRIX) || defined (_SUN)
+typedef int my_socklen_t;
+#else
+#include <sys/socket.h>
+typedef socklen_t my_socklen_t;
+#endif /* FTX || _HPUX */
 
 #ifdef _NO_MMAP
 /* Dummy definitions for systems that do not have mmap() */
@@ -157,6 +163,7 @@
 #define DIR_CONFIG_UPDATE          5
 #define REREAD_HOST_CONFIG         6
 #define REREAD_DIR_CONFIG          7
+#define UNLOCK_NEW_FSA_AND_JID     8
 
 #define WORK_DIR_ID                "-w"
 
@@ -426,6 +433,7 @@
 #define DEFAULT_HOST_CONFIG_FILE   "/HOST_CONFIG"
 #define RENAME_RULE_FILE           "/rename.rule"
 #define AFD_USER_FILE              "/afd.users"
+#define GROUP_FILE                 "/group.list"
 #define DEFAULT_FIFO_SIZE          4096
 #define DEFAULT_BUFFER_SIZE        1024
 #define DEFAULT_MAX_ERRORS         10
@@ -612,11 +620,11 @@
 #define FIFO_DIR                   "/fifodir"
 #define LOG_DIR                    "/log"
 #define ETC_DIR                    "/etc"
-#define ERROR_DIR                  "/error"     /* Here are all messages/ */
-                                                /* files of jobs that     */
-                                                /* could not be           */
-                                                /* transfered.            */
+#define ERROR_DIR                  "/error" /* Here are all messages/    */
+                                            /* files of jobs that could  */
+                                            /* not be transfered.        */
 
+#define ERROR_DIR_LENGTH           6
 #define INCOMING_DIR               "/incoming"
 #define FILE_MASK_DIR              "/file_mask"
 #define LS_DATA_DIR                "/ls_data"
@@ -665,6 +673,7 @@
 #endif
 #define RETRY_MON_FIFO             "/retry_mon.fifo."
 #define DEL_TIME_JOB_FIFO          "/del_time_job.fifo"
+#define FD_READY_FIFO              "/fd_ready.fifo"
 
 #define DIR_NAME_FILE              "/directory_names"
 #define JOB_ID_DATA_FILE           "/job_id_data"
@@ -695,7 +704,7 @@
 #define TRANSFER                   17
 #define IS_ALIVE                   18
 #define SHUTDOWN                   19
-#define FSA_UPDATED                20
+#define FSA_ABOUT_TO_CHANGE        20
 #define CHECK_FILE_DIR             21 /* Check for jobs without message. */
 #define DISABLE_MON                22
 #define ENABLE_MON                 23
@@ -1125,6 +1134,10 @@ struct afd_status
                                             /* first time.               */
            unsigned int fd_fork_counter;    /* Number of forks() by FD.  */
            unsigned int amg_fork_counter;   /* Number of forks() by AMG. */
+           unsigned int amg_burst_counter;  /* Number of burst by AMG.   */
+           unsigned int fd_burst_counter;   /* Number of burst by FD.    */
+           unsigned int burst2_counter;     /* Number of burst2 done by  */
+                                            /* FD.                       */
        };
 
 /* Structure that holds all relevant information of */
@@ -1298,7 +1311,7 @@ extern char    *get_definition(char *, char *, char *, int),
                *lock_proc(int, int),
                *posi(char *, char *);
 extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
-               attach_afd_status(void),
+               attach_afd_status(int *),
                afw2wmo(char *, int *, char **, char *),
                bin_file_chopper(char *, int *, off_t *),
                bittest(unsigned char *, int),
@@ -1309,6 +1322,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                check_dir(char *, int),
                check_fra(void),
                check_fsa(void),
+               check_job_name(char *),
                check_lock(char *, char),
                check_msa(void),
                check_msg_name(char *),
@@ -1318,13 +1332,14 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                create_name(char *, signed char, time_t, int, unsigned short *, char *),
                create_remote_dir(char *, char *),
                detach_afd_status(void),
+               eaccess(char *, int),
                eval_host_config(int *, char *, struct host_list **, int),
                exec_cmd(char *, char *),
                extract(char *, char *, int, int *, off_t *),
                fra_attach(void),
                fra_detach(void),
                fsa_attach(void),
-               fsa_detach(void),
+               fsa_detach(int),
                get_afd_name(char *),
                get_afd_path(int *, char **, char *),
                get_arg(int *, char **, char *, char *, int),
@@ -1332,6 +1347,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                get_mon_path(int *, char **, char *),
                get_permissions(char **),
                get_host_position(struct filetransfer_status *, char *, int),
+               get_hostname(char *, char *),
                get_rule(char *, int),
                lock_file(char *, int),
                lock_region(int, off_t),
@@ -1363,11 +1379,13 @@ extern void    *attach_buf(char *, int *, size_t, char *),
                daemon_init(char *),
                delete_log_ptrs(struct delete_log *),
                get_log_number(int *, int, char *, int),
+               get_max_log_number(int *, char *, int),
                *map_file(char *, int *),
                *mmap_resize(int, void *, size_t),
                receive_log(char *, char *, int, time_t, char *, ...),
                reshuffel_log_files(int, char *, char *),
                t_hostname(char *, char *),
+               set_afd_euid(char *),
                set_fl(int, int),
                shutdown_afd(void),
                system_log(char *, char *, int, char *, ...),

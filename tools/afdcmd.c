@@ -145,6 +145,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   set_afd_euid(work_dir);
 
    if (argc < 2)
    {
@@ -159,199 +160,201 @@ main(int argc, char *argv[])
     */
    switch(get_permissions(&perm_buffer))
    {
-      case NONE     : (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
-                      exit(INCORRECT);
+      case NONE :
+         (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
+         exit(INCORRECT);
 
-      case SUCCESS  : /* Lets evaluate the permissions and see what */
-                      /* the user may do.                           */
-                      {
-                         int permission = NO;
+      case SUCCESS : /* Lets evaluate the permissions and see what */
+                     /* the user may do.                           */
+         {
+            int permission = NO;
 
-                         if ((perm_buffer[0] == 'a') &&
-                             (perm_buffer[1] == 'l') &&
-                             (perm_buffer[2] == 'l'))
-                         {
-                            permission = YES;
-                         }
-                         else
-                         {
-                            if (posi(perm_buffer, AFD_CMD_PERM) != NULL)
-                            {
-                               permission = YES;
+            if ((perm_buffer[0] == 'a') &&
+                (perm_buffer[1] == 'l') &&
+                (perm_buffer[2] == 'l'))
+            {
+               permission = YES;
+            }
+            else
+            {
+               if (posi(perm_buffer, AFD_CMD_PERM) != NULL)
+               {
+                  permission = YES;
 
-                               /*
-                                * Check if the user may do everything
-                                * he has requested. If not remove it
-                                * from the option list.
-                                */
-                               if ((options & START_QUEUE_OPTION) ||
-                                   (options & STOP_QUEUE_OPTION))
-                               {
-                                  if (posi(perm_buffer, CTRL_QUEUE_PERM) == NULL)
-                                  {
-                                     if (options & START_QUEUE_OPTION)
-                                     {
-                                        options ^= START_QUEUE_OPTION;
-                                     }
-                                     if (options & STOP_QUEUE_OPTION)
-                                     {
-                                        options ^= STOP_QUEUE_OPTION;
-                                     }
+                  /*
+                   * Check if the user may do everything
+                   * he has requested. If not remove it
+                   * from the option list.
+                   */
+                  if ((options & START_QUEUE_OPTION) ||
+                      (options & STOP_QUEUE_OPTION))
+                  {
+                     if (posi(perm_buffer, CTRL_QUEUE_PERM) == NULL)
+                     {
+                        if (options & START_QUEUE_OPTION)
+                        {
+                           options ^= START_QUEUE_OPTION;
+                        }
+                        if (options & STOP_QUEUE_OPTION)
+                        {
+                           options ^= STOP_QUEUE_OPTION;
+                        }
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to start/stop the queue.\n",
+                                      user);
+                     }
+                  }
+                  if ((options & START_TRANSFER_OPTION) ||
+                      (options & STOP_TRANSFER_OPTION))
+                  {
+                     if (posi(perm_buffer, CTRL_TRANSFER_PERM) == NULL)
+                     {
+                        if (options & START_TRANSFER_OPTION)
+                        {
+                           options ^= START_TRANSFER_OPTION;
+                        }
+                        if (options & STOP_TRANSFER_OPTION)
+                        {
+                           options ^= STOP_TRANSFER_OPTION;
+                        }
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to start/stop the transfer.\n",
+                                      user);
+                     }
+                  }
+                  if ((options & ENABLE_HOST_OPTION) ||
+                      (options & DISABLE_HOST_OPTION))
+                  {
+                     if (posi(perm_buffer, DISABLE_HOST_PERM) == NULL)
+                     {
+                        if (options & ENABLE_HOST_OPTION)
+                        {
+                           options ^= ENABLE_HOST_OPTION;
+                        }
+                        if (options & DISABLE_HOST_OPTION)
+                        {
+                           options ^= DISABLE_HOST_OPTION;
+                        }
+                        if (options & TOGGLE_HOST_OPTION)
+                        {
+                           options ^= TOGGLE_HOST_OPTION;
+                        }
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to enable/disable a host.\n",
+                                      user);
+                     }
+                  }
+                  if (options & SWITCH_OPTION)
+                  {
+                     if (posi(perm_buffer, SWITCH_HOST_PERM) == NULL)
+                     {
+                        options ^= SWITCH_OPTION;
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to switch hosts.\n",
+                                      user);
+                     }
+                  }
+                  if (options & RETRY_OPTION)
+                  {
+                     if (posi(perm_buffer, RETRY_PERM) == NULL)
+                     {
+                        options ^= RETRY_OPTION;
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to retry.\n",
+                                      user);
+                     }
+                  }
+                  if (options & DEBUG_OPTION)
+                  {
+                     if (posi(perm_buffer, DEBUG_PERM) == NULL)
+                     {
+                        options ^= DEBUG_OPTION;
                                      (void)fprintf(stderr,
-                                                   "User %s not permitted to start/stop the queue.\n",
-                                                   user);
-                                  }
-                               }
-                               if ((options & START_TRANSFER_OPTION) ||
-                                   (options & STOP_TRANSFER_OPTION))
-                               {
-                                  if (posi(perm_buffer, CTRL_TRANSFER_PERM) == NULL)
-                                  {
-                                     if (options & START_TRANSFER_OPTION)
-                                     {
-                                        options ^= START_TRANSFER_OPTION;
-                                     }
-                                     if (options & STOP_TRANSFER_OPTION)
-                                     {
-                                        options ^= STOP_TRANSFER_OPTION;
-                                     }
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to start/stop the transfer.\n",
-                                                   user);
-                                  }
-                               }
-                               if ((options & ENABLE_HOST_OPTION) ||
-                                   (options & DISABLE_HOST_OPTION))
-                               {
-                                  if (posi(perm_buffer, DISABLE_HOST_PERM) == NULL)
-                                  {
-                                     if (options & ENABLE_HOST_OPTION)
-                                     {
-                                        options ^= ENABLE_HOST_OPTION;
-                                     }
-                                     if (options & DISABLE_HOST_OPTION)
-                                     {
-                                        options ^= DISABLE_HOST_OPTION;
-                                     }
-                                     if (options & TOGGLE_HOST_OPTION)
-                                     {
-                                        options ^= TOGGLE_HOST_OPTION;
-                                     }
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to enable/disable a host.\n",
-                                                   user);
-                                  }
-                               }
-                               if (options & SWITCH_OPTION)
-                               {
-                                  if (posi(perm_buffer, SWITCH_HOST_PERM) == NULL)
-                                  {
-                                     options ^= SWITCH_OPTION;
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to switch hosts.\n",
-                                                   user);
-                                  }
-                               }
-                               if (options & RETRY_OPTION)
-                               {
-                                  if (posi(perm_buffer, RETRY_PERM) == NULL)
-                                  {
-                                     options ^= RETRY_OPTION;
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to retry.\n",
-                                                   user);
-                                  }
-                               }
-                               if (options & DEBUG_OPTION)
-                               {
-                                  if (posi(perm_buffer, DEBUG_PERM) == NULL)
-                                  {
-                                     options ^= DEBUG_OPTION;
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to enable/disable debugging for a host.\n",
-                                                   user);
-                                  }
-                               }
-                               if ((options & START_FD_OPTION) ||
-                                   (options & STOP_FD_OPTION))
-                               {
-                                  if (posi(perm_buffer, FD_CTRL_PERM) == NULL)
-                                  {
-                                     if (options & START_FD_OPTION)
-                                     {
-                                        options ^= START_FD_OPTION;
-                                     }
-                                     if (options & STOP_FD_OPTION)
-                                     {
-                                        options ^= STOP_FD_OPTION;
-                                     }
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to start/stop the FD.\n",
-                                                   user);
-                                  }
-                               }
-                               if ((options & START_AMG_OPTION) ||
-                                   (options & STOP_AMG_OPTION))
-                               {
-                                  if (posi(perm_buffer, AMG_CTRL_PERM) == NULL)
-                                  {
-                                     if (options & START_AMG_OPTION)
-                                     {
-                                        options ^= START_AMG_OPTION;
-                                     }
-                                     if (options & STOP_AMG_OPTION)
-                                     {
-                                        options ^= STOP_AMG_OPTION;
-                                     }
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to start/stop the AMG.\n",
-                                                   user);
-                                  }
-                               }
-                               if (options & START_STOP_AMG_OPTION)
-                               {
-                                  if (posi(perm_buffer, AMG_CTRL_PERM) == NULL)
-                                  {
-                                     if (options & START_STOP_AMG_OPTION)
-                                     {
-                                        options ^= START_STOP_AMG_OPTION;
-                                     }
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to start/stop the AMG.\n",
-                                                   user);
-                                  }
-                               }
-                               if (options & START_STOP_FD_OPTION)
-                               {
-                                  if (posi(perm_buffer, FD_CTRL_PERM) == NULL)
-                                  {
-                                     if (options & START_STOP_FD_OPTION)
-                                     {
-                                        options ^= START_STOP_FD_OPTION;
-                                     }
-                                     (void)fprintf(stderr,
-                                                   "User %s not permitted to start/stop the FD.\n",
-                                                   user);
-                                  }
-                               }
-                            }
-                         }
-                         free(perm_buffer);
-                         if (permission != YES)
-                         {
-                            (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
-                            exit(INCORRECT);
-                         }
-                      }
-                      break;
+                                      "User %s not permitted to enable/disable debugging for a host.\n",
+                                      user);
+                     }
+                  }
+                  if ((options & START_FD_OPTION) ||
+                      (options & STOP_FD_OPTION))
+                  {
+                     if (posi(perm_buffer, FD_CTRL_PERM) == NULL)
+                     {
+                        if (options & START_FD_OPTION)
+                        {
+                           options ^= START_FD_OPTION;
+                        }
+                        if (options & STOP_FD_OPTION)
+                        {
+                           options ^= STOP_FD_OPTION;
+                        }
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to start/stop the FD.\n",
+                                      user);
+                     }
+                  }
+                  if ((options & START_AMG_OPTION) ||
+                      (options & STOP_AMG_OPTION))
+                  {
+                     if (posi(perm_buffer, AMG_CTRL_PERM) == NULL)
+                     {
+                        if (options & START_AMG_OPTION)
+                        {
+                           options ^= START_AMG_OPTION;
+                        }
+                        if (options & STOP_AMG_OPTION)
+                        {
+                           options ^= STOP_AMG_OPTION;
+                        }
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to start/stop the AMG.\n",
+                                      user);
+                     }
+                  }
+                  if (options & START_STOP_AMG_OPTION)
+                  {
+                     if (posi(perm_buffer, AMG_CTRL_PERM) == NULL)
+                     {
+                        if (options & START_STOP_AMG_OPTION)
+                        {
+                           options ^= START_STOP_AMG_OPTION;
+                        }
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to start/stop the AMG.\n",
+                                      user);
+                     }
+                  }
+                  if (options & START_STOP_FD_OPTION)
+                  {
+                     if (posi(perm_buffer, FD_CTRL_PERM) == NULL)
+                     {
+                        if (options & START_STOP_FD_OPTION)
+                        {
+                           options ^= START_STOP_FD_OPTION;
+                        }
+                        (void)fprintf(stderr,
+                                      "User %s not permitted to start/stop the FD.\n",
+                                      user);
+                     }
+                  }
+               }
+            }
+            free(perm_buffer);
+            if (permission != YES)
+            {
+               (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
+               exit(INCORRECT);
+            }
+         }
+         break;
 
       case INCORRECT: /* Hmm. Something did go wrong. Since we want to */
                       /* be able to disable permission checking let    */
                       /* the user have all permissions.                */
-                      break;
+         break;
 
-      default       : (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
-                      exit(INCORRECT);
+      default :
+         (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
+         exit(INCORRECT);
    }
 
    if (fsa_attach() < 0)
@@ -360,7 +363,7 @@ main(int argc, char *argv[])
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to attach to AFD status area. (%s %d)\n",
@@ -1093,7 +1096,7 @@ main(int argc, char *argv[])
       }
    }
 
-   (void)fsa_detach();
+   (void)fsa_detach(YES);
 
    exit(errors);
 }

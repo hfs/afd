@@ -4,8 +4,7 @@
 
 include ../Include.mk
 
-INSTDIR  = ../../bin
-SBINDIR  = ../../sbin
+INSTDIR  = ../..
 COMDIR   = ../common
 AFDLIB   = $(COMDIR)/libafd.a
 CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../afdd
@@ -78,12 +77,17 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(MAFDPROG) $(AMONPROG) $(MONPROG)
-	cp -p $(MAFDPROG) $(AMONPROG) $(MONPROG) $(INSTDIR)
-	cd $(INSTDIR) && chmod $(BINMODE) $(MAFDPROG) $(AMONPROG) $(MONPROG)
-	cd $(SBINDIR) && rm -f $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
-	cp -p $(MSAVPROG) $(TOPVPROG) $(VHSTPROG) $(SBINDIR)
-	cd $(SBINDIR) && chmod $(SBINMODE) $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
+	cd $(INSTDIR)/bin && rm -f $(MAFDPROG) $(AMONPROG) $(MONPROG)
+	cp -p $(MAFDPROG) $(AMONPROG) $(MONPROG) $(INSTDIR)/bin
+	cd $(INSTDIR)/bin && chmod $(BINMODE) $(AMONPROG) $(MONPROG)
+	cd $(INSTDIR)/bin && chmod $(SUIDMODE) $(MAFDPROG)
+	cd $(INSTDIR)/sbin && rm -f $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
+	cp -p $(MSAVPROG) $(TOPVPROG) $(VHSTPROG) $(INSTDIR)/sbin
+	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(MSAVPROG) $(TOPVPROG) $(VHSTPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other depnedencies
 afd_mon.o mafd.o : ../version.h ../init_afd/permission.h

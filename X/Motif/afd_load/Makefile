@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-INSTDIR  = ../../../../bin
+INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(COMDIR)/libafd.a
@@ -34,9 +34,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(ALOGPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(ALOGPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 afd_load.o : ../../../version.h

@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-INSTDIR  = ../../../../bin
+INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(COMDIR)/libafd.a $(XCOMDIR)/libxafd.a
@@ -37,9 +37,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(SLOGPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(SLOGPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 show_log.o : ../../../version.h ../../../afd_mon/mondefs.h

@@ -66,7 +66,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                 /* sprintf()                          */
-#include <unistd.h>                /* access()                           */
+#include <unistd.h>                /* F_OK                               */
 #include "show_olog.h"
 
 /* External global variables */
@@ -289,7 +289,7 @@ format_info(char *text)
 
       (void)sprintf(archive_dir, "%s%s/%s",
                     p_work_dir, AFD_ARCHIVE_DIR, id.archive_dir);
-      if (access(archive_dir, F_OK) == 0)
+      if (eaccess(archive_dir, F_OK) == 0)
       {
          count = sprintf(text + length, "\nArchive dir: %s", id.archive_dir);
       }

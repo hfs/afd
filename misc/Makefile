@@ -28,7 +28,7 @@
 
 include ../Include.mk
 
-INSTDIR = ../../bin
+INSTDIR = ../..
 AFDLIB  = ../common/libafd.a
 CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../amg
 
@@ -79,8 +79,16 @@ clobber :
 install :
 	@if [ "$(MMAP_FLAG)" = "-D_NO_MMAP" ] ; \
 	then \
-	   cp -p mapper $(INSTDIR) ; \
-	   chmod $(BINMODE) $(INSTDIR)/mapper ; \
+	   cp -p mapper $(INSTDIR)/bin ; \
+	   chmod $(BINMODE) $(INSTDIR)/bin/mapper ; \
+	fi
+
+sinstall :
+	@if [ "$(MMAP_FLAG)" = "-D_NO_MMAP" ] ; \
+	then \
+	   strip mapper ; \
+	   cp -p mapper $(INSTDIR)/bin ; \
+	   chmod $(BINMODE) $(INSTDIR)/bin/mapper ; \
 	fi
 
 # Other depnedencies

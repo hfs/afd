@@ -185,6 +185,31 @@ link_files(char                   *src_file_path,
                             "Failed to rename() file %s to %s : %s (%s %d)\n",
                             src_file_path, dest_file_path, strerror(errno),
                             __FILE__, __LINE__);
+                  if (errno == ENOENT)
+                  {
+                     char whats_gone[40];
+
+                     whats_gone[0] = '\0';
+                     if (eaccess(src_file_path, R_OK) != 0)
+                     {
+                        (void)strcat(whats_gone, "src file");
+                     }
+                     if (eaccess(dest_file_path, R_OK) != 0)
+                     {
+                        (void)strcat(whats_gone, ", dst file");
+                     }
+                     *p_src = '\0';
+                     *p_dest = '\0';
+                     if (eaccess(src_file_path, R_OK) != 0)
+                     {
+                        (void)strcat(whats_gone, ", src dir");
+                     }
+                     if (eaccess(dest_file_path, R_OK) != 0)
+                     {
+                        (void)strcat(whats_gone, ", dst dir");
+                     }
+                     (void)rec(sys_log_fd, DEBUG_SIGN, "%s\n", whats_gone);
+                  }
                }
             }
             else if (p_db->lfs & DO_NOT_LINK_FILES)

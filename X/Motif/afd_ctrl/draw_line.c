@@ -37,8 +37,8 @@ DESCR__S_M3
  **   void draw_queue_counter(int queue_counter)
  **   void draw_proc_stat(int pos, int job_no, int x, int y)
  **   void draw_detailed_selection(int pos, int job_no)
- **   void draw_chars(int pos, char type, int x, int y)
- **   void draw_bar(int pos, signed cahr delta, char bar_no, int x, int y);
+ **   void draw_chars(int pos, char type, int x, int y, int column)
+ **   void draw_bar(int pos, signed cahr delta, char bar_no, int x, int y, int column);
  **
  ** DESCRIPTION
  **   The function draw_label_line() draws the label which is just
@@ -55,6 +55,8 @@ DESCR__S_M3
  **   22.01.1996 H.Kiehl Created
  **   30.08.1997 H.Kiehl Removed all sprintf().
  **   03.09.1997 H.Kiehl Added AFDD Led.
+ **   22.12.2001 H.Kiehl Added variable column length.
+ **   26.12.2001 H.Kiehl Allow for more changes in line style.
  **
  */
 DESCR__E_M3
@@ -89,12 +91,13 @@ extern Colormap                   default_cmap;
 extern char                       line_style;
 extern unsigned long              color_pool[];
 extern float                      max_bar_length;
-extern int                        line_length,
+extern int                        *line_length,
+                                  max_line_length,
                                   line_height,
-                                  button_line_length,
                                   bar_thickness_2,
                                   button_width,
                                   led_width,
+                                  window_width,
                                   x_offset_debug_led,
                                   x_offset_led,
                                   x_offset_proc,
@@ -137,7 +140,7 @@ draw_label_line(void)
       XFillRectangle(display, label_window, label_bg_gc,
                      x + 2,
                      2,
-                     x + line_length - 2,
+                     x + line_length[i] - 2,
                      line_height - 4);
 
       /* Now draw left, top and bottom end for button style */
@@ -154,22 +157,22 @@ draw_label_line(void)
       XDrawLine(display, label_window, black_line_gc,
                 x,
                 0,
-                x + line_length,
+                x + line_length[i],
                 0);
       XDrawLine(display, label_window, white_line_gc,
                 x + 1,
                 1,
-                x + line_length,
+                x + line_length[i],
                 1);
       XDrawLine(display, label_window, black_line_gc,
                 x,
                 line_height - 2,
-                x + line_length,
+                x + line_length[i],
                 line_height - 2);
       XDrawLine(display, label_window, white_line_gc,
                 x,
                 line_height - 1,
-                x + line_length,
+                x + line_length[i],
                 line_height - 1);
 
       /* Draw string "  host" */
@@ -180,17 +183,16 @@ draw_label_line(void)
                   6);
 
       /* See if we need to extend heading for "Character" display */
-      if (line_style != BARS_ONLY)
+      if (line_style & SHOW_CHARACTERS)
       {
          /* Draw string " fc   fs   tr  ec" */
          XDrawString(display, label_window, letter_gc,
-                     x + x_offset_characters,
+                     x + x_offset_characters - (max_line_length - line_length[i]),
                      text_offset + SPACE_ABOVE_LINE,
                      " fc   fs   tr  ec",
                      17);
       }
-
-      x += line_length;
+      x += line_length[i];
    }
 
    /* Draw right end for button style */
@@ -213,12 +215,10 @@ draw_label_line(void)
 void
 draw_line_status(int pos, signed char delta)
 {
-   int i,
-       x = 0,
-       y = 0;
+   int column, i, x, y;
 
    /* First locate position of x and y */
-   locate_xy(pos, &x, &y);
+   locate_xy_column(pos, &x, &y, &column);
 
 #ifdef _DEBUG
    (void)printf("Drawing line %d %d  x = %d  y = %d\n",
@@ -230,80 +230,86 @@ draw_line_status(int pos, signed char delta)
       if (connect_data[pos].inverse == ON)
       {
          XFillRectangle(display, line_window, normal_bg_gc, x, y,
-                        line_length, line_height);
+                        line_length[column], line_height);
       }
       else
       {
          XFillRectangle(display, line_window, locked_bg_gc, x, y,
-                        line_length, line_height);
+                        line_length[column], line_height);
       }
    }
    else
    {
       XFillRectangle(display, line_window, default_bg_gc, x, y,
-                     line_length, line_height);
+                     line_length[column], line_height);
    }
 
    /* Write destination identifier to screen */
    draw_dest_identifier(pos, x, y);
 
-   /* Draw debug led */
-   draw_debug_led(pos, x, y);
-
-   /* Draw status LED's */
-   draw_led(pos, 0, x, y);
-   draw_led(pos, 1, x + led_width + LED_SPACING, y);
-
-   /* Draw status button for each parallel transfer */
-   for (i = 0; i < fsa[pos].allowed_transfers; i++)
+   if (line_style & SHOW_LEDS)
    {
-      draw_proc_stat(pos, i, x, y);
+      /* Draw debug led */
+      draw_debug_led(pos, x, y);
+
+      /* Draw status LED's */
+      draw_led(pos, 0, x, y);
+      draw_led(pos, 1, x + led_width + LED_SPACING, y);
+   }
+
+   if (line_style & SHOW_JOBS)
+   {
+      /* Draw status button for each parallel transfer */
+      for (i = 0; i < fsa[pos].allowed_transfers; i++)
+      {
+         draw_proc_stat(pos, i, x, y);
+      }
    }
 
    /* Print information for number of files to be send (nf), */
    /* total file size (tfs), transfer rate (tr) and error    */
    /* counter (ec).                                          */
-   if (line_style != BARS_ONLY)
+   if (line_style & SHOW_CHARACTERS)
    {
-      draw_chars(pos, NO_OF_FILES, x, y);
-      draw_chars(pos, TOTAL_FILE_SIZE, x + (5 * glyph_width), y);
-      draw_chars(pos, TRANSFER_RATE, x + (10 * glyph_width), y);
-      draw_chars(pos, ERROR_COUNTER, x + (15 * glyph_width), y);
+      draw_chars(pos, NO_OF_FILES, x, y, column);
+      draw_chars(pos, TOTAL_FILE_SIZE, x + (5 * glyph_width), y, column);
+      draw_chars(pos, TRANSFER_RATE, x + (10 * glyph_width), y, column);
+      draw_chars(pos, ERROR_COUNTER, x + (15 * glyph_width), y, column);
    }
 
    /* Draw bars, indicating graphically how many errors have */
    /* occurred, total file size still to do and the transfer */
    /* rate.                                                  */
-   if (line_style != CHARACTERS_ONLY)
+   if (line_style & SHOW_BARS)
    {
       /* Draw bars */
-      draw_bar(pos, delta, TR_BAR_NO, x, y);
-      draw_bar(pos, delta, ERROR_BAR_NO, x, y + bar_thickness_2);
+      draw_bar(pos, delta, TR_BAR_NO, x, y, column);
+      draw_bar(pos, delta, ERROR_BAR_NO, x, y + bar_thickness_2, column);
 
       /* Show beginning and end of bars */
       if (connect_data[pos].inverse > OFF)
       {
          XDrawLine(display, line_window, white_line_gc,
-                   x + x_offset_bars - 1,
+                   x + x_offset_bars - (max_line_length - line_length[column]) - 1,
                    y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars - 1,
+                   x + x_offset_bars - (max_line_length - line_length[column]) - 1,
                    y + glyph_height);
          XDrawLine(display, line_window, white_line_gc,
-                   x + x_offset_bars + (int)max_bar_length,
+                   x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length,
                    y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+                   x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length, y + glyph_height);
       }
       else
       {
          XDrawLine(display, line_window, black_line_gc,
-                   x + x_offset_bars - 1,
+                   x + x_offset_bars - (max_line_length - line_length[column]) - 1,
                    y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars - 1,
+                   x + x_offset_bars - (max_line_length - line_length[column]) - 1,
                    y + glyph_height);
          XDrawLine(display, line_window, black_line_gc,
-                   x + x_offset_bars + (int)max_bar_length,
+                   x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length,
                    y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+                   x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length, y + glyph_height);
       }
    }
 
@@ -315,11 +321,11 @@ draw_line_status(int pos, signed char delta)
 void
 draw_button_line(void)
 {
-   XFillRectangle(display, button_window, button_bg_gc, 0, 0, button_line_length, line_height);
+   XFillRectangle(display, button_window, button_bg_gc, 0, 0, window_width, line_height);
 
    /* */
 /*
-   XDrawLine(display, button_window, black_line_gc, 0, 0, button_line_length, 0);
+   XDrawLine(display, button_window, black_line_gc, 0, 0, window_width, 0);
 */
 
    /* Draw status LED's for AFD */
@@ -350,13 +356,12 @@ draw_button_line(void)
 void
 draw_blank_line(int pos)
 {
-   int x,
-       y;
+   int column, x, y;
 
-   locate_xy(pos, &x, &y);
+   locate_xy_column(pos, &x, &y, &column);
 
    XFillRectangle(display, line_window, default_bg_gc, x, y,
-                  line_length, line_height);
+                  line_length[column], line_height);
 
    return;
 }
@@ -543,6 +548,14 @@ draw_proc_led(int led_no, signed char led_status)
       else if (led_status == STOPPED)
            {
               gc_values.foreground = color_pool[STOP_TRANSFER];
+              XChangeGC(display, color_gc, GCForeground, &gc_values);
+              XFillArc(display, button_window, color_gc, x_offset, y_offset,
+                       glyph_width, glyph_width, 0, 23040);
+              tmp_gc = black_line_gc;
+           }
+      else if (led_status == SHUTDOWN)
+           {
+              gc_values.foreground = color_pool[CLOSING_CONNECTION];
               XChangeGC(display, color_gc, GCForeground, &gc_values);
               XFillArc(display, button_window, color_gc, x_offset, y_offset,
                        glyph_width, glyph_width, 0, 23040);
@@ -748,7 +761,7 @@ draw_queue_counter(int queue_counter)
 
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
    XDrawImageString(display, button_window, color_letter_gc,
-                    button_line_length - DEFAULT_FRAME_SPACE - (4 * glyph_width),
+                    window_width - DEFAULT_FRAME_SPACE - (4 * glyph_width),
                     text_offset + SPACE_ABOVE_LINE + 1,
                     string,
                     4);
@@ -798,7 +811,7 @@ draw_proc_stat(int pos, int job_no, int x, int y)
    gc_values.background = color_pool[(int)connect_data[pos].connect_status[job_no]];
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
    XDrawImageString(display, line_window, color_letter_gc,
-                    DEFAULT_FRAME_SPACE + x + x_offset_proc + offset,
+                    x + x_offset_proc + offset,
                     y + text_offset + SPACE_ABOVE_LINE,
                     string,
                     2);
@@ -808,7 +821,7 @@ draw_proc_stat(int pos, int job_no, int x, int y)
       gc_values.foreground = color_pool[DEBUG_MODE];
       XChangeGC(display, color_gc, GCForeground, &gc_values);
       XDrawRectangle(display, line_window, color_gc,
-                     DEFAULT_FRAME_SPACE + x + x_offset_proc + offset - 1,
+                     x + x_offset_proc + offset - 1,
                      y + SPACE_ABOVE_LINE - 1,
                      button_width + 1,
                      glyph_height + 1);
@@ -847,9 +860,9 @@ draw_detailed_selection(int pos, int job_no)
            }
    }
    XChangeGC(display, color_gc, GCForeground, &gc_values);
-   locate_xy(pos, &x, &y);
+   locate_xy_column(pos, &x, &y, NULL);
    XDrawRectangle(display, line_window, color_gc,
-                  DEFAULT_FRAME_SPACE + x + x_offset_proc + offset - 1,
+                  x + x_offset_proc + offset - 1,
                   y + SPACE_ABOVE_LINE - 1,
                   button_width + 1,
                   glyph_height + 1);
@@ -860,7 +873,7 @@ draw_detailed_selection(int pos, int job_no)
 
 /*+++++++++++++++++++++++++++++ draw_chars() ++++++++++++++++++++++++++++*/
 void
-draw_chars(int pos, char type, int x, int y)
+draw_chars(int pos, char type, int x, int y, int column)
 {
    int       length;
    char      *ptr = NULL;
@@ -916,7 +929,7 @@ draw_chars(int pos, char type, int x, int y)
       tmp_gc = color_letter_gc;
    }
    XDrawImageString(display, line_window, tmp_gc,
-                    x + x_offset_characters,
+                    x + x_offset_characters - (max_line_length - line_length[column]),
                     y + text_offset + SPACE_ABOVE_LINE,
                     ptr,
                     length);
@@ -931,12 +944,13 @@ draw_bar(int         pos,
          signed char delta,
          char        bar_no,
          int         x,
-         int         y)
+         int         y,
+         int         column)
 {
    int x_offset,
        y_offset;
 
-   x_offset = x + x_offset_bars;
+   x_offset = x + x_offset_bars - (max_line_length - line_length[column]);
    y_offset = y + SPACE_ABOVE_LINE;
 
    if (bar_no == TR_BAR_NO)  /* TRANSFER RATE */

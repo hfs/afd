@@ -4,7 +4,7 @@
 
 include Include.mk
 
-INSTALLDIR = ../bin
+INSTDIR    = ..
 COMMONDIR  = common
 
 AFDLIB     = libafd.a
@@ -19,11 +19,13 @@ AWPROG     = archive_watch
 AFDDPROG   = afdd
 AFDMONPROG = afd_mon
 STAPROG    = statistics
+AFTPPROG   = aftp
+ASMTPPROG  = asmtp
 XPROG      = X
 WIDGET_SET = Motif
 SCRIPTS    = scripts
 
-PROGS      = $(AFDLIB) $(PROTOLIB) $(MISCDIR) $(IAFDPROG) $(AMGPROG) $(FDPROG) $(LOGPROGS) $(MAINTPROGS) $(AWPROG) $(AFDDPROG) $(AFDMONPROG) $(STAPROG) $(XPROG)
+PROGS      = $(AFDLIB) $(PROTOLIB) $(MISCDIR) $(IAFDPROG) $(AMGPROG) $(FDPROG) $(LOGPROGS) $(MAINTPROGS) $(AWPROG) $(AFDDPROG) $(AFDMONPROG) $(STAPROG) $(AFTPPROG) $(ASMTPPROG) $(XPROG)
 
 all : $(PROGS)
 
@@ -65,6 +67,12 @@ $(AFDMONPROG) : dummy
 $(STAPROG) : dummy
 	cd $(@) && $(MAKE) $(FORKMAKEFLAG) all
 
+$(AFTPPROG) : dummy
+	cd $(@) && $(MAKE) $(FORKMAKEFLAG) all
+
+$(ASMTPPROG) : dummy
+	cd $(@) && $(MAKE) $(FORKMAKEFLAG) all
+
 $(XPROG) : dummy
 	cd $(@)/$(WIDGET_SET) && $(MAKE) all
 
@@ -83,6 +91,8 @@ clean :
 	cd $(AFDDPROG) && $(MAKE) clean
 	cd $(AFDMONPROG) && $(MAKE) clean
 	cd $(STAPROG) && $(MAKE) clean
+	cd $(AFTPPROG) && $(MAKE) clean
+	cd $(ASMTPPROG) && $(MAKE) clean
 	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) clean
 
 clobber :
@@ -98,12 +108,14 @@ clobber :
 	cd $(AFDDPROG) && $(MAKE) clobber
 	cd $(AFDMONPROG) && $(MAKE) clobber
 	cd $(STAPROG) && $(MAKE) clobber
+	cd $(AFTPPROG) && $(MAKE) clobber
+	cd $(ASMTPPROG) && $(MAKE) clobber
 	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) clobber
 
 real_clobber :
 	$(MAKE) clobber
 	cd $(MAINTPROGS) && $(MAKE) real_clobber
-	rm -f $(INSTALLDIR)/*
+	rm -f $(INSTDIR)/bin/*
 	rm -f ../fifodir/*.fifo* ../fifodir/amg_counter
 
 install :
@@ -117,5 +129,23 @@ install :
 	cd $(AFDDPROG) && $(MAKE) install
 	cd $(AFDMONPROG) && $(MAKE) install
 	cd $(STAPROG) && $(MAKE) install
+	cd $(AFTPPROG) && $(MAKE) install
+	cd $(ASMTPPROG) && $(MAKE) install
 	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) install
 	cd $(SCRIPTS) && $(MAKE) install
+
+sinstall :
+	cd $(IAFDPROG) && $(MAKE) sinstall
+	cd $(AMGPROG) && $(MAKE) sinstall
+	cd $(FDPROG) && $(MAKE) sinstall
+	cd $(LOGPROGS) && $(MAKE) sinstall
+	cd $(MISCDIR) && $(MAKE) sinstall
+	cd $(MAINTPROGS) && $(MAKE) sinstall
+	cd $(AWPROG) && $(MAKE) sinstall
+	cd $(AFDDPROG) && $(MAKE) sinstall
+	cd $(AFDMONPROG) && $(MAKE) sinstall
+	cd $(STAPROG) && $(MAKE) sinstall
+	cd $(AFTPPROG) && $(MAKE) sinstall
+	cd $(ASMTPPROG) && $(MAKE) sinstall
+	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) sinstall
+	cd $(SCRIPTS) && $(MAKE) sinstall

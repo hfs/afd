@@ -25,7 +25,7 @@ DESCR__S_M3
  **   calc_but_coord -
  **
  ** SYNOPSIS
- **   void calc_but_coord(char *font_name)
+ **   void calc_but_coord(int new_window_width)
  **
  ** DESCRIPTION
  **
@@ -47,9 +47,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 
 extern Display       *display;
-extern int           line_length,
-                     no_of_columns,
-                     button_line_length,
+extern int           no_of_columns,
                      x_offset_stat_leds,
                      x_offset_receive_log,
                      x_center_receive_log,
@@ -66,7 +64,7 @@ extern struct coord  coord[3][LOG_FIFO_SIZE];
 
 /*########################### calc_but_coord() ###########################*/
 void
-calc_but_coord(void)
+calc_but_coord(int new_window_width)
 {
    int  i;
 
@@ -75,8 +73,7 @@ calc_but_coord(void)
     * the line in circle showing whats going on in the
     * logs. Here we go ......
     */
-   button_line_length   = no_of_columns * line_length;
-   x_offset_sys_log     = (button_line_length / 2);
+   x_offset_sys_log     = (new_window_width / 2);
    x_center_sys_log     = x_offset_sys_log + (glyph_height / 2);
    x_offset_receive_log = x_offset_sys_log -
                           (no_of_columns * DEFAULT_FRAME_SPACE) -

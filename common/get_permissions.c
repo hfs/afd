@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <stdio.h>              /* NULL                                  */
 #include <string.h>             /* strcat(), strcpy(), strerror()        */
 #include <stdlib.h>             /* getenv(), calloc(), free()            */
-#include <unistd.h>             /* read(), close()                       */
+#include <unistd.h>             /* read(), close(), getuid()             */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _WITH_UID_CHECK

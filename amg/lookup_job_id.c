@@ -82,7 +82,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
           (jd[i].no_of_files == p_db->no_of_files) &&
           (jd[i].no_of_loptions == p_db->no_of_loptions) &&
           (jd[i].no_of_soptions == p_db->no_of_soptions) &&
-          (strcmp(jd[i].recipient, p_db->recipient) == 0))
+          (CHECK_STRCMP(jd[i].recipient, p_db->recipient) == 0))
       {
          /*
           * NOTE: Since all standart options are stored in a character
@@ -91,7 +91,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
           */
          if (jd[i].no_of_soptions > 0)
          {
-            if (strcmp(jd[i].soptions, p_db->soptions) != 0)
+            if (CHECK_STRCMP(jd[i].soptions, p_db->soptions) != 0)
             {
                continue;
             }
@@ -111,7 +111,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
 
             for (j = 0; j < jd[i].no_of_loptions; j++)
             {
-               if (strcmp(p_loptions_jd, p_loptions_db) != 0)
+               if (CHECK_STRCMP(p_loptions_jd, p_loptions_db) != 0)
                {
                   gotcha = YES;
                   break;
@@ -138,7 +138,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
 
             for (j = 0; j < jd[i].no_of_files; j++)
             {
-               if (strcmp(p_file_jd, p_file_db) != 0)
+               if (CHECK_STRCMP(p_file_jd, p_file_db) != 0)
                {
                   gotcha = YES;
                   break;
@@ -219,7 +219,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
        * a core dump.
        */
       new_size = ((*no_of_job_ids / JOB_ID_DATA_STEP_SIZE) + 1) *
-                 JOB_ID_DATA_STEP_SIZE * 1;
+                 JOB_ID_DATA_STEP_SIZE * sizeof(char);
 
       if ((gotcha = realloc(gotcha, new_size)) == NULL)
       {
@@ -246,6 +246,12 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
    (void)memcpy(jd[*no_of_job_ids].file_list, p_db->files, (ptr - p_db->files));
    jd[*no_of_job_ids].no_of_loptions = p_db->no_of_loptions;
    jd[*no_of_job_ids].no_of_soptions = p_db->no_of_soptions;
+
+   /*
+    * NOTE: We may NOT use a memcpy() for the next statement. p_db->recipient
+    *       is NOT MAX_RECIPIENT_LENGTH, it has the string length of
+    *       p_db->recipient.
+    */
    (void)strcpy(jd[*no_of_job_ids].recipient, p_db->recipient);
    if (p_db->loptions != NULL)
    {
@@ -261,7 +267,7 @@ lookup_job_id(struct instant_db *p_db, int *jid_number)
    {
       (void)strcpy(jd[*no_of_job_ids].soptions, p_db->soptions);
    }
-   (void)strcpy(jd[*no_of_job_ids].host_alias, p_db->host_alias);
+   (void)memcpy(jd[*no_of_job_ids].host_alias, p_db->host_alias, MAX_HOSTNAME_LENGTH + 1);
    p_db->job_id = *jid_number;
    (void)sprintf(p_db->str_job_id, "%d", *jid_number);
    jd[*no_of_job_ids].job_id = *jid_number;

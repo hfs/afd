@@ -47,7 +47,7 @@ DESCR__E_M3
 #include <stdlib.h>          /* atoi()                                   */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>          /* access()                                 */
+#include <unistd.h>          /* F_OK                                     */
 #include <errno.h>
 #include "afdddefs.h"
 
@@ -108,7 +108,7 @@ check_changes(FILE *p_data)
             char *buffer;
 
             old_st_mtime = stat_buf.st_mtime;
-            if ((access(afd_config_file, F_OK) == 0) &&
+            if ((eaccess(afd_config_file, F_OK) == 0) &&
                 (read_file(afd_config_file, &buffer) != INCORRECT))
             {
                int  max_connections = 0;

@@ -208,7 +208,7 @@ delete_files(int no_selected, int *select_list)
          exit(INCORRECT);
       }
 
-      if (attach_afd_status() < 0)
+      if (attach_afd_status(NULL) < 0)
       {
          (void)fprintf(stderr,
                        "Failed to map to AFD status area. (%s %d)\n",
@@ -475,7 +475,7 @@ delete_files(int no_selected, int *select_list)
                     "munmap() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
       }
-      (void)fsa_detach();
+      (void)fsa_detach(NO);
       (void)detach_afd_status();
    }
 

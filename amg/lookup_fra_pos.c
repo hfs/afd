@@ -1,6 +1,6 @@
 /*
  *  lookup_fra_pos.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,7 +62,7 @@ lookup_fra_pos(char *dir_alias)
 
    for (i = 0; i < no_of_dirs; i++)
    {
-      if (strcmp(fra[i].dir_alias, dir_alias) == 0)
+      if (CHECK_STRCMP(fra[i].dir_alias, dir_alias) == 0)
       {
          return(i);
       }

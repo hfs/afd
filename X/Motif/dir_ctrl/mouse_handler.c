@@ -732,7 +732,7 @@ dir_popup_cb(Widget    w,
 
    if (sel_typ == T_LOG_SEL)
    {
-      (void)fsa_detach();
+      (void)fsa_detach(NO);
    }
 
    if ((sel_typ == R_LOG_SEL) || (sel_typ == T_LOG_SEL))

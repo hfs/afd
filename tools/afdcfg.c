@@ -286,7 +286,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
    }
 
-   (void)fsa_detach();
+   (void)fsa_detach(YES);
 
    exit(SUCCESS);
 }

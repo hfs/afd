@@ -148,7 +148,7 @@ draw_tv_label_line(void)
                   text, length);
 
       /* See if we need to extend heading for "Character" display */
-      if (line_style != BARS_ONLY)
+      if (line_style & SHOW_CHARACTERS)
       {
          /* Draw string " fs   fsd   fc   fcd   tfs tfsd" */
          XDrawString(display, tv_label_window, letter_gc,
@@ -212,7 +212,7 @@ draw_detailed_line(int pos)
    /* size in use done (fsd), number of files to be done (fc), */
    /* number of files done (fcd), total file size (tfs) and    */
    /* total file size done (tfsd).                             */
-   if (line_style != BARS_ONLY)
+   if (line_style & SHOW_CHARACTERS)
    {
       draw_tv_chars(pos, FILE_SIZE_IN_USE, x, y);
       draw_tv_chars(pos, FILE_SIZE_IN_USE_DONE, x, y);
@@ -225,7 +225,7 @@ draw_detailed_line(int pos)
    /* Draw bars, indicating graphically how many bytes are  */
    /* send for the current file, how many files have been   */
    /* send and the total number of bytes send for this job. */
-   if (line_style != CHARACTERS_ONLY)
+   if (line_style & SHOW_BARS)
    {
       /* Draw bars */
       draw_tv_bar(pos, 0, CURRENT_FILE_SIZE_BAR_NO, x, y);

@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-INSTDIR  = ../../../../bin
+INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(COMDIR)/libafd.a $(XCOMDIR)/libxafd.a
@@ -37,9 +37,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(EHCPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(EHCPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 edit_hc.o : ../../../version.h ../../../init_afd/permission.h source.h source_mask.h no_source.h no_source_mask.h

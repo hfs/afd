@@ -76,7 +76,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <unistd.h>                  /* access(), F_OK                  */
+#include <unistd.h>                  /* F_OK                            */
 #include <stdlib.h>                  /* atoi(), exit()                  */
 #include <errno.h>
 
@@ -103,7 +103,7 @@ eval_host_config(int              *hosts_found,
           number[MAX_INT_LENGTH + 1];
 
    /* Ensure that the HOST_CONFIG file does exist. */
-   if (access(host_config_file, F_OK) == -1)
+   if (eaccess(host_config_file, F_OK) == -1)
    {
       /* The file does not exist. Don't care since we will create */
       /* when we return from eval_dir_config().                   */
@@ -1132,7 +1132,7 @@ eval_host_config(int              *hosts_found,
                         break;
                      }
                   }
-                  (void)fsa_detach();
+                  (void)fsa_detach(NO);
                }
             }
             else

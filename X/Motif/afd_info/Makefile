@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-INSTDIR  = ../../../../bin
+INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
@@ -37,9 +37,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(AFDIPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(AFDIPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 update_info.o : ../afd_ctrl/afd_ctrl.h

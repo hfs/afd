@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-INSTDIR  = ../../../../bin
+INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
@@ -45,11 +45,15 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(SLOGPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(SUIDMODE) $(INSTDIR)/bin/$(SLOGPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
-show_olog.o : ../../../version.h ../../../init_afd/permission.h
+show_olog.o : ../../../version.h ../../../init_afd/permission.h ../../../log/logdefs.h
 get_send_data.o : ../../../protocols/ftpdefs.h ../../../protocols/smtpdefs.h
 send_files_ftp.o : ../../../protocols/ftpdefs.h ../../../fd/fddefs.h

@@ -87,7 +87,12 @@ attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
 
    if (stat_buf.st_size < new_size)
    {
-      int buf_size = 0;
+      int  buf_size = 0,
+           i,
+           loops,
+           rest,
+           write_size;
+      char buffer[4096];
 
       if (write(*fd, &buf_size, sizeof(int)) != sizeof(int))
       {
@@ -95,17 +100,36 @@ attach_buf(char *file, int *fd, size_t new_size, char *prog_name)
                     "Failed to write() to <%s> : %s", file, strerror(errno));
          exit(INCORRECT);
       }
-      if (lseek(*fd, new_size - 1, SEEK_SET) == -1)
+      if (stat_buf.st_size > 0)
       {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to lseek() <%s> : %s", file, strerror(errno));
-         exit(INCORRECT);
+         if (lseek(*fd, stat_buf.st_size, SEEK_SET) == -1)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to lseek() <%s> : %s", file, strerror(errno));
+            exit(INCORRECT);
+         }
       }
-      if (write(*fd, "", 1) != 1)
+      write_size = new_size - stat_buf.st_size;
+      (void)memset(buffer, 0, 4096);
+      loops = write_size / 4096;
+      rest = write_size % 4096;
+      for (i = 0; i < loops; i++)
       {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "Failed to write() to <%s> : %s", file, strerror(errno));
-         exit(INCORRECT);
+         if (write(*fd, buffer, 4096) != 4096)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to write() to <%s> : %s", file, strerror(errno));
+            exit(INCORRECT);
+         }
+      }
+      if (rest > 0)
+      {
+         if (write(*fd, buffer, rest) != rest)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to write() to <%s> : %s", file, strerror(errno));
+            exit(INCORRECT);
+         }
       }
 
       /*

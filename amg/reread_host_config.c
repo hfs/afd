@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,6 +46,8 @@ DESCR__S_M3
  **   18.01.1998 H.Kiehl Created
  **   03.08.2001 H.Kiehl Remember if we stopped the queue or transfer
  **                      and some protocol specific information.
+ **   19.02.2002 H.Kiehl Stop process dir_check when we reorder the
+ **                      FSA.
  **
  */
 DESCR__E_M3
@@ -54,6 +56,7 @@ DESCR__E_M3
                                  /* memcpy()                             */
 #include <stdlib.h>              /* malloc(), free()                     */
 #include <sys/stat.h>
+#include <sys/wait.h>            /* WNOHANG                              */
 #include <unistd.h>
 #include <errno.h>
 #include "amgdefs.h"
@@ -61,7 +64,9 @@ DESCR__E_M3
 /* External Global Variables */
 extern int                        no_of_hosts,
                                   sys_log_fd;
-extern char                       host_config_file[];
+extern pid_t                      dc_pid;
+extern char                       host_config_file[],
+                                  *pid_list;
 extern struct host_list           *hl;
 extern struct filetransfer_status *fsa;
 
@@ -90,8 +95,7 @@ reread_host_config(time_t           *hc_old_time,
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Could not stat() HOST_CONFIG file %s : %s (%s %d)\n",
-                   host_config_file, strerror(errno),
-                   __FILE__, __LINE__);
+                   host_config_file, strerror(errno), __FILE__, __LINE__);
          return;
       }
    }
@@ -99,7 +103,8 @@ reread_host_config(time_t           *hc_old_time,
    /* Check if HOST_CONFIG has changed */
    if (*hc_old_time < stat_buf.st_mtime)
    {
-      int              dummy_1,
+      int              dir_check_stopped = NO,
+                       dummy_1,
                        dummy_2,
                        host_order_changed = NO,
                        host_pos,
@@ -162,8 +167,7 @@ reread_host_config(time_t           *hc_old_time,
       if (fsa_attach() == INCORRECT)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not attach to FSA! (%s %d)\n",
-                   __FILE__, __LINE__);
+                   "Could not attach to FSA! (%s %d)\n", __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
@@ -174,8 +178,7 @@ reread_host_config(time_t           *hc_old_time,
        */
       if ((mark_list = malloc(*old_no_of_hosts)) == NULL)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "malloc() error : %s (%s %d)\n",
+         (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                    strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
@@ -186,7 +189,7 @@ reread_host_config(time_t           *hc_old_time,
          for (j = 0; j < *old_no_of_hosts; j++)
          {
             if ((mark_list[j] == NO) &&
-                (strcmp(hl[i].host_alias, (*old_hl)[j].host_alias) == 0))
+                (CHECK_STRCMP(hl[i].host_alias, (*old_hl)[j].host_alias) == 0))
             {
                host_pos = j;
                mark_list[j] = YES;
@@ -209,20 +212,39 @@ reread_host_config(time_t           *hc_old_time,
             if (host_pos != i)
             {
                host_order_changed = YES;
+               if ((dc_pid > 0) && (dir_check_stopped == NO))
+               {
+                  int options;
+
+                  if (com(STOP) == INCORRECT)
+                  {
+                     options = WNOHANG;
+                  }
+                  else
+                  {
+                     options = 0;
+                  }
+                  (void)amg_zombie_check(&dc_pid, options);
+                  dc_pid = NOT_RUNNING;
+                  if (pid_list != NULL)
+                  {
+                     *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = 0;
+                  }
+                  dir_check_stopped = YES;
+               }
             }
             if (memcmp(&hl[i], (&(*old_hl)[host_pos]), sizeof(struct host_list)) != 0)
             {
                no_of_host_changed++;
 
                /*
-                * Some parameters for this host have
-                * changed. Instead of finding the
-                * place where the change took place,
-                * overwrite all parameters.
+                * Some parameters for this host have changed. Instead of
+                * finding the place where the change took place, overwrite
+                * all parameters.
                 */
                (void)strcpy(fsa[host_pos].real_hostname[0], hl[i].real_hostname[0]);
                (void)strcpy(fsa[host_pos].real_hostname[1], hl[i].real_hostname[1]);
-               if (strcmp(hl[i].host_toggle_str, (*old_hl)[host_pos].host_toggle_str) != 0)
+               if (CHECK_STRCMP(hl[i].host_toggle_str, (*old_hl)[host_pos].host_toggle_str) != 0)
                {
                   if (hl[i].host_toggle_str[0] == '\0')
                   {
@@ -363,8 +385,7 @@ reread_host_config(time_t           *hc_old_time,
       if (no_of_host_changed > 0)
       {
          (void)rec(sys_log_fd, INFO_SIGN,
-                   "%d host changed in HOST_CONFIG.\n",
-                   no_of_host_changed);
+                   "%d host changed in HOST_CONFIG.\n", no_of_host_changed);
       }
 
       /*
@@ -390,8 +411,7 @@ reread_host_config(time_t           *hc_old_time,
          {
             (void)rec(sys_log_fd, FATAL_SIGN,
                       "malloc() error [%d Bytes] : %s (%s %d)\n",
-                      new_size, strerror(errno),
-                      __FILE__, __LINE__);
+                      new_size, strerror(errno), __FILE__, __LINE__);
             exit(INCORRECT);
          }
          for (i = 0; i < new_no_of_hosts; i++)
@@ -402,13 +422,33 @@ reread_host_config(time_t           *hc_old_time,
          {
             p_host_names[i] = dummy_name;
          }
-         (void)rec(sys_log_fd, INFO_SIGN,
-                   "Changing host alias order.\n");
+
+         if ((dc_pid > 0) && (dir_check_stopped == NO))
+         {
+            int options;
+
+            if (com(STOP) == INCORRECT)
+            {
+               options = WNOHANG;
+            }
+            else
+            {
+               options = 0;
+            }
+            (void)amg_zombie_check(&dc_pid, options);
+            dc_pid = NOT_RUNNING;
+            if (pid_list != NULL)
+            {
+               *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = 0;
+            }
+            dir_check_stopped = YES;
+         }
+         (void)rec(sys_log_fd, INFO_SIGN, "Changing host alias order.\n");
          change_alias_order(p_host_names, new_no_of_hosts);
          free(p_host_names);
       }
 
-      (void)fsa_detach();
+      (void)fsa_detach(YES);
 
       if (old_hl != NULL)
       {

@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,8 @@ DESCR__S_M3
  ** HISTORY
  **   18.01.1996 H.Kiehl Created
  **   30.08.1997 H.Kiehl Remove sprintf() from critical areas.
+ **   22.12.2001 H.Kiehl Added variable column length.
+ **   26.12.2001 H.Kiehl Allow for more changes in line style.
  **
  */
 DESCR__E_M3
@@ -74,8 +76,11 @@ extern int                        no_of_hosts,
                                   led_width,
                                   redraw_time_host,
                                   bar_thickness_2,
+                                  *line_length,
+                                  max_line_length,
                                   no_selected,
                                   no_of_columns,
+                                  no_of_rows,
                                   button_width,
                                   tv_no_of_rows,
                                   x_offset_proc;
@@ -86,11 +91,8 @@ extern struct job_data            *jd;
 extern struct line                *connect_data;
 extern struct filetransfer_status *fsa;
 
-/* local global variables */
-struct tms                        tmsdummy;
-
 /* Local function prototypes */
-static void                       calc_transfer_rate(int);
+static void                       calc_transfer_rate(int, time_t);
 static int                        check_fsa_data(char *),
                                   check_disp_data(char *, int);
 
@@ -102,7 +104,8 @@ Widget   w;
 {
    unsigned char new_color;
    signed char   flush;
-   int           i,
+   int           column,
+                 i,
                  j,
                  x,
                  y,
@@ -111,8 +114,11 @@ Widget   w;
                  led_changed = 0,
                  location_where_changed,
                  new_bar_length,
-                 old_bar_length;
+                 old_bar_length,
+                 redraw_everything = NO;
+   time_t        end_time;
    double        tmp_transfer_rate;
+   struct tms    tmsdummy;
 
    /* Initialise variables */
    location_where_changed = no_of_hosts + 10;
@@ -140,7 +146,7 @@ Widget   w;
        */
       for (i = 0, location_where_changed = 0; i < prev_no_of_hosts; i++, location_where_changed++)
       {
-         if (strcmp(connect_data[i].hostname, fsa[i].host_alias) == 0)
+         if (CHECK_STRCMP(connect_data[i].hostname, fsa[i].host_alias) == 0)
          {
             (void)memcpy(&new_connect_data[i], &connect_data[i],
                          sizeof(struct line));
@@ -151,6 +157,7 @@ Widget   w;
          }
       }
 
+      end_time = times(&tmsdummy);
       for (i = location_where_changed; i < no_of_hosts; i++)
       {
          if ((pos = check_disp_data(fsa[i].host_alias, prev_no_of_hosts)) != INCORRECT)
@@ -174,7 +181,7 @@ Widget   w;
             }
             new_connect_data[i].stat_color_no = NORMAL_STATUS;
             new_connect_data[i].debug = fsa[i].debug;
-            new_connect_data[i].start_time = times(&tmsdummy);
+            new_connect_data[i].start_time = end_time;
             new_connect_data[i].total_file_counter = fsa[i].total_file_counter;
             CREATE_FC_STRING(new_connect_data[i].str_tfc, new_connect_data[i].total_file_counter);
             new_connect_data[i].total_file_size = fsa[i].total_file_size;
@@ -410,105 +417,179 @@ Widget   w;
       flush = YES;
    } /* if (check_fsa() == YES) */
 
+   if (line_style & SHOW_CHARACTERS)
+   {
+      end_time = times(&tmsdummy);
+   }
+
    /* Change information for each remote host if necessary */
    for (i = 0; i < no_of_hosts; i++)
    {
       x = y = -1;
 
-      if (connect_data[i].allowed_transfers != fsa[i].allowed_transfers)
+      if (line_style & SHOW_JOBS)
       {
-         locate_xy(i, &x, &y);
-         if (connect_data[i].allowed_transfers < fsa[i].allowed_transfers)
+         if (connect_data[i].allowed_transfers != fsa[i].allowed_transfers)
          {
-            for (j = connect_data[i].allowed_transfers; j < fsa[i].allowed_transfers; j++)
-            {
-               draw_proc_stat(i, j, x, y);
-            }
-         }
-         else
-         {
-            int       offset;
-            XGCValues gc_values;
+            int column,
+                column_length,
+                max_no_parallel_jobs,
+                row_counter;
 
-            for (j = fsa[i].allowed_transfers; j < connect_data[i].allowed_transfers; j++)
-            {
-               offset = j * (button_width + BUTTON_SPACING);
+            locate_xy_column(i, &x, &y, &column);
 
-               if (connect_data[i].inverse == OFF)
+            /*
+             * Lets determine if this does change the column length.
+             */
+            max_no_parallel_jobs = 0;
+            row_counter = column * no_of_rows;
+            for (j = 0; j < no_of_rows; j++)
+            {
+               if (max_no_parallel_jobs < fsa[row_counter].allowed_transfers)
                {
-                  gc_values.foreground = color_pool[DEFAULT_BG];
+                  max_no_parallel_jobs = fsa[row_counter].allowed_transfers;
                }
-               else if (connect_data[i].inverse == ON)
-                    {
-                       gc_values.foreground = color_pool[BLACK];
-                    }
-                    else
-                    {
-                       gc_values.foreground = color_pool[LOCKED_INVERSE];
-                    }
-               XChangeGC(display, color_gc, GCForeground, &gc_values);
-               XFillRectangle(display, line_window, color_gc,
-                              DEFAULT_FRAME_SPACE + x + x_offset_proc + offset - 1,
-                              y + SPACE_ABOVE_LINE - 1,
-                              button_width + 2,
-                              glyph_height + 2);
+               row_counter++;
+            }
+            column_length = max_line_length - (((MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs) * (button_width + BUTTON_SPACING)) - BUTTON_SPACING);
+            if (line_length[column] != column_length)
+            {
+               /*
+                * Column length has changed! We now need to redraw the
+                * whole window.
+                */
+               line_length[column] = column_length;
 
-               /* Update detailed selection. */
-               if ((no_of_jobs_selected > 0) &&
-                   (connect_data[i].detailed_selection[j] == YES))
+               /* Resize window if necessary */
+               redraw_everything = resize_window();
+            }
+            else
+            {
+               if (connect_data[i].allowed_transfers < fsa[i].allowed_transfers)
                {
-                  no_of_jobs_selected--;
-                  connect_data[i].detailed_selection[j] = NO;
-                  if (no_of_jobs_selected == 0)
+                  for (j = connect_data[i].allowed_transfers; j < fsa[i].allowed_transfers; j++)
                   {
-                     XtRemoveTimeOut(interval_id_tv);
-                     free(jd);
-                     jd = NULL;
-                     XtPopdown(transviewshell);
-                     tv_window = OFF;
+                     draw_proc_stat(i, j, x, y);
                   }
-                  else
-                  {
-                     int k, m, tmp_tv_no_of_rows;
+               }
+               else
+               {
+                  int       offset;
+                  XGCValues gc_values;
 
-                     /* Remove detailed selection. */
-                     for (k = 0; k < (no_of_jobs_selected + 1); k++)
+                  for (j = fsa[i].allowed_transfers; j < connect_data[i].allowed_transfers; j++)
+                  {
+                     offset = j * (button_width + BUTTON_SPACING);
+
+                     if (connect_data[i].inverse == OFF)
                      {
-                        if ((jd[k].job_no == j) &&
-                            (strcmp(jd[k].hostname, connect_data[i].hostname) == 0))
+                        gc_values.foreground = color_pool[DEFAULT_BG];
+                     }
+                     else if (connect_data[i].inverse == ON)
+                          {
+                             gc_values.foreground = color_pool[BLACK];
+                          }
+                          else
+                          {
+                             gc_values.foreground = color_pool[LOCKED_INVERSE];
+                          }
+                     XChangeGC(display, color_gc, GCForeground, &gc_values);
+                     XFillRectangle(display, line_window, color_gc,
+                                    x + x_offset_proc + offset - 1,
+                                    y + SPACE_ABOVE_LINE - 1,
+                                    button_width + 2,
+                                    glyph_height + 2);
+
+                     /* Update detailed selection. */
+                     if ((no_of_jobs_selected > 0) &&
+                         (connect_data[i].detailed_selection[j] == YES))
+                     {
+                        no_of_jobs_selected--;
+                        connect_data[i].detailed_selection[j] = NO;
+                        if (no_of_jobs_selected == 0)
                         {
-                           if (k != no_of_jobs_selected)
+                           XtRemoveTimeOut(interval_id_tv);
+                           free(jd);
+                           jd = NULL;
+                           XtPopdown(transviewshell);
+                           tv_window = OFF;
+                        }
+                        else
+                        {
+                           int k, m, tmp_tv_no_of_rows;
+
+                           /* Remove detailed selection. */
+                           for (k = 0; k < (no_of_jobs_selected + 1); k++)
                            {
-                              size_t move_size = (no_of_jobs_selected - k) * sizeof(struct job_data);
+                              if ((jd[k].job_no == j) &&
+                                  (CHECK_STRCMP(jd[k].hostname, connect_data[i].hostname) == 0))
+                              {
+                                 if (k != no_of_jobs_selected)
+                                 {
+                                    size_t move_size = (no_of_jobs_selected - k) * sizeof(struct job_data);
 
-                              (void)memmove(&jd[k], &jd[k + 1], move_size);
+                                    (void)memmove(&jd[k], &jd[k + 1], move_size);
+                                 }
+                                 break;
+                              }
                            }
-                           break;
+
+                           for (m = k; m < no_of_jobs_selected; m++)
+                           {
+                              draw_detailed_line(m);
+                           }
+
+                           tmp_tv_no_of_rows = tv_no_of_rows;
+                           if (resize_tv_window() == YES)
+                           {
+                              for (k = (tmp_tv_no_of_rows - 1); k < no_of_jobs_selected; k++)
+                              {
+                                 draw_detailed_line(k);
+                              }
+                           }
+
+                           draw_tv_blank_line(m);
+                           XFlush(display);
                         }
                      }
-
-                     for (m = k; m < no_of_jobs_selected; m++)
-                     {
-                        draw_detailed_line(m);
-                     }
-
-                     tmp_tv_no_of_rows = tv_no_of_rows;
-                     if (resize_tv_window() == YES)
-                     {
-                        for (k = (tmp_tv_no_of_rows - 1); k < no_of_jobs_selected; k++)
-                        {
-                           draw_detailed_line(k);
-                        }
-                     }
-
-                     draw_tv_blank_line(m);
-                     XFlush(display);
                   }
                }
             }
+            connect_data[i].allowed_transfers = fsa[i].allowed_transfers;
+            flush = YES;
          }
-         connect_data[i].allowed_transfers = fsa[i].allowed_transfers;
-         flush = YES;
+
+         /* For each transfer, see if number of files changed */
+         for (j = 0; j < fsa[i].allowed_transfers; j++)
+         {
+            if (connect_data[i].connect_status[j] != fsa[i].job_status[j].connect_status)
+            {
+               connect_data[i].connect_status[j] = fsa[i].job_status[j].connect_status;
+
+               if (connect_data[i].no_of_files[j] != (fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done))
+               {
+                  connect_data[i].no_of_files[j] = fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done;
+               }
+
+               locate_xy_column(i, &x, &y, &column);
+
+               /* Draw changed process file counter button */
+               draw_proc_stat(i, j, x, y);
+
+               flush = YES;
+            }
+            else if (connect_data[i].no_of_files[j] != (fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done))
+                 {
+                    connect_data[i].no_of_files[j] = fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done;
+
+                    locate_xy_column(i, &x, &y, &column);
+
+                    /* Draw changed process file counter button */
+                    draw_proc_stat(i, j, x, y);
+
+                    flush = YES;
+                 }
+         }
       }
 
       if (connect_data[i].max_errors != fsa[i].max_errors)
@@ -522,47 +603,15 @@ Widget   w;
           */
       }
 
-      /* For each transfer, see if number of files changed */
-      for (j = 0; j < fsa[i].allowed_transfers; j++)
-      {
-         if (connect_data[i].connect_status[j] != fsa[i].job_status[j].connect_status)
-         {
-            connect_data[i].connect_status[j] = fsa[i].job_status[j].connect_status;
-
-            if (connect_data[i].no_of_files[j] != (fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done))
-            {
-               connect_data[i].no_of_files[j] = fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done;
-            }
-
-            locate_xy(i, &x, &y);
-
-            /* Draw changed process file counter button */
-            draw_proc_stat(i, j, x, y);
-
-            flush = YES;
-         }
-         else if (connect_data[i].no_of_files[j] != (fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done))
-              {
-                 connect_data[i].no_of_files[j] = fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done;
-
-                 locate_xy(i, &x, &y);
-
-                 /* Draw changed process file counter button */
-                 draw_proc_stat(i, j, x, y);
-
-                 flush = YES;
-              }
-      }
-
       if (connect_data[i].special_flag != (fsa[i].special_flag | 191))
       {
          connect_data[i].special_flag = fsa[i].special_flag | 191;
 
-         if (i < location_where_changed)
+         if ((i < location_where_changed) && (redraw_everything == NO))
          {
             if (x == -1)
             {
-               locate_xy(i, &x, &y);
+               locate_xy_column(i, &x, &y, &column);
             }
             draw_dest_identifier(i, x, y);
             flush = YES;
@@ -594,11 +643,11 @@ Widget   w;
          {
             connect_data[i].stat_color_no = new_color;
 
-            if (i < location_where_changed)
+            if ((i < location_where_changed) && (redraw_everything == NO))
             {
                if (x == -1)
                {
-                  locate_xy(i, &x, &y);
+                  locate_xy_column(i, &x, &y, &column);
                }
                draw_dest_identifier(i, x, y);
                flush = YES;
@@ -616,11 +665,11 @@ Widget   w;
             connect_data[i].host_display_str[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[(int)fsa[i].host_toggle];
             connect_data[i].host_toggle_display = connect_data[i].host_display_str[(int)fsa[i].toggle_pos];
 
-            if (i < location_where_changed)
+            if ((i < location_where_changed) && (redraw_everything == NO))
             {
                if (x == -1)
                {
-                  locate_xy(i, &x, &y);
+                  locate_xy_column(i, &x, &y, &column);
                }
                draw_dest_identifier(i, x, y);
                flush = YES;
@@ -665,11 +714,11 @@ Widget   w;
             connect_data[i].host_display_str[(int)fsa[i].toggle_pos] = ' ';
          }
 
-         if (i < location_where_changed)
+         if ((i < location_where_changed) && (redraw_everything == NO))
          {
             if (x == -1)
             {
-               locate_xy(i, &x, &y);
+               locate_xy_column(i, &x, &y, &column);
             }
             draw_dest_identifier(i, x, y);
             flush = YES;
@@ -700,90 +749,97 @@ Widget   w;
       }
 
       /*
-       * DEBUG LED
-       * =========
+       * LED INFORMATION
+       * ===============
        */
-      if (connect_data[i].debug != fsa[i].debug)
+      if (line_style & SHOW_LEDS)
       {
-         connect_data[i].debug = fsa[i].debug;
-
-         if (i < location_where_changed)
+         /*
+          * DEBUG LED
+          * =========
+          */
+         if (connect_data[i].debug != fsa[i].debug)
          {
-            if (x == -1)
+            connect_data[i].debug = fsa[i].debug;
+
+            if ((i < location_where_changed) && (redraw_everything == NO))
             {
-               locate_xy(i, &x, &y);
+               if (x == -1)
+               {
+                  locate_xy_column(i, &x, &y, &column);
+               }
+               draw_debug_led(i, x, y);
+               flush = YES;
             }
-            draw_debug_led(i, x, y);
-            flush = YES;
          }
-      }
 
-      /*
-       * STATUS LED
-       * ==========
-       */
-      if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
-                                  /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
-      {
-         if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+         /*
+          * STATUS LED
+          * ==========
+          */
+         if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
+                                     /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
          {
-            if (connect_data[i].status_led[0] != PAUSE_QUEUE)
+            if (fsa[i].host_status & PAUSE_QUEUE_STAT)
             {
-               connect_data[i].status_led[0] = PAUSE_QUEUE;
-               led_changed |= LED_ONE;
+               if (connect_data[i].status_led[0] != PAUSE_QUEUE)
+               {
+                  connect_data[i].status_led[0] = PAUSE_QUEUE;
+                  led_changed |= LED_ONE;
+               }
+            }
+            else
+            {
+               if (connect_data[i].status_led[0] != AUTO_PAUSE_QUEUE)
+               {
+                  connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
+                  led_changed |= LED_ONE;
+               }
             }
          }
          else
          {
-            if (connect_data[i].status_led[0] != AUTO_PAUSE_QUEUE)
+            if (connect_data[i].status_led[0] != NORMAL_STATUS)
             {
-               connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
+               connect_data[i].status_led[0] = NORMAL_STATUS;
                led_changed |= LED_ONE;
             }
          }
-      }
-      else
-      {
-         if (connect_data[i].status_led[0] != NORMAL_STATUS)
+         if (fsa[i].host_status & STOP_TRANSFER_STAT)
          {
-            connect_data[i].status_led[0] = NORMAL_STATUS;
-            led_changed |= LED_ONE;
-         }
-      }
-      if (fsa[i].host_status & STOP_TRANSFER_STAT)
-      {
-         if (connect_data[i].status_led[1] != STOP_TRANSFER)
-         {
-            connect_data[i].status_led[1] = STOP_TRANSFER;
-            led_changed |= LED_TWO;
-         }
-      }
-      else
-      {
-         if (connect_data[i].status_led[1] != NORMAL_STATUS)
-         {
-            connect_data[i].status_led[1] = NORMAL_STATUS;
-            led_changed |= LED_TWO;
-         }
-      }
-      if (led_changed > 0)
-      {
-         if (i < location_where_changed)
-         {
-            if (x == -1)
+            if (connect_data[i].status_led[1] != STOP_TRANSFER)
             {
-               locate_xy(i, &x, &y);
+               connect_data[i].status_led[1] = STOP_TRANSFER;
+               led_changed |= LED_TWO;
             }
-            if (led_changed & LED_ONE)
+         }
+         else
+         {
+            if (connect_data[i].status_led[1] != NORMAL_STATUS)
             {
-               draw_led(i, 0, x, y);
+               connect_data[i].status_led[1] = NORMAL_STATUS;
+               led_changed |= LED_TWO;
             }
-            if (led_changed & LED_TWO)
+         }
+         if (led_changed > 0)
+         {
+            if ((i < location_where_changed) && (redraw_everything == NO))
             {
-               draw_led(i, 1, x + led_width + LED_SPACING, y);
+               if (x == -1)
+               {
+                  locate_xy_column(i, &x, &y, &column);
+               }
+               if (led_changed & LED_ONE)
+               {
+                  draw_led(i, 0, x, y);
+               }
+               if (led_changed & LED_TWO)
+               {
+                  draw_led(i, 1, x + led_width + LED_SPACING, y);
+               }
+               led_changed = 0;
+               flush = YES;
             }
-            led_changed = 0;
-            flush = YES;
          }
       }
 
@@ -794,7 +850,7 @@ Widget   w;
        * If in character mode see if any change took place,
        * if so, redraw only those characters.
        */
-      if (line_style != BARS_ONLY)
+      if (line_style & SHOW_CHARACTERS)
       {
          /*
           * Number of files to be send (NF)
@@ -803,15 +859,15 @@ Widget   w;
          {
             if (x == -1)
             {
-               locate_xy(i, &x, &y);
+               locate_xy_column(i, &x, &y, &column);
             }
 
             connect_data[i].total_file_counter = fsa[i].total_file_counter;
             CREATE_FC_STRING(connect_data[i].str_tfc, connect_data[i].total_file_counter);
 
-            if (i < location_where_changed)
+            if ((i < location_where_changed) && (redraw_everything == NO))
             {
-               draw_chars(i, NO_OF_FILES, x, y);
+               draw_chars(i, NO_OF_FILES, x, y, column);
                flush = YES;
             }
          }
@@ -825,7 +881,7 @@ Widget   w;
 
             if (x == -1)
             {
-               locate_xy(i, &x, &y);
+               locate_xy_column(i, &x, &y, &column);
             }
 
             connect_data[i].total_file_size = fsa[i].total_file_size;
@@ -841,9 +897,9 @@ Widget   w;
                connect_data[i].str_tfs[2] = tmp_string[2];
                connect_data[i].str_tfs[3] = tmp_string[3];
 
-               if (i < location_where_changed)
+               if ((i < location_where_changed) && (redraw_everything == NO))
                {
-                  draw_chars(i, TOTAL_FILE_SIZE, x + (5 * glyph_width), y);
+                  draw_chars(i, TOTAL_FILE_SIZE, x + (5 * glyph_width), y, column);
                   flush = YES;
                }
             }
@@ -853,7 +909,7 @@ Widget   w;
           * Transfer Rate (TR)
           */
          tmp_transfer_rate = connect_data[i].bytes_per_sec;
-         calc_transfer_rate(i);
+         calc_transfer_rate(i, end_time);
 
          /* NOTE: We show the actual active transfer rate at this */
          /*       moment. When drawing the bar we show the        */
@@ -865,7 +921,7 @@ Widget   w;
 
             if (x == -1)
             {
-               locate_xy(i, &x, &y);
+               locate_xy_column(i, &x, &y, &column);
             }
 
             CREATE_FS_STRING(tmp_string, connect_data[i].bytes_per_sec);
@@ -880,9 +936,9 @@ Widget   w;
                connect_data[i].str_tr[2] = tmp_string[2];
                connect_data[i].str_tr[3] = tmp_string[3];
 
-               if (i < location_where_changed)
+               if ((i < location_where_changed) && (redraw_everything == NO))
                {
-                  draw_chars(i, TRANSFER_RATE, x + (10 * glyph_width), y);
+                  draw_chars(i, TRANSFER_RATE, x + (10 * glyph_width), y, column);
                   flush = YES;
                }
             }
@@ -895,24 +951,24 @@ Widget   w;
          {
             if (x == -1)
             {
-               locate_xy(i, &x, &y);
+               locate_xy_column(i, &x, &y, &column);
             }
 
             /*
-             * If line_style is CHARACTERS_AND_BARS don't update
+             * If line_style is CHARACTERS and BARS don't update
              * the connect_data structure. Otherwise when we draw the bar
              * we will not notice any change. There we will then update
              * the structure.
              */
-            if (line_style == CHARACTERS_ONLY)
+            if ((line_style & SHOW_BARS) == 0)
             {
                connect_data[i].error_counter = fsa[i].error_counter;
             }
             CREATE_EC_STRING(connect_data[i].str_ec, fsa[i].error_counter);
 
-            if (i < location_where_changed)
+            if ((i < location_where_changed) && (redraw_everything == NO))
             {
-               draw_chars(i, ERROR_COUNTER, x + (15 * glyph_width), y);
+               draw_chars(i, ERROR_COUNTER, x + (15 * glyph_width), y, column);
                flush = YES;
             }
          }
@@ -922,15 +978,15 @@ Widget   w;
        * BAR INFORMATION
        * ===============
        */
-      if (line_style != CHARACTERS_ONLY)
+      if (line_style & SHOW_BARS)
       {
          /*
           * Transfer Rate Bar
           */
          /* Did we already calculate the transfer rate? */
-         if (line_style == BARS_ONLY)
+         if ((line_style & SHOW_CHARACTERS) == 0)
          {
-            calc_transfer_rate(i);
+            calc_transfer_rate(i, end_time);
          }
 
          if (connect_data[i].average_tr > 1.0)
@@ -959,20 +1015,20 @@ Widget   w;
             old_bar_length = connect_data[i].bar_length[TR_BAR_NO];
             connect_data[i].bar_length[TR_BAR_NO] = new_bar_length;
 
-            if (i < location_where_changed)
+            if ((i < location_where_changed) && (redraw_everything == NO))
             {
                if (x == -1)
                {
-                  locate_xy(i, &x, &y);
+                  locate_xy_column(i, &x, &y, &column);
                }
 
                if (old_bar_length < new_bar_length)
                {
-                  draw_bar(i, 1, TR_BAR_NO, x, y);
+                  draw_bar(i, 1, TR_BAR_NO, x, y, column);
                }
                else
                {
-                  draw_bar(i, -1, TR_BAR_NO, x, y);
+                  draw_bar(i, -1, TR_BAR_NO, x, y, column);
                }
 
                if (flush != YES)
@@ -985,14 +1041,14 @@ Widget   w;
                   (connect_data[i].bar_length[TR_BAR_NO] < max_bar_length))
               {
                  connect_data[i].bar_length[TR_BAR_NO] = max_bar_length;
-                 if (i < location_where_changed)
+                 if ((i < location_where_changed) && (redraw_everything == NO))
                  {
                     if (x == -1)
                     {
-                       locate_xy(i, &x, &y);
+                       locate_xy_column(i, &x, &y, &column);
                     }
 
-                    draw_bar(i, 1, TR_BAR_NO, x, y);
+                    draw_bar(i, 1, TR_BAR_NO, x, y, column);
 
                     if (flush != YES)
                     {
@@ -1020,22 +1076,22 @@ Widget   w;
                connect_data[i].red_color_offset = new_bar_length * step_size;
                connect_data[i].green_color_offset = MAX_INTENSITY - connect_data[i].red_color_offset;
 
-               if (i < location_where_changed)
+               if ((i < location_where_changed) && (redraw_everything == NO))
                {
                   if (x == -1)
                   {
-                     locate_xy(i, &x, &y);
+                     locate_xy_column(i, &x, &y, &column);
                   }
 
                   if (connect_data[i].bar_length[ERROR_BAR_NO] < new_bar_length)
                   {
                      connect_data[i].bar_length[ERROR_BAR_NO] = new_bar_length;
-                     draw_bar(i, 1, ERROR_BAR_NO, x, y + bar_thickness_2);
+                     draw_bar(i, 1, ERROR_BAR_NO, x, y + bar_thickness_2, column);
                   }
                   else
                   {
                      connect_data[i].bar_length[ERROR_BAR_NO] = new_bar_length;
-                     draw_bar(i, -1, ERROR_BAR_NO, x, y + bar_thickness_2);
+                     draw_bar(i, -1, ERROR_BAR_NO, x, y + bar_thickness_2, column);
                   }
                   flush = YES;
                }
@@ -1044,7 +1100,7 @@ Widget   w;
       }
 
       /* Redraw the line */
-      if (i >= location_where_changed)
+      if ((i >= location_where_changed) && (redraw_everything == NO))
       {
 #ifdef _DEBUG
          (void)fprintf(stderr, "count_channels: i = %d\n", i);
@@ -1052,6 +1108,14 @@ Widget   w;
          flush = YES;
          draw_line_status(i, 1);
       }
+   }
+   if (redraw_everything == YES)
+   {
+      for (i = 0; i < no_of_hosts; i++)
+      {
+         draw_line_status(i, 1);
+      }
+      flush = YES;
    }
 
    /* Make sure all changes are shown */
@@ -1085,7 +1149,7 @@ Widget   w;
 
 /*+++++++++++++++++++++++++ calc_transfer_rate() ++++++++++++++++++++++++*/
 static void
-calc_transfer_rate(int i)
+calc_transfer_rate(int i, time_t end_time)
 {
    register int  j;
    unsigned long bytes_send = 0L;
@@ -1109,10 +1173,8 @@ calc_transfer_rate(int i)
 
    if (bytes_send > 0)
    {
-      time_t end_time,
-             delta_time;
+      time_t delta_time;
 
-      end_time = times(&tmsdummy);
       if ((delta_time = (end_time - connect_data[i].start_time)) == 0)
       {
          delta_time = 1;
@@ -1159,7 +1221,7 @@ check_fsa_data(char *hostname)
 
    for (i = 0; i < no_of_hosts; i++)
    {
-      if (strcmp(fsa[i].host_alias, hostname) == 0)
+      if (CHECK_STRCMP(fsa[i].host_alias, hostname) == 0)
       {
          return(i);
       }
@@ -1177,7 +1239,7 @@ check_disp_data(char *hostname, int prev_no_of_hosts)
 
    for (i = 0; i < prev_no_of_hosts; i++)
    {
-      if (strcmp(connect_data[i].hostname, hostname) == 0)
+      if (CHECK_STRCMP(connect_data[i].hostname, hostname) == 0)
       {
          return(i);
       }

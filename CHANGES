@@ -958,3 +958,42 @@
 11.12.2001 - FD initilizes all connection variables every time it starts
              to ensure a sane state when it starts.
 ------------------------> Released: 12.12.2001 <---------------------------
+
+
+---------------------------> Version 1.2.12 <------------------------------
+                            ----------------
+15.12.2001 - For scheme mailto the hostname supplied with the server=
+             option will be the hostname that is stored in the FSA.
+             This will give the administrator the ability to hide all
+             mails behind one entry in the afd_ctrl dialog.
+16.12.2001 - In show_olog dialog allow users to search full mail addresses.
+22.12.2001 - Using variable column length in afd_ctrl dialog to save
+             screen space if you do not always set the maximum number
+             of jobs per host.
+25.12.2001 - The filename used to store configuration of some dialogs
+             no longer contains the display and screen number
+             (ie. :0.0 part).
+26.12.2001 - For afd_ctrl dialog allow for more changes in line style.
+29.12.2001 - Due to confusion about Start/Stop queue in the afd_ctrl
+             dialog renamed this Start/Stop input queue.
+03.01.2002 - Unable to look at logfiles from December in January with
+             show_xlog dialogs. Fixed.
+10.01.2002 - Set toggle button for input by default in show_queue dialog.
+23.01.2002 - Added function eaccess() to test access permission based
+             on the effective user ID. This will allow other users to
+             resend files or start the AFD.
+           - During shutdown AMG could still send jobs to FD while
+             this has already terminated. Fixed.
+27.01.2002 - Added option reply-to.
+30.01.2002 - The number of logfiles that are kept for history can now
+             be configured in AFD_CONFIG.
+31.01.2002 - During startup remove old host entries that are no longer
+             in the FSA from the error directory.
+10.02.2002 - Included afd.spec file to generate rpm's, thanks to Doug
+             Henry.
+19.02.2002 - Send one mail to multiple recipient with the help of a
+             group identifier and group file.
+23.02.2002 - Fixed some errors when rereading the DIR_CONFIG or HOST_CONFIG
+             under high load.
+03.03.2002 - Set effective user ID to the user ID of AFD_WORK_DIR.
+------------------------> Released: 04.03.2002 <---------------------------

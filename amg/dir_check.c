@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,6 +71,7 @@ DESCR__S_M1
  **   04.12.2000 H.Kiehl Report the exact time when scanning of directories
  **                      took so long.
  **   12.04.2001 H.Kiehl Check pool directory for unfinished jobs.
+ **   09.02.2002 H.Kiehl Wait for all children to terminate before exiting.
  **
  */
 DESCR__E_M1
@@ -102,7 +103,8 @@ DESCR__E_M1
 
 
 /* global variables */
-int                        shm_id,         /* Shared memory ID of        */
+int                        afd_status_fd,
+                           shm_id,         /* Shared memory ID of        */
                                            /* dir_check.                 */
                            fra_id,         /* ID of FRA.                 */
                            fra_fd = -1,    /* Needed by fra_attach()     */
@@ -561,6 +563,7 @@ main(int argc, char *argv[])
                */
               if ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0)
               {
+                 int         ret;
 #ifndef _WITH_PTHREAD
                  time_t      dir_check_time;
 #endif
@@ -762,29 +765,30 @@ main(int argc, char *argv[])
                        now = time(NULL);
                        diff_time = now - start_time;
 
-                       if (diff_time < one_dir_copy_timeout)
+                       /*
+                        * When starting and all directories are full with
+                        * files, it will take far too long before dir_check
+                        * checks if it has to stop. So lets check the fifo
+                        * every time we have checked a directory.
+                        */
+                       if (diff_time > 5)
                        {
-                          /*
-                           * When starting and all directories are full with
-                           * files, it will take far too long before dir_check
-                           * checks if it has to stop. So lets check the fifo
-                           * every time we have checked a directory.
-                           */
-                          if (diff_time > 5)
-                          {
-                             check_fifo(read_fd, write_fd);
-                          }
+                          check_fifo(read_fd, write_fd);
+                       }
 
-                          /*
-                           * Now lets check all those directories that
-                           * still have files but we stopped the
-                           * handling for this directory because of
-                           * a certain limit.
-                           */
-                          for (i = 0; i < fdc; i++)
+                       /*
+                        * Now lets check all those directories that
+                        * still have files but we stopped the
+                        * handling for this directory because of
+                        * a certain limit.
+                        */
+                       for (i = 0; i < fdc; i++)
+                       {
+                          now = time(NULL);
+                          do
                           {
-                             if (handle_dir(full_dir[i], now, NULL, NULL,
-                                            afd_file_dir) == NO)
+                             if ((ret = handle_dir(full_dir[i], now, NULL,
+                                                   NULL, afd_file_dir)) == NO)
                              {
                                 if (i < fdc)
                                 {
@@ -794,42 +798,46 @@ main(int argc, char *argv[])
                                 fdc--;
                                 i--;
                              }
+                             diff_time = time(NULL) - now;
+                          } while ((ret == YES) &&
+                                   (diff_time < one_dir_copy_timeout));
+                          if ((diff_time >= one_dir_copy_timeout) &&
+                              (ret == YES))
+                          {
+                             first_time = YES;
                           }
                        }
-                       else
-                       {
-                          first_time = YES;
-                          break;
-                       }
                     } /* while (fdc > 0) */
+
                     while (fpdc > 0)
                     {
                        now = time(NULL);
                        diff_time = now - start_time;
 
-                       if (diff_time < one_dir_copy_timeout)
+                       /*
+                        * When starting and all directories are full with
+                        * files, it will take far too long before dir_check
+                        * checks if it has to stop. So lets check the fifo
+                        * every time we have checked a directory.
+                        */
+                       if (diff_time > 5)
                        {
-                          /*
-                           * When starting and all directories are full with
-                           * files, it will take far too long before dir_check
-                           * checks if it has to stop. So lets check the fifo
-                           * every time we have checked a directory.
-                           */
-                          if (diff_time > 5)
-                          {
-                             check_fifo(read_fd, write_fd);
-                          }
+                          check_fifo(read_fd, write_fd);
+                       }
 
-                          /*
-                           * Now lets check all those directories that
-                           * still have files but we stopped the
-                           * handling for this directory because of
-                           * a certain limit.
-                           */
-                          for (i = 0; i < fpdc; i++)
+                       /*
+                        * Now lets check all those directories that
+                        * still have files but we stopped the
+                        * handling for this directory because of
+                        * a certain limit.
+                        */
+                       for (i = 0; i < fpdc; i++)
+                       {
+                          now = time(NULL);
+                          do
                           {
-                             if (handle_dir(full_paused_dir[i], now, NULL,
-                                            NULL, afd_file_dir) == NO)
+                             if ((ret = handle_dir(full_paused_dir[i], now, NULL,
+                                                   NULL, afd_file_dir)) == NO)
                              {
                                 if (i < fpdc)
                                 {
@@ -840,12 +848,14 @@ main(int argc, char *argv[])
                                 fpdc--;
                                 i--;
                              }
+                             diff_time = time(NULL) - now;
+                          } while ((ret == YES) &&
+                                   (diff_time < one_dir_copy_timeout));
+                          if ((diff_time >= one_dir_copy_timeout) &&
+                              (ret == YES))
+                          {
+                             first_time = YES;
                           }
-                       }
-                       else
-                       {
-                          first_time = YES;
-                          break;
                        }
                     } /* while (fdc > 0) */
 
@@ -915,7 +925,7 @@ main(int argc, char *argv[])
                  {
                     for (i = 0; i < no_of_time_jobs; i++)
                     {
-                       if (strcmp(p_host_name, db[time_job_list[i]].host_alias) == 0)
+                       if (CHECK_STRCMP(p_host_name, db[time_job_list[i]].host_alias) == 0)
                        {
                           (void)strcpy(p_time_dir,
                                        db[time_job_list[i]].str_job_id);
@@ -1238,7 +1248,7 @@ handle_dir(int    dir_no,
             for (k = 0; k < de[dir_no].fme[j].dest_count; k++)
             {
                if ((host_name == NULL) ||
-                   (strcmp(host_name, db[de[dir_no].fme[j].pos[k]].host_alias) == 0))
+                   (CHECK_STRCMP(host_name, db[de[dir_no].fme[j].pos[k]].host_alias) == 0))
                {
                   if ((fsa[db[de[dir_no].fme[j].pos[k]].position].host_status < 2) &&
                       ((fsa[db[de[dir_no].fme[j].pos[k]].position].special_flag & HOST_DISABLED) == 0))
@@ -1673,7 +1683,10 @@ get_one_zombie(pid_t cpid)
       else
       {
          no_of_process--;
-         fra[dcpl[pos].fra_pos].no_of_process--;
+         if (fra[dcpl[pos].fra_pos].no_of_process > 0)
+         {
+            fra[dcpl[pos].fra_pos].no_of_process--;
+         }
          if ((fra[dcpl[pos].fra_pos].no_of_process == 0) &&
              (fra[dcpl[pos].fra_pos].dir_status == DIRECTORY_ACTIVE) &&
              (fra[dcpl[pos].fra_pos].dir_status != DISABLED))
@@ -1697,7 +1710,7 @@ get_one_zombie(pid_t cpid)
 static int
 get_process_pos(pid_t pid)
 {
-   int i;
+   register int i;
 
    for (i = 0; i < no_of_process; i++)
    {
@@ -1756,12 +1769,7 @@ check_fifo(int read_fd, int write_fd)
                }
                free(de);
                FREE_RT_ARRAY(file_name_pool);
-               if (munmap((void *)db, no_of_jobs * sizeof(struct instant_db)) == -1)
-               {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "munmap() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
-               }
+               free(db);
                if (time_job_list != NULL)
                {
                   free(time_job_list);
@@ -1817,8 +1825,7 @@ check_fifo(int read_fd, int write_fd)
                {
                   (void)rec(sys_log_fd, FATAL_SIGN,
                             "Could not write to fifo %s : %s (%s %d)\n",
-                            DC_CMD_FIFO, strerror(errno),
-                            __FILE__, __LINE__);
+                            DC_CMD_FIFO, strerror(errno), __FILE__, __LINE__);
                   exit(INCORRECT);
                }
                (void)close(counter_fd);
@@ -1877,8 +1884,7 @@ sig_segv(int signo)
    }
 
    (void)rec(sys_log_fd, FATAL_SIGN,
-             "Aaarrrggh! Received SIGSEGV. (%s %d)\n",
-             __FILE__, __LINE__);
+             "Aaarrrggh! Received SIGSEGV. (%s %d)\n", __FILE__, __LINE__);
    abort();
 }
 
@@ -1896,8 +1902,7 @@ sig_bus(int signo)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Could not write() to fifo %s : %s (%s %d)\n",
-                   IP_FIN_FIFO, strerror(errno),
-                   __FILE__, __LINE__);
+                   IP_FIN_FIFO, strerror(errno), __FILE__, __LINE__);
       }
       (void)close(fin_fd);
    }

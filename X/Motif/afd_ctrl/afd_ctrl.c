@@ -116,7 +116,7 @@ Widget                     mw[5],        /* Main menu */
                            rw[14],       /* Select rows */
                            tw[2],        /* Test (ping, traceroute) */
                            lw[4],        /* AFD load */
-                           lsw[3],
+                           lsw[4],       /* Line style */
                            pw[8],        /* Popup menu */
                            appshell,
                            button_window_w,
@@ -134,17 +134,16 @@ float                      max_bar_length;
 int                        amg_flag = NO,
                            bar_thickness_2,
                            bar_thickness_3,
-                           button_line_length,
                            button_width,
                            current_font = -1,
                            current_row = -1,
-                           current_style = -1,
                            filename_display_length,
                            fsa_fd = -1,
                            fsa_id,
                            ft_exposure_tv_line = 0,
                            led_width,
-                           line_length,
+                           *line_length = NULL,
+                           max_line_length,
                            line_height = 0,
                            magic_value,
                            log_angle,
@@ -286,7 +285,7 @@ main(int argc, char *argv[])
                                         NULL);
 
    /* Setup and determine window parameters. */
-   setup_window(font_name);
+   setup_window(font_name, YES);
 
    /* Get window size. */
    (void)window_size(&window_width, &window_height);
@@ -408,20 +407,33 @@ main(int argc, char *argv[])
 
    if (no_input == False)
    {
-      XtAddEventHandler(line_window_w,
-                        ButtonPressMask | Button1MotionMask,
+      XtAddEventHandler(line_window_w, ButtonPressMask | Button1MotionMask,
                         False, (XtEventHandler)input, NULL);
 
-      /* Set toggle button for font|row */
+      /* Set toggle button for font|row|style */
       XtVaSetValues(fw[current_font], XmNset, True, NULL);
       XtVaSetValues(rw[current_row], XmNset, True, NULL);
-      XtVaSetValues(lsw[current_style], XmNset, True, NULL);
+      if (line_style & SHOW_LEDS)
+      {
+         XtVaSetValues(lsw[LEDS_STYLE_W], XmNset, True, NULL);
+      }
+      if (line_style & SHOW_JOBS)
+      {
+         XtVaSetValues(lsw[JOBS_STYLE_W], XmNset, True, NULL);
+      }
+      if (line_style & SHOW_CHARACTERS)
+      {
+         XtVaSetValues(lsw[CHARACTERS_STYLE_W], XmNset, True, NULL);
+      }
+      if (line_style & SHOW_BARS)
+      {
+         XtVaSetValues(lsw[BARS_STYLE_W], XmNset, True, NULL);
+      }
 
       /* Setup popup menu */
       init_popup_menu(line_window_w);
 
-      XtAddEventHandler(line_window_w,
-                        EnterWindowMask | LeaveWindowMask,
+      XtAddEventHandler(line_window_w, EnterWindowMask | LeaveWindowMask,
                         False, (XtEventHandler)focus, NULL);
    }
 
@@ -502,6 +514,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   set_afd_euid(work_dir);
 
    /* Disable all input? */
    if (get_arg(argc, argv, "-no_input", NULL, 0) == SUCCESS)
@@ -555,7 +568,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
          acp.shutdown_afd       = YES; /* Shutdown the AFD      */
          acp.ctrl_transfer      = YES; /* Start/Stop a transfer */
          acp.ctrl_transfer_list = NULL;
-         acp.ctrl_queue         = YES; /* Start/Stop the queue  */
+         acp.ctrl_queue         = YES; /* Start/Stop the input  */
          acp.ctrl_queue_list    = NULL;
          acp.switch_host        = YES;
          acp.switch_host_list   = NULL;
@@ -659,7 +672,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    /*
     * Attach to the AFD Status Area
     */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to attach to AFD status area. (%s %d)\n",
@@ -731,10 +744,10 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    /*
     * Read setup file of this user.
     */
-   line_style = CHARACTERS_AND_BARS;
+   line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    filename_display_length = DEFAULT_FILENAME_DISPLAY_LENGTH;
-   read_setup("afd_ctrl", &filename_display_length, NULL);
+   read_setup(AFD_CTRL, &filename_display_length, NULL);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
@@ -878,7 +891,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
 
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   if ((access(config_file, F_OK) == 0) &&
+   if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       int  str_length;
@@ -979,7 +992,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    {
       if (acp.ctrl_queue != NO_PERMISSION)
       {
-         ow[QUEUE_W] = XtVaCreateManagedWidget("Start/Stop queue",
+         ow[QUEUE_W] = XtVaCreateManagedWidget("Start/Stop input queue",
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  NULL);
@@ -1441,7 +1454,7 @@ init_popup_menu(Widget line_window_w)
       if (acp.ctrl_queue != NO_PERMISSION)
       {
          argcount = 0;
-         x_string = XmStringCreateLocalized("Start/Stop queue");
+         x_string = XmStringCreateLocalized("Start/Stop input queue");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[0] = XmCreatePushButton(popupmenu, "Queue", args, argcount);
@@ -1675,7 +1688,7 @@ create_pullright_font(Widget pullright_font)
 
    for (i = 0; i < NO_OF_FONTS; i++)
    {
-      if ((current_font == -1) && (strcmp(font_name, font[i]) == 0))
+      if ((current_font == -1) && (CHECK_STRCMP(font_name, font[i]) == 0))
       {
          current_font = i;
       }
@@ -1753,40 +1766,51 @@ create_pullright_style(Widget pullright_line_style)
 
    /* Create pullright for "Line style" */
    argcount = 0;
-   x_string = XmStringCreateLocalized("Bars only");
+   x_string = XmStringCreateLocalized("Leds");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-   XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
    XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-   lsw[STYLE_0_W] = XmCreateToggleButton(pullright_line_style, "style_0",
-				   args, argcount);
-   XtAddCallback(lsw[STYLE_0_W], XmNvalueChangedCallback, change_style_cb,
-		 (XtPointer)0);
-   XtManageChild(lsw[STYLE_0_W]);
-   current_style = line_style;
+   lsw[LEDS_STYLE_W] = XmCreateToggleButton(pullright_line_style, "style_0",
+                                            args, argcount);
+   XtAddCallback(lsw[LEDS_STYLE_W], XmNvalueChangedCallback, change_style_cb,
+                 (XtPointer)LEDS_STYLE_W);
+   XtManageChild(lsw[LEDS_STYLE_W]);
    XmStringFree(x_string);
 
    argcount = 0;
-   x_string = XmStringCreateLocalized("Characters only");
+   x_string = XmStringCreateLocalized("Process");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-   XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
    XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-   lsw[STYLE_1_W] = XmCreateToggleButton(pullright_line_style, "style_1",
-				   args, argcount);
-   XtAddCallback(lsw[STYLE_1_W], XmNvalueChangedCallback, change_style_cb,
-		 (XtPointer)1);
-   XtManageChild(lsw[STYLE_1_W]);
+   lsw[JOBS_STYLE_W] = XmCreateToggleButton(pullright_line_style, "style_1",
+                                            args, argcount);
+   XtAddCallback(lsw[JOBS_STYLE_W], XmNvalueChangedCallback, change_style_cb,
+                 (XtPointer)JOBS_STYLE_W);
+   XtManageChild(lsw[JOBS_STYLE_W]);
    XmStringFree(x_string);
 
    argcount = 0;
-   x_string = XmStringCreateLocalized("Characters and bars");
+   x_string = XmStringCreateLocalized("Characters");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-   XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
    XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-   lsw[STYLE_2_W] = XmCreateToggleButton(pullright_line_style, "style_2",
-				   args, argcount);
-   XtAddCallback(lsw[STYLE_2_W], XmNvalueChangedCallback, change_style_cb,
-		 (XtPointer)2);
-   XtManageChild(lsw[STYLE_2_W]);
+   lsw[CHARACTERS_STYLE_W] = XmCreateToggleButton(pullright_line_style,
+                                                  "style_2", args, argcount);
+   XtAddCallback(lsw[CHARACTERS_STYLE_W], XmNvalueChangedCallback,
+                 change_style_cb, (XtPointer)CHARACTERS_STYLE_W);
+   XtManageChild(lsw[CHARACTERS_STYLE_W]);
+   XmStringFree(x_string);
+
+   argcount = 0;
+   x_string = XmStringCreateLocalized("Bars");
+   XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNindicatorType, XmN_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+   lsw[BARS_STYLE_W] = XmCreateToggleButton(pullright_line_style, "style_3",
+                                            args, argcount);
+   XtAddCallback(lsw[BARS_STYLE_W], XmNvalueChangedCallback, change_style_cb,
+                 (XtPointer)BARS_STYLE_W);
+   XtManageChild(lsw[BARS_STYLE_W]);
    XmStringFree(x_string);
 
    return;
@@ -1820,7 +1844,7 @@ eval_permissions(char *perm_buffer)
       acp.shutdown_afd       = YES;   /* Shutdown AFD          */
       acp.ctrl_transfer      = YES;   /* Start/Stop a transfer */
       acp.ctrl_transfer_list = NULL;
-      acp.ctrl_queue         = YES;   /* Start/Stop the queue  */
+      acp.ctrl_queue         = YES;   /* Start/Stop the input queue */
       acp.ctrl_queue_list    = NULL;
       acp.switch_host        = YES;
       acp.switch_host_list   = NULL;
@@ -1958,10 +1982,10 @@ eval_permissions(char *perm_buffer)
          acp.dir_ctrl = NO_LIMIT;
       }
 
-      /* May the user start/stop the queue? */
+      /* May the user start/stop the input queue? */
       if ((ptr = posi(perm_buffer, CTRL_QUEUE_PERM)) == NULL)
       {
-         /* The user may NOT start/stop the queue. */
+         /* The user may NOT start/stop the input queue. */
          acp.ctrl_queue = NO_PERMISSION;
       }
       else

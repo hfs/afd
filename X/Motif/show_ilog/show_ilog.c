@@ -1,6 +1,6 @@
 /*
  *  show_ilog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,6 +73,7 @@ DESCR__E_M1
 #include <Xm/Form.h>
 #include "afd_ctrl.h"
 #include "show_ilog.h"
+#include "logdefs.h"
 #include "permission.h"
 #include "version.h"
 
@@ -98,6 +99,7 @@ int                        char_width,
                            file_name_length,
                            fra_fd = -1,
                            fra_id,
+                           max_input_log_files = MAX_INPUT_LOG_FILES,
                            no_of_dirs = 0,
                            no_of_log_files,
                            no_of_search_hosts,
@@ -935,6 +937,10 @@ init_show_ilog(int *argc, char *argv[])
    search_directory_name[0] = '\0';
    special_button_flag = SEARCH_BUTTON;
    no_of_log_files = 0;
+
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_input_log_files, MAX_INPUT_LOG_FILES_DEF,
+                      MAX_INPUT_LOG_FILES);
 
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  input_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -94,6 +94,7 @@ main(int argc, char *argv[])
                   log_number = 0,
                   n,
                   length,
+                  max_input_log_files = MAX_INPUT_LOG_FILES,
                   no_of_buffered_writes = 0,
                   check_size,
                   status,
@@ -184,6 +185,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_input_log_files, MAX_INPUT_LOG_FILES_DEF,
+                      MAX_INPUT_LOG_FILES);
+
    /*
     * Set umask so that all log files have the permission 644.
     * If we do not set this here fopen() will create files with
@@ -196,7 +201,7 @@ main(int argc, char *argv[])
     * create it.
     */
    get_log_number(&log_number,
-                  (MAX_INPUT_LOG_FILES - 1),
+                  (max_input_log_files - 1),
                   INPUT_BUFFER_FILE,
                   strlen(INPUT_BUFFER_FILE));
    (void)sprintf(current_log_file, "%s%s/%s0",
@@ -213,7 +218,7 @@ main(int argc, char *argv[])
    {
       if (stat_buf.st_mtime < (next_file_time - SWITCH_FILE_TIME))
       {
-         if (log_number < (MAX_INPUT_LOG_FILES - 1))
+         if (log_number < (max_input_log_files - 1))
          {
             log_number++;
          }
@@ -263,7 +268,7 @@ main(int argc, char *argv[])
          /* Check if we have to create a new log file. */
          if (time(&now) > next_file_time)
          {
-            if (log_number < (MAX_INPUT_LOG_FILES - 1))
+            if (log_number < (max_input_log_files - 1))
             {
                log_number++;
             }
@@ -353,7 +358,7 @@ main(int argc, char *argv[])
                */
               if (now > next_file_time)
               {
-                 if (log_number < (MAX_INPUT_LOG_FILES - 1))
+                 if (log_number < (max_input_log_files - 1))
                  {
                     log_number++;
                  }

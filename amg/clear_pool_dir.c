@@ -53,7 +53,7 @@ DESCR__E_M3
 #include <string.h>               /* strcpy(), strerror()                 */
 #include <ctype.h>                /* isdigit()                            */
 #include <sys/stat.h>             /* stat(), S_ISREG()                    */
-#include <unistd.h>               /* read(), close(), rmdir(), access()   */
+#include <unistd.h>               /* read(), close(), rmdir(), R_OK ...   */
 #include <dirent.h>               /* opendir(), closedir(), readdir(),    */
                                   /* DIR, struct dirent                   */
 #include <fcntl.h>
@@ -202,7 +202,7 @@ get_source_dir(char *dir_name, char *orig_dir)
                 * Before we say this is it, check if it still does
                 * exist!
                 */
-               if (access(dnb[i].dir_name, R_OK | W_OK | X_OK) == -1)
+               if (eaccess(dnb[i].dir_name, R_OK | W_OK | X_OK) == -1)
                {
                   (void)rec(sys_log_fd, INFO_SIGN,
                             "Cannot move files back to %s : %s (%s %d)\n",

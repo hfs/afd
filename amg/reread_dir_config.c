@@ -138,7 +138,7 @@ reread_dir_config(time_t           *dc_old_time,
                {
                   if (gotcha[j] != YES)
                   {
-                     if (strcmp(hl[i].host_alias, old_hl[j].host_alias) == 0)
+                     if (CHECK_STRCMP(hl[i].host_alias, old_hl[j].host_alias) == 0)
                      {
                         host_pos = j;
                         break;
@@ -182,8 +182,7 @@ reread_dir_config(time_t           *dc_old_time,
          pid_t tmp_dc_pid;
 
          /* Tell user we have to reread the new DIR_CONFIG file */
-         (void)rec(sys_log_fd, INFO_SIGN,
-                   "Rereading DIR_CONFIG...\n");
+         (void)rec(sys_log_fd, INFO_SIGN, "Rereading DIR_CONFIG...\n");
 
          /* Stop running jobs */
          if ((data_length > 0) && (dc_pid > 0))
@@ -338,7 +337,7 @@ reread_dir_config(time_t           *dc_old_time,
                */
               if ((mark_list = malloc(old_no_of_hosts)) == NULL)
               {
-                 (void)fsa_detach();
+                 (void)fsa_detach(NO);
                  (void)rec(sys_log_fd, ERROR_SIGN,
                            "malloc() error : %s (%s %d)\n",
                            strerror(errno), __FILE__, __LINE__);
@@ -351,7 +350,7 @@ reread_dir_config(time_t           *dc_old_time,
                  for (j = 0; j < old_no_of_hosts; j++)
                  {
                     if ((mark_list[j] == NO) &&
-                        (strcmp(hl[i].host_alias, old_hl[j].host_alias) == 0))
+                        (CHECK_STRCMP(hl[i].host_alias, old_hl[j].host_alias) == 0))
                     {
                        host_pos = j;
                        mark_list[j] = YES;
@@ -475,7 +474,7 @@ reread_dir_config(time_t           *dc_old_time,
 
                  if ((p_host_names = malloc(new_size)) == NULL)
                  {
-                    (void)fsa_detach();
+                    (void)fsa_detach(NO);
                     (void)rec(sys_log_fd, FATAL_SIGN,
                               "malloc() error [%d Bytes] : %s (%s %d)\n",
                               new_size, strerror(errno),
@@ -492,7 +491,7 @@ reread_dir_config(time_t           *dc_old_time,
                  free(p_host_names);
               }
 
-              (void)fsa_detach();
+              (void)fsa_detach(YES);
            } /* if (old_hl != NULL) */
    }
 

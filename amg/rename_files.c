@@ -175,7 +175,7 @@ rename_files(char                   *src_file_path,
          files_renamed++;
          for (j = 0; j < files_moved; j++)
          {
-            if (strcmp(p_file_name, file_name_pool[j]) == 0)
+            if (CHECK_STRCMP(p_file_name, file_name_pool[j]) == 0)
             {
                *file_size_renamed += file_size_pool[j];
                break;

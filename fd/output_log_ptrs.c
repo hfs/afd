@@ -63,7 +63,7 @@ DESCR__S_M3
  **     |   |                                      Job Number.
  **     |   +------------------------------------> File Size of type off_t.
  **     +----------------------------------------> Transfer Duration of type
- **                                                time_t.
+ **                                                clock_t.
  **
  ** RETURN VALUES
  **   When successful it opens the fifo to the output log and assigns

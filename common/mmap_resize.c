@@ -1,6 +1,6 @@
 /*
  *  mmap_resize.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -83,17 +83,39 @@ mmap_resize(int fd, void *area, size_t new_size)
 
    if (new_size > stat_buf.st_size)
    {
-      if (lseek(fd, new_size - 1, SEEK_SET) == -1)
+      int  i,
+           loops,
+           rest,
+           write_size;
+      char buffer[4096];
+
+      if (lseek(fd, stat_buf.st_size, SEEK_SET) == -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "lseek() error : %s", strerror(errno));
          return((void *)-1);
       }
-      if (write(fd, "", 1) != 1)
+      write_size = new_size - stat_buf.st_size;
+      (void)memset(buffer, 0, 4096);
+      loops = write_size / 4096;
+      rest = write_size % 4096;
+      for (i = 0; i < loops; i++)
       {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "write() error : %s", strerror(errno));
-         return((void *)-1);
+         if (write(fd, buffer, 4096) != 4096)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "write() error : %s", strerror(errno));
+            return((void *)-1);
+         }
+      }
+      if (rest > 0)
+      {
+         if (write(fd, buffer, rest) != rest)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "write() error : %s", strerror(errno));
+            return((void *)-1);
+         }
       }
    }
    else if (new_size < stat_buf.st_size)

@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-INSTDIR = ../../../../bin
+INSTDIR = ../../../..
 COMDIR  = ../../../common
 XCOMDIR = ../common
 LIB     = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
@@ -35,9 +35,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(VDCPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(VDCPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 view_dc.o : ../../../version.h

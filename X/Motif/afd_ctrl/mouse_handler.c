@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -105,7 +105,7 @@ extern int                        button_width,
                                   no_of_active_process,
                                   no_of_hosts,
                                   no_of_jobs_selected,
-                                  line_length,
+                                  *line_length,
                                   line_height,
                                   x_offset_proc,
                                   no_selected,
@@ -114,10 +114,10 @@ extern int                        button_width,
                                   no_of_rows_set,
                                   current_font,
                                   current_row,
-                                  current_style,
                                   sys_log_fd,
                                   tv_no_of_columns,
-                                  tv_no_of_rows;
+                                  tv_no_of_rows,
+                                  window_width;
 #ifndef _NO_MMAP
 extern off_t                      afd_active_size;
 #endif
@@ -178,8 +178,16 @@ input(Widget      w,
    /* Handle any motion event */
    if ((event->xany.type == MotionNotify) && (in_window == YES))
    {
-      select_no = (event->xbutton.y / line_height) +
-                  ((event->xbutton.x / line_length) * no_of_rows);
+      int dummy_length = event->xbutton.x,
+          column = 0;
+
+      do
+      {
+         dummy_length -= line_length[column];
+         column++;
+      } while (dummy_length > 0);
+      column--;
+      select_no = (event->xbutton.y / line_height) + (column * no_of_rows);
 
       if ((select_no < no_of_hosts) && (last_motion_pos != select_no))
       {
@@ -229,8 +237,16 @@ input(Widget      w,
    /* Handle any button press event. */
    if (event->xbutton.button == 1)
    {
-      select_no = (event->xbutton.y / line_height) +
-                  ((event->xbutton.x / line_length) * no_of_rows);
+      int dummy_length = event->xbutton.x,
+          column = 0;
+
+      do
+      {
+         dummy_length -= line_length[column];
+         column++;
+      } while (dummy_length > 0);
+      column--;
+      select_no = (event->xbutton.y / line_height) + (column * no_of_rows);
 
       /* Make sure that this field does contain a channel */
       if (select_no < no_of_hosts)
@@ -245,7 +261,7 @@ input(Widget      w,
             for (i = 0; i < no_of_active_process; i++)
             {
                if ((apps_list[i].position == select_no) &&
-                   (strcmp(apps_list[i].progname, AFD_INFO) == 0))
+                   (CHECK_STRCMP(apps_list[i].progname, AFD_INFO) == 0))
                {
                   gotcha = YES;
                   break;
@@ -330,14 +346,31 @@ input(Widget      w,
        ((event->xbutton.button == 2) || (event->xbutton.button == 3)) &&
        (event->xkey.state & ControlMask))
    {
-      select_no = (event->xbutton.y / line_height) +
-                  ((event->xbutton.x / line_length) * no_of_rows);
+      int dummy_length = event->xbutton.x,
+          column = 0;
+
+      do
+      {
+         dummy_length -= line_length[column];
+         column++;
+      } while (dummy_length > 0);
+      column--;
+      select_no = (event->xbutton.y / line_height) + (column * no_of_rows);
 
       /* Make sure that this field does contain a channel */
       if (select_no < no_of_hosts)
       {
-         int x_pos = event->xbutton.x % line_length,
+         int x_pos,
              min_length = DEFAULT_FRAME_SPACE + x_offset_proc;
+
+         if (dummy_length < 0)
+         {
+            x_pos = dummy_length + line_length[column];
+         }
+         else
+         {
+            x_pos = 0;
+         }
 
          /* See if this is a proc_stat area. */
          if ((x_pos > min_length) &&
@@ -377,7 +410,7 @@ input(Widget      w,
                         for (i = 0; i < (no_of_jobs_selected + 1); i++)
                         {
                            if ((jd[i].job_no == job_no) &&
-                               (strcmp(jd[i].hostname, connect_data[select_no].hostname) == 0))
+                               (CHECK_STRCMP(jd[i].hostname, connect_data[select_no].hostname) == 0))
                            {
                               if (i != no_of_jobs_selected)
                               {
@@ -475,7 +508,7 @@ input(Widget      w,
                          */
                         for (i = 0; i < (no_of_jobs_selected - 1); i++)
                         {
-                           if (strcmp(jd[i].hostname, connect_data[select_no].hostname) == 0)
+                           if (CHECK_STRCMP(jd[i].hostname, connect_data[select_no].hostname) == 0)
                            {
                               if (jd[i].job_no > job_no)
                               {
@@ -1066,14 +1099,14 @@ popup_cb(Widget      w,
                      if (fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT)
                      {
                         (void)rec(sys_log_fd, CONFIG_SIGN,
-                                  "%s: STARTED queue that stopped automatically (%s).\n",
+                                  "%s: STARTED input queue that stopped automatically (%s).\n",
                                   connect_data[i].host_display_str, user);
                         fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                      }
                      else
                      {
                         (void)rec(sys_log_fd, CONFIG_SIGN,
-                                  "%s: STARTED queue (%s).\n",
+                                  "%s: STARTED input queue (%s).\n",
                                   connect_data[i].host_display_str, user);
                         fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                         hl[i].host_status &= ~PAUSE_QUEUE_STAT;
@@ -1082,7 +1115,7 @@ popup_cb(Widget      w,
                   else
                   {
                      (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: STOPPED queue (%s).\n",
+                               "%s: STOPPED input queue (%s).\n",
                                connect_data[i].host_display_str, user);
                      fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                      hl[i].host_status |= PAUSE_QUEUE_STAT;
@@ -1393,7 +1426,7 @@ popup_cb(Widget      w,
                   for (ii = 0; ii < no_of_active_process; ii++)
                   {
                      if ((apps_list[ii].position == i) &&
-                         (strcmp(apps_list[ii].progname, VIEW_DC) == 0))
+                         (CHECK_STRCMP(apps_list[ii].progname, VIEW_DC) == 0))
                      {
                         gotcha = YES;
                         break;
@@ -1439,7 +1472,7 @@ popup_cb(Widget      w,
                   for (ii = 0; ii < no_of_active_process; ii++)
                   {
                      if ((apps_list[ii].position == i) &&
-                         (strcmp(apps_list[ii].progname, AFD_INFO) == 0))
+                         (CHECK_STRCMP(apps_list[ii].progname, AFD_INFO) == 0))
                      {
                         gotcha = YES;
                         break;
@@ -1879,7 +1912,7 @@ change_font_cb(Widget      w,
    XFreeFont(display, font_struct);
 
    /* calculate the new values for global variables */
-   setup_window(font_name);
+   setup_window(font_name, YES);
 
    /* Load the font into the old GC */
    gc_values.font = font_struct->fid;
@@ -2077,24 +2110,58 @@ change_style_cb(Widget     w,
        i,
        redraw = NO;
 
-   if (current_style != item_no)
-   {
-      XtVaSetValues(lsw[current_style], XmNset, False, NULL);
-      current_style = item_no;
-   }
-
    switch(item_no)
    {
-      case 0   :
-         line_style = BARS_ONLY;
+      case LEDS_STYLE_W :
+         if (line_style & SHOW_LEDS)
+         {
+            line_style &= ~SHOW_LEDS;
+            XtVaSetValues(lsw[LEDS_STYLE_W], XmNset, False, NULL);
+         }
+         else
+         {
+            line_style |= SHOW_LEDS;
+            XtVaSetValues(lsw[LEDS_STYLE_W], XmNset, True, NULL);
+         }
          break;
 
-      case 1   :
-         line_style = CHARACTERS_ONLY;
+      case JOBS_STYLE_W :
+         if (line_style & SHOW_JOBS)
+         {
+            line_style &= ~SHOW_JOBS;
+            XtVaSetValues(lsw[JOBS_STYLE_W], XmNset, False, NULL);
+         }
+         else
+         {
+            line_style |= SHOW_JOBS;
+            XtVaSetValues(lsw[JOBS_STYLE_W], XmNset, True, NULL);
+         }
          break;
 
-      case 2   :
-         line_style = CHARACTERS_AND_BARS;
+      case CHARACTERS_STYLE_W :
+         if (line_style & SHOW_CHARACTERS)
+         {
+            line_style &= ~SHOW_CHARACTERS;
+            XtVaSetValues(lsw[CHARACTERS_STYLE_W], XmNset, False, NULL);
+         }
+         else
+         {
+            line_style |= SHOW_CHARACTERS;
+            XtVaSetValues(lsw[CHARACTERS_STYLE_W], XmNset, True, NULL);
+         }
+         break;
+
+      case BARS_STYLE_W :
+         if (line_style & SHOW_BARS)
+         {
+            line_style &= ~SHOW_BARS;
+            XtVaSetValues(lsw[BARS_STYLE_W], XmNset, False, NULL);
+         }
+         else
+         {
+            line_style |= SHOW_BARS;
+            XtVaSetValues(lsw[BARS_STYLE_W], XmNset, True, NULL);
+         }
          break;
 
       default  :
@@ -2104,26 +2171,58 @@ change_style_cb(Widget     w,
    }
 
 #ifdef _DEBUG
-   switch(line_style)
+   switch(item_no)
    {
-      case BARS_ONLY             :
-         (void)fprintf(stderr, "Changing line style to bars only.\n");
+      case LEDS_STYLE_W :
+         if (line_style & SHOW_LEDS)
+         {
+            (void)fprintf(stderr, "Adding LED's.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Removing LED's.\n");
+         }
          break;
 
-      case CHARACTERS_ONLY       :
-         (void)fprintf(stderr, "Changing line style to characters only.\n");
+      case JOBS_STYLE_W :
+         if (line_style & SHOW_JOBS)
+         {
+            (void)fprintf(stderr, "Adding Job's.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Removing Job's.\n");
+         }
          break;
 
-      case CHARACTERS_AND_BARS   :
-         (void)fprintf(stderr, "Changing line style to bars and characters.\n");
+      case CHARACTERS_STYLE_W :
+         if (line_style & SHOW_CHARACTERS)
+         {
+            (void)fprintf(stderr, "Adding Character's.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Removing Character's.\n");
+         }
          break;
 
-      default                    : /* IMPOSSIBLE !!! */
+      case BARS_STYLE_W :
+         if (line_style & SHOW_BARS)
+         {
+            (void)fprintf(stderr, "Adding Bar's.\n");
+         }
+         else
+         {
+            (void)fprintf(stderr, "Removing Bar's.\n");
+         }
+         break;
+
+      default : /* IMPOSSIBLE !!! */
          break;
    }
 #endif
 
-   setup_window(font_name);
+   setup_window(font_name, NO);
 
    /* Redraw detailed transfer view window. */
    if (no_of_jobs_selected > 0)
@@ -2144,6 +2243,7 @@ change_style_cb(Widget     w,
 
    if (resize_window() == YES)
    {
+      calc_but_coord(window_width);
       XClearWindow(display, line_window);
 
       /* redraw label */

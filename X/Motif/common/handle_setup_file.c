@@ -1,7 +1,7 @@
 /*
  *  handle_setup_file.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,12 +52,13 @@ DESCR__S_M3
  ** HISTORY
  **   01.06.1997 H.Kiehl Created
  **   10.09.2000 H.Kiehl Added history log for mon_ctrl dialog.
+ **   25.12.2001 H.Kiehl Ignore display and screen number for file name.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>
-#include <string.h>                  /* strcpy(), strcat()               */
+#include <string.h>                  /* strcpy(), strcat(), strcmp()     */
 #include <stdlib.h>                  /* getenv()                         */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -65,6 +66,7 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 #include "x_common_defs.h"
+#include "afd_ctrl.h"
 
 /* External global variables */
 extern int    no_of_rows_set;
@@ -92,29 +94,44 @@ read_setup(char *file_name,
    {
       if ((ptr = getenv("HOME")) != NULL)
       {
-         char hostname[MAX_AFD_NAME_LENGTH];
+         char hostname[MAX_AFD_NAME_LENGTH],
+              *wptr;
 
          (void)strcpy(setup_file, ptr);
+         wptr = setup_file + strlen(setup_file);
+         *wptr = '/';
+         *(wptr + 1) = '.';
+         wptr += 2;
+         (void)strcpy(wptr, file_name);
+         wptr += strlen(file_name);
+         *wptr = '.';
+         *(wptr + 1) = 's';
+         *(wptr + 2) = 'e';
+         *(wptr + 3) = 't';
+         *(wptr + 4) = 'u';
+         *(wptr + 5) = 'p';
+         *(wptr + 6) = '.';
+         wptr += 7;
          ptr = user;
          while ((*ptr != '@') && (*ptr != '\0'))
          {
-            ptr++;
+            *wptr = *ptr;
+            wptr++; ptr++;
          }
-         (void)strcat(setup_file, "/.");
-         (void)strcat(setup_file, file_name);
          if ((*ptr == '@') && (*(ptr + 1) != '\0') && (*(ptr + 1) != ':'))
          {
-            (void)strcat(setup_file, ".setup.");
-            (void)strcat(setup_file, (ptr + 1));
-         }
-         else
-         {
-            (void)strcat(setup_file, ".setup");
+            *wptr = '@';
+            wptr++; ptr++;
+            while ((*ptr != ':') && (*ptr != '\0'))
+            {
+               *wptr = *ptr;
+               wptr++; ptr++;
+            }
          }
          if (get_afd_name(hostname) != INCORRECT)
          {
-            (void)strcat(setup_file, ".");
-            (void)strcat(setup_file, hostname);
+            *wptr = '.';
+            (void)strcpy(wptr + 1, hostname);
          }
       }
       else
@@ -207,11 +224,36 @@ read_setup(char *file_name,
       }
       tmp_buffer[i] = '\0';
       line_style = atoi(tmp_buffer);
-      if ((line_style != CHARACTERS_AND_BARS) &&
-          (line_style != CHARACTERS_ONLY) &&
-          (line_style != BARS_ONLY))
+      if (strcmp(file_name, AFD_CTRL) == 0)
       {
-         line_style = CHARACTERS_AND_BARS;
+         if (line_style <= CHARACTERS_AND_BARS)
+         {
+            if (line_style == BARS_ONLY)
+            {
+               line_style = SHOW_LEDS | SHOW_JOBS | SHOW_BARS;
+            }
+            else if (line_style == CHARACTERS_ONLY)
+                 {
+                    line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS;
+                 }
+                 else
+                 {
+                    line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS;
+                 }
+         }
+         else if (line_style > (SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS))
+              {
+                 line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS;
+              }
+      }
+      else
+      {
+         if ((line_style != CHARACTERS_AND_BARS) &&
+             (line_style != CHARACTERS_ONLY) &&
+             (line_style != BARS_ONLY))
+         {
+            line_style = CHARACTERS_AND_BARS;
+         }
       }
    }
 

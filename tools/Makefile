@@ -4,7 +4,7 @@
 
 include ../Include.mk
 
-INSTDIR   = ../../sbin
+INSTDIR   = ../..
 COMDIR    = ../common
 LIB       = $(COMDIR)/libafd.a
 MISCLIB   = ../misc/libmisc.a
@@ -248,17 +248,21 @@ clobber :
 
 real_clobber :
 	$(MAKE) clobber
-	cd $(INSTDIR) && rm -f $(PROGS) uhc
+	cd $(INSTDIR)/sbin && rm -f $(PROGS) uhc
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	cd $(INSTDIR) && chmod $(SBINMODE) $(PROGS) && chmod $(BINMODE) $(UDBPROG) $(ACMDPROG)
-	@if [ ! -r $(INSTDIR)/uhc ] ; \
+	cd $(INSTDIR)/sbin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/sbin
+	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(PROGS) && chmod $(SUIDMODE) $(UDBPROG) $(ACMDPROG)
+	@if [ ! -r $(INSTDIR)/sbin/uhc ] ; \
 	then \
-           cd $(INSTDIR) ; \
+           cd $(INSTDIR)/sbin ; \
            ln -s $(UDBPROG) uhc ; \
         fi
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other Dependencies
 show_stat.o : ../statistics/statdefs.h

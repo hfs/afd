@@ -1,6 +1,6 @@
 /*
  *  eval_recipient.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,6 +58,8 @@ DESCR__S_M3
  **   12.04.1998 H.Kiehl Added DOS binary mode.
  **   03.06.1998 H.Kiehl Allow user to add special characters (@, :, etc)
  **                      in password.
+ **   15.12.2001 H.Kiehl When server= is set take this as hostname.
+ **   19.02.2002 H.Kiehl Added the ability to read recipient group file.
  **
  */
 DESCR__E_M3
@@ -86,14 +88,67 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
       /* protocol from the program name.               */
       ptr++;
    }
-   if (*ptr == ':')
+   if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
    {
       register int i;
 
-      /* Get user name */
-      if ((*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
+      ptr += 3; /* Away with '://' */
+
+      if (*ptr == '$')
       {
-         ptr += 3; /* Away with '://' */
+         ptr++;
+         i = 0;
+         while ((*ptr != '@') && (*ptr != ';') && (*ptr != ':') &&
+                (*ptr != '\0') && (i < MAX_HOSTNAME_LENGTH))
+         {
+            if (*ptr == '\\')
+            {
+               ptr++;
+            }
+            p_db->user[i] = *ptr;
+            ptr++; i++;
+         }
+         if (i == MAX_HOSTNAME_LENGTH)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Unable to store group name. It is longer than %d Bytes!",
+                       MAX_USER_NAME_LENGTH);
+            return(INCORRECT);
+         }
+         if (i == 0)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "No group name specified.");
+            return(INCORRECT);
+         }
+         get_group_list(p_db->user);
+
+         if (*ptr == '@')
+         {
+            /* Now lets get the host alias name. */
+            i = 0;
+            while ((*ptr != '\0') && (*ptr != '/') &&
+                   (*ptr != ':') && (*ptr != ';'))
+            {
+               if (*ptr == '\\')
+               {
+                  ptr++;
+               }
+               p_db->hostname[i] = *ptr;
+               i++; ptr++;
+            }
+            p_db->hostname[i] = '\0';
+         }
+         else
+         {
+            (void)strcpy(p_db->hostname, p_db->user);
+         }
+      }
+      else
+      {
+         p_db->group_list = NULL;
+
+         /* Get user name */
          if (*ptr == '\0')
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -125,99 +180,67 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
             return(INCORRECT);
          }
          p_db->user[i] = '\0';
-      }
-      else
-      {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "This definitely is GARBAGE! Get a new AFD administrator!!!");
-         return(INCORRECT);
-      }
-      if (*ptr == ':')
-      {
-         ptr++;
+         if (*ptr == ':')
+         {
+            ptr++;
 
-         /* Get password */
+            /* Get password */
+            i = 0;
+            while ((*ptr != '@') && (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+            {
+               if (*ptr == '\\')
+               {
+                  ptr++;
+               }
+               p_db->password[i] = *ptr;
+               ptr++; i++;
+            }
+            if ((i == 0) && (*ptr != '@'))
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Hmmm. How am I suppose to find the hostname?");
+               return(INCORRECT);
+            }
+            if (i == MAX_USER_NAME_LENGTH)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Unable to store password. It is longer than %d Bytes!",
+                          MAX_USER_NAME_LENGTH);
+               return(INCORRECT);
+            }
+            p_db->password[i] = '\0';
+            ptr++;
+         }
+         else if (*ptr == '@')
+              {
+                 ptr++;
+
+                 /* No password given. This could be a mail or  */
+                 /* we want to do anonymous ftp. Since we       */
+                 /* currently do not know what protocol we have */
+                 /* here lets set the password to 'anonymous'.  */
+                 (void)strcpy(p_db->password, "anonymous");
+              }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Hmmm. How am I suppose to find the hostname?");
+                 return(INCORRECT);
+              }
+
+         /* Now lets get the host alias name. */
          i = 0;
-         while ((*ptr != '@') && (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+         while ((*ptr != '\0') && (*ptr != '/') &&
+                (*ptr != ':') && (*ptr != ';'))
          {
             if (*ptr == '\\')
             {
                ptr++;
             }
-            p_db->password[i] = *ptr;
-            ptr++; i++;
+            p_db->hostname[i] = *ptr;
+            i++; ptr++;
          }
-         if ((i == 0) && (*ptr != '@'))
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Hmmm. How am I suppose to find the hostname?");
-            return(INCORRECT);
-         }
-         if (i == MAX_USER_NAME_LENGTH)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Unable to store password. It is longer than %d Bytes!",
-                       MAX_USER_NAME_LENGTH);
-            return(INCORRECT);
-         }
-         p_db->password[i] = '\0';
-         ptr++;
-      }
-      else if (*ptr == '@')
-           {
-              ptr++;
-
-              /* No password given. This could be a mail or  */
-              /* we want to do anonymous ftp. Since we       */
-              /* currently do not know what protocol we have */
-              /* here lets set the password to 'anonymous'.  */
-              (void)strcpy(p_db->password, "anonymous");
-           }
-           else
-           {
-              system_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Hmmm. How am I suppose to find the hostname?");
-              return(INCORRECT);
-           }
-
-      /* Now lets get the host alias name. */
-      i = 0;
-      while ((*ptr != '\0') && (*ptr != '/') &&
-             (*ptr != ':') && (*ptr != ';'))
-      {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         p_db->hostname[i] = *ptr;
-         i++; ptr++;
-      }
-      p_db->hostname[i] = '\0';
-
-      /*
-       * Find position of this hostname in FSA.
-       */
-      t_hostname(p_db->hostname, p_db->host_alias);
-      if ((p_db->fsa_pos = get_host_position(fsa, p_db->host_alias, no_of_hosts)) < 0)
-      {
-         /*
-          * Uups. What do we do now? Host not in the FSA!
-          * Lets put this message into the faulty directory.
-          * Hmm. Maybe somebody has a better idea?
-          */
-         if (full_msg_path != NULL)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "The message in %s contains a hostname (%s) that is not in the FSA.",
-                       full_msg_path, p_db->host_alias);
-         }
-         else
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to locate host %s in the FSA.",
-                       p_db->host_alias);
-         }
-         return(INCORRECT);
+         p_db->hostname[i] = '\0';
       }
 
       /* Save TCP port number */
@@ -323,15 +346,53 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
                     i = 0;
                     while ((*ptr != '\0') && (*ptr != ' ') && (*ptr != '\t'))
                     {
-                       p_db->smtp_server[i] = *ptr;
+                       p_db->smtp_server[i] = p_db->hostname[i] = *ptr;
                        i++; ptr++;
                     }
                     p_db->smtp_server[i] = '\0';
+                    if (i > 0)
+                    {
+                       p_db->hostname[i] = '\0';
+                    }
                  }
          }
          /*
           * Ignore anything behind the ftp type.
           */
+      }
+
+      /*
+       * Find position of this hostname in FSA.
+       */
+      t_hostname(p_db->hostname, p_db->host_alias);
+      if ((p_db->fsa_pos = get_host_position(fsa, p_db->host_alias, no_of_hosts)) < 0)
+      {
+         /*
+          * Uups. What do we do now? Host not in the FSA!
+          * Lets put this message into the faulty directory.
+          * Hmm. Maybe somebody has a better idea?
+          */
+         if (full_msg_path != NULL)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "The message in %s contains a hostname (%s) that is not in the FSA.",
+                       full_msg_path, p_db->host_alias);
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to locate host %s in the FSA.",
+                       p_db->host_alias);
+         }
+         return(INCORRECT);
+      }
+      else
+      {
+         if (p_db->smtp_server[0] != '\0')
+         {
+            (void)strcpy(p_db->smtp_server,
+                         fsa[p_db->fsa_pos].real_hostname[(int)(fsa[p_db->fsa_pos].host_toggle - 1)]);
+         }
       }
    }
    else

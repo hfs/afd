@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,6 +62,7 @@ DESCR__E_M3
 #include <time.h>                   /* time()                            */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h>               /* struct timeval                    */
 #ifndef _NO_MMAP
 #include <sys/mman.h>               /* mmap(), munmap()                  */
 #endif
@@ -74,7 +75,8 @@ DESCR__E_M3
 
 /* External global variables */
 extern char                       *p_work_dir;
-extern int                        first_time,
+extern int                        afd_status_fd,
+                                  first_time,
                                   sys_log_fd,
                                   fsa_id,
                                   fsa_fd,
@@ -86,17 +88,15 @@ extern off_t                      fsa_size;
 extern struct host_list           *hl;         /* Structure that holds   */
                                                /* all the hosts.         */
 extern struct filetransfer_status *fsa;
-
-/* Global variables */
-struct afd_status                 *p_afd_status; /* Used by attach_afd_status() */
+extern struct afd_status          *p_afd_status;
 
 
 /*############################ create_fsa() #############################*/
 void
 create_fsa(void)
 {
-   int                        i, k,
-                              fd,
+   int                        fsa_id_fd,
+                              i, k,
                               loops,
                               old_fsa_fd = -1,
                               old_fsa_id,
@@ -110,8 +110,7 @@ create_fsa(void)
                               old_fsa_stat[MAX_PATH_LENGTH],
                               *ptr = NULL;
    struct filetransfer_status *old_fsa = NULL;
-   struct flock               wlock = {F_WRLCK, SEEK_SET, 0, 1},
-                              ulock = {F_UNLCK, SEEK_SET, 0, 1};
+   struct flock               wlock = {F_WRLCK, SEEK_SET, 0, 1};
    struct stat                stat_buf;
 
    fsa_size = -1;
@@ -127,14 +126,14 @@ create_fsa(void)
     * First just try open the fsa_id_file. If this fails create
     * the file and initialise old_fsa_id with -1.
     */
-   if ((fd = open(fsa_id_file, O_RDWR)) > -1)
+   if ((fsa_id_fd = open(fsa_id_file, O_RDWR)) > -1)
    {
       /*
        * Lock FSA ID file. If it is already locked
        * (by edit_hc dialog) wait for it to clear the lock
        * again.
        */
-      if (fcntl(fd, F_SETLKW, &wlock) < 0)
+      if (fcntl(fsa_id_fd, F_SETLKW, &wlock) < 0)
       {
          /* Is lock already set or are we setting it again? */
          if ((errno != EACCES) && (errno != EAGAIN))
@@ -147,7 +146,7 @@ create_fsa(void)
       }
 
       /* Read the FSA file ID */
-      if (read(fd, &old_fsa_id, sizeof(int)) < 0)
+      if (read(fsa_id_fd, &old_fsa_id, sizeof(int)) < 0)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Could not read the value of the FSA file ID : %s (%s %d)\n",
@@ -157,7 +156,7 @@ create_fsa(void)
    }
    else
    {
-      if ((fd = open(fsa_id_file, (O_RDWR | O_CREAT),
+      if ((fsa_id_fd = open(fsa_id_file, (O_RDWR | O_CREAT),
                      (S_IRUSR | S_IWUSR))) < 0)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
@@ -176,13 +175,6 @@ create_fsa(void)
     */
    if (first_time == YES)
    {
-      if (attach_afd_status() < 0)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to attach to AFD status shared area. (%s %d)\n",
-                   __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
       if (p_afd_status->start_time > 0)
       {
          first_time = NO;
@@ -191,45 +183,9 @@ create_fsa(void)
       {
          first_time = YES;
       }
-#ifdef _NO_MMAP
-      if (munmap_emu((void *)(p_afd_status)) == -1)
-      {
-         char afd_status_file[MAX_PATH_LENGTH];
-
-         (void)strcpy(afd_status_file, p_work_dir);
-         (void)strcat(afd_status_file, FIFO_DIR);
-         (void)strcat(afd_status_file, STATUS_SHMID_FILE);
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap() %s : %s (%s %d)\n",
-                   afd_status_file, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-#else
-      {
-         char        afd_status_file[MAX_PATH_LENGTH];
-         struct stat stat_buf;
-
-         (void)strcpy(afd_status_file, p_work_dir);
-         (void)strcat(afd_status_file, FIFO_DIR);
-         (void)strcat(afd_status_file, STATUS_SHMID_FILE);
-         if (stat(afd_status_file, &stat_buf) < 0)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to fstat() %s : %s (%s %d)\n",
-                      afd_status_file, strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-
-         if (munmap((void *)(p_afd_status), stat_buf.st_size) == -1)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap() %s : %s (%s %d)\n",
-                      afd_status_file, strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-      }
-#endif /* _NO_MMAP */
    }
+
+   lock_region(afd_status_fd, (char *)&p_afd_status->amg - (char *)p_afd_status);
 
    /*
     * Mark memory mapped region as old, so no process puts
@@ -263,6 +219,29 @@ create_fsa(void)
             }
             else
             {
+               /*
+                * Lock the whole region so all sf_xxx process stop
+                * writting data to the old FSA.
+                */
+               wlock.l_len = stat_buf.st_size;
+               if (fcntl(old_fsa_fd, F_SETLKW, &wlock) < 0)
+               {
+                  /* Is lock already set or are we setting it again? */
+                  if ((errno != EACCES) && (errno != EAGAIN))
+                  {
+                     (void)rec(sys_log_fd, ERROR_SIGN,
+                               "Could not set write lock for %s : %s (%s %d)\n",
+                               old_fsa_stat, strerror(errno),
+                               __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Could not set write lock for %s : %s (%s %d)\n",
+                               old_fsa_stat, strerror(errno),
+                               __FILE__, __LINE__);
+                  }
+               }
 #ifdef _NO_MMAP
                if ((ptr = mmap_emu(0, stat_buf.st_size,
                                    (PROT_READ | PROT_WRITE),
@@ -323,6 +302,106 @@ create_fsa(void)
 
          old_fsa = (struct filetransfer_status *)ptr;
       }
+
+      /*
+       * Inform FD we are about to change the FSA. We need to ensure
+       * that FD gets this message so it does not continue to write stuff
+       * to the FSA and FD must confirm it.
+       */
+      if (p_afd_status->fd == ON)
+      {
+         int            cmd_fd,
+                        reply_fd,
+                        status;
+         char           cmd_fifo[MAX_PATH_LENGTH],
+                        reply_fifo[MAX_PATH_LENGTH];
+         fd_set         rset;
+         struct timeval timeout;
+
+         (void)sprintf(cmd_fifo, "%s%s%s", p_work_dir, FIFO_DIR, FD_CMD_FIFO);
+         if ((stat(cmd_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
+         {
+            if (make_fifo(cmd_fifo) < 0)
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Could not create fifo %s. (%s %d)\n",
+                         cmd_fifo, __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+         }
+         if ((cmd_fd = open(cmd_fifo, O_RDWR)) == -1)
+         {
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Could not open() fifo %s : %s (%s %d)\n",
+                      cmd_fifo, strerror(errno), __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+         (void)sprintf(reply_fifo, "%s%s%s", p_work_dir, FIFO_DIR, FD_READY_FIFO);
+         if ((stat(reply_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
+         {
+            if (make_fifo(reply_fifo) < 0)
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Could not create fifo %s. (%s %d)\n",
+                         reply_fifo, __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+         }
+         if ((reply_fd = open(reply_fifo, O_RDWR)) == -1)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Could not open() fifo %s : %s (%s %d)\n",
+                      reply_fifo, strerror(errno), __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+
+         if ((status = send_cmd(FSA_ABOUT_TO_CHANGE, cmd_fd)) < 0)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to send update command to FD : %s (%s %d)\n",
+                      strerror(-status), __FILE__, __LINE__);
+         }
+         if (close(cmd_fd) == -1)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }
+
+         FD_ZERO(&rset);
+         FD_SET(reply_fd, &rset);
+         timeout.tv_usec = 0L;
+         timeout.tv_sec = FD_REPLY_TIMEOUT;
+         status = select(reply_fd + 1, &rset, NULL, NULL, &timeout);
+         if (status == 0)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "FD timeout (%ds), ignoring. (%s %d)\n",
+                      FD_REPLY_TIMEOUT, __FILE__, __LINE__);
+         }
+         else if ((status > 0) && (FD_ISSET(reply_fd, &rset)))
+              {
+                 char buffer[10];
+
+                 if (read(reply_fd, buffer, 10) == -1)
+                 {
+                    (void)rec(sys_log_fd, WARN_SIGN,
+                              "read() error on %s : %s (%s %d)\n",
+                              FD_READY_FIFO, strerror(errno),
+                              __FILE__, __LINE__);
+                 }
+              }
+              else
+              {
+                 (void)rec(sys_log_fd, WARN_SIGN,
+                           "select() error : %s (%s %d)\n",
+                           strerror(errno), __FILE__, __LINE__);
+              }
+         if (close(reply_fd) == -1)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }
+      } /* if (p_afd_status->fd == ON) */
    }
 
    /*
@@ -416,10 +495,10 @@ create_fsa(void)
        */
       for (i = 0; i < no_of_hosts; i++)
       {
-         (void)strcpy(fsa[i].host_alias, hl[i].host_alias);
-         (void)strcpy(fsa[i].real_hostname[0], hl[i].real_hostname[0]);
-         (void)strcpy(fsa[i].real_hostname[1], hl[i].real_hostname[1]);
-         (void)strcpy(fsa[i].proxy_name, hl[i].proxy_name);
+         (void)memcpy(fsa[i].host_alias, hl[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
+         (void)memcpy(fsa[i].real_hostname[0], hl[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
+         (void)memcpy(fsa[i].real_hostname[1], hl[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
+         (void)memcpy(fsa[i].proxy_name, hl[i].proxy_name, MAX_PROXY_NAME_LENGTH + 1);
          fsa[i].allowed_transfers      = hl[i].allowed_transfers;
          fsa[i].max_errors             = hl[i].max_errors;
          fsa[i].retry_interval         = hl[i].retry_interval;
@@ -459,20 +538,20 @@ create_fsa(void)
          /* Determine the host name to display */
          fsa[i].host_toggle         = DEFAULT_TOGGLE_HOST;
          fsa[i].original_toggle_pos = NONE;
-         (void)strcpy(fsa[i].host_dsp_name, fsa[i].host_alias);
+         (void)memcpy(fsa[i].host_dsp_name, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
          fsa[i].toggle_pos = strlen(fsa[i].host_alias);
          if (hl[i].host_toggle_str[0] == '\0')
          {
             fsa[i].host_toggle_str[0]  = '\0';
             if (fsa[i].real_hostname[0][0] == '\0')
             {
-               (void)strcpy(fsa[i].real_hostname[0], hl[i].fullname);
-               (void)strcpy(hl[i].real_hostname[0], hl[i].fullname);
+               (void)memcpy(fsa[i].real_hostname[0], hl[i].fullname, MAX_REAL_HOSTNAME_LENGTH);
+               (void)memcpy(hl[i].real_hostname[0], hl[i].fullname, MAX_REAL_HOSTNAME_LENGTH);
             }
          }
          else
          {
-            (void)strcpy(fsa[i].host_toggle_str, hl[i].host_toggle_str);
+            (void)memcpy(fsa[i].host_toggle_str, hl[i].host_toggle_str, MAX_TOGGLE_STR_LENGTH);
             if (hl[i].host_toggle_str[0] == AUTO_TOGGLE_OPEN)
             {
                fsa[i].auto_toggle = ON;
@@ -486,7 +565,7 @@ create_fsa(void)
             if (fsa[i].real_hostname[0][0] == '\0')
             {
                (void)strcpy(fsa[i].real_hostname[0], fsa[i].host_dsp_name);
-               (void)strcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0]);
+               (void)memcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
             }
             if (fsa[i].real_hostname[1][0] == '\0')
             {
@@ -499,7 +578,7 @@ create_fsa(void)
                {
                   fsa[i].host_dsp_name[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[HOST_ONE];
                }
-               (void)strcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1]);
+               (void)memcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
             }
          }
          (void)memset(&hl[i].fullname[0], 0, MAX_FILENAME_LENGTH);
@@ -557,10 +636,10 @@ create_fsa(void)
 
       for (i = 0; i < no_of_hosts; i++)
       {
-         (void)strcpy(fsa[i].host_alias, hl[i].host_alias);
-         (void)strcpy(fsa[i].real_hostname[0], hl[i].real_hostname[0]);
-         (void)strcpy(fsa[i].real_hostname[1], hl[i].real_hostname[1]);
-         (void)strcpy(fsa[i].proxy_name, hl[i].proxy_name);
+         (void)memcpy(fsa[i].host_alias, hl[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
+         (void)memcpy(fsa[i].real_hostname[0], hl[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
+         (void)memcpy(fsa[i].real_hostname[1], hl[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
+         (void)memcpy(fsa[i].proxy_name, hl[i].proxy_name, MAX_PROXY_NAME_LENGTH + 1);
          fsa[i].allowed_transfers      = hl[i].allowed_transfers;
          fsa[i].max_errors             = hl[i].max_errors;
          fsa[i].retry_interval         = hl[i].retry_interval;
@@ -583,7 +662,7 @@ create_fsa(void)
          {
             if (gotcha[k] != YES)
             {
-               if (strcmp(old_fsa[k].host_alias, hl[i].host_alias) == 0)
+               if (CHECK_STRCMP(old_fsa[k].host_alias, hl[i].host_alias) == 0)
                {
                   host_pos = k;
                   break;
@@ -602,7 +681,7 @@ create_fsa(void)
              * to always evaluate the host name :-(
              */
             fsa[i].host_toggle = old_fsa[host_pos].host_toggle;
-            (void)strcpy(fsa[i].host_dsp_name, fsa[i].host_alias);
+            (void)memcpy(fsa[i].host_dsp_name, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
             fsa[i].toggle_pos = strlen(fsa[i].host_alias);
             if (hl[i].host_toggle_str[0] == '\0')
             {
@@ -610,13 +689,13 @@ create_fsa(void)
                fsa[i].original_toggle_pos = NONE;
                if (fsa[i].real_hostname[0][0] == '\0')
                {
-                  (void)strcpy(fsa[i].real_hostname[0], hl[i].fullname);
-                  (void)strcpy(hl[i].real_hostname[0], hl[i].fullname);
+                  (void)memcpy(fsa[i].real_hostname[0], hl[i].fullname, MAX_REAL_HOSTNAME_LENGTH);
+                  (void)memcpy(hl[i].real_hostname[0], hl[i].fullname, MAX_REAL_HOSTNAME_LENGTH);
                }
             }
             else
             {
-               (void)strcpy(fsa[i].host_toggle_str, hl[i].host_toggle_str);
+               (void)memcpy(fsa[i].host_toggle_str, hl[i].host_toggle_str, MAX_TOGGLE_STR_LENGTH);
                if (hl[i].host_toggle_str[0] == AUTO_TOGGLE_OPEN)
                {
                   fsa[i].auto_toggle = ON;
@@ -640,7 +719,7 @@ create_fsa(void)
                if (fsa[i].real_hostname[0][0] == '\0')
                {
                   (void)strcpy(fsa[i].real_hostname[0], fsa[i].host_dsp_name);
-                  (void)strcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0]);
+                  (void)memcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
                }
                if (fsa[i].real_hostname[1][0] == '\0')
                {
@@ -653,20 +732,20 @@ create_fsa(void)
                   {
                      fsa[i].host_dsp_name[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[HOST_ONE];
                   }
-                  (void)strcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1]);
+                  (void)memcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
                }
             }
             (void)memset(&hl[i].fullname[0], 0, MAX_FILENAME_LENGTH);
 
             if (fsa[i].real_hostname[0][0] == '\0')
             {
-               (void)strcpy(fsa[i].real_hostname[0], old_fsa[host_pos].real_hostname[0]);
-               (void)strcpy(hl[i].real_hostname[0], old_fsa[host_pos].real_hostname[0]);
+               (void)memcpy(fsa[i].real_hostname[0], old_fsa[host_pos].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
+               (void)memcpy(hl[i].real_hostname[0], old_fsa[host_pos].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
             }
             if (fsa[i].real_hostname[1][0] == '\0')
             {
-               (void)strcpy(fsa[i].real_hostname[1], old_fsa[host_pos].real_hostname[1]);
-               (void)strcpy(hl[i].real_hostname[1], old_fsa[host_pos].real_hostname[1]);
+               (void)memcpy(fsa[i].real_hostname[1], old_fsa[host_pos].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
+               (void)memcpy(hl[i].real_hostname[1], old_fsa[host_pos].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
             }
             fsa[i].host_status         = old_fsa[host_pos].host_status;
             fsa[i].error_counter       = old_fsa[host_pos].error_counter;
@@ -696,20 +775,20 @@ create_fsa(void)
          {
             fsa[i].host_toggle         = DEFAULT_TOGGLE_HOST;
             fsa[i].original_toggle_pos = NONE;
-            (void)strcpy(fsa[i].host_dsp_name, fsa[i].host_alias);
+            (void)memcpy(fsa[i].host_dsp_name, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
             fsa[i].toggle_pos = strlen(fsa[i].host_alias);
             if (hl[i].host_toggle_str[0] == '\0')
             {
                fsa[i].host_toggle_str[0]  = '\0';
                if (fsa[i].real_hostname[0][0] == '\0')
                {
-                  (void)strcpy(fsa[i].real_hostname[0], hl[i].fullname);
-                  (void)strcpy(hl[i].real_hostname[0], hl[i].fullname);
+                  (void)memcpy(fsa[i].real_hostname[0], hl[i].fullname, MAX_REAL_HOSTNAME_LENGTH);
+                  (void)memcpy(hl[i].real_hostname[0], hl[i].fullname, MAX_REAL_HOSTNAME_LENGTH);
                }
             }
             else
             {
-               (void)strcpy(fsa[i].host_toggle_str, hl[i].host_toggle_str);
+               (void)memcpy(fsa[i].host_toggle_str, hl[i].host_toggle_str, MAX_TOGGLE_STR_LENGTH);
                if (hl[i].host_toggle_str[0] == AUTO_TOGGLE_OPEN)
                {
                   fsa[i].auto_toggle = ON;
@@ -723,7 +802,7 @@ create_fsa(void)
                if (fsa[i].real_hostname[0][0] == '\0')
                {
                   (void)strcpy(fsa[i].real_hostname[0], fsa[i].host_dsp_name);
-                  (void)strcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0]);
+                  (void)memcpy(hl[i].real_hostname[0], fsa[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
                }
                if (fsa[i].real_hostname[1][0] == '\0')
                {
@@ -736,7 +815,7 @@ create_fsa(void)
                   {
                      fsa[i].host_dsp_name[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[HOST_ONE];
                   }
-                  (void)strcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1]);
+                  (void)memcpy(hl[i].real_hostname[1], fsa[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
                }
             }
             (void)memset(&hl[i].fullname[0], 0, MAX_FILENAME_LENGTH);
@@ -998,10 +1077,10 @@ create_fsa(void)
                      }
 
                      /* Insert 'new' old host in host_list structure. */
-                     (void)strcpy(hl[j].host_alias, fsa[j].host_alias);
-                     (void)strcpy(hl[j].real_hostname[0], fsa[j].real_hostname[0]);
-                     (void)strcpy(hl[j].real_hostname[1], fsa[j].real_hostname[1]);
-                     (void)strcpy(hl[j].proxy_name, fsa[j].proxy_name);
+                     (void)memcpy(hl[j].host_alias, fsa[j].host_alias, MAX_HOSTNAME_LENGTH + 1);
+                     (void)memcpy(hl[j].real_hostname[0], fsa[j].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
+                     (void)memcpy(hl[j].real_hostname[1], fsa[j].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
+                     (void)memcpy(hl[j].proxy_name, fsa[j].proxy_name, MAX_PROXY_NAME_LENGTH + 1);
                      (void)memset(&hl[j].fullname[0], 0, MAX_FILENAME_LENGTH);
                      hl[j].allowed_transfers   = fsa[j].allowed_transfers;
                      hl[j].max_errors          = fsa[j].max_errors;
@@ -1120,7 +1199,7 @@ create_fsa(void)
     * and close the file.
     */
    /* Go to beginning in file */
-   if (lseek(fd, 0, SEEK_SET) < 0)
+   if (lseek(fsa_id_fd, 0, SEEK_SET) < 0)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,
                 "Could not seek() to beginning of %s : %s (%s %d)\n",
@@ -1128,7 +1207,7 @@ create_fsa(void)
    }
 
    /* Write new value into FSA_ID_FILE file */
-   if (write(fd, &fsa_id, sizeof(int)) != sizeof(int))
+   if (write(fsa_id_fd, &fsa_id, sizeof(int)) != sizeof(int))
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not write value to FSA ID file : %s (%s %d)\n",
@@ -1136,17 +1215,8 @@ create_fsa(void)
       exit(INCORRECT);
    }
 
-   /* Unlock file which holds the fsa_id */
-   if (fcntl(fd, F_SETLKW, &ulock) < 0)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not unset write lock : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   /* Close the FSA ID file */
-   if (close(fd) == -1)
+   /* Close and unlock FSA_ID_FILE */
+   if (close(fsa_id_fd) == -1)
    {
       (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);

@@ -112,12 +112,12 @@ int
 main(int argc, char *argv[])
 {
    int                length,
-                      peer_addrlen,
                       pos,
                       port,
                       ports_tried = 0,
                       on = 1,
                       status;
+   my_socklen_t       peer_addrlen;
    char               *ptr,
                       port_no[MAX_INT_LENGTH],
                       reply[256],
@@ -233,7 +233,7 @@ main(int argc, char *argv[])
    host_config_counter = (int)*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET + sizeof(int));
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to map to AFD status area. (%s %d)\n",
@@ -502,7 +502,7 @@ get_afd_config_value(char *port_no)
 
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   if ((access(config_file, F_OK) == 0) &&
+   if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       char *ptr = buffer,
@@ -627,7 +627,7 @@ afdd_exit(void)
       (void)rec(sys_log_fd, INFO_SIGN, "Stopped %s.\n", AFDD);
    }
 
-   if (fsa_detach() == INCORRECT)
+   if (fsa_detach(NO) == INCORRECT)
    {
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Failed to detach from FSA. (%s %d)\n",

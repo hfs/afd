@@ -1,7 +1,8 @@
 MMAP_FLAG       =
 AR              = ar
 ARFLAGS         = rsv
-BINMODE         = 4755
+BINMODE         = 755
+SUIDMODE        = 4755
 SBINMODE        = 700
 MAKE            = make
 FORKMAKEFLAG    = 

@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,6 +85,7 @@ extern int              file_name_toggle_set,
                         gt_lt_sign,
                         special_button_flag,
                         file_name_length,
+                        max_delete_log_files,
                         no_of_log_files,
                         no_of_search_hosts;
 extern size_t           search_file_size;
@@ -527,7 +528,7 @@ get_data(void)
 
    /* Prepare log file name. */
    p_log_file = log_file;
-   no_of_log_files = MAX_DELETE_LOG_FILES;
+   no_of_log_files = max_delete_log_files;
    p_log_file += sprintf(log_file, "%s%s/%s", p_work_dir, LOG_DIR,
                          DELETE_BUFFER_FILE);
 

@@ -216,7 +216,7 @@ check_old_time_jobs(int no_of_jobs)
                                  gotcha = NO;
                                  for (j = 0; j < jd[jid_pos].no_of_files; j++)
                                  {
-                                    if (strcmp(p_file_jd, p_file_db) != 0)
+                                    if (CHECK_STRCMP(p_file_jd, p_file_db) != 0)
                                     {
                                        gotcha = YES;
                                        break;
@@ -226,7 +226,7 @@ check_old_time_jobs(int no_of_jobs)
                                  }
                                  if (gotcha == NO)
                                  {
-                                    if (strcmp(jd[jid_pos].recipient, db[i].recipient) == 0)
+                                    if (CHECK_STRCMP(jd[jid_pos].recipient, db[i].recipient) == 0)
                                     {
 #ifdef _STRONG_OPTION_CHECK
                                        if (jd[jid_pos].no_of_loptions == db[i].no_of_loptions)
@@ -236,7 +236,7 @@ check_old_time_jobs(int no_of_jobs)
 
                                           for (j = 0; j < jd[jid_pos].no_of_loptions; j++)
                                           {
-                                             if ((strcmp(p_loptions_jd, p_loptions_db) != 0) &&
+                                             if ((CHECK_STRCMP(p_loptions_jd, p_loptions_db) != 0) &&
                                                  (strncmp(p_loptions_jd, TIME_ID, TIME_ID_LENGTH) != 0))
                                              {
                                                 gotcha = YES;
@@ -251,7 +251,7 @@ check_old_time_jobs(int no_of_jobs)
                                              {
                                                 if (jd[jid_pos].no_of_soptions > 0)
                                                 {
-                                                   if (strcmp(jd[jid_pos].soptions, db[i].soptions) != 0)
+                                                   if (CHECK_STRCMP(jd[jid_pos].soptions, db[i].soptions) != 0)
                                                    {
                                                       gotcha = YES;
                                                    }

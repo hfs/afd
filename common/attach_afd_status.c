@@ -25,7 +25,7 @@ DESCR__S_M3
  **   attach_afd_status - attaches to the AFD status area
  **
  ** SYNOPSIS
- **   int attach_afd_status(void)
+ **   int attach_afd_status(int *afd_status_fd)
  **
  ** DESCRIPTION
  **   The function attach_afd_status() reads the shared memory ID
@@ -65,7 +65,7 @@ extern struct afd_status *p_afd_status;
 
 /*######################### attach_afd_status() #########################*/
 int
-attach_afd_status(void)
+attach_afd_status(int *afd_status_fd)
 {
    int         fd,
                loop_counter;
@@ -110,10 +110,17 @@ attach_afd_status(void)
       (void)close(fd);
       return(INCORRECT);
    }
-   if (close(fd) == -1)
+   if (afd_status_fd == NULL)
    {
-      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "close() error : %s", strerror(errno));
+      if (close(fd) == -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
+      }
+   }
+   else
+   {
+      *afd_status_fd = fd;
    }
    p_afd_status = (struct afd_status *)ptr;
 

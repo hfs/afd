@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,6 @@
 #define TIME_JOB_STEP_SIZE         1
 #define JOB_ID_FILE                "/jid_number"
 #define DIR_ID_FILE                "/did_number"
-#define INSTANT_DB_FILE            "/instant_db"
 
 /* Definitions of identifiers in options */
 #define TIME_NO_COLLECT_ID         "time no collect"
@@ -162,6 +161,8 @@
                                               /* (ITT, OOT or IT) before */
                                               /* it receives a timeout   */
                                               /* error.                  */
+                                              /* NOTE: Must be larger    */
+                                              /*       than 5!           */
 
 #define MESSAGE_BUF_FILE           "/tmp_msg_buffer"
 #define MESSAGE_BUF_STEP_SIZE      500
@@ -445,14 +446,13 @@ extern int    amg_zombie_check(pid_t *, int),
               in_time(time_t, struct bd_time_entry *),
               lookup_dir_no(char *, int *),
               lookup_fra_pos(char *),
-              map_instant_db(size_t),
               rename_files(char *, char *, int, struct instant_db *, time_t *,
                            unsigned short *, char *, off_t *);
 extern pid_t  make_process_amg(char *, char *, int, int, int, int);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *),
-              *get_hostname(char *),
               *next(char *);
 extern void   check_old_time_jobs(int),
+              clear_error_dir(void),
               clear_msg_buffer(void),
               clear_pool_dir(void),
               create_fsa(void),
@@ -481,9 +481,7 @@ extern void   check_old_time_jobs(int),
               search_old_files(time_t),
               send_message(char *, char *, unsigned short, time_t,
                            int, int, off_t),
+              show_shm(FILE *),
               sort_time_job(void),
               store_file_mask(char *, struct dir_group *);
-#ifdef _DEBUG
-extern void   show_shm(FILE *);
-#endif
 #endif /* __amgdefs_h */

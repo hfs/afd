@@ -822,9 +822,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                {
                   ptr_start = ptr;
                   i = 0;
-                  while ((*ptr != '\0') &&
-                         (*ptr != '@') &&
-                         (*ptr != ','))
+                  while ((*ptr != '\0') && (*ptr != '@') && (*ptr != ','))
                   {
                      if (*ptr == '\\')
                      {
@@ -835,17 +833,37 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                   }
                   if (*ptr == '@')
                   {
-                     ptr++;
-                     search_user[ii][i] = '\0';
-                     ptr_start = ptr;;
-                     while ((*ptr != '\0') &&
-                            (*ptr != ','))
+                     int tmp_i = i;
+
+                     search_user[ii][i] = *ptr;
+                     ptr++; i++;
+                     ptr_start = ptr;
+                     while ((*ptr != '\0') && (*ptr != '@') && (*ptr != ','))
                      {
                         if (*ptr == '\\')
                         {
                            ptr++;
                         }
+                        search_user[ii][i] = *ptr;
+                        ptr++; i++;
+                     }
+                     if (*ptr == '@')
+                     {
                         ptr++;
+                        search_user[ii][i] = '\0';
+                        ptr_start = ptr;
+                        while ((*ptr != '\0') && (*ptr != ','))
+                        {
+                           if (*ptr == '\\')
+                           {
+                              ptr++;
+                           }
+                           ptr++;
+                        }
+                     }
+                     else
+                     {
+                        search_user[ii][tmp_i] = '\0';
                      }
                   }
                   else
@@ -993,8 +1011,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    time_t time_val;
    char   str[3];
 
-   (void)time(&time_val);
-
+   time_val = time(NULL);
    switch (length)
    {
       case 0 : /* Assume user means current time */
@@ -1199,8 +1216,11 @@ eval_time(char *numeric_str, Widget w, time_t *value)
            bd_time->tm_min  = min;
            bd_time->tm_hour = hour;
            bd_time->tm_mday = day;
+           if ((bd_time->tm_mon == 0) && (month == 12))
+           {
+              bd_time->tm_year -= 1;
+           }
            bd_time->tm_mon  = month - 1;
-           bd_time->tm_isdst = 0;
 
            *value = mktime(bd_time);
         }

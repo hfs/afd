@@ -56,7 +56,7 @@ remove_passwd(char *url)
       ptr++;
    }
    ptr++;
-   while ((*ptr != ':') && (*ptr != '@'))
+   while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
    {
       if (*ptr == '\\')
       {

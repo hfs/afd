@@ -64,7 +64,7 @@ DESCR__E_M1
 #include <sys/time.h>         /* struct timeval, FD_SET...               */
 #include <signal.h>           /* kill()                                  */
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
-#include <unistd.h>           /* execlp(), chdir(), access(), R_OK, X_OK */
+#include <unistd.h>           /* execlp(), chdir(), R_OK, X_OK           */
 #include <errno.h>
 #include "mondefs.h"
 #include "version.h"
@@ -673,7 +673,7 @@ check_database(void)
    (void)sprintf(db_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_MON_CONFIG_FILE);
 
-   return(access(db_file, R_OK));
+   return(eaccess(db_file, R_OK));
 }
 
 

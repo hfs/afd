@@ -618,7 +618,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    his_log_set = DEFAULT_NO_OF_HISTORY_LOGS;
-   read_setup("mon_ctrl", NULL, &his_log_set);
+   read_setup(MON_CTRL, NULL, &his_log_set);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
@@ -724,7 +724,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
 
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, MON_CONFIG_FILE);
-   if ((access(config_file, F_OK) == 0) &&
+   if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       int  str_length;

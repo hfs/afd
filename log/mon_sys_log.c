@@ -1,6 +1,6 @@
 /*
  *  mon_sys_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,6 +74,7 @@ main(int argc, char *argv[])
 {
    int         log_number = 0,
                log_stat = START,
+               max_mon_sys_log_files = MAX_MON_SYS_LOG_FILES,
                mon_sys_log_fd;
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
@@ -113,8 +114,12 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_mon_sys_log_files, MAX_MON_SYS_LOG_FILES_DEF,
+                      MAX_MON_SYS_LOG_FILES);
+
    get_log_number(&log_number,
-                  (MAX_MON_SYS_LOG_FILES - 1),
+                  (max_mon_sys_log_files - 1),
                   MON_SYS_LOG_NAME,
                   strlen(MON_SYS_LOG_NAME));
    (void)sprintf(current_log_file, "%s%s/%s0", p_work_dir, LOG_DIR,
@@ -133,7 +138,7 @@ main(int argc, char *argv[])
       {
          if (stat_buf.st_size > MAX_LOGFILE_SIZE)
          {
-            if (log_number < (MAX_MON_SYS_LOG_FILES - 1))
+            if (log_number < (max_mon_sys_log_files - 1))
             {
                log_number++;
             }

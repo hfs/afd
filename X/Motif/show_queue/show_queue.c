@@ -611,7 +611,7 @@ main(int argc, char *argv[])
    toggle_w = XtVaCreateManagedWidget("Input",
                                 xmToggleButtonGadgetClass, togglebox_w,
                                 XmNfontList,               fontlist,
-                                XmNset,                    False,
+                                XmNset,                    True,
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_INPUT);
@@ -624,7 +624,7 @@ main(int argc, char *argv[])
                  (XtCallbackProc)toggled, (XtPointer)SHOW_UNSENT_INPUT);
    XtManageChild(togglebox_w);
 
-   toggles_set = SHOW_OUTPUT;
+   toggles_set = SHOW_OUTPUT | SHOW_INPUT;
 
 /*-----------------------------------------------------------------------*/
 /*                          Vertical Separator                           */

@@ -1,6 +1,6 @@
 /*
  *  config.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -258,26 +258,8 @@
  *                         example want to create a new log file every
  *                         day then use 86400. Or you want to do it
  *                         once a week then you have to put 604800 here.
- * MAX_INPUT_LOG_FILES   - The number of log files that should be kept
- *                         for input logging. If it is set to 10 and
- *                         SWITCH_FILE_TIME is 86400 (i.e. one day), you
- *                         will store the input log for 10 days.
- * MAX_OUTPUT_LOG_FILES  - The number of log files that should be kept
- *                         for output logging. If it is set to 10 and
- *                         SWITCH_FILE_TIME is 86400 (i.e. one day), you
- *                         will store the output log for 10 days.
- * MAX_DELETE_LOG_FILES  - Same as above only for the delete log.
  *-----------------------------------------------------------------------*/
 #define SWITCH_FILE_TIME       86400
-#ifdef _INPUT_LOG
-#define MAX_INPUT_LOG_FILES    7
-#endif
-#ifdef _OUTPUT_LOG
-#define MAX_OUTPUT_LOG_FILES   7
-#endif
-#ifdef _DELETE_LOG
-#define MAX_DELETE_LOG_FILES   7
-#endif
 
 /*-----------------------------------------------------------------------*
  * The following definitions are used to control the length and interval
@@ -399,6 +381,13 @@
  * DEFAULT: 0
  *-----------------------------------------------------------------------*/
 #define DEFAULT_ARCHIVE_TIME 0
+
+/*-----------------------------------------------------------------------*
+ * The number of seconds that AMG waits for a reply from FD, when AMG
+ * informs FD that it is about to change the FSA.
+ * DEFAULT: 20
+ *-----------------------------------------------------------------------*/
+#define FD_REPLY_TIMEOUT 20
 
 
 

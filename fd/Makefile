@@ -4,17 +4,16 @@
 
 include ../Include.mk
 
-INSTDIR    = ../../bin
+INSTDIR    = ../..
 LIB        = ../common/libafd.a
 PROTOLIB   = ../protocols/libprotocols.a
 MISCLIB    = ../misc/libmisc.a
-CFLAGS     = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../amg -I../misc -I../protocols
+CFLAGS     = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../amg -I../misc -I../protocols -I../log
 
 FDPROG     = fd
 FDOBJS     = check_file_dir.o\
              check_fra_fd.o\
              check_fsa_entries.o\
-             check_job_name.o\
              check_msg_time.o\
              check_queue_space.o\
              fd.o\
@@ -38,6 +37,7 @@ SFFTPOBJS  = append.o\
              eval_recipient.o\
              eval_message.o\
              get_file_names.o\
+             get_group_list.o\
              handle_proxy.o\
              init_sf.o\
              init_sf_burst2.o\
@@ -55,6 +55,7 @@ SFSMTPOBJS = append.o\
              eval_message.o\
              eval_recipient.o\
              get_file_names.o\
+             get_group_list.o\
              init_sf.o\
              output_log_ptrs.o\
              reset_fsa.o\
@@ -70,6 +71,7 @@ SFSCP1OBJS = append.o\
              eval_recipient.o\
              eval_message.o\
              get_file_names.o\
+             get_group_list.o\
              init_sf.o\
              output_log_ptrs.o\
              reset_fsa.o\
@@ -85,6 +87,7 @@ SFWMOOBJS  = append.o\
              eval_message.o\
              eval_recipient.o\
              get_file_names.o\
+             get_group_list.o\
              init_sf.o\
              next_wmo_counter.o\
              output_log_ptrs.o\
@@ -101,6 +104,7 @@ SFMAPOBJS  = append.o\
              eval_message.o\
              eval_recipient.o\
              get_file_names.o\
+             get_group_list.o\
              init_sf.o\
              output_log_ptrs.o\
              reset_fsa.o\
@@ -116,6 +120,7 @@ SFLOCOBJS  = append.o\
              eval_message.o\
              eval_recipient.o\
              get_file_names.o\
+             get_group_list.o\
              init_sf.o\
              init_sf_burst2.o\
              output_log_ptrs.o\
@@ -128,6 +133,7 @@ SFLOCOBJS  = append.o\
 GFFTPPROG  = gf_ftp
 GFFTPOBJS  = eval_input_gf.o\
              eval_recipient.o\
+             get_group_list.o\
              get_remote_file_names.o\
              gf_ftp.o\
              handle_proxy.o\
@@ -185,12 +191,17 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	cd $(INSTDIR) && chmod $(BINMODE) $(PROGS)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	cd $(INSTDIR)/bin && chmod $(BINMODE) $(PROGS)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 fd.o sf_ftp.o sf_loc.o sf_smtp.o sf_map.o sf_wmo.o gf_ftp.o : ../version.h
+fd.o : ../log/logdefs.h
 sf_ftp.o init_sf.o init_gf.o eval_message.o : ../protocols/ftpdefs.h
 sf_ftp.o : ../misc/eumetsat_header_defs.h
 sf_scp1.o init_sf.o eval_message.o : ../protocols/scp1defs.h

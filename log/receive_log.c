@@ -72,6 +72,7 @@ main(int argc, char *argv[])
                   n,
                   count,
                   length,
+                  max_receive_log_files = MAX_RECEIVE_LOG_FILES,
                   no_of_buffered_writes = 0,
                   prev_length = 0,
                   log_pos,
@@ -163,9 +164,12 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_receive_log_files, MAX_RECEIVE_LOG_FILES_DEF,
+                      MAX_RECEIVE_LOG_FILES);
 
    /* Attach to the AFD Status Area and position pointers. */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to attach to AFD status shared memory area.");
@@ -188,7 +192,7 @@ main(int argc, char *argv[])
     * create it.
     */
    get_log_number(&log_number,
-                  (MAX_RECEIVE_LOG_FILES - 1),
+                  (max_receive_log_files - 1),
                   RECEIVE_LOG_NAME,
                   strlen(RECEIVE_LOG_NAME));
    (void)sprintf(current_log_file, "%s%s/%s0",
@@ -210,7 +214,7 @@ main(int argc, char *argv[])
    {
       if (stat_buf.st_mtime < (next_file_time - SWITCH_FILE_TIME))
       {
-         if (log_number < (MAX_RECEIVE_LOG_FILES - 1))
+         if (log_number < (max_receive_log_files - 1))
          {
             log_number++;
          }
@@ -252,7 +256,7 @@ main(int argc, char *argv[])
          /* Check if we have to create a new log file. */
          if (time(&now) > next_file_time)
          {
-            if (log_number < (MAX_RECEIVE_LOG_FILES - 1))
+            if (log_number < (max_receive_log_files - 1))
             {
                log_number++;
             }
@@ -430,7 +434,7 @@ main(int argc, char *argv[])
                */
               if (now > next_file_time)
               {
-                 if (log_number < (MAX_RECEIVE_LOG_FILES - 1))
+                 if (log_number < (max_receive_log_files - 1))
                  {
                     log_number++;
                  }

@@ -197,7 +197,7 @@ check_files(struct directory_entry *p_de,
              ((stat_buf.st_gid == afd_gid) && (stat_buf.st_mode & S_IRGRP)) ||
              ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR))))
 #else
-             (access(fullname, R_OK) == 0))
+             (eaccess(fullname, R_OK) == 0))
 #endif
          {
             if ((fra[p_de->fra_pos].end_character == -1) ||
@@ -379,7 +379,7 @@ check_files(struct directory_entry *p_de,
              ((stat_buf.st_gid == afd_gid) && (stat_buf.st_mode & S_IRGRP)) ||
              ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR))))
 #else
-             (access(fullname, R_OK) == 0))
+             (eaccess(fullname, R_OK) == 0))
 #endif
          {
             /* Filter out only those files we need for this directory */

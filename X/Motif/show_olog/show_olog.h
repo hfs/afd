@@ -1,6 +1,6 @@
 /*
  *  show_olog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -176,6 +176,7 @@ struct info_data
 #endif
           char               recipient[MAX_RECIPIENT_LENGTH];
           char               user[MAX_RECIPIENT_LENGTH];
+          char               mail_destination[MAX_RECIPIENT_LENGTH];
           char               local_file_name[MAX_FILENAME_LENGTH];
           char               remote_file_name[MAX_FILENAME_LENGTH];
           char               dir[MAX_PATH_LENGTH];

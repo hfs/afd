@@ -54,6 +54,8 @@ DESCR__E_M3
 #include <string.h>          /* strcpy(), strcat(), strerror(), memcpy() */
 #include <stdlib.h>          /* exit()                                   */
 #include <unistd.h>          /* write()                                  */
+#include <sys/types.h>
+#include <sys/stat.h>
 #ifdef _WITH_PTHREAD                                                            
 #include <pthread.h>                                                            
 #endif                                                                          
@@ -66,6 +68,7 @@ extern int                        fsa_fd,
                                   msg_fifo_fd,
                                   *no_msg_buffered,
                                   sys_log_fd;
+extern char                       *p_work_dir;
 extern size_t                     msg_fifo_buf_size;
 extern struct filetransfer_status *fsa;
 extern struct afd_status          *p_afd_status;

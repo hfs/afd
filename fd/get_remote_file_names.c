@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -116,8 +116,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
    {
       if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
       {
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                      "Send NLST command.");
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, "Send NLST command.");
       }
    }
 
@@ -450,17 +449,31 @@ check_list(char *file, off_t *file_size_to_retrieve)
                      (void)memcpy(rl[i].date, date_str, MAX_FTP_DATE_LENGTH);
                      rl[i].retrieved = NO;
                   }
+                  if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+                  {
+                     trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Date for %s is %s.", file, date_str);
+                  }
                }
-               else if (timeout_flag == ON)
-                    {
-                       /* We have lost connection. */
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                 "Failed to get date of file %s.", file);
-                       (void)ftp_quit();
-                       exit(DATE_ERROR);
-                    }
                else if ((status == 500) || (status == 502))
                     {
+                       check_date = NO;
+                       if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+                       {
+                          trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                       "Date command MDTM not supported [%d]",
+                                       status);
+                       }
+                    }
+                    else
+                    {
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                                 "Failed to get date of file %s.", file);
+                       if (timeout_flag == ON)
+                       {
+                          (void)ftp_quit();
+                          exit(DATE_ERROR);
+                       }
                        check_date = NO;
                     }
             }
@@ -477,17 +490,31 @@ check_list(char *file, off_t *file_size_to_retrieve)
                      rl[i].size = size;
                      rl[i].retrieved = NO;
                   }
+                  if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+                  {
+                     trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Size for %s is %d.", file, size);
+                  }
                }
-               else if (timeout_flag == ON)
-                    {
-                       /* We have lost connection. */
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                 "Failed to get date of file %s.", file);
-                       (void)ftp_quit();
-                       exit(SIZE_ERROR);
-                    }
                else if ((status == 500) || (status == 502))
                     {
+                       check_size = NO;
+                       if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+                       {
+                          trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                       "Size command SIZE not supported [%d]",
+                                       status);
+                       }
+                    }
+                    else
+                    {
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                                 "Failed to get size of file %s.", file);
+                       if (timeout_flag == ON)
+                       {
+                          (void)ftp_quit();
+                          exit(DATE_ERROR);
+                       }
                        check_size = NO;
                     }
             }
@@ -540,23 +567,34 @@ check_list(char *file, off_t *file_size_to_retrieve)
          if ((status = ftp_date(file, date_str)) == SUCCESS)
          {
             (void)memcpy(rl[*no_of_listed_files].date, date_str, MAX_FTP_DATE_LENGTH);
+            if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+            {
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                            "Date for %s is %s.", file, date_str);
+            }
          }
-         else if (timeout_flag == ON)
-              {
-                 /* We have lost connection. */
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Failed to get date of file %s.", file);
-                 (void)ftp_quit();
-                 exit(INCORRECT);
-              }
          else if ((status == 500) || (status == 502))
               {
                  check_date = NO;
                  rl[*no_of_listed_files].date[0] = '\0';
+                 if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+                 {
+                    trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                 "Date command MDTM not supported [%d]",
+                                 status);
+                 }
               }
               else
               {
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                           "Failed to get date of file %s.", file);
+                 if (timeout_flag == ON)
+                 {
+                    (void)ftp_quit();
+                    exit(DATE_ERROR);
+                 }
                  rl[*no_of_listed_files].date[0] = '\0';
+                 check_date = NO;
               }
       }
       else
@@ -576,23 +614,33 @@ check_list(char *file, off_t *file_size_to_retrieve)
       {
          rl[*no_of_listed_files].size = size;
          *file_size_to_retrieve += size;
+         if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+         {
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                         "Size for %s is %d.", file, size);
+         }
       }
-      else if (timeout_flag == ON)
-           {
-              /* We have lost connection. */
-              trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to get date of file %s.", file);
-              (void)ftp_quit();
-              exit(INCORRECT);
-           }
       else if ((status == 500) || (status == 502))
            {
               check_size = NO;
               rl[*no_of_listed_files].size = -1;
+              if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
+              {
+                 trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                              "Size command SIZE not supported [%d]", status);
+              }
            }
            else
            {
+              trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "Failed to get size of file %s.", file);
+              if (timeout_flag == ON)
+              {
+                 (void)ftp_quit();
+                 exit(DATE_ERROR);
+              }
               rl[*no_of_listed_files].size = -1;
+              check_size = NO;
            }
    }
    else

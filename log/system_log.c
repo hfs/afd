@@ -1,7 +1,7 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996, 1997 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,7 +75,8 @@ int
 main(int argc, char *argv[])
 {
    int         log_number = 0,
-               log_stat = START;
+               log_stat = START,
+               max_system_log_files = MAX_SYSTEM_LOG_FILES;
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
                log_file[MAX_PATH_LENGTH],
@@ -117,8 +118,12 @@ main(int argc, char *argv[])
       }
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_system_log_files, MAX_SYSTEM_LOG_FILES_DEF,
+                      MAX_SYSTEM_LOG_FILES);
+
    /* Attach to the AFD Status Area */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr,
                     "Failed to attach to AFD status shared memory area. (%s %d)\n",
@@ -136,7 +141,7 @@ main(int argc, char *argv[])
    p_log_counter = (unsigned int *)&p_afd_status->sys_log_ec;
    p_log_fifo = &p_afd_status->sys_log_fifo[0];
    p_log_his = &p_afd_status->sys_log_history[0];
-   get_log_number(&log_number, (MAX_SYSTEM_LOG_FILES - 1),
+   get_log_number(&log_number, (max_system_log_files - 1),
                   SYSTEM_LOG_NAME, strlen(SYSTEM_LOG_NAME));
    (void)sprintf(current_log_file, "%s%s/%s0",
                  p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
@@ -156,7 +161,7 @@ main(int argc, char *argv[])
          /* because the current one is large enough. */
          if (stat_buf.st_size > MAX_LOGFILE_SIZE)
          {
-            if (log_number < (MAX_SYSTEM_LOG_FILES - 1))
+            if (log_number < (max_system_log_files - 1))
             {
                log_number++;
             }

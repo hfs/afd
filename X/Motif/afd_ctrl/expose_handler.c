@@ -78,7 +78,7 @@ extern int                     ft_exposure_tv_line,
                                no_of_hosts,
                                no_of_jobs_selected,
                                window_height,
-                               line_length,
+                               *line_length,
                                tv_line_length,
                                line_height,
                                no_of_columns,
@@ -133,14 +133,27 @@ expose_handler_line(Widget                      w,
    int        i,
               top_line,
               bottom_line,
-              left_column,
+              left_column = 0,
               top_row,
               bottom_row,
-              right_column;
+              right_column = 0;
    static int ft_exposure_line = 0; /* first time exposure line */
 
    /* Get the channel no's, which have to be redrawn */
-   left_column = p_event->xexpose.x / line_length;
+   if (p_event->xexpose.x == 0)
+   {
+      left_column = 0;
+   }
+   else
+   {
+      i = p_event->xexpose.x;
+      do
+      {
+         i -= line_length[left_column];
+         left_column++;
+      } while ((i > 0) && (left_column < no_of_columns));
+      left_column--;
+   }
    top_row = p_event->xexpose.y / line_height;
    bottom_row = (p_event->xexpose.y  + p_event->xexpose.height) /
                  line_height;
@@ -148,16 +161,21 @@ expose_handler_line(Widget                      w,
    {
       bottom_row--;
    }
-   right_column = (p_event->xexpose.x  + p_event->xexpose.width) /
-                   line_length;
+   i = p_event->xexpose.x + p_event->xexpose.width;
+   do
+   {
+      i -= line_length[right_column];
+      right_column++;
+   } while ((i > 0) && (right_column < no_of_columns));
+   right_column--;
    if (right_column >= no_of_columns)
    {
       right_column--;
    }
 
 #ifdef _DEBUG
-   (void)printf("xexpose.x   = %d    xexpose.width= %d   line_length = %d\n",
-                 p_event->xexpose.x, p_event->xexpose.width, line_length);
+   (void)printf("xexpose.x   = %d    xexpose.width= %d\n",
+                 p_event->xexpose.x, p_event->xexpose.width);
    (void)printf("left_column = %d    right_column = %d\n",
                  left_column, right_column);
    (void)printf("top_row     = %d    bottom_row   = %d\n",
@@ -351,7 +369,7 @@ expose_handler_tv_line(Widget                      w,
    }
 
 #ifdef _DEBUG
-   (void)printf("xexpose.x   = %d    xexpose.width= %d   line_length = %d\n",
+   (void)printf("xexpose.x   = %d    xexpose.width= %d   tv_line_length = %d\n",
                  p_event->xexpose.x, p_event->xexpose.width, tv_line_length);
    (void)printf("left_column = %d    right_column = %d\n",
                  left_column, right_column);

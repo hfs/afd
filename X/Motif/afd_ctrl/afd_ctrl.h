@@ -142,6 +142,18 @@
 #define SYS_LOG_INDICATOR               1
 #define TRANS_LOG_INDICATOR             2
 
+/* Bits to indicate the line style. The first two bits are not used */
+/* and are kept for backwards compatibility.                        */
+#define SHOW_LEDS                       4
+#define SHOW_JOBS                       8
+#define SHOW_CHARACTERS                 16
+#define SHOW_BARS                       32
+
+#define LEDS_STYLE_W                    0
+#define JOBS_STYLE_W                    1
+#define CHARACTERS_STYLE_W              2
+#define BARS_STYLE_W                    3
+
 /* Structure definitions */
 struct line 
        {
@@ -269,7 +281,7 @@ struct job_data
        };
 
 /* Function Prototypes */
-extern void        calc_but_coord(void),
+extern void        calc_but_coord(int),
                    change_font_cb(Widget, XtPointer, XtPointer),
                    change_rows_cb(Widget, XtPointer, XtPointer),
                    change_style_cb(Widget, XtPointer, XtPointer),
@@ -293,8 +305,8 @@ extern void        calc_but_coord(void),
                    draw_dest_identifier(int, int, int),
                    draw_debug_led(int, int, int),
                    draw_led(int, int, int, int),
-                   draw_bar(int, signed char, char, int, int),
-                   draw_chars(int, char, int, int),
+                   draw_bar(int, signed char, char, int, int, int),
+                   draw_chars(int, char, int, int, int),
                    draw_proc_led(int, signed char),
                    draw_log_status(int, int),
                    draw_queue_counter(int),
@@ -310,12 +322,13 @@ extern void        calc_but_coord(void),
                    init_gcs(void),
                    init_jd_structure(struct job_data *, int, int),
                    input(Widget, XtPointer, XEvent *),
+                   locate_xy_column(int, int *, int *, int *),
                    popup_cb(Widget, XtPointer, XtPointer),
                    popup_menu_cb(Widget, XtPointer, XEvent *),
                    save_setup_cb(Widget, XtPointer, XtPointer),
                    select_host_dialog(Widget, XtPointer, XtPointer),
                    setup_tv_window(void),
-                   setup_window(char *),
+                   setup_window(char *, int),
                    tv_locate_xy(int, int *, int *);
 extern signed char resize_tv_window(void),
                    resize_window(void),

@@ -1,6 +1,6 @@
 /*
  *  sf_smtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,6 +72,7 @@ DESCR__S_M1
  **   24.08.1999 H.Kiehl Enhanced option "attach file" to support trans-
  **                      renaming.
  **   08.07.2000 H.Kiehl Cleaned up log output to reduce code size.
+ **   19.02.2002 H.Kiehl Sending a single mail to multiple users.
  **
  */
 DESCR__E_M1
@@ -366,7 +367,7 @@ main(int argc, char *argv[])
       (void)strcpy(db.hostname,
                    fsa[db.fsa_pos].real_hostname[(int)(fsa[db.fsa_pos].host_toggle - 1)]);
    }
-   if ((db.special_flag & FILE_NAME_IS_USER) == 0)
+   if (((db.special_flag & FILE_NAME_IS_USER) == 0) && (db.group_list == NULL))
    {
       (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
    }
@@ -552,20 +553,48 @@ main(int argc, char *argv[])
          } /* if (db.special_flag & FILE_NAME_IS_USER) */
    
          /* Send remote user name */
-         if ((status = smtp_rcpt(remote_user)) != SUCCESS)
+         if (db.group_list == NULL)
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to send remote user <%s> (%d).", remote_user, status);
-            (void)smtp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : REMOTE_USER_ERROR);
+            if ((status = smtp_rcpt(remote_user)) != SUCCESS)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to send remote user <%s> (%d).", remote_user, status);
+               (void)smtp_quit();
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : REMOTE_USER_ERROR);
+            }
+            else
+            {
+               if (fsa[db.fsa_pos].debug == YES)
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Remote user <%s> accepted by SMTP-server.",
+                               remote_user);
+               }
+            }
          }
          else
          {
-            if (fsa[db.fsa_pos].debug == YES)
+            int k;
+
+            for (k = 0; k < db.no_listed; k++)
             {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Remote user <%s> accepted by SMTP-server.",
-                            remote_user);
+               if ((status = smtp_rcpt(db.group_list[k])) != SUCCESS)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to send remote user <%s> (%d).",
+                            db.group_list[k], status);
+                  (void)smtp_quit();
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : REMOTE_USER_ERROR);
+               }
+               else
+               {
+                  if (fsa[db.fsa_pos].debug == YES)
+                  {
+                     trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Remote user <%s> accepted by SMTP-server.",
+                                  db.group_list[k]);
+                  }
+               }
             }
          }
 
@@ -646,6 +675,26 @@ main(int argc, char *argv[])
       loops = *p_file_size_buffer / blocksize;
       rest = *p_file_size_buffer % blocksize;
 
+      if (db.reply_to != NULL)
+      {
+         size_t length;
+
+         length = sprintf(buffer, "Reply-To: %s\n", db.reply_to);
+         if (smtp_write(buffer, NULL, length) < 0)
+         {
+            (void)rec(transfer_log_fd, INFO_SIGN,
+                      "%-*s[%d]: %d Bytes send in %d file(s).\n",
+                      MAX_HOSTNAME_LENGTH, tr_hostname, (int)db.job_no,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
+                      fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write Reply-To to SMTP-server.");
+            (void)smtp_quit();
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+         }
+         no_of_bytes = length;
+      }
+
       if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0))
       {
          /* Send file name as subject if wanted. */
@@ -666,7 +715,7 @@ main(int argc, char *argv[])
                (void)smtp_quit();
                exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
             }
-            no_of_bytes = length;
+            no_of_bytes += length;
          }
          else if (db.special_flag & FILE_NAME_IS_SUBJECT)
               {
@@ -686,7 +735,7 @@ main(int argc, char *argv[])
                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                  }
 
-                 no_of_bytes = length;
+                 no_of_bytes += length;
               } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
 
          /* Send MIME information. */
@@ -1498,7 +1547,7 @@ main(int argc, char *argv[])
          {
             fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
             system_log(INFO_SIGN, __FILE__, __LINE__,
-                       "Starting queue for %s that was stopped by init_afd.",
+                       "Starting input queue for %s that was stopped by init_afd.",
                        fsa[db.fsa_pos].host_alias);
          }
       }

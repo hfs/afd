@@ -1,6 +1,6 @@
 /*
  *  get_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,7 +78,8 @@ get_job_data(unsigned int job_id,
              off_t        mdb_size)
 {
    int         fd,
-               pos;
+               pos,
+               length = 0;
    char        sheme,
                *file_buf,
                *ptr,
@@ -258,19 +259,9 @@ retry:
       return(INCORRECT);
    }
 
-   /* On we go with the hostname. */
-   while ((*ptr != '@') && (*ptr != '\n'))
+   ptr += 3;
+   if (*ptr == '#')
    {
-      if (*ptr == '\\')
-      {
-         ptr++;
-      }
-      ptr++;
-   }
-   if (*ptr == '@')
-   {
-      int length = 0;
-
       ptr++;
       while ((*ptr != '/') && (*ptr != '.') &&
              (*ptr != ':') && (*ptr != '\n') &&
@@ -283,8 +274,82 @@ retry:
          host_name[length] = *ptr;
          ptr++; length++;
       }
-      host_name[length] = '\0';
+   }
 
+   /* On we go with the hostname. */
+   while ((*ptr != '@') && (*ptr != '\n') && (*ptr != ';'))
+   {
+      if (*ptr == '\\')
+      {
+         ptr++;
+      }
+      ptr++;
+   }
+   if (*ptr == '@')
+   {
+      ptr++;
+      while ((*ptr != '/') && (*ptr != '.') &&
+             (*ptr != ':') && (*ptr != '\n') &&
+             (*ptr != ';') && (length < MAX_HOSTNAME_LENGTH))
+      {
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
+         host_name[length] = *ptr;
+         ptr++; length++;
+      }
+   }
+
+   /*
+    * NOTE: For mail we take the hostname from the "server=" if
+    *       it does exist.
+    */
+   if ((*ptr == '.') ||
+       ((length == MAX_HOSTNAME_LENGTH) && (*ptr != '/')))
+   {
+      while ((*ptr != '\n') && (*ptr != '/') &&
+             (*ptr != ':') && (*ptr != ';'))
+      {
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
+         ptr++;
+      }
+   }
+   if (*ptr == ':')
+   {
+      while ((*ptr != '\n') && (*ptr != '@'))
+      {
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
+         ptr++;
+      }
+   }
+   if ((*ptr == ';') && (*(ptr + 1) == 's') && (*(ptr + 2) == 'e') &&
+       (*(ptr + 3) == 'r') && (*(ptr + 4) == 'v') &&
+       (*(ptr + 5) == 'e') && (*(ptr + 6) == 'r') &&
+       (*(ptr + 7) == '='))
+   {
+      /* Store the hostname. */
+      ptr += 8;
+      length = 0;
+      while ((*ptr != '\n') && (length < MAX_HOSTNAME_LENGTH))
+      {
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
+         host_name[length] = *ptr;
+         length++; ptr++;
+      }
+   }
+   if (length > 0)
+   {
+      host_name[length] = '\0';
       if ((pos = get_host_position(fsa, host_name, no_of_hosts)) == -1)
       {
          (void)rec(sys_log_fd, DEBUG_SIGN,

@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -66,6 +66,7 @@ DESCR__S_M3
  **                      renaming.
  **   18.03.2000 H.Kiehl Added option FTP transfer mode.
  **   03.11.2000 H.Kiehl Chmod option for FTP as well.
+ **   27.01.2002 H.Kiehl Added reply-to option.
  **
  */
 DESCR__E_M3
@@ -101,23 +102,24 @@ extern int transfer_log_fd;
 #define SUBJECT_FLAG              512
 #define FORCE_COPY_FLAG           1024
 #define FILE_NAME_IS_SUBJECT_FLAG 2048
-#define FILE_NAME_IS_USER_FLAG    4096
+#define REPLY_TO_FLAG             4096
 #define CHECK_ANSI_FLAG           8192
 #define CHECK_REPLY_FLAG          16384
 #define WITH_SEQUENCE_NUMBER_FLAG 32768
 #define ATTACH_FILE_FLAG          131072
 #define ADD_MAIL_HEADER_FLAG      262144
 #define FTP_EXEC_FLAG             524288
+#define FILE_NAME_IS_USER_FLAG    1048576
 #ifdef _WITH_EUMETSAT_HEADERS
-#define EUMETSAT_HEADER_FLAG      1048576
+#define EUMETSAT_HEADER_FLAG      2097152
 #endif /* _WITH_EUMETSAT_HEADERS */
 #ifdef _RADAR_CHECK
-#define RADAR_FLAG                2097152
+#define RADAR_FLAG                4194304
 #endif /* _RADAR_CHECK */
-#define CHANGE_FTP_MODE_FLAG      4194304
-#define ATTACH_ALL_FILES_FLAG     8388608
+#define CHANGE_FTP_MODE_FLAG      8388608
+#define ATTACH_ALL_FILES_FLAG     16777216
 #ifdef _WITH_TRANS_EXEC
-#define TRANS_EXEC_FLAG           16777216
+#define TRANS_EXEC_FLAG           33554432
 #endif /* _WITH_TRANS_EXEC */
 
 #define MAX_HUNK                  4096
@@ -907,6 +909,10 @@ eval_message(char *message_name, struct job *p_db)
                                while ((*ptr != '\n') && (*ptr != '\0') &&
                                       (*ptr != ' ') && (*ptr != '\t'))
                                {
+                                  if (*ptr == '\\')
+                                  {
+                                     ptr++;
+                                  }
                                   ptr++;
                                }
                                tmp_char = *ptr;
@@ -966,14 +972,15 @@ eval_message(char *message_name, struct job *p_db)
                        ptr++;
                     }
                  }
-            else if (((used & FILE_NAME_IS_USER_FLAG) == 0) &&
-                     (strncmp(ptr, FILE_NAME_IS_USER_ID, FILE_NAME_IS_USER_ID_LENGTH) == 0))
+            else if (((used & REPLY_TO_FLAG) == 0) &&
+                     (strncmp(ptr, REPLY_TO_ID, REPLY_TO_ID_LENGTH) == 0))
                  {
-                    used |= FILE_NAME_IS_USER_FLAG;
+                    used |= REPLY_TO_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
                     {
-                       p_db->special_flag |= FILE_NAME_IS_USER;
-                       ptr += FILE_NAME_IS_USER_ID_LENGTH;
+                       size_t length = 0;
+
+                       ptr += REPLY_TO_ID_LENGTH;
                        while ((*ptr == ' ') || (*ptr == '\t'))
                        {
                           ptr++;
@@ -982,11 +989,19 @@ eval_message(char *message_name, struct job *p_db)
                        while ((*end_ptr != '\n') && (*end_ptr != '\0'))
                        {
                          end_ptr++;
+                         length++;
                        }
-                       byte_buf = *end_ptr;
-                       *end_ptr = '\0';
-                       (void)strcpy(p_db->user_rename_rule, ptr);
-                       *end_ptr = byte_buf;
+                       if ((p_db->reply_to = malloc(length + 1)) == NULL)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Failed to malloc() memory, will ignore reply-to option : %s",
+                                     strerror(errno));
+                       }
+                       else
+                       {
+                          (void)memcpy(p_db->reply_to, ptr, length);
+                          p_db->reply_to[length] = '\0';
+                       }
                        ptr = end_ptr;
                     }
                     else
@@ -1192,6 +1207,41 @@ eval_message(char *message_name, struct job *p_db)
                     while ((*ptr != '\n') && (*ptr != '\0'))
                     {
                        ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used & FILE_NAME_IS_USER_FLAG) == 0) &&
+                     (strncmp(ptr, FILE_NAME_IS_USER_ID, FILE_NAME_IS_USER_ID_LENGTH) == 0))
+                 {
+                    used |= FILE_NAME_IS_USER_FLAG;
+                    if (p_db->protocol & SMTP_FLAG)
+                    {
+                       p_db->special_flag |= FILE_NAME_IS_USER;
+                       ptr += FILE_NAME_IS_USER_ID_LENGTH;
+                       while ((*ptr == ' ') || (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       end_ptr = ptr;
+                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                       {
+                         end_ptr++;
+                       }
+                       byte_buf = *end_ptr;
+                       *end_ptr = '\0';
+                       (void)strcpy(p_db->user_rename_rule, ptr);
+                       *end_ptr = byte_buf;
+                       ptr = end_ptr;
+                    }
+                    else
+                    {
+                       while ((*ptr != '\n') && (*ptr != '\0'))
+                       {
+                          ptr++;
+                       }
                     }
                     while (*ptr == '\n')
                     {

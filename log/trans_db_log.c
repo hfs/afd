@@ -70,6 +70,7 @@ main(int argc, char *argv[])
 {
    int         log_number = 0,
                log_stat = START,
+               max_trans_db_log_files = MAX_TRANS_DB_LOG_FILES,
                trans_db_log_fd;
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
@@ -103,6 +104,10 @@ main(int argc, char *argv[])
       }
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_trans_db_log_files, MAX_TRANS_DB_LOG_FILES_DEF,
+                      MAX_TRANS_DB_LOG_FILES);
+
    /*
     * Set umask so that all log files have the permission 644.
     * If we do not set this here fopen() will create files with
@@ -111,7 +116,7 @@ main(int argc, char *argv[])
    (void)umask(S_IWGRP | S_IWOTH);
 
    get_log_number(&log_number,
-                  (MAX_TRANS_DB_LOG_FILES - 1),
+                  (max_trans_db_log_files - 1),
                   TRANS_DB_LOG_NAME,
                   strlen(TRANS_DB_LOG_NAME));
    (void)sprintf(current_log_file, "%s%s/%s0",
@@ -138,7 +143,7 @@ main(int argc, char *argv[])
       {
          if (stat_buf.st_size > MAX_LOGFILE_SIZE)
          {
-            if (log_number < (MAX_TRANS_DB_LOG_FILES - 1))
+            if (log_number < (max_trans_db_log_files - 1))
             {
                log_number++;
             }

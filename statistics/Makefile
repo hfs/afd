@@ -4,7 +4,7 @@
 
 include ../Include.mk
 
-INSTDIR = ../../bin
+INSTDIR = ../..
 COMDIR  = ../common
 LIB     = $(COMDIR)/libafd.a
 CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd
@@ -52,9 +52,13 @@ clobber :
 	rm -f $(PROGS) show_bench_stat
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(STAPROG) $(INSTDIR)/$(SHOPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(STAPROG) $(INSTDIR)/bin/$(SHOPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 afd_stat.o show_stat.o : ../version.h

@@ -249,7 +249,7 @@ check_tv_status(Widget w)
        * If in character mode see if any change took place,
        * if so, redraw only those characters.
        */
-      if (line_style != BARS_ONLY)
+      if (line_style & SHOW_CHARACTERS)
       {
          /*
           * File size in use.
@@ -263,7 +263,7 @@ check_tv_status(Widget w)
                tv_locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
+            if ((line_style & SHOW_BARS) == 0)
             {
                jd[i].file_size_in_use = fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_size_in_use;
             }
@@ -295,7 +295,7 @@ check_tv_status(Widget w)
                tv_locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
+            if ((line_style & SHOW_BARS) == 0)
             {
                jd[i].file_size_in_use_done = fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_size_in_use_done;
             }
@@ -325,7 +325,7 @@ check_tv_status(Widget w)
                tv_locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
+            if ((line_style & SHOW_BARS) == 0)
             {
                jd[i].no_of_files = fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files;
             }
@@ -345,7 +345,7 @@ check_tv_status(Widget w)
                tv_locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
+            if ((line_style & SHOW_BARS) == 0)
             {
                jd[i].no_of_files_done = fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files_done;
             }
@@ -367,7 +367,7 @@ check_tv_status(Widget w)
                tv_locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
+            if ((line_style & SHOW_BARS) == 0)
             {
                jd[i].file_size = fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_size;
             }
@@ -399,7 +399,7 @@ check_tv_status(Widget w)
                tv_locate_xy(i, &x, &y);
             }
 
-            if (line_style == CHARACTERS_ONLY)
+            if ((line_style & SHOW_BARS) == 0)
             {
                jd[i].file_size_done = fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_size_done;
             }
@@ -424,7 +424,7 @@ check_tv_status(Widget w)
        * BAR INFORMATION
        * ===============
        */
-      if (line_style != CHARACTERS_ONLY)
+      if (line_style & SHOW_BARS)
       {
          /*
           * File size in use done bar.
@@ -585,7 +585,7 @@ check_tv_status(Widget w)
                flush = YES;
             }
          }
-      } /* if (line_style != CHARACTERS_ONLY) */
+      } /* if (line_style & SHOW_BARS) */
    } /* for (i = 0; i < no_of_jobs_selected; i++) */
 
    /* Make sure all changes are shown */

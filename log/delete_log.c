@@ -100,6 +100,7 @@ main(int argc, char *argv[])
                   log_number = 0,
                   n,
                   length,
+                  max_delete_log_files = MAX_DELETE_LOG_FILES,
                   no_of_buffered_writes = 0,
                   offset,
                   check_size,
@@ -207,6 +208,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_delete_log_files, MAX_DELETE_LOG_FILES_DEF,
+                      MAX_DELETE_LOG_FILES);
+
    /*
     * Set umask so that all log files have the permission 644.
     * If we do not set this here fopen() will create files with
@@ -219,7 +224,7 @@ main(int argc, char *argv[])
     * create it.
     */
    get_log_number(&log_number,
-                  (MAX_DELETE_LOG_FILES - 1),
+                  (max_delete_log_files - 1),
                   DELETE_BUFFER_FILE,
                   strlen(DELETE_BUFFER_FILE));
    (void)sprintf(current_log_file, "%s%s/%s0",
@@ -237,7 +242,7 @@ main(int argc, char *argv[])
    {
       if (stat_buf.st_mtime < (next_file_time - SWITCH_FILE_TIME))
       {
-         if (log_number < (MAX_DELETE_LOG_FILES - 1))
+         if (log_number < (max_delete_log_files - 1))
          {
             log_number++;
          }
@@ -291,7 +296,7 @@ main(int argc, char *argv[])
          /* Check if we have to create a new log file. */
          if (time(&now) > next_file_time)
          {
-            if (log_number < (MAX_DELETE_LOG_FILES - 1))
+            if (log_number < (max_delete_log_files - 1))
             {
                log_number++;
             }
@@ -385,7 +390,7 @@ main(int argc, char *argv[])
                */
               if (now > next_file_time)
               {
-                 if (log_number < (MAX_DELETE_LOG_FILES - 1))
+                 if (log_number < (max_delete_log_files - 1))
                  {
                     log_number++;
                  }

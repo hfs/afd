@@ -935,6 +935,10 @@ eval_time(char *numeric_str, Widget w, time_t *value)
            bd_time->tm_min  = min;
            bd_time->tm_hour = hour;
            bd_time->tm_mday = day;
+           if ((bd_time->tm_mon == 0) && (month == 12))
+           {
+              bd_time->tm_year -= 1;
+           }
            bd_time->tm_mon  = month - 1;
 
            *value = mktime(bd_time);

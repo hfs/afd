@@ -362,7 +362,7 @@ get_dc_data(void)
       }
    }
    (void)fra_detach();
-   (void)fsa_detach();
+   (void)fsa_detach(NO);
 
    if (job_counter > 0)
    {

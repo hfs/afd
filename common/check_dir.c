@@ -50,7 +50,6 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>            /* access()                               */
 #include <errno.h>
 
 
@@ -79,7 +78,7 @@ check_dir(char *directory, int access_mode)
         }
         else /* Lets check if the correct permissions are set */
         {
-           if (access(directory, access_mode) == -1)
+           if (eaccess(directory, access_mode) == -1)
            {
               system_log(ERROR_SIGN, __FILE__, __LINE__,
                          "Incorrect permission for directory <%s>", directory);

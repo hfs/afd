@@ -276,8 +276,8 @@ check_data(long rescan_time)
                  if ((length == prev_length) &&
                      ((now - prev_msg_time) < rescan_time))
                  {
-                    if (strcmp(&msg_str[LOG_SIGN_POSITION],
-                               &prev_msg_str[LOG_SIGN_POSITION]) == 0)
+                    if (CHECK_STRCMP(&msg_str[LOG_SIGN_POSITION],
+                                     &prev_msg_str[LOG_SIGN_POSITION]) == 0)
                     {
                        dup_msg++;
 

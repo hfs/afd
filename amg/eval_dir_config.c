@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -111,7 +111,7 @@ DESCR__E_M3
 #include <sys/ipc.h>
 #include <sys/shm.h>                /* shmat(), shmctl(), shmdt()        */
 #include <sys/stat.h>
-#include <unistd.h>                 /* access(), getuid()                */
+#include <unistd.h>                 /* geteuid(), R_OK, W_OK, X_OK       */
 #include <pwd.h>                    /* getpwnam()                        */
 #include <errno.h>
 #include <fcntl.h>
@@ -549,17 +549,17 @@ eval_dir_config(size_t db_size, int *dc)
          tmp_char = *tmp_ptr;
          *tmp_ptr = '\0';
          if ((prev_user_name[0] == '\0') ||
-             (strcmp(dir->location, prev_user_name) != 0))
+             (CHECK_STRCMP(dir->location, prev_user_name) != 0))
          {
             struct passwd *pwd;
 
             if (*(tmp_ptr - 1) == '~')
             {
-               if ((pwd = getpwuid(getuid())) == NULL)
+               if ((pwd = getpwuid(geteuid())) == NULL)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
                             "Cannot find working directory for user with the user ID %d in /etc/passwd (ignoring directory) : %s (%s %d)\n",
-                            getuid(), strerror(errno), __FILE__, __LINE__);
+                            geteuid(), strerror(errno), __FILE__, __LINE__);
                   *tmp_ptr = tmp_char;
                   continue;
                }
@@ -621,7 +621,7 @@ eval_dir_config(size_t db_size, int *dc)
 
       /* Now lets check if this directory does exist and if we */
       /* do have enough permissions to work in this directory. */
-      if (access(dir->location, R_OK | W_OK | X_OK) < 0)
+      if (eaccess(dir->location, R_OK | W_OK | X_OK) < 0)
       {
          if (errno == ENOENT)
          {
@@ -662,7 +662,7 @@ eval_dir_config(size_t db_size, int *dc)
                {
                   break;
                }
-            } while (((error_condition = access(dir->location, R_OK | W_OK | X_OK)) < 0) &&
+            } while (((error_condition = eaccess(dir->location, R_OK | W_OK | X_OK)) < 0) &&
                      (errno == ENOENT));
 
             if ((error_condition < 0) && (errno != ENOENT))
@@ -1242,11 +1242,14 @@ eval_dir_config(size_t db_size, int *dc)
                   /* Make sure that we did read a line. */
                   if (i != 0)
                   {
+                     char real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
+
                      /* Check if we can extract the hostname. */
                      if (get_hostname(dir->file[dir->fgc].\
                                       dest[dir->file[dir->fgc].dgc].\
                                       recipient[dir->file[dir->fgc].\
-                                      dest[dir->file[dir->fgc].dgc].rc]) == NULL)
+                                      dest[dir->file[dir->fgc].dgc].rc],
+                                      real_hostname) == INCORRECT)
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
                                   "Failed to locate hostname in recipient string %s. Ignoring the recipient at line %d. (%s %d)\n",
@@ -1280,23 +1283,23 @@ eval_dir_config(size_t db_size, int *dc)
                         else
                         {
                            *search_ptr = '\0';
-                           if (strcmp(search_ptr - j, FTP_SHEME) != 0)
+                           if (CHECK_STRCMP(search_ptr - j, FTP_SHEME) != 0)
                            {
-                              if (strcmp(search_ptr - j, LOC_SHEME) != 0)
+                              if (CHECK_STRCMP(search_ptr - j, LOC_SHEME) != 0)
                               {
 #ifdef _WITH_SCP1_SUPPORT
-                                 if (strcmp(search_ptr - j, SCP1_SHEME) != 0)
+                                 if (CHECK_STRCMP(search_ptr - j, SCP1_SHEME) != 0)
                                  {
 #endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
-                                    if (strcmp(search_ptr - j, WMO_SHEME) != 0)
+                                    if (CHECK_STRCMP(search_ptr - j, WMO_SHEME) != 0)
                                     {
 #endif
 #ifdef _WITH_MAP_SUPPORT
-                                       if (strcmp(search_ptr - j, MAP_SHEME) != 0)
+                                       if (CHECK_STRCMP(search_ptr - j, MAP_SHEME) != 0)
                                        {
 #endif
-                                          if (strcmp(search_ptr - j, SMTP_SHEME) != 0)
+                                          if (CHECK_STRCMP(search_ptr - j, SMTP_SHEME) != 0)
                                           {
                                              (void)rec(sys_log_fd, WARN_SIGN,
                                                        "Unknown sheme <%s>. Ignoring recipient at line %d. (%s %d)\n",
@@ -1696,7 +1699,7 @@ check_dummy_line:
          /* Check if this directory was not already specified. */
          for (j = 0; j < *dc; j++)
          {
-            if (strcmp(dir->location, dd[j].dir_name) == 0)
+            if (CHECK_STRCMP(dir->location, dd[j].dir_name) == 0)
             {
                (void)rec(sys_log_fd, WARN_SIGN,
                          "Ignoring duplicate directory entry %s. (%s %d)\n",
@@ -1746,7 +1749,7 @@ check_dummy_line:
                /* Check if the directory alias was not already specified. */
                for (j = 0; j < *dc; j++)
                {
-                  if (strcmp(dir->alias, dd[j].dir_alias) == 0)
+                  if (CHECK_STRCMP(dir->alias, dd[j].dir_alias) == 0)
                   {
                      (void)sprintf(dir->alias, "DIR-%d",
                                    dnb[dd[*dc].dir_pos].dir_id);
@@ -1966,15 +1969,15 @@ check_hostname_list(char *recipient, int flag)
 {
    int          i;
    unsigned int protocol;
-   char         *hostname,
-                host_alias[MAX_HOSTNAME_LENGTH + 1],
+   char         host_alias[MAX_HOSTNAME_LENGTH + 1],
+                real_hostname[MAX_HOSTNAME_LENGTH + 1],
                 new;
 
    /* Extract only hostname. */
-   if ((hostname = get_hostname(recipient)) == NULL)
+   if (get_hostname(recipient, real_hostname) == INCORRECT)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to extract hostname %s. (%s %d)\n",
+                "Failed to extract hostname in <%s>. (%s %d)\n",
                 recipient, __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -2054,19 +2057,19 @@ check_hostname_list(char *recipient, int flag)
            protocol |= RETRIEVE_FLAG;
         }
 
-   t_hostname(hostname, host_alias);
+   t_hostname(real_hostname, host_alias);
 
    /* Check if host already exists. */
    new = YES;
    for (i = 0; i < no_of_hosts; i++)
    {
-      if (strcmp(hl[i].host_alias, host_alias) == 0)
+      if (CHECK_STRCMP(hl[i].host_alias, host_alias) == 0)
       {
          new = NO;
 
          if (hl[i].fullname[0] == '\0')
          {
-            (void)strcpy(hl[i].fullname, hostname);
+            (void)strcpy(hl[i].fullname, real_hostname);
          }
          hl[i].in_dir_config = YES;
          hl[i].protocol |= protocol;
@@ -2104,7 +2107,7 @@ check_hostname_list(char *recipient, int flag)
 
       /* Store host data. */
       (void)strcpy(hl[no_of_hosts].host_alias, host_alias);
-      (void)strcpy(hl[no_of_hosts].fullname, hostname);
+      (void)strcpy(hl[no_of_hosts].fullname, real_hostname);
       hl[no_of_hosts].real_hostname[0][0] = '\0';
       hl[no_of_hosts].real_hostname[1][0] = '\0';
       hl[no_of_hosts].proxy_name[0]       = '\0';

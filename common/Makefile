@@ -22,12 +22,14 @@ OBJS    = attach_afd_status.o\
           check_dir.o\
           check_fra.o\
           check_fsa.o\
+          check_job_name.o\
           check_msa.o\
           clr_fl.o\
           copy_file.o\
           daemon_init.o\
           delete_log_ptrs.o\
           detach_afd_status.o\
+          eaccess.o\
           eval_host_config.o\
           exec_cmd.o\
           fra_attach.o\
@@ -38,7 +40,9 @@ OBJS    = attach_afd_status.o\
           get_afd_path.o\
           get_arg.o\
           get_definition.o\
+          get_hostname.o\
           get_log_number.o\
+          get_max_log_number.o\
           get_mon_path.o\
           get_permissions.o\
           get_position.o\
@@ -71,6 +75,7 @@ OBJS    = attach_afd_status.o\
           reshuffel_log_files.o\
           rlock_region.o\
           send_cmd.o\
+          set_afd_euid.o\
           set_fl.o\
           show_fifo_data.o\
           system_log.o\

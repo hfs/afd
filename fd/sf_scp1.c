@@ -1079,7 +1079,7 @@ main(int argc, char *argv[])
             {
                fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                system_log(INFO_SIGN, __FILE__, __LINE__,
-                          "Starting queue for %s that was stopped by init_afd.",
+                          "Starting input queue for %s that was stopped by init_afd.",
                           fsa[db.fsa_pos].host_alias);
             }
          } /* if (fsa[db.fsa_pos].error_counter > 0) */

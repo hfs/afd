@@ -25,7 +25,7 @@ DESCR__S_M3
  **   fsa_detach - detaches from the FSA
  **
  ** SYNOPSIS
- **   int fsa_detach(void)
+ **   int fsa_detach(int sync)
  **
  ** DESCRIPTION
  **   Detaches from the memory mapped area of the FSA (File Transfer
@@ -65,7 +65,7 @@ extern struct filetransfer_status *fsa;
 
 /*############################ fsa_detach() #############################*/
 int
-fsa_detach(void)
+fsa_detach(int sync)
 {
    if (fsa_fd > 0)
    {
@@ -90,6 +90,15 @@ fsa_detach(void)
          return(INCORRECT);
       }
 #else
+      if (sync == YES)
+      {
+         if (msync(((char *)fsa - AFD_WORD_OFFSET), fsa_size, MS_ASYNC) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() FSA : %s", strerror(errno));
+            return(INCORRECT);
+         }
+      }
       if (munmap(((char *)fsa - AFD_WORD_OFFSET), fsa_size) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,

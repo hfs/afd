@@ -1,6 +1,6 @@
 /*
  *  init_fifos_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,37 +67,37 @@ extern char *p_work_dir;
 int
 init_fifos_fd(void)
 {
-   char        transfer_log_fifo[MAX_PATH_LENGTH],
+   char        delete_jobs_fifo[MAX_PATH_LENGTH],
+               delete_jobs_host_fifo[MAX_PATH_LENGTH],
                fd_cmd_fifo[MAX_PATH_LENGTH],
                fd_resp_fifo[MAX_PATH_LENGTH],
-               msg_fifo[MAX_PATH_LENGTH],
                fd_wake_up_fifo[MAX_PATH_LENGTH],
+               msg_fifo[MAX_PATH_LENGTH],
                retry_fifo[MAX_PATH_LENGTH],
-               delete_jobs_fifo[MAX_PATH_LENGTH],
-               delete_jobs_host_fifo[MAX_PATH_LENGTH],
-               sf_fin_fifo[MAX_PATH_LENGTH];
+               sf_fin_fifo[MAX_PATH_LENGTH],
+               transfer_log_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
    /* Initialise fifo names */
-   (void)strcpy(sf_fin_fifo, p_work_dir);
-   (void)strcat(sf_fin_fifo, FIFO_DIR);
-   (void)strcpy(transfer_log_fifo, sf_fin_fifo);
-   (void)strcat(transfer_log_fifo, TRANSFER_LOG_FIFO);
-   (void)strcpy(fd_cmd_fifo, sf_fin_fifo);
-   (void)strcat(fd_cmd_fifo, FD_CMD_FIFO);
-   (void)strcpy(fd_resp_fifo, sf_fin_fifo);
-   (void)strcat(fd_resp_fifo, FD_RESP_FIFO);
-   (void)strcpy(msg_fifo, sf_fin_fifo);
-   (void)strcat(msg_fifo, MSG_FIFO);
-   (void)strcpy(fd_wake_up_fifo, sf_fin_fifo);
-   (void)strcat(fd_wake_up_fifo, FD_WAKE_UP_FIFO);
-   (void)strcpy(retry_fifo, sf_fin_fifo);
-   (void)strcat(retry_fifo, RETRY_FD_FIFO);
-   (void)strcpy(delete_jobs_fifo, sf_fin_fifo);
-   (void)strcat(delete_jobs_fifo, DELETE_JOBS_FIFO);
-   (void)strcpy(delete_jobs_host_fifo, sf_fin_fifo);
-   (void)strcat(delete_jobs_host_fifo, DELETE_JOBS_HOST_FIFO);
+   (void)strcpy(transfer_log_fifo, p_work_dir);
+   (void)strcat(transfer_log_fifo, FIFO_DIR);
+   (void)strcpy(sf_fin_fifo, transfer_log_fifo);
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
+   (void)strcpy(fd_cmd_fifo, transfer_log_fifo);
+   (void)strcat(fd_cmd_fifo, FD_CMD_FIFO);
+   (void)strcpy(fd_resp_fifo, transfer_log_fifo);
+   (void)strcat(fd_resp_fifo, FD_RESP_FIFO);
+   (void)strcpy(msg_fifo, transfer_log_fifo);
+   (void)strcat(msg_fifo, MSG_FIFO);
+   (void)strcpy(fd_wake_up_fifo, transfer_log_fifo);
+   (void)strcat(fd_wake_up_fifo, FD_WAKE_UP_FIFO);
+   (void)strcpy(retry_fifo, transfer_log_fifo);
+   (void)strcat(retry_fifo, RETRY_FD_FIFO);
+   (void)strcpy(delete_jobs_fifo, transfer_log_fifo);
+   (void)strcat(delete_jobs_fifo, DELETE_JOBS_FIFO);
+   (void)strcpy(delete_jobs_host_fifo, transfer_log_fifo);
+   (void)strcat(delete_jobs_host_fifo, DELETE_JOBS_HOST_FIFO);
+   (void)strcat(transfer_log_fifo, TRANSFER_LOG_FIFO);
 
    /* If the process AFD has not yet created these fifos */
    /* create them now.                                   */

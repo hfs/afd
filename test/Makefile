@@ -1,6 +1,6 @@
 include ../Include.mk
 
-INSTDIR  = ../../bin
+INSTDIR  = ../..
 COMDIR   = ../common
 LIB      = $(COMDIR)/libafd.a
 PROTOLIB = ../protocols/libprotocols.a
@@ -42,4 +42,4 @@ clean :
 
 clobber :
 	$(MAKE) clean
-	rm -f $(PROGS) amg.debug
+	rm -f $(PROGS)

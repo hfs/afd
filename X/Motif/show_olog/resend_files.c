@@ -55,7 +55,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>         /* strerror(), strcmp(), strcpy(), strcat()  */
 #include <stdlib.h>         /* calloc(), free()                          */
-#include <unistd.h>         /* rmdir(), access()                         */
+#include <unistd.h>         /* rmdir(), W_OK, F_OK                       */
 #include <time.h>           /* time()                                    */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -517,7 +517,7 @@ resend_files(int no_selected, int *select_list)
                  strerror(errno), __FILE__, __LINE__);
    }
 
-   if (fsa_detach() < 0)
+   if (fsa_detach(NO) < 0)
    {
       (void)xrec(toplevel_w, WARN_DIALOG, "Failed to detach from FSA. (%s %d)",
                  __FILE__, __LINE__);
@@ -707,7 +707,7 @@ static int
 get_file(char *dest_dir, char *p_dest_dir_end)
 {
    (void)strcpy(p_dest_dir_end, p_file_name);
-   if (access(archive_dir, W_OK) == 0)
+   if (eaccess(archive_dir, W_OK) == 0)
    {
       if (link(archive_dir, dest_dir) < 0)
       {
@@ -871,40 +871,13 @@ write_fsa(int add)
 
    if (files_to_send > 0)
    {
-      char *ptr = id.recipient,
-           *p_hostname,
+      char real_hostname[MAX_HOSTNAME_LENGTH + 1],
            truncated_hostname[MAX_HOSTNAME_LENGTH + 1];
 
       get_info(GOT_JOB_ID);
-      while ((*ptr != '@') && (*ptr != '\0'))
+      if (get_hostname(id.recipient, real_hostname) == SUCCESS)
       {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         ptr++;
-      }
-      if (*ptr == '@')
-      {
-         char tmp_char;
-
-         ptr++;
-         p_hostname = ptr;
-         while ((*ptr != '\0') &&
-                (*ptr != '/') &&
-                (*ptr != ':') &&
-                (*ptr != '.'))
-         {
-            if (*ptr == '\\')
-            {
-               ptr++;
-            }
-            ptr++;
-         }
-         tmp_char = *ptr;
-         *ptr = '\0';
-         t_hostname(p_hostname, truncated_hostname);
-         *ptr = tmp_char;
+         t_hostname(real_hostname, truncated_hostname);
          if ((position = get_host_position(fsa, truncated_hostname, no_of_hosts)) != INCORRECT)
          {
             (void)check_fsa();
@@ -1005,7 +978,7 @@ get_afd_config_value(void)
 
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   if ((access(config_file, F_OK) == 0) &&
+   if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];

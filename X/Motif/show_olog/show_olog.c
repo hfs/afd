@@ -1,6 +1,6 @@
 /*
  *  show_olog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -76,6 +76,7 @@ DESCR__E_M1
 #include <Xm/Form.h>
 #include "afd_ctrl.h"
 #include "show_olog.h"
+#include "logdefs.h"
 #include "permission.h"
 #include "version.h"
 
@@ -104,6 +105,7 @@ int                        amg_flag = NO,
                            fra_fd = -1,
                            fra_id,
                            items_selected = NO,
+                           max_output_log_files = MAX_OUTPUT_LOG_FILES,
                            no_of_dirs = 0,
                            no_of_log_files,
                            no_of_search_hosts,
@@ -1219,6 +1221,7 @@ init_show_olog(int *argc, char *argv[])
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
+   set_afd_euid(p_work_dir);
    if (get_arg(argc, argv, "-f", font_name, 256) == INCORRECT)
    {
       (void)strcpy(font_name, "fixed");
@@ -1288,6 +1291,10 @@ init_show_olog(int *argc, char *argv[])
    /* permissions (see man 2 mkdir), we need to set umask  */
    /* to zero.                                             */
    umask(0);
+
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_output_log_files, MAX_OUTPUT_LOG_FILES_DEF,
+                      MAX_OUTPUT_LOG_FILES);
 
    return;
 }

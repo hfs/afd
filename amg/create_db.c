@@ -88,7 +88,6 @@ extern int                        no_of_hosts,
                                                    /* that are local.    */
                                   counter_fd,     /* File descriptor for */
                                                   /* AFD counter file.   */
-                                  fd_cmd_fd,
                                   sys_log_fd,
                                   *time_job_list;
 extern char                       *p_work_dir,
@@ -123,7 +122,8 @@ static void                       write_numbers(int),
 int
 create_db(int shmem_id)
 {
-   int             i,
+   int             cmd_fd,
+                   i,
                    j,
                    jid_number,
 #ifdef _TEST_FILE_TABLE
@@ -135,14 +135,14 @@ create_db(int shmem_id)
                    dir_counter = 0,
                    no_of_jobs;
    dev_t           ldv;               /* local device number (filesystem) */
-   char            *ptr,
+   char            cmd_fifo[MAX_PATH_LENGTH],
+                   *ptr,
                    *p_sheme,
-                   *host_ptr,
                    *tmp_ptr,
                    *p_offset,
                    *p_loptions,
                    *p_file,
-                   *p_hostname;
+                   real_hostname[MAX_REAL_HOSTNAME_LENGTH + 1];
    struct p_array  *p_ptr;
    struct stat     stat_buf;
 
@@ -177,9 +177,11 @@ create_db(int shmem_id)
    no_of_jobs = *(int *)ptr;
    ptr += sizeof(int);
 
-   /* Create space and map to instant database */
-   if (map_instant_db(no_of_jobs * sizeof(struct instant_db)) == INCORRECT)
+   /* Allocate some memory to store instant database. */
+   if ((db = malloc(no_of_jobs * sizeof(struct instant_db))) == NULL)
    {
+      (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
       exit(INCORRECT);
    }
@@ -188,7 +190,7 @@ create_db(int shmem_id)
 
    /* Allocate space for the gotchas. */
    size = ((*no_of_job_ids / JOB_ID_DATA_STEP_SIZE) + 1) *
-           JOB_ID_DATA_STEP_SIZE * 1;
+           JOB_ID_DATA_STEP_SIZE * sizeof(char);
    if ((gotcha = malloc(size)) == NULL)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
@@ -592,7 +594,7 @@ create_db(int shmem_id)
       db[i].recipient = (int)(p_ptr[i].ptr[9]) + p_offset;
 
       /* Extract hostname and position in FSA for each recipient */
-      if ((p_hostname = get_hostname(db[i].recipient)) == NULL)
+      if (get_hostname(db[i].recipient, real_hostname) == INCORRECT)
       {
          /*
           * If this should happen then something is really wrong.
@@ -606,20 +608,7 @@ create_db(int shmem_id)
          unmap_data(jd_fd, jd);
          exit(INCORRECT);
       }
-
-      /* Remove address switching information from hostname */
-      host_ptr = p_hostname;
-      while ((*host_ptr != STATIC_TOGGLE_OPEN) &&
-             (*host_ptr != AUTO_TOGGLE_OPEN) &&
-             (*host_ptr != '\0'))
-      {
-         host_ptr++;
-      }
-      if ((*host_ptr == STATIC_TOGGLE_OPEN) || (*host_ptr == AUTO_TOGGLE_OPEN))
-      {
-         *host_ptr = '\0';
-      }
-      t_hostname(p_hostname, db[i].host_alias);
+      t_hostname(real_hostname, db[i].host_alias);
 
       if ((db[i].position = get_host_position(fsa,
                                               db[i].host_alias,
@@ -640,7 +629,7 @@ create_db(int shmem_id)
       for (j = 0; j < i; j++)
       {
          if ((db[j].dir == db[i].dir) &&
-             (strcmp(db[j].host_alias, db[i].host_alias) == 0))
+             (CHECK_STRCMP(db[j].host_alias, db[i].host_alias) == 0))
          {
             db[i].dup_paused_dir = YES;
             break;
@@ -668,23 +657,23 @@ create_db(int shmem_id)
          exit(INCORRECT);
       }
       *p_sheme = '\0';
-      if (strcmp(db[i].recipient, FTP_SHEME) != 0)
+      if (CHECK_STRCMP(db[i].recipient, FTP_SHEME) != 0)
       {
-         if (strcmp(db[i].recipient, LOC_SHEME) != 0)
+         if (CHECK_STRCMP(db[i].recipient, LOC_SHEME) != 0)
          {
 #ifdef _WITH_SCP1_SUPPORT
-            if (strcmp(db[i].recipient, SCP1_SHEME) != 0)
+            if (CHECK_STRCMP(db[i].recipient, SCP1_SHEME) != 0)
             {
 #endif /* _WITH_SCP1_SUPPORT */
 #ifdef _WITH_WMO_SUPPORT
-               if (strcmp(db[i].recipient, WMO_SHEME) != 0)
+               if (CHECK_STRCMP(db[i].recipient, WMO_SHEME) != 0)
                {
 #endif
 #ifdef _WITH_MAP_SUPPORT
-                  if (strcmp(db[i].recipient, MAP_SHEME) != 0)
+                  if (CHECK_STRCMP(db[i].recipient, MAP_SHEME) != 0)
                   {
 #endif
-                     if (strcmp(db[i].recipient, SMTP_SHEME) != 0)
+                     if (CHECK_STRCMP(db[i].recipient, SMTP_SHEME) != 0)
                      {
                         (void)rec(sys_log_fd, FATAL_SIGN,
                                   "Unknown sheme <%s>. (%s %d)\n",
@@ -759,13 +748,33 @@ create_db(int shmem_id)
    unmap_data(jd_fd, jd);
    p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
 
-   /* Tell FD we have updated the FSA and message list. */
-   if ((i = send_cmd(FSA_UPDATED, fd_cmd_fd)) < 0)
+   /* Tell AMG we have updated the FSA and message list. */
+   (void)sprintf(cmd_fifo, "%s%s%s", p_work_dir, FIFO_DIR, DB_UPDATE_FIFO);
+   if ((stat(cmd_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
+   {
+      if (make_fifo(cmd_fifo) < 0)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not create fifo %s. (%s %d)\n",
+                   cmd_fifo, __FILE__, __LINE__);     
+         exit(INCORRECT);
+      }
+   }
+   if ((cmd_fd = coe_open(cmd_fifo, O_RDWR)) == -1)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN,
+                "Could not open fifo %s : %s (%s %d)\n",
+                cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   if ((i = send_cmd(UNLOCK_NEW_FSA_AND_JID, cmd_fd)) < 0)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,
                 "Failed to send update command to FD : %s (%s %d)\n",
                 strerror(-i), __FILE__, __LINE__);
    }
+   (void)close(cmd_fd);
+
    if (p_afd_status->start_time == 0)
    {
       p_afd_status->start_time = time(NULL);

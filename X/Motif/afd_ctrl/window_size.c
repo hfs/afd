@@ -1,6 +1,6 @@
 /*
  *  window_size.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -39,30 +39,38 @@ DESCR__S_M3
  **
  ** HISTORY
  **   26.01.1996 H.Kiehl Created
+ **   22.12.2001 H.Kiehl Added variable column length.
  **
  */
 DESCR__E_M3
 
+#include <string.h>                 /* strerror()                       */
+#include <stdlib.h>                 /* malloc(), free()                 */
+#include <errno.h>
 #include "afd_ctrl.h"
 
-extern Display       *display;
-extern int           line_length,
-                     line_height,
-                     no_of_columns,
-                     no_of_rows,
-                     no_of_rows_set,
-                     no_of_hosts;
+extern Display                    *display;
+extern int                        button_width,
+                                  *line_length,
+                                  max_line_length,
+                                  line_height,
+                                  no_of_columns,
+                                  no_of_rows,
+                                  no_of_rows_set,
+                                  no_of_hosts;
+extern char                       line_style;
+extern struct filetransfer_status *fsa;
 
 
 /*########################### window_size() ############################*/
 signed char
 window_size(int *window_width, int *window_height)
 {
-   int         new_window_width,
+   int         i, j,
+               max_no_of_hosts,
+               new_window_width,
                new_window_height,
-               previous_no_of_rows,
-               max_no_of_hosts;
-   static int  prev_no_of_columns = 0;
+               previous_no_of_rows;
    signed char window_size_changed;
 
    /* How many columns do we need ? */
@@ -78,12 +86,6 @@ window_size(int *window_width, int *window_height)
       no_of_columns = 1;
    }
 
-   if (prev_no_of_columns != no_of_columns)
-   {
-      calc_but_coord();
-      prev_no_of_columns = no_of_columns;
-   }
-
    /* How many lines per window ? */
    previous_no_of_rows = no_of_rows;
    no_of_rows = no_of_hosts / no_of_columns;
@@ -95,12 +97,64 @@ window_size(int *window_width, int *window_height)
       }
    }
 
-   /* Check if in last column rows moved up */
+   /* Determine the length of each column. */
+   if (line_length != NULL)
+   {
+      free(line_length);
+   }
+   if ((line_length = malloc(no_of_columns * sizeof(int))) == NULL)
+   {
+      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   new_window_width = 0;
+   if (line_style & SHOW_JOBS)
+   {
+      int max_no_parallel_jobs = 0,
+          row_counter = 0;
+
+      for (i = 0; i < no_of_columns; i++)
+      {
+         for (j = 0; j < no_of_rows; j++)
+         {
+            if (max_no_parallel_jobs < fsa[row_counter].allowed_transfers)
+            {
+               max_no_parallel_jobs = fsa[row_counter].allowed_transfers;
+               if (max_no_parallel_jobs == MAX_NO_PARALLEL_JOBS)
+               {
+                  /* No need to go on with the search. */
+                  row_counter += (no_of_rows - j);
+                  break;
+               }
+            }
+            row_counter++;
+            if (row_counter >= no_of_hosts)
+            {
+               break;
+            }
+         }
+         line_length[i] = max_line_length -
+                          (((MAX_NO_PARALLEL_JOBS - max_no_parallel_jobs) *
+                           (button_width + BUTTON_SPACING)) - BUTTON_SPACING);
+         new_window_width += line_length[i];
+         max_no_parallel_jobs = 0;
+      }
+   }
+   else
+   {
+      for (i = 0; i < no_of_columns; i++)
+      {
+         line_length[i] = max_line_length;
+         new_window_width += max_line_length;
+      }
+   }
+   calc_but_coord(new_window_width);
+
+   /* Check if in last column rows moved up. */
    if (((max_no_of_hosts = (no_of_columns * no_of_rows)) > no_of_hosts) &&
        (previous_no_of_rows != no_of_rows) && (previous_no_of_rows != 0))
    {
-      int i;
-
       for (i = max_no_of_hosts; i > no_of_hosts; i--)
       {
          draw_blank_line(i - 1);
@@ -108,7 +162,6 @@ window_size(int *window_width, int *window_height)
    }
 
    /* Calculate window width and height */
-   new_window_width  = line_length * no_of_columns;
    new_window_height = line_height  * no_of_rows;
 
    /* Window resize necessary ? */

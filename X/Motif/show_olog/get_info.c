@@ -224,11 +224,66 @@ get_info(int item)
                        {
                           ptr++;
                        }
-                       id.user[count] = *ptr;
+                       id.user[count] = id.mail_destination[count] = *ptr;
                        ptr++; count++;
                     }
-                    id.user[count] = ' ';
+                    id.user[count] = ' '; /* for sfilter() */
                     id.user[count + 1] = '\0';
+
+                    /*
+                     * Need to check if server= option is set so we can
+                     * get the full mail address.
+                     */
+                    if (*ptr == ':') /* Omit the password. */
+                    {
+                       while ((*ptr != '@') && (*ptr != '\0'))
+                       {
+                          if (*ptr == '\\')
+                          {
+                             ptr++;
+                          }
+                          ptr++;
+                       }
+                    }
+                    if (*ptr == '@')
+                    {
+                       id.mail_destination[count] = *ptr;
+                       ptr++; count++;
+                       while ((*ptr != ';') && (*ptr != ':') &&
+                              (*ptr != '/') && (*ptr != '\0'))
+                       {
+                          if (*ptr == '\\')
+                          {
+                             ptr++;
+                          }
+                          id.mail_destination[count] = *ptr;
+                          ptr++; count++;
+                       }
+                       while ((*ptr != ';') && (*ptr != '\0'))
+                       {
+                          if (*ptr == '\\')
+                          {
+                             ptr++;
+                          }
+                          ptr++;
+                       }
+                       if ((*ptr == ';') && (*(ptr + 1) == 's') &&
+                           (*(ptr + 2) == 'e') && (*(ptr + 3) == 'r') &&
+                           (*(ptr + 4) == 'v') && (*(ptr + 5) == 'e') &&
+                           (*(ptr + 6) == 'r') && (*(ptr + 7) == '='))
+                       {
+                          id.mail_destination[count] = ' '; /* for sfilter() */
+                          id.mail_destination[count + 1] = '\0';
+                       }
+                       else
+                       {
+                          id.mail_destination[0] = '\0';
+                       }
+                    }
+                    else
+                    {
+                       id.mail_destination[0] = '\0';
+                    }
                  }
               }
               else

@@ -4,7 +4,7 @@
 
 include ../Include.mk
 
-INSTALLDIR = ../../bin
+INSTDIR    = ../..
 COMDIR     = ../common
 LIB        = $(COMDIR)/libafd.a
 CFLAGS     = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../amg
@@ -43,9 +43,14 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTALLDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTALLDIR)
-	chmod $(BINMODE) $(INSTALLDIR)/$(IAFDPROG) $(INSTALLDIR)/$(AFDPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(SUIDMODE) $(INSTDIR)/bin/$(IAFDPROG)
+	chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 init_afd.o afd.o : ../version.h

@@ -1,6 +1,6 @@
 /*
  *  output_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ DESCR__S_M1
  **     |   |                                      Job Number.
  **     |   +------------------------------------> File Size of type off_t.
  **     +----------------------------------------> Transfer Duration of type
- **                                                time_t.
+ **                                                clock_t.
  **
  **   This data is then written to the output log file in the following
  **   format:
@@ -104,6 +104,7 @@ char *p_work_dir = NULL;
 static void show_buffer(char *, int);
 #endif
 
+
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
@@ -115,16 +116,17 @@ main(int argc, char *argv[])
                   n,
                   length,
                   offset,
+                  max_output_log_files = MAX_OUTPUT_LOG_FILES,
                   no_of_buffered_writes = 0,
                   check_size,
                   status,
                   log_fd;
    off_t          *file_size;
-   time_t         *transfer_duration,
-                  next_file_time,
+   time_t         next_file_time,
                   now;
    unsigned int   *job_number;
-   clock_t        clktck;
+   clock_t        clktck,
+                  *transfer_duration;
    long           fifo_size;
    char           *p_end,
                   *fifo_buffer,
@@ -236,6 +238,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_output_log_files, MAX_OUTPUT_LOG_FILES_DEF,
+                      MAX_OUTPUT_LOG_FILES);
+
    /*
     * Set umask so that all log files have the permission 644.
     * If we do not set this here fopen() will create files with
@@ -248,7 +254,7 @@ main(int argc, char *argv[])
     * create it.
     */
    get_log_number(&log_number,
-                  (MAX_OUTPUT_LOG_FILES - 1),
+                  (max_output_log_files - 1),
                   OUTPUT_BUFFER_FILE,
                   strlen(OUTPUT_BUFFER_FILE));
    (void)sprintf(current_log_file, "%s%s/%s0",
@@ -266,7 +272,7 @@ main(int argc, char *argv[])
    {
       if (stat_buf.st_mtime < (next_file_time - SWITCH_FILE_TIME))
       {
-         if (log_number < (MAX_OUTPUT_LOG_FILES - 1))
+         if (log_number < (max_output_log_files - 1))
          {
             log_number++;
          }
@@ -321,7 +327,7 @@ main(int argc, char *argv[])
          /* Check if we have to create a new log file. */
          if (time(&now) > next_file_time)
          {
-            if (log_number < (MAX_OUTPUT_LOG_FILES - 1))
+            if (log_number < (max_output_log_files - 1))
             {
                log_number++;
             }
@@ -443,7 +449,7 @@ main(int argc, char *argv[])
                */
               if (now > next_file_time)
               {
-                 if (log_number < (MAX_OUTPUT_LOG_FILES - 1))
+                 if (log_number < (max_output_log_files - 1))
                  {
                     log_number++;
                  }

@@ -556,7 +556,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
     */
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
-   read_setup("dir_ctrl", NULL, NULL);
+   read_setup(DIR_CTRL, NULL, NULL);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;

@@ -240,17 +240,17 @@ main(int argc, char *argv[])
          if ((fra[i].delete_files_flag & UNKNOWN_FILES) &&
              (fra[i].delete_files_flag & QUEUED_FILES))
          {
-            (void)fprintf(stdout, "Delete input files   : Unknown and queued\n");
+            (void)fprintf(stdout, "Delete input files   : Unknown and queued files\n");
          }
          else
          {
             if (fra[i].delete_files_flag & UNKNOWN_FILES)
             {
-               (void)fprintf(stdout, "Delete input files   : Unknown\n");
+               (void)fprintf(stdout, "Delete input files   : Unknown files\n");
             }
             else if (fra[i].delete_files_flag & QUEUED_FILES)
                  {
-                    (void)fprintf(stdout, "Delete input files   : Queued\n");
+                    (void)fprintf(stdout, "Delete input files   : Queued files\n");
                  }
                  else
                  {
@@ -377,7 +377,7 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "Minute (long long)   : %s\n", binstr);
          (void)fprintf(stdout, "Continues (long long): %s\n", binstr);
 #else
-         ptr = &fra[i].te.minute[7];
+         ptr = (char *)&fra[i].te.minute[7];
          convert2bin(binstr, *ptr);
          binstr[8] = ' ';
          ptr--;

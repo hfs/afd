@@ -1,6 +1,6 @@
 /*
  *  change_alias_order.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -89,6 +89,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    char                       *ptr,
                               fsa_id_file[MAX_PATH_LENGTH],
                               new_fsa_stat[MAX_PATH_LENGTH];
+   struct flock               wlock;
    struct filetransfer_status *new_fsa;
 
    if (new_no_of_hosts != -1)
@@ -112,9 +113,29 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    (void)strcat(fsa_id_file, FIFO_DIR);
    (void)strcat(fsa_id_file, FSA_ID_FILE);
 
-   for (i = 0; i < old_no_of_hosts; i++)
+   wlock.l_type   = F_WRLCK;
+   wlock.l_whence = SEEK_SET;
+   wlock.l_start  = 0;
+#ifndef _NO_MMAP
+   wlock.l_len    = fsa_size;
+#else
+   wlock.l_len    = AFD_WORD_OFFSET + (no_of_hosts * sizeof(struct filetransfer_status));
+#endif /* _NO_MMAP */
+   if (fcntl(fsa_fd, F_SETLKW, &wlock) < 0)
    {
-      lock_region_w(fsa_fd, (char *)&fsa[i] - (char *)fsa);
+      /* Is lock already set or are we setting it again? */
+      if ((errno != EACCES) && (errno != EAGAIN))
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not set write lock for FSA_STAT_FILE : %s",
+                    strerror(errno));
+      }
+      else
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "Could not set write lock for FSA_STAT_FILE : %s",
+                    strerror(errno));
+      }
    }
 
    /*
@@ -228,16 +249,16 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                 * is a new host.
                 */
                (void)memset(&new_fsa[i], 0, sizeof(struct filetransfer_status));
-               (void)strcpy(new_fsa[i].host_alias, hl[i].host_alias);
+               (void)memcpy(new_fsa[i].host_alias, hl[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
                (void)sprintf(new_fsa[i].host_dsp_name, "%-*s",
                              MAX_HOSTNAME_LENGTH, hl[i].host_alias);
                new_fsa[i].toggle_pos = strlen(new_fsa[i].host_alias);
-               (void)strcpy(new_fsa[i].real_hostname[0], hl[i].real_hostname[0]);
-               (void)strcpy(new_fsa[i].real_hostname[1], hl[i].real_hostname[1]);
+               (void)memcpy(new_fsa[i].real_hostname[0], hl[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
+               (void)memcpy(new_fsa[i].real_hostname[1], hl[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
                new_fsa[i].host_toggle = HOST_ONE;
                if (hl[i].host_toggle_str[0] != '\0')
                {
-                  (void)memcpy(new_fsa[i].host_toggle_str, hl[i].host_toggle_str, 5);
+                  (void)memcpy(new_fsa[i].host_toggle_str, hl[i].host_toggle_str, MAX_TOGGLE_STR_LENGTH);
                   if (hl[i].host_toggle_str[0] == AUTO_TOGGLE_OPEN)
                   {
                      new_fsa[i].auto_toggle = ON;
@@ -255,7 +276,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                   new_fsa[i].original_toggle_pos = NONE;
                   new_fsa[i].auto_toggle = OFF;
                }
-               (void)strcpy(new_fsa[i].proxy_name, hl[i].proxy_name);
+               (void)memcpy(new_fsa[i].proxy_name, hl[i].proxy_name, MAX_PROXY_NAME_LENGTH + 1);
                new_fsa[i].allowed_transfers = hl[i].allowed_transfers;
                for (k = 0; k < new_fsa[i].allowed_transfers; k++)
                {
@@ -372,7 +393,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
       system_log(WARN_SIGN, __FILE__, __LINE__, "Failed to detach from FRA.");
    }
 
-   if (fsa_detach() < 0)
+   if (fsa_detach(NO) < 0)
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
                  "Failed to detach from old FSA.");

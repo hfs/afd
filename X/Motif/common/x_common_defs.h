@@ -25,8 +25,8 @@
 #define MAXARGS                         20
 #define MAX_INTENSITY                   65535
 #define STARTING_REDRAW_TIME            250
-#define MIN_REDRAW_TIME                 650
-#define MAX_REDRAW_TIME                 4500
+#define MIN_REDRAW_TIME                 800
+#define MAX_REDRAW_TIME                 3000
 #define REDRAW_STEP_TIME                600
 #define DEFAULT_FRAME_SPACE             5
 #define SPACE_ABOVE_LINE                1

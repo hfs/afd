@@ -4,7 +4,7 @@
 
 include ../Include.mk
 
-INSTDIR    = ../../bin
+INSTDIR    = ../..
 LIB        = ../common/libafd.a
 PROTOLIB   = ../protocols/libprotocols.a
 CFLAGS     = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../protocols -I../fd
@@ -36,14 +36,18 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	cd $(INSTDIR) && chmod $(BINMODE) $(PROGS)
-	@if [ ! -r $(INSTDIR)/raftp ] ; \
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	cd $(INSTDIR)/bin && chmod $(BINMODE) $(PROGS)
+	@if [ ! -r $(INSTDIR)/bin/raftp ] ; \
 	then \
-	   cd $(INSTDIR) ; \
+	   cd $(INSTDIR)/bin ; \
 	   ln -s $(AFTPPROG) raftp ; \
 	fi
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 aftp.o : ../version.h

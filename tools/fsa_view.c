@@ -312,8 +312,7 @@ main(int argc, char *argv[])
                     fsa[j].successful_retries);
       (void)fprintf(stdout, "MaxSuccessful ret. : %d\n",
                     fsa[j].max_successful_retries);
-      (void)fprintf(stdout, "Special flag (%3d) : ",
-                    fsa[j].special_flag);
+      (void)fprintf(stdout, "Special flag (%3d) : ", fsa[j].special_flag);
       if (fsa[j].special_flag & HOST_DISABLED)
       {
          (void)fprintf(stdout, "HOST_DISABLED ");
@@ -367,12 +366,8 @@ main(int argc, char *argv[])
       {
          switch(fsa[j].job_status[i].connect_status)
          {
-            case TRANSFER_ACTIVE :
-               (void)fprintf(stdout, "|TRANS ACTIV");
-               break;
-
             case CONNECTING :
-               (void)fprintf(stdout, "|CONNECTING ");
+               (void)fprintf(stdout, "|CON or LOCB");
                break;
 
             case DISCONNECT :
@@ -383,12 +378,20 @@ main(int argc, char *argv[])
                (void)fprintf(stdout, "|NOT WORKING");
                break;
 
+            case FTP_ACTIVE :
+               (void)fprintf(stdout, "|    FTP    ");
+               break;
+
             case FTP_BURST_TRANSFER_ACTIVE :
                (void)fprintf(stdout, "| FTP BURST ");
                break;
 
             case FTP_BURST2_TRANSFER_ACTIVE :
                (void)fprintf(stdout, "| FTP BURST2");
+               break;
+
+            case LOC_ACTIVE :
+               (void)fprintf(stdout, "|    LOC    ");
                break;
 
             case EMAIL_ACTIVE :

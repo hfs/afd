@@ -58,7 +58,7 @@ DESCR__E_M1
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>                /* getuid(), getgid()                 */
+#include <unistd.h>                /* geteuid(), getegid()               */
 #include <errno.h>
 #ifdef _WITH_PTHREAD
 #include <pthread.h>
@@ -67,10 +67,10 @@ DESCR__E_M1
 
 
 /* global variables */
-extern int                    shm_id,      /* Shared memory ID of        */
+extern int                    afd_status_fd,
+                              shm_id,      /* Shared memory ID of        */
                                            /* dir_check.                 */
                               max_process,
-                              fd_cmd_fd,
                               max_copied_files,
 #ifndef _WITH_PTHREAD
                               dir_check_timeout,
@@ -130,7 +130,6 @@ init_dir_check(int    argc,
 {
    int         i;
    char        del_time_job_fifo[MAX_PATH_LENGTH],
-               fd_cmd_fifo[MAX_PATH_LENGTH],
 #ifdef _INPUT_LOG
                input_log_fifo[MAX_PATH_LENGTH],
 #endif
@@ -156,8 +155,8 @@ init_dir_check(int    argc,
    }
 
    /* User and group ID */
-   afd_uid = getuid();
-   afd_gid = getgid();
+   afd_uid = geteuid();
+   afd_gid = getegid();
 
    /* Allocate memory for the array containing all file names to  */
    /* be send for every directory section in the DIR_CONFIG file. */
@@ -191,8 +190,6 @@ init_dir_check(int    argc,
    (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
    (void)strcpy(receive_log_fifo, dc_cmd_fifo);
    (void)strcat(receive_log_fifo, RECEIVE_LOG_FIFO);
-   (void)strcpy(fd_cmd_fifo, dc_cmd_fifo);
-   (void)strcat(fd_cmd_fifo, FD_CMD_FIFO);
    (void)strcat(dc_cmd_fifo, DC_CMD_FIFO);
    msg_fifo_buf_size = 1 + sizeof(time_t) + sizeof(unsigned short) +
                        sizeof(int);
@@ -207,7 +204,7 @@ init_dir_check(int    argc,
     * up running. If not we will very quickly fill up the
     * message fifo to the FD.
     */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(&afd_status_fd) < 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to attach to AFD status area. (%s %d)\n",
@@ -351,23 +348,6 @@ init_dir_check(int    argc,
                 fin_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((stat(fd_cmd_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(fd_cmd_fifo) < 0)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not create fifo %s. (%s %d)\n",
-                   fd_cmd_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-   if ((fd_cmd_fd = coe_open(fd_cmd_fifo, O_RDWR)) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
    if ((stat(del_time_job_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
    {
       if (make_fifo(del_time_job_fifo) < 0)
@@ -387,7 +367,6 @@ init_dir_check(int    argc,
    }
 
    /* Now create the internal database of this process */
-   /* NOTE: Needs fd_cmd_fd!!!                         */
    no_of_jobs = create_db(shm_id);
 
    /* Allocate space for process ID array. */
@@ -452,7 +431,7 @@ get_afd_config_value(void)
 
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   if ((access(config_file, F_OK) == 0) &&
+   if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];

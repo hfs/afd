@@ -4,12 +4,15 @@
 
 include ../Include.mk
 
-INSTDIR   = ../../sbin
+INSTDIR   = ../..
 
 SCRIPTS = rafdd_cmd
 
 install :
-	cp -p $(SCRIPTS) $(INSTDIR)
-	cd $(INSTDIR) && chmod 755 $(SCRIPTS)
+	cp -p $(SCRIPTS) $(INSTDIR)/sbin
+	cd $(INSTDIR)/sbin && chmod 755 $(SCRIPTS)
+
+sinstall :
+	$(MAKE) install
 
 # Other Dependencies

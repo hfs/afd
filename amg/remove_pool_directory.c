@@ -1,7 +1,7 @@
 /*
  *  remove_pool_directory.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -105,7 +105,7 @@ remove_pool_directory(char *job_dir, int dir_id)
          if (unlink(job_dir) == -1)
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to unlink() file %s due to age : %s (%s %d)\n",
+                      "Failed to unlink() file %s : %s (%s %d)\n",
                       p_dir->d_name, strerror(errno), __FILE__, __LINE__);
          }
          else

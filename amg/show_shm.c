@@ -63,7 +63,6 @@ extern int  shm_id,                    /* The shared memory ID's for    */
                                        /* main sorted data and pointers.*/
 
 
-#ifdef _DEBUG
 /*############################# show_shm() #############################*/
 void
 show_shm(FILE *output)
@@ -74,7 +73,8 @@ show_shm(FILE *output)
                   no_of_jobs,
                   value,
                   size;
-   char           *ptr = NULL,
+   char           option[MAX_OPTION_LENGTH],
+                  *ptr = NULL,
                   *tmp_ptr = NULL,
                   *p_offset = NULL,
                   *p_shm = NULL,
@@ -90,6 +90,20 @@ show_shm(FILE *output)
    /* First show which table we are showing */
    (void)fprintf(output, "\n\n------------------------> Contents of %3s <-------------------------\n", region);
    (void)fprintf(output, "                          ---------------\n");
+
+   if (data_length == -1)
+   {
+      struct shmid_ds buf;
+
+      if (shmctl(shm_id, IPC_STAT, &buf) == -1)
+      {
+         (void)fprintf(stderr, "shmctl() error : %s\n", strerror(errno));
+      }
+      else
+      {
+         data_length = buf.shm_segsz;
+      }
+   }
 
    if (data_length > 0)
    {
@@ -124,11 +138,12 @@ show_shm(FILE *output)
       {
          /* Show directory, priority and job type */
          (void)fprintf(output, "Directory          : %s\n", (int)(p_ptr[j].ptr[1]) + p_offset);
+         (void)fprintf(output, "Alias name         : %s\n", (int)(p_ptr[j].ptr[2]) + p_offset);
          (void)fprintf(output, "Priority           : %c\n", *((int)(p_ptr[j].ptr[0]) + p_offset));
 
          /* Show files to be send */
-         value = atoi((int)(p_ptr[j].ptr[2]) + p_offset);
-         ptr = (int)(p_ptr[j].ptr[3]) + p_offset;
+         value = atoi((int)(p_ptr[j].ptr[3]) + p_offset);
+         ptr = (int)(p_ptr[j].ptr[4]) + p_offset;
          for (k = 0; k < value; k++)
          {
             (void)fprintf(output, "File            %3d: %s\n", k + 1, ptr);
@@ -136,34 +151,39 @@ show_shm(FILE *output)
                ;
          }
 
-         /* Show recipient(s) */
-         value = atoi((int)(p_ptr[j].ptr[8]) + p_offset);
-         ptr = (int)(p_ptr[j].ptr[9]) + p_offset;
-         for (k = 0; k < value; k++)
-         {
-            (void)fprintf(output, "Recipient       %3d: %s\n", k + 1, ptr);
-            while (*(ptr++) != '\0')
-               ;
-         }
+         /* Show recipient */
+         (void)fprintf(output, "Recipient          : %s\n", (int)(p_ptr[j].ptr[9]) + p_offset);
 
          /* Show local options */
-         value = atoi((int)(p_ptr[j].ptr[4]) + p_offset);
-         ptr = (int)(p_ptr[j].ptr[5]) + p_offset;
+         value = atoi((int)(p_ptr[j].ptr[5]) + p_offset);
+         ptr = (int)(p_ptr[j].ptr[6]) + p_offset;
          for (k = 0; k < value; k++)
          {
-            (void)fprintf(output, "Local option    %3d: %s\n", k + 1, ptr);
-            while (*(ptr++) != '\0')
-               ;
+            i = 0;
+            while ((*ptr != '\0') && (*ptr != '\n'))
+            {
+               option[i] = *ptr;
+               ptr++; i++;
+            }
+            ptr++;
+            option[i] = '\0';
+            (void)fprintf(output, "Local option    %3d: %s\n", k + 1, option);
          }
 
          /* Show standard options */
-         value = atoi((int)(p_ptr[j].ptr[6]) + p_offset);
-         ptr = (int)(p_ptr[j].ptr[7]) + p_offset;
+         value = atoi((int)(p_ptr[j].ptr[7]) + p_offset);
+         ptr = (int)(p_ptr[j].ptr[8]) + p_offset;
          for (k = 0; k < value; k++)
          {
-            (void)fprintf(output, "Standard option %3d: %s\n", k + 1, ptr);
-            while (*(ptr++) != '\0')
-               ;
+            i = 0;
+            while ((*ptr != '\0') && (*ptr != '\n'))
+            {
+               option[i] = *ptr;
+               ptr++; i++;
+            }
+            ptr++;
+            option[i] = '\0';
+            (void)fprintf(output, "Standard option %3d: %s\n", k + 1, option);
          }
 
          (void)fprintf(output, ">------------------------------------------------------------------------<\n\n");
@@ -185,4 +205,3 @@ show_shm(FILE *output)
 
    return;
 }
-#endif

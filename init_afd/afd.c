@@ -1,6 +1,6 @@
 /*
  *  afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -85,7 +85,7 @@ DESCR__E_M1
 #include <sys/time.h>         /* struct timeval, FD_SET...               */
 #include <signal.h>           /* kill()                                  */
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
-#include <unistd.h>           /* execlp(), chdir(), access(), R_OK, X_OK */
+#include <unistd.h>           /* execlp(), chdir(), R_OK, X_OK           */
 #include <errno.h>
 #include "version.h"
 #include "permission.h"
@@ -144,6 +144,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   set_afd_euid(work_dir);
    get_user(user);
 
    switch(get_permissions(&perm_buffer))
@@ -463,16 +464,14 @@ main(int argc, char *argv[])
            }
 
            (void)strcpy(exec_cmd, AFD);
-           (void)rec(sys_log_fd, CONFIG_SIGN,
-                     "AFD startup initiated by %s\n", user);
            switch(fork())
            {
               case -1 :
 
                  /* Could not generate process */
-                 (void)rec(sys_log_fd, FATAL_SIGN,
-                           "Could not create a new process : %s (%s %d)\n",
-                           strerror(errno),  __FILE__, __LINE__);
+                 (void)fprintf(stderr,
+                               "Could not create a new process : %s (%s %d)\n",
+                               strerror(errno),  __FILE__, __LINE__);
                  break;
 
               case  0 :
@@ -514,17 +513,14 @@ main(int argc, char *argv[])
                    }
 
                    (void)strcpy(exec_cmd, AFD);
-                   (void)rec(sys_log_fd, WARN_SIGN,
-                             "Hmm. AFD is NOT running! Startup initiated by %s\n",
-                             user);
                    switch(fork())
                    {
                       case -1 :
 
                          /* Could not generate process */
-                         (void)rec(sys_log_fd, FATAL_SIGN,
-                                   "Could not create a new process : %s (%s %d)\n",
-                                   strerror(errno),  __FILE__, __LINE__);
+                         (void)fprintf(stderr,
+                                       "Could not create a new process : %s (%s %d)\n",
+                                       strerror(errno),  __FILE__, __LINE__);
                          break;
 
                       case  0 :
@@ -582,7 +578,7 @@ main(int argc, char *argv[])
         }
 
    /* Check if starting of AFD is currently disabled  */
-   if (access(block_file, F_OK) == 0)
+   if (eaccess(block_file, F_OK) == 0)
    {
       (void)fprintf(stderr, "AFD is currently disabled by system manager.\n");
       exit(INCORRECT);
@@ -602,7 +598,7 @@ main(int argc, char *argv[])
         }
 
    /* Is another AFD active in this directory? */
-   if ((check_afd(10L) == 1) || (access(block_file, F_OK) == 0))
+   if ((check_afd(10L) == 1) || (eaccess(block_file, F_OK) == 0))
    {
       /* Unlock, so other users don't get blocked */
       (void)close(fd);
@@ -633,32 +629,30 @@ main(int argc, char *argv[])
       {
          if (make_fifo(probe_only_fifo) < 0)
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not create fifo %s. (%s %d)\n",
-                      probe_only_fifo, __FILE__, __LINE__);
+            (void)fprintf(stderr,
+                          "Could not create fifo %s. (%s %d)\n",
+                          probe_only_fifo, __FILE__, __LINE__);
             exit(INCORRECT);
          }
       }
       if ((read_fd = coe_open(probe_only_fifo, O_RDWR)) == -1)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not open fifo %s : %s (%s %d)\n",
-                   probe_only_fifo, strerror(errno), __FILE__, __LINE__);
+         (void)fprintf(stderr,
+                       "Could not open fifo %s : %s (%s %d)\n",
+                       probe_only_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
       /* Start AFD */
       (void)strcpy(exec_cmd, AFD);
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "AFD automatic startup initiated by %s\n", user);
       switch(fork())
       {
          case -1 :
 
             /* Could not generate process */
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not create a new process : %s (%s %d)\n",
-                      strerror(errno),  __FILE__, __LINE__);
+            (void)fprintf(stderr,
+                          "Could not create a new process : %s (%s %d)\n",
+                          strerror(errno),  __FILE__, __LINE__);
             break;
 
          case  0 :
@@ -694,8 +688,8 @@ main(int argc, char *argv[])
       {
          /* No answer from the other AFD. Lets assume it */
          /* not able to startup properly.                */
-         (void)rec(sys_log_fd, FATAL_SIGN, "%s does not reply. (%s %d)\n",
-                   AFD, __FILE__, __LINE__);
+         (void)fprintf(stderr, "%s does not reply. (%s %d)\n",
+                       AFD, __FILE__, __LINE__);
          exit(INCORRECT);
       }
       else if (FD_ISSET(read_fd, &rset))
@@ -718,39 +712,39 @@ main(int argc, char *argv[])
                     if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                                (char *) 0) == -1)
                     {
-                       (void)fprintf(stderr, "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                                     exec_cmd, strerror(errno), __FILE__, __LINE__);
+                       (void)fprintf(stderr,
+                                     "ERROR   : Failed to execute %s : %s (%s %d)\n",
+                                     exec_cmd, strerror(errno),
+                                     __FILE__, __LINE__);
                        exit(1);
                     }
                  }
                  else
                  {
-                    (void)rec(sys_log_fd, FATAL_SIGN,
-                              "Reading garbage from fifo %s. (%s %d)\n",
-                              probe_only_fifo,  __FILE__, __LINE__);
+                    (void)fprintf(stderr,
+                                  "Reading garbage from fifo %s. (%s %d)\n",
+                                  probe_only_fifo,  __FILE__, __LINE__);
                     exit(INCORRECT);
                  }
               }
               else if (n < 0)
                    {
-                      (void)rec(sys_log_fd, FATAL_SIGN,
-                                "read() error : %s (%s %d)\n",
-                                strerror(errno),  __FILE__, __LINE__);
+                      (void)fprintf(stderr, "read() error : %s (%s %d)\n",
+                                    strerror(errno),  __FILE__, __LINE__);
                       exit(INCORRECT);
                    }
            }
            else if (status < 0)
                 {
-                   (void)rec(sys_log_fd, FATAL_SIGN,
-                             "Select error : %s (%s %d)\n",
-                             strerror(errno),  __FILE__, __LINE__);
+                   (void)fprintf(stderr, "Select error : %s (%s %d)\n",
+                                 strerror(errno),  __FILE__, __LINE__);
                    exit(INCORRECT);
                 }
                 else
                 {
-                   (void)rec(sys_log_fd, FATAL_SIGN,
-                             "Unknown condition. Maybe you can tell what's going on here. (%s %d)\n",
-                             __FILE__, __LINE__);
+                   (void)fprintf(stderr,
+                                 "Unknown condition. Maybe you can tell what's going on here. (%s %d)\n",
+                                 __FILE__, __LINE__);
                    exit(INCORRECT);
                 }
 
@@ -770,7 +764,7 @@ check_database(void)
    (void)sprintf(db_file, "%s%s%s",
                  p_work_dir, ETC_DIR, DEFAULT_DIR_CONFIG_FILE);
 
-   return(access(db_file, R_OK));
+   return(eaccess(db_file, R_OK));
 }
 
 

@@ -1,6 +1,6 @@
 /*
  *  sf_wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1059,7 +1059,7 @@ main(int argc, char *argv[])
             {
                fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                system_log(INFO_SIGN, __FILE__, __LINE__,
-                          "Starting queue for %s that was stopped by init_afd.",
+                          "Starting input queue for %s that was stopped by init_afd.",
                           fsa[db.fsa_pos].host_alias);
             }
          } /* if (fsa[db.fsa_pos].error_counter > 0) */
@@ -1135,6 +1135,8 @@ main(int argc, char *argv[])
       system_log(WARN_SIGN, __FILE__, __LINE__,
                  "There are still %d files for %s. Will NOT remove this job!",
                  files_to_send - files_send, file_path);
+      exitflag = 0;
+      exit(STILL_FILES_TO_SEND);
    }
 #endif /* _WITH_WMO_SUPPORT */
 

@@ -51,7 +51,6 @@
 #define INFO_PERM            "info"              /* Info about host      */
 #define DEBUG_PERM           "debug"             /* Enable/Disable debug */
 #define RETRY_PERM           "retry"
-#define VIEW_QUEUE_PERM      "view_queue"
 #define VIEW_JOBS_PERM       "view_jobs"         /* Detailed transfer    */
 #define AFD_LOAD_PERM        "afd_load"
 #define RR_DC_PERM           "reread_dir_config" /* Reread DIR_CONFIG    */
@@ -61,6 +60,7 @@
 #define VIEW_DIR_CONFIG_PERM "view_dir_config"   /* Info on DIR_CONFIG   */
 #define SHOW_QUEUE_PERM      "show_queue"        /* Show + delete queue. */
 #define DELETE_QUEUE_PERM    "delete_queue"      /* Delete queue.        */
+#define XSHOW_STAT_PERM      "xshow_stat"        /* Show statistics.     */
 
 #define MON_CTRL_PERM        "mon_ctrl"          /* mon_ctrl dialog      */
 #define MON_STARTUP_PERM     "mon_startup"       /* Startup AFD_MON      */

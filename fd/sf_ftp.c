@@ -1,6 +1,6 @@
 /*
  *  sf_ftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -153,7 +153,8 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
    unsigned int     ui_variable;
 #endif
-   int              j,
+   int              exit_status = TRANSFER_SUCCESS,
+                    j,
                     fd,
                     status,
                     bytes_buffered,
@@ -347,8 +348,8 @@ main(int argc, char *argv[])
       if (burst_2_counter > 0)
       {
 #ifdef _BURST_MODE
-         (void)strcpy(fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name,
-                      db.msg_name);
+         (void)memcpy(fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name,
+                      db.msg_name, MAX_MSG_NAME_LENGTH);
          fsa[db.fsa_pos].job_status[(int)db.job_no].error_file = db.error_file;
          fsa[db.fsa_pos].job_status[(int)db.job_no].job_id = db.job_id;
          search_for_files = NO;
@@ -2280,7 +2281,7 @@ main(int argc, char *argv[])
             {
                fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                system_log(INFO_SIGN, __FILE__, __LINE__,
-                          "Starting queue for %s that was stopped by init_afd.",
+                          "Starting input queue for %s that was stopped by init_afd.",
                           fsa[db.fsa_pos].host_alias);
             }
          } /* if (fsa[db.fsa_pos].error_counter > 0) */
@@ -2343,6 +2344,7 @@ main(int argc, char *argv[])
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to remove directory <%s> : %s [PID = %d] [job_no = %d]",
                  file_path, strerror(errno), db.my_pid, (int)db.job_no);
+      exit_status = STILL_FILES_TO_SEND;
    }
 
 #ifdef _WITH_BURST_2
@@ -2446,7 +2448,7 @@ main(int argc, char *argv[])
    }
 
    exitflag = 0;
-   exit(TRANSFER_SUCCESS);
+   exit(exit_status);
 }
 
 

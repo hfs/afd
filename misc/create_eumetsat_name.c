@@ -1,8 +1,8 @@
 /*
  *  create_eumetsat_name.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 1999 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2002 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,6 +29,9 @@ DESCR__S_M3
  ** SYNOPSIS
  **
  ** DESCRIPTION
+ **   This program puts in a WMO bulletin header into the given file
+ **   and creates a file with the name as required by EUMETSAT. The
+ **   bulletin header is created from the ECMWF filename.
  **
  ** RETURN VALUES
  **
@@ -36,7 +39,8 @@ DESCR__S_M3
  **   H.Kiehl
  **
  ** HISTORY
- **   30.03.1999 H.Kiehl  Created
+ **   30.03.1999 H.Kiehl Created
+ **   13.12.2001 H.Kiehl Adopted to the new file names from ECMWF
  **
  */
 DESCR__E_M3
@@ -53,12 +57,10 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* Global variables */
-int         counter_fd,                  /* NOTE: This is not used. */
-            sys_log_fd = STDERR_FILENO,
-            no_of_rule_headers;
-struct rule *rule;
+int sys_log_fd = STDERR_FILENO;
 
 #define HUNK_MAX 20480
+#define _WITH_FIXED_NNN
 #ifdef _WITH_FIXED_NNN
 #define WMO_HEADER_OFFSET 10
 #else
@@ -70,11 +72,10 @@ struct rule *rule;
 int
 main(int argc, char *argv[])
 {
-   size_t      length;
-   time_t      time_val;
-   char        new_name[47],
-               str_time[4],
-               tmp_name[15];
+   int         diff_time,
+               ver_time = 0;
+   time_t      base_time;
+   char        newname[69];
    struct stat stat_buf;
    struct tm   *p_tm;
 
@@ -83,7 +84,7 @@ main(int argc, char *argv[])
       (void)fprintf(stderr, "Usage: %s <file name> [<rename rule>]\n", argv[0]);
       exit(1);
    }
-   if (strlen(argv[1]) < 9)
+   if (strlen(argv[1]) < 19)
    {
       (void)fprintf(stderr, "Filename to short.\n");
       exit(1);
@@ -96,249 +97,349 @@ main(int argc, char *argv[])
       exit(1);
    }
 
-   str_time[0] = argv[1][5];
-   str_time[1] = argv[1][6];
-   str_time[2] = argv[1][7];
-   str_time[3] = '\0';
-
+   /* Get diff_time in hours from validate date and base date. */
    p_tm = gmtime(&stat_buf.st_mtime);
-   (void)strftime(tmp_name, 15, "%Y%m%d%H%M%S", p_tm);
+   p_tm->tm_sec = 0;
+   p_tm->tm_min = ((argv[1][9] - '0') * 10) + (argv[1][10] - '0');
+   p_tm->tm_hour = ((argv[1][7] - '0') * 10) + (argv[1][8] - '0');
+   p_tm->tm_mday = ((argv[1][5] - '0') * 10) + (argv[1][6] - '0');
+   p_tm->tm_mon = ((argv[1][3] - '0') * 10) + (argv[1][4] - '0') - 1;
+   p_tm->tm_wday = 0;
+   base_time = mktime(p_tm);
+   p_tm = gmtime(&stat_buf.st_mtime);
+   p_tm->tm_sec = 0;
+   p_tm->tm_min = ((argv[1][17] - '0') * 10) + (argv[1][18] - '0');
+   p_tm->tm_hour = ((argv[1][15] - '0') * 10) + (argv[1][16] - '0');
+   p_tm->tm_mday = ((argv[1][13] - '0') * 10) + (argv[1][14] - '0');
+   p_tm->tm_mon = ((argv[1][11] - '0') * 10) + (argv[1][12] - '0') - 1;
+   p_tm->tm_wday = 0;
+   p_tm->tm_yday = 0;
+   diff_time = abs(mktime(p_tm) - base_time) / 3600;
 
-   if (argv[1][8] == '0')
+   if (diff_time <= 0)
    {
-      p_tm->tm_hour = 0;
+      if ((argv[1][7] == '0') && (argv[1][8] == '0'))
+      {
+         if (argv[1][19] != '2')
+         {
+            ver_time = 2;
+         }
+         else
+         {
+            ver_time = 8;
+         }
+      }
+      else if ((argv[1][7] == '0') && (argv[1][8] == '6'))
+           {
+              if (argv[1][19] != '2')
+              {
+                 ver_time = 3;
+              }
+              else
+              {
+                 ver_time = 2;
+              }
+           }
+      else if ((argv[1][7] == '1') && (argv[1][8] == '2'))
+           {
+              ver_time = 4;
+           }
+      else if ((argv[1][7] == '1') && (argv[1][8] == '8'))
+           {
+              if (argv[1][19] != '2')
+              {
+                 ver_time = 1;
+              }
+              else
+              {
+                 ver_time = 6;
+              }
+           }
    }
    else
    {
-      p_tm->tm_hour = 12;
+      if ((argv[1][7] == '0') && (argv[1][8] == '0'))
+      {
+         ver_time = diff_time / 3 + 8;
+      }
+      else /* ((argv[1][7] == '1') && (argv[1][8] == '2')) */
+      {
+         ver_time = diff_time / 6 + 4;
+      }
    }
-   p_tm->tm_sec = 0;
-   p_tm->tm_min = 0;
-   p_tm->tm_mday = 0;
-   p_tm->tm_mon = 0;
-   p_tm->tm_wday = 0;
-   time_val = mktime(p_tm) - timezone;
-   time_val += (atoi(str_time) * 86400);
-   p_tm = gmtime(&time_val);
-   length = strftime(new_name, 47, "%Y%m%d%H%M%SZ_", p_tm);
-
-   str_time[0] = argv[1][3];
-   str_time[1] = argv[1][4];
-   str_time[2] = '\0';
-   time_val += (((atoi(str_time) - 4) * 6) * 3600);
-   p_tm = gmtime(&time_val);
-   length += strftime(&new_name[length], 47, "%Y%m%d%H%M%SZ_", p_tm);
-
-   (void)sprintf(&new_name[length], "%s", tmp_name);
 
    /*
     * Check if it is neccessary to insert a WMO-header.
     */
    if (argc == 3)
    {
-      char rule_file[MAX_PATH_LENGTH];
+      int    from_fd,
+             to_fd;
+      size_t hunk,
+             left;
+      char   *buffer,
+             wmo_header[MAX_FILENAME_LENGTH];
 
-      if (get_afd_path(&argc, argv, rule_file) < 0)
-      {
-         exit(INCORRECT);
-      }
-      (void)strcat(rule_file, ETC_DIR);
-      (void)strcat(rule_file, RENAME_RULE_FILE);
-      get_rename_rules(rule_file);
+      /* File time */
+      p_tm = gmtime(&stat_buf.st_mtime);
+      (void)strftime(&newname[49], 15, "%Y%m%d%H%M%S", p_tm);
 
-      if (no_of_rule_headers == 0)
+      /* RTH_DADF_MET_FOR_ */
+      newname[0] = 'R';
+      newname[1] = 'T';
+      newname[2] = 'H';
+      newname[3] = '_';
+      newname[4] = 'D';
+      newname[5] = 'A';
+      newname[6] = 'D';
+      newname[7] = 'F';
+      newname[8] = '_';
+      newname[9] = 'M';
+      newname[10] = 'E';
+      newname[11] = 'T';
+      newname[12] = '_';
+      newname[13] = 'F';
+      newname[14] = 'O';
+      newname[15] = 'R';
+      newname[16] = '_';
+
+      /* Base date */
+      newname[17] = newname[49];  /* Year */
+      newname[18] = newname[50];  /* Year */
+      newname[19] = newname[51];  /* Year */
+      newname[20] = newname[52];  /* Year */
+      newname[21] = argv[1][3];   /* Month */
+      newname[22] = argv[1][4];   /* Month */
+      newname[23] = argv[1][5];   /* Day */
+      newname[24] = argv[1][6];   /* Day */
+      newname[25] = argv[1][7];   /* Hour */
+      newname[26] = argv[1][8];   /* Hour */
+      newname[27] = argv[1][9];  /* Minute */
+      newname[28] = argv[1][10]; /* Minute */
+      newname[29] = '0';
+      newname[30] = '0';
+      newname[31] = 'Z';
+      newname[32] = '_';
+
+      /* Validate date */
+      newname[33] = newname[49]; /* Year */
+      newname[34] = newname[50]; /* Year */
+      newname[35] = newname[51]; /* Year */
+      newname[36] = newname[52]; /* Year */
+      newname[37] = argv[1][11]; /* Month */
+      newname[38] = argv[1][12]; /* Month */
+      newname[39] = argv[1][13]; /* Day */
+      newname[40] = argv[1][14]; /* Day */
+      newname[41] = argv[1][15]; /* Hour */
+      newname[42] = argv[1][16]; /* Hour */
+      newname[43] = argv[1][17]; /* Minute */
+      newname[44] = argv[1][18]; /* Minute */
+      newname[45] = '0';
+      newname[46] = '0';
+      newname[47] = 'Z';
+      newname[48] = '_';
+      newname[63] = 'Z';
+      newname[64] = '.';
+      newname[65] = 'T';
+      newname[66] = 'E';
+      newname[67] = 'M';
+      newname[68] = 'P';
+      newname[69] = '\0';
+
+      wmo_header[0] = 1;
+      wmo_header[1] = '\015'; /* CR */
+      wmo_header[2] = '\015'; /* CR */
+      wmo_header[3] = '\012'; /* LF */
+#ifdef _WITH_FIXED_NNN
+      wmo_header[4] = '5';
+      wmo_header[5] = '5';
+      wmo_header[6] = '5';
+      wmo_header[7] = '\015'; /* CR */
+      wmo_header[8] = '\015'; /* CR */
+      wmo_header[9] = '\012'; /* LF */
+#endif /* _WITH_FIXED_NNN */
+      wmo_header[WMO_HEADER_OFFSET] = 'H';
+      wmo_header[WMO_HEADER_OFFSET + 1] = 'X';
+      wmo_header[WMO_HEADER_OFFSET + 2] = 'X';
+      wmo_header[WMO_HEADER_OFFSET + 3] = 'X';
+
+      if (ver_time < 10)
       {
-         (void)fprintf(stderr,
-                       "The rename.rule file does not contain any valid data. (%s %d)\n",
-                       __FILE__, __LINE__);
-         exit(INCORRECT);
+         wmo_header[WMO_HEADER_OFFSET + 4] = '0';
+         wmo_header[WMO_HEADER_OFFSET + 5] = ver_time + '0';
       }
       else
       {
-         int    from_fd,
-                gotcha = NO,
-                i,
-                length,
-                rule_pos,
-                to_fd;
-         size_t hunk,
-                left;
-         char   *buffer,
-                *ptr,
-                wmo_header[MAX_FILENAME_LENGTH];
+         wmo_header[WMO_HEADER_OFFSET + 4] = (ver_time / 10) + '0';
+         wmo_header[WMO_HEADER_OFFSET + 5] = (ver_time % 10) + '0';
+      }
+      wmo_header[WMO_HEADER_OFFSET + 6] = ' ';
+      wmo_header[WMO_HEADER_OFFSET + 7] = 'E';
+      wmo_header[WMO_HEADER_OFFSET + 8] = 'C';
+      wmo_header[WMO_HEADER_OFFSET + 9] = 'M';
+      wmo_header[WMO_HEADER_OFFSET + 10] = 'F';
+      wmo_header[WMO_HEADER_OFFSET + 11] = ' ';
+      wmo_header[WMO_HEADER_OFFSET + 12] = argv[1][5];
+      wmo_header[WMO_HEADER_OFFSET + 13] = argv[1][6];
+      wmo_header[WMO_HEADER_OFFSET + 14] = argv[1][7];
+      wmo_header[WMO_HEADER_OFFSET + 15] = argv[1][8];
+      wmo_header[WMO_HEADER_OFFSET + 16] = '0';
+      wmo_header[WMO_HEADER_OFFSET + 17] = '0';
 
-         if ((rule_pos = get_rule(argv[2], no_of_rule_headers)) < 0)
-         {
-            (void)fprintf(stderr,
-                          "Could NOT find rule %s in rename.rule file. (%s %d)\n",
-                          argv[2], __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-         for (i = 0; i < rule[rule_pos].no_of_rules; i++)
-         {
-            if (pmatch(rule[rule_pos].filter[i], argv[1]) == 0)
-            {
-               gotcha = YES;
-               wmo_header[0] = 1;
-               wmo_header[1] = '\015'; /* CR */
-               wmo_header[2] = '\015'; /* CR */
-               wmo_header[3] = '\012'; /* LF */
-#ifdef _WITH_FIXED_NNN
-               wmo_header[4] = '5';
-               wmo_header[5] = '5';
-               wmo_header[6] = '5';
-               wmo_header[7] = '\015'; /* CR */
-               wmo_header[8] = '\015'; /* CR */
-               wmo_header[9] = '\012'; /* LF */
-#endif /* _WITH_FIXED_NNN */
-               change_name(argv[1],
-                           rule[rule_pos].filter[i],
-                           rule[rule_pos].rename_to[i],
-                           &wmo_header[WMO_HEADER_OFFSET]);
-               break;
-            }
-         } /* for (i = 0; i < rule[rule_pos].no_of_rules; i++) */
+      wmo_header[WMO_HEADER_OFFSET + 18] = '\015';
+      wmo_header[WMO_HEADER_OFFSET + 19] = '\015';
+      wmo_header[WMO_HEADER_OFFSET + 20] = '\012';
 
-         if (gotcha == NO)
-         {
-            (void)fprintf(stderr,
-                          "Filename %s does not match any of the filters. (%s %d)\n",
-                          argv[1], __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
+      /* Open source file */
+      if ((from_fd = open(argv[1], O_RDONLY)) == -1)
+      {
+         (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                       argv[1], strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
 
-         ptr = &wmo_header[WMO_HEADER_OFFSET];
-         do
-         {
-            if (*ptr == '_')
-            {
-               *ptr = ' ';
-            }
-            ptr++;
-         } while (*ptr != '\0');
-         *ptr = '\015'; /* CR */
-         *(ptr + 1) = '\015'; /* CR */
-         *(ptr + 2) = '\012'; /* LF */
-         length = ptr + 3 - wmo_header;
+      if (fstat(from_fd, &stat_buf) == -1)
+      {
+         (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+                       argv[1], strerror(errno), __FILE__, __LINE__);
+         (void)close(from_fd);
+         exit(INCORRECT);
+      }
 
-         /* Open source file */
-         if ((from_fd = open(argv[1], O_RDONLY)) == -1)
-         {
-            (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
-                          argv[1], strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
+      left = hunk = stat_buf.st_size;
 
-         if (fstat(from_fd, &stat_buf) == -1)
-         {
-            (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
-                          argv[1], strerror(errno), __FILE__, __LINE__);
-            (void)close(from_fd);
-            exit(INCORRECT);
-         }
+      if (hunk > HUNK_MAX)
+      {
+         hunk = HUNK_MAX;
+      }
 
-         left = hunk = stat_buf.st_size;
+      if ((buffer = (char *)malloc(hunk)) == NULL)
+      {
+         (void)fprintf(stderr, "Failed to allocate memory : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         (void)close(from_fd);
+         exit(INCORRECT);
+      }
 
-         if (hunk > HUNK_MAX)
-         {
-            hunk = HUNK_MAX;
-         }
-
-         if ((buffer = (char *)malloc(hunk)) == NULL)
-         {
-            (void)fprintf(stderr, "Failed to allocate memory : %s (%s %d)\n",
-                          strerror(errno), __FILE__, __LINE__);
-            (void)close(from_fd);
-            exit(INCORRECT);
-         }
-
-         /* Open destination file */
-         if ((to_fd = open(new_name,
-                           O_WRONLY | O_CREAT | O_TRUNC,
-                           S_IRUSR|S_IWUSR)) == -1)
-         {
-            (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
-                          new_name, strerror(errno), __FILE__, __LINE__);
-            free(buffer);
-            (void)close(from_fd);
-            exit(INCORRECT);
-         }
-         if (write(to_fd, wmo_header, length) != length)
-         {
-            (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
-                          new_name, strerror(errno), __FILE__, __LINE__);
-            free(buffer);
-            (void)close(from_fd);
-            (void)close(to_fd);
-            exit(INCORRECT);
-         }
-
-         while (left > 0)
-         {
-            /* Try read file in one hunk */
-            if (read(from_fd, buffer, hunk) != hunk)
-            {
-               (void)fprintf(stderr, "Failed to read() %s : %s (%s %d)\n",
-                             argv[1], strerror(errno), __FILE__, __LINE__);
-               free(buffer);
-               (void)close(from_fd);
-               (void)close(to_fd);
-               exit(INCORRECT);
-            }
-
-            /* Try write file in one hunk */
-            if (write(to_fd, buffer, hunk) != hunk)
-            {
-               (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
-                             new_name, strerror(errno), __FILE__, __LINE__);
-               free(buffer);
-               (void)close(from_fd);
-               (void)close(to_fd);
-               exit(INCORRECT);
-            }
-            left -= hunk;
-            if (left < hunk)
-            {
-               hunk = left;
-            }
-         }
+      /* Open destination file */
+      if ((to_fd = open(newname,
+                        O_WRONLY | O_CREAT | O_TRUNC,
+                        S_IRUSR|S_IWUSR)) == -1)
+      {
+         (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                       newname, strerror(errno), __FILE__, __LINE__);
          free(buffer);
-         if (close(from_fd) == -1)
+         (void)close(from_fd);
+         exit(INCORRECT);
+      }
+      if (write(to_fd, wmo_header, (WMO_HEADER_OFFSET + 21)) != (WMO_HEADER_OFFSET + 21))
+      {
+         (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
+                       newname, strerror(errno), __FILE__, __LINE__);
+         free(buffer);
+         (void)close(from_fd);
+         (void)close(to_fd);
+         exit(INCORRECT);
+      }
+
+      while (left > 0)
+      {
+         /* Try read file in one hunk */
+         if (read(from_fd, buffer, hunk) != hunk)
          {
-            (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",
+            (void)fprintf(stderr, "Failed to read() %s : %s (%s %d)\n",
                           argv[1], strerror(errno), __FILE__, __LINE__);
-         }
-         wmo_header[0] = '\015'; /* CR */
-         wmo_header[1] = '\015'; /* CR */
-         wmo_header[2] = '\012'; /* LF */
-         wmo_header[3] = 3;
-         if (write(to_fd, wmo_header, 4) != 4)
-         {
-            (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
-                          new_name, strerror(errno), __FILE__, __LINE__);
             free(buffer);
             (void)close(from_fd);
             (void)close(to_fd);
             exit(INCORRECT);
          }
-         if (close(to_fd) == -1)
+
+         /* Try write file in one hunk */
+         if (write(to_fd, buffer, hunk) != hunk)
          {
-            (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",
-                          new_name, strerror(errno), __FILE__, __LINE__);
+            (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
+                          newname, strerror(errno), __FILE__, __LINE__);
+            free(buffer);
+            (void)close(from_fd);
+            (void)close(to_fd);
+            exit(INCORRECT);
          }
-         if (remove(argv[1]) == -1)
+         left -= hunk;
+         if (left < hunk)
          {
-            (void)fprintf(stderr, "Failed to remove() %s : %s (%s %d)\n",
-                          argv[1], strerror(errno), __FILE__, __LINE__);
+            hunk = left;
          }
+      }
+      free(buffer);
+      if (close(from_fd) == -1)
+      {
+         (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",
+                       argv[1], strerror(errno), __FILE__, __LINE__);
+      }
+      wmo_header[0] = '\015'; /* CR */
+      wmo_header[1] = '\015'; /* CR */
+      wmo_header[2] = '\012'; /* LF */
+      wmo_header[3] = 3;
+      if (write(to_fd, wmo_header, 4) != 4)
+      {
+         (void)fprintf(stderr, "Failed to write() %s : %s (%s %d)\n",
+                       newname, strerror(errno), __FILE__, __LINE__);
+         free(buffer);
+         (void)close(from_fd);
+         (void)close(to_fd);
+         exit(INCORRECT);
+      }
+      if (close(to_fd) == -1)
+      {
+         (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",
+                       newname, strerror(errno), __FILE__, __LINE__);
+      }
+      if (remove(argv[1]) == -1)
+      {
+         (void)fprintf(stderr, "Failed to remove() %s : %s (%s %d)\n",
+                       argv[1], strerror(errno), __FILE__, __LINE__);
       }
    }
    else
    {
-      if (rename(argv[1], new_name) == -1)
+      /* SMA_HXXX */
+      newname[0] = 'S';
+      newname[1] = 'M';
+      newname[2] = 'A';
+      newname[3] = '_';
+      newname[4] = 'H';
+      newname[5] = 'X';
+      newname[6] = 'X';
+      newname[7] = 'X';
+      if (ver_time < 10)
+      {
+         newname[8] = '0';
+         newname[9] = ver_time + '0';
+      }
+      else
+      {
+         newname[8] = (ver_time / 10) + '0';
+         newname[9] = (ver_time % 10) + '0';
+      }
+      newname[10] = '_';
+      newname[11] = 'E';
+      newname[12] = 'C';
+      newname[13] = 'M';
+      newname[14] = 'F';
+      newname[15] = '_';
+      newname[16] = argv[1][5];
+      newname[17] = argv[1][6];
+      newname[18] = argv[1][7];
+      newname[19] = argv[1][8];
+      newname[20] = '0';
+      newname[21] = '0';
+      newname[22] = '\0';
+
+      if (rename(argv[1], newname) == -1)
       {
          (void)fprintf(stderr, "Failed to rename %s to %s : %s\n",
-                       argv[1], new_name, strerror(errno));
+                       argv[1], newname, strerror(errno));
          exit(1);
       }
    }

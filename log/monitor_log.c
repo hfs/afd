@@ -1,6 +1,6 @@
 /*
  *  monitor_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -70,6 +70,7 @@ main(int argc, char *argv[])
                   n,
                   count,
                   length,
+                  max_mon_log_files = MAX_MON_LOG_FILES,
                   no_of_buffered_writes = 0,
                   prev_length = 0,
                   dup_msg = 0,
@@ -156,6 +157,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Get the maximum number of logfiles we keep for history. */
+   get_max_log_number(&max_mon_log_files, MAX_MON_LOG_FILES_DEF,
+                      MAX_MON_LOG_FILES);
+
    /*
     * Set umask so that all log files have the permission 644.
     * If we do not set this here fopen() will create files with
@@ -168,7 +173,7 @@ main(int argc, char *argv[])
     * create it.
     */
    get_log_number(&log_number,
-                  (MAX_MON_LOG_FILES - 1),
+                  (max_mon_log_files - 1),
                   MON_LOG_NAME,
                   strlen(MON_LOG_NAME));
    (void)sprintf(current_log_file, "%s%s/%s0",
@@ -185,7 +190,7 @@ main(int argc, char *argv[])
    {
       if (stat_buf.st_mtime < (next_file_time - SWITCH_FILE_TIME))
       {
-         if (log_number < (MAX_MON_LOG_FILES - 1))
+         if (log_number < (max_mon_log_files - 1))
          {
             log_number++;
          }
@@ -227,7 +232,7 @@ main(int argc, char *argv[])
          /* Check if we have to create a new log file. */
          if (time(&now) > next_file_time)
          {
-            if (log_number < (MAX_MON_LOG_FILES - 1))
+            if (log_number < (max_mon_log_files - 1))
             {
                log_number++;
             }
@@ -277,7 +282,7 @@ main(int argc, char *argv[])
 
                     if (length == prev_length)
                     {
-                       if (strcmp(msg_str, prev_msg_str) == 0)
+                       if (CHECK_STRCMP(msg_str, prev_msg_str) == 0)
                        {
                           dup_msg++;
                        }
@@ -353,7 +358,7 @@ main(int argc, char *argv[])
                */
               if (now > next_file_time)
               {
-                 if (log_number < (MAX_MON_LOG_FILES - 1))
+                 if (log_number < (max_mon_log_files - 1))
                  {
                     log_number++;
                  }

@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-INSTDIR  = ../../../../bin
+INSTDIR  = ../../../..
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
@@ -22,6 +22,7 @@ AFDCOBJS = afd_ctrl.o\
            expose_handler.o\
            find_host_dialog.o\
            init_jd_structure.o\
+           locate_xy_column.o\
            mouse_handler.o\
            resize_tv_window.o\
            resize_window.o\
@@ -50,9 +51,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(AFDCPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(SUIDMODE) $(INSTDIR)/bin/$(AFDCPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other dependencies
 afd_ctrl.o : ../../../version.h ../../../init_afd/permission.h

@@ -228,8 +228,8 @@ static void               sig_handler(int);
 int
 ftp_connect(char *hostname, int port)
 {
-   int                     length,
-                           reply;
+   int                     reply;
+   my_socklen_t            length;
    struct sockaddr_in      sin;
    register struct hostent *p_host = NULL;
 
@@ -250,18 +250,18 @@ ftp_connect(char *hostname, int port)
             if ((h_errno > 0) && (h_errno < h_nerr))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to gethostbyname() %s : %s",
+                         "ftp_connect(): Failed to gethostbyname() %s : %s",
                          hostname, h_errlist[h_errno]);
             }
             else
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to gethostbyname() %s (h_errno = %d) : %s",
+                         "ftp_connect(): Failed to gethostbyname() %s (h_errno = %d) : %s",
                          hostname, h_errno, strerror(errno));
             }
 #else
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to gethostbyname() %s (h_errno = %d) : %s",
+                      "ftp_connect(): Failed to gethostbyname() %s (h_errno = %d) : %s",
                       hostname, h_errno, strerror(errno));
 #endif
          }
@@ -269,7 +269,7 @@ ftp_connect(char *hostname, int port)
          {
 #endif /* _HPUX */
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to gethostbyname() %s : %s",
+                      "ftp_connect(): Failed to gethostbyname() %s : %s",
                       hostname, strerror(errno));
 #ifndef _HPUX
          }
@@ -285,7 +285,7 @@ ftp_connect(char *hostname, int port)
    if ((control_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "socket() error : %s", strerror(errno));
+                "ftp_connect(): socket() error : %s", strerror(errno));
       return(INCORRECT);
    }
 
@@ -294,7 +294,7 @@ ftp_connect(char *hostname, int port)
    if (connect(control_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "Failed to connect() to %s : %s",
+                "ftp_connect(): Failed to connect() to %s : %s",
                 hostname, strerror(errno));
       (void)close(control_fd);
       return(INCORRECT);
@@ -304,25 +304,26 @@ ftp_connect(char *hostname, int port)
    if (getsockname(control_fd, (struct sockaddr *)&ctrl, &length) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "getsockname() error : %s", strerror(errno));
+                "ftp_connect(): getsockname() error : %s", strerror(errno));
       (void)close(control_fd);
       return(INCORRECT);
    }
 
 #if defined (_WITH_TOS) && defined (IP_TOS)
-   length = IPTOS_LOWDELAY;
-   if (setsockopt(control_fd, IPPROTO_IP, IP_TOS, (char *)&length,
-                  sizeof(length)) < 0)
+   reply = IPTOS_LOWDELAY;
+   if (setsockopt(control_fd, IPPROTO_IP, IP_TOS, (char *)&reply,
+                  sizeof(reply)) < 0)
    {
       trans_log(WARN_SIGN, __FILE__, __LINE__,
-                "setsockopt() IP_TOS error : %s", strerror(errno));
+                "ftp_connect(): setsockopt() IP_TOS error : %s",
+                strerror(errno));
    }
 #endif
 
    if ((p_control = fdopen(control_fd, "r+")) == NULL)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "fdopen() control error : %s", strerror(errno));
+                "ftp_connect(): fdopen() control error : %s", strerror(errno));
       (void)close(control_fd);
       return(INCORRECT);
    }
@@ -340,7 +341,7 @@ ftp_connect(char *hostname, int port)
          {
             msg_str[0] = '\0';
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "setvbuf() error : %s", strerror(errno));
+                      "ftp_connect(): setvbuf() error : %s", strerror(errno));
             (void)close(control_fd);
             return(INCORRECT);
          }
@@ -355,7 +356,7 @@ ftp_connect(char *hostname, int port)
    {
       msg_str[0] = '\0';
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "setvbuf() error : %s", strerror(errno));
+                "ftp_connect(): setvbuf() error : %s", strerror(errno));
       (void)close(control_fd);
       return(INCORRECT);
    }
@@ -629,7 +630,7 @@ ftp_keepalive(void)
    while ((reply = read_msg()) > 0)
    {
       trans_log(INFO_SIGN, __FILE__, __LINE__,
-                "Hmmm, read %d Bytes.", reply);
+                "ftp_keepalive(): Hmmm, read %d Bytes.", reply);
    }
    timeout_flag = OFF;
    transfer_timeout = tmp_transfer_timeout;
@@ -662,7 +663,7 @@ ftp_keepalive(void)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "write() error (%d) : %s", reply, strerror(errno));
+                        "ftp_keepalive(): write() error (%d) : %s", reply, strerror(errno));
               return(errno);
            }
         }
@@ -670,13 +671,13 @@ ftp_keepalive(void)
         {
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                     "select() error : %s", strerror(errno));
+                     "ftp_keepalive(): select() error : %s", strerror(errno));
            return(INCORRECT);
         }
         else
         {
            msg_str[0] = '\0';
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, "Unknown condition.");
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_keepalive(): Unknown condition.");
            return(INCORRECT);
         }
 
@@ -700,7 +701,7 @@ ftp_keepalive(void)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "write() error (%d) : %s", reply, strerror(errno));
+                        "ftp_keepalive(): write() error (%d) : %s", reply, strerror(errno));
               return(errno);
            }
         }
@@ -708,13 +709,13 @@ ftp_keepalive(void)
         {
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                     "select() error : %s", strerror(errno));
+                     "ftp_keepalive(): select() error : %s", strerror(errno));
            return(INCORRECT);
         }
         else
         {
            msg_str[0] = '\0';
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, "Unknown condition.");
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_keepalive(): Unknown condition.");
            return(INCORRECT);
         }
    (void)fprintf(p_control, "%cSTAT\r\n", DM);
@@ -853,8 +854,8 @@ ftp_list(int mode, int type, ...)
    int                sock_fd,
                       new_sock_fd,
                       on = 1,
-                      length,
                       reply;
+   my_socklen_t       length;
    register char      *h,
                       *p;
    char               **buffer,
@@ -910,42 +911,42 @@ ftp_list(int mode, int type, ...)
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_list(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_list(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr + 1) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_list(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr + 2) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_list(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr + 3) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_list(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_port) = number;
          if ((number = get_number(&ptr, ')')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_list(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_port + 1) = number;
@@ -954,7 +955,7 @@ ftp_list(int mode, int type, ...)
                                    IPPROTO_TCP)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "socket() error : %s", strerror(errno));
+                      "ftp_list(): socket() error : %s", strerror(errno));
             return(INCORRECT);
          }
 
@@ -962,14 +963,14 @@ ftp_list(int mode, int type, ...)
                         sizeof(on)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "setsockopt() error : %s", strerror(errno));
+                      "ftp_list(): setsockopt() error : %s", strerror(errno));
             (void)close(new_sock_fd);
             return(INCORRECT);
          }
          if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to connect() to : %s", strerror(errno));
+                      "ftp_list(): Failed to connect() to : %s", strerror(errno));
             (void)close(new_sock_fd);
             return(INCORRECT);
          }
@@ -998,7 +999,7 @@ ftp_list(int mode, int type, ...)
       else
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to locate an open bracket <(> in reply from PASV command.");
+                   "ftp_list(): Failed to locate an open bracket <(> in reply from PASV command.");
          return(INCORRECT);
       }
    }
@@ -1007,14 +1008,14 @@ ftp_list(int mode, int type, ...)
       if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "socket() error : %s", strerror(errno));
+                   "ftp_list(): socket() error : %s", strerror(errno));
          return(INCORRECT);
       }
 
       if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof (on)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "setsockopt() error : %s", strerror(errno));
+                   "ftp_list(): setsockopt() error : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
@@ -1023,7 +1024,7 @@ ftp_list(int mode, int type, ...)
       if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "bind() error : %s", strerror(errno));
+                   "ftp_list(): bind() error : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
@@ -1031,7 +1032,7 @@ ftp_list(int mode, int type, ...)
       if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "getsockname() error : %s", strerror(errno));
+                   "ftp_list(): getsockname() error : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
@@ -1039,7 +1040,7 @@ ftp_list(int mode, int type, ...)
       if (listen(sock_fd, 1) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "listen() error : %s", strerror(errno));
+                   "ftp_list(): listen() error : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
@@ -1103,14 +1104,15 @@ ftp_list(int mode, int type, ...)
       {
          msg_str[0] = '\0';
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to set signal handler : %s", strerror(errno));
+                   "ftp_list(): Failed to set signal handler : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
       if (setjmp(env_alrm) != 0)
       {
          msg_str[0] = '\0';
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "accept() timeout");
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "ftp_list(): accept() timeout");
          timeout_flag = ON;
          (void)close(sock_fd);
          return(INCORRECT);
@@ -1122,7 +1124,7 @@ ftp_list(int mode, int type, ...)
          (void)alarm(0); /* Maybe it was a real accept() error */
          msg_str[0] = '\0';
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "accept() error : %s", strerror(errno));
+                   "ftp_list(): accept() error : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
@@ -1130,8 +1132,8 @@ ftp_list(int mode, int type, ...)
       if (close(sock_fd) == -1)
       {
          msg_str[0] = '\0';
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "close() error : %s",
-                    strerror(errno));
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__,
+                   "ftp_list(): close() error : %s", strerror(errno));
       }
    } /* mode == ACTIVE_MODE */
 
@@ -1139,7 +1141,7 @@ ftp_list(int mode, int type, ...)
    {
       msg_str[0] = '\0';
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "fdopen() data error : %s", strerror(errno));
+                "ftp_list(): fdopen() data error : %s", strerror(errno));
       (void)close(new_sock_fd);
       return(INCORRECT);
    }
@@ -1164,7 +1166,7 @@ ftp_list(int mode, int type, ...)
    {
       msg_str[0] = '\0';
       trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                "shutdown() error : %s", strerror(errno));
+                "ftp_list(): shutdown() error : %s", strerror(errno));
    }
 #endif
 
@@ -1172,7 +1174,7 @@ ftp_list(int mode, int type, ...)
    {
       msg_str[0] = '\0';
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "fclose() error : %s", strerror(errno));
+                "ftp_list(): fclose() error : %s", strerror(errno));
       return(INCORRECT);
    }
    p_data = NULL;
@@ -1198,8 +1200,8 @@ ftp_data(char *filename, off_t seek, int mode, int type)
 {
    int           new_sock_fd,
                  on = 1,
-                 length,
                  reply;
+   my_socklen_t  length;
 #if defined (_WITH_TOS) && defined (IP_TOS)
    int           tos;
 #endif
@@ -1254,42 +1256,42 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_data(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_data(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr + 1) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_data(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr + 2) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_data(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_addr + 3) = number;
          if ((number = get_number(&ptr, ',')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_data(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_port) = number;
          if ((number = get_number(&ptr, ')')) == INCORRECT)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to retrieve remote address %s", msg_str);
+                      "ftp_data(): Failed to retrieve remote address %s", msg_str);
             return(INCORRECT);
          }
          *((char *)&data.sin_port + 1) = number;
@@ -1298,7 +1300,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                                    IPPROTO_TCP)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "socket() error : %s", strerror(errno));
+                      "ftp_data(): socket() error : %s", strerror(errno));
             return(INCORRECT);
          }
 
@@ -1306,14 +1308,14 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                         sizeof(on)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "setsockopt() error : %s", strerror(errno));
+                      "ftp_data(): setsockopt() error : %s", strerror(errno));
             (void)close(new_sock_fd);
             return(INCORRECT);
          }
          if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to connect() to : %s", strerror(errno));
+                      "ftp_data(): Failed to connect() to : %s", strerror(errno));
             (void)close(new_sock_fd);
             return(INCORRECT);
          }
@@ -1331,7 +1333,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                if (timeout_flag == OFF)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to get proper reply for REST command (%d).",
+                            "ftp_data(): Failed to get proper reply for REST command (%d).",
                             reply);
                }
                else
@@ -1345,7 +1347,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                if (check_reply(2, reply, 350) < 0)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to get proper reply for REST command (%d).",
+                            "ftp_data(): Failed to get proper reply for REST command (%d).",
                             reply);
                }
             }
@@ -1358,7 +1360,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
             if (timeout_flag == OFF)
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to get proper reply (%d).", reply);
+                         "ftp_data(): Failed to get proper reply (%d).", reply);
             }
             (void)close(new_sock_fd);
             return(INCORRECT);
@@ -1373,7 +1375,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
       else
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to locate an open bracket <(> in reply from PASV command.");
+                   "ftp_data(): Failed to locate an open bracket <(> in reply from PASV command.");
          return(INCORRECT);
       }
    }
@@ -1394,7 +1396,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "socket() error : %s", strerror(errno));
+                      "ftp_data(): socket() error : %s", strerror(errno));
             return(INCORRECT);
          }
 
@@ -1402,7 +1404,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                         sizeof(on)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "setsockopt() error : %s", strerror(errno));
+                      "ftp_data(): setsockopt() error : %s", strerror(errno));
             (void)close(sock_fd);
             return(INCORRECT);
          }
@@ -1411,7 +1413,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "bind() error : %s", strerror(errno));
+                      "ftp_data(): bind() error : %s", strerror(errno));
             (void)close(sock_fd);
             return(INCORRECT);
          }
@@ -1419,7 +1421,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "getsockname() error : %s", strerror(errno));
+                      "ftp_data(): getsockname() error : %s", strerror(errno));
             (void)close(sock_fd);
             return(INCORRECT);
          }
@@ -1427,7 +1429,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          if (listen(sock_fd, 1) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "listen() error : %s", strerror(errno));
+                      "ftp_data(): listen() error : %s", strerror(errno));
             (void)close(sock_fd);
             return(INCORRECT);
          }
@@ -1448,7 +1450,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
             if (timeout_flag == OFF)
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to get proper reply (%d)", reply);
+                         "ftp_data(): Failed to get proper reply (%d)", reply);
             }
             (void)close(sock_fd);
             return(INCORRECT);
@@ -1473,7 +1475,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                if (timeout_flag == OFF)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to get proper reply for REST command (%d).",
+                            "ftp_data(): Failed to get proper reply for REST command (%d).",
                             reply);
                }
                else
@@ -1487,7 +1489,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                if (check_reply(2, reply, 350) < 0)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to get proper reply for REST command (%d).",
+                            "ftp_data(): Failed to get proper reply for REST command (%d).",
                             reply);
                }
             }
@@ -1500,7 +1502,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
             if (timeout_flag == OFF)
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to get proper reply (%d).", reply);
+                         "ftp_data(): Failed to get proper reply (%d).", reply);
             }
             (void)close(sock_fd);
             return(INCORRECT);
@@ -1537,14 +1539,14 @@ ftp_data(char *filename, off_t seek, int mode, int type)
       {
          msg_str[0] = '\0';
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to set signal handler : %s", strerror(errno));
+                   "ftp_data(): Failed to set signal handler : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
       if (setjmp(env_alrm) != 0)
       {
          msg_str[0] = '\0';
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, "accept() timeout");
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data(): accept() timeout");
          timeout_flag = ON;
          (void)close(sock_fd);
          return(INCORRECT);
@@ -1557,7 +1559,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          (void)alarm(0); /* Maybe it was a real accept() error */
          msg_str[0] = '\0';
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "accept() error : %s", strerror(errno));
+                   "ftp_data(): accept() error : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
@@ -1565,7 +1567,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
       if (close(sock_fd) == -1)
       {
          msg_str[0] = '\0';
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "close() error : %s",
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "ftp_data(): close() error : %s",
                    strerror(errno));
       }
    } /* ACTIVE_MODE */
@@ -1576,7 +1578,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                   (char *)&l, sizeof(struct linger)) < 0)
    {
       msg_str[0] = '\0';
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "setsockopt() error : %s",
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, "ftp_data(): setsockopt() error : %s",
                 strerror(errno));
       (void)close(new_sock_fd);
       return(INCORRECT);
@@ -1590,7 +1592,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
    {
       msg_str[0] = '\0';
       trans_log(WARN_SIGN, __FILE__, __LINE__,
-                "setsockopt() IP_TOS error : %s", strerror(errno));
+                "ftp_data(): setsockopt() IP_TOS error : %s", strerror(errno));
    }
 #endif
 
@@ -1599,7 +1601,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
    {
       msg_str[0] = '\0';
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "fdopen() data error : %s", strerror(errno));
+                "ftp_data(): fdopen() data error : %s", strerror(errno));
       (void)close(new_sock_fd);
       return(INCORRECT);
    }
@@ -1620,8 +1622,8 @@ check_data_socket(int reply, int sock_fd, int *retries)
       if (close(sock_fd) == -1)
       {
          msg_str[0] = '\0';
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "close() error : %s",
-                   strerror(errno));
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__,
+                   "check_data_socket(): close() error : %s", strerror(errno));
       }
 
       /*
@@ -1694,7 +1696,8 @@ ftp_close_data(int type)
       {
          msg_str[0] = '\0';
          trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "Failed to fflush() data : %s", strerror(errno));
+                   "ftp_close_data(): Failed to fflush() data : %s",
+                   strerror(errno));
          (void)fclose(p_data);
          p_data = NULL;
          return(INCORRECT);
@@ -1706,7 +1709,7 @@ ftp_close_data(int type)
    {
       msg_str[0] = '\0';
       trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                "shutdown() error : %s", strerror(errno));
+                "ftp_close_data(): shutdown() error : %s", strerror(errno));
    }
 #endif
 
@@ -1714,7 +1717,7 @@ ftp_close_data(int type)
    {
       msg_str[0] = '\0';
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "fclose() error : %s", strerror(errno));
+                "ftp_close_data(): fclose() error : %s", strerror(errno));
       return(INCORRECT);
    }
    p_data = NULL;
@@ -1801,7 +1804,7 @@ ftp_write(char *block, char *buffer, int size)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "send() error (%d) : %s", status, strerror(errno));
+                        "ftp_write(): send() error (%d) : %s", status, strerror(errno));
               return(errno);
            }
 #else
@@ -1809,7 +1812,8 @@ ftp_write(char *block, char *buffer, int size)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "write() error (%d) : %s", status, strerror(errno));
+                        "ftp_write(): write() error (%d) : %s",
+                        status, strerror(errno));
               return(errno);
            }
 #endif
@@ -1818,7 +1822,7 @@ ftp_write(char *block, char *buffer, int size)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to fflush() data buffer : %s",
+                        "ftp_write(): Failed to fflush() data buffer : %s",
                         strerror(errno));
               return(INCORRECT);
            }
@@ -1828,13 +1832,14 @@ ftp_write(char *block, char *buffer, int size)
         {
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                     "select() error : %s", strerror(errno));
+                     "ftp_write(): select() error : %s", strerror(errno));
            return(INCORRECT);
         }
         else
         {
            msg_str[0] = '\0';
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, "Unknown condition.");
+           trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "ftp_write(): Unknown condition.");
            return(INCORRECT);
         }
    
@@ -1872,7 +1877,7 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to write() descriptor of block header : %s",
+                        "ftp_block_write(): Failed to write() descriptor of block header : %s",
                         strerror(errno));
               return(INCORRECT);
            }
@@ -1882,7 +1887,7 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to write() byte counter of block header : %s",
+                        "ftp_block_write(): Failed to write() byte counter of block header : %s",
                         strerror(errno));
               return(INCORRECT);
            }
@@ -1892,7 +1897,7 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "write() error : %s", strerror(errno));
+                        "ftp_block_write(): write() error : %s", strerror(errno));
               return(INCORRECT);
            }
         }
@@ -1900,14 +1905,14 @@ ftp_block_write(char *block, unsigned short size, char descriptor)
              {
                 msg_str[0] = '\0';
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "select() error : %s", strerror(errno));
+                          "ftp_block_write(): select() error : %s", strerror(errno));
                 return(INCORRECT);
              }
              else
              {
                 msg_str[0] = '\0';
                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Unknown condition.");
+                          "ftp_block_write(): Unknown condition.");
                 return(INCORRECT);
              }
    
@@ -1967,7 +1972,7 @@ ftp_read(char *block, int blocksize)
            {
               msg_str[0] = '\0';
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "read() error : %s", strerror(errno));
+                        "ftp_read(): read() error : %s", strerror(errno));
               return(INCORRECT);
            }
         }
@@ -1975,14 +1980,14 @@ ftp_read(char *block, int blocksize)
         {
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                     "select() error : %s", strerror(errno));
+                     "ftp_read(): select() error : %s", strerror(errno));
            return(INCORRECT);
         }
         else
         {
            msg_str[0] = '\0';
            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                     "Unknown condition.");
+                     "ftp_read(): Unknown condition.");
            return(INCORRECT);
         }
 
@@ -2003,7 +2008,7 @@ ftp_quit(void)
       {
          msg_str[0] = '\0';
          trans_log(WARN_SIGN, __FILE__, __LINE__,
-                   "Failed to fflush() data connection : %s",
+                   "ftp_quit(): Failed to fflush() data connection : %s",
                    strerror(errno));
       }
 #ifdef _WITH_SHUTDOWN
@@ -2011,14 +2016,14 @@ ftp_quit(void)
       {
          msg_str[0] = '\0';
          trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "shutdown() error : %s", strerror(errno));
+                   "ftp_quit(): shutdown() error : %s", strerror(errno));
       }
 #endif /* _WITH_SHUTDOWN */
       if (fclose(p_data) == EOF)
       {
          msg_str[0] = '\0';
          trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "fclose() error : %s", strerror(errno));
+                   "ftp_quit(): fclose() error : %s", strerror(errno));
       }
    }
 
@@ -2048,7 +2053,7 @@ ftp_quit(void)
       {
          msg_str[0] = '\0';
          trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "shutdown() error : %s", strerror(errno));
+                   "ftp_quit(): shutdown() error : %s", strerror(errno));
       }
 #endif /* _WITH_SHUTDOWN */
    }
@@ -2056,7 +2061,7 @@ ftp_quit(void)
    {
       msg_str[0] = '\0';
       trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                "fclose() error : %s", strerror(errno));
+                "ftp_quit(): fclose() error : %s", strerror(errno));
    }
 
    return(SUCCESS);
@@ -2169,7 +2174,7 @@ read_data_line(int read_fd, char *line)
                     {
                        msg_str[0] = '\0';
                        trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                 "read() error (after reading %d Bytes) : %s",
+                                 "read_data_line(): read() error (after reading %d Bytes) : %s",
                                  bytes_buffered, strerror(errno));
                        return(INCORRECT);
                     }
@@ -2181,14 +2186,14 @@ read_data_line(int read_fd, char *line)
               {
                  msg_str[0] = '\0';
                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "select() error : %s", strerror(errno));
+                           "read_data_line(): select() error : %s", strerror(errno));
                  return(INCORRECT);
               }
               else
               {
                  msg_str[0] = '\0';
                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Unknown condition.");
+                           "read_data_line(): Unknown condition.");
                  return(INCORRECT);
               }
       }

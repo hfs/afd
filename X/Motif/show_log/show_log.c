@@ -1,6 +1,6 @@
 /*
  *  show_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -769,37 +769,55 @@ init_log_file(int *argc, char *argv[])
    if (strcmp(log_type, SYSTEM_STR) == 0)
    {
       (void)strcpy(log_name, SYSTEM_LOG_NAME);
-      max_log_number = (MAX_SYSTEM_LOG_FILES - 1);
+      max_log_number = MAX_SYSTEM_LOG_FILES;
+      get_max_log_number(&max_log_number, MAX_SYSTEM_LOG_FILES_DEF,
+                         MAX_SYSTEM_LOG_FILES);
+      max_log_number--;
       log_type_flag = SYSTEM_LOG_TYPE;
    }
    else if (strcmp(log_type, RECEIVE_STR) == 0)
         {
            (void)strcpy(log_name, RECEIVE_LOG_NAME);
-           max_log_number = (MAX_RECEIVE_LOG_FILES - 1);
+           max_log_number = MAX_RECEIVE_LOG_FILES;
+           get_max_log_number(&max_log_number, MAX_RECEIVE_LOG_FILES_DEF,
+                              MAX_RECEIVE_LOG_FILES);
+           max_log_number--;
            log_type_flag = RECEIVE_LOG_TYPE;
         }
    else if (strcmp(log_type, TRANSFER_STR) == 0)
         {
            (void)strcpy(log_name, TRANSFER_LOG_NAME);
-           max_log_number = (MAX_TRANSFER_LOG_FILES - 1);
+           max_log_number = MAX_TRANSFER_LOG_FILES;
+           get_max_log_number(&max_log_number, MAX_TRANSFER_LOG_FILES_DEF,
+                              MAX_TRANSFER_LOG_FILES);
+           max_log_number--;
            log_type_flag = TRANSFER_LOG_TYPE;
         }
    else if (strcmp(log_type, TRANS_DB_STR) == 0)
         {
            (void)strcpy(log_name, TRANS_DB_LOG_NAME);
-           max_log_number = (MAX_TRANS_DB_LOG_FILES - 1);
+           max_log_number = MAX_TRANS_DB_LOG_FILES;
+           get_max_log_number(&max_log_number, MAX_TRANS_DB_LOG_FILES_DEF,
+                              MAX_TRANS_DB_LOG_FILES);
+           max_log_number--;
            log_type_flag = TRANS_DB_LOG_TYPE;
         }
    else if (strcmp(log_type, MON_SYSTEM_STR) == 0)
         {
            (void)strcpy(log_name, MON_SYS_LOG_NAME);
-           max_log_number = (MAX_MON_SYS_LOG_FILES - 1);
+           max_log_number = MAX_MON_SYS_LOG_FILES;
+           get_max_log_number(&max_log_number, MAX_MON_SYS_LOG_FILES_DEF,
+                              MAX_MON_SYS_LOG_FILES);
+           max_log_number--;
            log_type_flag = MON_SYSTEM_LOG_TYPE;
         }
    else if (strcmp(log_type, MONITOR_STR) == 0)
         {
            (void)strcpy(log_name, MON_LOG_NAME);
-           max_log_number = (MAX_MON_LOG_FILES - 1);
+           max_log_number = MAX_MON_LOG_FILES;
+           get_max_log_number(&max_log_number, MAX_MON_LOG_FILES_DEF,
+                              MAX_MON_LOG_FILES);
+           max_log_number--;
            log_type_flag = MONITOR_LOG_TYPE;
         }
         else

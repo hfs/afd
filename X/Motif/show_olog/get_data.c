@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -83,6 +83,7 @@ extern int              file_name_toggle_set,
                         toggles_set,
                         radio_set,
                         gt_lt_sign,
+                        max_output_log_files,
                         no_of_search_hosts,
                         special_button_flag,
                         file_name_length,
@@ -207,157 +208,175 @@ static void   display_data(int, time_t, time_t),
            CONVERT_TIME();                                 \
            (void)memcpy(p_type, (protocol), 4);            \
         }
-#define COMMON_BLOCK()                \
-        {                             \
-           ptr++;                     \
-           while (*ptr != ' ')        \
-           {                          \
-              ptr++;                  \
-           }                          \
-           tmp_ptr = ptr - 1;         \
-           j = 0;                     \
+#define COMMON_BLOCK()              \
+        {                           \
+           ptr++;                   \
+           while (*ptr != ' ')      \
+           {                        \
+              ptr++;                \
+           }                        \
+           tmp_ptr = ptr - 1;       \
+           j = 0;                   \
            while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_TRANSFER_TIME))\
-           {                          \
-              *(p_tt - j) = *tmp_ptr; \
-              tmp_ptr--; j++;         \
-           }                          \
+           {                        \
+              *(p_tt - j) = *tmp_ptr;\
+              tmp_ptr--; j++;       \
+           }                        \
            if (j == MAX_DISPLAYED_TRANSFER_TIME)\
-           {                          \
-              tmp_ptr = ptr - 4;      \
-              j = 0;                  \
+           {                        \
+              tmp_ptr = ptr - 4;    \
+              j = 0;                \
               while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_TRANSFER_TIME))\
-              {                       \
+              {                     \
                  *(p_tt - j) = *tmp_ptr;\
-                 tmp_ptr--; j++;      \
-              }                       \
+                 tmp_ptr--; j++;    \
+              }                     \
               if ((j == MAX_DISPLAYED_TRANSFER_TIME) && (*tmp_ptr != ' '))\
-              {                       \
-                 *(p_tt - j) = '>';   \
+              {                     \
+                 *(p_tt - j) = '>'; \
                  while (*tmp_ptr != ' ')\
-                 {                    \
-                    tmp_ptr--;        \
-                 }                    \
-              }                       \
-              else                    \
-              {                       \
+                 {                  \
+                    tmp_ptr--;      \
+                 }                  \
+              }                     \
+              else                  \
+              {                     \
                  while (j < MAX_DISPLAYED_TRANSFER_TIME)\
-                 {                    \
+                 {                  \
                     *(p_tt - j) = ' ';\
-                    j++;              \
-                 }                    \
-              }                       \
-           }                          \
-           tmp_ptr++;                 \
-                                      \
-           ptr++;                     \
+                    j++;            \
+                 }                  \
+              }                     \
+           }                        \
+           tmp_ptr++;               \
+                                    \
+           ptr++;                   \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);\
-                                      \
+                                    \
            if ((search_directory_name[0] != '\0') ||\
                ((current_search_host != -1) &&\
                 (search_user[current_search_host][0] != '\0')))\
-           {                          \
-              int  count = 0;         \
-              char job_id_str[15];    \
-                                      \
+           {                        \
+              int  count = 0;       \
+              char job_id_str[15];  \
+                                    \
               while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))\
-              {                       \
+              {                     \
                  job_id_str[count] = *ptr;\
-                 count++; ptr++;      \
-              }                       \
+                 count++; ptr++;    \
+              }                     \
               job_id_str[count] = '\0';\
               id.job_no = (unsigned int)strtoul(job_id_str, NULL, 10);\
-                                      \
+                                    \
               if ((current_search_host != -1) &&\
                   (search_user[current_search_host][0] != '\0'))\
-              {                       \
-                 id.user[0] = '\0';   \
+              {                     \
+                 char *at_ptr = search_user[current_search_host];\
+                                    \
+                 id.user[0] = '\0'; \
+                 id.mail_destination[0] = '\0';\
                  get_info(GOT_JOB_ID_USER_ONLY);\
-                                      \
-                 if (sfilter(search_user[current_search_host], id.user) != 0)\
-                 {                    \
-                    IGNORE_ENTRY();   \
-                 }                    \
-              }                       \
+                                    \
+                 while ((*at_ptr != ' ') && (*at_ptr != '@') && (*at_ptr != '\0'))\
+                 {                  \
+                    at_ptr++;       \
+                 }                  \
+                 if ((*at_ptr == '@') && (id.mail_destination[0] != '\0'))\
+                 {                  \
+                    if (sfilter(search_user[current_search_host],\
+                                id.mail_destination) != 0)\
+                    {               \
+                       IGNORE_ENTRY();\
+                    }               \
+                 }                  \
+                 else               \
+                 {                  \
+                    if (sfilter(search_user[current_search_host], id.user) != 0)\
+                    {               \
+                       IGNORE_ENTRY();\
+                    }               \
+                 }                  \
+              }                     \
               if (search_directory_name[0] != '\0')\
-              {                       \
-                 id.dir[0] = '\0';    \
+              {                     \
+                 id.dir[0] = '\0';  \
                  get_info(GOT_JOB_ID_DIR_ONLY);\
                  count = strlen(id.dir);\
-                 id.dir[count] = ' '; \
+                 id.dir[count] = ' ';\
                  id.dir[count + 1] = '\0';\
-                                       \
+                                    \
                  if (sfilter(search_directory_name, id.dir) != 0)\
-                 {                     \
-                    IGNORE_ENTRY();    \
-                 }                     \
-              }                        \
-           }                           \
-           else                        \
-           {                           \
+                 {                  \
+                    IGNORE_ENTRY(); \
+                 }                  \
+              }                     \
+           }                        \
+           else                     \
+           {                        \
               while ((*ptr != '\n') && (*ptr != ' '))\
-              {                        \
-                 ptr++;                \
-              }                        \
-           }                           \
+              {                     \
+                 ptr++;             \
+              }                     \
+           }                        \
            trans_time += strtod(tmp_ptr, NULL);\
-                                       \
-           if (*ptr == ' ')            \
-           {                           \
+                                    \
+           if (*ptr == ' ')         \
+           {                        \
               int  sub_dir_counter = 0;\
               char archive_status = 'Y';\
-                                       \
-              ptr++;                   \
-              while (*ptr != '\n')     \
-              {                        \
+                                    \
+              ptr++;                \
+              while (*ptr != '\n')  \
+              {                     \
                  if ((*ptr == '/') && (*(ptr - 1) != '\\'))\
-                 {                     \
-                    sub_dir_counter++; \
+                 {                  \
+                    sub_dir_counter++;\
                     if (sub_dir_counter == 3)\
-                    {                  \
-                       int  cc = 0;    \
+                    {               \
+                       int  cc = 0; \
                        char long_no[MAX_INT_LENGTH];\
-                                       \
-                       ptr += 3;       \
+                                    \
+                       ptr += 3;    \
                        while ((*ptr != '_') && (*ptr != '\n') && (cc < MAX_INT_LENGTH))\
-                       {               \
+                       {            \
                           long_no[cc] = *ptr;\
-                          cc++; ptr++; \
-                       }               \
+                          cc++; ptr++;\
+                       }            \
                        if ((*ptr != '\n') && (cc > 0) && (cc < MAX_INT_LENGTH))\
-                       {               \
+                       {            \
                           time_t delete_time;\
-                                       \
+                                    \
                           long_no[cc] = '\0';\
                           delete_time = atol(long_no);\
                           if (now > (delete_time + ARCHIVE_STEP_TIME))\
-                          {            \
+                          {         \
                              archive_status = 'D';\
-                          }            \
+                          }         \
                           else if (now > (delete_time - 5))\
-                               {       \
+                               {    \
                                   archive_status = '?';\
-                               }       \
-                       }               \
-                    }                  \
-                 }                     \
-                 ptr++;                \
-              }                        \
-              while (*ptr != '\n')     \
-              {                        \
-                 ptr++;                \
-              }                        \
+                               }    \
+                       }            \
+                    }               \
+                 }                  \
+                 ptr++;             \
+              }                     \
+              while (*ptr != '\n')  \
+              {                     \
+                 ptr++;             \
+              }                     \
               *p_archive_flag = archive_status;\
               il[file_no].archived[item_counter] = 1;\
-           }                           \
-           else                        \
-           {                           \
-              *p_archive_flag = 'N';   \
-           }                           \
-           item_counter++;             \
-                                       \
+           }                        \
+           else                     \
+           {                        \
+              *p_archive_flag = 'N';\
+           }                        \
+           item_counter++;          \
+                                    \
            str_list[i] = XmStringCreateLocalized(line);\
-                                       \
-           ptr++;                      \
+                                    \
+           ptr++;                   \
         }
 
 #define CHECK_LIST_LIMIT()                                          \
@@ -622,6 +641,7 @@ static void   display_data(int, time_t, time_t),
                 }                                                      \
         }
 
+/* #define _MACRO_DEBUG */
 
 /*############################### get_data() ############################*/
 void
@@ -640,7 +660,7 @@ get_data(void)
 
    /* Prepare log file name. */
    p_log_file = log_file;
-   no_of_log_files = MAX_OUTPUT_LOG_FILES;
+   no_of_log_files = max_output_log_files;
    p_log_file += sprintf(log_file, "%s%s/%s", p_work_dir, LOG_DIR,
                          OUTPUT_BUFFER_FILE);
 
@@ -2350,7 +2370,177 @@ recipient_only(register char *ptr,
 
          /* Write transfer duration, job ID and archive directory. */
          /* Also check if we have to check for directory name.     */
+#ifndef _MACRO_DEBUG
          COMMON_BLOCK();
+#else
+         ptr++;
+         while (*ptr != ' ')
+         {
+            ptr++;
+         }
+         tmp_ptr = ptr - 1;
+         j = 0;
+         while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_TRANSFER_TIME))
+         {
+            *(p_tt - j) = *tmp_ptr;
+            tmp_ptr--; j++;
+         }
+         if (j == MAX_DISPLAYED_TRANSFER_TIME)
+         {
+            tmp_ptr = ptr - 4;
+            j = 0;
+            while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_TRANSFER_TIME))
+            {
+               *(p_tt - j) = *tmp_ptr;
+               tmp_ptr--; j++;
+            }
+            if ((j == MAX_DISPLAYED_TRANSFER_TIME) && (*tmp_ptr != ' '))
+            {
+               *(p_tt - j) = '>';
+               while (*tmp_ptr != ' ')
+               {
+                  tmp_ptr--;
+               }
+            }
+            else
+            {
+               while (j < MAX_DISPLAYED_TRANSFER_TIME)
+               {
+                  *(p_tt - j) = ' ';
+                  j++;
+               }
+            }
+         }
+         tmp_ptr++;
+
+         ptr++;
+         il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);
+
+         if ((search_directory_name[0] != '\0') ||
+             ((current_search_host != -1) &&
+              (search_user[current_search_host][0] != '\0')))
+         {
+            int  count = 0;
+            char job_id_str[15];
+
+            while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
+            {
+               job_id_str[count] = *ptr;
+               count++; ptr++;
+            }
+            job_id_str[count] = '\0';
+            id.job_no = (unsigned int)strtoul(job_id_str, NULL, 10);
+
+            if ((current_search_host != -1) &&
+                (search_user[current_search_host][0] != '\0'))
+            {
+               char *at_ptr = search_user[current_search_host];
+
+               id.user[0] = '\0';
+               id.mail_destination[0] = '\0';
+               get_info(GOT_JOB_ID_USER_ONLY);
+
+               while ((*at_ptr != ' ') && (*at_ptr != '@') && (*at_ptr != '\0'))
+               {
+                  at_ptr++;
+               }
+               if ((*at_ptr == '@') && (id.mail_destination[0] != '\0'))
+               {
+                  if (sfilter(search_user[current_search_host],
+                              id.mail_destination) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  if (sfilter(search_user[current_search_host], id.user) != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+            }
+            if (search_directory_name[0] != '\0')\
+            {
+               id.dir[0] = '\0';
+               get_info(GOT_JOB_ID_DIR_ONLY);
+               count = strlen(id.dir);
+               id.dir[count] = ' ';
+               id.dir[count + 1] = '\0';
+
+               if (sfilter(search_directory_name, id.dir) != 0)
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+         }
+         else
+         {
+            while ((*ptr != '\n') && (*ptr != ' '))
+            {
+               ptr++;
+            }
+         }
+         trans_time += strtod(tmp_ptr, NULL);
+
+         if (*ptr == ' ')
+         {
+            int  sub_dir_counter = 0;
+            char archive_status = 'Y';
+
+            ptr++;
+            while (*ptr != '\n')
+            {
+               if ((*ptr == '/') && (*(ptr - 1) != '\\'))
+               {
+                  sub_dir_counter++;
+                  if (sub_dir_counter == 3)
+                  {
+                     int  cc = 0;
+                     char long_no[MAX_INT_LENGTH];
+
+                     ptr += 3;
+                     while ((*ptr != '_') && (*ptr != '\n') && (cc < MAX_INT_LENGTH))
+                     {
+                        long_no[cc] = *ptr;
+                        cc++; ptr++;
+                     }
+                     if ((*ptr != '\n') && (cc > 0) && (cc < MAX_INT_LENGTH))
+                     {
+                        time_t delete_time;
+
+                        long_no[cc] = '\0';
+                        delete_time = atol(long_no);
+                        if (now > (delete_time + ARCHIVE_STEP_TIME))
+                        {
+                           archive_status = 'D';
+                        }
+                        else if (now > (delete_time - 5))
+                             {
+                                archive_status = '?';
+                             }
+                     }
+                  }
+               }
+               ptr++;
+            }
+            while (*ptr != '\n')
+            {
+               ptr++;
+            }
+            *p_archive_flag = archive_status;
+            il[file_no].archived[item_counter] = 1;
+         }
+         else
+         {
+            *p_archive_flag = 'N';
+         }
+         item_counter++;
+
+         str_list[i] = XmStringCreateLocalized(line);
+
+         ptr++;
+#endif /* _MACRO_DEBUG */
          file_size += strtod(p_size, NULL);
       }
 

@@ -1,6 +1,6 @@
 /*
  *  fddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -114,6 +114,7 @@
 #endif
 #define SYNTAX_ERROR             60
 #define NO_FILES_TO_SEND         61
+#define STILL_FILES_TO_SEND      62
 
 #ifdef _WITH_WMO_SUPPORT
 #define NEGATIV_ACKNOWLEDGE      -10
@@ -189,6 +190,8 @@
 #define ATTACH_FILE_ID_LENGTH          11
 #define ATTACH_ALL_FILES_ID            "attach all files"
 #define ATTACH_ALL_FILES_ID_LENGTH     16
+#define REPLY_TO_ID                    "reply-to"
+#define REPLY_TO_ID_LENGTH             8
 #ifdef _WITH_EUMETSAT_HEADERS
 #define EUMETSAT_HEADER_ID             "eumetsat"
 #define EUMETSAT_HEADER_ID_LENGTH      8
@@ -393,11 +396,16 @@ struct job
                                          /*              file and after  */
                                          /*              transfer delete */
                                          /*              lock file.      */
+          int           no_listed;       /* No. of elements in a group.  */
+          char          **group_list;    /* List of elements found in    */
+                                         /* the group file.              */
 #ifdef _WITH_WMO_SUPPORT
           char          file_name_is_header; /* Assumes that the file    */
                                          /* name is bulletin header.     */
 #endif
           char          *subject;        /* Subject for mail.            */
+          char          *reply_to;       /* The address where the        */
+                                         /* recipient sends the reply.   */
 #ifdef _WITH_TRANS_EXEC
           char          *trans_exec_cmd; /* String holding the exec cmd. */
 #endif /* _WITH_TRANS_EXEC */
@@ -503,7 +511,6 @@ extern int   append_compare(char *, char *),
              check_burst_2(char *, int *, unsigned int *),
              check_file_dir(int),
              check_fra_fd(void),
-             check_job_name(char *),
              eval_input_gf(int, char **, struct job *),
              eval_input_sf(int, char **, struct job *),
              eval_recipient(char *, struct job *, char *),
@@ -521,6 +528,7 @@ extern int   append_compare(char *, char *),
 extern void  check_fsa_entries(void),
              check_msg_time(void),
              check_queue_space(void),
+             get_group_list(char *),
              get_new_positions(void),
              handle_proxy(void),
              init_fra_data(void),

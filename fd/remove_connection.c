@@ -61,6 +61,23 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
 {
    if (p_con->fsa_pos != -1)
    {
+      /*
+       * Reset some values of FSA structure. But before we do so it's
+       * essential that we do NOT write to an old FSA! So lets check if we
+       * are still in the correct FSA. Otherwise we subtract the number of
+       * active transfers without ever resetting the pid! This can lead to
+       * some very fatal behaviour of the AFD.
+       */
+      if (check_fsa() == YES)
+      {
+         if (check_fra_fd() == YES)
+         {
+            init_fra_data();
+         }
+         get_new_positions();
+         init_msg_buffer();
+      }
+
       /* Decrease number of active transfers to this host in FSA */
       if (faulty == YES)
       {
@@ -119,23 +136,6 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
             }
             unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
          }
-      }
-
-      /*
-       * Reset some values of FSA structure. But before we do so it's
-       * essential that we do NOT write to an old FSA! So lets check if we
-       * are still in the correct FSA. Otherwise we subtract the number of
-       * active transfers without ever resetting the pid! This can lead to
-       * some very fatal behaviour of the AFD.
-       */
-      if (check_fsa() == YES)
-      {
-         if (check_fra_fd() == YES)
-         {
-            init_fra_data();
-         }
-         get_new_positions();
-         init_msg_buffer();
       }
 
       if (fsa[p_con->fsa_pos].active_transfers > fsa[p_con->fsa_pos].allowed_transfers)

@@ -332,23 +332,27 @@ add_message_to_queue(char *dir_name, char in_error_dir)
    }
    else
    {
-      int    i,
-             qb_pos = *no_msg_queued;
+      int    qb_pos = *no_msg_queued;
       double msg_number = ((double)msg_priority - 47.0) *
                           (((double)creation_time * 10000.0) +
                           (double)unique_number);
 
-      for (i = 0; i < *no_msg_queued; i++)
+      if ((*no_msg_queued > 0) &&
+          (msg_number < qb[*no_msg_queued - 1].msg_number))
       {
-         if (msg_number < qb[i].msg_number)
-         {
-            size_t move_size;
+         register int i;
 
-            move_size = (*no_msg_queued - i) *
-                        sizeof(struct queue_buf);
-            (void)memmove(&qb[i + 1], &qb[i], move_size);
-            qb_pos = i;
-            break;
+         for (i = (*no_msg_queued - 1); i > -1; i--)
+         {
+            if (msg_number > qb[i].msg_number)
+            {
+               size_t move_size;
+
+               move_size = (*no_msg_queued - (i + 1)) * sizeof(struct queue_buf);
+               (void)memmove(&qb[i + 2], &qb[i + 1], move_size);
+               qb_pos = i + 1;
+               break;
+            }
          }
       }
       (void)strcpy(qb[qb_pos].msg_name, dir_name);

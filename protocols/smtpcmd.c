@@ -149,8 +149,8 @@ static int                check_reply(int, ...),
 int
 smtp_connect(char *hostname, int port)
 {
-   int                     length,
-                           reply;
+   int                     reply;
+   my_socklen_t            length;
    struct sockaddr_in      sin;
    register struct hostent *p_host = NULL;
 

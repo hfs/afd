@@ -1,6 +1,6 @@
 /*
  *  check_job_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,6 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <ctype.h>                 /* isdigit()                          */
-#include "fddefs.h"
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$ check_job_name() $$$$$$$$$$$$$$$$$$$$$$$$$$$*/

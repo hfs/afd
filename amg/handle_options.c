@@ -278,7 +278,7 @@ search_again:
                               {
                                  if (p_search_name != p_file_name)
                                  {
-                                    if (strcmp(p_search_name, changed_name) == 0)
+                                    if (CHECK_STRCMP(p_search_name, changed_name) == 0)
                                     {
                                        if (p_end == NULL)
                                        {
@@ -305,7 +305,7 @@ search_again:
                                * we only have one file to send, we will
                                * loose it!
                                */
-                              if ((strcmp(p_file_name, changed_name) != 0) &&
+                              if ((CHECK_STRCMP(p_file_name, changed_name) != 0) &&
                                   (stat(newname, &stat_buf) != -1))
                               {
                                  (*files_to_send)--;
@@ -552,7 +552,7 @@ search_again:
       }
 
       /* Check if we just want to send the basename */
-      if (strcmp(options, BASENAME_ID) == 0)
+      if (CHECK_STRCMP(options, BASENAME_ID) == 0)
       {
 #ifdef _WITH_PTHREAD
          int file_counter = 0;
@@ -580,7 +580,7 @@ search_again:
                }
                (void)sprintf(newname, "%s/%s", file_path, filename);
 
-               if (strcmp(fullname, newname) == 0)
+               if (CHECK_STRCMP(fullname, newname) == 0)
                {
                   p_file_name += MAX_FILENAME_LENGTH;
                   continue;
@@ -625,7 +625,7 @@ search_again:
       }
 
       /* Check if we have to truncate the extension */
-      if (strcmp(options, EXTENSION_ID) == 0)
+      if (CHECK_STRCMP(options, EXTENSION_ID) == 0)
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;
@@ -653,7 +653,7 @@ search_again:
                }
                (void)sprintf(newname, "%s/%s", file_path, filename);
 
-               if (strcmp(fullname, newname) == 0)
+               if (CHECK_STRCMP(fullname, newname) == 0)
                {
                   p_file_name += MAX_FILENAME_LENGTH;
                   continue;
@@ -821,7 +821,7 @@ search_again:
 
 #ifdef _WITH_AFW2WMO
       /* Check if we want to convert AFW format to WMO format. */
-      if (strcmp(options, AFW2WMO_ID) == 0)
+      if (CHECK_STRCMP(options, AFW2WMO_ID) == 0)
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;
@@ -960,7 +960,7 @@ search_again:
 #endif /* _WITH_AFW2WMO */
 
       /* Check if we want to convert TIFF files to GTS format */
-      if (strcmp(options, TIFF2GTS_ID) == 0)
+      if (CHECK_STRCMP(options, TIFF2GTS_ID) == 0)
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;
@@ -1015,7 +1015,7 @@ search_again:
       }
 
       /* Check if we want to convert GTS T4 encoded files to TIFF files */
-      if (strcmp(options, GTS2TIFF_ID) == 0)
+      if (CHECK_STRCMP(options, GTS2TIFF_ID) == 0)
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;

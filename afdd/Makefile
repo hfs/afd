@@ -4,7 +4,7 @@
 
 include ../Include.mk
 
-INSTDIR = ../../bin
+INSTDIR = ../..
 COMDIR  = ../common
 MISCDIR = ../misc
 AFDLIB  = $(COMDIR)/libafd.a
@@ -39,9 +39,13 @@ clobber :
 	rm -f $(PROGS)
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(AFDDPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(AFDDPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other depnedencies
 afdd.o handle_request.o : ../version.h

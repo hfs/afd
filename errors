@@ -1,6 +1,0 @@
-change_name.c: In function `change_name':
-change_name.c:430: warning: `%y' yields only last 2 digits of year
-pmatch.c: In function `pmatch':
-pmatch.c:65: warning: `p_gap_filter' might be used uninitialized in this function
-handle_options.c: In function `create_assembled_name':
-handle_options.c:1680: warning: `%y' yields only last 2 digits of year

@@ -61,7 +61,7 @@ get_printer_cmd(char *printer_cmd, char *default_printer)
 
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   if ((access(config_file, F_OK) == 0) &&
+   if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       if (get_definition(buffer, DEFAULT_PRINTER_CMD_DEF,

@@ -134,3 +134,21 @@ install :
 	cd $(MONIPROG) && $(MAKE) install
 	cd $(VDCPROG) && $(MAKE) install
 #	cd $(STATPROG) && $(MAKE) install
+
+sinstall :
+	cd $(AFDCPROG) && $(MAKE) sinstall
+	cd $(DIRCPROG) && $(MAKE) sinstall
+	cd $(AFDIPROG) && $(MAKE) sinstall
+	cd $(DIRIPROG) && $(MAKE) sinstall
+	cd $(AFDLPROG) && $(MAKE) sinstall
+	cd $(EHCPROG) && $(MAKE) sinstall
+	cd $(SCMDPROG) && $(MAKE) sinstall
+	cd $(SLOGPROG) && $(MAKE) sinstall
+	cd $(SOLOGPROG) && $(MAKE) sinstall
+	cd $(SILOGPROG) && $(MAKE) sinstall
+	cd $(SDLOGPROG) && $(MAKE) sinstall
+	cd $(SQUEPROG) && $(MAKE) sinstall
+	cd $(MONCPROG) && $(MAKE) sinstall
+	cd $(MONIPROG) && $(MAKE) sinstall
+	cd $(VDCPROG) && $(MAKE) sinstall
+#	cd $(STATPROG) && $(MAKE) sinstall

@@ -1,6 +1,6 @@
 /*
  *  sf_loc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -114,7 +114,8 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
    unsigned int     ui_variable;
 #endif
-   int              i,
+   int              exit_status = TRANSFER_SUCCESS,
+                    i,
                     fd,
                     lfs,                    /* local file system */
                     files_to_send = 0;
@@ -857,7 +858,7 @@ main(int argc, char *argv[])
             {
                fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                system_log(INFO_SIGN, __FILE__, __LINE__,
-                          "Starting queue for %s that was stopped by init_afd.",
+                          "Starting input queue for %s that was stopped by init_afd.",
                           fsa[db.fsa_pos].host_alias);
             }
          } /* if (fsa[db.fsa_pos].error_counter > 0) */
@@ -896,6 +897,7 @@ main(int argc, char *argv[])
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to rmdir() <%s> : %s", file_path, strerror(errno));
+         exit_status = STILL_FILES_TO_SEND;
       }
 #ifdef _WITH_BURST_2
       burst_2_counter++;
@@ -923,7 +925,7 @@ main(int argc, char *argv[])
 #endif /* _WITH_BURST_2 */
 
    exitflag = 0;
-   exit(TRANSFER_SUCCESS);
+   exit(exit_status);
 }
 
 

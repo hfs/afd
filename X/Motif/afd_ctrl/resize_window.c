@@ -68,21 +68,21 @@ extern unsigned int glyph_height;
 signed char
 resize_window(void)
 {
+   if (window_size(&window_width, &window_height) == YES)
+   {
 #ifdef _AUTO_REPOSITION
-   XWindowAttributes    window_attrib;
-   int                  display_width,
+      XWindowAttributes window_attrib;
+      int               display_width,
                         display_height,
                         new_x,
                         new_y;
-   Position             root_x,
+      Position          root_x,
                         root_y;
 #endif
-   static int           old_line_height = 0;
-   Arg                  args[5];
-   Cardinal             argcount;
+      static int        old_line_height = 0;
+      Arg               args[2];
+      Cardinal          argcount;
 
-   if (window_size(&window_width, &window_height) == YES)
-   {
       argcount = 0;
       XtSetArg(args[argcount], XmNheight, (Dimension) window_height);
       argcount++;
@@ -134,16 +134,15 @@ resize_window(void)
 
 #ifdef _WITH_VA_SET_VALUES_
       XtVaSetValues(appshell,
-             XmNx, new_x,
-             XmNy, new_y,
-             XmNwidth, window_width,
-             XmNheight, window_height + line_height + line_height + glyph_height + magic_value,
-             NULL);
+                    XmNx, new_x, XmNy, new_y,
+                    XmNwidth, window_width,
+                    XmNheight,
+                    window_height + line_height + line_height + glyph_height + magic_value,
+                    NULL);
 #else
       /* Resize window */
       XMoveResizeWindow(display, XtWindow(appshell),
-                        new_x,
-                        new_y,
+                        new_x, new_y,
                         window_width,
                         window_height + line_height + line_height + glyph_height + magic_value);
 #endif

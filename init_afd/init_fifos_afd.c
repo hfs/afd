@@ -50,8 +50,7 @@ DESCR__E_M3
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
 #include <errno.h>
 
-extern int  sys_log_fd,
-            afd_cmd_fd,
+extern int  afd_cmd_fd,
             afd_resp_fd,
             amg_cmd_fd,
             fd_cmd_fd,
@@ -106,58 +105,58 @@ init_fifos_afd(void)
    /* OK. Now lets make all fifos */
    if (make_fifo(transfer_log_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                transfer_log_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    transfer_log_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(trans_db_log_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                trans_db_log_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    trans_db_log_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(afd_cmd_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                afd_cmd_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    afd_cmd_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(afd_resp_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                afd_resp_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    afd_resp_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(amg_cmd_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                amg_cmd_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    amg_cmd_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(fd_cmd_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                fd_cmd_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    fd_cmd_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(fd_resp_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                fd_resp_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    fd_resp_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(ip_fin_fifo) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                ip_fin_fifo, __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    ip_fin_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if ((stat(probe_only_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
    {
       if (make_fifo(probe_only_fifo) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, "Could not create fifo %s. (%s %d)\n",
-                   probe_only_fifo, __FILE__, __LINE__);
+         (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                       probe_only_fifo, __FILE__, __LINE__);
          exit(INCORRECT);
       }
    }
@@ -165,32 +164,32 @@ init_fifos_afd(void)
    /* Now lets open all fifos needed by the AFD */
    if ((afd_cmd_fd = coe_open(afd_cmd_fifo, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not open fifo %s : %s (%s %d)\n",
-                afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                    afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if ((afd_resp_fd = coe_open(afd_resp_fifo, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not open fifo %s : %s (%s %d)\n",
-                afd_resp_fifo, strerror(errno), __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                    afd_resp_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if ((amg_cmd_fd = coe_open(amg_cmd_fifo, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not open fifo %s : %s (%s %d)\n",
-                amg_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                    amg_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if ((fd_cmd_fd = coe_open(fd_cmd_fifo, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not open fifo %s : %s (%s %d)\n",
-                fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                    fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if ((probe_only_fd = coe_open(probe_only_fifo, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Could not open fifo %s : %s (%s %d)\n",
-                probe_only_fifo, strerror(errno), __FILE__, __LINE__);
+      (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                    probe_only_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 

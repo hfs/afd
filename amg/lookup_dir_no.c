@@ -66,7 +66,7 @@ lookup_dir_no(char *dir_name, int *did_number)
 
    for (i = 0; i < *no_of_dir_names; i++)
    {
-      if (strcmp(dnb[i].dir_name, dir_name) == 0)
+      if (CHECK_STRCMP(dnb[i].dir_name, dir_name) == 0)
       {
          return(i);
       }

@@ -58,11 +58,7 @@ extern struct filetransfer_status *fsa;
 void
 reset_fsa(struct job *p_db, int mode)
 {
-   if (fsa == NULL)
-   {
-      return;
-   }
-   if (host_deleted == NO)
+   if ((fsa != NULL) && (host_deleted == NO))
    {
       if (check_fsa() == YES)
       {

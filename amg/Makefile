@@ -4,7 +4,7 @@
 
 include ../Include.mk
 
-INSTDIR = ../../bin
+INSTDIR = ../..
 COMDIR  = ../common
 AFDLIB  = $(COMDIR)/libafd.a
 MISCLIB = ../misc/libmisc.a
@@ -13,6 +13,7 @@ CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd
 AMGPROG = amg
 AMGOBJS = amg.o\
           amg_zombie_check.o\
+          clear_error_dir.o\
           clear_pool_dir.o\
           com.o\
           create_fsa.o\
@@ -22,7 +23,6 @@ AMGOBJS = amg.o\
           eval_dir_options.o\
           eval_input_amg.o\
           eval_time_str.o\
-          get_hostname.o\
           lookup_dir_no.o\
           make_process_amg.o\
           remove_pool_directory.o\
@@ -41,7 +41,6 @@ DCHKOBJS= check_files.o\
           dir_check.o\
           enter_time_job.o\
           eval_time_str.o\
-          get_hostname.o\
           handle_options.o\
           handle_time_jobs.o\
           init_dir_check.o\
@@ -51,7 +50,6 @@ DCHKOBJS= check_files.o\
           link_files.o\
           lookup_fra_pos.o\
           lookup_job_id.o\
-          map_instant_db.o\
           next.o\
           receive_log.o\
           remove_time_dir.o\
@@ -69,6 +67,10 @@ TITPROG = test_in_time
 TITOBJS = eval_time_str.o\
           in_time.o\
           test_in_time.o
+
+PSHPROG = print_shm
+PSHOBJS = print_shm.o\
+          show_shm.o
 
 PROGS   = $(AMGPROG) $(DCHKPROG)
 OBJS    = $(AMGOBJS) $(DCHKOBJS)
@@ -94,17 +96,25 @@ $(TITPROG) : $(TITOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TITOBJS) $(AFDLIB) $(SPECIAL_LIBS)
 
+$(PSHPROG) : $(PSHOBJS) $(AFDLIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(PSHOBJS) $(AFDLIB) $(SPECIAL_LIBS)
+
 clean :
-	rm -f $(OBJS) $(TTOBJS) $(TITOBJS) core
+	rm -f $(OBJS) $(TTOBJS) $(TITOBJS) $(PSHOBJS) core
 
 clobber :
 	$(MAKE) clean
-	rm -f $(PROGS) $(TTPROG) $(TITOBJS) amg.debug
+	rm -f $(PROGS) $(TTPROG) $(TITPROG) $(PSHPROG) amg.debug
 
 install :
-	cd $(INSTDIR) && rm -f $(PROGS)
-	cp -p $(PROGS) $(INSTDIR)
-	chmod $(BINMODE) $(INSTDIR)/$(AMGPROG) $(INSTDIR)/$(DCHKPROG)
+	cd $(INSTDIR)/bin && rm -f $(PROGS)
+	cp -p $(PROGS) $(INSTDIR)/bin
+	chmod $(BINMODE) $(INSTDIR)/bin/$(AMGPROG) $(INSTDIR)/bin/$(DCHKPROG)
+
+sinstall :
+	strip $(PROGS)
+	$(MAKE) install
 
 # Other depnedencies
 create_message.o : ../fd/fddefs.h

@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -99,7 +99,8 @@ DESCR__E_M1
 #ifdef _DEBUG
 FILE                       *p_debug_file;
 #endif
-int                        dnb_fd,
+int                        afd_status_fd,
+                           dnb_fd,
                            shm_id,      /* The shared memory ID's for    */
                                         /* the sorted data and pointers. */
                            data_length, /* The size of data for one job. */
@@ -129,6 +130,7 @@ char                       *p_work_dir,
 struct host_list           *hl;
 struct fileretrieve_status *fra;
 struct filetransfer_status *fsa = NULL;
+struct afd_status          *p_afd_status;
 struct dir_name_buf        *dnb = NULL;
 #ifdef _DELETE_LOG
 struct delete_log          dl;
@@ -307,6 +309,14 @@ main(int argc, char *argv[])
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Could not open fifo %s : %s (%s %d)\n",
                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+
+      if (attach_afd_status(&afd_status_fd) < 0)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Failed to attach to AFD status shared area. (%s %d)\n",
+                   __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
@@ -532,7 +542,7 @@ main(int argc, char *argv[])
                }
             }
 
-            (void)fsa_detach();
+            (void)fsa_detach(NO);
          }
       }
 
@@ -586,6 +596,7 @@ main(int argc, char *argv[])
       delete_log_ptrs(&dl);
 #endif
       clear_pool_dir();
+      clear_error_dir();
 #ifdef _DELETE_LOG
       if ((dl.fd != -1) && (dl.data != NULL))
       {
@@ -612,7 +623,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Start process dir_check and fr if database has information. */
+   /* Start process dir_check if database has information. */
    if (data_length > 0)
    {
       dc_pid = make_process_amg(work_dir, DC_PROC_NAME, shm_id, rescan_time,
@@ -778,7 +789,7 @@ main(int argc, char *argv[])
                           /* Increase HOST_CONFIG counter so others */
                           /* can see there was a change.            */
                           (*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET + sizeof(int)))++;
-                          (void)fsa_detach();
+                          (void)fsa_detach(YES);
 
                           notify_dir_check();
                           hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
@@ -796,6 +807,25 @@ main(int argc, char *argv[])
                        case REREAD_HOST_CONFIG :
                           reread_host_config(&hc_old_time, NULL, NULL,
                                              NULL, NULL);
+
+                          /*
+                           * Do not forget to start dir_check if we have
+                           * stopped it!
+                           */
+                          if (dc_pid == NOT_RUNNING)
+                          {
+                             dc_pid = make_process_amg(work_dir, DC_PROC_NAME,
+                                                       shm_id, rescan_time,
+                                                       max_no_proc,
+                                                       no_of_local_dir);
+                             if (pid_list != NULL)
+                             {
+                                *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
+                             }
+                             (void)rec(sys_log_fd, INFO_SIGN,
+                                       "Restarted %s. (%s %d)\n",
+                                       DC_PROC_NAME, __FILE__, __LINE__);
+                          }
                           break;
 
                        case REREAD_DIR_CONFIG :
@@ -835,6 +865,15 @@ main(int argc, char *argv[])
                                                      old_hl);
                                 }
                              }
+                          }
+                          break;
+
+                       case UNLOCK_NEW_FSA_AND_JID :
+                          {
+                             int lock_offset;
+
+                             lock_offset = (char *)&p_afd_status->amg - (char *)p_afd_status;
+                             unlock_region(afd_status_fd, lock_offset);
                           }
                           break;
 
@@ -957,7 +996,7 @@ get_afd_config_value(int    *rescan_time,
 
    (void)sprintf(config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   if ((access(config_file, F_OK) == 0) &&
+   if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       char value[MAX_INT_LENGTH];

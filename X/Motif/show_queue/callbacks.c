@@ -705,7 +705,7 @@ eval_time(char *numeric_str, Widget w, time_t *value)
    time_t time_val;
    char   str[3];
 
-   (void)time(&time_val);
+   time_val = time(NULL);
 
    switch (length)
    {
@@ -911,8 +911,11 @@ eval_time(char *numeric_str, Widget w, time_t *value)
            bd_time->tm_min  = min;
            bd_time->tm_hour = hour;
            bd_time->tm_mday = day;
+           if ((bd_time->tm_mon == 0) && (month == 12))
+           {
+              bd_time->tm_year -= 1;
+           }
            bd_time->tm_mon  = month - 1;
-           bd_time->tm_isdst = 0;
 
            *value = mktime(bd_time);
         }

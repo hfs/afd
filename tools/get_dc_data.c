@@ -140,7 +140,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    get_dc_data(argv[1]);
-   (void)fsa_detach();
+   (void)fsa_detach(NO);
 
    exit(SUCCESS);
 }

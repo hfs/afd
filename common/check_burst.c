@@ -1,6 +1,6 @@
 /*
  *  check_burst.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,6 +69,7 @@ DESCR__S_M3
  **   07.08.2001 H.Kiehl Take the lowest number of bytes still to be send
  **                      instead of the lowest number of burst to determine
  **                      which burst should be taken.
+ **   30.01.2002 H.Kiehl Addition of global burst counter for AMG and FD.
  **
  */
 DESCR__E_M3
@@ -76,7 +77,7 @@ DESCR__E_M3
 #ifdef _BURST_MODE
 #include <stdio.h>
 #include <string.h>                /* strcpy(), strcat(), strerror()     */
-#include <unistd.h>                /* rmdir(), access()                  */
+#include <unistd.h>                /* rmdir(), R_OK                      */
 #include <sys/types.h>
 #include <sys/stat.h>              /* struct stat                        */
 #include <dirent.h>                /* opendir(), closedir(), readdir(),  */
@@ -88,6 +89,7 @@ extern int                        amg_flag,
                                   fsa_fd,
                                   no_of_hosts;
 extern struct filetransfer_status *fsa;
+extern struct afd_status          *p_afd_status;
 
 /* Local function prototypes */
 static int                        burst_files(int, int, char *, char *);
@@ -565,7 +567,8 @@ check_burst(char         protocol,
 static int
 burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
 {
-   int           count = 0;
+   int           count = 0,
+                 tmp_count;
    char          *from_ptr,
                  *to_ptr,
                  newname[MAX_PATH_LENGTH];
@@ -599,16 +602,42 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
       return(INCORRECT);
    }
 
-   (void)strcpy(newname, dst_dir);
+   to_ptr = newname;
+   tmp_count = 0;
+   while (dst_dir[tmp_count] != '\0')
+   {
+      *to_ptr = dst_dir[tmp_count];
+      to_ptr++; tmp_count++;
+   }
    if (fsa[position].job_status[burst_connection].error_file == YES)
    {
-      (void)strcat(newname, ERROR_DIR);
-      (void)strcat(newname, "/");
-      (void)strcat(newname, fsa[position].host_alias);
+      if (*(to_ptr - 1) == '/')
+      {
+         to_ptr--;
+      }
+      (void)strcpy(to_ptr, ERROR_DIR);
+      to_ptr += ERROR_DIR_LENGTH;
+      *to_ptr = '/';
+      to_ptr++;
+      tmp_count = 0;
+      while (fsa[position].host_alias[tmp_count] != '\0')
+      {
+         *to_ptr = fsa[position].host_alias[tmp_count];
+         to_ptr++; tmp_count++;
+      }
    }
-   (void)strcat(newname, "/");
-   (void)strcat(newname, fsa[position].job_status[burst_connection].unique_name);
-   if (fsa[position].job_status[burst_connection].unique_name[0] == '\0')
+   if (*(to_ptr - 1) != '/')
+   {
+      *to_ptr = '/';
+      to_ptr++;
+   }
+   tmp_count = 0;
+   while (fsa[position].job_status[burst_connection].unique_name[tmp_count] != '\0')
+   {
+      *to_ptr = fsa[position].job_status[burst_connection].unique_name[tmp_count];
+      to_ptr++; tmp_count++;
+   }
+   if (tmp_count == 0)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Hmmm. No unique name for host %s [%d].",
@@ -621,7 +650,6 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
       }
       return(INCORRECT);
    }
-   to_ptr = newname + strlen(newname);
    *to_ptr++ = '/';
    from_ptr = src_dir + strlen(src_dir);
    *from_ptr++ = '/';
@@ -629,85 +657,20 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
    errno = 0;
    while ((p_dir = readdir(dp)) != NULL)
    {
-      if (p_dir->d_name[0] == '.')
+      if (p_dir->d_name[0] != '.')
       {
-         continue;
-      }
+         (void)strcpy(to_ptr, p_dir->d_name);
 
-      (void)strcpy(to_ptr, p_dir->d_name);
-
-      /*
-       * We have to handle the case when we send the same
-       * file twice. Let's not 'burst' such a file. If we
-       * find a file with the same name, don't move it to the
-       * transmitting directory. This can cause chaos! Generate
-       * a new message (AMG) or leave the old message (FD).
-       */
-      if (access(newname, F_OK) == 0)
-      {
-         if (closedir(dp) == -1)
+         /*
+          * We have to handle the case when we send the same
+          * file twice. Let's not 'burst' such a file. If we
+          * find a file with the same name, don't move it to the
+          * transmitting directory. Otherwise the file number and
+          * size is wrong in afd_ctrl dialog. Generate a new
+          * message (AMG) or leave the old message (FD).
+          */
+         if (access(newname, F_OK) == 0)
          {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Could not close directory <%s> : %s",
-                       src_dir, strerror(errno));
-         }
-         if (count > 0)
-         {
-            fsa[position].job_status[burst_connection].burst_counter++;
-         }
-         *(from_ptr - 1) = '\0';
-
-         return(INCORRECT);
-      }
-
-      (void)strcpy(from_ptr, p_dir->d_name);
-      if (rename(src_dir, newname) == -1)
-      {
-         char progname[4];
-
-         if (amg_flag == YES)
-         {
-            progname[0] = 'A';
-            progname[1] = 'M';
-            progname[2] = 'G';
-            progname[3] = '\0';
-         }
-         else
-         {
-            progname[0] = 'F';
-            progname[1] = 'D';
-            progname[2] = '\0';
-         }
-         if (errno == ENOENT)
-         {
-            /*
-             * The target directory is gone. No need to continue here.
-             * How can this happen?!
-             */
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Could not rename() file %s to %s : %s [%s]",
-                       src_dir, newname, strerror(errno), progname);
-
-            /*
-             * Lets determine what is gone source or target?
-             */
-            if (access(src_dir, R_OK) != 0)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Source file <%s> does not exist!", src_dir);
-            }
-            *to_ptr = '\0';
-            if (access(newname, R_OK) != 0)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Target directory <%s> does not exist!", newname);
-            }
-            *from_ptr = '\0';
-            if (access(src_dir, R_OK) != 0)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Source directory <%s> does not exist!", src_dir);
-            }
             if (closedir(dp) == -1)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -717,18 +680,98 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
             if (count > 0)
             {
                fsa[position].job_status[burst_connection].burst_counter++;
+               if (amg_flag == YES)
+               {
+                  p_afd_status->amg_burst_counter++;
+               }
+               else
+               {
+                  p_afd_status->fd_burst_counter++;
+               }
             }
             *(from_ptr - 1) = '\0';
 
             return(INCORRECT);
          }
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Could not rename() file <%s> to <%s> : %s [%s]",
-                    src_dir, newname, strerror(errno), progname);
-      }
-      else
-      {
-         count++;
+
+         (void)strcpy(from_ptr, p_dir->d_name);
+         if (rename(src_dir, newname) == -1)
+         {
+            char progname[4];
+
+            if (amg_flag == YES)
+            {
+               progname[0] = 'A';
+               progname[1] = 'M';
+               progname[2] = 'G';
+               progname[3] = '\0';
+            }
+            else
+            {
+               progname[0] = 'F';
+               progname[1] = 'D';
+               progname[2] = '\0';
+            }
+            if (errno == ENOENT)
+            {
+               /*
+                * The target directory is gone. No need to continue here.
+                * How can this happen?!
+                */
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Could not rename() file %s to %s : %s [%s]",
+                          src_dir, newname, strerror(errno), progname);
+
+               /*
+                * Lets determine what is gone source or target?
+                */
+               if (eaccess(src_dir, R_OK) != 0)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Source file <%s> does not exist!", src_dir);
+               }
+               *to_ptr = '\0';
+               if (eaccess(newname, R_OK) != 0)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Target directory <%s> does not exist!", newname);
+               }
+               *from_ptr = '\0';
+               if (eaccess(src_dir, R_OK) != 0)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Source directory <%s> does not exist!", src_dir);
+               }
+               if (closedir(dp) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Could not close directory <%s> : %s",
+                             src_dir, strerror(errno));
+               }
+               if (count > 0)
+               {
+                  fsa[position].job_status[burst_connection].burst_counter++;
+                  if (amg_flag == YES)
+                  {
+                     p_afd_status->amg_burst_counter++;
+                  }
+                  else
+                  {
+                     p_afd_status->fd_burst_counter++;
+                  }
+               }
+               *(from_ptr - 1) = '\0';
+
+               return(INCORRECT);
+            }
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Could not rename() file <%s> to <%s> : %s [%s]",
+                       src_dir, newname, strerror(errno), progname);
+         }
+         else
+         {
+            count++;
+         }
       }
       errno = 0;
    }
@@ -746,6 +789,14 @@ burst_files(int burst_connection, int position, char *src_dir, char *dst_dir)
    if (count > 0)
    {
       fsa[position].job_status[burst_connection].burst_counter++;
+      if (amg_flag == YES)
+      {
+         p_afd_status->amg_burst_counter++;
+      }
+      else
+      {
+         p_afd_status->fd_burst_counter++;
+      }
    }
    *(from_ptr - 1) = '\0';
 

@@ -64,6 +64,7 @@ DESCR__E_M3
 /* External global variables */
 extern int                        mdb_fd,
                                   qb_fd,
+                                  max_output_log_files,
                                   *no_msg_cached,
                                   *no_msg_queued,
                                   no_of_hosts,
@@ -321,7 +322,7 @@ stat_again:
     * the cache. All messages that are in the current message list
     * are marked.
     */
-   if (*no_msg_cached > 0)
+   if ((mdb != NULL) && (*no_msg_cached > 0))
    {
       register int gotcha,
                    j;
@@ -344,21 +345,30 @@ stat_again:
                 * within the FSA, but the contents of the job is
                 * still the same.
                 */
-               if ((pos = get_host_position(fsa, mdb[j].host_name,
-                                            no_of_hosts)) != -1)
+               if (CHECK_STRCMP(mdb[j].host_name,
+                                fsa[mdb[j].fsa_pos].host_alias) == 0)
                {
                   mdb[j].in_current_fsa = YES;
-                  mdb[j].fsa_pos = pos;
                   gotcha = YES;
-                  break;
                }
                else
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Hmmm. Host %s no longer in FSA [JID = %d] (%s %d)\n",
-                            mdb[j].host_name, mdb[j].job_id,
-                            __FILE__, __LINE__);
+                  if ((pos = get_host_position(fsa, mdb[j].host_name,
+                                               no_of_hosts)) != -1)
+                  {
+                     mdb[j].in_current_fsa = YES;
+                     mdb[j].fsa_pos = pos;
+                     gotcha = YES;
+                  }
+                  else
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Hmmm. Host %s no longer in FSA [JID = %d] (%s %d)\n",
+                               mdb[j].host_name, mdb[j].job_id,
+                               __FILE__, __LINE__);
+                  }
                }
+               break;
             }
          }
          if (gotcha == NO)
@@ -370,8 +380,8 @@ stat_again:
             else
             {
                (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Added job %d to cache. (%s %d)\n",
-                         mdb[*no_msg_cached - 1].job_id, __FILE__, __LINE__);
+                         "Unable to add job %d to cache. (%s %d)\n",
+                         cml[i], __FILE__, __LINE__);
             }
          }
       }
@@ -445,7 +455,7 @@ stat_again:
          else
          {
             if (current_time >
-                (stat_buf.st_mtime + (SWITCH_FILE_TIME * MAX_OUTPUT_LOG_FILES)))
+                (stat_buf.st_mtime + (SWITCH_FILE_TIME * max_output_log_files)))
             {
                unsigned int job_id = (unsigned int)atoi(p_dir->d_name);
                int          gotcha = NO;
@@ -463,7 +473,7 @@ stat_again:
                         gotcha = YES;
                      }
                      else if (current_time <
-                              (mdb[i].last_transfer_time + (SWITCH_FILE_TIME * MAX_OUTPUT_LOG_FILES)))
+                              (mdb[i].last_transfer_time + (SWITCH_FILE_TIME * max_output_log_files)))
                           {
                              /*
                               * Hmmm. Files have been transfered. Lets
@@ -624,7 +634,7 @@ stat_again:
             if (ck_ml[i] == NO)
             {
                if ((mdb[i].in_current_fsa != YES) &&
-                   (current_time > (mdb[i].last_transfer_time + (SWITCH_FILE_TIME * MAX_OUTPUT_LOG_FILES))))
+                   (current_time > (mdb[i].last_transfer_time + (SWITCH_FILE_TIME * max_output_log_files))))
                {
                   remove_flag = YES;
                }
