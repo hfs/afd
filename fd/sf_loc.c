@@ -383,10 +383,14 @@ main(int argc, char *argv[])
          {
             if (errno == EEXIST)
             {
+#ifdef _WORKING_UNLINK
+               if (unlink(p_to_name) == -1)
+#else
                if (remove(p_to_name) == -1)
+#endif /* _WORKING_UNLINK */
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to remove() %s : %s",
+                            "Failed to delete %s : %s",
                             p_to_name, strerror(errno));
                }
                else
@@ -675,6 +679,21 @@ main(int argc, char *argv[])
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to archive file %s", file_name);
 
+            /*
+             * NOTE: We _MUST_ delete the file we just send,
+             *       else the file directory will run full!
+             */
+#ifdef _WORKING_UNLINK
+            if (unlink(source_file) == -1)
+#else
+            if (remove(source_file) == -1)
+#endif /* _WORKING_UNLINK */
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Could not delete local file %s after copying it successfully : %s (%s %d)\n",
+                         source_file, strerror(errno), __FILE__, __LINE__);
+            }
+
 #ifdef _OUTPUT_LOG
             if (db.output_log == YES)
             {
@@ -744,10 +763,14 @@ main(int argc, char *argv[])
       else
       {
          /* Delete the file we just have copied */
+#ifdef _WORKING_UNLINK
+         if (unlink(source_file) == -1)
+#else
          if (remove(source_file) == -1)
+#endif /* _WORKING_UNLINK */
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not remove local file %s after copying it successfully : %s (%s %d)\n",
+                      "Could not delete local file %s after copying it successfully : %s (%s %d)\n",
                       source_file, strerror(errno), __FILE__, __LINE__);
          }
 
@@ -859,7 +882,11 @@ main(int argc, char *argv[])
    /* Do not forget to remove lock file if we have created one */
    if ((db.lock == LOCKFILE) && (fsa[db.fsa_pos].active_transfers == 1))
    {
+#ifdef _WORKING_UNLINK
+      if (unlink(lockfile) == -1)
+#else
       if (remove(lockfile) == -1)
+#endif /* _WORKING_UNLINK */
       {
          (void)rec(transfer_log_fd, INFO_SIGN,
                    "%-*s[%d]: %d Bytes copied in %d file(s).\n",
@@ -867,7 +894,7 @@ main(int argc, char *argv[])
                    fsa[db.fsa_pos].job_status[(int)db.job_no].file_size_done,
                    fsa[db.fsa_pos].job_status[(int)db.job_no].no_of_files_done);
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                   "Failed to remove lock file %s : %s",
+                   "Failed to delete lock file %s : %s",
                    lockfile, strerror(errno));
          exit(REMOVE_LOCKFILE_ERROR);
       }

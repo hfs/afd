@@ -47,7 +47,7 @@ DESCR__E_M3
 #include <stdlib.h>                    /* calloc() in RT_ARRAY()         */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
+#include <fcntl.h>                     /* open()                         */
 #include <unistd.h>                    /* remove(), getpid()             */
 #include <errno.h>
 #include "fddefs.h"
@@ -84,14 +84,13 @@ int                               no_of_rule_headers;
 int
 init_sf(int argc, char *argv[], char *file_path, int protocol)
 {
-   int           files_to_send = 0,
-                 length,
-                 status;
-   off_t         lock_offset,
-                 file_size_to_send = 0;
-   char          gbuf[MAX_PATH_LENGTH];      /* Generic buffer.         */
-   struct job    *p_db;
-   struct stat   stat_buf;
+   int        files_to_send = 0,
+              length,
+              status;
+   off_t      lock_offset,
+              file_size_to_send = 0;
+   char       gbuf[MAX_PATH_LENGTH];      /* Generic buffer.         */
+   struct job *p_db;
 
    /* Initialise variables */
    p_db = &db;
@@ -135,7 +134,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.group_id = -1;
    (void)strcpy(db.lock_notation, DOT_NOTATION);
 #ifdef _DELETE_LOG
-   delete_log_ptrs(&dl);
+   dl.fd = -1;
 #endif
 
    /*
@@ -147,14 +146,25 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, SYSTEM_LOG_FIFO);
-   if ((stat(gbuf, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+   if ((sys_log_fd = open(gbuf, O_RDWR)) == -1)
    {
-      (void)make_fifo(gbuf);
-   }
-   if ((sys_log_fd = open(gbuf, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr, "WARNING : Could not open fifo %s : %s (%s %d)\n",
-                    SYSTEM_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      if (errno == ENOENT)
+      {
+         if ((make_fifo(gbuf) == SUCCESS) &&
+             ((sys_log_fd = open(gbuf, O_RDWR)) == -1))
+         {
+            (void)fprintf(stderr,
+                          "WARNING : Could not open fifo %s : %s (%s %d)\n",
+                          SYSTEM_LOG_FIFO, strerror(errno),
+                          __FILE__, __LINE__);
+         }
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       "WARNING : Could not open fifo %s : %s (%s %d)\n",
+                       SYSTEM_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      }
    }
 
    if ((status = eval_input_sf(argc, argv, p_db)) < 0)
@@ -170,31 +180,50 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, TRANSFER_LOG_FIFO);
-   if ((stat(gbuf, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+   if ((transfer_log_fd = open(gbuf, O_RDWR)) == -1)
    {
-      (void)make_fifo(gbuf);
-   }
-   if ((transfer_log_fd = open(gbuf, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      if (errno == ENOENT)
+      {
+         if ((make_fifo(gbuf) == SUCCESS) &&
+             ((transfer_log_fd = open(gbuf, O_RDWR)) == -1))
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Could not open fifo %s : %s (%s %d)\n",
+                      TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+         }
+      }
+      else
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not open fifo %s : %s (%s %d)\n",
+                   TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      }
    }
    if (fsa[db.fsa_pos].debug == YES)
    {
       (void)strcpy(gbuf, p_work_dir);
       (void)strcat(gbuf, FIFO_DIR);
       (void)strcat(gbuf, TRANS_DEBUG_LOG_FIFO);
-
-      if ((stat(gbuf, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      if ((trans_db_log_fd = open(gbuf, O_RDWR)) == -1)
       {
-         (void)make_fifo(gbuf);
-      }
-      if ((trans_db_log_fd = open(gbuf, O_RDWR)) < 0)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not open fifo %s : %s (%s %d)\n",
-                   TRANS_DEBUG_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+         if (errno == ENOENT)
+         {
+            if ((make_fifo(gbuf) == SUCCESS) &&
+                ((trans_db_log_fd = open(gbuf, O_RDWR)) == -1))
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Could not open fifo %s : %s (%s %d)\n",
+                         TRANS_DEBUG_LOG_FIFO, strerror(errno),
+                         __FILE__, __LINE__);
+            }
+         }
+         else
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Could not open fifo %s : %s (%s %d)\n",
+                      TRANS_DEBUG_LOG_FIFO, strerror(errno),
+                      __FILE__, __LINE__);
+         }
       }
    }
 
@@ -214,8 +243,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    /* Initialise file source directory. */
    if (db.error_file == YES)
    {
-      length = sprintf(file_path, "%s%s%s/%s/%s",
-                       p_work_dir, AFD_FILE_DIR,
+      length = sprintf(file_path, "%s%s%s/%s/%s", p_work_dir, AFD_FILE_DIR,
                        ERROR_DIR, db.host_alias, db.msg_name) + 1;
    }
    else
@@ -303,7 +331,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
        * the case, no need to go on.
        */
       /* Remove file directory. */
-      if (rec_rmdir(file_path) < 0)
+      if (remove_dir(file_path) < 0)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Failed to remove directory %s (%s %d)\n",

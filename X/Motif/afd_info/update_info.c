@@ -52,9 +52,6 @@ DESCR__E_M3
 #include <errno.h>
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
-#ifdef _WITH_XPM
-#include <X11/xpm.h>
-#endif
 #include "afd_ctrl.h"
 #include "afd_info.h"
 
@@ -78,17 +75,13 @@ extern Widget                     protocol_label,
                                   text_wl[NO_OF_FSA_ROWS],
                                   text_wr[NO_OF_FSA_ROWS],
                                   label_l_widget[NO_OF_FSA_ROWS],
-                                  label_r_widget[NO_OF_FSA_ROWS];
+                                  label_r_widget[NO_OF_FSA_ROWS],
+                                  pll_widget,  /* Pixmap label left      */
+                                  plr_widget;  /* Pixmap label right     */
 extern struct filetransfer_status *fsa;
 extern struct prev_values         prev;
-#ifdef _WITH_XPM
-extern int                        pix_stat;    /* Return status of       */
-                                               /* pixmap creation.       */
-extern Widget                     pll_widget,  /* Pixmap label left      */
-                                  plr_widget;  /* Pixmap label right     */
-extern Pixmap                     main_pixmap,
-                                  secondary_pixmap;
-#endif /* _WITH_XPM */
+extern Pixmap                     active_pixmap,
+                                  passive_pixmap;
 
 
 /*############################ update_info() ############################*/
@@ -220,8 +213,9 @@ Widget w;
 
          /* Display the first host name */
          (void)strcpy(host_alias_1, host_name);
-#ifdef _WITH_XPM
-         if (pix_stat == XpmSuccess)
+         if ((fsa[host_position].host_toggle_str[0] != '\0') &&
+             (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
+             (passive_pixmap != XmUNSPECIFIED_PIXMAP))
          {
             (void)sprintf(label_l[0], "%*c%-*s :",
                           3, ' ', (FSA_INFO_TEXT_WIDTH_L - 3), host_alias_1);
@@ -233,17 +227,14 @@ Widget w;
                           XmNleftAttachment,   XmATTACH_POSITION,
                           XmNleftPosition,     1,
                           XmNlabelType,        XmPIXMAP,
-                          XmNlabelPixmap,      main_pixmap,
+                          XmNlabelPixmap,      active_pixmap,
                           NULL);
          }
          else
          {
-#endif /* _WITH_XPM */
             (void)sprintf(label_l[0], "%-*s :",
                           FSA_INFO_TEXT_WIDTH_L, host_alias_1);
-#ifdef _WITH_XPM
          }
-#endif
          XtVaSetValues(label_l_widget[0],
                        XmNtopAttachment,    XmATTACH_POSITION,
                        XmNtopPosition,      1,
@@ -255,7 +246,21 @@ Widget w;
                        NULL);
 
          /* Get IP for the first host */
-         get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+         if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT                          
+             (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+             (fsa[host_position].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+             (fsa[host_position].protocol & SMTP_FLAG))
+         {
+            get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+         }
+         else
+         {
+            *tmp_str_line = '\0';
+         }
          (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
          XmTextSetString(text_wl[0], str_line);
 
@@ -276,8 +281,9 @@ Widget w;
          ptr = host_alias_1 + strlen(host_alias_1);
          *ptr = fsa[host_position].host_toggle_str[1];
          *(ptr + 1) = '\0';
-#ifdef _WITH_XPM
-         if (pix_stat == XpmSuccess)
+         if ((fsa[host_position].host_toggle_str[0] != '\0') &&
+             (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
+             (passive_pixmap != XmUNSPECIFIED_PIXMAP))
          {
             (void)sprintf(label_l[0], "%*c%-*s :",
                           3, ' ', (FSA_INFO_TEXT_WIDTH_L - 3), host_alias_1);
@@ -291,7 +297,7 @@ Widget w;
                              XmNleftAttachment,   XmATTACH_POSITION,
                              XmNleftPosition,     1,
                              XmNlabelType,        XmPIXMAP,
-                             XmNlabelPixmap,      main_pixmap,
+                             XmNlabelPixmap,      active_pixmap,
                              NULL);
             }
             else
@@ -304,18 +310,15 @@ Widget w;
                              XmNleftAttachment,   XmATTACH_POSITION,
                              XmNleftPosition,     1,
                              XmNlabelType,        XmPIXMAP,
-                             XmNlabelPixmap,      secondary_pixmap,
+                             XmNlabelPixmap,      passive_pixmap,
                              NULL);
             }
          }
          else
          {
-#endif /* _WITH_XPM */
             (void)sprintf(label_l[0], "%-*s :",
                           FSA_INFO_TEXT_WIDTH_L, host_alias_1);
-#ifdef _WITH_XPM
          }
-#endif
          XtVaSetValues(label_l_widget[0],
                        XmNtopAttachment,    XmATTACH_POSITION,
                        XmNtopPosition,      1,
@@ -327,7 +330,21 @@ Widget w;
                        NULL);
 
          /* Get IP for the first host */
-         get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+         if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT                          
+             (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+             (fsa[host_position].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+             (fsa[host_position].protocol & SMTP_FLAG))
+         {
+            get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+         }
+         else
+         {
+            *tmp_str_line = '\0';
+         }
          (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
          XmTextSetString(text_wl[0], str_line);
 
@@ -336,8 +353,9 @@ Widget w;
          ptr = host_alias_2 + strlen(host_alias_2);
          *ptr = fsa[host_position].host_toggle_str[2];
          *(ptr + 1) = '\0';
-#ifdef _WITH_XPM
-         if (pix_stat == XpmSuccess)
+         if ((fsa[host_position].host_toggle_str[0] != '\0') &&
+             (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
+             (passive_pixmap != XmUNSPECIFIED_PIXMAP))
          {
             (void)sprintf(label_r[0], "%*c%-*s :",
                           3, ' ', (FSA_INFO_TEXT_WIDTH_R - 1), host_alias_2);
@@ -351,7 +369,7 @@ Widget w;
                              XmNleftAttachment,   XmATTACH_POSITION,
                              XmNleftPosition,     1,
                              XmNlabelType,        XmPIXMAP,
-                             XmNlabelPixmap,      secondary_pixmap,
+                             XmNlabelPixmap,      passive_pixmap,
                              NULL);
             }
             else
@@ -364,18 +382,15 @@ Widget w;
                              XmNleftAttachment,   XmATTACH_POSITION,
                              XmNleftPosition,     1,
                              XmNlabelType,        XmPIXMAP,
-                             XmNlabelPixmap,      main_pixmap,
+                             XmNlabelPixmap,      active_pixmap,
                              NULL);
             }
          }
          else
          {
-#endif /* _WITH_XPM */
             (void)sprintf(label_r[0], "%-*s :",
                           FSA_INFO_TEXT_WIDTH_R, host_alias_2);
-#ifdef _WITH_XPM
          }
-#endif
          XtVaSetValues(label_r_widget[0],
                        XmNtopAttachment,    XmATTACH_POSITION,
                        XmNtopPosition,      1,
@@ -387,7 +402,21 @@ Widget w;
                        NULL);
 
          /* Get IP for the second host */
-         get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
+         if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT                          
+             (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+             (fsa[host_position].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+             (fsa[host_position].protocol & SMTP_FLAG))
+         {
+            get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
+         }
+         else
+         {
+            *tmp_str_line = '\0';
+         }
          (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
          XmTextSetString(text_wr[0], str_line);
       }
@@ -395,10 +424,10 @@ Widget w;
       flush = YES;
    }
 
-#ifdef _WITH_XPM
    /* Check if the host have been toggled */
-   if ((fsa[host_position].toggle_pos != 0) &&
-       (pix_stat == XpmSuccess) &&
+   if ((fsa[host_position].host_toggle_str[0] != '\0') &&
+       (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
+       (passive_pixmap != XmUNSPECIFIED_PIXMAP) &&
        (prev.host_toggle != fsa[host_position].host_toggle))
    {
       prev.host_toggle = fsa[host_position].host_toggle;
@@ -412,7 +441,7 @@ Widget w;
                        XmNleftAttachment,   XmATTACH_POSITION,
                        XmNleftPosition,     1,
                        XmNlabelType,        XmPIXMAP,
-                       XmNlabelPixmap,      main_pixmap,
+                       XmNlabelPixmap,      active_pixmap,
                        NULL);
          XtVaSetValues(plr_widget,
                        XmNtopAttachment,    XmATTACH_POSITION,
@@ -422,7 +451,7 @@ Widget w;
                        XmNleftAttachment,   XmATTACH_POSITION,
                        XmNleftPosition,     1,
                        XmNlabelType,        XmPIXMAP,
-                       XmNlabelPixmap,      secondary_pixmap,
+                       XmNlabelPixmap,      passive_pixmap,
                        NULL);
       }
       else
@@ -435,7 +464,7 @@ Widget w;
                        XmNleftAttachment,   XmATTACH_POSITION,
                        XmNleftPosition,     1,
                        XmNlabelType,        XmPIXMAP,
-                       XmNlabelPixmap,      secondary_pixmap,
+                       XmNlabelPixmap,      passive_pixmap,
                        NULL);
          XtVaSetValues(plr_widget,
                        XmNtopAttachment,    XmATTACH_POSITION,
@@ -445,13 +474,12 @@ Widget w;
                        XmNleftAttachment,   XmATTACH_POSITION,
                        XmNleftPosition,     1,
                        XmNlabelType,        XmPIXMAP,
-                       XmNlabelPixmap,      main_pixmap,
+                       XmNlabelPixmap,      active_pixmap,
                        NULL);
       }
 
       flush = YES;
    }
-#endif /* _WITH_XPM */
 
    if (interval++ == FILE_UPDATE_INTERVAL)
    {
@@ -470,12 +498,40 @@ Widget w;
       if (prev.host_file_time != stat_buf.st_mtime)
       {
          prev.host_file_time = stat_buf.st_mtime;
-         get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+         if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT                          
+             (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+             (fsa[host_position].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+             (fsa[host_position].protocol & SMTP_FLAG))
+         {
+            get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+         }
+         else
+         {
+            *tmp_str_line = '\0';
+         }
          (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
          XmTextSetString(text_wl[0], str_line);
          if (fsa[host_position].toggle_pos != 0)
          {
-            get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
+            if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT                          
+                (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+                (fsa[host_position].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+                (fsa[host_position].protocol & SMTP_FLAG))
+            {
+               get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
+            }
+            else
+            {
+               *tmp_str_line = '\0';
+            }
             (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
             XmTextSetString(text_wr[0], str_line);
          }

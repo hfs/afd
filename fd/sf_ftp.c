@@ -650,6 +650,10 @@ main(int argc, char *argv[])
                         int    prog_name_length;
                         size_t dl_real_size;
 
+                        if (dl.fd == -1)
+                        {
+                           delete_log_ptrs(&dl);
+                        }
                         (void)strcpy(dl.file_name, p_file_name_buffer);
                         (void)sprintf(dl.host_name, "%-*s %x",
                                       MAX_HOSTNAME_LENGTH,
@@ -672,10 +676,14 @@ main(int argc, char *argv[])
 #endif /* _DELETE_LOG */
                         (void)sprintf(fullname, "%s/%s",
                                       file_path, p_file_name_buffer);
+#ifdef _WORKING_UNLINK
+                        if (unlink(fullname) == -1)
+#else
                         if (remove(fullname) == -1)
+#endif /* _WORKING_UNLINK */
                         {
                            (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to remove() duplicate file %s : %s (%s %d)\n",
+                                     "Failed to delete duplicate file %s : %s (%s %d)\n",
                                      fullname, strerror(errno),
                                      __FILE__, __LINE__);
                         }
@@ -824,7 +832,8 @@ main(int argc, char *argv[])
                {
                   char line_buffer[MAX_RET_MSG_LENGTH];
 
-                  if ((status = ftp_list(LIST_CMD, initial_filename,
+                  if ((status = ftp_list(db.mode_flag, LIST_CMD,
+                                         initial_filename,
                                          line_buffer)) != SUCCESS)
                   {
                      trans_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -920,7 +929,14 @@ main(int argc, char *argv[])
                          "Failed to open remote file %s (%d).",
                          initial_filename, status);
                (void)ftp_quit();
-               exit(OPEN_REMOTE_ERROR);
+               if (timeout_flag == ON)
+               {
+                  exit(TIMEOUT_ERROR);
+               }
+               else
+               {
+                  exit(OPEN_REMOTE_ERROR);
+               }
             }
             else
             {
@@ -1556,7 +1572,14 @@ main(int argc, char *argv[])
                             "Failed to close remote file %s",
                             initial_filename);
                   (void)ftp_quit();
-                  exit(CLOSE_REMOTE_ERROR);
+                  if (timeout_flag == ON)
+                  {
+                     exit(TIMEOUT_ERROR);
+                  }
+                  else
+                  {
+                     exit(CLOSE_REMOTE_ERROR);
+                  }
                }
                else
                {
@@ -1608,7 +1631,7 @@ main(int argc, char *argv[])
             {
                char line_buffer[MAX_RET_MSG_LENGTH];
 
-               if ((status = ftp_list(LIST_CMD, initial_filename,
+               if ((status = ftp_list(db.mode_flag, LIST_CMD, initial_filename,
                                       line_buffer)) != SUCCESS)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
@@ -1684,7 +1707,14 @@ main(int argc, char *argv[])
                          "Failed to move remote file %s to %s (%d)",
                          initial_filename, remote_filename, status);
                (void)ftp_quit();
-               exit(MOVE_REMOTE_ERROR);
+               if (timeout_flag == ON)
+               {
+                  exit(TIMEOUT_ERROR);
+               }
+               else
+               {
+                  exit(MOVE_REMOTE_ERROR);
+               }
             }
             else
             {
@@ -1727,7 +1757,14 @@ main(int argc, char *argv[])
                          "Failed to open remote ready file %s (%d).",
                          ready_file_name, status);
                (void)ftp_quit();
-               exit(OPEN_REMOTE_ERROR);
+               if (timeout_flag == ON)
+               {
+                  exit(TIMEOUT_ERROR);
+               }
+               else
+               {
+                  exit(OPEN_REMOTE_ERROR);
+               }
             }
             else
             {
@@ -1993,6 +2030,21 @@ main(int argc, char *argv[])
                             __FILE__, __LINE__);
                }
 
+               /*
+                * NOTE: We _MUST_ delete the file we just send,
+                *       else the file directory will run full!
+                */
+#ifdef _WORKING_UNLINK
+               if ((unlink(fullname) == -1) && (errno != ENOENT))
+#else
+               if ((remove(fullname) == -1) && (errno != ENOENT))
+#endif /* _WORKING_UNLINK */
+               {
+                  (void)rec(sys_log_fd, ERROR_SIGN,
+                            "Could not delete local file %s after sending it successfully : %s (%s %d)\n",
+                            fullname, strerror(errno), __FILE__, __LINE__);
+               }
+
 #ifdef _OUTPUT_LOG
                if (db.output_log == YES)
                {
@@ -2067,10 +2119,14 @@ main(int argc, char *argv[])
          else
          {
             /* Delete the file we just have send */
+#ifdef _WORKING_UNLINK
+            if (unlink(fullname) == -1)
+#else
             if (remove(fullname) == -1)
+#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Could not remove local file %s after sending it successfully : %s (%s %d)\n",
+                         "Could not delete local file %s after sending it successfully : %s (%s %d)\n",
                          fullname, strerror(errno), __FILE__, __LINE__);
             }
 

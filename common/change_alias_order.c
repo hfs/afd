@@ -196,8 +196,11 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    /* Write number of hosts to new shm region */
    *(int*)ptr = no_of_hosts;
 
-   /* Reposition fsa pointer after no_of_host */
+   /* Copy configuration information from the old FSA. */
    ptr += AFD_WORD_OFFSET;
+   *((char *)ptr - 3) = *((char *)fsa - 3);
+
+   /* Reposition fsa pointer after no_of_host */
    new_fsa = (struct filetransfer_status *)ptr;
 
    if (fra_attach() < 0)

@@ -1,6 +1,6 @@
 /*
  *  fsa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,6 +44,7 @@ DESCR__S_M1
  **   05.01.1997 H.Kiehl Added support for burst mode.
  **   21.08.1997 H.Kiehl Show real hostname as well.
  **   12.10.1997 H.Kiehl Show bursting and mailing.
+ **   05.12.2000 H.Kiehl If available show host toggle string.
  **
  */
 DESCR__E_M1
@@ -188,6 +189,11 @@ main(int argc, char *argv[])
               (void)fprintf(stdout, "Original toggle    : HOST_???\n");
            }
       (void)fprintf(stdout, "Toggle position    : %d\n", fsa[j].toggle_pos);
+      if (fsa[j].host_toggle_str[0] != '\0')
+      {
+         (void)fprintf(stdout, "Host toggle string : %s\n",
+                       fsa[j].host_toggle_str);
+      }
       (void)fprintf(stdout, "Protocol (%8d): ", fsa[j].protocol);
       if (fsa[j].protocol & FTP_FLAG)
       {

@@ -85,7 +85,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #ifdef _AGE_LIMIT
    int           files_not_send = 0;
    off_t         file_size_not_send = 0;
-   time_t        diff_time;
+   time_t        diff_time,
+                 now;
 #endif /* _AGE_LIMIT */
    int           files_to_send = 0,
                  new_size,
@@ -145,6 +146,12 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       file_size_buffer = NULL;
    }
    p_file_size = file_size_buffer;
+#ifdef _AGE_LIMIT
+   if (db.age_limit > 0)
+   {
+      now = time(NULL);
+   }
+#endif /* _AGE_LIMIT */
 
    /*
     * Now let's determine the number of files that have to be
@@ -173,12 +180,16 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #ifdef _AGE_LIMIT
          /* Don't send files older then age_limit! */
          if ((db.age_limit > 0) &&
-             ((diff_time = (time(NULL) - stat_buf.st_mtime)) > db.age_limit))
+             ((diff_time = (now - stat_buf.st_mtime)) > db.age_limit))
          {
+#ifdef _WORKING_UNLINK
+            if (unlink(fullname) == -1)
+#else
             if (remove(fullname) == -1)
+#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to remove file %s due to age : %s (%s %d)\n",
+                         "Failed to delete file %s due to age : %s (%s %d)\n",
                          p_dir->d_name, strerror(errno), __FILE__, __LINE__);
             }
             else
@@ -187,11 +198,14 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                int    prog_name_length;
                size_t dl_real_size;
 
+               if (dl.fd == -1)
+               {
+                  delete_log_ptrs(&dl);
+               }
                (void)strcpy(dl.file_name, p_dir->d_name);
                (void)sprintf(dl.host_name, "%-*s %x",
                              MAX_HOSTNAME_LENGTH,
-                             fsa[db.fsa_pos].host_dsp_name,
-                             AGE_OUTPUT);
+                             fsa[db.fsa_pos].host_dsp_name, AGE_OUTPUT);
                *dl.file_size = stat_buf.st_size;
                *dl.job_number = db.job_id;
                *dl.file_name_length = strlen(p_dir->d_name);
@@ -218,23 +232,20 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                   }
                   prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                              "%s >%ld",
-                                             SEND_FILE_FTP,
-                                             diff_time);
+                                             SEND_FILE_FTP, diff_time);
                }
                else if (db.protocol & LOC_FLAG)
                     {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
-                                                  SEND_FILE_LOC,
-                                                  diff_time);
+                                                  SEND_FILE_LOC, diff_time);
                     }
 #ifdef _WITH_WMO_SUPPORT
               else if (db.protocol & WMO_FLAG)
                    {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
-                                                  SEND_FILE_WMO,
-                                                  diff_time);
+                                                  SEND_FILE_WMO, diff_time);
                    }
 #endif /* _WITH_WMO_SUPPORT */
 #ifdef _WITH_MAP_SUPPORT
@@ -242,22 +253,19 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                    {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
-                                                  SEND_FILE_MAP,
-                                                  diff_time);
+                                                  SEND_FILE_MAP, diff_time);
                    }
 #endif /* _WITH_MAP_SUPPORT */
                else if (db.protocol & SMTP_FLAG)
                     {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                                   "%s >%ld",
-                                                  SEND_FILE_SMTP,
-                                                  diff_time);
+                                                  SEND_FILE_SMTP, diff_time);
                     }
                     else
                     {
                        prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
-                                                  "sf_??? >%ld",
-                                                  diff_time);
+                                                  "sf_??? >%ld", diff_time);
                     }
 
                dl_real_size = *dl.file_name_length + dl.size + prog_name_length;
@@ -383,8 +391,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       (void)rec(transfer_log_fd, INFO_SIGN,
                 "%-*s[%c]: Deleted %d files (%d Bytes) due to age.\n",
                 MAX_HOSTNAME_LENGTH, tr_hostname, db.job_no + 48,
-                files_not_send,
-                file_size_not_send);
+                files_not_send, file_size_not_send);
    }
 #endif /* _AGE_LIMIT */
 

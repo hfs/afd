@@ -1055,12 +1055,16 @@ remove_job(int                cache_pos,
    }
 
    /* Remove message from message directory. */
+#ifdef _WORKING_UNLINK
+   if (unlink(msg_dir) == -1)
+#else
    if (remove(msg_dir) == -1)
+#endif /* _WORKING_UNLINK */
    {
       if (errno != ENOENT)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to remove() %s : %s (%s %d)\n",
+                   "Failed to delete %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
    }

@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -104,8 +104,7 @@ reread_host_config(time_t           *hc_old_time,
                        i,
                        j,
                        new_no_of_hosts,
-                       no_of_host_changed = 0,
-                       old_hl_is_null = NO;
+                       no_of_host_changed = 0;
       size_t           dummy_3;
       char             *mark_list = NULL;
       struct host_list *dummy_hl;
@@ -125,7 +124,6 @@ reread_host_config(time_t           *hc_old_time,
       if (old_hl == NULL)
       {
          old_hl = &dummy_hl;
-         old_hl_is_null = YES;
       }
 
       /* Tell user we have to reread the new HOST_CONFIG file. */
@@ -153,14 +151,6 @@ reread_host_config(time_t           *hc_old_time,
       }
       *rewrite_host_config = eval_host_config();
 
-      if (old_hl_is_null == YES)
-      {
-         for (i = 0; i < no_of_hosts; i++)
-         {
-            hl[i].in_dir_config = YES;
-         }
-      }
-
       /*
        * Careful! The function fsa_attach() will overwrite no_of_hosts!
        * Store it somewhere save.
@@ -176,7 +166,7 @@ reread_host_config(time_t           *hc_old_time,
 
       /*
        * In the first step lets just update small changes.
-       * (Changes where we do no need to rewrite the FSA.
+       * (Changes where we do not need to rewrite the FSA.
        * That is when the order of hosts has changed.)
        */
       if ((mark_list = malloc(*old_no_of_hosts)) == NULL)
@@ -186,10 +176,10 @@ reread_host_config(time_t           *hc_old_time,
                    strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
+      (void)memset(mark_list, NO, *old_no_of_hosts);
       for (i = 0; i < no_of_hosts; i++)
       {
          host_pos = INCORRECT;
-         (void)memset(mark_list, NO, *old_no_of_hosts);
          for (j = 0; j < *old_no_of_hosts; j++)
          {
             if ((mark_list[j] == NO) &&
@@ -199,13 +189,15 @@ reread_host_config(time_t           *hc_old_time,
                mark_list[j] = YES;
 
                /*
-                * At this stage we cannot know what protocols are used.
+                * At this stage we cannot know what protocols are used
+                * or if the host is in the DIR_CONFIG.
                 * So lets copy them from the old host list. This value
                 * can only change when the DIR_CONFIG changes. The
                 * function eval_dir_config() will take care if this
                 * is the case.
                 */
                hl[i].protocol = (*old_hl)[j].protocol;
+               hl[i].in_dir_config = (*old_hl)[j].in_dir_config;
                break;
             }
          }
@@ -286,8 +278,8 @@ reread_host_config(time_t           *hc_old_time,
                fsa[host_pos].transfer_timeout = hl[i].transfer_timeout;
                fsa[host_pos].special_flag = (fsa[host_pos].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
             }
-         } /* if (host_pos != INCORRECT) */
-         else
+         }
+         else /* host_pos == INCORRECT */
          {
             /*
              * Since we cannot find this host in the old host list

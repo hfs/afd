@@ -67,6 +67,7 @@
 #define USER_ERROR               2
 #define PASSWORD_ERROR           3
 #define TYPE_ERROR               4
+#define LIST_ERROR               5
 #define MAIL_ERROR               6
 #define JID_NUMBER_ERROR         7      /* When parameters for sf_xxx is */
                                         /* evaluated and it is not able  */
@@ -82,11 +83,13 @@
 #define STAT_ERROR               17     /* Used by sf_loc()              */
 #define MOVE_ERROR               18     /* Used by sf_loc()              */
 #define RENAME_ERROR             19     /* Used by sf_loc()              */
-#define FTP_TIMEOUT_ERROR        20     /* Only used for aftp            */
+#define TIMEOUT_ERROR            20
 #ifdef _WITH_WMO_SUPPORT
 #define CHECK_REPLY_ERROR        21     /* Used by sf_wmo()              */
 #endif
 #define READ_REMOTE_ERROR        22
+#define SIZE_ERROR               23
+#define DATE_ERROR               24
 #define OPEN_LOCAL_ERROR         30
 #define READ_LOCAL_ERROR         31
 #define STAT_LOCAL_ERROR         32

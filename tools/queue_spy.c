@@ -80,16 +80,14 @@ main(int argc, char *argv[])
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, MSG_QUEUE_FILE);
    if ((fd = open(file, O_RDWR)) == -1)
    {
-      (void)fprintf(stderr,
-                    "Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)fprintf(stderr,
-                    "Failed to fstat() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -97,8 +95,7 @@ main(int argc, char *argv[])
    if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
-      (void)fprintf(stderr,
-                    "Failed to mmap() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "Failed to mmap() %s : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -126,8 +123,7 @@ main(int argc, char *argv[])
    ptr -= AFD_WORD_OFFSET;
    if (munmap(ptr, stat_buf.st_size) == -1)
    {
-      (void)fprintf(stderr,
-                    "Failed to munmap() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "Failed to munmap() %s : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
    }
    (void)close(fd);

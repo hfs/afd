@@ -64,7 +64,7 @@
  * _WITH_UID_CHECK        - Checks the user by checking his user ID. If this
  *                          is not set this check is done by checking the
  *                          environment name LOGNAME.
- * _LOCK_REMOVE_INFO      - If set, every time an archive is removed a log
+ * _LOG_REMOVE_INFO       - If set, every time an archive is removed a log
  *                          entry is made in the system log. This can be very
  *                          annoying if you have lots of files in the archive.
  *                          So it's best to have this disabled.
@@ -99,7 +99,7 @@
 #define _VERIFY_FSA
 #define _BURST_MODE
 #define _WITH_UID_CHECK
-/* #define _LOCK_REMOVE_INFO */
+/* #define _LOG_REMOVE_INFO */
 #define _WITH_SHUTDOWN
 /* #define _WITH_SEND */
 /* #define _WITH_PTHREAD */
@@ -128,9 +128,6 @@
  *                             the log file does not increase. Gives a
  *                             slight performance boost when lots of log
  *                             entries are being made.
- * _WITH_XPM                 - If the system supports XPM and this option
- *                             is set it will indicate which host is the
- *                             active one, when there is a secondary host.
  * _WITH_CHECK_TIME_INTERVAL - This option is only used for the program
  *                             viewing the input and output log files.
  *                             On slow systems this option should be
@@ -142,7 +139,6 @@
 #define _SQUARE_LED
 #define _NO_LED_FRAME
 #define _SLOW_COUNTER
-#define _WITH_XPM
 #define _WITH_CHECK_TIME_INTERVAL
 
 
@@ -219,22 +215,15 @@
                    S_IWGRP | S_IXGRP | S_IROTH | S_IXOTH)
 
 /*-----------------------------------------------------------------------*
- * The interval at which the archive should be scanned for old
- * archives that can be removed.
- * DEFAULT: 3600 (=> 1 hour)
+ * The interval at which a new archive will be created and when its
+ * time deleted again. This value can be used to reduce the number of
+ * archives. The higher this value will be, the smaller will be the
+ * number of archive directories created. But note that the higher it
+ * will be, it will increase the the possibility that files will be
+ * over written in that archive directory. The lowest value is 1.
+ * DEFAULT: 600 (=> 10 minute)
  *-----------------------------------------------------------------------*/
-#define ARCHIVE_RESCAN_TIME 3600
-
-/*-----------------------------------------------------------------------*
- * The interval at which a new archive will be created. This value
- * can be used to reduce the number of archives. The higher this value
- * will be, the smaller will be the number of archive directories
- * created. But note that the higher it will be, it will increase the
- * the possibility that files will be over written in that archive
- * directory. The lowest value is 1.
- * DEFAULT: 60 (=> 1 minute)
- *-----------------------------------------------------------------------*/
-#define ARCHIVE_STEP_TIME 60
+#define ARCHIVE_STEP_TIME 600
 
 /*-----------------------------------------------------------------------*
  * The maximum length of the host name (alias) that is displayed by

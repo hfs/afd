@@ -774,11 +774,14 @@ main(int argc, char *argv[])
                 */
                if ((rl[i].size != -1) && (bytes_done != rl[i].size))
                {
-                  msg_str[0] = '\0';
-                  trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "File size of file %s changed from %u to %u when it was retrieved.",
-                            rl[i].file_name, rl[i].size, bytes_done);
-                  rl[i].size = bytes_done;
+                  if ((offset != 0) && ((bytes_done + offset) != rl[i].size))
+                  {
+                     msg_str[0] = '\0';
+                     trans_log(WARN_SIGN, __FILE__, __LINE__,
+                               "File size of file %s changed from %u to %u when it was retrieved.",
+                               rl[i].file_name, rl[i].size, bytes_done);
+                     rl[i].size = bytes_done;
+                  }
                }
 
                /* Rename the file so AMG can grab it. */

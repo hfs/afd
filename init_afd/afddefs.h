@@ -36,6 +36,10 @@
 /* #define GERMAN */
 #define ENGLISH
 
+#if defined LINUX || defined IRIX
+#define _WORKING_UNLINK
+#endif
+
 #ifdef _LINK_MAX_TEST
 #define LINKY_MAX                  4
 #endif
@@ -1204,6 +1208,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                read_file(char *, char **buffer),
                rec(int, char *, char *, ...),
                rec_rmdir(char *),
+               remove_dir(char *),
                send_cmd(char, int);
 extern off_t   gts2tiff(char *, char *),
                tiff2gts(char *, char *);

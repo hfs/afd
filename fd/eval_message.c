@@ -628,7 +628,8 @@ eval_message(char *message_name, struct job *p_db)
                           }
                           end_ptr = ptr;
                           while ((*end_ptr != ' ') && (*end_ptr != ':') &&
-                                 (*end_ptr != '\n') && (*end_ptr != '\0'))
+                                 (*end_ptr != '.') && (*end_ptr != '\n') &&
+                                 (*end_ptr != '\0'))
                           {
                              if (isdigit(*end_ptr) == 0)
                              {
@@ -670,6 +671,10 @@ eval_message(char *message_name, struct job *p_db)
                                     (*end_ptr != '.') && (*end_ptr != '\n') &&
                                     (*end_ptr != '\0'))
                              {
+                                if (isdigit(*end_ptr) == 0)
+                                {
+                                   lookup_id = YES;
+                                }
                                 end_ptr++;
                              }
                              byte_buf = *end_ptr;

@@ -1,6 +1,6 @@
 /*
  *  inspect_archive.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,7 @@ DESCR__S_M3
  ** HISTORY
  **   21.02.1996 H.Kiehl Created
  **   11.05.1998 H.Kiehl Adapted to new message names.
+ **   29.11.2000 H.Kiehl Optimized the removing of files.
  **
  */
 DESCR__E_M3
@@ -49,20 +50,25 @@ DESCR__E_M3
                                      /* strerror()                       */
 #include <stdlib.h>                  /* atoi()                           */
 #include <ctype.h>                   /* isdigit()                        */
+#include <unistd.h>                  /* rmdir()                          */
 #include <sys/types.h>
-#include <sys/stat.h>                /* stat(), S_ISDIR()                */
+#include <sys/stat.h>
 #include <dirent.h>                  /* opendir(), readdir(), closedir() */
 #include <errno.h>
 #include "awdefs.h"
 
 #define TIME_UP  1
 
-extern int    sys_log_fd,
-              removed_archives;
-extern time_t current_time;
+/* External global variables. */
+extern int          sys_log_fd;
+extern unsigned int removed_archives,
+                    removed_files;
+extern time_t       current_time;
 
-static int    is_msgname(char *),
-              check_time(char *);
+/* Local function prototypes. */
+static int          check_time(char *),
+                    is_msgname(char *),
+                    remove_archive(char *);
 
 
 /*########################### inspect_archive() #########################*/
@@ -70,7 +76,6 @@ void
 inspect_archive(char *archive_dir)
 {
    char          *ptr = NULL;
-   struct stat   stat_buf;
    struct dirent *p_struct_dir;
    DIR           *p_dir;
 
@@ -94,41 +99,24 @@ inspect_archive(char *archive_dir)
       *(ptr++) = '/';
       (void)strcpy(ptr, p_struct_dir->d_name);
 
-      if (stat(archive_dir, &stat_buf) < 0)
+      if (is_msgname(p_struct_dir->d_name) != INCORRECT)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to stat() %s : %s (%s %d)\n",
-                   archive_dir, strerror(errno), __FILE__, __LINE__);
-         return;
-      }
-
-      if (S_ISDIR(stat_buf.st_mode))
-      {
-         if (is_msgname(p_struct_dir->d_name) != INCORRECT)
+         if (check_time(p_struct_dir->d_name) == TIME_UP)
          {
-            if (check_time(p_struct_dir->d_name) == TIME_UP)
+            if (remove_archive(archive_dir) != INCORRECT)
             {
-               if (rec_rmdir(archive_dir) != INCORRECT)
-               {
-                  removed_archives++;
-#ifdef _LOCK_REMOVE_INFO
-                  (void)rec(sys_log_fd, INFO_SIGN,
-                            "Removed archive %s. (%s %d)\n",
-                            archive_dir, __FILE__, __LINE__);
+               removed_archives++;
+#ifdef _LOG_REMOVE_INFO
+               (void)rec(sys_log_fd, INFO_SIGN,
+                         "Removed archive %s. (%s %d)\n",
+                         archive_dir, __FILE__, __LINE__);
 #endif
-               }
-               else
-               {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to remove archive %s. (%s %d)\n",
-                            archive_dir, __FILE__, __LINE__);
-               }
             }
          }
-         else /* host- or username (or some other junk) */
-         {
-            inspect_archive(archive_dir);
-         }
+      }
+      else /* host- or username (or some other junk) */
+      {
+         inspect_archive(archive_dir);
       }
       if (ptr != NULL)
       {
@@ -208,4 +196,82 @@ check_time(char *name)
    }
 
    return(TIME_UP);
+}
+
+
+/*+++++++++++++++++++++++++++ remove_archive() ++++++++++++++++++++++++++*/
+static int
+remove_archive(char *dirname)
+{
+   char          *ptr;
+   struct dirent *dirp;
+   DIR           *dp;
+
+   ptr = dirname + strlen(dirname);
+   *ptr++ = '/';
+   *ptr = '\0';
+
+   if ((dp = opendir(dirname)) == NULL)
+   {
+      if (errno != ENOTDIR)
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Failed to opendir() %s : %s (%s %d)\n",
+                   dirname, strerror(errno), __FILE__, __LINE__);
+      }
+      return(INCORRECT);
+   }
+
+   while ((dirp = readdir(dp)) != NULL)
+   {
+      if ((dirp->d_name[0] == '.') && ((dirp->d_name[1] == '\0') ||
+          ((dirp->d_name[1] == '.') && (dirp->d_name[2] == '\0'))))
+      {
+         continue;
+      }
+      (void)strcpy(ptr, dirp->d_name);
+#ifdef _WORKING_UNLINK
+      if (unlink(dirname) == -1)
+#else
+      if (remove(dirname) == -1)
+#endif /* _WORKING_UNLINK */
+      {
+         if (errno == ENOENT)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Failed to delete %s : %s (%s %d)\n",
+                      dirname, strerror(errno), __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to delete %s : %s (%s %d)\n",
+                      dirname, strerror(errno), __FILE__, __LINE__);
+            (void)closedir(dp);
+            return(INCORRECT);
+         }
+      }
+      else
+      {
+         removed_files++;
+      }
+   }
+   ptr[-1] = 0;
+   if ((rmdir(dirname) == -1) && (errno != EEXIST))
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN,
+                "Failed to rmdir() %s : %s (%s %d)\n",
+                dirname, strerror(errno), __FILE__, __LINE__);
+      (void)closedir(dp);
+      return(INCORRECT);
+   }
+   if (closedir(dp) == -1)
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN,
+                "Failed to closedir() %s : %s (%s %d)\n",
+                dirname, strerror(errno), __FILE__, __LINE__);
+      return(INCORRECT);
+   }
+
+   return(SUCCESS);
 }

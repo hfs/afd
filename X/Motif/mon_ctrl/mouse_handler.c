@@ -674,7 +674,7 @@ mon_popup_cb(Widget    w,
                      int length;
                      char cmd[2 + MAX_INT_LENGTH];
 
-                     length = sprintf(cmd, "%c %d", ENABLE_MON, i);
+                     length = sprintf(cmd, "%c %d", ENABLE_MON, i) + 1;
                      if (write(fd, cmd, length) != length)
                      {
                         (void)xrec(appshell, ERROR_DIALOG,
@@ -717,7 +717,7 @@ mon_popup_cb(Widget    w,
                         int length;
                         char cmd[2 + MAX_INT_LENGTH];
 
-                        length = sprintf(cmd, "%c %d", DISABLE_MON, i);
+                        length = sprintf(cmd, "%c %d", DISABLE_MON, i) + 1;
                         if (write(fd, cmd, length) != length)
                         {
                            (void)xrec(appshell, ERROR_DIALOG,

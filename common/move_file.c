@@ -48,6 +48,9 @@ DESCR__E_M3
 
 #include <stdio.h>      /* rename(), remove()                            */
 #include <string.h>     /* strerror()                                    */
+#ifdef _WORKING_UNLINK
+#include <unistd.h>     /* unlink()                                      */
+#endif
 #include <errno.h>
 
 extern int sys_log_fd;
@@ -77,14 +80,18 @@ move_file(char *from, char *to)
          }
 
          /* Remove the source file */
+#ifdef _WORKING_UNLINK
+         if (unlink(from) < 0)
+#else
          if (remove(from) < 0)
+#endif /* _WORKING_UNLINK */
          {
             /* Include some better error correction here. Since */
             /* if we do not delete the file successful we will  */
             /* have a continuous loop (when it is an instant    */
             /* job) trying to copy a file we cannot delete.     */
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not remove() file %s : %s (%s %d)\n",
+                      "Could not delete file %s : %s (%s %d)\n",
                       from, strerror(errno), __FILE__, __LINE__);
 
             return(2);

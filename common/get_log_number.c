@@ -102,22 +102,22 @@ get_log_number(int  *log_number,
          continue;
       }
 
-      (void)sprintf(fullname, "%s/%s", log_dir, p_dir->d_name);
-      if (stat(fullname, &stat_buf) < 0)
+      if (strncmp(p_dir->d_name, log_name, log_name_length) == 0)
       {
-         if (errno != ENOENT)
+         (void)sprintf(fullname, "%s/%s", log_dir, p_dir->d_name);
+         if (stat(fullname, &stat_buf) < 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Can't access file %s : %s (%s %d)\n",
-                      fullname, strerror(errno), __FILE__, __LINE__);
+            if (errno != ENOENT)
+            {
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "Can't access file %s : %s (%s %d)\n",
+                         fullname, strerror(errno), __FILE__, __LINE__);
+            }
+            continue;
          }
-         continue;
-      }
 
-      /* Sure it is a normal file? */
-      if (S_ISREG(stat_buf.st_mode))
-      {
-         if (strncmp(p_dir->d_name, log_name, log_name_length) == 0)
+         /* Sure it is a normal file? */
+         if (S_ISREG(stat_buf.st_mode))
          {
             ptr = p_dir->d_name;
             ptr += log_name_length;

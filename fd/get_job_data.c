@@ -140,10 +140,14 @@ retry:
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Removing %s. It is not a message. (%s %d)\n",
                 msg_dir, __FILE__, __LINE__);
+#ifdef _WORKING_UNLINK
+      if (unlink(msg_dir) == -1)
+#else
       if (remove(msg_dir) == -1)
+#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to remove() %s : %s (%s %d)\n",
+                   "Failed to delete %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
       free(file_buf);
@@ -180,10 +184,14 @@ retry:
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "Removing %s because of unknown sheme [%s]. (%s %d)\n",
                                msg_dir, p_start, __FILE__, __LINE__);
+#ifdef _WORKING_UNLINK
+                     if (unlink(msg_dir) == -1)
+#else
                      if (remove(msg_dir) == -1)
+#endif /* _WORKING_UNLINK */
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to remove() %s : %s (%s %d)\n",
+                                  "Failed to delete %s : %s (%s %d)\n",
                                   msg_dir, strerror(errno),
                                   __FILE__, __LINE__);
                      }
@@ -224,10 +232,14 @@ retry:
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Removing %s. Could not locate end of sheme [:]. (%s %d)\n",
                 msg_dir, __FILE__, __LINE__);
+#ifdef _WORKING_UNLINK
+      if (unlink(msg_dir) == -1)
+#else
       if (remove(msg_dir) == -1)
+#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to remove() %s : %s (%s %d)\n",
+                   "Failed to delete %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
       free(file_buf);
@@ -276,10 +288,14 @@ retry:
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Removing %s. Could not locate start of host name [@]. (%s %d)\n",
                 msg_dir, __FILE__, __LINE__);
+#ifdef _WORKING_UNLINK
+      if (unlink(msg_dir) == -1)
+#else
       if (remove(msg_dir) == -1)
+#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to remove() %s : %s (%s %d)\n",
+                   "Failed to delete %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
       free(file_buf);

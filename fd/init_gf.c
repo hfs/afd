@@ -76,10 +76,9 @@ extern struct job                 db;
 void
 init_gf(int argc, char *argv[], int protocol)
 {
-   int           status;
-   char          gbuf[MAX_PATH_LENGTH];      /* Generic buffer.         */
-   struct job    *p_db;
-   struct stat   stat_buf;
+   int        status;
+   char       gbuf[MAX_PATH_LENGTH];      /* Generic buffer.         */
+   struct job *p_db;
 
    /* Initialise variables */
    p_db = &db;
@@ -118,14 +117,24 @@ init_gf(int argc, char *argv[], int protocol)
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, SYSTEM_LOG_FIFO);
-   if ((stat(gbuf, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+   if ((sys_log_fd = open(gbuf, O_RDWR)) == -1)
    {
-      (void)make_fifo(gbuf);
-   }
-   if ((sys_log_fd = open(gbuf, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr, "WARNING : Could not open fifo %s : %s (%s %d)\n",
-                    SYSTEM_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      if (errno == ENOENT)
+      {
+         if ((make_fifo(gbuf) == SUCCESS) &&
+             ((sys_log_fd = open(gbuf, O_RDWR)) == -1))
+         {
+            (void)fprintf(stderr,
+                          "WARNING : Could not open fifo %s : %s (%s %d)\n",
+                          SYSTEM_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+         }
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       "WARNING : Could not open fifo %s : %s (%s %d)\n",
+                       SYSTEM_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      }
    }
 
    if ((status = eval_input_gf(argc, argv, p_db)) < 0)
@@ -141,7 +150,7 @@ init_gf(int argc, char *argv[], int protocol)
    if ((db.fra_pos = get_dir_position(fra, db.dir_alias, no_of_dirs)) < 0)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to locate dir_alias %s in the FRA. (%s %d)\n",
+                "Failed to locate dir_alias <%s> in the FRA. (%s %d)\n",
                 db.dir_alias, __FILE__, __LINE__);
       exit(INCORRECT);          
    }
@@ -154,7 +163,7 @@ init_gf(int argc, char *argv[], int protocol)
    if (eval_recipient(fra[db.fra_pos].url, &db, NULL) == INCORRECT)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to evaluate recipient for directory alias %s. (%s %d)\n",
+                "Failed to evaluate recipient for directory alias <%s>. (%s %d)\n",
                 fra[db.fra_pos].dir_alias, __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -163,31 +172,50 @@ init_gf(int argc, char *argv[], int protocol)
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, TRANSFER_LOG_FIFO);
-   if ((stat(gbuf, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+   if ((transfer_log_fd = open(gbuf, O_RDWR)) == -1)
    {
-      (void)make_fifo(gbuf);
-   }
-   if ((transfer_log_fd = open(gbuf, O_RDWR)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      if (errno == ENOENT)
+      {
+         if ((make_fifo(gbuf) == SUCCESS) &&
+             ((transfer_log_fd = open(gbuf, O_RDWR)) == -1))
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Could not open fifo %s : %s (%s %d)\n",
+                      TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+         }
+      }
+      else
+      {
+         (void)rec(sys_log_fd, ERROR_SIGN,
+                   "Could not open fifo %s : %s (%s %d)\n",
+                   TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+      }
    }
    if (fsa[db.fsa_pos].debug == YES)
    {
       (void)strcpy(gbuf, p_work_dir);
       (void)strcat(gbuf, FIFO_DIR);
       (void)strcat(gbuf, TRANS_DEBUG_LOG_FIFO);
-
-      if ((stat(gbuf, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      if ((trans_db_log_fd = open(gbuf, O_RDWR)) == -1)
       {
-         (void)make_fifo(gbuf);
-      }
-      if ((trans_db_log_fd = open(gbuf, O_RDWR)) < 0)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not open fifo %s : %s (%s %d)\n",
-                   TRANS_DEBUG_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+         if (errno == ENOENT)
+         {
+            if ((make_fifo(gbuf) == SUCCESS) &&
+                ((trans_db_log_fd = open(gbuf, O_RDWR)) == -1))
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Could not open fifo %s : %s (%s %d)\n",
+                         TRANS_DEBUG_LOG_FIFO, strerror(errno),
+                         __FILE__, __LINE__);
+            }
+         }
+         else
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Could not open fifo %s : %s (%s %d)\n",
+                      TRANS_DEBUG_LOG_FIFO, strerror(errno),
+                      __FILE__, __LINE__);
+         }
       }
    }
 

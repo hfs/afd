@@ -82,7 +82,6 @@ get_remote_file_names(off_t *file_size_to_retrieve)
                     gotcha,
                     i, j,
                     nfg,           /* Number of file mask. */
-                    ret,
                     status;
    char             *nlist = NULL,
                     *p_end,
@@ -94,7 +93,8 @@ get_remote_file_names(off_t *file_size_to_retrieve)
     * Get a directory listing from the remote site so we can see
     * what files are there.
     */
-   if ((status = ftp_list(NLIST_CMD|BUFFERED_LIST, &nlist)) != SUCCESS)
+   if ((status = ftp_list(db.mode_flag, NLIST_CMD|BUFFERED_LIST,
+                          &nlist)) != SUCCESS)
    {
       if (status == 550)
       {
@@ -110,7 +110,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
                    "Failed to send NLST command (%d).", status);
          (void)ftp_quit();
-         exit(TYPE_ERROR);
+         exit(LIST_ERROR);
       }
    }
    else
@@ -166,14 +166,14 @@ get_remote_file_names(off_t *file_size_to_retrieve)
             p_mask = fml[i].file_list;
             for (j = 0; j < fml[i].nfm; j++)
             {
-               if (((ret = filter(p_mask, p_list)) == 0) &&
+               if (((status = filter(p_mask, p_list)) == 0) &&
                    (check_list(p_list, file_size_to_retrieve) == 0))
                {
                   gotcha = YES;
                   files_to_retrieve++;
                   break;
                }
-               else if (ret == 1)
+               else if (status == 1)
                     {
                        /* This file is definitly NOT wanted! */
                        /* Lets skip the rest of this group.  */
@@ -432,7 +432,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                        trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                  "Failed to get date of file %s.", file);
                        (void)ftp_quit();
-                       exit(INCORRECT);
+                       exit(DATE_ERROR);
                     }
                else if ((status == 500) || (status == 502))
                     {
@@ -459,7 +459,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                        trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                  "Failed to get date of file %s.", file);
                        (void)ftp_quit();
-                       exit(INCORRECT);
+                       exit(SIZE_ERROR);
                     }
                else if ((status == 500) || (status == 502))
                     {
@@ -589,10 +589,14 @@ remove_ls_data()
                     INCOMING_DIR, LS_DATA_DIR, fra[db.fra_pos].dir_alias);
       if (stat(list_file, &stat_buf) == 0)
       {
+#ifdef _WORKING_UNLINK
+         if ((unlink(list_file) == -1) && (errno != ENOENT))
+#else
          if ((remove(list_file) == -1) && (errno != ENOENT))
+#endif /* _WORKING_UNLINK */
          {
             (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to remove() %s : %s (%s %d)\n",
+                      "Failed to delete %s : %s (%s %d)\n",
                       list_file, strerror(errno), __FILE__, __LINE__);
          }
       }

@@ -119,7 +119,8 @@ rename_files(char                   *src_file_path,
           * and filter() to get the names we need. Let's see
           * how things work.
           */
-         if ((ret = filter(p_de->fme[pos_in_fm].file_mask[j], file_name_pool[i])) == 0)
+         if ((ret = filter(p_de->fme[pos_in_fm].file_mask[j],
+                           file_name_pool[i])) == 0)
          {
             /* Only create a unique name and the corresponding */
             /* directory when we have found a file that is to  */
@@ -183,8 +184,10 @@ rename_files(char                   *src_file_path,
             /* rename the file */
             if (rename(src_file_path, dest_file_path) < 0)
             {
-               (void)rec(sys_log_fd, WARN_SIGN, "Failed to rename() file %s to %s : %s (%s %d)\n",
-                         src_file_path, dest_file_path, strerror(errno), __FILE__, __LINE__);
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "Failed to rename() file %s to %s : %s (%s %d)\n",
+                         src_file_path, dest_file_path, strerror(errno),
+                         __FILE__, __LINE__);
             }
             else
             {

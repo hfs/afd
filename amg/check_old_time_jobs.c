@@ -405,12 +405,16 @@ move_time_dir(int job_id)
                          time_dir, to_dir, strerror(errno),
                          __FILE__, __LINE__);
             }
+#ifdef _WORKING_UNLINK
+            if (unlink(time_dir) == -1)
+#else
             if (remove(time_dir) == -1)
+#endif /* _WORKING_UNLINK */
             {
                if (errno != ENOENT)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to remove() %s : %s (%s %d)\n",
+                            "Failed to delete %s : %s (%s %d)\n",
                             time_dir, strerror(errno), __FILE__, __LINE__);
                }
             }

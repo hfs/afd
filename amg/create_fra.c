@@ -463,10 +463,14 @@ create_fra(int no_of_dirs)
       }
 
       /* Remove the old FSA file if there was one. */
+#ifdef _WORKING_UNLINK
+      if (unlink(old_fra_stat) < 0)
+#else
       if (remove(old_fra_stat) < 0)
+#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to remove() %s : %s (%s %d)\n",
+                   "Failed to delete %s : %s (%s %d)\n",
                    old_fra_stat, strerror(errno), __FILE__, __LINE__);
       }
    }

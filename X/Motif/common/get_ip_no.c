@@ -1,6 +1,6 @@
 /*
  *  get_ip_no.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   10.11.1996 H.Kiehl Created
+ **   05.12.2000 H.Kiehl Check if hostname does contain a value.
  **
  */
 DESCR__E_M3
@@ -59,32 +60,39 @@ DESCR__E_M3
 void
 get_ip_no(char *host_name, char *p_dest)
 {
-   struct hostent *p_host;
-
-   if ((p_host = gethostbyname(host_name)) == NULL)
+   if (host_name[0] == '\0')
    {
-      char *ptr = host_name;
-
-      do
-      {
-         if (!((isdigit(*ptr)) || (*ptr == '.')))
-         {
-            (void)strcpy(p_dest, "Unknown");
-            return;
-         }
-         ptr++;
-      } while (*ptr != '\0');
-      (void)strcpy(p_dest, host_name);
+      *p_dest = '\0';
    }
    else
    {
-      if (p_host->h_addrtype == AF_INET)
+      struct hostent *p_host;
+
+      if ((p_host = gethostbyname(host_name)) == NULL)
       {
-         (void)strcpy(p_dest, inet_ntoa(*(struct in_addr *)p_host->h_addr));
+         char *ptr = host_name;
+
+         do
+         {
+            if (!((isdigit(*ptr)) || (*ptr == '.')))
+            {
+               (void)strcpy(p_dest, "Unknown");
+               return;
+            }
+            ptr++;
+         } while (*ptr != '\0');
+         (void)strcpy(p_dest, host_name);
       }
       else
       {
-         (void)strcpy(p_dest, "Unknown address type");
+         if (p_host->h_addrtype == AF_INET)
+         {
+            (void)strcpy(p_dest, inet_ntoa(*(struct in_addr *)p_host->h_addr));
+         }
+         else
+         {
+            (void)strcpy(p_dest, "Unknown address type");
+         }
       }
    }
 

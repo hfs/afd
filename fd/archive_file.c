@@ -68,9 +68,6 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <unistd.h>      /* mkdir()                                      */
 #include <errno.h>
-#ifdef _NEW_ARCHIVE_WATCH
-#include "awdefs.h"
-#endif
 #include "fddefs.h"
 
 #define ARCHIVE_FULL -3
@@ -86,12 +83,7 @@ extern char   *p_work_dir;
 static time_t archive_start_time = 0L;
 
 /* Local functions */
-static int  create_archive_dir(char *, char, time_t, int,
-#ifdef _NEW_ARCHIVE_WATCH
-                               char *, time_t *),
-#else
-                               char *),
-#endif
+static int  create_archive_dir(char *, char, time_t, int, char *),
             get_dir_number(char *);
 
 
@@ -107,15 +99,11 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
           newname[MAX_PATH_LENGTH];
 
    diff_time = time(NULL) - archive_start_time;
-   if ((p_db->archive_dir[0] == '\0') || (diff_time > ARCHIVE_RESCAN_TIME))
+   if ((p_db->archive_dir[0] == '\0') || (diff_time > ARCHIVE_STEP_TIME))
    {
       int         i = 0,
                   dir_number,
                   length;
-#ifdef _NEW_ARCHIVE_WATCH
-      int         ret;
-      time_t      remove_time;
-#endif
       char        *ptr;
       struct stat stat_buf;
 
@@ -207,16 +195,9 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       ptr = p_db->archive_dir + strlen(p_db->archive_dir);
       length = sprintf(ptr, "/%d/", dir_number);
 
-#ifdef _NEW_ARCHIVE_WATCH
-      while ((ret = create_archive_dir(p_db->archive_dir, p_db->msg_name[0],
-                                       p_db->archive_time,
-                                       p_db->job_id, ptr + length,
-                                       &remove_time)) != 0)
-#else
       while (create_archive_dir(p_db->archive_dir, p_db->msg_name[0],
                                 p_db->archive_time,
                                 p_db->job_id, ptr + length) != 0)
-#endif /* _NEW_ARCHIVE_WATCH */
       {
          if (errno == EEXIST)
          {
@@ -263,59 +244,6 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                  return(INCORRECT);
               }
       }
-#ifdef _NEW_ARCHIVE_WATCH
-      if (ret == 0)
-      {
-         /*
-          * We have sucessfully created a new archive directory. Now
-          * is the time to inform archive_watch about this new directory
-          * so it can add it to its database.
-          */
-         int  aw_cmd_fd;
-         char aw_cmd_fifo[MAX_PATH_LENGTH];
-
-         (void)strcpy(aw_cmd_fifo, p_work_dir);
-         (void)strcat(aw_cmd_fifo, FIFO_DIR);
-         (void)strcat(aw_cmd_fifo, AW_CMD_FIFO);
-
-         if ((aw_cmd_fd = open(aw_cmd_fifo, O_RDWR)) < 0)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Failed to open() fifo %s : %s (%s %d)\n",
-                      AW_CMD_FIFO, strerror(errno), __FILE__, __LINE__);
-         }
-         else
-         {
-            size_t size;
-            char   *buffer;
-
-            size = 1 + sizeof(struct archive_entry);
-            if ((buffer = malloc(size)) != NULL)
-            {
-               struct archive_entry ae;
-
-               ae.remove_time = remove_time;
-               ae.job_id = p_db->job_id;
-               ae.dir_counter = dir_number;
-               buffer[0] = NEW_ARCHIVE_ENTRY;
-               (void)memcpy(&buffer[1], ae, size - 1);
-               if (write(aw_cmd_fd, buffer, size) != size)
-               {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to write() to %s : %s (%s %d)\n",
-                            AW_CMD_FIFO, strerror(errno), __FILE__, __LINE__);
-               }
-               (void)free(buffer);
-            }
-            if (close(aw_cmd_fd) != -1)
-            {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to close() %s : %s (%s %d)\n",
-                         AW_CMD_FIFO, strerror(errno), __FILE__, __LINE__);
-            }
-         }
-      }
-#endif /* _NEW_ARCHIVE_WATCH */
    }
 
    /* Move file to archive directory */
@@ -342,7 +270,11 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
        * the file is really gone. The cheapest way seems to
        * make just another system call :-(((
        */
+#ifdef _WORKING_UNLINK
+      (void)unlink(oldname);
+#else
       (void)remove(oldname);
+#endif /* _WORKING_UNLINK */
    }
 
    return(SUCCESS);
@@ -485,24 +417,13 @@ create_archive_dir(char   *p_path,
                    char   priority,
                    time_t archive_time,
                    int    job_id,
-#ifdef _NEW_ARCHIVE_WATCH
-                   char   *msg_name,
-                   time_t *remove_time)
-#else
                    char   *msg_name)
-#endif /* _NEW_ARCHIVE_WATCH */
 {
    archive_start_time = time(NULL);
-#ifdef _NEW_ARCHIVE_WATCH
-   *remove_time = ((archive_start_time + (archive_time * ARCHIVE_UNIT)) /
-                   ARCHIVE_STEP_TIME) * ARCHIVE_STEP_TIME;
-   (void)sprintf(msg_name, "%c_%ld_%d", priority, *remove_time, job_id);
-#else
    (void)sprintf(msg_name, "%c_%ld_%d", priority,
                  ((archive_start_time + (archive_time * ARCHIVE_UNIT)) /
                   ARCHIVE_STEP_TIME) * ARCHIVE_STEP_TIME,
                  job_id);
-#endif /* _NEW_ARCHIVE_WATCH */
 
    return(mkdir(p_path, DIR_MODE));
 }

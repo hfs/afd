@@ -33,7 +33,7 @@ DESCR__S_M3
  **   int  ftp_chmod(char *filename, char *mode)
  **   int  ftp_move(char *from, char *to)
  **   int  ftp_dele(char *filename)
- **   int  ftp_list(int type, ...)
+ **   int  ftp_list(int mode, int type, ...)
  **   int  ftp_exec(char *cmd, char *filename)
  **   int  ftp_data(char *filename, off_t seek, int mode, int type)
  **   int  ftp_close_data(int)
@@ -641,7 +641,7 @@ ftp_exec(char *cmd, char *filename)
 
 /*############################## ftp_list() #############################*/
 int
-ftp_list(int type, ...)
+ftp_list(int mode, int type, ...)
 {
    int                sock_fd,
                       new_sock_fd,
@@ -672,136 +672,253 @@ ftp_list(int type, ...)
    data.sin_port = htons((u_short)0);
    msg_str[0] = '\0';
 
-   if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+   if (mode == PASSIVE_MODE)
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "socket() error : %s", strerror(errno));
-      return(INCORRECT);
-   }
+      char *ptr;
 
-   if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof (on)) < 0)
-   {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "setsockopt() error : %s", strerror(errno));
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
+      (void)fprintf(p_control, "PASV\r\n");
 
-   length = sizeof(data);
-   if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
-   {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "bind() error : %s", strerror(errno));
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
+      if ((reply = get_reply(p_control)) < 0)
+      {
+         return(INCORRECT);
+      }
 
-   if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
-   {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "getsockname() error : %s", strerror(errno));
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
+      if (check_reply(2, reply, 227) < 0)
+      {
+         return(reply);
+      }
+      ptr = &msg_str[3];
+      do
+      {
+         ptr++;
+      } while ((*ptr != '(') && (*ptr != '\0'));
+      if (*ptr == '(')
+      {
+         int number;
 
-   if (listen(sock_fd, 1) < 0)
-   {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "listen() error : %s", strerror(errno));
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
+         data = ctrl;
+         msg_str[0] = '\0';
+         if ((number = get_number(&ptr, ',')) == INCORRECT)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to retrieve remote address %s", msg_str);
+            return(INCORRECT);
+         }
+         *((char *)&data.sin_addr) = number;
+         if ((number = get_number(&ptr, ',')) == INCORRECT)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to retrieve remote address %s", msg_str);
+            return(INCORRECT);
+         }
+         *((char *)&data.sin_addr + 1) = number;
+         if ((number = get_number(&ptr, ',')) == INCORRECT)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to retrieve remote address %s", msg_str);
+            return(INCORRECT);
+         }
+         *((char *)&data.sin_addr + 2) = number;
+         if ((number = get_number(&ptr, ',')) == INCORRECT)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to retrieve remote address %s", msg_str);
+            return(INCORRECT);
+         }
+         *((char *)&data.sin_addr + 3) = number;
+         if ((number = get_number(&ptr, ',')) == INCORRECT)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to retrieve remote address %s", msg_str);
+            return(INCORRECT);
+         }
+         *((char *)&data.sin_port) = number;
+         if ((number = get_number(&ptr, ')')) == INCORRECT)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to retrieve remote address %s", msg_str);
+            return(INCORRECT);
+         }
+         *((char *)&data.sin_port + 1) = number;
 
-   h = (char *)&data.sin_addr;
-   p = (char *)&data.sin_port;
+         if ((new_sock_fd = socket(data.sin_family, SOCK_STREAM,
+                                   IPPROTO_TCP)) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "socket() error : %s", strerror(errno));
+            return(INCORRECT);
+         }
 
-   (void)fprintf(p_control, "PORT %d,%d,%d,%d,%d,%d\r\n",
-                 (((int)h[0]) & 0xff),
-                 (((int)h[1]) & 0xff),
-                 (((int)h[2]) & 0xff),
-                 (((int)h[3]) & 0xff),
-                 (((int)p[0]) & 0xff),
-                 (((int)p[1]) & 0xff));
+         if (setsockopt(new_sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                        sizeof(on)) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "setsockopt() error : %s", strerror(errno));
+            (void)close(new_sock_fd);
+            return(INCORRECT);
+         }
+         if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to connect() to : %s", strerror(errno));
+            (void)close(new_sock_fd);
+            return(INCORRECT);
+         }
 
-   if ((reply = get_reply(p_control)) < 0)
-   {
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
+         if (type & NLIST_CMD)
+         {
+            (void)fprintf(p_control, "NLST\r\n");
+         }
+         else
+         {
+            (void)fprintf(p_control, "LIST %s\r\n", filename);
+         }
 
-   if (check_reply(2, reply, 200) < 0)
-   {
-      (void)close(sock_fd);
-      return(reply);
-   }
+         if ((reply = get_reply(p_control)) < 0)
+         {
+            (void)close(new_sock_fd);
+            return(INCORRECT);
+         }
 
-   if (type & NLIST_CMD)
-   {
-      (void)fprintf(p_control, "NLST\r\n");
+         if (check_reply(3, reply, 150, 125) < 0)
+         {
+            (void)close(new_sock_fd);
+            return(reply);
+         }
+      }
    }
-   else
+   else /* mode == ACTIVE_MODE */
    {
-      (void)fprintf(p_control, "LIST %s\r\n", filename);
-   }
+      if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "socket() error : %s", strerror(errno));
+         return(INCORRECT);
+      }
 
-   if ((reply = get_reply(p_control)) < 0)
-   {
-      return(INCORRECT);
-   }
+      if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof (on)) < 0)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "setsockopt() error : %s", strerror(errno));
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
 
-   if (check_reply(3, reply, 150, 125) < 0)
-   {
-      return(reply);
-   }
+      length = sizeof(data);
+      if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "bind() error : %s", strerror(errno));
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
 
-   /*
-    * Juck! Here follows some ugly code.
-    * Experience has shown that on very rare occasions the
-    * accept() call blocks. This is normal behaviour of the accept()
-    * system call. Could make sock_fd non-blocking, but then
-    * the next time we use the socket we will get an error. This is
-    * not we want. When we have a bad connection it can take quit
-    * some time before we get a respond.
-    * This is not the best solution. If anyone has a better solution
-    * please tell me.
-    * I have experienced these problems only with FTX 3.0.x, so it
-    * could also be a kernel bug. Maybe the system sometimes forgets
-    * to restart this system call?
-    */
-   if (signal(SIGALRM, sig_handler) == SIG_ERR)
-   {
-      msg_str[0] = '\0';
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "Failed to set signal handler : %s", strerror(errno));
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
-   if (setjmp(env_alrm) != 0)
-   {
-      msg_str[0] = '\0';
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, "accept() timeout");
-      timeout_flag = ON;
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
-   (void)alarm(2 * transfer_timeout);
+      if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "getsockname() error : %s", strerror(errno));
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
 
-   if ((new_sock_fd = accept(sock_fd, (struct sockaddr *) &from, &length)) < 0)
-   {
-      (void)alarm(0); /* Maybe it was a real accept() error */
-      msg_str[0] = '\0';
-      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "accept() error : %s", strerror(errno));
-      (void)close(sock_fd);
-      return(INCORRECT);
-   }
-   (void)alarm(0);
-   if (close(sock_fd) == -1)
-   {
-      msg_str[0] = '\0';
-      trans_log(DEBUG_SIGN, __FILE__, __LINE__, "close() error : %s",
-                 strerror(errno));
-   }
+      if (listen(sock_fd, 1) < 0)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "listen() error : %s", strerror(errno));
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
+
+      h = (char *)&data.sin_addr;
+      p = (char *)&data.sin_port;
+      (void)fprintf(p_control, "PORT %d,%d,%d,%d,%d,%d\r\n",
+                    (((int)h[0]) & 0xff),
+                    (((int)h[1]) & 0xff),
+                    (((int)h[2]) & 0xff),
+                    (((int)h[3]) & 0xff),
+                    (((int)p[0]) & 0xff),
+                    (((int)p[1]) & 0xff));
+
+      if ((reply = get_reply(p_control)) < 0)
+      {
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
+
+      if (check_reply(2, reply, 200) < 0)
+      {
+         (void)close(sock_fd);
+         return(reply);
+      }
+
+      if (type & NLIST_CMD)
+      {
+         (void)fprintf(p_control, "NLST\r\n");
+      }
+      else
+      {
+         (void)fprintf(p_control, "LIST %s\r\n", filename);
+      }
+
+      if ((reply = get_reply(p_control)) < 0)
+      {
+         return(INCORRECT);
+      }
+
+      if (check_reply(3, reply, 150, 125) < 0)
+      {
+         return(reply);
+      }
+
+      /*
+       * Juck! Here follows some ugly code.
+       * Experience has shown that on very rare occasions the
+       * accept() call blocks. This is normal behaviour of the accept()
+       * system call. Could make sock_fd non-blocking, but then
+       * the next time we use the socket we will get an error. This is
+       * not we want. When we have a bad connection it can take quit
+       * some time before we get a respond.
+       * This is not the best solution. If anyone has a better solution
+       * please tell me.
+       * I have experienced these problems only with FTX 3.0.x, so it
+       * could also be a kernel bug. Maybe the system sometimes forgets
+       * to restart this system call?
+       */
+      if (signal(SIGALRM, sig_handler) == SIG_ERR)
+      {
+         msg_str[0] = '\0';
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to set signal handler : %s", strerror(errno));
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
+      if (setjmp(env_alrm) != 0)
+      {
+         msg_str[0] = '\0';
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, "accept() timeout");
+         timeout_flag = ON;
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
+      (void)alarm(2 * transfer_timeout);
+
+      if ((new_sock_fd = accept(sock_fd, (struct sockaddr *) &from, &length)) < 0)
+      {
+         (void)alarm(0); /* Maybe it was a real accept() error */
+         msg_str[0] = '\0';
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "accept() error : %s", strerror(errno));
+         (void)close(sock_fd);
+         return(INCORRECT);
+      }
+      (void)alarm(0);
+      if (close(sock_fd) == -1)
+      {
+         msg_str[0] = '\0';
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, "close() error : %s",
+                    strerror(errno));
+      }
+   } /* mode == ACTIVE_MODE */
 
    if ((p_data = fdopen(new_sock_fd, "r")) == NULL)
    {
@@ -1140,7 +1257,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
                }
                else
                {
-                  (void)close(new_sock_fd);
+                  (void)close(sock_fd);
                   return(INCORRECT);
                }
             }

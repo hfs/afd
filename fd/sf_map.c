@@ -578,6 +578,21 @@ main(int argc, char *argv[])
                          (int)db.job_no, file_name, __FILE__, __LINE__);
             }
 
+            /*
+             * NOTE: We _MUST_ delete the file we just send,
+             *       else the file directory will run full!
+             */
+#ifdef _WORKING_UNLINK
+            if (unlink(source_file) < 0)
+#else
+            if (remove(source_file) < 0)
+#endif /* _WORKING_UNLINK */
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Could not delete local file %s after copying it successfully : %s (%s %d)\n",
+                         source_file, strerror(errno), __FILE__, __LINE__);
+            }
+
 #ifdef _OUTPUT_LOG
             if (db.output_log == YES)
             {
@@ -631,10 +646,14 @@ main(int argc, char *argv[])
       else
       {
          /* Delete the file we just have copied */
+#ifdef _WORKING_UNLINK
+         if (unlink(source_file) < 0)
+#else
          if (remove(source_file) < 0)
+#endif /* _WORKING_UNLINK */
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not remove local file %s after copying it successfully : %s (%s %d)\n",
+                      "Could not delete local file %s after copying it successfully : %s (%s %d)\n",
                       source_file, strerror(errno), __FILE__, __LINE__);
          }
 

@@ -68,6 +68,8 @@ DESCR__S_M1
  **   04.03.1999 H.Kiehl When copying files don't only limit the number
  **                      of files, also limit the size that may be copied.
  **   09.10.1999 H.Kiehl Added new feature of important directories.
+ **   04.12.2000 H.Kiehl Report the exact time when scanning of directories
+ **                      took so long.
  **
  */
 DESCR__E_M1
@@ -123,9 +125,6 @@ int                        shm_id,         /* Shared memory ID of        */
                            counter_fd,      /* File descriptor for AFD   */
                                             /* counter file.             */
                            write_fin_fd,
-#ifdef _INPUT_LOG
-                           il_fd,
-#endif
                            no_of_rule_headers = 0,
                            amg_flag = YES,
                            receive_log_fd = STDERR_FILENO,
@@ -171,8 +170,16 @@ struct delete_log          dl;
 #ifdef _WITH_PTHREAD
 struct data_t              *p_data;
 #endif
+#ifdef _INPUT_LOG
+int                        il_fd;
+unsigned int               *il_dir_number;
+size_t                     il_size;
+off_t                      *il_file_size;
+char                       *il_file_name,
+                           *il_data;
+#endif /* _INPUT_LOG */
 
-/* local functions */
+/* Local functions */
 #ifdef _WITH_PTHREAD
 static void                *do_one_dir(void *);
 #endif
@@ -197,9 +204,6 @@ main(int argc, char *argv[])
                     i,
                     max_fd,               /* Largest file descriptor.    */
                     n,
-#ifdef REPORT_DIR_TIME_INTERVAL
-                    prev_diff_time = -1,
-#endif /* REPORT_DIR_TIME_INTERVAL */
 #ifdef _WITH_PTHREAD
                     rtn,
 #endif
@@ -207,12 +211,15 @@ main(int argc, char *argv[])
                     read_fin_fd,
                     status,
                     write_fd;
+#ifdef REPORT_DIR_TIME_INTERVAL
+   unsigned int     average_diff_time = 0;
+#endif /* REPORT_DIR_TIME_INTERVAL */
    time_t           fd_search_start_time,
                     next_time_check,
                     next_search_time,
 #ifdef REPORT_DIR_TIME_INTERVAL
-                    average_diff_time = 0L,
                     max_diff_time = 0L,
+                    max_diff_time_time = 0L,
                     next_report_time,
 #endif /* REPORT_DIR_TIME_INTERVAL */
 #if defined (_REPORT_DIR_CHECK_TIME) || defined (REPORT_DIR_TIME_INTERVAL)
@@ -275,6 +282,22 @@ main(int argc, char *argv[])
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+#ifdef _INPUT_LOG
+   il_size = sizeof(off_t) + sizeof(unsigned int) + MAX_FILENAME_LENGTH + 1;
+   if ((il_data = malloc(il_size)) == NULL)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   il_size = sizeof(off_t) + sizeof(unsigned int) + 1; /* NOTE: + 1 is for */
+                                                       /* '\0' at end of   */
+                                                       /* file name!!!!    */
+   il_file_size = (off_t *)(il_data);
+   il_dir_number = (unsigned int *)(il_data + sizeof(off_t));
+   il_file_name = (char *)(il_data + sizeof(off_t) + sizeof(unsigned int));
+#endif /* _INPUT_LOG */
 
    /* Find largest file descriptor */
    max_fd = del_time_job_fd;
@@ -364,14 +387,20 @@ main(int argc, char *argv[])
          if (max_diff_time > MAX_DIFF_TIME)
          {
 #endif /* MAX_DIFF_TIME */
+            char time_str[10];
+
+            average_diff_time = average_diff_time / no_of_dir_searches;
+            (void)strftime(time_str, 10, "%H:%M:%S",
+                           gmtime(&max_diff_time_time));
             (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Directory search times for %d dirs AVG: %ld MAX: %ld SEARCHES: %u\n",
+                      "Directory search times for %d dirs AVG: %u MAX: %ld (at %s) SEARCHES: %u\n",
                       no_of_local_dirs, average_diff_time,
-                      max_diff_time, no_of_dir_searches);
+                      max_diff_time, time_str, no_of_dir_searches);
 #ifdef MAX_DIFF_TIME
          }
 #endif /* MAX_DIFF_TIME */
-         average_diff_time = max_diff_time = 0L;
+         average_diff_time = 0;
+         max_diff_time = max_diff_time_time = 0L;
          no_of_dir_searches = 0;
          next_report_time = (now / REPORT_DIR_TIME_INTERVAL) *
                             REPORT_DIR_TIME_INTERVAL +
@@ -549,7 +578,7 @@ main(int argc, char *argv[])
                          (fra[de[i].fra_pos].time_option == NO) ||
                          (fra[de[i].fra_pos].next_check_time <= start_time)))
                     {
-                       start_time = time(NULL);
+                       start_time = time(&now);
 
                        if (stat(de[i].dir, &dir_stat_buf) < 0)
                        {
@@ -668,10 +697,13 @@ main(int argc, char *argv[])
                         * checks if it has to stop. So lets check the fifo
                         * every time we have checked a directory.
                         */
-                       if (check_fifo(read_fd, write_fd, &time_buf,
-                                      &rescan_time, &no_of_jobs) > 0)
+                       if ((now - start_time) > 5)
                        {
-                          break;
+                          if (check_fifo(read_fd, write_fd, &time_buf,
+                                         &rescan_time, &no_of_jobs) > 0)
+                          {
+                             break;
+                          }
                        }
 
                        if ((fra[de[i].fra_pos].fsa_pos == -1) &&
@@ -699,16 +731,9 @@ main(int argc, char *argv[])
                  if (diff_time > max_diff_time)
                  {
                     max_diff_time = diff_time;
+                    max_diff_time_time = now;
                  }
-                 if (prev_diff_time == -1)
-                 {
-                    average_diff_time = diff_time;
-                 }
-                 else
-                 {
-                    average_diff_time = (prev_diff_time + diff_time) / 2;
-                 }
-                 prev_diff_time = diff_time;
+                 average_diff_time += diff_time;
                  no_of_dir_searches++;
 #endif /* REPORT_DIR_TIME_INTERVAL */
 #endif /* _WITH_PTHREAD */
@@ -998,7 +1023,7 @@ handle_dir(int   dir_no,
 
       if (host_name == NULL)
       {
-         de[dir_no].search_time = time(NULL);
+         de[dir_no].search_time = current_time;
       }
       else
       {
@@ -1269,7 +1294,7 @@ handle_dir(int   dir_no,
          }
 
          /* Time to remove all files in orig_file_path */
-         if (rec_rmdir(orig_file_path) < 0)
+         if (remove_dir(orig_file_path) < 0)
          {
             (void)rec(sys_log_fd, WARN_SIGN,
                       "Failed to remove %s (%s %d)\n",

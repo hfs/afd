@@ -102,10 +102,14 @@ remove_pool_directory(char *job_dir, int dir_id)
       /* Sure it is a normal file? */
       if (S_ISDIR(stat_buf.st_mode) == 0)
       {
+#ifdef _WORKING_UNLINK
+         if (unlink(job_dir) == -1)
+#else
          if (remove(job_dir) == -1)
+#endif /* _WORKING_UNLINK */
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to remove file %s due to age : %s (%s %d)\n",
+                      "Failed to delete file %s due to age : %s (%s %d)\n",
                       p_dir->d_name, strerror(errno), __FILE__, __LINE__);
          }
          else

@@ -95,7 +95,12 @@ extern uid_t                      afd_uid;
 extern gid_t                      afd_gid;
 #ifdef _INPUT_LOG
 extern int                        il_fd;
-#endif
+extern unsigned int               *il_dir_number;
+extern size_t                     il_size;
+extern off_t                      *il_file_size;
+extern char                       *il_file_name,
+                                  *il_data;
+#endif /* _INPUT_LOG */
 #ifndef _WITH_PTHREAD
 extern off_t                      *file_size_pool;
 extern char                       **file_name_pool;
@@ -126,6 +131,7 @@ check_files(struct directory_entry *p_de,
 {
    int            files_copied = 0,
                   i;
+   time_t         now = 0L;
    char           fullname[MAX_PATH_LENGTH],
                   *ptr = NULL,
                   *work_ptr;
@@ -133,33 +139,7 @@ check_files(struct directory_entry *p_de,
    DIR            *dp;
    struct dirent  *p_dir;
 #ifdef _INPUT_LOG
-   unsigned int   *il_dir_number = NULL;
-   char           *il_data = NULL,
-                  *il_file_name = NULL;
-   off_t          *il_file_size = NULL;
-   size_t         il_size,
-                  il_real_size;
-   time_t         now = 0L;
-
-   /*
-    * Create a buffer which we use can use to send our
-    * data.
-    */
-   il_size = sizeof(off_t) + sizeof(unsigned int) + MAX_FILENAME_LENGTH + 1;
-   if ((il_data = calloc(il_size, sizeof(char))) == NULL)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN, "calloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-   }
-   else
-   {
-      il_size = sizeof(off_t) + sizeof(unsigned int) + 1; /* NOTE: + 1 is for */
-                                                          /* '\0' at end of   */
-                                                          /* file name!!!!    */
-      il_file_size = (off_t *)(il_data);
-      il_dir_number = (unsigned int *)(il_data + sizeof(off_t));
-      il_file_name = (char *)(il_data + sizeof(off_t) + sizeof(unsigned int));
-   }
+   size_t         il_real_size;
 #endif
 
    (void)strcpy(fullname, src_file_path);
@@ -170,13 +150,6 @@ check_files(struct directory_entry *p_de,
 
    if ((dp = opendir(fullname)) == NULL)
    {
-#ifdef _INPUT_LOG
-      /* Free the memory we allocated for the fifo buffer. */
-      if (il_data != NULL)
-      {
-         free(il_data);
-      }
-#endif
       (void)rec(sys_log_fd, ERROR_SIGN,
                 "Can't access directory %s : %s (%s %d)\n",
                 fullname, strerror(errno), __FILE__, __LINE__);
@@ -241,13 +214,6 @@ check_files(struct directory_entry *p_de,
                            {
                               if (errno != ENOSPC)
                               {
-#ifdef _INPUT_LOG
-                                 /* Free the memory we allocated for the fifo buffer. */
-                                 if (il_data != NULL)
-                                 {
-                                    free(il_data);
-                                 }
-#endif
                                  (void)rec(sys_log_fd, FATAL_SIGN,
                                            "Failed to create a unique name : %s (%s %d)\n",
                                            strerror(errno), __FILE__, __LINE__);
@@ -268,13 +234,6 @@ check_files(struct directory_entry *p_de,
                      }
                      else
                      {
-#ifdef _INPUT_LOG
-                        /* Free the memory we allocated for the fifo buffer. */
-                        if (il_data != NULL)
-                        {
-                           free(il_data);
-                        }
-#endif
                         (void)rec(sys_log_fd, FATAL_SIGN,
                                   "Failed to create a unique name : %s (%s %d)\n",
                                   strerror(errno), __FILE__, __LINE__);
@@ -419,13 +378,6 @@ check_files(struct directory_entry *p_de,
                                     {
                                        if (errno != ENOSPC)
                                        {
-#ifdef _INPUT_LOG
-                                          /* Free the memory we allocated for the fifo buffer. */
-                                          if (il_data != NULL)
-                                          {
-                                             free(il_data);
-                                          }
-#endif
                                           (void)rec(sys_log_fd, FATAL_SIGN,
                                                     "Failed to create a unique name in %s : %s (%s %d)\n",
                                                     tmp_file_dir, strerror(errno), __FILE__, __LINE__);
@@ -433,9 +385,9 @@ check_files(struct directory_entry *p_de,
                                        }
                                     }
                                  }
-                                 (void)rec(sys_log_fd, INFO_SIGN,                          
-                                           "Continuing after disk was full. (%s %d)\n",                                                                      
-                                           __FILE__, __LINE__);      
+                                 (void)rec(sys_log_fd, INFO_SIGN,
+                                           "Continuing after disk was full. (%s %d)\n",
+                                           __FILE__, __LINE__);
 
                                  /*
                                   * If the disk is full, lets stop copying/moving
@@ -446,13 +398,6 @@ check_files(struct directory_entry *p_de,
                               }
                               else
                               {
-#ifdef _INPUT_LOG
-                                 /* Free the memory we allocated for the fifo buffer. */
-                                 if (il_data != NULL)
-                                 {
-                                    free(il_data);
-                                 }
-#endif
                                  (void)rec(sys_log_fd, FATAL_SIGN,
                                            "Failed to create a unique name : %s (%s %d)\n",
                                            strerror(errno), __FILE__, __LINE__);
@@ -554,14 +499,6 @@ done:
                 "readdir() error from %s : %s (%s %d)\n",
                 fullname, strerror(errno), __FILE__, __LINE__);
    }
-
-#ifdef _INPUT_LOG
-   /* Free the memory we allocated for the fifo buffer. */
-   if (il_data != NULL)
-   {
-      free(il_data);
-   }
-#endif
 
    /* So that we return only the directory name where */
    /* the files have been stored.                    */

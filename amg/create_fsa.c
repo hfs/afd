@@ -938,6 +938,10 @@ create_fsa(void)
 
          free(gotcha);
       }
+
+      /* Copy configuration information from the old FSA. */
+      ptr = (char *)fsa - 3;
+      *ptr = *((char *)old_fsa - 3);
    }
 
    /* Reposition fsa pointer after no_of_hosts */
@@ -989,10 +993,14 @@ create_fsa(void)
    /* Remove the old FSA file if there was one. */
    if (old_fsa_size > -1)
    {
+#ifdef _WORKING_UNLINK
+      if (unlink(old_fsa_stat) < 0)
+#else
       if (remove(old_fsa_stat) < 0)
+#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to remove() %s : %s (%s %d)\n",
+                   "Failed to delete %s : %s (%s %d)\n",
                    old_fsa_stat, strerror(errno), __FILE__, __LINE__);
       }
    }

@@ -294,13 +294,13 @@ handle_time_dir(int time_job_no, int *no_of_process)
                        dcpl[*no_of_process].fra_pos = db[time_job_list[time_job_no]].fra_pos;
                        (*no_of_process)++;
                     }
-               }
-               else
-               {
-                  send_message(afd_file_dir, unique_name, unique_number,
-                               creation_time, time_job_list[time_job_no],
-                               files_moved, file_size_moved);
-               }
+            }
+            else
+            {
+               send_message(afd_file_dir, unique_name, unique_number,
+                            creation_time, time_job_list[time_job_no],
+                            files_moved, file_size_moved);
+            }
          } /* if (files_moved > 0) */
       } while ((p_dir != NULL) && (files_handled < MAX_FILES_FOR_TIME_JOBS));
 

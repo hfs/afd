@@ -206,9 +206,7 @@ send_message(char           *afd_file_dir,
    } /* if (files_to_send > 0) */
    else
    {
-      /*
-       * A directory has already been created. Lets remove it.
-       */
+      /* A directory has already been created. Lets remove it. */
       if (rec_rmdir(file_path) < 0)
       {
          (void)rec(sys_log_fd, WARN_SIGN,

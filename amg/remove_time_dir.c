@@ -108,10 +108,14 @@ remove_time_dir(char *host_name, int job_id, int reason)
          }
          else
          {
+#ifdef _WORKING_UNLINK
+            if (unlink(time_dir) == -1)
+#else
             if (remove(time_dir) == -1)
+#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to remove() file %s : %s (%s %d)\n",
+                         "Failed to delete file %s : %s (%s %d)\n",
                          time_dir, strerror(errno), __FILE__, __LINE__);
             }
             else

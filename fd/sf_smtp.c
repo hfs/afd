@@ -1250,6 +1250,21 @@ main(int argc, char *argv[])
                          final_filename, __FILE__, __LINE__);
             }
 
+            /*
+             * NOTE: We _MUST_ delete the file we just send,
+             *       else the file directory will run full!
+             */
+#ifdef _WORKING_UNLINK
+            if (unlink(fullname) < 0)
+#else
+            if (remove(fullname) < 0)
+#endif /* _WORKING_UNLINK */
+            {
+               (void)rec(sys_log_fd, ERROR_SIGN,
+                         "Could not delete local file %s after sending it successfully : %s (%s %d)\n",
+                         strerror(errno), fullname, __FILE__, __LINE__);
+            }
+
 #ifdef _OUTPUT_LOG
             if (db.output_log == YES)
             {
@@ -1303,10 +1318,14 @@ main(int argc, char *argv[])
       else
       {
          /* Delete the file we just have send */
+#ifdef _WORKING_UNLINK
+         if (unlink(fullname) < 0)
+#else
          if (remove(fullname) < 0)
+#endif /* _WORKING_UNLINK */
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not remove local file %s after sending it successfully : %s (%s %d)\n",
+                      "Could not delete local file %s after sending it successfully : %s (%s %d)\n",
                       strerror(errno), fullname, __FILE__, __LINE__);
          }
 

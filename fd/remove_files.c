@@ -104,10 +104,14 @@ remove_files(char *del_dir, int fsa_pos)
             (void)rec(sys_log_fd, WARN_SIGN,
                       "Failed to stat() %s : %s (%s %d)\n",
                       del_dir, strerror(errno), __FILE__, __LINE__);
+#ifdef _WORKING_UNLINK
+            if (unlink(del_dir) == -1)
+#else
             if (remove(del_dir) == -1)
+#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to remove() file %s : %s (%s %d)\n",
+                         "Failed to delete file %s : %s (%s %d)\n",
                          del_dir, strerror(errno), __FILE__, __LINE__);
             }
          }
@@ -116,10 +120,14 @@ remove_files(char *del_dir, int fsa_pos)
       {
          if (!S_ISDIR(stat_buf.st_mode))
          {
+#ifdef _WORKING_UNLINK
+            if (unlink(del_dir) == -1)
+#else
             if (remove(del_dir) == -1)
+#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to remove() file %s : %s (%s %d)\n",
+                         "Failed to delete file %s : %s (%s %d)\n",
                          del_dir, strerror(errno), __FILE__, __LINE__);
             }
             else

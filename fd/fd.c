@@ -60,6 +60,8 @@ DESCR__S_M1
  **   15.01.1998 H.Kiehl Complete redesign to accommodate new messages.
  **   09.07.1998 H.Kiehl Option to delete all jobs from a specific host.
  **   10.08.2000 H.Kiehl Added support to fetch files from a remote host.
+ **   14.12.2000 H.Kiehl Decrease priority of a job in queue on certain
+ **                      errors of sf_xxx.
  **
  */
 DESCR__E_M1
@@ -222,7 +224,7 @@ static void  remove_connection(struct connection *, int),
              sig_bus(int);
 static int   get_free_connection(void),
              get_free_disp_pos(int),
-             zombie_check(struct connection *, int, int);
+             zombie_check(struct connection *, int *, int);
 static pid_t make_process(struct connection *),
              start_process(int, int, time_t, int);
 
@@ -567,7 +569,7 @@ main(int argc, char *argv[])
                   qb_pos_pid(connection[i].pid, &qb_pos);
                   if (qb_pos != -1)
                   {
-                     if ((faulty = zombie_check(&connection[i], qb_pos,
+                     if ((faulty = zombie_check(&connection[i], &qb_pos,
                                                 WNOHANG)) == YES)
                      {
                         qb[qb_pos].pid = PENDING;
@@ -640,7 +642,7 @@ main(int argc, char *argv[])
        */
       if (((*(unsigned char *)((char *)fsa - 3) & DISABLE_RETRIEVE) == 0) &&
           (p_afd_status->no_of_transfers < max_connections) &&
-          (no_of_retrieves > 0) && (time(&now) > remote_file_check_time))
+          (no_of_retrieves > 0) && (now > remote_file_check_time))
       {
          for (i = 0; i < no_of_retrieves; i++)
          {
@@ -674,7 +676,6 @@ main(int argc, char *argv[])
                /* Put data in queue. */
                qb[qb_pos].msg_name[0] = '\0';
                qb[qb_pos].msg_number = msg_number;
-               qb[qb_pos].pid = PENDING;
                qb[qb_pos].creation_time = now;
                qb[qb_pos].pos = retrieve_list[i];
                qb[qb_pos].connect_pos = -1;
@@ -687,6 +688,10 @@ main(int argc, char *argv[])
                {
                   qb[qb_pos].pid = start_process(fra[retrieve_list[i]].fsa_pos,
                                                  qb_pos, now, NO);
+               }
+               else
+               {
+                  qb[qb_pos].pid = PENDING;
                }
             }
             else if (((fsa[fra[retrieve_list[i]].fsa_pos].special_flag & HOST_DISABLED) ||
@@ -871,7 +876,7 @@ main(int argc, char *argv[])
                  if (qb_pos != -1)
                  {
                     if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
-                                               qb_pos, 0)) == YES)
+                                               &qb_pos, 0)) == YES)
                     {
                        qb[qb_pos].pid = PENDING;
                        if (qb[qb_pos].msg_name[0] != '\0')
@@ -1764,7 +1769,7 @@ make_process(struct connection *con)
  *               is the case it is killed with waitpid().
  */
 static int
-zombie_check(struct connection *p_con, int qb_pos, int options)
+zombie_check(struct connection *p_con, int *qb_pos, int options)
 {
    int   faulty = YES,
          status;
@@ -1797,10 +1802,10 @@ zombie_check(struct connection *p_con, int qb_pos, int options)
                   {
                      fsa[p_con->fsa_pos].host_toggle = fsa[p_con->fsa_pos].original_toggle_pos;
                      fsa[p_con->fsa_pos].original_toggle_pos = NONE;
+                     fsa[p_con->fsa_pos].host_dsp_name[(int)fsa[p_con->fsa_pos].toggle_pos] = fsa[p_con->fsa_pos].host_toggle_str[(int)fsa[p_con->fsa_pos].host_toggle];
                      (void)rec(sys_log_fd, INFO_SIGN,
-                               "Switching back to host %s%c after successful transfer.\n",
-                               fsa[p_con->fsa_pos].host_alias,
-                               fsa[p_con->fsa_pos].host_toggle_str[(int)fsa[p_con->fsa_pos].host_toggle]);
+                               "Switching back to host %s after successful transfer.\n",
+                               fsa[p_con->fsa_pos].host_dsp_name);
                   }
                }
                fsa[p_con->fsa_pos].last_connection = time(NULL);
@@ -1897,21 +1902,23 @@ zombie_check(struct connection *p_con, int qb_pos, int options)
                          __FILE__, __LINE__);
                break;
 
+            case TIMEOUT_ERROR         : /* Timeout arrived */
             case CONNECT_ERROR         : /* Failed to connect to remote host */
             case USER_ERROR            : /* User name wrong */
             case PASSWORD_ERROR        : /* Password wrong */
             case TYPE_ERROR            : /* Setting transfer type failed */
+            case LIST_ERROR            : /* Sending the LIST command failed  */
             case REMOTE_USER_ERROR     : /* Failed to send mail address. */
             case DATA_ERROR            : /* Failed to send data command. */
-            case OPEN_REMOTE_ERROR     : /* */
             case READ_LOCAL_ERROR      : /* */
             case WRITE_REMOTE_ERROR    : /* */
             case WRITE_LOCAL_ERROR     : /* */
             case READ_REMOTE_ERROR     : /* */
+            case SIZE_ERROR            : /* */
+            case DATE_ERROR            : /* */
             case OPEN_LOCAL_ERROR      : /* */
             case WRITE_LOCK_ERROR      : /* */
             case CLOSE_REMOTE_ERROR    : /* */
-            case MOVE_REMOTE_ERROR     : /* */
 #ifdef _WITH_WMO_SUPPORT
             case CHECK_REPLY_ERROR     : /* Did not get a correct reply. */
 #endif
@@ -1927,6 +1934,40 @@ zombie_check(struct connection *p_con, int qb_pos, int options)
 #ifdef _WITH_MAP_SUPPORT
             case MAP_FUNCTION_ERROR    : /* MAP function call has failed. */
 #endif
+               break;
+
+            case MOVE_REMOTE_ERROR     : /* */
+            case OPEN_REMOTE_ERROR     : /* Failed to open remote file. */
+               if ((qb[*qb_pos].msg_name[0] != '\0') &&
+                   (qb[*qb_pos].msg_number < 199999999999999.0) &&
+                   ((*qb_pos + 1) < *no_msg_queued))
+               {
+                  register int i = *qb_pos + 1;
+
+                  /*
+                   * Increase the message number, so that this job
+                   * will decrease in priority and resort the queue.
+                   */
+                  qb[*qb_pos].msg_number += 600000.0;
+                  while ((i < *no_msg_queued) &&
+                         (qb[*qb_pos].msg_number > qb[i].msg_number))
+                  {
+                     i++;
+                  }
+                  if (i > (*qb_pos + 1))
+                  {
+                     size_t           move_size;
+                     struct queue_buf tmp_qb;
+
+                     (void)memcpy(&tmp_qb, &qb[*qb_pos],
+                                  sizeof(struct queue_buf));
+                     i--;
+                     move_size = (i - *qb_pos) * sizeof(struct queue_buf);
+                     (void)memmove(&qb[*qb_pos], &qb[*qb_pos + 1], move_size);
+                     (void)memcpy(&qb[i], &tmp_qb, sizeof(struct queue_buf));
+                     *qb_pos = i;
+                  }
+               }
                break;
 
             case STAT_LOCAL_ERROR      : /* */
@@ -2051,9 +2092,9 @@ zombie_check(struct connection *p_con, int qb_pos, int options)
        * with their current files if no transfer was successful
        * and we did a reread DIR_CONFIG.
        */
-      if (qb[qb_pos].msg_name[0] != '\0')
+      if (qb[*qb_pos].msg_name[0] != '\0')
       {
-         mdb[qb[qb_pos].pos].last_transfer_time = now;
+         mdb[qb[*qb_pos].pos].last_transfer_time = now;
       }
    } /* if (waitpid(p_con->pid, &status, 0) == p_con->pid) */
    else
@@ -2578,7 +2619,7 @@ fd_exit(void)
          qb_pos_pid(connection[i].pid, &qb_pos);
          if (qb_pos != -1)
          {
-            if ((faulty = zombie_check(&connection[i], qb_pos, WNOHANG)) == YES)
+            if ((faulty = zombie_check(&connection[i], &qb_pos, WNOHANG)) == YES)
             {
                qb[qb_pos].pid = PENDING;
                if (qb[qb_pos].msg_name[0] != '\0')
@@ -2636,7 +2677,7 @@ fd_exit(void)
             qb_pos_pid(connection[i].pid, &qb_pos);
             if (qb_pos != -1)
             {
-               if ((faulty = zombie_check(&connection[i], qb_pos, 0)) == YES)
+               if ((faulty = zombie_check(&connection[i], &qb_pos, 0)) == YES)
                {
                   qb[qb_pos].pid = PENDING;
                   if (qb[qb_pos].msg_name[0] != '\0')

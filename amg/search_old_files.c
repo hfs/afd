@@ -139,13 +139,16 @@ search_old_files(void)
                if (diff_time > fra[de[i].fra_pos].old_file_time)
                {
                   if ((fra[de[i].fra_pos].delete_unknown_files == YES) ||
-                      (p_dir->d_name[0] == '.') ||
-                      (stat_buf.st_size == 0))
+                      (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
                   {
+#ifdef _WORKING_UNLINK
+                     if (unlink(tmp_dir) == -1)
+#else
                      if (remove(tmp_dir) == -1)
+#endif /* _WORKING_UNLINK */
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to remove %s : %s (%s %d)\n",
+                                  "Failed to delete %s : %s (%s %d)\n",
                                   tmp_dir, strerror(errno), __FILE__, __LINE__);
                      }
                      else
@@ -156,8 +159,7 @@ search_old_files(void)
                         (void)strcpy(dl.file_name, p_dir->d_name);
                         (void)sprintf(dl.host_name, "%-*s %x",
                                       MAX_HOSTNAME_LENGTH,
-                                      "-",
-                                      AGE_INPUT);
+                                      "-", AGE_INPUT);
                         *dl.file_size = stat_buf.st_size;
                         *dl.job_number = de[i].dir_no;
                         *dl.file_name_length = strlen(p_dir->d_name);
@@ -246,10 +248,14 @@ search_old_files(void)
                                 {
                                    if (fra[de[i].fra_pos].delete_unknown_files == YES)
                                    {
+#ifdef _WORKING_UNLINK
+                                      if (unlink(tmp_dir) == -1)
+#else
                                       if (remove(tmp_dir) == -1)
+#endif /* _WORKING_UNLINK */
                                       {
                                          (void)rec(sys_log_fd, WARN_SIGN,
-                                                   "Failed to remove %s : %s (%s %d)\n",
+                                                   "Failed to delete %s : %s (%s %d)\n",
                                                    tmp_dir, strerror(errno), __FILE__, __LINE__);
                                       }
                                       else

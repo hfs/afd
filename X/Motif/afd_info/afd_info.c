@@ -69,12 +69,8 @@ DESCR__E_M1
 #include <Xm/ScrollBar.h>
 #include <Xm/RowColumn.h>
 #include <Xm/Form.h>
-#ifdef _WITH_XPM
-#include <X11/xpm.h>
-#include "main_xpm.h"
-#include "secondary_xpm.h"
-#endif
 #include <errno.h>
+#include "active_passive.h"
 #include "afd_info.h"
 #include "version.h"
 
@@ -88,19 +84,18 @@ Widget                     protocol_label,
                            text_wr[NO_OF_FSA_ROWS],
                            label_l_widget[NO_OF_FSA_ROWS],
                            label_r_widget[NO_OF_FSA_ROWS],
-                           info_w;
-#ifdef _WITH_XPM
-int                        pix_stat;    /* Return status of pixmap creation */
-Widget                     pll_widget,  /* Pixmap label left  */
+                           info_w,
+                           pll_widget,  /* Pixmap label left  */
                            plr_widget;  /* Pixmap label right */
-Pixmap                     main_pixmap,
-                           secondary_pixmap;
-#endif /* _WITH_XPM */
+Pixmap                     active_pixmap,
+                           passive_pixmap;
+Colormap                   default_cmap;
 int                        sys_log_fd = STDERR_FILENO,
                            no_of_hosts,
                            fsa_id,
                            fsa_fd = -1,
                            host_position;
+unsigned long              color_pool[COLOR_POOL_SIZE];
 #ifndef _NO_MMAP
 off_t                      fsa_size;
 #endif
@@ -171,15 +166,12 @@ main(int argc, char *argv[])
                    h_separator1,
                    h_separator2,
                    v_separator;
+   Pixel           default_background;
    XmFontListEntry entry;
    XmFontList      fontlist;
    Arg             args[MAXARGS];
    Cardinal        argcount;
    struct stat     stat_buf;
-#ifdef _WITH_XPM
-   Pixmap          mask;
-   XpmAttributes   attributes;
-#endif
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -203,55 +195,56 @@ main(int argc, char *argv[])
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
 
-#ifdef _WITH_XPM
    /* Prepare pixmaps */
    XtVaGetValues(form,
-                 XmNdepth,    &attributes.depth,
-                 XmNcolormap, &attributes.colormap,
+                 XmNbackground, &default_background,
+                 XmNcolormap, &default_cmap,
                  NULL);
-   attributes.visual = DefaultVisual(display, DefaultScreen(display));
-   attributes.valuemask = XpmDepth | XpmColormap | XpmVisual;
-   if ((pix_stat = XpmCreatePixmapFromData(display,
-                                       DefaultRootWindow(display),
-                                       main_xpm, &main_pixmap, &mask,
-                                       &attributes)) == XpmSuccess)
+   init_color(display);
+   ximage.width = ACTIVE_PASSIVE_WIDTH;
+   ximage.height = ACTIVE_PASSIVE_HEIGHT;
+   ximage.data = active_passive_bits;
+   ximage.xoffset = 0;
+   ximage.format = XYBitmap;
+   ximage.byte_order = MSBFirst;
+   ximage.bitmap_pad = 8;
+   ximage.bitmap_bit_order = LSBFirst;
+   ximage.bitmap_unit = 8;
+   ximage.depth = 1;
+   ximage.bytes_per_line = 2;
+   ximage.obdata = NULL;
+   if (XmInstallImage(&ximage, "active") == True)
    {
-      pix_stat = XpmCreatePixmapFromData(display,
-                                       DefaultRootWindow(display),
-                                       secondary_xpm, &secondary_pixmap, &mask,
-                                       &attributes);
+      active_pixmap = XmGetPixmap(XtScreen(toplevel),
+                                         "active",
+                                         color_pool[NORMAL_STATUS], /* Foreground */
+                                         default_background);/* Background */
    }
-   if (mask)
+   if (XmInstallImage(&ximage, "passive") == True)
    {
-      XFreePixmap(display, mask);
+      passive_pixmap = XmGetPixmap(XtScreen(toplevel),
+                                          "passive",
+                                          color_pool[BUTTON_BACKGROUND], /* Foreground */
+                                          default_background);/* Background */
    }
 
    /* Create host label for host name */
-   if (pix_stat == XpmSuccess)
+   if ((fsa[host_position].host_toggle_str[0] != '\0') &&
+       (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
+       (passive_pixmap != XmUNSPECIFIED_PIXMAP))
    {
       (void)sprintf(label_l[0], "%*c%-*s :",
                     3, ' ', (FSA_INFO_TEXT_WIDTH_L - 3), host_alias_1);
-      if (fsa[host_position].toggle_pos == 0)
-      {
-         (void)sprintf(label_r[0], "%-*s :",
-                        FSA_INFO_TEXT_WIDTH_R, host_alias_2);
-      }
-      else
-      {
-         (void)sprintf(label_r[0], "%*c%-*s :",
-                       3, ' ', (FSA_INFO_TEXT_WIDTH_R - 1), host_alias_2);
-      }
+      (void)sprintf(label_r[0], "%*c%-*s :",
+                    3, ' ', (FSA_INFO_TEXT_WIDTH_R - 1), host_alias_2);
    }
    else
    {
-#endif /* _WITH_XPM */
       (void)sprintf(label_l[0], "%-*s :",
                     FSA_INFO_TEXT_WIDTH_L, host_alias_1);
       (void)sprintf(label_r[0], "%-*s :",
                     FSA_INFO_TEXT_WIDTH_R + 2, host_alias_2);
-#ifdef _WITH_XPM
    }
-#endif
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,  XmATTACH_FORM);
@@ -279,8 +272,9 @@ main(int argc, char *argv[])
                                   rowcol1,
                                   XmNfractionBase, 41,
                                   NULL);
-#ifdef _WITH_XPM
-      if ((i == 0) && (pix_stat == XpmSuccess))
+      if ((i == 0) && (fsa[host_position].host_toggle_str[0] != '\0') &&
+          (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
+          (passive_pixmap != XmUNSPECIFIED_PIXMAP))
       {
          if (fsa[host_position].host_toggle == HOST_ONE)
          {
@@ -292,7 +286,7 @@ main(int argc, char *argv[])
                                     XmNleftAttachment,   XmATTACH_POSITION,
                                     XmNleftPosition,     1,
                                     XmNlabelType,        XmPIXMAP,
-                                    XmNlabelPixmap,      main_pixmap,
+                                    XmNlabelPixmap,      active_pixmap,
                                     NULL);
          }
          else
@@ -305,11 +299,10 @@ main(int argc, char *argv[])
                                     XmNleftAttachment,   XmATTACH_POSITION,
                                     XmNleftPosition,     1,
                                     XmNlabelType,        XmPIXMAP,
-                                    XmNlabelPixmap,      secondary_pixmap,
+                                    XmNlabelPixmap,      passive_pixmap,
                                     NULL);
          }
       }
-#endif /* _WITH_XPM */
       label_l_widget[i] = XtVaCreateManagedWidget(label_l[i], xmLabelGadgetClass, fsa_text,
                               XmNfontList,         fontlist,
                               XmNtopAttachment,    XmATTACH_POSITION,
@@ -346,7 +339,21 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    prev.host_file_time = stat_buf.st_mtime;
-   get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+   if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT
+       (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+       (fsa[host_position].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+       (fsa[host_position].protocol & SMTP_FLAG))
+   {
+      get_ip_no(fsa[host_position].real_hostname[0], tmp_str_line);
+   }
+   else
+   {
+      *tmp_str_line = '\0';
+   }
    (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
    XmTextSetString(text_wl[0], str_line);
    (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, prev.real_hostname[0]);
@@ -410,8 +417,9 @@ main(int argc, char *argv[])
                                   rowcol2,
                                   XmNfractionBase, 41,
                                   NULL);
-#ifdef _WITH_XPM
-      if ((i == 0) && (pix_stat == XpmSuccess) &&
+      if ((i == 0) && (fsa[host_position].host_toggle_str[0] != '\0') &&
+          (active_pixmap != XmUNSPECIFIED_PIXMAP) &&
+          (passive_pixmap != XmUNSPECIFIED_PIXMAP) &&
           (fsa[host_position].toggle_pos != 0))
       {
          if (fsa[host_position].host_toggle == HOST_ONE)
@@ -424,7 +432,7 @@ main(int argc, char *argv[])
                                     XmNleftAttachment,   XmATTACH_POSITION,
                                     XmNleftPosition,     1,
                                     XmNlabelType,        XmPIXMAP,
-                                    XmNlabelPixmap,      secondary_pixmap,
+                                    XmNlabelPixmap,      passive_pixmap,
                                     NULL);
          }
          else
@@ -437,11 +445,10 @@ main(int argc, char *argv[])
                                     XmNleftAttachment,   XmATTACH_POSITION,
                                     XmNleftPosition,     1,
                                     XmNlabelType,        XmPIXMAP,
-                                    XmNlabelPixmap,      main_pixmap,
+                                    XmNlabelPixmap,      active_pixmap,
                                     NULL);
          }
       }
-#endif /* _WITH_XPM */
       label_r_widget[i] = XtVaCreateManagedWidget(label_r[i], xmLabelGadgetClass, fsa_text,
                               XmNfontList,         fontlist,
                               XmNtopAttachment,    XmATTACH_POSITION,
@@ -473,7 +480,21 @@ main(int argc, char *argv[])
    /* Fill up the text widget with some values */
    if (prev.toggle_pos != 0)
    {
-      get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
+      if ((fsa[host_position].protocol & FTP_FLAG) ||
+#ifdef _WITH_MAP_SUPPORT
+          (fsa[host_position].protocol & MAP_FLAG) ||
+#endif /* _WITH_MAP_SUPPORT */
+#ifdef _WITH_WMO_SUPPORT
+          (fsa[host_position].protocol & WMO_FLAG) ||
+#endif /* _WITH_WMO_SUPPORT */
+          (fsa[host_position].protocol & SMTP_FLAG))
+      {
+         get_ip_no(fsa[host_position].real_hostname[1], tmp_str_line);
+      }
+      else
+      {
+         *tmp_str_line = '\0';
+      }
       (void)sprintf(str_line, "%*s", AFD_INFO_LENGTH, tmp_str_line);
       XmTextSetString(text_wr[0], str_line);
    }
@@ -724,9 +745,7 @@ init_afd_info(int *argc, char *argv[])
    prev.total_errors = fsa[host_position].total_errors;
    prev.no_of_connections = fsa[host_position].connections;
    prev.last_connection = fsa[host_position].last_connection;
-#ifdef _WITH_XPM
    prev.host_toggle = fsa[host_position].host_toggle;
-#endif
    prev.toggle_pos = fsa[host_position].toggle_pos;
    prev.protocol = fsa[host_position].protocol;
 

@@ -146,10 +146,14 @@ save_files(char                   *src_path,
                       * A file with the same name already exists. Remove
                       * this file and try to link again.
                       */
+#ifdef _WORKING_UNLINK
+                     if (unlink(dest_path) == -1)
+#else
                      if (remove(dest_path) == -1)
+#endif /* _WORKING_UNLINK */
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to remove() file %s : %s (%s %d)\n",
+                                  "Failed to delete file %s : %s (%s %d)\n",
                                   dest_path, strerror(errno), __FILE__, __LINE__);
                         errno = 0;
                      }

@@ -345,7 +345,8 @@ handle_options(int   no_of_options,
             {
                insert_list[ii] = &tmp_option[k];
 
-               if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+               if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                                  &p_file_name)) > 0)
                {
                   int  length,
                        length_start,
@@ -382,15 +383,13 @@ handle_options(int   no_of_options,
                         if (mask_file_name == YES)
                         {
                            length += sprintf(command_str + length_start + length,
-                                             "%s\"%s\"",
-                                             p_file_name,
+                                             "%s\"%s\"", p_file_name,
                                              insert_list[k - 1] + 2);
                         }
                         else
                         {
                            length += sprintf(command_str + length_start + length,
-                                             "%s%s",
-                                             p_file_name,
+                                             "%s%s", p_file_name,
                                              insert_list[k - 1] + 2);
                         }
                         *insert_list[k] = tmp_char;
@@ -456,7 +455,8 @@ handle_options(int   no_of_options,
       {
          int  file_counter = 0;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             for (j = 0; j < file_counter; j++)
             {
@@ -516,7 +516,8 @@ handle_options(int   no_of_options,
       {
          int  file_counter = 0;
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             for (j = 0; j < file_counter; j++)
             {
@@ -590,7 +591,8 @@ handle_options(int   no_of_options,
          ptr = fullname + strlen(fullname);
          *ptr++ = '/';
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             for (j = 0; j < file_counter; j++)
             {
@@ -635,7 +637,8 @@ handle_options(int   no_of_options,
          ptr = fullname + strlen(fullname);
          *ptr++ = '/';
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             for (j = 0; j < file_counter; j++)
             {
@@ -670,7 +673,8 @@ handle_options(int   no_of_options,
          int  file_counter = 0;
 
          *file_size = 0;
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             int  length,
                  ret;
@@ -689,7 +693,8 @@ handle_options(int   no_of_options,
                {
                   char *wmo_buffer = NULL;
 
-                  if ((ret = afw2wmo(buffer, &length, &wmo_buffer, p_file_name)) < 0)
+                  if ((ret = afw2wmo(buffer, &length, &wmo_buffer,
+                                     p_file_name)) < 0)
                   {
                      char error_name[MAX_PATH_LENGTH];
 
@@ -717,10 +722,14 @@ handle_options(int   no_of_options,
                            receive_log(ERROR_SIGN, __FILE__, __LINE__,
                                        "Failed to open() %s : %s",
                                        fullname, strerror(errno));
+#ifdef _WORKING_UNLINK
+                           if ((unlink(fullname) == -1) && (errno != ENOENT))
+#else
                            if ((remove(fullname) == -1) && (errno != ENOENT))
+#endif /* _WORKING_UNLINK */
                            {
                               receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                                          "Failed to remove() %s : %s",
+                                          "Failed to delete %s : %s",
                                           p_file_name, strerror(errno));
                            }
                            else
@@ -735,10 +744,14 @@ handle_options(int   no_of_options,
                               receive_log(ERROR_SIGN, __FILE__, __LINE__,
                                           "Failed to write() to %s : %s",
                                           p_file_name, strerror(errno));
+#ifdef _WORKING_UNLINK
+                              if ((unlink(fullname) == -1) && (errno != ENOENT))
+#else
                               if ((remove(fullname) == -1) && (errno != ENOENT))
+#endif /* _WORKING_UNLINK */
                               {
                                  receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                                             "Failed to remove() %s : %s",
+                                             "Failed to delete %s : %s",
                                              p_file_name, strerror(errno));
                               }
                               else
@@ -800,7 +813,8 @@ handle_options(int   no_of_options,
          int  file_counter = 0;
 
          *file_size = 0;
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             /*
              * Hopefully we have read all file names! Now it is save
@@ -811,7 +825,11 @@ handle_options(int   no_of_options,
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                if ((size = tiff2gts(file_path, p_file_name)) < 0)
                {
+#ifdef _WORKING_UNLINK
+                  if (unlink(fullname) == -1)
+#else
                   if (remove(fullname) == -1)
+#endif /* _WORKING_UNLINK */
                   {
                      if (errno != ENOENT)
                      {
@@ -846,7 +864,8 @@ handle_options(int   no_of_options,
          int  file_counter = 0;
 
          *file_size = 0;
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             /*
              * Hopefully we have read all file names! Now it is save
@@ -857,7 +876,11 @@ handle_options(int   no_of_options,
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                if ((size = gts2tiff(file_path, p_file_name)) < 0)
                {
+#ifdef _WORKING_UNLINK
+                  if (unlink(fullname) == -1)
+#else
                   if (remove(fullname) == -1)
+#endif /* _WORKING_UNLINK */
                   {
                      if (errno != ENOENT)
                      {
@@ -938,7 +961,8 @@ handle_options(int   no_of_options,
                  continue;
               }
 
-         if ((file_counter = get_file_names(file_path, &file_name_buffer, &p_file_name)) > 0)
+         if ((file_counter = get_file_names(file_path, &file_name_buffer,
+                                            &p_file_name)) > 0)
          {
             /*
              * Hopefully we have read all file names! Now it is save
@@ -955,12 +979,16 @@ handle_options(int   no_of_options,
                                  "An error occurred when extracting bulletins from file %s, deleting file!",
                                  fullname);
 
+#ifdef _WORKING_UNLINK
+                     if (unlink(fullname) == -1)
+#else
                      if (remove(fullname) == -1)
+#endif /* _WORKING_UNLINK */
                      {
                         if (errno != ENOENT)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__,
-                                       "Failed to remove() file %s : %s",
+                                       "Failed to delete file %s : %s",
                                        fullname, strerror(errno));
                         }
                      }
@@ -987,18 +1015,23 @@ handle_options(int   no_of_options,
                for (j = 0; j < file_counter; j++)
                {
                   (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
-                  if (extract(p_file_name, file_path, extract_typ, files_to_send, file_size) < 0)
+                  if (extract(p_file_name, file_path, extract_typ,
+                              files_to_send, file_size) < 0)
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__,
                                  "An error occurred when extracting bulletins from file %s, deleting file!",
                                  fullname);
 
+#ifdef _WORKING_UNLINK
+                     if (unlink(fullname) == -1)
+#else
                      if (remove(fullname) == -1)
+#endif /* _WORKING_UNLINK */
                      {
                         if (errno != ENOENT)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__,
-                                       "Failed to remove() file %s : %s",
+                                       "Failed to delete file %s : %s",
                                        fullname, strerror(errno));
                         }
                      }
@@ -1209,8 +1242,6 @@ get_file_names(char *file_path, char **file_name_buffer, char **p_file_name)
    int           file_counter = 0,
                  new_size,
                  offset;
-   char          fullname[MAX_PATH_LENGTH];
-   struct stat   stat_buf;
    DIR           *dp;
    struct dirent *p_dir;
 
@@ -1232,47 +1263,34 @@ get_file_names(char *file_path, char **file_name_buffer, char **p_file_name)
          continue;
       }
 
-      (void)sprintf(fullname, "%s/%s", file_path, p_dir->d_name);
-      if (stat(fullname, &stat_buf) == -1)
+      /*
+       * Since on some implementations we might take a file
+       * we just have created with the bin_file_chopper(), it
+       * is better to count all the files and remember their
+       * names, before doing anything with them.
+       */
+      if ((file_counter % 10) == 0)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Can't access file %s : %s (%s %d)\n",
-                   fullname, strerror(errno), __FILE__, __LINE__);
-         continue;
-      }
+         /* Calculate new size of file name buffer */
+         new_size = ((file_counter / 10) + 1) * 10 * MAX_FILENAME_LENGTH;
 
-      /* Sure it is a normal file? */
-      if (S_ISREG(stat_buf.st_mode))
-      {
-         /*
-          * Since on some implementations we might take a file
-          * we just have created with the bin_file_chopper(), it
-          * is better to count all the files and remember their
-          * names, before doing anything with them.
-          */
-         if ((file_counter % 10) == 0)
+         /* Increase the space for the file name buffer */
+         offset = *p_file_name - *file_name_buffer;
+         if ((*file_name_buffer = realloc(*file_name_buffer, new_size)) == NULL)
          {
-            /* Calculate new size of file name buffer */
-            new_size = ((file_counter / 10) + 1) * 10 * MAX_FILENAME_LENGTH;
-
-            /* Increase the space for the file name buffer */
-            offset = *p_file_name - *file_name_buffer;
-            if ((*file_name_buffer = realloc(*file_name_buffer, new_size)) == NULL)
-            {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Could not realloc() memory : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-
-            /* After realloc, don't forget to position */
-            /* pointer correctly.                      */
-            *p_file_name = *file_name_buffer + offset;
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Could not realloc() memory : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+            exit(INCORRECT);
          }
-         (void)strcpy(*p_file_name, p_dir->d_name);
-         *p_file_name += MAX_FILENAME_LENGTH;
-         file_counter++;
+
+         /* After realloc, don't forget to position */
+         /* pointer correctly.                      */
+         *p_file_name = *file_name_buffer + offset;
       }
+      (void)strcpy(*p_file_name, p_dir->d_name);
+      *p_file_name += MAX_FILENAME_LENGTH;
+      file_counter++;
    }
 
    if (closedir(dp) == -1)

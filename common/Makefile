@@ -64,6 +64,7 @@ OBJS    = attach_afd_status.o\
           readn.o\
           rec.o\
           rec_rmdir.o\
+          remove_dir.o\
           reshuffel_log_files.o\
           rlock_region.o\
           send_cmd.o\

@@ -46,9 +46,7 @@ struct prev_values
           unsigned int  no_of_connections;
           time_t        last_connection;
           time_t        host_file_time;
-#ifdef _WITH_XPM
           char          host_toggle;
-#endif
           char          toggle_pos;
           unsigned int  protocol;
        };

@@ -23,7 +23,7 @@ all : $(PROGS)
 
 $(OBJS) : $(HEADERS)
 
-afd_info.o : main_xpm.h secondary_xpm.h
+afd_info.o : active_passive.h
 
 $(AFDIPROG) : $(AFDIOBJS) $(LIB)
 	rm -f $@

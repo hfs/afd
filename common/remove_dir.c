@@ -1,7 +1,6 @@
 /*
- *  rec_rmdir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
- *                            Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  remove_dir.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,14 +22,15 @@
 DESCR__S_M3
 /*
  ** NAME
- **   rec_rmdir - deletes a directory recursive
+ **   remove_dir - removes one directory with all its files
  **
  ** SYNOPSIS
- **   int rec_rmdir(char *dirname)
+ **   int remove_dir(char *dirname)
  **
  ** DESCRIPTION
- **   Deletes 'dirname' recursive. This means all files and
- **   directories in 'dirname' are removed.
+ **   Deletes the directory 'dirname' with all its files. If there
+ **   are directories within this directory the function will fail.
+ **   For this purpose rather use the function rec_rmdir().
  **
  ** RETURN VALUES
  **   Returns INCORRECT when it fails to delete the directory.
@@ -40,60 +40,30 @@ DESCR__S_M3
  **   H.Kiehl
  **
  ** HISTORY
- **   15.02.1996 H.Kiehl Created
- **   24.09.2000 H.Kiehl Use rmdir() instead of unlink() for removing
- **                      directories. Causes problems with Solaris.
+ **   10.12.2000 H.Kiehl Created
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>              /* remove()                              */
 #include <string.h>             /* strcpy(), strlen()                    */
-#include <unistd.h>             /* unlink(), rmdir()                     */
+#include <unistd.h>             /* rmdir()                               */
 #include <sys/types.h>
-#include <sys/stat.h>           /* stat(), S_ISDIR()                     */
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */
 #include <errno.h>
 
-extern int  sys_log_fd;
+/* External global variables. */
+extern int sys_log_fd;
 
 
-/*############################ rec_rmdir() ##############################*/
+/*############################# remove_dir() ############################*/
 int
-rec_rmdir(char *dirname)
+remove_dir(char *dirname)
 {
    char          *ptr;
-   struct stat   stat_buf;
    struct dirent *dirp;
    DIR           *dp;
-   int           ret = 0;
 
-   if (stat(dirname, &stat_buf) == -1)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to stat() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
-      return(INCORRECT);
-   }
-
-   /* Make sure it is NOT a directory */
-   if (S_ISDIR(stat_buf.st_mode) == 0)
-   {
-#ifdef _WORKING_UNLINK
-      if (unlink(dirname) < 0)
-#else
-      if (remove(dirname) < 0)
-#endif /* _WORKING_UNLINK */
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to delete %s : %s (%s %d)\n",
-                   dirname, strerror(errno), __FILE__, __LINE__);
-         return(INCORRECT);
-      }
-      return(0);
-   }
-
-   /* It's a directory */
    ptr = dirname + strlen(dirname);
    *ptr++ = '/';
    *ptr = '\0';
@@ -114,22 +84,36 @@ rec_rmdir(char *dirname)
          continue;
       }
       (void)strcpy(ptr, dirp->d_name);
-      if ((ret = rec_rmdir(dirname)) != 0)
+#ifdef _WORKING_UNLINK
+      if (unlink(dirname) == -1)
+#else
+      if (remove(dirname) == -1)
+#endif /* _WORKING_UNLINK */
       {
-         break;
+         if (errno == ENOENT)
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Failed to delete %s : %s (%s %d)\n",
+                      dirname, strerror(errno), __FILE__, __LINE__);
+         }
+         else
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "Failed to delete %s : %s (%s %d)\n",
+                      dirname, strerror(errno), __FILE__, __LINE__);
+            (void)closedir(dp);
+            return(INCORRECT);
+         }
       }
    }
    ptr[-1] = 0;
-   if (ret == 0)
+   if (rmdir(dirname) == -1)
    {
-      if (rmdir(dirname) == -1)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to rmdir() %s : %s (%s %d)\n",
-                   dirname, strerror(errno), __FILE__, __LINE__);
-         (void)closedir(dp);
-         return(INCORRECT);
-      }
+      (void)rec(sys_log_fd, ERROR_SIGN,
+                "Failed to rmdir() %s : %s (%s %d)\n",
+                dirname, strerror(errno), __FILE__, __LINE__);
+      (void)closedir(dp);
+      return(INCORRECT);
    }
    if (closedir(dp) == -1)
    {
@@ -139,5 +123,5 @@ rec_rmdir(char *dirname)
       return(INCORRECT);
    }
 
-   return(ret);
+   return(SUCCESS);
 }

@@ -80,12 +80,15 @@
 #define USER_ERROR                 2
 #define PASSWORD_ERROR             3
 #define TYPE_ERROR                 4
+#define LIST_ERROR                 5
 #define OPEN_REMOTE_ERROR          10
 #define WRITE_REMOTE_ERROR         11
 #define CLOSE_REMOTE_ERROR         12
 #define MOVE_REMOTE_ERROR          13
 #define CHDIR_ERROR                14
-#define FTP_TIMEOUT_ERROR          20
+#define TIMEOUT_ERROR              20
+#define READ_REMOTE_ERROR          22
+#define SIZE_ERROR                 23
 #define OPEN_LOCAL_ERROR           30
 #define READ_LOCAL_ERROR           31
 #define STAT_LOCAL_ERROR           32
@@ -155,8 +158,19 @@ extern int  rec(int, char *, char *, ...);
 /* Error output in german */
 /* #define _GERMAN */
 
-#define DEFAULT_AFD_USER           "anonymous"
-#define DEFAULT_AFD_PASSWORD       "afd@someplace"
+#define DEFAULT_AFD_USER     "anonymous"
+#define DEFAULT_AFD_PASSWORD "afd@someplace"
+
+#define TRANSFER_MODE        1
+#define RETRIEVE_MODE        2
+#define TEST_MODE            3
+
+/* Structure holding all filenames that are to be retrieved. */
+struct filename_list
+       {            
+          char  file_name[MAX_FILENAME_LENGTH];
+          off_t size;
+       };
 
 /* Structure that holds all data for one ftp job */
 struct data
@@ -168,6 +182,8 @@ struct data
 #endif
           int          blocksize;        /* FTP transfer block size.       */
           int          no_of_files;      /* The number of files to be send.*/
+          int          dummy_size;       /* File size of files to be       */
+                                         /* transfered in test mode.       */
           long         transfer_timeout; /* When to timeout the            */
                                          /* transmitting job.              */
           char         **filename;       /* Pointer to array that holds    */
@@ -188,8 +204,19 @@ struct data
           char         ftp_mode;         /* How the ftp data mode is       */
                                          /* initiated, either active or    */
                                          /* passive. Default active.       */
-          char         retrieve_mode;    /* Retrieve the files instead of  */
-                                         /* sending them to the given host.*/
+          char         aftp_mode;        /* In which mode aftp is to be    */
+                                         /* run. Currently three modes     */
+                                         /* have been implemented:         */
+                                         /*  transfer - files are being    */
+                                         /*             transfered to      */
+                                         /*             another host (push)*/
+                                         /*  retrieve - files are being    */
+                                         /*             fetched from       */
+                                         /*             another host (pull)*/
+                                         /*  test     - aftp itself        */
+                                         /*             creates the files  */
+                                         /*             to be send to      */
+                                         /*             another host.      */
           char         lock;             /* The type of lock on the remote */
                                          /* site. Their are so far two     */
                                          /* possibilities:                 */
