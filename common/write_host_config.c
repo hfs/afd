@@ -181,6 +181,8 @@ extern int    sys_log_fd;
 #                         that can be set):\n\
 #                         11 (1024)- FTP passive mode\n\
 #                         12 (2048)- Set FTP idle time to transfer timeout\n\
+#                         13 (4096)- Send STAT command to keep control\n\
+#                                    connection alive.\n\
 #                         DEFAULT: 0\n\
 #\n\
 # Example: idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:0:0:1:0:0\n\n"

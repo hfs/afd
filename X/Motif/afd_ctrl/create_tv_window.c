@@ -1,6 +1,6 @@
 /*
  *  create_tv_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ create_tv_window(void)
    Arg             args[MAXARGS];
    Cardinal        argcount;
 
-   transviewshell = XtVaCreatePopupShell("View Transfer",
+   transviewshell = XtVaCreatePopupShell("Job Details",
                                          topLevelShellWidgetClass,
                                          appshell, NULL);
 

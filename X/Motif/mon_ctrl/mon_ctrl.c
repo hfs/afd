@@ -112,7 +112,7 @@ Widget                  mw[5],       /* Main menu */
                         sw[5],       /* Setup menu */
                         hw[3],       /* Help menu */
                         fw[13],      /* Select font */
-                        rw[13],      /* Select rows */
+                        rw[14],      /* Select rows */
                         hlw[NO_OF_HISTORY_LOGS],
                         lw[4],       /* AFD load */
                         lsw[3],      /* Select line style */
@@ -1501,7 +1501,7 @@ create_pullright_row(Widget pullright_row)
    char     *row[NO_OF_ROWS] =
             {
                ROW_0, ROW_1, ROW_2, ROW_3, ROW_4, ROW_5, ROW_6,
-               ROW_7, ROW_8, ROW_9, ROW_10, ROW_11, ROW_12
+               ROW_7, ROW_8, ROW_9, ROW_10, ROW_11, ROW_12, ROW_13
             };
    XmString x_string;
    Arg      args[MAXARGS];

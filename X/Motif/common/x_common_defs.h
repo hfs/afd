@@ -102,7 +102,8 @@
 #define ROW_10_W                        10
 #define ROW_11_W                        11
 #define ROW_12_W                        12
-#define NO_OF_ROWS                      13
+#define ROW_13_W                        13
+#define NO_OF_ROWS                      14
 
 /* Definitions for the Line Style pulldown widgets */
 #define STYLE_0_W                       0
@@ -179,7 +180,8 @@
 #define ROW_9                           "30"
 #define ROW_10                          "40"
 #define ROW_11                          "50"
-#define ROW_12                          "70"
+#define ROW_12                          "60"
+#define ROW_13                          "70"
 
 /* All colors for status, background, foreground, etc */
 #define DEFAULT_BG_COLOR                "LightBlue1"

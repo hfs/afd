@@ -341,7 +341,7 @@
              no directory was set. Fixed.
            - New directory option EC=<integer char value> to tell AMG to
              wait until the files end character is the integer value.
-06.06.1999 - afd_mon collects all host alias names and real hostnames
+06.06.1999 - afd_mon collects all host alias names and real host names
              that are being served by the AFD's being monitored.
 12.06.1999 - Option to change owner of copied/moved file.
 29.06.1999 - Forgot to close a file descriptor in create_fsa() and
@@ -370,7 +370,7 @@
            - When stopping AMG or FD open another dialog to ask user
              if he really wants to do so.
 12.09.1999 - Added new option subject, to specify the subject for mails.
-20.09.1999 - show_log showed hostnames that where one or more characters
+20.09.1999 - show_log showed host names that where one or more characters
              longer then the one it should show. Fixed.
 21.09.1999 - It's now possible to specify ~username as the first part of
              the directory (username can also be omitted).
@@ -882,9 +882,9 @@
 14.08.2001 - Fixed a memory leak in afd_ctrl dialog.
            - afdcmd forgot to rewrite the HOST_CONFIG file. Fixed.
 20.08.2001 - Forgot to reset no_selected in mon_ctrl dialog.
-21.08.2001 - Don't write any debug infomation during a burst when all
+21.08.2001 - Don't write any debug information during a burst when all
              files have been deleted due to age.
-22.08.2001 - Removed some unneccessary locking from all sf_xxx process.
+22.08.2001 - Removed some unnecessary locking from all sf_xxx process.
            - sf_wmo took the wrong variable to reduce the number of bytes
              still to be send when the file size was zero. Fixed.
            - sf_ftp will now write the mode type (active/passive) used
@@ -898,3 +898,47 @@
            - Function remove_files() now removes any files from restart
              option in the message file when a file is deleted due to age.
 ------------------------> Released: 29.08.2001 <---------------------------
+
+
+---------------------------> Version 1.2.10 <------------------------------
+                            ----------------
+02.09.2001 - Added function ftp_keepalive(). This is used to keep the
+             control connection open on very slow connections that
+             transmit large files. Some firewalls close the control
+             connection if there is no activity for a longer time.
+10.09.2001 - Function get_remote_file_names() sorted the structure
+             retrieve_list wrongly. This could cause gf_ftp to crash. Fixed.
+11.09.2001 - Hostname was not a compound string in afd_info dialog.
+           - Before resending files via the output_log dialog we update
+             the date of the files so that when the age-limit option
+             is set files will not be deleted by sf_xxx.
+17.09.2001 - New parameter (CREATE_SOURCE_DIR_MODE) in AFD_CONFIG file to
+             set the mode of the input directories created by AFD.
+22.09.2001 - Catch fifo buffer overflows in transfer_log and receive_log.
+29.09.2001 - Added one more row to choose from in afd_ctrl and mon_ctrl
+             dialog (from Setup menu).
+	   - Before resending a file via the show_olog dialog check that
+	     we do have the correct permission to update the file. If
+	     not copy the file.
+           - Fixed long standing bug in show_olog where files renamed
+             with the trans_rename option would not be resend. Wonder
+             why no one has noticed this!
+30.09.2001 - Updated SCP1 functions so renaming works.
+01.10.2001 - Dialog view_dc and show_olog did not show the time option
+             if specified for that directory. Fixed.
+09.10.2001 - Added option to add hostname for rename and trans_rename
+             option.
+12.10.2001 - Did not reduce priority of a job if the remote directory
+             is no longer available. Fixed.
+15.10.2001 - Fixed some minor bugs in mon_ctrl dialog.
+18.10.2001 - Process FD failed to reset FSA values when a job is removed
+             because it is no longer in the DIR_CONFIG.
+19.10.2001 - Compiles under HP 10.20 again.
+23.10.2001 - Fixed a rename bug in function change_name().
+26.10.2001 - Remove rotating dash in job_details dialog, when file has
+             been completely transmitted.
+28.10.2001 - Compatibility with lesstif has been improved. However there
+             are still some issues remaining: drag+drop in edit_hc
+             does not work and displaying logs with show_log is still
+             problematic.
+------------------------> Released: 29.10.2001 <---------------------------

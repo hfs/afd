@@ -27,6 +27,8 @@
 #endif
 
 #ifdef _STANDALONE_
+#include <stdio.h>
+
 /* indicators for start and end of module description for man pages */
 #define DESCR__S_M1             /* Start for User Command Man Page. */
 #define DESCR__E_M1             /* End for User Command Man Page.   */
@@ -36,8 +38,13 @@
 /* Ready files for locking on remote site. */
 #define _WITH_READY_FILES
 
+#define AFD_WORD_OFFSET            8
+
+#define FTP_CTRL_KEEP_ALIVE_INTERVAL 1200L
+
 #define NO                         0
 #define YES                        1
+#define NEITHER                    2
 #define ON                         1
 #define OFF                        0
 #define INCORRECT                  -1
@@ -60,6 +67,8 @@
 #define FATAL_SIGN                 "<F>"           /* donated by Paul M. */
 #define DEBUG_SIGN                 "<D>"
 
+#define FILE_MODE                  (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)
+
 /* Some default definitions */
 #define DEFAULT_TRANSFER_TIMEOUT   120L
 #define DEFAULT_TRANSFER_BLOCKSIZE 1024
@@ -73,6 +82,7 @@
 #define MAX_FILENAME_LENGTH        256
 #define MAX_PATH_LENGTH            1024
 #define MAX_LINE_LENGTH            2048
+#define MAX_USER_NAME_LENGTH       80
 
 /* Definitions for different exit status for aftp */
 #define TRANSFER_SUCCESS           0
@@ -93,6 +103,7 @@
 #define READ_LOCAL_ERROR           31
 #define STAT_LOCAL_ERROR           32
 #define ALLOC_ERROR                35
+#define WRITE_LOCAL_ERROR          37
 #define SYNTAX_ERROR               60
 
 /* Runtime array */
@@ -152,7 +163,11 @@
 extern void my_usleep(unsigned long),
             t_hostname(char *, char *),
             trans_log(char *, char *, int, char *, ...);
-extern int  rec(int, char *, char *, ...);
+extern int  get_remote_file_names(off_t *),
+            pmatch(char *, char *),
+            rec(int, char *, char *, ...);
+extern off_t read_file(char *, char **buffer);
+extern char *posi(char *, char *);
 #endif /* _STANDALONE_ */
 
 /* Error output in german */
@@ -204,6 +219,10 @@ struct data
           char         ftp_mode;         /* How the ftp data mode is       */
                                          /* initiated, either active or    */
                                          /* passive. Default active.       */
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+          char         keepalive;        /* Send STAT during transfer to   */
+                                         /* keep control connection alive. */
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
           char         aftp_mode;        /* In which mode aftp is to be    */
                                          /* run. Currently three modes     */
                                          /* have been implemented:         */
@@ -228,6 +247,8 @@ struct data
                                          /*              delete lock file. */
           char         verbose;          /* Flag to set verbose option.    */
           char         remove;           /* Remove file flag.              */
+          char         append;           /* Search for append file (only   */
+                                         /* for retrieving).               */
           signed char  file_size_offset; /* When doing an ls on the remote */
                                          /* site, this is the position     */
                                          /* where to find the size of the  */

@@ -1,6 +1,6 @@
 /*
  *  draw_tv_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -274,7 +274,7 @@ draw_rotating_dash(int pos, int x, int y)
 
    if (jd[pos].priority[0] == '\0')
    {
-      jd[pos].rotate = -1;
+      jd[pos].rotate = -2;
    }
    if (jd[pos].rotate == -1)
    {
@@ -288,10 +288,14 @@ draw_rotating_dash(int pos, int x, int y)
         {
            string[0] = '|';
         }
-        else
+   else if (jd[pos].rotate == 2)
         {
            string[0] = '/';
            jd[pos].rotate = -2;
+        }
+        else
+        {
+           string[0] = ' ';
         }
    string[1] = '\0';
 

@@ -190,8 +190,7 @@ main(int argc, char *argv[])
    /* Create managing widget */
    form = XmCreateForm(toplevel, "form", NULL, 0);
 
-   entry = XmFontListEntryLoad(XtDisplay(form), font_name,
-                               XmFONT_IS_FONT, "TAG1");
+   entry = XmFontListEntryLoad(display, font_name, XmFONT_IS_FONT, "TAG1");
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
 
@@ -216,16 +215,16 @@ main(int argc, char *argv[])
    if (XmInstallImage(&ximage, "active") == True)
    {
       active_pixmap = XmGetPixmap(XtScreen(toplevel),
-                                         "active",
-                                         color_pool[NORMAL_STATUS], /* Foreground */
-                                         default_background);/* Background */
+                                  "active",
+                                  color_pool[NORMAL_STATUS], /* Foreground */
+                                  default_background);/* Background */
    }
    if (XmInstallImage(&ximage, "passive") == True)
    {
       passive_pixmap = XmGetPixmap(XtScreen(toplevel),
-                                          "passive",
-                                          color_pool[BUTTON_BACKGROUND], /* Foreground */
-                                          default_background);/* Background */
+                                   "passive",
+                                   color_pool[BUTTON_BACKGROUND], /* Foreground */
+                                   default_background);/* Background */
    }
 
    /* Create host label for host name */
@@ -278,7 +277,8 @@ main(int argc, char *argv[])
       {
          if (fsa[host_position].host_toggle == HOST_ONE)
          {
-            pll_widget = XtVaCreateManagedWidget("pixmap_label_l", xmLabelGadgetClass, fsa_text,
+            pll_widget = XtVaCreateManagedWidget("pixmap_label_l",
+                                    xmLabelGadgetClass,  fsa_text,
                                     XmNtopAttachment,    XmATTACH_POSITION,
                                     XmNtopPosition,      1,
                                     XmNbottomAttachment, XmATTACH_POSITION,
@@ -291,7 +291,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            pll_widget = XtVaCreateManagedWidget("pixmap_label_l", xmLabelGadgetClass, fsa_text,
+            pll_widget = XtVaCreateManagedWidget("pixmap_label_l",
+                                    xmLabelGadgetClass,  fsa_text,
                                     XmNtopAttachment,    XmATTACH_POSITION,
                                     XmNtopPosition,      1,
                                     XmNbottomAttachment, XmATTACH_POSITION,
@@ -303,7 +304,8 @@ main(int argc, char *argv[])
                                     NULL);
          }
       }
-      label_l_widget[i] = XtVaCreateManagedWidget(label_l[i], xmLabelGadgetClass, fsa_text,
+      label_l_widget[i] = XtVaCreateManagedWidget(label_l[i],
+                              xmLabelGadgetClass,  fsa_text,
                               XmNfontList,         fontlist,
                               XmNtopAttachment,    XmATTACH_POSITION,
                               XmNtopPosition,      1,
@@ -313,7 +315,8 @@ main(int argc, char *argv[])
                               XmNleftPosition,     1,
                               XmNalignment,        XmALIGNMENT_END,
                               NULL);
-      text_wl[i] = XtVaCreateManagedWidget("text_wl", xmTextWidgetClass, fsa_text,
+      text_wl[i] = XtVaCreateManagedWidget("text_wl",
+                                           xmTextWidgetClass,        fsa_text,
                                            XmNfontList,              fontlist,
                                            XmNcolumns,               AFD_INFO_LENGTH,
                                            XmNtraversalOn,           False,
@@ -395,9 +398,7 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
    argcount++;
-   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_WIDGET);
-   argcount++;
-   XtSetArg(args[argcount], XmNbottomWidget,     h_separator1);
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
    argcount++;
    v_separator = XmCreateSeparator(fsa_box, "v_separator", args, argcount);
    XtManageChild(v_separator);

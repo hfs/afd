@@ -1310,7 +1310,11 @@ eval_host_config(int              *hosts_found,
            {
               (*hl)[host_counter].special_flag = (unsigned int)atoi(number);
               if (((*hl)[host_counter].special_flag != 0) &&
-                  ((*hl)[host_counter].special_flag > (SET_IDLE_TIME|FTP_PASSIVE_MODE)) &&
+                  ((*hl)[host_counter].special_flag > (SET_IDLE_TIME |
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                                                       STAT_KEEPALIVE |
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+                                                       FTP_PASSIVE_MODE)) &&
                   ((*hl)[host_counter].special_flag < FTP_PASSIVE_MODE))
               {
                  error_flag = YES;
@@ -1318,7 +1322,11 @@ eval_host_config(int              *hosts_found,
                            "Unknown special flag <%d> for host %s, largest value is %d and smallest %d. (%s %d)\n",
                            (*hl)[host_counter].host_status,
                            (*hl)[host_counter].host_alias,
-                           (SET_IDLE_TIME|FTP_PASSIVE_MODE),
+                           (SET_IDLE_TIME |
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                            STAT_KEEPALIVE |
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+                            FTP_PASSIVE_MODE),
                            FTP_PASSIVE_MODE, __FILE__, __LINE__);
                  (void)rec(sys_log_fd, WARN_SIGN, "Setting it to 0.\n");
                  (*hl)[host_counter].special_flag = 0;

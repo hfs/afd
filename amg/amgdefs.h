@@ -27,6 +27,7 @@
 #define AMG_DIR_RESCAN_TIME_DEF    "AMG_DIR_RESCAN_TIME"
 #define MAX_NO_OF_DIR_CHECKS_DEF   "MAX_NO_OF_DIR_CHECKS"
 #define MAX_PROCESS_PER_DIR_DEF    "MAX_PROCESS_PER_DIR"
+#define CREATE_SOURCE_DIR_MODE_DEF "CREATE_SOURCE_DIR_MODE"
 
 /* Definitions of default values */
 #define DEFAULT_PRIORITY           '9'  /* When priority is not          */

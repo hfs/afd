@@ -70,6 +70,9 @@
 #define AUTO_TOGGLE_CHANGED        16384
 #define FTP_MODE_CHANGED           32768
 #define FTP_SET_IDLE_TIME_CHANGED  65536
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+#define FTP_KEEPALIVE_CHANGED      131072
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
 
 /* Structure holding all changed entries of one host */
 struct changed_entry

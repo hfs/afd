@@ -136,6 +136,7 @@ extern int                 dnb_fd,
                            no_of_hosts;/* The number of remote hosts to  */
                                        /* which files have to be         */
                                        /* transfered.                    */
+extern mode_t              create_source_dir_mode;
 extern struct host_list    *hl;        /* Structure that holds all the   */
                                        /* hosts.                         */
 extern struct dir_name_buf *dnb;
@@ -673,7 +674,7 @@ eval_dir_config(size_t db_size, int *dc)
             for (ii = (dir_counter - 1); ii >= 0; ii--)
             {
                *dir_ptr[ii] = '/';
-               if (mkdir(dir->location, DIR_MODE) == -1)
+               if (mkdir(dir->location, create_source_dir_mode) == -1)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
                             "Failed to create directory %s at line %d (Ignoring this entry) : %s (%s %d)\n",

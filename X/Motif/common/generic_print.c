@@ -336,7 +336,7 @@ print_data(void)
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNleftAttachment,   XmATTACH_WIDGET,
                         XmNleftWidget,       printer_radio_w,
-                        XmNrightAttachment,  XmATTACH_WIDGET,
+                        XmNrightAttachment,  XmATTACH_FORM,
                         XmNrightOffset,      5,
                         XmNbottomAttachment, XmATTACH_FORM,
                         NULL);
@@ -378,7 +378,7 @@ print_data(void)
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNleftAttachment,   XmATTACH_WIDGET,
                         XmNleftWidget,       file_radio_w,
-                        XmNrightAttachment,  XmATTACH_WIDGET,
+                        XmNrightAttachment,  XmATTACH_FORM,
                         XmNrightOffset,      5,
                         XmNbottomAttachment, XmATTACH_FORM,
                         NULL);

@@ -43,6 +43,7 @@ DESCR__S_M1
  **   additionally some protocol specific options can be set:
  **       - FTP active/passive mode
  **       - set FTP idle time
+ **       - send STAT to keep control connection alive (FTP)
  **
  **   In the list widget "Alias Hostname" the user can change the order
  **   of the host names in the afd_ctrl dialog by using drag & drop.
@@ -61,6 +62,8 @@ DESCR__S_M1
  **   21.10.1998 H.Kiehl Added Remove button to remove hosts from the FSA.
  **   04.08.2001 H.Kiehl Added support for active or passive mode and
  **                      FTP idle time.
+ **   11.09.2001 H.Kiehl Added support to send FTP STAT to keep control
+ **                      connection alive.
  **
  */
 DESCR__E_M1
@@ -119,6 +122,10 @@ Widget                     active_mode_w,
                            host_list_w,
                            host_switch_toggle_w,
                            idle_time_w,
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                           ftp_keepalive_w,
+                           keepalive_w,
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                            max_errors_w,
                            mode_label_w,
                            no_source_icon_w,
@@ -998,7 +1005,7 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
    argcount++;
-   box_w = XmCreateForm(form_w, "protocol_specific_box_w", args, argcount);
+   box_w = XmCreateForm(form_w, "protocol_specific1_box_w", args, argcount);
 
    mode_label_w = XtVaCreateManagedWidget("FTP Mode :",
                                 xmLabelGadgetClass,  box_w,
@@ -1042,15 +1049,27 @@ main(int argc, char *argv[])
                  (XtCallbackProc)radio_button,
                  (XtPointer)FTP_PASSIVE_MODE_SEL);
    XtManageChild(ftp_mode_w);
+   XtManageChild(box_w);
 
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,        box_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   argcount++;
+   box_w = XmCreateForm(form_w, "protocol_specific2_box_w", args, argcount);
    ftp_idle_time_w = XtVaCreateWidget("ftp_idle_time_togglebox",
                                 xmRowColumnWidgetClass, box_w,
                                 XmNorientation,      XmHORIZONTAL,
                                 XmNpacking,          XmPACK_TIGHT,
                                 XmNnumColumns,       1,
                                 XmNtopAttachment,    XmATTACH_FORM,
-                                XmNleftAttachment,   XmATTACH_WIDGET,
-                                XmNleftWidget,       ftp_mode_w,
+                                XmNleftAttachment,   XmATTACH_FORM,
                                 XmNbottomAttachment, XmATTACH_FORM,
                                 XmNresizable,        False,
                                 NULL);
@@ -1060,8 +1079,31 @@ main(int argc, char *argv[])
                                 XmNset,                    False,
                                 NULL);
    XtAddCallback(idle_time_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggle_button, NULL);
+                 (XtCallbackProc)toggle_button,
+                 (XtPointer)FTP_SET_IDLE_TIME_CHANGED);
    XtManageChild(ftp_idle_time_w);
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   ftp_keepalive_w = XtVaCreateWidget("ftp_keepalive_togglebox",
+                                xmRowColumnWidgetClass, box_w,
+                                XmNorientation,      XmHORIZONTAL,
+                                XmNpacking,          XmPACK_TIGHT,
+                                XmNnumColumns,       1,
+                                XmNtopAttachment,    XmATTACH_FORM,
+                                XmNleftAttachment,   XmATTACH_WIDGET,
+                                XmNleftWidget,       idle_time_w,
+                                XmNbottomAttachment, XmATTACH_FORM,
+                                XmNresizable,        False,
+                                NULL);
+   keepalive_w = XtVaCreateManagedWidget("Keepalive ",
+                                xmToggleButtonGadgetClass, ftp_keepalive_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    False,
+                                NULL);
+   XtAddCallback(keepalive_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button, 
+                 (XtPointer)FTP_KEEPALIVE_CHANGED);
+   XtManageChild(ftp_keepalive_w);
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
    XtManageChild(box_w);
 
 /*-----------------------------------------------------------------------*/

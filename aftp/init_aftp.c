@@ -1,6 +1,6 @@
 /*
  *  init_aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,8 @@ DESCR__S_M3
  **   30.07.2000 H.Kiehl    Added option -x.
  **   17.10.2000 H.Kiehl    Added support to retrieve files from a
  **                         remote host.
+ **   14.09.2001 H.Kiehl    Added option -k.
+ **   20.09.2001 H.Kiehl    Added option -A.
  **
  */
 DESCR__E_M3
@@ -110,12 +112,16 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    p_db->lock_notation[1] = '\0';
    p_db->transfer_mode    = 'I';
    p_db->ftp_mode         = ACTIVE_MODE;
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   p_db->keepalive        = NO;
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
    p_db->port             = DEFAULT_FTP_PORT;
    (void)strcpy(p_db->user, DEFAULT_AFD_USER);
    (void)strcpy(p_db->password, DEFAULT_AFD_PASSWORD);
    p_db->remove           = NO;
    p_db->transfer_timeout = DEFAULT_TRANSFER_TIMEOUT;
    p_db->verbose          = NO;
+   p_db->append           = NO;
    if (name[0] == 't')
    {
       p_db->no_of_files      = 1;
@@ -132,6 +138,11 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    {
       switch (*(argv[0] + 1))
       {
+         case 'A' : /* Search for file localy for appending. */
+
+            p_db->append = YES;
+            break;
+
          case 'a' : /* Remote file size offset for appending */
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
@@ -246,6 +257,13 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                eval_filename_file(filename_file, p_db);
             }
             break;
+
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+         case 'k' : /* Keep control connection alive. */
+
+            p_db->keepalive = YES;
+            break;
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
 
          case 'h' : /* Remote host name */
 
@@ -656,6 +674,12 @@ usage(void)
    (void)fprintf(stderr, "   abgeholt, sonst (mit %s) werden die Dateien geschickt.\n\n", p_name);
    (void)fprintf(stderr, "  Optionen                             Beschreibung\n");
    (void)fprintf(stderr, "  --version                          - Zeigt aktuelle Version.\n");
+   if (name[0] == 'r')
+   {
+      (void)fprintf(stderr, "  -A                                 - Wenn eine Datei nur teilweise uebertragen\n");
+      (void)fprintf(stderr, "                                       wurde, wird nur der Rest uebertragen und ans\n");
+      (void)fprintf(stderr, "                                       Ende der lokalen Datei angehaengt.\n");
+   }
    if ((name[0] != 'r') && (name[0] != 't'))
    {
       (void)fprintf(stderr, "  -a <Spaltennummer>                 - Nummer der Spalte in der der Dateiname\n");
@@ -670,6 +694,11 @@ usage(void)
    (void)fprintf(stderr, "  -d <Zielverzeichnis>               - Verzeichnis auf dem Zielrechner.\n");
    (void)fprintf(stderr, "  -f <Dateinamen Datei>              - Datei in der alle Dateinamen stehen die\n");
    (void)fprintf(stderr, "                                       zu verschicken sind.\n");
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   (void)fprintf(stderr, "  -k                                 - FTP Kontrolverbindung mit STAT-Befehlen\n");
+   (void)fprintf(stderr, "                                       waerend eine Datei uebertragen wird,\n");
+   (void)fprintf(stderr, "                                       aufrecht erhalten.\n");
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
    if (name[0] != 'r')
    {
 #ifdef _WITH_READY_FILES
@@ -733,6 +762,11 @@ usage(void)
    (void)fprintf(stderr, "   given host, otherwise (when using %s) files will be send to that host.\n\n", p_name);
    (void)fprintf(stderr, "  OPTIONS                              DESCRIPTION\n");
    (void)fprintf(stderr, "  --version                          - Show current version\n");
+   if (name[0] == 'r')
+   {
+      (void)fprintf(stderr, "  -A                                 - If only part of a file was retrieved, you\n");
+      (void)fprintf(stderr, "                                       can retrieve the rest with this option.\n");
+   }
    if ((name[0] != 'r') && (name[0] != 't'))
    {
       (void)fprintf(stderr, "  -a <file size offset>              - Offset of file name when doing a LIST\n");
@@ -748,6 +782,10 @@ usage(void)
    (void)fprintf(stderr, "  -d <remote directory>              - Directory where file(s) are to be stored.\n");
    (void)fprintf(stderr, "  -f <filename>                      - File containing a list of filenames\n");
    (void)fprintf(stderr, "                                       that are to be send.\n");
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   (void)fprintf(stderr, "  -k                                 - Keep FTP control connection with STAT\n");
+   (void)fprintf(stderr, "                                       calls alive/fresh.\n");
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
    if (name[0] != 'r')
    {
 #ifdef _WITH_READY_FILES

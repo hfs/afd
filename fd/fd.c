@@ -219,10 +219,8 @@ static time_t              now;
 #endif
 
 /* Local functions prototypes */
-static void  remove_connection(struct connection *, int, time_t),
-             to_error_dir(int),
+static void  to_error_dir(int),
              get_afd_config_value(void),
-             get_new_positions(void),
              fd_exit(void),
              qb_pos_fsa(int, int *),
              qb_pos_pid(pid_t, int *),
@@ -924,14 +922,32 @@ main(int argc, char *argv[])
                     if (pid < 0)
                     {
                        pid = -pid;
-                       start_new_process = NO;
+                       qb_pos_pid(pid, &qb_pos);
+
+                       /*
+                        * Check third byte in unique_name. If this is
+                        * NOT set to zero the process sf_xxx has given up
+                        * waiting for FD to give it a new job, ie. the
+                        * process no longer exists and we need to start
+                        * a new one.
+                        */
+                       if (fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[2] == '\0')
+                       {
+                          start_new_process = NO;
+                       }
+                       else
+                       {
+                          start_new_process = YES;
+                       }
                     }
                     else
                     {
+                       qb_pos_pid(pid, &qb_pos);
                        start_new_process = YES;
                     }
-#endif /* _WITH_BURST_2 */
+#else
                     qb_pos_pid(pid, &qb_pos);
+#endif /* _WITH_BURST_2 */
                     if (qb_pos != -1)
                     {
 #ifdef _WITH_BURST_2
@@ -2063,7 +2079,6 @@ zombie_check(struct connection *p_con,
 #endif
             case REMOVE_LOCKFILE_ERROR : /* */
             case QUIT_ERROR            : /* Failed to disconnect. */
-            case CHDIR_ERROR           : /* Change remote directory */
             case STAT_ERROR            : /* Failed to stat() file/directory */
             case RENAME_ERROR          : /* Rename file locally */
             case SELECT_ERROR          : /* selecting on sf_xxx command fifo */
@@ -2075,6 +2090,7 @@ zombie_check(struct connection *p_con,
 #endif
                break;
 
+            case CHDIR_ERROR           : /* Change remote directory */
             case CLOSE_REMOTE_ERROR    : /* */
             case MOVE_ERROR            : /* Move file locally */
             case MOVE_REMOTE_ERROR     : /* */
@@ -2262,148 +2278,6 @@ zombie_check(struct connection *p_con,
    }
 
    return(faulty);
-}
-
-
-/*------------------------- remove_connection() ------------------------*/
-static void
-remove_connection(struct connection *p_con, int faulty, time_t now)
-{
-   if (p_con->fsa_pos != -1)
-   {
-      /* Decrease number of active transfers to this host in FSA */
-      if (faulty == YES)
-      {
-         fsa[p_con->fsa_pos].last_retry_time = now;
-         lock_region_w(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
-         fsa[p_con->fsa_pos].error_counter += 1;
-         fsa[p_con->fsa_pos].total_errors += 1;
-         unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
-
-         /* Check if we need to toggle hosts */
-         if (fsa[p_con->fsa_pos].auto_toggle == ON)
-         {
-            if ((fsa[p_con->fsa_pos].error_counter == fsa[p_con->fsa_pos].max_errors) &&
-                (fsa[p_con->fsa_pos].original_toggle_pos == NONE))
-            {
-               fsa[p_con->fsa_pos].original_toggle_pos = fsa[p_con->fsa_pos].host_toggle;
-            }
-            if ((fsa[p_con->fsa_pos].error_counter % fsa[p_con->fsa_pos].max_errors) == 0)
-            {
-               (void)rec(sys_log_fd, INFO_SIGN,
-                         "Automatic host switch initiated for host %s\n",
-                         fsa[p_con->fsa_pos].host_dsp_name);
-               if (fsa[p_con->fsa_pos].host_toggle == HOST_ONE)
-               {
-                  fsa[p_con->fsa_pos].host_toggle = HOST_TWO;
-               }
-               else
-               {
-                  fsa[p_con->fsa_pos].host_toggle = HOST_ONE;
-               }
-               fsa[p_con->fsa_pos].host_dsp_name[(int)fsa[p_con->fsa_pos].toggle_pos] = fsa[p_con->fsa_pos].host_toggle_str[(int)fsa[p_con->fsa_pos].host_toggle];
-            }
-         }
-      }
-      else
-      {
-         if ((faulty != NEITHER) &&
-             (fsa[p_con->fsa_pos].error_counter > 0) &&
-             (p_con->temp_toggle == OFF))
-         {
-            int j;
-
-            lock_region_w(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
-            fsa[p_con->fsa_pos].error_counter = 0;
-
-            /*
-             * Remove the error condition (NOT_WORKING) from all jobs
-             * of this host.
-             */
-            for (j = 0; j < fsa[p_con->fsa_pos].allowed_transfers; j++)
-            {
-               if (fsa[p_con->fsa_pos].job_status[j].connect_status == NOT_WORKING)
-               {
-                  fsa[p_con->fsa_pos].job_status[j].connect_status = DISCONNECT;
-               }
-            }
-            unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
-         }
-      }
-
-      /*
-       * Reset some values of FSA structure. But before we do so it's
-       * essential that we do NOT write to an old FSA! So lets check if we
-       * are still in the correct FSA. Otherwise we subtract the number of
-       * active transfers without ever resetting the pid! This can lead to
-       * some very fatal behaviour of the AFD.
-       */
-      if (check_fsa() == YES)
-      {
-         if (check_fra_fd() == YES)
-         {
-            init_fra_data();
-         }
-         get_new_positions();
-         init_msg_buffer();
-      }
-
-      if (fsa[p_con->fsa_pos].active_transfers > fsa[p_con->fsa_pos].allowed_transfers)
-      {
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "Active transfers > allowed transfers %d!? [%d] (%s %d)\n",
-                   fsa[p_con->fsa_pos].allowed_transfers,
-                   fsa[p_con->fsa_pos].active_transfers,
-                   __FILE__, __LINE__);
-         fsa[p_con->fsa_pos].active_transfers = fsa[p_con->fsa_pos].allowed_transfers;
-      }
-      fsa[p_con->fsa_pos].active_transfers -= 1;
-      if (fsa[p_con->fsa_pos].active_transfers < 0)
-      {
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "Active transfers for FSA position %d < 0!? [%d] (%s %d)\n",
-                   p_con->fsa_pos, fsa[p_con->fsa_pos].active_transfers,
-                   __FILE__, __LINE__);
-         fsa[p_con->fsa_pos].active_transfers = 0;
-      }
-      if (fsa[p_con->fsa_pos].special_flag & ERROR_FILE_UNDER_PROCESS)
-      {
-         /* Error job is no longer under process. */
-         fsa[p_con->fsa_pos].special_flag ^= ERROR_FILE_UNDER_PROCESS;
-      }
-      fsa[p_con->fsa_pos].job_status[p_con->job_no].proc_id = -1;
-#ifdef _BURST_MODE
-      fsa[p_con->fsa_pos].job_status[p_con->job_no].unique_name[0] = '\0';
-      fsa[p_con->fsa_pos].job_status[p_con->job_no].burst_counter = 0;
-#endif
-#if defined (_BURST_MODE) || defined (_OUTPUT_LOG)
-      fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id = NO_ID;
-#endif
-   }
-
-   /* Decrease the number of active transfers. */
-   if (p_afd_status->no_of_transfers > 0)
-   {
-      p_afd_status->no_of_transfers--;
-   }
-   else
-   {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "Huh?! Whats this trying to reduce number of transfers although its zero??? (%s %d)\n",
-                __FILE__, __LINE__);
-   }
-
-   /*
-    * Reset all values of connection structure.
-    */
-   p_con->hostname[0] = '\0';
-   p_con->job_no = -1;
-   p_con->fsa_pos = -1;
-   p_con->fra_pos = -1;
-   p_con->msg_name[0] = '\0';
-   p_con->pid = 0;
-
-   return;
 }
 
 
@@ -2710,46 +2584,6 @@ get_free_disp_pos(int pos)
    }
 
    return(INCORRECT);
-}
-
-
-/*+++++++++++++++++++++++++++ get_new_positions() +++++++++++++++++++++++*/
-static void
-get_new_positions(void)
-{
-   register int i;
-
-   for (i = 0; i < max_connections; i++)
-   {
-      if (connection[i].pid > 0)
-      {
-         if ((connection[i].fsa_pos = get_host_position(fsa,
-                                                        connection[i].hostname,
-                                                        no_of_hosts)) < 0)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Hmm. Failed to locate host <%s> for connection job %d [pid = %d] has been removed. Writing data to end of FSA 8-( (%s %d)\n",
-                      connection[i].hostname, i, connection[i].pid,
-                      __FILE__, __LINE__);
-            connection[i].fsa_pos = no_of_hosts;
-         }
-         if (connection[i].msg_name[0] == '\0')
-         {
-            if ((connection[i].fra_pos = get_dir_position(fra,
-                                                          connection[i].dir_alias,
-                                                          no_of_dirs)) < 0)
-            {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Hmm. Failed to locate dir_alias %s for connection job %d [pid = %d] has been removed. Writing data to end of FRA 8-( (%s %d)\n",
-                         connection[i].dir_alias, i, connection[i].pid,
-                         __FILE__, __LINE__);
-               connection[i].fra_pos = no_of_dirs;
-            }
-         }
-      }
-   }
-
-   return;
 }
 
 

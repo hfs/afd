@@ -158,7 +158,7 @@ check_files(struct directory_entry *p_de,
    if ((dp = opendir(fullname)) == NULL)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,
-                "Can't access directory %s : %s (%s %d)\n",
+                "Can't opendir() <%s> : %s (%s %d)\n",
                 fullname, strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
@@ -175,9 +175,18 @@ check_files(struct directory_entry *p_de,
          (void)strcpy(work_ptr, p_dir->d_name);
          if (stat(fullname, &stat_buf) < 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Can't access file %s : %s (%s %d)\n",
-                      fullname, strerror(errno), __FILE__, __LINE__);
+            if (errno == ENOENT)
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "Can't stat() file <%s> : %s (%s %d)\n",
+                         fullname, strerror(errno), __FILE__, __LINE__);
+            }
+            else
+            {
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "Can't stat() file <%s> : %s (%s %d)\n",
+                         fullname, strerror(errno), __FILE__, __LINE__);
+            }
             continue;
          }
 
@@ -272,7 +281,7 @@ check_files(struct directory_entry *p_de,
                      if (unlink(fullname) == -1)
                      {
                         (void)rec(sys_log_fd, ERROR_SIGN,
-                                  "Failed to unlink() file %s : %s (%s %d)\n",
+                                  "Failed to unlink() file <%s> : %s (%s %d)\n",
                                   fullname, strerror(errno), __FILE__, __LINE__);
                      }
                   }
@@ -285,8 +294,8 @@ check_files(struct directory_entry *p_de,
                if (ret != SUCCESS)
                {
                   (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to move/copy file %s to %s. (%s %d)\n",
-                            fullname, tmp_file_dir, __FILE__, __LINE__);
+                            "Failed to move/copy file. (%s %d)\n",
+                            __FILE__, __LINE__);
                }
                else
                {
@@ -357,7 +366,7 @@ check_files(struct directory_entry *p_de,
             if (errno != ENOENT)
             {
                (void)rec(sys_log_fd, WARN_SIGN,
-                         "Can't access file %s : %s (%s %d)\n",
+                         "Can't access file <%s> : %s (%s %d)\n",
                          fullname, strerror(errno), __FILE__, __LINE__);
             }
             continue;
@@ -461,7 +470,7 @@ check_files(struct directory_entry *p_de,
                               if (unlink(fullname) == -1)
                               {
                                  (void)rec(sys_log_fd, ERROR_SIGN,
-                                           "Failed to unlink() file %s : %s (%s %d)\n",
+                                           "Failed to unlink() file <%s> : %s (%s %d)\n",
                                            fullname, strerror(errno),
                                            __FILE__, __LINE__);
                               }
@@ -475,7 +484,7 @@ check_files(struct directory_entry *p_de,
                         if (ret != SUCCESS)
                         {
                            (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to move/copy file %s to %s. (%s %d)\n",
+                                     "Failed to move/copy file <%s> to <%s>. (%s %d)\n",
                                      fullname, tmp_file_dir, __FILE__, __LINE__);
                         }
                         else
@@ -556,7 +565,7 @@ done:
    if (errno == EBADF)
    {
       (void)rec(sys_log_fd, WARN_SIGN,
-                "readdir() error from %s : %s (%s %d)\n",
+                "readdir() error from <%s> : %s (%s %d)\n",
                 fullname, strerror(errno), __FILE__, __LINE__);
    }
 
@@ -571,7 +580,7 @@ done:
    if (closedir(dp) == -1)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not close directory %s : %s (%s %d)\n",
+                "Could not close directory <%s> : %s (%s %d)\n",
                 src_file_path, strerror(errno), __FILE__, __LINE__);
    }
 

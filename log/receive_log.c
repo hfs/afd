@@ -36,6 +36,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   09.01.2000 H.Kiehl Created
+ **   22.09.2001 H.Kiehl Catch fifo buffer overflows.
  **
  */
 DESCR__E_M1
@@ -66,7 +67,8 @@ int
 main(int argc, char *argv[])
 {
    FILE           *receive_file;
-   int            log_number = 0,
+   int            bytes_buffered = 0,
+                  log_number = 0,
                   n,
                   count,
                   length,
@@ -274,7 +276,7 @@ main(int argc, char *argv[])
       }
       else if (FD_ISSET(receive_fd, &rset))
            {
-              time(&now);
+              now = time(NULL);
 
               /*
                * Aaaah. Some new data has arrived. Lets write this
@@ -282,11 +284,17 @@ main(int argc, char *argv[])
                * fifo has no special format.
                */
               ptr = fifo_buffer;
-              if ((n = read(receive_fd, fifo_buffer, fifo_size)) > 0)
+              if ((n = read(receive_fd, &fifo_buffer[bytes_buffered],
+                            fifo_size - bytes_buffered)) > 0)
               {
 #ifdef _FIFO_DEBUG
-                 show_fifo_data('R', receive_log_fifo, fifo_buffer, n, __FILE__, __LINE__);
+                 show_fifo_data('R', RECEIVE_LOG_FIFO, fifo_buffer, n + bytes_buffered, __FILE__, __LINE__);
 #endif
+                 if (bytes_buffered != 0)
+                 {
+                    n += bytes_buffered;
+                    bytes_buffered = 0;
+                 }
 
                  /* Now evaluate all data read from fifo, byte after byte */
                  count = 0;
@@ -296,52 +304,83 @@ main(int argc, char *argv[])
                     while ((*ptr != '\n') && (*ptr != '\0') && (count != n))
                     {
                        msg_str[length] = *ptr;
-                       ptr++; count++; length++;
+                       ptr++; length++;
                     }
+                    count += length;
                     if (*ptr == '\n')
                     {
                        ptr++; count++;
-                    }
-                    msg_str[length++] = '\n';
-                    msg_str[length] = '\0';
+                       msg_str[length++] = '\n';
+                       msg_str[length] = '\0';
 
-                    if (p_log_counter != NULL)
-                    {
-                       if (log_pos == LOG_FIFO_SIZE)
+                       if (p_log_counter != NULL)
                        {
-                          log_pos = 0;
-                       }
-                       switch(msg_str[LOG_SIGN_POSITION])
-                       {
-                          case 'I' : p_log_fifo[log_pos] = INFO_ID;
-                                     break;
-                          case 'W' : p_log_fifo[log_pos] = WARNING_ID;
-                                     break;
-                          case 'E' : p_log_fifo[log_pos] = ERROR_ID;
-                                     break;
-                          case 'D' : /* Debug is NOT made vissible!!! */
-                                     break;
-                          case 'F' : p_log_fifo[log_pos] = FAULTY_ID;
-                                     break;
-                          default  : p_log_fifo[log_pos] = CHAR_BACKGROUND;
-                                     break;
-                       }
-                       if (msg_str[LOG_SIGN_POSITION] != 'D')
-                       {
-                          if (p_log_fifo[log_pos] > p_log_his[MAX_LOG_HISTORY - 1])
+                          if (log_pos == LOG_FIFO_SIZE)
                           {
-                             p_log_his[MAX_LOG_HISTORY - 1] = p_log_fifo[log_pos];
+                             log_pos = 0;
                           }
-                          log_pos++;
-                          (*p_log_counter)++;
+                          switch(msg_str[LOG_SIGN_POSITION])
+                          {
+                             case 'I' : p_log_fifo[log_pos] = INFO_ID;
+                                        break;
+                             case 'W' : p_log_fifo[log_pos] = WARNING_ID;
+                                        break;
+                             case 'E' : p_log_fifo[log_pos] = ERROR_ID;
+                                        break;
+                             case 'D' : /* Debug is NOT made vissible!!! */
+                                        break;
+                             case 'F' : p_log_fifo[log_pos] = FAULTY_ID;
+                                        break;
+                             default  : p_log_fifo[log_pos] = CHAR_BACKGROUND;
+                                        break;
+                          }
+                          if (msg_str[LOG_SIGN_POSITION] != 'D')
+                          {
+                             if (p_log_fifo[log_pos] > p_log_his[MAX_LOG_HISTORY - 1])
+                             {
+                                p_log_his[MAX_LOG_HISTORY - 1] = p_log_fifo[log_pos];
+                             }
+                             log_pos++;
+                             (*p_log_counter)++;
+                          }
                        }
-                    }
 
-                    if (length == prev_length)
-                    {
-                       if (strcmp(msg_str, prev_msg_str) == 0)
+                       if (length == prev_length)
                        {
-                          dup_msg++;
+                          if (strcmp(msg_str, prev_msg_str) == 0)
+                          {
+                             dup_msg++;
+                          }
+                          else
+                          {
+                             if (dup_msg > 0)
+                             {
+                                if (dup_msg == 1)
+                                {
+                                   (void)fprintf(receive_file, "%s",
+                                                 prev_msg_str);
+                                }
+                                else
+                                {
+                                   (void)fprint_dup_msg(receive_file,
+                                                        dup_msg,
+                                                        &prev_msg_str[LOG_SIGN_POSITION - 1],
+                                                        &prev_msg_str[LOG_SIGN_POSITION + 3],
+                                                        now);
+                                }
+                                dup_msg = 0;
+                             }
+
+                             (void)fprintf(receive_file, "%s", msg_str);
+                             no_of_buffered_writes++;
+                             if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_FAST)
+                             {
+                                (void)fflush(receive_file);
+                                no_of_buffered_writes = 0;
+                             }
+                             (void)strcpy(prev_msg_str, msg_str);
+                             prev_length = length;
+                          }
                        }
                        else
                        {
@@ -376,33 +415,9 @@ main(int argc, char *argv[])
                     }
                     else
                     {
-                       if (dup_msg > 0)
-                       {
-                          if (dup_msg == 1)
-                          {
-                             (void)fprintf(receive_file, "%s",
-                                           prev_msg_str);
-                          }
-                          else
-                          {
-                             (void)fprint_dup_msg(receive_file,
-                                                  dup_msg,
-                                                  &prev_msg_str[LOG_SIGN_POSITION - 1],
-                                                  &prev_msg_str[LOG_SIGN_POSITION + 3],
-                                                  now);
-                          }
-                          dup_msg = 0;
-                       }
-
-                       (void)fprintf(receive_file, "%s", msg_str);
-                       no_of_buffered_writes++;
-                       if (no_of_buffered_writes > BUFFERED_WRITES_BEFORE_FLUSH_FAST)
-                       {
-                          (void)fflush(receive_file);
-                          no_of_buffered_writes = 0;
-                       }
-                       (void)strcpy(prev_msg_str, msg_str);
-                       prev_length = length;
+                       (void)memcpy(fifo_buffer, msg_str, length);
+                       bytes_buffered = length;
+                       count = n;
                     }
                  } /* while (count < n) */
               }

@@ -90,7 +90,6 @@ show_info(char *text)
        (XtIsSensitive(infoshell) != True))
    {
       Widget          form_w,
-                      separator_w,
                       buttonbox_w,
                       button_w;
       Arg             args[MAXARGS];
@@ -164,26 +163,7 @@ show_info(char *text)
       text_w = XmCreateScrolledText(form_w, "info_text", args, argcount);
       XtManageChild(text_w);
 
-      /* Create a horizontal separator. */
       argcount = 0;
-      XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
-      argcount++;
-      XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
-      argcount++;
-      XtSetArg(args[argcount], XmNtopWidget,       text_w);
-      argcount++;
-      XtSetArg(args[argcount], XmNleftAttachment,  XmATTACH_FORM);
-      argcount++;
-      XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
-      argcount++;
-      separator_w = XmCreateSeparator(form_w, "separator", args, argcount);
-      XtManageChild(separator_w);
-
-      argcount = 0;
-      XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
-      argcount++;
-      XtSetArg(args[argcount], XmNtopWidget,        separator_w);
-      argcount++;
       XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
       argcount++;
       XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
@@ -203,7 +183,6 @@ show_info(char *text)
       XtAddCallback(button_w, XmNactivateCallback,
                     (XtCallbackProc)close_info_button, 0);
       XtManageChild(buttonbox_w);
-
       XtManageChild(form_w);
 
 #ifdef _EDITRES
@@ -224,7 +203,6 @@ show_info(char *text)
                     glyph_width * (max_x + 3 + 2),
                     (glyph_height * (max_vertical_lines + 1)) + button_height);
       XtVaSetValues(text_w,
-                    XmNvalue,   text,
                     XmNcolumns, max_x + 2,
                     XmNrows,    max_vertical_lines,
                     NULL);
@@ -235,11 +213,13 @@ show_info(char *text)
                     glyph_width * (max_x + 3 + 2),
                     (glyph_height * (max_y + 1)) + button_height);
       XtVaSetValues(text_w,
-                    XmNvalue,   text,
                     XmNcolumns, max_x,
                     XmNrows,    max_y,
                     NULL);
    }
+   XmTextSetString(text_w, text);
+   XSync(display, 0);
+   XmUpdateDisplay(text_w);
 
    return;
 }

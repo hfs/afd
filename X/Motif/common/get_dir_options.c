@@ -45,6 +45,7 @@ DESCR__E_M3
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "bit_array.h"
 #include "x_common_defs.h"
 
 /* External global variables. */
@@ -135,6 +136,174 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
          {
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options],
                           "%s %d", END_CHARACTER_ID, fra[i].end_character);
+            d_o->no_of_dir_options++;
+         }
+         if (fra[i].time_option == YES)
+         {
+            int           length,
+                          ii;
+            unsigned char full_minute[8];
+
+            length = sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s ",
+                             TIME_ID);
+
+            /* Minute */
+#ifdef _WORKING_LONG_LONG
+            if (fra[i].te.minute == ALL_MINUTES)
+#else
+            for (ii = 0; ii < 60; ii++)
+            {
+               bitset(full_minute, ii);
+            }
+            if (memcmp(fra[i].te.minute, full_minute, 8) == 0)
+#endif
+            {
+               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+               length += 2;
+            }
+            else
+            {
+               for (ii = 0; ii < 60; ii++)
+               {
+#ifdef _WORKING_LONG_LONG
+                  if (fra[i].te.minute & bit_array[ii])
+#else
+                  if (bittest(fra[i].te.minute, ii) == YES)
+#endif
+                  {
+                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          "%d", ii);
+                     }
+                     else
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          ",%d", ii);
+                     }
+                  }
+               }
+               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+               length++;
+            }
+
+            /* Hour */
+            if (fra[i].te.hour == ALL_HOURS)
+            {
+               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+               length += 2;
+            }
+            else
+            {
+               for (ii = 0; ii < 24; ii++)
+               {
+                  if (fra[i].te.hour & bit_array[ii])
+                  {
+                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          "%d", ii);
+                     }
+                     else
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          ",%d", ii);
+                     }
+                  }
+               }
+               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+               length++;
+            }
+
+            /* Day of Month */
+            if (fra[i].te.day_of_month == ALL_DAY_OF_MONTH)
+            {
+               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+               length += 2;
+            }
+            else
+            {
+               for (ii = 1; ii < 32; ii++)
+               {
+                  if (fra[i].te.day_of_month & bit_array[ii - 1])
+                  {
+                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          "%d", ii);
+                     }
+                     else
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          ",%d", ii);
+                     }
+                  }
+               }
+               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+               length++;
+            }
+
+            /* Month */
+            if (fra[i].te.month == ALL_MONTH)
+            {
+               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+               length += 2;
+            }
+            else
+            {
+               for (ii = 1; ii < 13; ii++)
+               {
+                  if (fra[i].te.month & bit_array[ii - 1])
+                  {
+                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          "%d", ii);
+                     }
+                     else
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          ",%d", ii);
+                     }
+                  }
+               }
+               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+               length++;
+            }
+
+            /* Day of Week */
+            if (fra[i].te.day_of_week == ALL_DAY_OF_WEEK)
+            {
+               d_o->aoptions[d_o->no_of_dir_options][length] = '*';
+               d_o->aoptions[d_o->no_of_dir_options][length + 1] = ' ';
+               length += 2;
+            }
+            else
+            {
+               for (ii = 1; ii < 8; ii++)
+               {
+                  if (fra[i].te.day_of_week & bit_array[ii - 1])
+                  {
+                     if (d_o->aoptions[d_o->no_of_dir_options][length - 1] == ' ')
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          "%d", ii);
+                     }
+                     else
+                     {
+                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
+                                          ",%d", ii);
+                     }
+                  }
+               }
+               d_o->aoptions[d_o->no_of_dir_options][length] = ' ';
+               length++;
+            }
+            d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
             d_o->no_of_dir_options++;
          }
          if (fra[i].protocol == FTP)

@@ -72,6 +72,10 @@ extern Widget                     active_mode_w,
                                   host_2_label_w,
                                   host_list_w,
                                   host_switch_toggle_w,
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                                  ftp_keepalive_w,
+                                  keepalive_w,
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                                   idle_time_w,
                                   max_errors_w,
                                   mode_label_w,
@@ -448,7 +452,7 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
 void
 toggle_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   ce[cur_pos].value_changed |= FTP_SET_IDLE_TIME_CHANGED;
+   ce[cur_pos].value_changed |= (unsigned int)client_data;
 
    return;
 }
@@ -834,6 +838,17 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          {
             XtVaSetValues(idle_time_w, XmNset, False, NULL);
          }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+         XtSetSensitive(ftp_keepalive_w, True);
+         if (fsa[cur_pos].protocol & STAT_KEEPALIVE)
+         {
+            XtVaSetValues(keepalive_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(keepalive_w, XmNset, False, NULL);
+         }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
       }
       else
       {
@@ -841,6 +856,9 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(mode_label_w, False);
          XtSetSensitive(ftp_mode_w, False);
          XtSetSensitive(ftp_idle_time_w, False);
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+         XtSetSensitive(ftp_keepalive_w, False);
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
       }
 
       if (ce[cur_pos].value_changed & MAX_ERRORS_CHANGED)
@@ -1310,6 +1328,13 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             fsa[i].protocol ^= SET_IDLE_TIME;
             changes++;
          }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+         if (ce[i].value_changed & FTP_KEEPALIVE_CHANGED)
+         {
+            fsa[i].protocol ^= STAT_KEEPALIVE;
+            changes++;
+         }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
 
          ce[i].value_changed = 0;
 

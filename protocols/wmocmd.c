@@ -116,33 +116,37 @@ wmo_connect(char *hostname, int port)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
+#ifndef _HPUX
          if (h_errno != 0)
-	 {
+         {
 #ifdef LINUX
-	    if ((h_errno > 0) && (h_errno < h_nerr))
-	    {
+            if ((h_errno > 0) && (h_errno < h_nerr))
+            {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
                          "Failed to gethostbyname() %s : %s",
                          hostname, h_errlist[h_errno]);
-	    }
-	    else
-	    {
+            }
+            else
+            {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
                          "Failed to gethostbyname() %s (h_errno = %d) : %s",
                          hostname, h_errno, strerror(errno));
-	    }
+            }
 #else
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to gethostbyname() %s (h_errno = %d) : %s",
                       hostname, h_errno, strerror(errno));
 #endif
-	 }
-	 else
-	 {
+         }
+         else
+         {
+#endif /* _HPUX */
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to gethostbyname() %s : %s",
                       hostname, strerror(errno));
-	 }
+#ifndef _HPUX	 
+         }
+#endif /* _HPUX */
          return(INCORRECT);
       }
       sin.sin_family = p_host->h_addrtype;

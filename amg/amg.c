@@ -117,6 +117,7 @@ int                        dnb_fd,
 pid_t                      dc_pid;      /* dir_check pid                 */
 off_t                      fra_size,
                            fsa_size;
+mode_t                     create_source_dir_mode = DIR_MODE;
 #ifndef _NO_MMAP
 off_t                      afd_active_size;
 #endif
@@ -135,7 +136,7 @@ struct delete_log          dl;
 
 /* local functions    */
 static void                amg_exit(void),
-                           get_afd_config_value(int *, int *, int *),
+                           get_afd_config_value(int *, int *, int *, mode_t *),
                            notify_dir_check(void),
                            sig_segv(int),
                            sig_bus(int),
@@ -449,7 +450,8 @@ main(int argc, char *argv[])
                    db_update_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-      get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir);
+      get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir,
+                           &create_source_dir_mode);
 
       /* Find largest file descriptor. */
       if (amg_cmd_fd > db_update_fd)
@@ -509,6 +511,12 @@ main(int argc, char *argv[])
                {
                   hl[i].special_flag |= SET_IDLE_TIME;
                }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+               if (fsa[i].protocol & STAT_KEEPALIVE)
+               {
+                  hl[i].special_flag |= STAT_KEEPALIVE;
+               }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                hl[i].host_status = 0;
                if (fsa[i].special_flag & HOST_DISABLED)
                {
@@ -629,7 +637,8 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
              AMG, MAJOR, MINOR, BUG_FIX);
 #endif
-      get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir);
+   get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir,
+                        &create_source_dir_mode);
    (void)rec(sys_log_fd, DEBUG_SIGN,
              "AMG Configuration: Directory rescan time     %d (sec)\n",
              rescan_time);
@@ -745,6 +754,12 @@ main(int argc, char *argv[])
                              {
                                 hl[i].special_flag |= SET_IDLE_TIME;
                              }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                             if (fsa[i].protocol & STAT_KEEPALIVE)
+                             {
+                                hl[i].special_flag |= STAT_KEEPALIVE;
+                             }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                              hl[i].host_status = 0;
                              if (fsa[i].special_flag & HOST_DISABLED)
                              {
@@ -932,9 +947,10 @@ main(int argc, char *argv[])
 
 /*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
 static void
-get_afd_config_value(int *rescan_time,
-                     int *max_no_proc,
-                     int *max_process_per_dir)
+get_afd_config_value(int    *rescan_time,
+                     int    *max_no_proc,
+                     int    *max_process_per_dir,
+                     mode_t *create_source_dir_mode)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
@@ -992,6 +1008,20 @@ get_afd_config_value(int *rescan_time,
                       MAX_NO_OF_DIR_CHECKS_DEF, *max_no_proc, *max_no_proc,
                       __FILE__, __LINE__);
             *max_process_per_dir = MAX_PROCESS_PER_DIR;
+         }
+      }
+      if (get_definition(buffer, CREATE_SOURCE_DIR_MODE_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *create_source_dir_mode = (unsigned int)atoi(value);
+         if ((*create_source_dir_mode <= 700) ||
+             (*create_source_dir_mode > 7777))
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Invalid mode %u set in AFD_CONFIG for %s. Setting to default %d. (%s %d)\n",
+                      *create_source_dir_mode, AMG_DIR_RESCAN_TIME_DEF,
+                      DIR_MODE, __FILE__, __LINE__);
+            *create_source_dir_mode = DIR_MODE;
          }
       }
       free(buffer);

@@ -119,8 +119,9 @@
 /* #define _WITH_READY_FILES */
 /* #define _WITH_EUMETSAT_HEADERS */
 #define _WITH_UNIQUE_NUMBERS
-/* #define _WITH_SCP1_SUPPORT */
+#define _WITH_SCP1_SUPPORT
 #define _WITH_TRANS_EXEC
+#define FTP_CTRL_KEEP_ALIVE_INTERVAL 1200L
 
 /*-----------------------------------------------------------------------*
  * These following options are only for the dialogs of the AFD.

@@ -202,10 +202,10 @@ main(int argc, char *argv[])
    mainform_w = XmCreateForm(toplevel_w, "mainform", NULL, 0);
 
    /* Prepare font */
-   if ((entry = XmFontListEntryLoad(XtDisplay(mainform_w), font_name,
+   if ((entry = XmFontListEntryLoad(display, font_name,
                                     XmFONT_IS_FONT, "TAG1")) == NULL)
    {
-       if ((entry = XmFontListEntryLoad(XtDisplay(mainform_w), "fixed",
+       if ((entry = XmFontListEntryLoad(display, "fixed",
                                         XmFONT_IS_FONT, "TAG1")) == NULL)
        {
           (void)fprintf(stderr,

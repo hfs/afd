@@ -123,6 +123,7 @@ tcp_connect(char *hostname, int port)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
+#ifndef _HPUX
          if (h_errno != 0)
 	 {
 #ifdef LINUX
@@ -152,11 +153,14 @@ tcp_connect(char *hostname, int port)
 	 }
 	 else
 	 {
+#endif /* _HPUX */
             (void)rec(mon_log_fd, ERROR_SIGN,
                       "%-*s: Failed to gethostbyname() %s : %s (%s %d)\n",
                       MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
                       hostname, strerror(errno), __FILE__, __LINE__);
+#ifndef _HPUX
 	 }
+#endif /* _HPUX */
          return(INCORRECT);
       }
       sin.sin_family = p_host->h_addrtype;

@@ -83,9 +83,9 @@ DESCR__E_M1
                                        /* strerror()                     */
 #include <stdlib.h>                    /* malloc(), free(), abort()      */
 #include <ctype.h>                     /* isdigit()                      */
-#ifdef _RADAR_CHECK
+#if defined (_RADAR_CHECK) || defined (FTP_CTRL_KEEP_ALIVE_INTERVAL)
 #include <time.h>
-#endif /* _RADAR_CHECK */
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _OUTPUT_LOG
@@ -187,6 +187,10 @@ main(int argc, char *argv[])
                     *ol_transfer_time = NULL;
    struct tms       tmsdummy;
 #endif /* _OUTPUT_LOG */
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   int              do_keep_alive_check = 1;
+   time_t           keep_alive_time;
+#endif
    off_t            *p_file_size_buffer;
    char             *ptr,
                     *ascii_buffer = NULL,
@@ -1132,6 +1136,10 @@ main(int argc, char *argv[])
          if ((append_offset < *p_file_size_buffer) ||
              (*p_file_size_buffer == 0))
          {
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+            int keep_alive_check_interval = -1;
+#endif
+
 #ifdef _OUTPUT_LOG
             if (db.output_log == YES)
             {
@@ -1161,6 +1169,14 @@ main(int argc, char *argv[])
                                "Open remote file <%s>.", initial_filename);
                }
             }
+
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+            if ((fsa[db.fsa_pos].protocol & STAT_KEEPALIVE) &&
+                (do_keep_alive_check))
+            {
+               keep_alive_time = time(NULL);
+            }
+#endif
 
             /* Open local file */
             if ((fd = open(fullname, O_RDONLY)) == -1)
@@ -1427,8 +1443,8 @@ main(int argc, char *argv[])
                         (void)ftp_get_reply();
                      }
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "Failed to write to remote file <%s>",
-                               initial_filename);
+                               "Failed to write %d Bytes to remote file <%s>",
+                               bytes_buffered, initial_filename);
                      msg_str[0] = '\0';
                      trans_log(INFO_SIGN, NULL, 0,
                                "%d Bytes send in %d file(s).",
@@ -1469,6 +1485,39 @@ main(int argc, char *argv[])
                            fsa[db.fsa_pos].job_status[(int)db.job_no].bytes_send += bytes_buffered;
                      }
                   }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                  if ((fsa[db.fsa_pos].protocol & STAT_KEEPALIVE) &&
+                      (do_keep_alive_check))
+                  {
+                     if (keep_alive_check_interval > 40)
+                     {
+                        time_t tmp_time = time(NULL);
+
+                        keep_alive_check_interval = -1;
+                        if ((tmp_time - keep_alive_time) >= FTP_CTRL_KEEP_ALIVE_INTERVAL)
+                        {
+                           keep_alive_time = tmp_time;
+                           if ((status = ftp_keepalive()) != SUCCESS)
+                           {
+                              trans_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to send STAT command (%d).",
+                                        status);
+                              if (timeout_flag == ON)
+                              {
+                                 timeout_flag = OFF;
+                              }
+                              do_keep_alive_check = 0;
+                           }
+                           else if (fsa[db.fsa_pos].debug == YES)
+                                {
+                                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
+                                                "Send STAT command.");
+                                }
+                        }
+                     }
+                     keep_alive_check_interval++;
+                  }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                } /* if (bytes_buffered > 0) */
             } while (bytes_buffered == blocksize);
 
@@ -1648,6 +1697,7 @@ main(int argc, char *argv[])
                }
                else
                {
+                  msg_str[0] = '\0';
                   trans_db_log(INFO_SIGN, NULL, 0, "%s", line_buffer);
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                                "Local file size of <%s> is %d",

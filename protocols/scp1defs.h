@@ -26,8 +26,11 @@
 /* Function prototypes */
 extern int  scp1_connect(char *, int, char *, char *, char *),
             scp1_close_file(void),
+            scp1_cmd_connect(char *, int, char *, char *, char *),
             scp1_open_file(char *, off_t, mode_t),
-            scp1_write(char *, int);
+            scp1_write(char *, int),
+            scp1_chmod(char *, char *),
+            scp1_move(char *, char *);
 extern void scp1_quit(void);
 
 #endif /* __scp1defs_h */

@@ -325,8 +325,10 @@ static void   display_data(int, time_t, time_t),
                        }               \
                        if ((*ptr != '\n') && (cc > 0) && (cc < MAX_INT_LENGTH))\
                        {               \
-                          time_t delete_time = atol(long_no);\
+                          time_t delete_time;\
                                        \
+                          long_no[cc] = '\0';\
+                          delete_time = atol(long_no);\
                           if (now > (delete_time + ARCHIVE_STEP_TIME))\
                           {            \
                              archive_status = 'D';\

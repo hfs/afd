@@ -445,6 +445,12 @@ create_fsa(void)
          {
             fsa[i].protocol |= SET_IDLE_TIME;
          }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+         if (hl[i].special_flag & STAT_KEEPALIVE)
+         {
+            fsa[i].protocol |= STAT_KEEPALIVE;
+         }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
          if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
          {
             fsa[i].special_flag |= HOST_DISABLED;
@@ -815,6 +821,16 @@ create_fsa(void)
          {
             fsa[i].protocol &= ~SET_IDLE_TIME;
          }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+         if (hl[i].special_flag & STAT_KEEPALIVE)
+         {
+            fsa[i].protocol |= STAT_KEEPALIVE;
+         }
+         else
+         {
+            fsa[i].protocol &= ~STAT_KEEPALIVE;
+         }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
       } /* for (i = 0; i < no_of_hosts; i++) */
 
       /*
@@ -1019,6 +1035,12 @@ create_fsa(void)
                      {
                         hl[j].special_flag |= SET_IDLE_TIME;
                      }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                     if (fsa[j].protocol & STAT_KEEPALIVE)
+                     {
+                        hl[j].special_flag |= STAT_KEEPALIVE;
+                     }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
 
                      i++;
                   } /* if (gotcha[j] == NO) */

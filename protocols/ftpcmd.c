@@ -39,6 +39,7 @@ DESCR__S_M3
  **   int  ftp_data(char *filename, off_t seek, int mode, int type)
  **   int  ftp_close_data(int)
  **   int  ftp_write(char *block, char *buffer, int size)
+ **   int  ftp_keepalive(void)
  **   int  ftp_read(char *block, int blocksize)
  **   int  ftp_quit(void)
  **   int  ftp_get_reply(void)
@@ -87,11 +88,15 @@ DESCR__S_M3
  **          ftp_data()<----------------------+
  **             |                             |
  **             V                             |
- **          ftp_write()<----+                |
- **             |            |                |
- **             V            |                |
- **      +-------------+  NO |                |
- **      | File done ? |-----+                |
+ **          ftp_write()<---------------+     |
+ **             |                       |     |
+ **             +----> ftp_keepalive()  |     |
+ **             |             |         |     |
+ **             +<------------+         |     |
+ **             |                       |     |
+ **             V                       |     |
+ **      +-------------+       NO       |     |
+ **      | File done ? |----------------+     |
  **      +-------------+                      |
  **             |                             |
  **             V                             |
@@ -156,6 +161,7 @@ DESCR__S_M3
  **                      ftp_get_reply().
  **   26.07.2001 H.Kiehl Added ftp_account() function.
  **   05.08.2001 H.Kiehl Added ftp_idle() function.
+ **   02.09.2001 H.Kiehl Added ftp_keepalive() function.
  */
 DESCR__E_M3
 
@@ -178,6 +184,7 @@ DESCR__E_M3
 #endif /* IRIX || _SUN || _HPUX || FREEBSD */
 #include <netinet/ip.h>   /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT            */
 #endif
+#include <arpa/telnet.h>  /* IAC, SYNCH, IP                              */
 #include <netdb.h>        /* struct hostent, gethostbyname()             */
 #include <arpa/inet.h>    /* inet_addr()                                 */
 #include <unistd.h>       /* select(), write(), read(), close(), alarm() */
@@ -212,7 +219,8 @@ static int                check_data_socket(int, int, int *),
                           get_reply(FILE *),
                           read_data_line(int, char *),
                           read_data_to_buffer(int, char ***),
-                          read_msg(void);
+                          read_msg(void),
+                          read_stat_data(void);
 static void               sig_handler(int);
 
 
@@ -235,6 +243,7 @@ ftp_connect(char *hostname, int port)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
+#ifndef _HPUX
          if (h_errno != 0)
          {
 #ifdef LINUX
@@ -258,10 +267,13 @@ ftp_connect(char *hostname, int port)
          }
          else
          {
+#endif /* _HPUX */
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to gethostbyname() %s : %s",
                       hostname, strerror(errno));
+#ifndef _HPUX
          }
+#endif /* _HPUX */
          return(INCORRECT);
       }
       sin.sin_family = p_host->h_addrtype;
@@ -297,13 +309,6 @@ ftp_connect(char *hostname, int port)
       return(INCORRECT);
    }
 
-   length = 1;
-   if (setsockopt(control_fd, SOL_SOCKET, SO_OOBINLINE, (char *)&length,
-                  sizeof(length)) < 0)
-   {
-      trans_log(WARN_SIGN, __FILE__, __LINE__,
-                "setsockopt() SO_OOBINLINE error : %s", strerror(errno));
-   }
 #if defined (_WITH_TOS) && defined (IP_TOS)
    length = IPTOS_LOWDELAY;
    if (setsockopt(control_fd, IPPROTO_IP, IP_TOS, (char *)&length,
@@ -610,6 +615,131 @@ ftp_dele(char *filename)
 }
 
 
+/*########################### ftp_keepalive() ###########################*/
+int
+ftp_keepalive(void)
+{
+   int           reply;
+   time_t        tmp_transfer_timeout;
+   unsigned char telnet_cmd[2];
+   fd_set        wset;
+
+   tmp_transfer_timeout = transfer_timeout;
+   transfer_timeout = 0L;
+   while ((reply = read_msg()) > 0)
+   {
+      trans_log(INFO_SIGN, __FILE__, __LINE__,
+                "Hmmm, read %d Bytes.", reply);
+   }
+   timeout_flag = OFF;
+   transfer_timeout = tmp_transfer_timeout;
+
+   if (p_data != NULL)
+   {
+      fflush(p_data);
+   }
+   telnet_cmd[0] = IAC;
+   telnet_cmd[1] = IP;
+
+   /* Initialise descriptor set. */
+   FD_ZERO(&wset);
+   FD_SET(control_fd, &wset);
+   timeout.tv_usec = 0L;
+   timeout.tv_sec = transfer_timeout;
+
+   /* Wait for message x seconds and then continue. */
+   reply = select(control_fd + 1, NULL, &wset, NULL, &timeout);
+
+   if (reply == 0)
+   {
+      /* timeout has arrived */
+      timeout_flag = ON;
+      return(INCORRECT);
+   }
+   else if (FD_ISSET(control_fd, &wset))
+        {
+           if ((reply = write(control_fd, telnet_cmd, 2)) != 2)
+           {
+              msg_str[0] = '\0';
+              trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "write() error (%d) : %s", reply, strerror(errno));
+              return(errno);
+           }
+        }
+   else if (reply < 0)
+        {
+           msg_str[0] = '\0';
+           trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "select() error : %s", strerror(errno));
+           return(INCORRECT);
+        }
+        else
+        {
+           msg_str[0] = '\0';
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "Unknown condition.");
+           return(INCORRECT);
+        }
+
+   /* Initialise descriptor set. */
+   FD_SET(control_fd, &wset);
+   timeout.tv_usec = 0L;
+   timeout.tv_sec = transfer_timeout;
+
+   /* Wait for message x seconds and then continue. */
+   reply = select(control_fd + 1, NULL, &wset, NULL, &timeout);
+
+   if (reply == 0)
+   {
+      /* timeout has arrived */
+      timeout_flag = ON;
+      return(INCORRECT);
+   }
+   else if (FD_ISSET(control_fd, &wset))
+        {
+           if ((reply = send(control_fd, telnet_cmd, 1, MSG_OOB)) != 1)
+           {
+              msg_str[0] = '\0';
+              trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "write() error (%d) : %s", reply, strerror(errno));
+              return(errno);
+           }
+        }
+   else if (reply < 0)
+        {
+           msg_str[0] = '\0';
+           trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "select() error : %s", strerror(errno));
+           return(INCORRECT);
+        }
+        else
+        {
+           msg_str[0] = '\0';
+           trans_log(ERROR_SIGN, __FILE__, __LINE__, "Unknown condition.");
+           return(INCORRECT);
+        }
+   (void)fprintf(p_control, "%cSTAT\r\n", DM);
+
+   if ((reply = read_stat_data()) < 0)
+   {
+      return(INCORRECT);
+   }
+   if (reply == 426)
+   {
+      if ((reply = read_stat_data()) < 0)
+      {
+         return(INCORRECT);
+      }
+   }
+
+   if (check_reply(4, reply, 211, 212, 213) < 0)
+   {
+      return(reply);
+   }
+
+   return(SUCCESS);
+}
+
+
 /*############################## ftp_size() #############################*/
 int
 ftp_size(char *filename, off_t *remote_size)
@@ -737,6 +867,8 @@ ftp_list(int mode, int type, ...)
    if (type & BUFFERED_LIST)
    {
       buffer = va_arg(ap, char **);
+      filename = NULL;
+      msg = NULL;
    }
    else
    {
@@ -862,6 +994,12 @@ ftp_list(int mode, int type, ...)
             (void)close(new_sock_fd);
             return(reply);
          }
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to locate an open bracket <(> in reply from PASV command.");
+         return(INCORRECT);
       }
    }
    else /* mode == ACTIVE_MODE */
@@ -1231,6 +1369,12 @@ ftp_data(char *filename, off_t seek, int mode, int type)
             (void)close(new_sock_fd);
             return(reply);
          }
+      }
+      else
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to locate an open bracket <(> in reply from PASV command.");
+         return(INCORRECT);
       }
    }
    else /* ACTIVE_MODE */
@@ -2054,7 +2198,7 @@ read_data_line(int read_fd, char *line)
       {
          if ((*read_ptr == '\n') && (*(read_ptr - 1) == '\r'))
          {
-            *(read_ptr - 2) = '\0';
+            *(read_ptr - 1) = '\0';
             return(bytes_buffered);
          }
          read_ptr++;
@@ -2152,6 +2296,101 @@ read_data_to_buffer(int read_fd, char ***buffer)
                         "Unknown condition.");
               return(INCORRECT);
            }
+   } /* for (;;) */
+}
+
+
+/*+++++++++++++++++++++++++++ read_stat_data() ++++++++++++++++++++++++++*/
+static int
+read_stat_data(void)
+{
+   int    bytes_buffered = 0,
+          bytes_read = 0,
+          status;
+   char   *read_ptr = msg_str;
+   fd_set rset;
+
+   FD_ZERO(&rset);
+   for (;;)
+   {
+      /* Initialise descriptor set */
+      FD_SET(control_fd, &rset);
+      timeout.tv_usec = 0L;
+      timeout.tv_sec = transfer_timeout;
+
+      /* Wait for message x seconds and then continue. */
+      status = select(control_fd + 1, &rset, NULL, NULL, &timeout);
+
+      if (status == 0)
+      {
+         /* timeout has arrived */
+         timeout_flag = ON;
+         return(INCORRECT);
+      }
+      else if (FD_ISSET(control_fd, &rset))
+           {
+              if ((bytes_read = read(control_fd, &msg_str[bytes_buffered],
+                                     (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
+              {
+                 if (bytes_read == 0)
+                 {
+                    /*
+                     * Due to security reasons some systems do not
+                     * return any data here. So lets not count this
+                     * as a remote hangup.
+                     */
+                    msg_str[bytes_buffered] = '\0';
+                    return(0);
+                 }
+                 else
+                 {
+                    msg_str[0] = '\0';
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                              "read() error (after reading %d Bytes) : %s",
+                              bytes_buffered, strerror(errno));
+                    return(INCORRECT);
+                 }
+              }
+              bytes_buffered += bytes_read;
+              read_ptr = &msg_str[bytes_buffered];
+           }
+      else if (status < 0)
+           {
+              msg_str[0] = '\0';
+              trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "select() error : %s", strerror(errno));
+              return(INCORRECT);
+           }
+           else
+           {
+              msg_str[0] = '\0';
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, "Unknown condition.");
+              return(INCORRECT);
+           }
+
+      /* Evaluate what we have read. */
+      if ((bytes_read > 1) &&
+          (*(read_ptr - 1) == '\n') && (*(read_ptr - 2) == '\r') &&
+          (isdigit(msg_str[0]) != 0) && (isdigit(msg_str[1]) != 0) &&
+          (isdigit(msg_str[2]) != 0) && (msg_str[3] != '-'))
+      {
+         int gotcha = YES;
+
+         if ((msg_str[0] == '2') && (msg_str[1] == '1') &&
+             (msg_str[2] == '1'))
+         {
+            if (posi(&msg_str[3], "\r\n211 ") == NULL)
+            {
+               gotcha = NO;
+            }
+         }
+         if (gotcha == YES)
+         {
+            *(read_ptr - 2) = '\0';
+            return(((msg_str[0] - '0') * 100) + ((msg_str[1] - '0') * 10) +
+                   (msg_str[2] - '0'));
+         }
+      }
    } /* for (;;) */
 }
 

@@ -291,6 +291,16 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                {
                   new_fsa[i].protocol &= ~SET_IDLE_TIME;
                }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+               if (hl[i].special_flag & STAT_KEEPALIVE)
+               {
+                  new_fsa[i].protocol |= STAT_KEEPALIVE;
+               }
+               else
+               {
+                  new_fsa[i].protocol &= ~STAT_KEEPALIVE;
+               }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
                {
                   new_fsa[i].special_flag |= HOST_DISABLED;

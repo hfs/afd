@@ -787,7 +787,7 @@ main(int argc, char *argv[])
          }
          else
          {
-            trans_log(WARN_SIGN, __FILE__, __LINE__,
+            trans_log(INFO_SIGN, __FILE__, __LINE__,
                       "File <%s> is of zero length, ignoring.",
                       p_file_name_buffer);
          }

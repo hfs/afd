@@ -94,14 +94,14 @@ Widget w;
    char        *ptr,
                str_line[MAX_INFO_STRING_LENGTH],
                tmp_str_line[MAX_INFO_STRING_LENGTH];
+   XmString    text;
 
    /* Check if FSA changed */
    (void)check_fsa();
 
    if (prev.protocol != fsa[host_position].protocol)
    {
-      XmString text;
-      size_t   length;
+      size_t length;
 
       prev.protocol = fsa[host_position].protocol;
       length = sprintf(protocol_label_str, "Protocols : ");
@@ -241,6 +241,7 @@ Widget w;
             (void)sprintf(label_l[0], "%-*s :",
                           FSA_INFO_TEXT_WIDTH_L, host_alias_1);
          }
+         text = XmStringCreateLocalized(label_l[0]);
          XtVaSetValues(label_l_widget[0],
                        XmNtopAttachment,    XmATTACH_POSITION,
                        XmNtopPosition,      1,
@@ -248,8 +249,9 @@ Widget w;
                        XmNbottomPosition,   40,
                        XmNleftAttachment,   XmATTACH_POSITION,
                        XmNleftPosition,     1,
-                       XmNlabelString,      label_l[0],
+                       XmNlabelString,      text,
                        NULL);
+         XmStringFree(text);
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
@@ -328,6 +330,7 @@ Widget w;
             (void)sprintf(label_l[0], "%-*s :",
                           FSA_INFO_TEXT_WIDTH_L, host_alias_1);
          }
+         text = XmStringCreateLocalized(label_l[0]);
          XtVaSetValues(label_l_widget[0],
                        XmNtopAttachment,    XmATTACH_POSITION,
                        XmNtopPosition,      1,
@@ -335,8 +338,9 @@ Widget w;
                        XmNbottomPosition,   40,
                        XmNleftAttachment,   XmATTACH_POSITION,
                        XmNleftPosition,     1,
-                       XmNlabelString,      label_l[0],
+                       XmNlabelString,      text,
                        NULL);
+         XmStringFree(text);
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
@@ -403,6 +407,7 @@ Widget w;
             (void)sprintf(label_r[0], "%-*s :",
                           FSA_INFO_TEXT_WIDTH_R, host_alias_2);
          }
+         text = XmStringCreateLocalized(label_r[0]);
          XtVaSetValues(label_r_widget[0],
                        XmNtopAttachment,    XmATTACH_POSITION,
                        XmNtopPosition,      1,
@@ -410,8 +415,9 @@ Widget w;
                        XmNbottomPosition,   40,
                        XmNleftAttachment,   XmATTACH_POSITION,
                        XmNleftPosition,     1,
-                       XmNlabelString,      label_r[0],
+                       XmNlabelString,      text,
                        NULL);
+         XmStringFree(text);
 
          /* Get IP for the second host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||

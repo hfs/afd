@@ -1,6 +1,6 @@
 /*
  *  check_tv_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -232,6 +232,10 @@ check_tv_status(Widget w)
                tv_locate_xy(i, &x, &y);
             }
             jd[i].rotate++;
+            if (fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_size_in_use_done == fsa[jd[i].fsa_no].job_status[jd[i].job_no].file_size_in_use)
+            {
+               jd[i].rotate = -2;
+            }
             draw_rotating_dash(i, x, y);
          }
 #ifdef _WITH_MAP_SUPPORT

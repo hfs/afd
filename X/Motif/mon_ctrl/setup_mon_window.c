@@ -322,6 +322,7 @@ setup_mon_window(char *font_name)
       XtVaSetValues(rw[ROW_10_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_11_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_12_W], XmNfontList, fontlist, NULL);
+      XtVaSetValues(rw[ROW_13_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the Line Style pulldown */
       XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);

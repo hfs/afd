@@ -418,6 +418,16 @@ reread_dir_config(time_t           *dc_old_time,
                        {
                           fsa[host_pos].protocol &= ~SET_IDLE_TIME;
                        }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                       if (hl[i].special_flag & STAT_KEEPALIVE)
+                       {
+                          fsa[host_pos].protocol |= STAT_KEEPALIVE;
+                       }
+                       else
+                       {
+                          fsa[host_pos].protocol &= ~STAT_KEEPALIVE;
+                       }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                        if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
                        {
                           fsa[host_pos].special_flag |= HOST_DISABLED;

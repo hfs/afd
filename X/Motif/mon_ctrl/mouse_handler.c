@@ -878,13 +878,6 @@ start_remote_prog(Widget    w,
       return;
    }
 
-   if ((no_selected == 0) && (no_selected_static == 0))
-   {
-      (void)xrec(appshell, INFO_DIALOG,
-                 "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
-      return;
-   }
-
    /*
     * Arglist is build up as follows:
     *  rsh -n  -l <username> host rafdd_cmd <display> <AFD workdir> cmd+args
@@ -1104,7 +1097,7 @@ start_remote_prog(Widget    w,
                args[3] = username;
                for (j = 0; j < MAX_CONVERT_USERNAME; j++)
                {
-                  if (msa[i].convert_username[j][0] != '\0')
+                  if (msa[i].convert_username[j][0][0] != '\0')
                   {
                      if (strcmp(msa[i].convert_username[j][0], username) == 0)
                      {
@@ -1121,6 +1114,7 @@ start_remote_prog(Widget    w,
                {
                   connect_data[i].inverse = OFF;
                   draw_line_status(i, -1);
+                  no_selected--;
                }
             }
             else
@@ -1147,7 +1141,6 @@ start_remote_prog(Widget    w,
          }
       }
    }
-   no_selected = 0;
 
    return;
 }
@@ -1178,13 +1171,6 @@ start_remote_prog(Widget    w,
    {
       (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s [%d] (%s %d)",
                  strerror(errno), errno, __FILE__, __LINE__);
-      return;
-   }
-
-   if ((no_selected == 0) && (no_selected_static == 0))
-   {
-      (void)xrec(appshell, INFO_DIALOG,
-                 "You must first select an AFD!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
 
@@ -1395,7 +1381,7 @@ start_remote_prog(Widget    w,
                args[2] = username;
                for (j = 0; j < MAX_CONVERT_USERNAME; j++)
                {
-                  if (msa[i].convert_username[j][0] != '\0')
+                  if (msa[i].convert_username[j][0][0] != '\0')
                   {
                      if (strcmp(msa[i].convert_username[j][0], username) == 0)
                      {
@@ -1412,6 +1398,7 @@ start_remote_prog(Widget    w,
                {
                   connect_data[i].inverse = OFF;
                   draw_line_status(i, -1);
+                  no_selected--;
                }
             }
             else
@@ -1423,7 +1410,6 @@ start_remote_prog(Widget    w,
          }
       }
    }
-   no_selected = 0;
 
    return;
 }

@@ -30,6 +30,8 @@ DESCR__S_M3
  **   int  scp1_open_file(char *filename, off_t size, mode_t mode)
  **   int  scp1_close_file(void)
  **   int  scp1_write(char *block, int size)
+ **   int  scp1_chmod(char *filename, char *mode)
+ **   int  scp1_move(char *from, char *to)
  **   void scp1_quit(void)
  **
  ** DESCRIPTION
@@ -40,6 +42,8 @@ DESCR__S_M3
  **      scp1_open_file()  - open a file
  **      scp1_close_file() - close a file
  **      scp1_write()      - write data to the pipe
+ **      scp1_chmod()      - change mode of a file
+ **      scp1_move()       - rename a file
  **      scp1_quit()       - disconnect from the SSH server
  **
  ** RETURN VALUES
@@ -52,6 +56,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   22.04.2001 H.Kiehl Created
+ **   30.09.2001 H.Kiehl Added functions scp1_cmd_connect(), scp1_chmod()
+ **                      and scp1_move().
  **
  */
 DESCR__E_M3
@@ -90,10 +96,11 @@ static pid_t          ctrl_pid = -1,
 static struct timeval timeout;
 
 /* Local function prototypes. */
-static int            get_reply(int),
+static int            get_reply(int, int),
+                      get_passwd_reply(int),
                       ptym_open(char *),
                       ptys_open(int, char *),
-                      scp1_cmd(char *, char *, char *, char *, int *, pid_t *),
+                      ssh_cmd(char *, char *, char *, char *, int *, pid_t *),
                       tty_raw(int);
 #endif /* _WITH_SCP1_SUPPORT */
 
@@ -102,21 +109,60 @@ static int            get_reply(int),
 int
 scp1_connect(char *hostname, int port, char *user, char *passwd, char *dir)
 {
-   int  status;
 #ifdef _WITH_SCP1_SUPPORT
    char cmd[MAX_PATH_LENGTH];
 
-   /* First establish a signal handler to catch the passwd prompt. */
    (void)sprintf(cmd, "scp -t %s", (dir[0] == '\0') ? "." : dir);
-   if ((status = scp1_cmd(hostname, user, passwd, cmd, &data_fd,
-                          &data_pid)) == INCORRECT)
+
+   return(ssh_cmd(hostname, user, passwd, cmd, &data_fd, &data_pid));
+#else
+   return(0);
+#endif /* _WITH_SCP1_SUPPORT */
+}
+
+
+/*######################## scp1_cmd_connect() ###########################*/
+int
+scp1_cmd_connect(char *hostname, int port, char *user, char *passwd, char *dir)
+{
+#ifdef _WITH_SCP1_SUPPORT
+   int status;
+
+   if ((status = ssh_cmd(hostname, user, passwd, NULL, &ctrl_fd,
+                          &ctrl_pid)) == INCORRECT)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                "Failed to send ssh command <%s>", cmd);
+                "Failed to build SSH command connection.");
    }
-#endif /* _WITH_SCP1_SUPPORT */
+   else
+   {
+      if (dir != NULL)
+      {
+         size_t length;
+         char   cmd[MAX_PATH_LENGTH];
 
+         length = sprintf(cmd, "cd %s\r\n", dir);
+         if ((status = write(ctrl_fd, cmd, length)) != length)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write() command <%s> to pipe [%d] : %s",
+                      cmd, status, strerror(errno));
+            status = INCORRECT;
+         }
+         else
+         {
+            if ((status = get_reply(ctrl_fd, YES)) != SUCCESS)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to send command <%s> [%d]", cmd, status);
+            }
+         }
+      }
+   }
    return(status);
+#else
+   return(0);
+#endif /* _WITH_SCP1_SUPPORT */
 }
 
 
@@ -124,8 +170,8 @@ scp1_connect(char *hostname, int port, char *user, char *passwd, char *dir)
 int
 scp1_open_file(char *filename, off_t size, mode_t mode)
 {
-   int    status;
 #ifdef _WITH_SCP1_SUPPORT
+   int    status;
    size_t length;
    char   cmd[MAX_PATH_LENGTH];
 
@@ -140,41 +186,16 @@ scp1_open_file(char *filename, off_t size, mode_t mode)
    }
    else
    {
-      if ((status = get_reply(data_fd)) < 1)
+      if ((status = get_reply(data_fd, YES)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
                    "Failed to open remote file <%s> [%d]", filename, status);
       }
-      else
-      {
-         /*
-          * 0 - Success
-          * 1 - Error with some more information.
-          * 2 - Fatal error with some more information.
-          */
-         if (msg_str[0] != 0)
-         {
-            if (status > 1)
-            {
-               (void)memmove(msg_str, msg_str + 1, status - 1);
-            }
-            else
-            {
-               /*
-                * Not sure what to do now. Must there always be data
-                * if there is an error and if so why is there no data
-                * now? So should we try and read again? Not sure if
-                * this is correct.
-                */
-               (void)get_reply(data_fd);
-            }
-            status = INCORRECT;
-         }
-      }
    }
-#endif /* _WITH_SCP1_SUPPORT */
-
    return(status);
+#else
+   return(0);
+#endif /* _WITH_SCP1_SUPPORT */
 }
 
 
@@ -182,8 +203,8 @@ scp1_open_file(char *filename, off_t size, mode_t mode)
 int
 scp1_close_file(void)
 {
-   int status;
 #ifdef _WITH_SCP1_SUPPORT
+   int status;
 
    if (write(data_fd, "\0", 1) != 1)
    {
@@ -193,41 +214,16 @@ scp1_close_file(void)
    }
    else
    {
-      if ((status = get_reply(data_fd)) < 1)
+      if ((status = get_reply(data_fd, YES)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
                    "Failed to close remote file [%d]", status);
       }
-      else
-      {
-         /*
-          * 0 - Success
-          * 1 - Error with some more information.
-          * 2 - Fatal error with some more information.
-          */
-         if (msg_str[0] != 0)
-         {
-            if (status > 1)
-            {
-               (void)memmove(msg_str, msg_str + 1, status - 1);
-            }
-            else
-            {
-               /*
-                * Not sure what to do now. Must there always be data
-                * if there is an error and if so why is there no data
-                * now? So should we try and read again? Not sure if
-                * this is correct.
-                */
-               (void)get_reply(data_fd);
-            }
-            status = INCORRECT;
-         }
-      }
    }
-#endif /* _WITH_SCP1_SUPPORT */
-
    return(status);
+#else
+   return(0);
+#endif /* _WITH_SCP1_SUPPORT */
 }
 
 
@@ -263,21 +259,85 @@ scp1_write(char *block, int size)
               return(errno);
            }
         }
-        else if (status < 0)
-             {
-                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "select() error : %s", strerror(errno));
-                return(INCORRECT);
-             }
-             else
-             {
-                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Unknown condition.");
-                return(INCORRECT);
-             }
+   else if (status < 0)
+        {
+           trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "select() error : %s", strerror(errno));
+           return(INCORRECT);
+        }
+        else
+        {
+           trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "Unknown condition.");
+           return(INCORRECT);
+        }
 #endif /* _WITH_SCP1_SUPPORT */
    
    return(SUCCESS);
+}
+
+
+/*############################ scp1_chmod() #############################*/
+int
+scp1_chmod(char *filename, char *mode)
+{
+#ifdef _WITH_SCP1_SUPPORT
+   int    status;
+   size_t length;
+   char   cmd[MAX_PATH_LENGTH];
+
+   length = sprintf(cmd, "chmod %s %s\n", mode, filename);
+   if ((status = write(ctrl_fd, cmd, length)) != length)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                "Failed to write() command <%s> to pipe [%d] : %s",
+                cmd, status, strerror(errno));
+      status = INCORRECT;
+   }
+   else
+   {
+      if ((status = get_reply(ctrl_fd, YES)) != SUCCESS)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to send command <%s> [%d]", cmd, status);
+      }
+   }
+   return(status);
+#else
+   return(SUCCESS);
+#endif /* _WITH_SCP1_SUPPORT */
+}
+
+
+/*############################ scp1_move() ##############################*/
+int
+scp1_move(char *from, char *to)
+{
+#ifdef _WITH_SCP1_SUPPORT
+   int    status;
+   size_t length;
+   char   cmd[MAX_PATH_LENGTH];
+
+   length = sprintf(cmd, "mv %s %s\n", from, to);
+   if ((status = write(ctrl_fd, cmd, length)) != length)
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                "Failed to write() command <%s> to pipe [%d] : %s",
+                cmd, status, strerror(errno));
+      status = INCORRECT;
+   }
+   else
+   {
+      if ((status = get_reply(ctrl_fd, YES)) != SUCCESS)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                   "Failed to send command <%s> [%d]", cmd, status);
+      }
+   }
+   return(status);
+#else
+   return(SUCCESS);
+#endif /* _WITH_SCP1_SUPPORT */
 }
 
 
@@ -286,6 +346,51 @@ void
 scp1_quit(void)
 {
 #ifdef _WITH_SCP1_SUPPORT
+   /* Remove ssh process for controlling. */
+   if (ctrl_pid != -1)
+   {
+      int status;
+
+      /* Close pipe for read/write data connection. */
+      if (ctrl_fd != -1)
+      {
+         char cmd[MAX_PATH_LENGTH];
+
+         cmd[0] = 'e'; cmd[1] = 'x'; cmd[2] = 'i';
+         cmd[3] = 't'; cmd[4] = '\n';
+         if ((status = write(ctrl_fd, cmd, 5)) != 5)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "Failed to write() command <%s> to pipe [%d] : %s",
+                      cmd, status, strerror(errno));
+            status = INCORRECT;
+         }
+         else
+         {
+            if ((status = get_reply(ctrl_fd, YES)) != SUCCESS)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Failed to send command <%s> [%d]", cmd, status);
+            }
+         }
+         if (close(ctrl_fd) == -1)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__,
+                      "Failed to close() write pipe to ssh process : %s",
+                      strerror(errno));
+         }
+         ctrl_fd = -1;
+      }
+
+      if (waitpid(ctrl_pid, &status, 0) != ctrl_pid)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__,
+                   "Failed to catch zombie of controlling process : %s",
+                   strerror(errno));
+      }
+      ctrl_pid = -1;
+   }
+
    /* Remove ssh process for writting data. */
    if (data_pid != -1)
    {
@@ -311,32 +416,6 @@ scp1_quit(void)
       }
       data_pid = -1;
    }
-
-   /* Remove ssh process for controlling. */
-   if (ctrl_pid != -1)
-   {
-      int status;
-
-      /* Close pipe for read/write data connection. */
-      if (ctrl_fd != -1)
-      {
-         if (close(ctrl_fd) == -1)
-         {
-            trans_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Failed to close() write pipe to ssh process : %s",
-                      strerror(errno));
-         }
-         ctrl_fd = -1;
-      }
-
-      if (waitpid(ctrl_pid, &status, 0) != ctrl_pid)
-      {
-         trans_log(WARN_SIGN, __FILE__, __LINE__,
-                   "Failed to catch zombie of controlling process : %s",
-                   strerror(errno));
-      }
-      ctrl_pid = -1;
-   }
 #endif /* _WITH_SCP1_SUPPORT */
 
    return;
@@ -344,14 +423,14 @@ scp1_quit(void)
 
 
 #ifdef _WITH_SCP1_SUPPORT
-/*++++++++++++++++++++++++++++++ scp1_cmd() +++++++++++++++++++++++++++++*/
+/*+++++++++++++++++++++++++++++++ ssh_cmd() +++++++++++++++++++++++++++++*/
 static int
-scp1_cmd(char  *host,
-         char  *user,
-         char  *passwd,
-         char  *cmd,
-         int   *fd,
-         pid_t *child_pid)
+ssh_cmd(char  *host,
+        char  *user,
+        char  *passwd,
+        char  *cmd,
+        int   *fd,
+        pid_t *child_pid)
 {
    int  fdm,
         status;
@@ -386,8 +465,7 @@ scp1_cmd(char  *host,
             setsid();
             if ((fds = ptys_open(fdm, pts_name)) < 0)
             {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "ptys_open() error");
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, "ptys_open() error");
                return(INCORRECT);
             }
             (void)close(fdm);
@@ -455,7 +533,7 @@ scp1_cmd(char  *host,
                  }
                  (void)close(pipe_fd[1]);
 
-                 if ((status = get_reply(fdm)) > 0)
+                 if ((status = get_reply(fdm, NO)) > 0)
                  {
                     if (status == 1)
                     {
@@ -504,7 +582,7 @@ scp1_cmd(char  *host,
                              {
                                 /* Check if correct password was entered. */
                                 msg_str[0] = '\0';
-                                if ((status = get_reply(fdm)) > 0)
+                                if ((status = get_passwd_reply(fdm)) > 0)
                                 {
                                    if ((status == 1) && (msg_str[0] == '\n'))
                                    {
@@ -541,9 +619,9 @@ scp1_cmd(char  *host,
 }
 
 
-/*----------------------------- get_reply() -----------------------------*/
+/*-------------------------- get_passwd_reply() -------------------------*/
 static int
-get_reply(int fd)
+get_passwd_reply(int fd)
 {
    int    status;
    fd_set rset;
@@ -567,6 +645,89 @@ get_reply(int fd)
            {
               trans_log(ERROR_SIGN, __FILE__, __LINE__,
                         "read() error : %s", strerror(errno));
+           }
+           else if (status == 1)
+                {
+                   if ((status = read(fd, msg_str, MAX_RET_MSG_LENGTH)) < 0)
+                   {
+                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "read() error : %s", strerror(errno));
+                   }
+                   else if ((status == 1) || (status == 0))
+                        {
+                           status = 1;
+                           msg_str[0] = '\n';
+                        }
+                        else
+                        {
+                           int  length = 0;
+                           char *ptr = msg_str;
+
+                           do
+                           {
+                              if ((*ptr == '\r') || (*ptr == '\n'))
+                              {
+                                 *ptr = '\0';
+                                 break;
+                              }
+                              ptr++; length++;
+                           } while (length < status);
+
+                           if (posi(msg_str, "Permission denied") == NULL)
+                           {
+                              status = 1;
+                              msg_str[0] = '\n';
+                           }
+                        }
+                }
+        }
+        else
+        {
+           trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                     "select() error : %s", strerror(errno));
+        }
+
+   return(status);
+}
+
+
+/*----------------------------- get_reply() -----------------------------*/
+static int
+get_reply(int fd, int check_reply)
+{
+   int    status;
+   fd_set rset;
+
+   msg_str[0] = '\0';
+   FD_ZERO(&rset);
+   FD_SET(fd, &rset);
+   timeout.tv_usec = 0L;
+   timeout.tv_sec = transfer_timeout;
+
+   status = select(fd + 1, &rset, NULL, NULL, &timeout);
+
+   if (status == 0)
+   {
+      timeout_flag = ON;
+      status = INCORRECT;
+   }
+   else if (FD_ISSET(fd, &rset))
+        {
+           if ((status = read(fd, msg_str, MAX_RET_MSG_LENGTH)) < 0)
+           {
+              trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                        "read() error : %s", strerror(errno));
+           }
+           else
+           {
+              if (check_reply == YES)
+              {
+                 if (msg_str[status - 1] == '\n')
+                 {
+                    msg_str[status - 1] = '\0';
+                 }
+                 status = SUCCESS;
+              }
            }
         }
         else

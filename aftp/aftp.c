@@ -30,6 +30,7 @@ DESCR__S_M1
  **
  **   options
  **       --version               - Show current version
+ **       -A                      - Retrieve rest of file.
  **       -a <file size offset>   - offset of file name when doing a
  **                                 list command on the remote side.
  **       -b <block size>         - FTP block size in bytes.
@@ -38,6 +39,7 @@ DESCR__S_M1
  **       -d <remote directory>   - Directory where file(s) are to be
  **                                 stored.
  **       -f <filename file>      - List of filenames to send.
+ **       -k                      - Keep control connection alive.
  **       -l <DOT | OFF | xyz.>   - How to lock the file on the remote
  **                                 site.
  **       -m <A | I>              - FTP transfer mode, ASCII or binary.
@@ -45,9 +47,13 @@ DESCR__S_M1
  **       -p <port number>        - Remote port number of FTP-server.
  **       -u <user> <password>    - Remote user name and password.
  **       -r                      - Remove transmitted file.
+ **       -s <file size>          - File size of file to be transfered.
  **       -t <timout>             - FTP timeout in seconds.
  **       -v                      - Verbose. Shows all FTP commands
  **                                 and the reply from the remote server.
+ **       -x                      - Use passive mode instead of active
+ **                                 mode.
+ **       -?                      - Usage.
  **
  ** DESCRIPTION
  **   aftp sends the given files to the defined recipient via FTP
@@ -63,6 +69,8 @@ DESCR__S_M1
  **   23.03.1999 H.Kiehl Integrated aftp into AFD source tree.
  **   17.10.2000 H.Kiehl Added support to retrieve files from a remote
  **                      host.
+ **   14.09.2001 H.Kiehl Added ftp_keepalive() command.
+ **   20.10.2001 H.Kiehl Added append option for partial retrieve.
  **
  */
 DESCR__E_M1
@@ -71,6 +79,7 @@ DESCR__E_M1
 #include <string.h>                    /* strcpy(), strcat(), strcmp(),  */
                                        /* strerror()                     */
 #include <stdlib.h>                    /* malloc(), free()               */
+#include <time.h>                      /* time()                         */
 #include <ctype.h>                     /* isdigit()                      */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -122,6 +131,10 @@ main(int argc, char *argv[])
    off_t       append_offset = 0,
                file_size_to_retrieve,
                local_file_size;
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+   int         do_keep_alive_check = 1;
+   time_t      keep_alive_time;
+#endif
    char        *ascii_buffer = NULL,
                append_count = 0,
                *buffer,
@@ -224,14 +237,7 @@ main(int argc, char *argv[])
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
                    "Failed to send user <%s> (%d).", db.user, status);
          (void)ftp_quit();
-         if (timeout_flag == OFF)
-         {
-            exit(USER_ERROR);
-         }
-         else
-         {
-            exit(TIMEOUT_ERROR);
-         }
+         exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
       }
       else
       {
@@ -251,14 +257,7 @@ main(int argc, char *argv[])
                       "Failed to send password for user <%s> (%d).",
                       db.user, status);
             (void)ftp_quit();
-            if (timeout_flag == OFF)
-            {
-               exit(PASSWORD_ERROR);
-            }
-            else
-            {
-               exit(TIMEOUT_ERROR);
-            }
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : PASSWORD_ERROR);
          }
          else
          {
@@ -271,21 +270,14 @@ main(int argc, char *argv[])
       } /* if (status != 230) */
    } /* if (status != 230) */
 
-   /* Set transfer mode */
+   /* Set transfer mode. */
    if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
                 "Failed to set transfer mode to %c (%d).",
                 db.transfer_mode, status);
       (void)ftp_quit();
-      if (timeout_flag == OFF)
-      {
-         exit(TYPE_ERROR);
-      }
-      else
-      {
-         exit(TIMEOUT_ERROR);
-      }
+      exit((timeout_flag == ON) ? TIMEOUT_ERROR : TYPE_ERROR);
    }
    else
    {
@@ -305,14 +297,7 @@ main(int argc, char *argv[])
                    "Failed to change directory to %s (%d).",
                    db.remote_dir, status);
          (void)ftp_quit();
-         if (timeout_flag == OFF)
-         {
-            exit(CHDIR_ERROR);
-         }
-         else
-         {
-            exit(TIMEOUT_ERROR);
-         }
+         exit((timeout_flag == ON) ? TIMEOUT_ERROR : CHDIR_ERROR);
       }
       else
       {
@@ -344,13 +329,41 @@ main(int argc, char *argv[])
          for (i = 0; i < *no_of_listed_files; i++)
          {
             (void)strcpy(&local_file[1], rl[i].file_name);
-            if (stat(local_file, &stat_buf) == -1)
+            if (db.append == YES)
             {
-               offset = 0;
+               if (stat(rl[i].file_name, &stat_buf) == -1)
+               {
+                  if (stat(local_file, &stat_buf) == -1)
+                  {
+                     offset = 0;
+                  }
+                  else
+                  {
+                     offset = stat_buf.st_size;
+                  }
+               }
+               else
+               {
+                  offset = stat_buf.st_size;
+                  if (offset > 0)
+                  {
+                     if (rename(rl[i].file_name, local_file) == -1)
+                     {
+                        offset = 0;
+                     }
+                  }
+               }
             }
             else
             {
-               offset = stat_buf.st_size;
+               if (stat(local_file, &stat_buf) == -1)
+               {
+                  offset = 0;
+               }
+               else
+               {
+                  offset = stat_buf.st_size;
+               }
             }
             if (((status = ftp_data(rl[i].file_name, offset, db.ftp_mode,
                                     DATA_READ)) != SUCCESS) &&
@@ -551,6 +564,10 @@ main(int argc, char *argv[])
    }
    else
    {
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+      int keep_alive_check_interval = -1;
+#endif
+
       /* Send all files */
       for (files_send = 0; files_send < db.no_of_files; files_send++)
       {
@@ -697,14 +714,7 @@ main(int argc, char *argv[])
                       "Failed to open remote file %s (%d).",
                       initial_filename, status);
             (void)ftp_quit();
-            if (timeout_flag == OFF)
-            {
-               exit(OPEN_REMOTE_ERROR);
-            }
-            else
-            {
-               exit(TIMEOUT_ERROR);
-            }
+            exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
          }
          else
          {
@@ -714,6 +724,13 @@ main(int argc, char *argv[])
                          "Open remote file %s", initial_filename);
             }
          }
+
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+         if ((db.keepalive == YES) && (do_keep_alive_check))
+         {
+            keep_alive_time = time(NULL);
+         }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
 
          if (db.aftp_mode == TEST_MODE)
          {
@@ -852,18 +869,44 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_quit();
                      }
-                     if (timeout_flag == OFF)
-                     {
-                        exit(WRITE_REMOTE_ERROR);
-                     }
-                     else
-                     {
-                        exit(TIMEOUT_ERROR);
-                     }
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
 
                   file_size_done += db.blocksize;
                   no_of_bytes += db.blocksize;
+
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                  if ((db.keepalive == YES) && (do_keep_alive_check))
+                  {
+                     if (keep_alive_check_interval > 40)
+                     {
+                        time_t tmp_time = time(NULL);
+
+                        keep_alive_check_interval = -1;
+                        if ((tmp_time - keep_alive_time) >= FTP_CTRL_KEEP_ALIVE_INTERVAL)
+                        {
+                           keep_alive_time = tmp_time;
+                           if ((status = ftp_keepalive()) != SUCCESS)
+                           {
+                              trans_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to send STAT command (%d).",
+                                        status);
+                              if (timeout_flag == ON)
+                              {
+                                 timeout_flag = OFF;
+                              }
+                              do_keep_alive_check = 0;
+                           }
+                           else if (db.verbose == YES)
+                                {
+                                   trans_log(INFO_SIGN, __FILE__, __LINE__,
+                                             "Send STAT command.");
+                                }
+                        }
+                     }
+                     keep_alive_check_interval++;
+                  }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                }
                if (rest > 0)
                {
@@ -920,14 +963,7 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_quit();
                      }
-                     if (timeout_flag == OFF)
-                     {
-                        exit(WRITE_REMOTE_ERROR);
-                     }
-                     else
-                     {
-                        exit(TIMEOUT_ERROR);
-                     }
+                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                   }
 
                   file_size_done += rest;
@@ -1021,14 +1057,7 @@ main(int argc, char *argv[])
                   {
                      (void)ftp_quit();
                   }
-                  if (timeout_flag == OFF)
-                  {
-                     exit(WRITE_REMOTE_ERROR);
-                  }
-                  else
-                  {
-                     exit(TIMEOUT_ERROR);
-                  }
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
 
                file_size_done += db.blocksize;
@@ -1074,14 +1103,7 @@ main(int argc, char *argv[])
                   {
                      (void)ftp_quit();
                   }
-                  if (timeout_flag == OFF)
-                  {
-                     exit(WRITE_REMOTE_ERROR);
-                  }
-                  else
-                  {
-                     exit(TIMEOUT_ERROR);
-                  }
+                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
                }
 
                file_size_done += rest;
@@ -1108,14 +1130,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
                          "Failed to close remote file %s", initial_filename);
                (void)ftp_quit();
-               if (timeout_flag == OFF)
-               {
-                  exit(CLOSE_REMOTE_ERROR);
-               }
-               else
-               {
-                  exit(TIMEOUT_ERROR);
-               }
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
             }
             else
             {
@@ -1172,14 +1187,7 @@ main(int argc, char *argv[])
                          "Failed to move remote file %s to %s (%d)",
                          initial_filename, final_filename, status);
                (void)ftp_quit();
-               if (timeout_flag == OFF)
-               {
-                  exit(MOVE_REMOTE_ERROR);
-               }
-               else
-               {
-                  exit(TIMEOUT_ERROR);
-               }
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : MOVE_REMOTE_ERROR);
             }
             else
             {
@@ -1215,14 +1223,7 @@ main(int argc, char *argv[])
                          "Failed to open remote ready file %s (%d).",
                          ready_file_name, status);
                (void)ftp_quit();
-               if (timeout_flag == OFF)
-               {
-                  exit(OPEN_REMOTE_ERROR);
-               }
-               else
-               {
-                  exit(TIMEOUT_ERROR);
-               }
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
             }
             else
             {
@@ -1280,14 +1281,7 @@ main(int argc, char *argv[])
                {
                   (void)ftp_quit();
                }
-               if (timeout_flag == OFF)
-               {
-                  exit(WRITE_REMOTE_ERROR);
-               }
-               else
-               {
-                  exit(TIMEOUT_ERROR);
-               }
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
             }
 
             /* Close remote ready file */
@@ -1301,14 +1295,7 @@ main(int argc, char *argv[])
                          "Failed to close remote ready file %s (%d).",
                          ready_file_name, status);
                (void)ftp_quit();
-               if (timeout_flag == OFF)
-               {
-                  exit(CLOSE_REMOTE_ERROR);
-               }
-               else
-               {
-                  exit(TIMEOUT_ERROR);
-               }
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
             }
             else
             {
@@ -1330,14 +1317,7 @@ main(int argc, char *argv[])
                          "Failed to move remote ready file %s to %s (%d)",
                          ready_file_name, &ready_file_name[1], status);
                (void)ftp_quit();
-               if (timeout_flag == OFF)
-               {
-                  exit(MOVE_REMOTE_ERROR);
-               }
-               else
-               {
-                  exit(TIMEOUT_ERROR);
-               }
+               exit((timeout_flag == ON) ? TIMEOUT_ERROR : MOVE_REMOTE_ERROR);
             }
             else
             {

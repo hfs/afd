@@ -215,13 +215,14 @@ get_remote_file_names(off_t *file_size_to_retrieve)
          {
             int j = i;
 
-            while ((rl[j].in_list == NO) && (j < *no_of_listed_files))
+            while ((rl[j].in_list == NO) &&
+                   (j < (*no_of_listed_files - files_removed)))
             {
                j++;
             }
-            if (j != *no_of_listed_files)
+            if (j != (*no_of_listed_files - files_removed))
             {
-               move_size = (*no_of_listed_files - j) *
+               move_size = (*no_of_listed_files - files_removed - j) *
                            sizeof(struct retrieve_list);
                (void)memmove(&rl[i], &rl[j], move_size);
             }
@@ -236,6 +237,12 @@ get_remote_file_names(off_t *file_size_to_retrieve)
                 old_size;
 
          *no_of_listed_files -= files_removed;
+         if (*no_of_listed_files < 0)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+            *no_of_listed_files = 0;
+         }
          if (*no_of_listed_files == 0)
          {
             new_size = (REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
@@ -266,6 +273,12 @@ get_remote_file_names(off_t *file_size_to_retrieve)
             no_of_listed_files = (int *)ptr;
             ptr += AFD_WORD_OFFSET;
             rl = (struct retrieve_list *)ptr;
+            if (*no_of_listed_files < 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+               *no_of_listed_files = 0;
+            }
          }
       }
    }
@@ -323,6 +336,12 @@ check_list(char *file, off_t *file_size_to_retrieve)
               no_of_listed_files = (int *)ptr;
               ptr += AFD_WORD_OFFSET;
               rl = (struct retrieve_list *)ptr;
+              if (*no_of_listed_files < 0)
+              {
+                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                            "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+                 *no_of_listed_files = 0;
+              }
            }
 
       rl[*no_of_listed_files].date[0] = '\0';
@@ -400,9 +419,18 @@ check_list(char *file, off_t *file_size_to_retrieve)
          }
          else
          {
-            for (i = 0; i < *no_of_listed_files; i++)
+            if (*no_of_listed_files < 0)
             {
-               rl[i].in_list = NO;
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+               *no_of_listed_files = 0;
+            }
+            else
+            {
+               for (i = 0; i < *no_of_listed_files; i++)
+               {
+                  rl[i].in_list = NO;
+               }
             }
          }
       }
@@ -500,6 +528,12 @@ check_list(char *file, off_t *file_size_to_retrieve)
          no_of_listed_files = (int *)ptr;
          ptr += AFD_WORD_OFFSET;
          rl = (struct retrieve_list *)ptr;
+         if (*no_of_listed_files < 0)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Hmmm, no_of_listed_files = %d", *no_of_listed_files);
+            *no_of_listed_files = 0;
+         }
       }
       if (check_date == YES)
       {

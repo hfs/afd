@@ -362,6 +362,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  if (str_number[1] == '\0')
                  {
+                    if (isdigit(str_number[0]) == 0)
+                    {
+                       (void)rec(sys_log_fd, ERROR_SIGN,
+                                 "Division by non numeric value <%c>. Ignoring time entry. (%s %d)\n",
+                                 str_number[0], __FILE__, __LINE__);
+                       return(INCORRECT);
+                    }
                     step_size = str_number[0] - '0';
                  }
                  else
@@ -565,6 +572,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  if (str_number[1] == '\0')
                  {
+                    if (isdigit(str_number[0]) == 0)
+                    {
+                       (void)rec(sys_log_fd, ERROR_SIGN,
+                                 "Division by non numeric value <%c>. Ignoring time entry. (%s %d)\n",
+                                 str_number[0], __FILE__, __LINE__);
+                       return(INCORRECT);
+                    }
                     step_size = str_number[0] - '0';
                  }
                  else
@@ -784,6 +798,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  if (str_number[1] == '\0')
                  {
+                    if (isdigit(str_number[0]) == 0)
+                    {
+                       (void)rec(sys_log_fd, ERROR_SIGN,
+                                 "Division by non numeric value <%c>. Ignoring time entry. (%s %d)\n",
+                                 str_number[0], __FILE__, __LINE__);
+                       return(INCORRECT);
+                    }
                     step_size = str_number[0] - '0';
                  }
                  else
@@ -1000,6 +1021,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  if (str_number[1] == '\0')
                  {
+                    if (isdigit(str_number[0]) == 0)
+                    {
+                       (void)rec(sys_log_fd, ERROR_SIGN,
+                                 "Division by non numeric value <%c>. Ignoring time entry. (%s %d)\n",
+                                 str_number[0], __FILE__, __LINE__);
+                       return(INCORRECT);
+                    }
                     step_size = str_number[0] - '0';
                  }
                  else
@@ -1195,6 +1223,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  if (str_number[1] == '\0')
                  {
+                    if (isdigit(str_number[0]) == 0)
+                    {
+                       (void)rec(sys_log_fd, ERROR_SIGN,
+                                 "Division by non numeric value <%c>. Ignoring time entry. (%s %d)\n",
+                                 str_number[0], __FILE__, __LINE__);
+                       return(INCORRECT);
+                    }
                     step_size = str_number[0] - '0';
                  }
                  else
@@ -1230,9 +1265,8 @@ get_number(char *ptr, char *str_number)
 {
    int i = 0;
 
-   while((*ptr != ' ') && (*ptr != ',') && (*ptr != '-') &&
-         (*ptr != '\0') && (*ptr != '\t') && (i < 3) &&
-         (*ptr != '/'))
+   while ((*ptr != ' ') && (*ptr != ',') && (*ptr != '-') &&
+          (*ptr != '\0') && (*ptr != '\t') && (i < 3) && (*ptr != '/'))
    {
       if ((isdigit(*ptr) == 0) && (*ptr != '*'))
       {

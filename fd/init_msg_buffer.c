@@ -77,6 +77,7 @@ extern char                       file_dir[],
 extern struct queue_buf           *qb;
 extern struct msg_cache_buf       *mdb;
 extern struct afd_status          *p_afd_status;
+extern struct connection          *connection;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
 
@@ -1001,6 +1002,7 @@ remove_job(int                cache_pos,
 #endif
             *ptr = '\0';
          }
+         remove_connection(&connection[qb[j].connect_pos], NO, time(NULL));
          remove_msg(j);
          j--;
       }

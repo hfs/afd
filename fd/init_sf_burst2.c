@@ -81,9 +81,7 @@ init_sf_burst2(struct job   *p_new_db,
    if (p_new_db != NULL)
    {
       db.archive_time = p_new_db->archive_time;
-/*
       db.port         = p_new_db->port;
-*/
 #ifdef _AGE_LIMIT
       db.age_limit    = p_new_db->age_limit;
 #endif

@@ -83,7 +83,6 @@ init_jd_structure(struct job_data *p_jd, int select_no, int job_no)
                       filename_display_length - p_jd->filename_compare_length);
       }
    }
-   p_jd->rotate = -1;
 
    if (fsa[select_no].special_flag & HOST_DISABLED)
    {
@@ -119,10 +118,12 @@ init_jd_structure(struct job_data *p_jd, int select_no, int job_no)
    if (p_jd->file_size_in_use == 0)
    {
       p_jd->scale[CURRENT_FILE_SIZE_BAR_NO] = 1.0;
+      p_jd->rotate = -2;
    }
    else
    {
       p_jd->scale[CURRENT_FILE_SIZE_BAR_NO] = max_bar_length / p_jd->file_size_in_use;
+      p_jd->rotate = -1;
    }
    if (p_jd->no_of_files == 0)
    {

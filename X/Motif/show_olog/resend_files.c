@@ -1,6 +1,6 @@
 /*
  *  resend_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,10 +55,11 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>         /* strerror(), strcmp(), strcpy(), strcat()  */
 #include <stdlib.h>         /* calloc(), free()                          */
-#include <unistd.h>         /* rmdir()                                   */
+#include <unistd.h>         /* rmdir(), access()                         */
 #include <time.h>           /* time()                                    */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <utime.h>          /* utime()                                   */
 #include <dirent.h>         /* opendir(), readdir(), closedir()          */
 #include <fcntl.h>
 #include <errno.h>
@@ -566,6 +567,15 @@ get_archive_data(int pos, int file_no)
       ptr++;
    }
    *(ptr++) = '\0';
+   if (*ptr == '/')
+   {
+      /* Ignore  the remote file name */
+      while (*ptr != ' ')
+      {
+         ptr++;
+      }
+      ptr++;
+   }
 
    /* Away with the size. */
    while (*ptr != ' ')
@@ -697,31 +707,145 @@ static int
 get_file(char *dest_dir, char *p_dest_dir_end)
 {
    (void)strcpy(p_dest_dir_end, p_file_name);
-   if (link(archive_dir, dest_dir) < 0)
+   if (access(archive_dir, W_OK) == 0)
    {
-      switch (errno)
+      if (link(archive_dir, dest_dir) < 0)
       {
-         case EEXIST : /* File already exists. Overwrite it. */
-                       overwrite++;
-                       /* NOTE: Falling through! */
-         case EXDEV  : /* File systems diver. */
-                       if (copy_file(archive_dir, dest_dir, NULL) < 0)
-                       {
-                          (void)xrec(toplevel_w, ERROR_DIALOG,
-                                     "Failed to copy %s to %s (%s %d)",
-                                     archive_dir, dest_dir,
-                                     __FILE__, __LINE__);
+         switch (errno)
+         {
+            case EEXIST : /* File already exists. Overwrite it. */
+                          overwrite++;
+                          /* NOTE: Falling through! */
+            case EXDEV  : /* File systems differ. */
+                          if (copy_file(archive_dir, dest_dir, NULL) < 0)
+                          {
+                             (void)fprintf(stdout,
+                                           "Failed to copy %s to %s (%s %d)\n",
+                                           archive_dir, dest_dir,
+                                           __FILE__, __LINE__);
+                             return(INCORRECT);
+                          }
+                          break;
+            case ENOENT : /* File is not in archive dir. */
                           return(INCORRECT);
-                       }
-                       break;
-         case ENOENT : /* File is not in archive dir. */
-                       return(INCORRECT);
-         default:      /* All other errors go here. */
-                       (void)xrec(toplevel_w, ERROR_DIALOG,
-                                  "Failed to link() %s to %s : %s (%s %d)",
-                                  archive_dir, dest_dir, strerror(errno),
-                                  __FILE__, __LINE__);
-                       return(INCORRECT);
+            default:      /* All other errors go here. */
+                          (void)fprintf(stdout,
+                                        "Failed to link() %s to %s : %s (%s %d)\n",
+                                        archive_dir, dest_dir, strerror(errno),
+                                        __FILE__, __LINE__);
+                          return(INCORRECT);
+         }
+      }
+      else /* We must update the file time or else when age limit is */
+           /* set the files will be deleted by process sf_xxx before */
+           /* being send.                                            */
+      {
+         struct utimbuf ut;
+
+         ut.actime = ut.modtime = time(NULL);
+         if (utime(dest_dir, &ut) == -1)
+         {
+            /*
+             * Do NOT use xrec() here to report any errors. If you try
+             * to do this with al lot of files your screen will be filled
+             * with lots of error messages.
+             */
+            (void)fprintf(stdout, "Failed to set utime() of %s : %s (%s %d)\n",
+                          dest_dir, strerror(errno), __FILE__, __LINE__);
+            return(INCORRECT);
+         }
+      }
+   }
+   else
+   {
+      /*
+       * If we do not have write permission to the file we must copy
+       * the file so the date of the file is that time when we copied it.
+       */
+      int from_fd;
+
+      if ((from_fd = open(archive_dir, O_RDONLY)) == -1)
+      {
+         /* File is not in archive dir. */
+         return(INCORRECT);
+      }
+      else
+      {
+         struct stat stat_buf;
+
+         if (fstat(from_fd, &stat_buf) == -1)
+         {
+            (void)fprintf(stderr,
+                          "Failed to fstat() %s : %s (%s %d)\n",
+                          archive_dir, strerror(errno),
+                          __FILE__, __LINE__);
+            (void)close(from_fd);
+            return(INCORRECT);
+         }
+         else
+         {
+            int to_fd;
+
+            (void)unlink(dest_dir);
+            if ((to_fd = open(dest_dir, O_WRONLY | O_CREAT | O_TRUNC,
+                              stat_buf.st_mode)) == -1)
+            {
+               (void)fprintf(stderr,
+                             "Failed to open() %s : %s (%s %d)\n",
+                             dest_dir, strerror(errno),
+                             __FILE__, __LINE__);
+               (void)close(from_fd);
+               return(INCORRECT);
+            }
+            else
+            {
+               if (stat_buf.st_size > 0)
+               {
+                  int  bytes_buffered;
+                  char *buffer;
+
+                  if ((buffer = (char *)malloc(stat_buf.st_blksize)) == NULL)
+                  {
+                     (void)fprintf(stderr,
+                                   "malloc() error : %s (%s %d)\n",
+                                   strerror(errno), __FILE__, __LINE__);
+                     (void)close(from_fd); (void)close(to_fd);
+                     return(INCORRECT);
+                  }
+
+                  do
+                  {
+                     if ((bytes_buffered = read(from_fd, buffer,
+                                                stat_buf.st_blksize)) == -1)
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to read() from %s : %s (%s %d)\n",
+                                      archive_dir, strerror(errno),
+                                      __FILE__, __LINE__);
+                        free(buffer);
+                        (void)close(from_fd); (void)close(to_fd);
+                        return(INCORRECT);
+                     }
+                     if (bytes_buffered > 0)
+                     {
+                        if (write(to_fd, buffer, bytes_buffered) != bytes_buffered)
+                        {
+                           (void)fprintf(stderr,
+                                         "Failed to write() to %s : %s (%s %d)\n",
+                                         dest_dir, strerror(errno),
+                                         __FILE__, __LINE__);
+                           free(buffer);
+                           (void)close(from_fd); (void)close(to_fd);
+                           return(INCORRECT);
+                        }
+                     }
+                  } while (bytes_buffered == stat_buf.st_blksize);
+                  free(buffer);
+               }
+               (void)close(to_fd);
+            }
+         }
+         (void)close(from_fd);
       }
    }
 

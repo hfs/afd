@@ -411,7 +411,7 @@ main(int argc, char *argv[])
             {
                if (errno == EEXIST)
                {
-                  if (unlink(p_to_name) == -1)
+                  if ((unlink(p_to_name) == -1) && (errno != ENOENT))
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                "Failed to unlink() <%s> : %s",
@@ -424,9 +424,12 @@ main(int argc, char *argv[])
                   }
                   else
                   {
-                     trans_log(INFO_SIGN, __FILE__, __LINE__,
-                               "File <%s> did already exist, removed it and linked again.",
-                               p_to_name);
+                     if (errno != ENOENT)
+                     {
+                        trans_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "File <%s> did already exist, removed it and linked again.",
+                                  p_to_name);
+                     }
 
                      if (link(source_file, p_to_name) == -1)
                      {

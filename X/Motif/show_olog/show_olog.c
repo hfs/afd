@@ -215,6 +215,10 @@ main(int argc, char *argv[])
                                 &argc, argv, fallback_res, args, argcount);
    display = XtDisplay(toplevel_w);
 
+#ifdef _X_DEBUG
+   XSynchronize(display, 1);
+#endif
+
    /* Create managing widget */
    mainform_w = XmCreateForm(toplevel_w, "mainform", NULL, 0);
 

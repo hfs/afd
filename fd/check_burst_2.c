@@ -65,6 +65,13 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 #include "ftpdefs.h"
+#include "smtpdefs.h"
+#ifdef _WITH_SCP1_SUPPORT
+#include "scp1defs.h"
+#endif
+#ifdef _WITH_WMO_SUPPORT
+#include "wmodefs.h"
+#endif
 
 /* External global variables. */
 extern char                       *p_work_dir;
@@ -106,6 +113,7 @@ retry:
          pid_t pid = -db.my_pid;
 
          fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[1] = '\0';
+         fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[2] = '\0';
          fsa[db.fsa_pos].job_status[(int)db.job_no].error_file = NO;
          if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
          {
@@ -127,7 +135,7 @@ retry:
                {
                   break;
                }
-            } while (sleep_time < 20000000L); /* Wait 20 seconds. */
+            } while (sleep_time < 60000000L); /* Wait 60 seconds. */
 
             if ((fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[1] != '\0') &&
                 (fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[0] != '\0'))
@@ -150,33 +158,51 @@ retry:
                      {
                         char msg_name[MAX_PATH_LENGTH];
 
-                        p_new_db->transfer_mode  = DEFAULT_TRANSFER_MODE;
-                        p_new_db->special_ptr    = NULL;
-                        p_new_db->subject        = NULL;
+                        p_new_db->transfer_mode        = DEFAULT_TRANSFER_MODE;
+                        p_new_db->special_ptr          = NULL;
+                        p_new_db->subject              = NULL;
 #ifdef _WITH_TRANS_EXEC
-                        p_new_db->trans_exec_cmd = NULL;
+                        p_new_db->trans_exec_cmd       = NULL;
 #endif
-                        p_new_db->special_flag   = 0;
-                        p_new_db->mode_flag      = 0;
-                        p_new_db->archive_time   = DEFAULT_ARCHIVE_TIME;
+                        p_new_db->special_flag         = 0;
+                        p_new_db->mode_flag            = 0;
+                        p_new_db->archive_time         = DEFAULT_ARCHIVE_TIME;
 #ifdef _AGE_LIMIT
-                        p_new_db->age_limit      = DEFAULT_AGE_LIMIT;
+                        p_new_db->age_limit            = DEFAULT_AGE_LIMIT;
 #endif
 #ifdef _OUTPUT_LOG
-                        p_new_db->output_log     = YES;
+                        p_new_db->output_log           = YES;
 #endif
-                        p_new_db->lock           = DEFAULT_LOCK;
-                        p_new_db->smtp_server[0] = '\0';
-#ifdef _WITH_SCP1_SUPPORT
-                        p_new_db->chmod          = FILE_MODE;
-#endif
-                        p_new_db->chmod_str[0]   = '\0';
+                        p_new_db->lock                 = DEFAULT_LOCK;
+                        p_new_db->smtp_server[0]       = '\0';
+                        p_new_db->chmod_str[0]         = '\0';
                         p_new_db->trans_rename_rule[0] = '\0';
-                        p_new_db->user_rename_rule[0] = '\0';
-                        p_new_db->no_of_restart_files = 0;
-                        p_new_db->restart_file   = NULL;
-                        p_new_db->user_id        = -1;
-                        p_new_db->group_id       = -1;
+                        p_new_db->user_rename_rule[0]  = '\0';
+                        p_new_db->no_of_restart_files  = 0;
+                        p_new_db->restart_file         = NULL;
+                        p_new_db->user_id              = -1;
+                        p_new_db->group_id             = -1;
+                        if (db.protocol & FTP_FLAG)
+                        {
+                           p_new_db->port = DEFAULT_FTP_PORT;
+                        }
+#ifdef _WITH_SCP1_SUPPORT
+                        else if (db.protocol & SCP1_FLAG)
+                             {
+                                p_new_db->port = DEFAULT_SSH_PORT;
+                                p_new_db->chmod = FILE_MODE;
+                             }
+#endif
+#ifdef _WITH_WMO_SUPPORT
+                        else if (db.protocol & WMO_FLAG)
+                             {
+                                p_new_db->port = DEFAULT_WMO_PORT;
+                             }
+#endif
+                        else if (db.protocol & SMTP_FLAG)
+                             {
+                                p_new_db->port = DEFAULT_SMTP_PORT;
+                             }
                         (void)strcpy(p_new_db->lock_notation, DOT_NOTATION);
                         (void)sprintf(msg_name, "%s%s/%u",
                                       p_work_dir, AFD_MSG_DIR, db.job_id);
@@ -185,7 +211,7 @@ retry:
                          * NOTE: We must set protocol for eval_message()
                          *       otherwise some values are NOT set!
                          */
-                        p_new_db->protocol       = db.protocol;
+                        p_new_db->protocol = db.protocol;
                         if (eval_message(msg_name, p_new_db) < 0)
                         {
                            free(p_new_db);
@@ -213,10 +239,11 @@ retry:
             }
             else
             {
-               if (sleep_time >= 20000000L)
+               if (sleep_time >= 60000000L)
                {
+                  fsa[db.fsa_pos].job_status[(int)db.job_no].unique_name[2] = 1;
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Hmmm, failed to get a message from FD for <%s> after 20 seconds!",
+                             "Hmmm, failed to get a message from FD for <%s> after 60 seconds!",
                              fsa[db.fsa_pos].host_alias);
                }
 #ifdef _DEBUG_BURST2

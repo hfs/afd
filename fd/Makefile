@@ -19,12 +19,14 @@ FDOBJS     = check_file_dir.o\
              check_queue_space.o\
              fd.o\
              get_job_data.o\
+             get_new_positions.o\
              init_fifos_fd.o\
              init_fra_data.o\
              init_msg_buffer.o\
              init_msg_ptrs.o\
              lookup_job_id.o\
              recreate_msg.o\
+             remove_connection.o\
              remove_files.o\
              remove_msg.o
 
@@ -147,9 +149,9 @@ $(FDPROG) : $(FDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(FDOBJS) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
-$(SFFTPPROG) : $(SFFTPOBJS) $(LIB) $(PROTOLIB)
+$(SFFTPPROG) : $(SFFTPOBJS) $(LIB) $(PROTOLIB) $(MISCLIB)
 	rm -f $@
-	$(CC) $(CFLAGS) -o $@ $(SFFTPOBJS) $(PROTOLIB) $(LIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
+	$(CC) $(CFLAGS) -o $@ $(SFFTPOBJS) $(PROTOLIB) $(LIB) $(MISCLIB) $(SPECIAL_LIBS) $(EFENCE) $(CCMALLOC)
 
 $(SFSMTPPROG) : $(SFSMTPOBJS) $(LIB) $(PROTOLIB)
 	rm -f $@

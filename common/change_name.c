@@ -52,6 +52,7 @@ DESCR__S_M3
  **                     y - year [01,99],         Y - year 1997,
  **                     H - hour [00,23],         M - minute [00,59],
  **                     S - second [00,60]                                 )
+ **            %h    - insert the hostname
  **            %%    - the '%' sign   
  **            \     - are ignored
  **
@@ -65,14 +66,16 @@ DESCR__S_M3
  **   03.02.1997 T.Freyberg Created
  **   15.11.1997 H.Kiehl    Insert option day of the year.
  **   07.03.2001 H.Kiehl    Put in some more syntax checks.
+ **   09.10.2001 H.Kiehl    Insert option for inserting hostname.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>           /*                                          */
 #include <string.h>          /* strcpy(), strlen()                       */
-#include <stdlib.h>          /* atoi()                                   */
+#include <stdlib.h>          /* atoi(), getenv()                         */
 #include <ctype.h>           /* isdigit()                                */
+#include <unistd.h>          /* gethostname()                            */
 #include <errno.h>
 #include <time.h>
 #include "amgdefs.h"
@@ -192,6 +195,11 @@ change_name(char *orig_file_name,
                {
                   ptr_filter_tmp = ptr_filter;
                   ptr_oldname = ptr_oldname_tmp;
+                  if (count_questioner > 0)
+                  {
+                     ptr_oldname -= count_questioner;
+                     count_questioner = 0;
+                  }
                }
             }
             break;
@@ -357,6 +365,28 @@ change_name(char *orig_file_name,
                   next_counter(&number);
                   (void)sprintf(ptr_newname, "%04d", number);
                   ptr_newname += 4;
+                  break;
+
+               case 'h' : /* Insert local hostname. */
+
+                  {
+                     char hostname[40];
+
+                     ptr_rule++;
+                     if (gethostname(hostname, 40) == -1)
+                     {
+                        char *p_hostname;
+
+                        if ((p_hostname = getenv("HOSTNAME")) != NULL)
+                        {
+                           ptr_newname += sprintf(ptr_newname, "%s", p_hostname);
+                        }
+                     }
+                     else
+                     {
+                        ptr_newname += sprintf(ptr_newname, "%s", hostname);
+                     }
+                  }
                   break;
 
                case 't' : /* insert the actual time like strftime */

@@ -352,6 +352,9 @@
 #define RETRIEVE_FLAG              512
 #define FTP_PASSIVE_MODE           1024
 #define SET_IDLE_TIME              2048
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+#define STAT_KEEPALIVE             4096
+#endif
 #define SEND_FTP_FLAG              65536
 #define SEND_LOC_FLAG              131072
 #define SEND_SMTP_FLAG             262144
@@ -872,7 +875,8 @@ struct filetransfer_status
                                             /*| 19   | SEND_SMTP        |*/
                                             /*| 18   | SEND_LOC         |*/
                                             /*| 17   | SEND_FTP         |*/
-                                            /*| 13-16| Not used.        |*/
+                                            /*| 14-16| Not used.        |*/
+                                            /*| 13   | STAT_KEEPALIVE   |*/
                                             /*| 12   | SET_IDLE_TIME    |*/
                                             /*| 11   | FTP_PASSIVE_MODE |*/
                                             /*| 10   | RETRIEVE         |*/
