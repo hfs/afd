@@ -80,6 +80,13 @@ next_counter(int *counter)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "Could not seek() : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
+      if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not unset write lock : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
+      return(INCORRECT);
    }
 
    /* Read the value of counter */
@@ -102,6 +109,13 @@ next_counter(int *counter)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "Could not seek() : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
+      if (fcntl(counter_fd, F_SETLKW, &ulock) == -1)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Could not unset write lock : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+      }
+      return(INCORRECT);
    }
 
    /* Ensure that counter does not become larger then MAX_MSG_PER_SEC */

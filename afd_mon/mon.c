@@ -1,6 +1,6 @@
 /*
  *  mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -153,23 +153,36 @@ main(int argc, char *argv[])
    (void)strcat(retry_fifo, argv[1]);
    (void)strcat(sys_log_fifo, MON_SYS_LOG_FIFO);
 
-   /* Open (create) system log fifo. */
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+   /* Open and if necessary create system log fifo. */
+   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
    {
-      if (make_fifo(sys_log_fifo) < 0)
+      if (errno == ENOENT)
+      {
+         if (make_fifo(sys_log_fifo) == SUCCESS)
+         {
+            if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
+            {
+               (void)fprintf(stderr,
+                             "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
+                             sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+         }
+         else
+         {
+            (void)fprintf(stderr,
+                          "ERROR   : Could not create fifo %s. (%s %d)\n",
+                          sys_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      else
       {
          (void)fprintf(stderr,
-                       "ERROR   : Could not create fifo %s. (%s %d)\n",
-                       sys_log_fifo, __FILE__, __LINE__);
+                       "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
+                       sys_log_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-   }
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
 
    /* Open (create) monitor log fifo. */
@@ -282,26 +295,24 @@ main(int argc, char *argv[])
             {
                (void)rec(mon_log_fd, ERROR_SIGN,
                          "%-*s: Failed to send %s command. (%s %d)\n",
-                         MAX_AFDNAME_LENGTH,
-                         msa[afd_no].afd_alias, START_STAT_CMD,
-                         __FILE__, __LINE__);
+                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
+                         START_STAT_CMD, __FILE__, __LINE__);
                (void)rec(mon_log_fd, ERROR_SIGN, "%-*s: %s\n",
-                         MAX_AFDNAME_LENGTH,
-                         msa[afd_no].afd_alias, msg_str);
+                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias, msg_str);
             }
             else
             {
                (void)rec(mon_log_fd, ERROR_SIGN,
                          "%-*s: Failed to send %s command due to timeout. (%s %d)\n",
-                         MAX_AFDNAME_LENGTH,
-                         msa[afd_no].afd_alias, START_STAT_CMD,
-                         __FILE__, __LINE__);
+                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
+                         START_STAT_CMD, __FILE__, __LINE__);
             }
             (void)tcp_quit();
             msa[afd_no].connect_status = CONNECTION_DEFUNCT;
          }
          else
          {
+            FD_ZERO(&rset);
             for (;;)
             {
                /*
@@ -348,7 +359,6 @@ main(int argc, char *argv[])
                }
 
                /* Initialise descriptor set and timeout */
-               FD_ZERO(&rset);
                FD_SET(sock_fd, &rset);
                timeout.tv_usec = 0;
                timeout.tv_sec = msa[afd_no].poll_interval;
@@ -410,7 +420,7 @@ main(int argc, char *argv[])
                        }
                        else
                        {
-                          msa[afd_no].last_data_time = time(NULL);
+                          msa[afd_no].last_data_time = now + msa[afd_no].poll_interval;
                           if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
                           {
                              bytes_buffered -= bytes_done;

@@ -1,6 +1,6 @@
 /*
  *  init_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -548,6 +548,7 @@ main(int argc, char *argv[])
     * While doing this wait and see if any commands or replies
     * are received via fifos.
     */
+   FD_ZERO(&rset);
    for (;;)
    {
       /*
@@ -570,7 +571,6 @@ main(int argc, char *argv[])
       }
 
       /* Initialise descriptor set and timeout */
-      FD_ZERO(&rset);
       FD_SET(afd_cmd_fd, &rset);
       timeout.tv_usec = 0;
       timeout.tv_sec = AFD_RESCAN_TIME;

@@ -30,6 +30,7 @@ XLIBPATH             = -L/usr/X11R6/lib
 XMLIBS               = -lXm -lXpm
 XAWLIBS              = -lXaw
 XLIBS                = -lXmu -lXt -lXext -lX11 -lSM -lICE
+XINCLUDES            =
 MATHSLIB             = -lm
 XSTATIC_FLAG         =
 #XSTATIC_FLAG         = -static

@@ -1,6 +1,6 @@
 /*
  *  handle_request.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -120,6 +120,7 @@ handle_request(int sd, int pos)
     * the connection was idle for AFDD_CMD_TIMEOUT seconds.
     */
    now = last = last_time_read = time(NULL);
+   FD_ZERO(&rset);
    for (;;)
    {
       now = time(NULL);
@@ -150,7 +151,6 @@ handle_request(int sd, int pos)
                        AFDD_CMD_TIMEOUT);
          break;
       }
-      FD_ZERO(&rset);
       FD_SET(sd, &rset);
       timeout.tv_usec = 0;
 
@@ -353,12 +353,16 @@ handle_request(int sd, int pos)
                                     LOG_DIR);
                       switch (cmd[0])
                       {
+#ifdef _INPUT_LOG
                          case 'I' : /* Input log */
                             (void)strcat(search_file, INPUT_BUFFER_FILE);
                             break;
+#endif /* _INPUT_LOG */
+#ifdef _OUTPUT_LOG
                          case 'O' : /* Output log */
                             (void)strcat(search_file, OUTPUT_BUFFER_FILE);
                             break;
+#endif /* _OUTPUT_LOG */
                          case 'S' : /* System log */
                             (void)strcat(search_file, SYSTEM_LOG_NAME);
                             break;

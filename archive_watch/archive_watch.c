@@ -1,6 +1,6 @@
 /*
  *  archive_watch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "awdefs.h"
 #include "version.h"
+
 
 /* Global variables */
 int          sys_log_fd = STDERR_FILENO;
@@ -191,6 +192,7 @@ main(int argc, char *argv[])
 #endif
 
    next_report_time = (time(NULL) / 3600) * 3600 + 3600;
+   FD_ZERO(&rset);
 
    for (;;)
    {
@@ -201,7 +203,6 @@ main(int argc, char *argv[])
       }
 
       /* Initialise descriptor set and timeout */
-      FD_ZERO(&rset);
       FD_SET(aw_cmd_fd, &rset);
       timeout.tv_usec = 0;
       if ((diff_time = (next_rescan_time - now)) < 0)
@@ -260,6 +261,10 @@ main(int argc, char *argv[])
                             (void)rec(sys_log_fd, INFO_SIGN,
                                       "Rescaning archive directories.\n",
                                       ARCHIVE_WATCH);
+
+                            /* Remember to set current_time, since the   */
+                            /* function inspect_archive() depends on it. */
+                            current_time = time(NULL);
                             inspect_archive(archive_dir);
                          }
                          else

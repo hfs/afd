@@ -1,6 +1,6 @@
 /*
  *  assemble.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -262,10 +262,10 @@ assemble(char  *source_dir,
                }
             }
          }
-         if (remove(source_dir) == -1)
+         if (unlink(source_dir) == -1)
          {
             receive_log(WARN_SIGN, __FILE__, __LINE__,
-                        "Failed to remove() %s : %s",
+                        "Failed to unlink() %s : %s",
                         source_dir, strerror(errno));
          }
       }

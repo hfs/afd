@@ -1,6 +1,6 @@
 /*
  *  archive_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <dirent.h>      /* opendir(), readdir(), closedir()             */
 #include <fcntl.h>
-#include <unistd.h>      /* mkdir()                                      */
+#include <unistd.h>      /* mkdir(), pathconf(), unlink()                */
 #include <errno.h>
 #include "fddefs.h"
 
@@ -76,15 +76,15 @@ DESCR__E_M3
 #endif
 
 /* External global variables */
-extern int    sys_log_fd;
 extern char   *p_work_dir;
 
 /* Local variables */
 static time_t archive_start_time = 0L;
+static long   link_max = 0L;
 
 /* Local functions */
-static int  create_archive_dir(char *, char, time_t, int, char *),
-            get_dir_number(char *);
+static int    create_archive_dir(char *, char, time_t, int, char *),
+              get_dir_number(char *);
 
 
 /*########################### archive_file() ############################*/
@@ -104,7 +104,8 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       int         i = 0,
                   dir_number,
                   length;
-      char        *ptr;
+      char        *ptr,
+                  *tmp_ptr;
       struct stat stat_buf;
 
       /*
@@ -118,25 +119,12 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       p_db->archive_offset = strlen(p_db->archive_dir);
 #endif
       (void)strcat(p_db->archive_dir, p_db->host_alias);
-      if ((stat(p_db->archive_dir, &stat_buf) < 0) ||
-          (!S_ISDIR(stat_buf.st_mode)))
-      {
-         if (mkdir(p_db->archive_dir, DIR_MODE) < 0)
-         {
-            /* Could be that another job is doing just the */
-            /* same thing. So check if this is the case.   */
-            if (errno != EEXIST)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to create directory %s : %s (%s %d)\n",
-                         p_db->archive_dir, strerror(errno),
-                         __FILE__, __LINE__);
-               p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
-               return(INCORRECT);
-            }
-         }
-      }
-      ptr = p_db->archive_dir + strlen(p_db->archive_dir);
+
+      /*
+       * Lets make an educated guest: Most the time both host_alias,
+       * user name and directory number zero do already exist.
+       */
+      tmp_ptr = ptr = p_db->archive_dir + strlen(p_db->archive_dir);
       *ptr = '/';
       ptr++;
       while (p_db->user[i] != '\0')
@@ -147,53 +135,79 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
          }
          ptr++; i++;
       }
-      *ptr = '\0';
-
-      if ((stat(p_db->archive_dir, &stat_buf) < 0) ||
-          (!S_ISDIR(stat_buf.st_mode)))
+      *ptr = '/';
+      *(ptr + 1) = '0';
+      *(ptr + 2) = '/';
+      *(ptr + 3) = '\0';
+      length = 3;
+      if (stat(p_db->archive_dir, &stat_buf) < 0)
       {
-         if (mkdir(p_db->archive_dir, DIR_MODE) < 0)
+         *tmp_ptr = '\0';
+         if ((stat(p_db->archive_dir, &stat_buf) < 0) ||
+             (!S_ISDIR(stat_buf.st_mode)))
          {
-            /* Could be that another job is doing just the */
-            /* same thing. So check if this is the case.   */
-            if (errno != EEXIST)
+            if (mkdir(p_db->archive_dir, DIR_MODE) < 0)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to create directory : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
-               p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
-               return(INCORRECT);
+               /* Could be that another job is doing just the */
+               /* same thing. So check if this is the case.   */
+               if (errno != EEXIST)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to create directory %s : %s",
+                             p_db->archive_dir, strerror(errno));
+                  p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
+                  return(INCORRECT);
+               }
             }
          }
-      }
+         *tmp_ptr = '/';
+         *ptr = '\0';
 
-      if ((dir_number = get_dir_number(p_db->archive_dir)) < 0)
-      {
-         if (dir_number == ARCHIVE_FULL)
+         if ((stat(p_db->archive_dir, &stat_buf) < 0) ||
+             (!S_ISDIR(stat_buf.st_mode)))
          {
-            ptr = p_db->archive_dir + strlen(p_db->archive_dir);
-            while ((*ptr != '/') && (ptr != p_db->archive_dir))
+            if (mkdir(p_db->archive_dir, DIR_MODE) < 0)
             {
-               ptr--;
+               /* Could be that another job is doing just the */
+               /* same thing. So check if this is the case.   */
+               if (errno != EEXIST)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to create directory : %s",
+                             strerror(errno));
+                  p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
+                  return(INCORRECT);
+               }
             }
-            if (*ptr == '/')
-            {
-               *ptr = '\0';
-            }
-            (void)rec(sys_log_fd, ERROR_SIGN, "Archive %s is FULL! (%s %d)\n",
-                      p_db->archive_dir, __FILE__, __LINE__);
          }
-         else
+
+         if ((dir_number = get_dir_number(p_db->archive_dir)) < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to get directory number for %s (%s %d)\n",
-                      p_db->archive_dir, __FILE__, __LINE__);
+            if (dir_number == ARCHIVE_FULL)
+            {
+               ptr = p_db->archive_dir + strlen(p_db->archive_dir);
+               while ((*ptr != '/') && (ptr != p_db->archive_dir))
+               {
+                  ptr--;
+               }
+               if (*ptr == '/')
+               {
+                  *ptr = '\0';
+               }
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Archive %s is FULL!", p_db->archive_dir);
+            }
+            else
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to get directory number for %s",
+                          p_db->archive_dir);
+            }
+            p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
+            return(INCORRECT);
          }
-         p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
-         return(INCORRECT);
+         length = sprintf(ptr, "/%d/", dir_number);
       }
-      ptr = p_db->archive_dir + strlen(p_db->archive_dir);
-      length = sprintf(ptr, "/%d/", dir_number);
 
       while (create_archive_dir(p_db->archive_dir, p_db->msg_name[0],
                                 p_db->archive_time,
@@ -211,15 +225,14 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                  {
                     if (dir_number == ARCHIVE_FULL)
                     {
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "Archive %s is FULL! (%s %d)\n",
-                                 p_db->archive_dir, __FILE__, __LINE__);
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Archive %s is FULL!", p_db->archive_dir);
                     }
                     else
                     {
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "Failed to get directory number for %s (%s %d)\n",
-                                 p_db->archive_dir, __FILE__, __LINE__);
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Failed to get directory number for %s",
+                                  p_db->archive_dir);
                     }
                     p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                     return(INCORRECT);
@@ -228,18 +241,17 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
               }
          else if (errno == ENOSPC) /* No space left on device */
               {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Failed to create unique name. Disk full. (%s %d)\n",
-                           p_db->archive_dir, __FILE__, __LINE__);
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to create unique name. Disk full.",
+                            p_db->archive_dir);
                  p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                  return(INCORRECT);
               }
               else
               {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Failed to create a unique name %s : %s (%s %d)\n",
-                           p_db->archive_dir, strerror(errno),
-                           __FILE__, __LINE__);
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to create a unique name %s : %s",
+                            p_db->archive_dir, strerror(errno));
                  p_db->archive_dir[0] = FAILED_TO_CREATE_ARCHIVE_DIR;
                  return(INCORRECT);
               }
@@ -256,9 +268,8 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
 
    if (move_file(oldname, newname) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to move file %s to %s. (%s %d)\n",
-                oldname, newname, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to move file %s to %s.", oldname, newname);
    }
    else
    {
@@ -270,11 +281,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
        * the file is really gone. The cheapest way seems to
        * make just another system call :-(((
        */
-#ifdef _WORKING_UNLINK
       (void)unlink(oldname);
-#else
-      (void)remove(oldname);
-#endif /* _WORKING_UNLINK */
    }
 
    return(SUCCESS);
@@ -295,10 +302,23 @@ get_dir_number(char *directory)
 
    if ((dp = opendir(directory)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to opendir() %s : %s (%s %d)\n",
-                directory, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to opendir() %s : %s", directory, strerror(errno));
       return(INCORRECT);
+   }
+
+   if (link_max == 0L)
+   {
+#ifdef _ARCHIVE_TEST
+      link_max = LINKY_MAX;
+#else
+      if ((link_max = pathconf(directory, _PC_LINK_MAX)) == -1)
+      {
+         link_max = LINK_MAX;
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "pathconf() error for _PC_LINK_MAX : %s", strerror(errno));
+      }
+#endif /* _ARCHIVE_TEST */
    }
 
    dir_number = max_dir_number = -1;
@@ -318,8 +338,8 @@ get_dir_number(char *directory)
       (void)strcpy(ptr, p_dir->d_name);
       if (stat(directory, &stat_buf) < 0)
       {
-         (void)rec(sys_log_fd, WARN_SIGN, "Can't access %s : %s (%s %d)\n",
-                   directory, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Can't access %s : %s", directory, strerror(errno));
          continue;
       }
 
@@ -334,11 +354,7 @@ get_dir_number(char *directory)
          if (*p_number == '\0')
          {
             dir_number = atoi(p_dir->d_name);
-#ifdef _ARCHIVE_TEST
-            if (stat_buf.st_nlink < LINKY_MAX)
-#else
-            if (stat_buf.st_nlink < LINK_MAX)
-#endif
+            if (stat_buf.st_nlink < link_max)
             {
                ptr[-1] = '\0';
                (void)closedir(dp);
@@ -355,9 +371,8 @@ get_dir_number(char *directory)
 
    if (errno)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to readdir() %s : %s (%s %d)\n",
-                directory, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to readdir() %s : %s", directory, strerror(errno));
    }
 
    dir_number = max_dir_number;
@@ -365,11 +380,7 @@ get_dir_number(char *directory)
    for (;;)
    {
       dir_number++;
-#ifdef _ARCHIVE_TEST
-      if (dir_number < (LINKY_MAX - 2))
-#else
-      if (dir_number < (LINK_MAX - 2))
-#endif
+      if (dir_number < (link_max - 2))
       {
          /* Create new numeric directory */
          (void)sprintf(ptr, "%d", dir_number);
@@ -377,9 +388,8 @@ get_dir_number(char *directory)
          {
             if (errno != EEXIST)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to create directory : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to create directory : %s", strerror(errno));
                ptr[-1] = '\0';
                (void)closedir(dp);
                return(INCORRECT);
@@ -402,9 +412,8 @@ get_dir_number(char *directory)
 
    if (closedir(dp) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to closedir() %s : %s (%s %d)\n",
-                directory, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to closedir() %s : %s", directory, strerror(errno));
    }
 
    return(dir_number);

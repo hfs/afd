@@ -1,6 +1,6 @@
 /*
  *  init_msg_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,7 +31,7 @@ DESCR__S_M3
  **                      int            **job_id,
  **                      unsigned short **unique_number,
  **                      char           **msg_priority,
- **                      char           **fifo_buffer)
+ **                      char           **msg_buffer)
  **
  ** DESCRIPTION
  **
@@ -63,7 +63,7 @@ init_msg_ptrs(size_t         *msg_fifo_buf_size,
               int            **job_id,
               unsigned short **unique_number,
               char           **msg_priority,
-              char           **fifo_buffer)
+              char           **msg_buffer)
 {
    int offset = sizeof(time_t);
 
@@ -72,16 +72,16 @@ init_msg_ptrs(size_t         *msg_fifo_buf_size,
       offset = sizeof(int);
    }
    *msg_fifo_buf_size = offset + offset  + sizeof(unsigned short) + 1;
-   if ((*fifo_buffer = malloc(*msg_fifo_buf_size)) == NULL)
+   if ((*msg_buffer = malloc(*msg_fifo_buf_size)) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   *creation_time = (time_t *)*fifo_buffer;
-   *job_id = (int *)(*fifo_buffer + offset);
-   *unique_number = (unsigned short *)(*fifo_buffer + offset + offset);
-   *msg_priority = (char *)(*fifo_buffer + offset + offset + sizeof(unsigned short));
+   *creation_time = (time_t *)*msg_buffer;
+   *job_id = (int *)(*msg_buffer + offset);
+   *unique_number = (unsigned short *)(*msg_buffer + offset + offset);
+   *msg_priority = (char *)(*msg_buffer + offset + offset + sizeof(unsigned short));
 
    return;
 }

@@ -12,5 +12,6 @@ XLIBPATH        =
 XMLIBS          = -lXm
 XAWLIBS         = -lXaw
 XLIBS           = -lXt -lX11
+XINCLUDES       =
 MATHSLIB        = -lm
 THREAD_LIB      =

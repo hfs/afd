@@ -88,6 +88,7 @@ main(int argc, char *argv[])
                   test_hour_counter;
    unsigned int   ui_value;          /* Temporary storage for uns. ints  */
    time_t         now;
+   long int       sleep_time;
    double         d_value;           /* Temporary storage for doubles    */
    char           work_dir[MAX_PATH_LENGTH],
                   statistic_file_name[MAX_FILENAME_LENGTH],
@@ -203,15 +204,16 @@ main(int argc, char *argv[])
    {
       /* Initialize timeout */
       (void)time(&now);
+      sleep_time = ((now / STAT_RESCAN_TIME) * STAT_RESCAN_TIME) +
+                   STAT_RESCAN_TIME - now;
       timeout.tv_usec = 0;
-      timeout.tv_sec = ((now / STAT_RESCAN_TIME) * STAT_RESCAN_TIME) +
-                       STAT_RESCAN_TIME - now;
+      timeout.tv_sec = sleep_time;
       status = select(0, NULL, NULL, NULL, &timeout);
 
       /* Did we get a timeout? */
       if (status == 0)
       {
-         now += timeout.tv_sec;
+         now += sleep_time;
          p_ts = gmtime(&now);
          test_sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) /
                             STAT_RESCAN_TIME;

@@ -1,6 +1,6 @@
 /*
  *  get_rule.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -51,7 +51,7 @@ extern struct rule *rule;
 int
 get_rule(char *wanted_rule, int no_of_rule_headers)
 {
-   static int i;
+   int i;
 
    for (i = 0; i < no_of_rule_headers; i++)
    {

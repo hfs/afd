@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <unistd.h>     /* lseek(), write()                              */
+#include <unistd.h>     /* lseek(), write(), unlink()                    */
 #include <string.h>     /* strcpy(), strcat(), strerror()                */
 #include <time.h>       /* time()                                        */
 #include <stdlib.h>     /* malloc(), free()                              */
@@ -391,6 +391,7 @@ stat_again:
    }
    free(cml);
 
+#ifdef _OUTPUT_LOG
    /*
     * Go through the message directory and check if any unmarked message
     * is NOT in the queue buffer and the age of the message file is not
@@ -782,6 +783,7 @@ stat_again:
          free(rjl);
       }
    }
+#endif /* _OUTPUT_LOG */
 
    /* Don't forget to unmap from job_id_data structure. */
    ptr = (char *)jd - AFD_WORD_OFFSET;
@@ -1055,16 +1057,12 @@ remove_job(int                cache_pos,
    }
 
    /* Remove message from message directory. */
-#ifdef _WORKING_UNLINK
    if (unlink(msg_dir) == -1)
-#else
-   if (remove(msg_dir) == -1)
-#endif /* _WORKING_UNLINK */
    {
       if (errno != ENOENT)
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to delete %s : %s (%s %d)\n",
+                   "Failed to unlink() %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
    }

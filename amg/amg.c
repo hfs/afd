@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -616,10 +616,10 @@ main(int argc, char *argv[])
              max_process_per_dir);
 
    /* Check if the database has been changed */
+   FD_ZERO(&rset);
    for (;;)
    {
       /* Initialise descriptor set and timeout */
-      FD_ZERO(&rset);
       FD_SET(amg_cmd_fd, &rset);
       FD_SET(db_update_fd, &rset);
       timeout.tv_usec = 0;

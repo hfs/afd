@@ -1484,6 +1484,11 @@ eval_dir_config(size_t db_size, int *dc)
             /* Make sure that at least one recipient was defined. */
             if (dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].rc == 0)
             {
+               if (search_ptr == NULL)
+               {
+                  search_ptr = ptr + 1;
+               }
+
                /* Generate warning message. */
                (void)rec(sys_log_fd, WARN_SIGN,
                          "No recipient specified for %s at line %d. (%s %d)\n",

@@ -8,7 +8,7 @@ INSTDIR  = ../../../../bin
 COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
-CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../../init_afd -I../../.. -I../show_log
+CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../../init_afd -I../../.. -I../show_log $(XINCLUDES)
 
 AFDCPROG = afd_ctrl
 AFDCOBJS = afd_ctrl.o\

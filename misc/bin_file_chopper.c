@@ -373,7 +373,7 @@ bin_file_chopper(char  *bin_file,
                         "write() error : %s", strerror(errno));
             free(p_file);
             (void)close(fd);
-            (void)remove(new_file); /* End user should not get any junk! */
+            (void)unlink(new_file); /* End user should not get any junk! */
             (void)close(counter_fd);
             return(INCORRECT);
          }
@@ -431,10 +431,10 @@ bin_file_chopper(char  *bin_file,
    } /* while (total_length > 9) */
 
    /* Remove the original file */
-   if (remove(bin_file) < 0)
+   if (unlink(bin_file) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__,
-                  "Failed to remove() original file %s : %s",
+                  "Failed to unlink() original file %s : %s",
                   bin_file, strerror(errno));
    }
    else

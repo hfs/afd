@@ -1,6 +1,6 @@
 /*
  *  sf_smtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,7 @@ DESCR__E_M1
 #endif
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
-#include <unistd.h>                    /* remove(), close()              */
+#include <unistd.h>                    /* unlink(), close()              */
 #include <errno.h>
 #include "fddefs.h"
 #include "smtpdefs.h"
@@ -114,7 +114,7 @@ off_t                      fsa_size;
 off_t                      *file_size_buffer;
 long                       transfer_timeout;
 char                       host_deleted = NO,
-                           *p_work_dir,
+                           *p_work_dir = NULL,
                            msg_str[MAX_RET_MSG_LENGTH],
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
                            *file_name_buffer;
@@ -200,8 +200,8 @@ main(int argc, char *argv[])
    sigemptyset(&sact.sa_mask);
    if (sigaction(SIGSEGV, &sact, NULL) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "sigaction() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "sigaction() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 #endif
@@ -209,9 +209,8 @@ main(int argc, char *argv[])
    /* Do some cleanups when we exit */
    if (atexit(sf_smtp_exit) != 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not register exit function : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not register exit function : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -229,8 +228,8 @@ main(int argc, char *argv[])
        (signal(SIGHUP, SIG_IGN) == SIG_ERR) ||
        (signal(SIGPIPE, SIG_IGN) == SIG_ERR))  /* Ignore SIGPIPE! */
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "signal() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "signal() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -239,8 +238,8 @@ main(int argc, char *argv[])
     */
    if ((smtp_buffer = (char *)malloc((blocksize * 2))) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       exit(ALLOC_ERROR);
    }
 
@@ -280,8 +279,8 @@ main(int argc, char *argv[])
    /* Now send HELO */
    if (gethostname(host_name, 255) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "gethostname() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "gethostname() error : %s", strerror(errno));
       exit(INCORRECT);
    }
    if ((status = smtp_helo(host_name)) != SUCCESS)
@@ -344,9 +343,8 @@ main(int argc, char *argv[])
    {
       if ((db.fsa_pos = get_host_position(fsa, db.host_alias, no_of_hosts)) == INCORRECT)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Terminating. Host %s is not in FSA. (%s %d)\n",
-                   db.host_alias, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Terminating. Host %s is not in FSA.", db.host_alias);
          exit(INCORRECT);
       }
    }
@@ -376,16 +374,16 @@ main(int argc, char *argv[])
    /* Allocate buffer to read data from the source file. */
    if ((buffer = malloc(blocksize + 1)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s (%s %d)\n", strerror(errno));
       exit(ALLOC_ERROR);
    }
    if (db.special_flag & ATTACH_FILE)
    {
       if ((encode_buffer = malloc(2 * (blocksize + 1))) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "malloc() error : %s", strerror(errno));
          exit(ALLOC_ERROR);
       }
 
@@ -422,10 +420,9 @@ main(int argc, char *argv[])
 
       if ((mail_fd = open(mail_header_file, O_RDONLY)) == -1)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to open() mail header file %s : %s (%s %d)\n",
-                   mail_header_file, strerror(errno),
-                   __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to open() mail header file %s : %s",
+                    mail_header_file, strerror(errno));
       }
       else
       {
@@ -433,10 +430,9 @@ main(int argc, char *argv[])
 
          if (fstat(mail_fd, &stat_buf) == -1)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to fstat() mail header file %s : %s (%s %d)\n",
-                      mail_header_file, strerror(errno),
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to fstat() mail header file %s : %s",
+                       mail_header_file, strerror(errno));
          }
          else
          {
@@ -444,19 +440,17 @@ main(int argc, char *argv[])
             {
                if ((mail_header_buffer = malloc(stat_buf.st_size)) == NULL)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to malloc() buffer for mail header file : %s (%s %d)\n",
-                            strerror(errno),
-                            __FILE__, __LINE__);
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to malloc() buffer for mail header file : %s",
+                             strerror(errno));
                }
                else
                {
                   if ((extra_mail_header_buffer = malloc((2 * stat_buf.st_size))) == NULL)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to malloc() buffer for mail header file : %s (%s %d)\n",
-                               strerror(errno),
-                               __FILE__, __LINE__);
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Failed to malloc() buffer for mail header file : %s",
+                                strerror(errno));
                      free(mail_header_buffer);
                      mail_header_buffer = NULL;
                   }
@@ -465,10 +459,9 @@ main(int argc, char *argv[])
                      mail_header_size = stat_buf.st_size;
                      if (read(mail_fd, mail_header_buffer, mail_header_size) != stat_buf.st_size)
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to read() mail header file %s : %s (%s %d)\n",
-                                  mail_header_file, strerror(errno),
-                                  __FILE__, __LINE__);
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Failed to read() mail header file %s : %s",
+                                   mail_header_file, strerror(errno));
                         free(mail_header_buffer);
                         mail_header_buffer = NULL;
                      }
@@ -489,17 +482,15 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Mail header file %s to large (%d Bytes). Allowed are %d Bytes. (%s %d)\n",
-                         mail_header_file, stat_buf.st_size,
-                         __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Mail header file %s to large (%d Bytes). Allowed are %d Bytes.",
+                          mail_header_file, stat_buf.st_size);
             }
          }
          if (close(mail_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
    } /* if (db.special_flag & ADD_MAIL_HEADER) */
@@ -605,6 +596,7 @@ main(int argc, char *argv[])
          trans_log(ERROR_SIGN, __FILE__, __LINE__,
                    "Failed to open() local file %s : %s",
                    fullname, strerror(errno));
+         (void)smtp_close();
          (void)smtp_quit();
          exit(OPEN_LOCAL_ERROR);
       }
@@ -867,6 +859,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
                          "Failed to read() %s : %s",
                          fullname, strerror(errno));
+               (void)smtp_close();
                (void)smtp_quit();
                exit(READ_LOCAL_ERROR);
             }
@@ -954,6 +947,8 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
                          "Failed to read() rest from %s : %s",
                          fullname, strerror(errno));
+               (void)smtp_close();
+               (void)smtp_quit();
                exit(READ_LOCAL_ERROR);
             }
             if (db.special_flag & ATTACH_FILE)
@@ -1057,10 +1052,9 @@ main(int argc, char *argv[])
                 * Give a warning in the system log, so some action
                 * can be taken against the originator.
                 */
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "File %s for host %s was DEFINITELY NOT send in dot notation. (%s %d)\n",
-                         final_filename, fsa[db.fsa_pos].host_dsp_name,
-                         __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "File %s for host %s was DEFINITELY NOT send in dot notation.",
+                          final_filename, fsa[db.fsa_pos].host_dsp_name);
             }
             else
             {
@@ -1169,10 +1163,10 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
             if (fsa[db.fsa_pos].total_file_counter < 0)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Total file counter for host %s less then zero. Correcting to %d. (%s %d)\n",
-                         fsa[db.fsa_pos].host_dsp_name,
-                         files_to_send - (files_send + 1), __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Total file counter for host %s less then zero. Correcting to %d.",
+                          fsa[db.fsa_pos].host_dsp_name,
+                          files_to_send - (files_send + 1));
                fsa[db.fsa_pos].total_file_counter = files_to_send - (files_send + 1);
             }
 #endif
@@ -1195,19 +1189,17 @@ main(int argc, char *argv[])
                   fsa[db.fsa_pos].total_file_size += *tmp_ptr;
                }
 
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Total file size for host %s overflowed. Correcting to %lu. (%s %d)\n",
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                         "Total file size for host %s overflowed. Correcting to %lu.",
                          fsa[db.fsa_pos].host_dsp_name,
-                         fsa[db.fsa_pos].total_file_size,
-                         __FILE__, __LINE__);
+                         fsa[db.fsa_pos].total_file_size);
             }
             else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
                      (fsa[db.fsa_pos].total_file_size > 0))
                  {
-                    (void)rec(sys_log_fd, DEBUG_SIGN,
-                              "fc for host %s is zero but fs is not zero. Correcting. (%s %d)\n",
-                              fsa[db.fsa_pos].host_dsp_name,
-                              __FILE__, __LINE__);
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                               "fc for host %s is zero but fs is not zero. Correcting.",
+                               fsa[db.fsa_pos].host_dsp_name);
                     fsa[db.fsa_pos].total_file_size = 0;
                  }
 #endif
@@ -1254,15 +1246,11 @@ main(int argc, char *argv[])
              * NOTE: We _MUST_ delete the file we just send,
              *       else the file directory will run full!
              */
-#ifdef _WORKING_UNLINK
             if (unlink(fullname) < 0)
-#else
-            if (remove(fullname) < 0)
-#endif /* _WORKING_UNLINK */
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Could not delete local file %s after sending it successfully : %s (%s %d)\n",
-                         strerror(errno), fullname, __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not unlink() local file %s after sending it successfully : %s",
+                          strerror(errno), fullname);
             }
 
 #ifdef _OUTPUT_LOG
@@ -1275,9 +1263,8 @@ main(int argc, char *argv[])
                ol_real_size = strlen(p_file_name_buffer) + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "write() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "write() error : %s", strerror(errno));
                }
             }
 #endif
@@ -1307,9 +1294,8 @@ main(int argc, char *argv[])
                               ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "write() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "write() error : %s", strerror(errno));
                }
             }
 #endif
@@ -1318,15 +1304,11 @@ main(int argc, char *argv[])
       else
       {
          /* Delete the file we just have send */
-#ifdef _WORKING_UNLINK
          if (unlink(fullname) < 0)
-#else
-         if (remove(fullname) < 0)
-#endif /* _WORKING_UNLINK */
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not delete local file %s after sending it successfully : %s (%s %d)\n",
-                      strerror(errno), fullname, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not unlink() local file %s after sending it successfully : %s",
+                       strerror(errno), fullname);
          }
 
 #ifdef _OUTPUT_LOG
@@ -1339,9 +1321,8 @@ main(int argc, char *argv[])
             ol_real_size = strlen(p_file_name_buffer) + ol_size;
             if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "write() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "write() error : %s", strerror(errno));
             }
          }
 #endif
@@ -1372,28 +1353,23 @@ main(int argc, char *argv[])
                        FIFO_DIR, FD_WAKE_UP_FIFO);
          if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to open() FIFO %s : %s (%s %d)\n",
-                      fd_wake_up_fifo, strerror(errno),
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to open() FIFO %s : %s",
+                       fd_wake_up_fifo, strerror(errno));
          }
          else
          {
-            char dummy;
-
-            if (write(fd, &dummy, 1) != 1)
+            if (write(fd, "", 1) != 1)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to write() to FIFO %s : %s (%s %d)\n",
-                         fd_wake_up_fifo, strerror(errno),
-                         __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to write() to FIFO %s : %s",
+                          fd_wake_up_fifo, strerror(errno));
             }
             if (close(fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Failed to close() FIFO %s : %s (%s %d)\n",
-                         fd_wake_up_fifo, strerror(errno),
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO %s : %s",
+                          fd_wake_up_fifo, strerror(errno));
             }
          }
 
@@ -1418,9 +1394,9 @@ main(int argc, char *argv[])
          if (fsa[db.fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT)
          {
             fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
-            (void)rec(sys_log_fd, INFO_SIGN,
-                      "Starting queue for %s that was stopped by init_afd. (%s %d)\n",
-                      fsa[db.fsa_pos].host_alias, __FILE__, __LINE__);
+            system_log(INFO_SIGN, __FILE__, __LINE__,
+                       "Starting queue for %s that was stopped by init_afd.",
+                       fsa[db.fsa_pos].host_alias);
          }
       }
 
@@ -1466,18 +1442,18 @@ main(int argc, char *argv[])
     */
    if (files_to_send == files_send)
    {
-      if (rmdir(file_path) < 0)
+      if (rmdir(file_path) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to remove directory %s : %s (%s %d)\n",
-                   file_path, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to remove directory %s : %s",
+                    file_path, strerror(errno));
       }
    }
    else
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "There are still files for %s. Will NOT remove this job! (%s %d)\n",
-                file_path, __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "There are still files for %s. Will NOT remove this job!",
+                 file_path);
    }
 
    exitflag = 0;
@@ -1513,9 +1489,8 @@ sf_smtp_exit(void)
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                sf_fin_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s", sf_fin_fifo, strerror(errno));
    }
    else
    {
@@ -1530,13 +1505,15 @@ sf_smtp_exit(void)
 #endif
       if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "write() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "write() error : %s", strerror(errno));
       }
       (void)close(fd);
    }
-   (void)close(sys_log_fd);
+   if (sys_log_fd != STDERR_FILENO)
+   {
+      (void)close(sys_log_fd);
+   }
 
    return;
 }
@@ -1547,9 +1524,8 @@ static void
 sig_segv(int signo)
 {
    reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-              "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this! (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(DEBUG_SIGN, __FILE__, __LINE__,
+              "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
 }
 
@@ -1559,9 +1535,7 @@ static void
 sig_bus(int signo)
 {
    reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Uuurrrggh! Received SIGBUS. (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }
 

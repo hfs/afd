@@ -48,7 +48,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>                    /* remove(), getpid()             */
+#include <unistd.h>                    /* getpid()                       */
 #include <errno.h>
 #include "ftpdefs.h"
 #include "fddefs.h"

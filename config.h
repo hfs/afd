@@ -263,9 +263,7 @@
  *                         will store the output log for 10 days.
  * MAX_DELETE_LOG_FILES  - Same as above only for the delete log.
  *-----------------------------------------------------------------------*/
-#if defined (_INPUT_LOG) || defined (_OUTPUT_LOG)
 #define SWITCH_FILE_TIME       86400
-#endif
 #ifdef _INPUT_LOG
 #define MAX_INPUT_LOG_FILES    7
 #endif
@@ -476,9 +474,9 @@
 
 /*-----------------------------------------------------------------------*
  * The default block size when transmitting files.
- * DEFAULT: 1024
+ * DEFAULT: 4096
  *-----------------------------------------------------------------------*/
-#define DEFAULT_TRANSFER_BLOCKSIZE 1024
+#define DEFAULT_TRANSFER_BLOCKSIZE 4096
 
 /*-----------------------------------------------------------------------*
  * The maximum block size that may be specified in the edit_hc dialog.

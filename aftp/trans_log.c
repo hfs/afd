@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  *  Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
 
-#include "afddefs.h"
+#include "aftpdefs.h"
 
 DESCR__S_M3
 /*
@@ -48,8 +48,6 @@ DESCR__E_M3
 #include <time.h>                     /* time(), gmtime()                */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
-#include "aftpdefs.h"
-#include "fddefs.h"
 
 extern int         timeout_flag,
                    transfer_log_fd;
@@ -138,8 +136,7 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       if ((file == NULL) || (line == 0))
       {
          buf[length] = '\n';
-         buf[length + 1] = '\0';
-         length += 2;
+         length += 1;
       }
       else
       {

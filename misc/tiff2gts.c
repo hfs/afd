@@ -1,7 +1,7 @@
 /*
  *  tiff2gts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -174,10 +174,10 @@ tiff2gts(char *path, char* filename)
    }
 
    /* Remove the original file */
-   if (remove(fullname) < 0)
+   if (unlink(fullname) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__,
-                  "Failed to remove() original TIFF file %s : %s",
+                  "Failed to unlink() original TIFF file %s : %s",
                   fullname, strerror(errno));
    }
 

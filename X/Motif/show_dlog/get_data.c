@@ -117,6 +117,7 @@ static char             *p_file_name,
                         line[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1];
 static XmStringTable    str_list;
 
+#ifdef _DELETE_LOG
 /* Local function prototypes */
 static char   *search_time(char *, time_t, time_t, time_t, size_t);
 static void   display_data(int, time_t, time_t),
@@ -506,12 +507,14 @@ static void   display_data(int, time_t, time_t),
                    IGNORE_ENTRY();                                     \
                 }                                                      \
         }
+#endif /* _DELETE_LOG */
 
 
 /*############################### get_data() ############################*/
 void
 get_data(void)
 {
+#ifdef _DELETE_LOG
    int          i,
                 j,
                 start_file_no = -1,
@@ -627,11 +630,13 @@ get_data(void)
    XtVaSetValues(special_button_w, XmNlabelString, xstr, NULL);
    XmStringFree(xstr);
    XtFree((char *)str_list);
+#endif /* _DELETE_LOG */
 
    return;
 }
 
 
+#ifdef _DELETE_LOG
 /*+++++++++++++++++++++++++++++ extract_data() ++++++++++++++++++++++++++*/
 static void
 extract_data(char *current_log_file, int file_no)
@@ -2750,3 +2755,4 @@ display_data(int    i,
 
    return;
 }
+#endif /* _DELETE_LOG */

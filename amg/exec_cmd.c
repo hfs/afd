@@ -1,6 +1,6 @@
 /*
  *  exec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -117,6 +117,7 @@ exec_cmd(char *cmd, char *buffer)
             fd_set         rset;
             struct timeval timeout;
 
+            FD_ZERO(&rset);
             for (;;)
             {
                if (waitpid(child_pid, &proc_status, WNOHANG) > 0)
@@ -154,7 +155,6 @@ exec_cmd(char *cmd, char *buffer)
                }
 
                /* Initialise descriptor set and timeout */
-               FD_ZERO(&rset);
                FD_SET(channels[READ], &rset);
                timeout.tv_usec = 10000;
                timeout.tv_sec = 0L;

@@ -143,7 +143,6 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       if ((file == NULL) || (line == 0))
       {
          buf[length] = '\n';
-         buf[length + 1] = '\0';
          length += 1;
       }
       else if (fsa[db.fsa_pos].protocol & SEND_FLAG)

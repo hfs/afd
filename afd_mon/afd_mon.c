@@ -1,6 +1,6 @@
 /*
  *  afd_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -282,10 +282,10 @@ main(int argc, char *argv[])
    /* Log all pid's in MON_ACTIVE file. */
    mon_active();
 
+   FD_ZERO(&rset);
    for (;;)
    {
       /* Initialise descriptor set and timeout */
-      FD_ZERO(&rset);
       FD_SET(mon_cmd_fd, &rset);
       timeout.tv_usec = 0;
       timeout.tv_sec = 10;

@@ -224,7 +224,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
-         case 'f' : /* Configuration file for user, passwd, etc */
+         case 'f' : /* Configuration file for filenames. */
 
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {

@@ -1,6 +1,6 @@
 /*
  *  check_paused_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -45,18 +45,17 @@ DESCR__S_M3
  **
  ** HISTORY
  **   06.03.1996 H.Kiehl Created
+ **   04.01.2001 H.Kiehl Don't check duplicate directories.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>                 /* NULL                               */
-#include <string.h>                /* strerror()                         */
 #include <sys/types.h>
 #include <sys/stat.h>              /* stat(), S_ISREG()                  */
-#include <errno.h>
+#include <unistd.h>
 #include "amgdefs.h"
 
-extern int                        sys_log_fd;
 extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
 
@@ -67,8 +66,7 @@ check_paused_dir(struct directory_entry *p_de,
                  int                    *nfg,
                  int                    *dest_count)
 {
-   register int i,
-                j;
+   register int i, j;
 
    for (i = *nfg; i < p_de->nfg; i++)
    {
@@ -76,20 +74,19 @@ check_paused_dir(struct directory_entry *p_de,
       {
          /* Is queue stopped? (ie PAUSE_QUEUE_STAT, AUTO_PAUSE_QUEUE_STAT */
          /* or AUTO_PAUSE_QUEUE_LOCK_STAT is set)                         */
-         if (fsa[db[p_de->fme[i].pos[j]].position].host_status < 2)
+         if ((fsa[db[p_de->fme[i].pos[j]].position].host_status < 2) &&
+             (db[p_de->fme[i].pos[j]].dup_paused_dir == NO))
          {
             struct stat stat_buf;
 
-            if (stat(db[p_de->fme[i].pos[j]].paused_dir, &stat_buf) < 0)
+            if (stat(db[p_de->fme[i].pos[j]].paused_dir, &stat_buf) == 0)
             {
-               continue;
-            }
-
-            if (S_ISDIR(stat_buf.st_mode))
-            {
-               *nfg = i;
-               *dest_count = j + 1;
-               return(db[p_de->fme[i].pos[j]].host_alias);
+               if (S_ISDIR(stat_buf.st_mode))
+               {
+                  *nfg = i;
+                  *dest_count = j + 1;
+                  return(db[p_de->fme[i].pos[j]].host_alias);
+               }
             }
          }
       }

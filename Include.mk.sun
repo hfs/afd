@@ -14,5 +14,6 @@ XLIBPATH        = -L/usr/openwin/lib
 XMLIBS          = -lXm
 XAWLIBS         = -lXaw
 XLIBS           = -lXmu -lXt -lX11 -lgen
+XINCLUDES       =
 MATHSLIB        = -lm
 THREAD_LIB      =

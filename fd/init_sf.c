@@ -48,7 +48,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>                     /* open()                         */
-#include <unistd.h>                    /* remove(), getpid()             */
+#include <unistd.h>                    /* getpid()                       */
 #include <errno.h>
 #include "fddefs.h"
 #include "ftpdefs.h"
@@ -137,36 +137,6 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    dl.fd = -1;
 #endif
 
-   /*
-    * In the next function it might already be necessary to use the
-    * fifo for the sys_log. So let's for now assume that this is the
-    * working directory for now. So we do not write our output to
-    * standard out.
-    */
-   (void)strcpy(gbuf, p_work_dir);
-   (void)strcat(gbuf, FIFO_DIR);
-   (void)strcat(gbuf, SYSTEM_LOG_FIFO);
-   if ((sys_log_fd = open(gbuf, O_RDWR)) == -1)
-   {
-      if (errno == ENOENT)
-      {
-         if ((make_fifo(gbuf) == SUCCESS) &&
-             ((sys_log_fd = open(gbuf, O_RDWR)) == -1))
-         {
-            (void)fprintf(stderr,
-                          "WARNING : Could not open fifo %s : %s (%s %d)\n",
-                          SYSTEM_LOG_FIFO, strerror(errno),
-                          __FILE__, __LINE__);
-         }
-      }
-      else
-      {
-         (void)fprintf(stderr,
-                       "WARNING : Could not open fifo %s : %s (%s %d)\n",
-                       SYSTEM_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
-      }
-   }
-
    if ((status = eval_input_sf(argc, argv, p_db)) < 0)
    {
       exit(-status);
@@ -187,16 +157,16 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          if ((make_fifo(gbuf) == SUCCESS) &&
              ((transfer_log_fd = open(gbuf, O_RDWR)) == -1))
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not open fifo %s : %s (%s %d)\n",
-                      TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not open fifo %s : %s",
+                       TRANSFER_LOG_FIFO, strerror(errno));
          }
       }
       else
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not open fifo %s : %s (%s %d)\n",
-                   TRANSFER_LOG_FIFO, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not open fifo %s : %s",
+                    TRANSFER_LOG_FIFO, strerror(errno));
       }
    }
    if (fsa[db.fsa_pos].debug == YES)
@@ -211,18 +181,16 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
             if ((make_fifo(gbuf) == SUCCESS) &&
                 ((trans_db_log_fd = open(gbuf, O_RDWR)) == -1))
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Could not open fifo %s : %s (%s %d)\n",
-                         TRANS_DEBUG_LOG_FIFO, strerror(errno),
-                         __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not open fifo %s : %s",
+                          TRANS_DEBUG_LOG_FIFO, strerror(errno));
             }
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not open fifo %s : %s (%s %d)\n",
-                      TRANS_DEBUG_LOG_FIFO, strerror(errno),
-                      __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not open fifo %s : %s",
+                       TRANS_DEBUG_LOG_FIFO, strerror(errno));
          }
       }
    }
@@ -263,9 +231,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    {
       if ((counter_fd = open_counter_file(COUNTER_FILE)) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not open counter file : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not open counter file : %s", strerror(errno));
          exit(INCORRECT);                            
       }
 
@@ -278,9 +245,9 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          if ((trans_rule_pos = get_rule(db.trans_rename_rule,
                                         no_of_rule_headers)) < 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Could NOT find rule %s. Ignoring this option. (%s %d)\n",
-                      db.trans_rename_rule, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                      "Could NOT find rule %s. Ignoring this option.",
+                      db.trans_rename_rule);
             db.trans_rename_rule[0] = '\0';
          }
       }
@@ -289,9 +256,9 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
          if ((user_rule_pos = get_rule(db.user_rename_rule,
                                        no_of_rule_headers)) < 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Could NOT find rule %s. Ignoring this option. (%s %d)\n",
-                      db.user_rename_rule, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Could NOT find rule %s. Ignoring this option.",
+                       db.user_rename_rule);
             db.user_rename_rule[0] = '\0';
          }
       }
@@ -333,9 +300,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       /* Remove file directory. */
       if (remove_dir(file_path) < 0)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to remove directory %s (%s %d)\n",
-                   file_path, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to remove directory %s", file_path);
       }
       exit(NO_FILES_TO_SEND);
    }

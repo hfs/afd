@@ -1,6 +1,6 @@
 /*
  *  create_msa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -565,10 +565,10 @@ create_msa(void)
    /* Remove the old MSA file if there was one. */
    if (old_msa_size > -1)
    {
-      if (remove(old_msa_stat) < 0)
+      if (unlink(old_msa_stat) < 0)
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to remove() %s : %s (%s %d)\n",
+                   "Failed to unlink() %s : %s (%s %d)\n",
                    old_msa_stat, strerror(errno), __FILE__, __LINE__);
       }
    }

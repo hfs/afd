@@ -1,6 +1,6 @@
 /*
  *  rec_rmdir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,7 +47,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>              /* remove()                              */
+#include <stdio.h>
 #include <string.h>             /* strcpy(), strlen()                    */
 #include <unistd.h>             /* unlink(), rmdir()                     */
 #include <sys/types.h>
@@ -79,11 +79,7 @@ rec_rmdir(char *dirname)
    /* Make sure it is NOT a directory */
    if (S_ISDIR(stat_buf.st_mode) == 0)
    {
-#ifdef _WORKING_UNLINK
       if (unlink(dirname) < 0)
-#else
-      if (remove(dirname) < 0)
-#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, ERROR_SIGN,
                    "Failed to delete %s : %s (%s %d)\n",

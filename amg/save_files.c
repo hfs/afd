@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,13 +54,13 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>                 /* sprintf(), remove()                */
+#include <stdio.h>                 /* sprintf()                          */
 #include <string.h>                /* strcmp(), strerror(), strcpy(),    */
                                    /* strcat(), strlen()                 */
 #include <sys/types.h>
 #include <sys/stat.h>              /* stat(), S_ISDIR()                  */
 #include <fcntl.h>                 /* S_IRUSR, ...                       */
-#include <unistd.h>                /* link(), mkdir()                    */
+#include <unistd.h>                /* link(), mkdir(), unlink()          */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -100,7 +100,7 @@ save_files(char                   *src_path,
          if (errno != EEXIST)
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not mkdir() %s to save files : %s (%s %d)\n",
+                      "Could not mkdir() <%s> to save files : %s (%s %d)\n",
                       dest_path, strerror(errno), __FILE__, __LINE__);
             errno = 0;
             return(INCORRECT);
@@ -146,14 +146,10 @@ save_files(char                   *src_path,
                       * A file with the same name already exists. Remove
                       * this file and try to link again.
                       */
-#ifdef _WORKING_UNLINK
                      if (unlink(dest_path) == -1)
-#else
-                     if (remove(dest_path) == -1)
-#endif /* _WORKING_UNLINK */
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to delete file %s : %s (%s %d)\n",
+                                  "Failed to unlink() file %s : %s (%s %d)\n",
                                   dest_path, strerror(errno), __FILE__, __LINE__);
                         errno = 0;
                      }

@@ -1,7 +1,7 @@
 /*
  *  sf_map.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997, 1998 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,7 +63,7 @@ DESCR__E_M1
 #include <sys/times.h>                 /* times(), struct tms            */
 #endif
 #include <fcntl.h>
-#include <unistd.h>                    /* remove(), getpid(), alarm()    */
+#include <unistd.h>                    /* unlink(), getpid(), alarm()    */
 #include <errno.h>
 #include "fddefs.h"
 #include "version.h"
@@ -87,7 +87,7 @@ off_t                      fsa_size;
 #endif
 off_t                      *file_size_buffer;
 char                       host_deleted = NO,
-                           *p_work_dir,
+                           *p_work_dir = NULL,
                            tr_hostname[MAX_HOSTNAME_LENGTH + 1],
                            *file_name_buffer;
 struct filetransfer_status *fsa;
@@ -168,8 +168,8 @@ main(int argc, char *argv[])
    sigemptyset(&sact.sa_mask);
    if (sigaction(SIGSEGV, &sact, NULL) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "sigaction() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "sigaction() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 #endif
@@ -177,9 +177,8 @@ main(int argc, char *argv[])
    /* Do some cleanups when we exit */
    if (atexit(sf_map_exit) != 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not register exit function : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not register exit function : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -196,9 +195,9 @@ main(int argc, char *argv[])
        (signal(SIGHUP, SIG_IGN) == SIG_ERR) ||
        (signal(SIGALRM, sig_handler) == SIG_ERR))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not set signal handler to catch SIGINT : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not set signal handler to catch SIGINT : %s",
+                 strerror(errno));
       exit(INCORRECT);
    }
 
@@ -496,11 +495,10 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
             if (fsa[db.fsa_pos].total_file_counter < 0)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Total file counter for host %s less then zero. Correcting to %d. (%s %d)\n",
-                         fsa[db.fsa_pos].host_dsp_name,
-                         files_to_send - (i + 1),
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Total file counter for host %s less then zero. Correcting to %d.",
+                          fsa[db.fsa_pos].host_dsp_name,
+                          files_to_send - (i + 1));
                fsa[db.fsa_pos].total_file_counter = files_to_send - (i + 1);
             }
 #endif
@@ -523,19 +521,17 @@ main(int argc, char *argv[])
                   fsa[db.fsa_pos].total_file_size += *tmp_ptr;
                }
 
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Total file size for host %s overflowed. Correcting to %lu. (%s %d)\n",
-                         fsa[db.fsa_pos].host_dsp_name,
-                         fsa[db.fsa_pos].total_file_size,
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Total file size for host %s overflowed. Correcting to %lu.",
+                          fsa[db.fsa_pos].host_dsp_name,
+                          fsa[db.fsa_pos].total_file_size);
             }
             else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
                      (fsa[db.fsa_pos].total_file_size > 0))
                  {
-                    (void)rec(sys_log_fd, DEBUG_SIGN,
-                              "fc for host %s is zero but fs is not zero. Correcting. (%s %d)\n",
-                              fsa[db.fsa_pos].host_dsp_name,
-                              __FILE__, __LINE__);
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                               "fc for host %s is zero but fs is not zero. Correcting.",
+                               fsa[db.fsa_pos].host_dsp_name);
                     fsa[db.fsa_pos].total_file_size = 0;
                  }
 #endif
@@ -582,15 +578,11 @@ main(int argc, char *argv[])
              * NOTE: We _MUST_ delete the file we just send,
              *       else the file directory will run full!
              */
-#ifdef _WORKING_UNLINK
             if (unlink(source_file) < 0)
-#else
-            if (remove(source_file) < 0)
-#endif /* _WORKING_UNLINK */
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Could not delete local file %s after copying it successfully : %s (%s %d)\n",
-                         source_file, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Could not unlink() local file %s after copying it successfully : %s",
+                          source_file, strerror(errno));
             }
 
 #ifdef _OUTPUT_LOG
@@ -603,9 +595,8 @@ main(int argc, char *argv[])
                ol_real_size = strlen(p_file_name_buffer) + ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "write() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "write() error : %s", strerror(errno));
                }
             }
 #endif
@@ -635,9 +626,8 @@ main(int argc, char *argv[])
                               ol_size;
                if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "write() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "write() error : %s", strerror(errno));
                }
             }
 #endif
@@ -646,15 +636,11 @@ main(int argc, char *argv[])
       else
       {
          /* Delete the file we just have copied */
-#ifdef _WORKING_UNLINK
          if (unlink(source_file) < 0)
-#else
-         if (remove(source_file) < 0)
-#endif /* _WORKING_UNLINK */
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Could not delete local file %s after copying it successfully : %s (%s %d)\n",
-                      source_file, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Could not unlink() local file %s after copying it successfully : %s",
+                       source_file, strerror(errno));
          }
 
 #ifdef _OUTPUT_LOG
@@ -667,9 +653,8 @@ main(int argc, char *argv[])
             ol_real_size = strlen(p_file_name_buffer) + ol_size;
             if (write(ol_fd, ol_data, ol_real_size) != ol_real_size)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "write() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "write() error : %s", strerror(errno));
             }
          }
 #endif
@@ -697,28 +682,23 @@ main(int argc, char *argv[])
          (void)sprintf(fd_wake_up_fifo, "%s%s%s", p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
          if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to open() FIFO %s : %s (%s %d)\n",
-                      fd_wake_up_fifo, strerror(errno),
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to open() FIFO %s : %s",
+                       fd_wake_up_fifo, strerror(errno));
          }
          else
          {
-            char dummy;
-
-            if (write(fd, &dummy, 1) != 1)
+            if (write(fd, "", 1) != 1)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to write() to FIFO %s : %s (%s %d)\n",
-                         fd_wake_up_fifo, strerror(errno),
-                         __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to write() to FIFO %s : %s",
+                          fd_wake_up_fifo, strerror(errno));
             }
             if (close(fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Failed to close() FIFO %s : %s (%s %d)\n",
-                         fd_wake_up_fifo, strerror(errno),
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO %s : %s",
+                          fd_wake_up_fifo, strerror(errno));
             }
          }
 
@@ -743,9 +723,9 @@ main(int argc, char *argv[])
          if (fsa[db.fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT)
          {
             fsa[db.fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
-            (void)rec(sys_log_fd, INFO_SIGN,
-                      "Starting queue for %s that was stopped by init_afd. (%s %d)\n",
-                      fsa[db.fsa_pos].host_alias, __FILE__, __LINE__);
+            system_log(INFO_SIGN, __FILE__, __LINE__,
+                       "Starting queue for %s that was stopped by init_afd.",
+                       fsa[db.fsa_pos].host_alias);
          }
       } /* if (fsa[db.fsa_pos].error_counter > 0) */
 
@@ -763,9 +743,9 @@ main(int argc, char *argv[])
     */
    if (rmdir(file_path) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to remove directory %s : %s (%s %d)\n",
-                file_path, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to remove directory %s : %s",
+                 file_path, strerror(errno));
    }
 #endif /* _WITH_MAP_SUPPORT */
 
@@ -798,9 +778,8 @@ sf_map_exit(void)
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                sf_fin_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s", sf_fin_fifo, strerror(errno));
    }
    else
    {
@@ -815,13 +794,15 @@ sf_map_exit(void)
 #endif
       if (write(fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "write() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "write() error : %s", strerror(errno));
       }
       (void)close(fd);
    }
-   (void)close(sys_log_fd);
+   if (sys_log_fd != STDERR_FILENO)
+   {
+      (void)close(sys_log_fd);
+   }
 
    return;
 }
@@ -832,9 +813,8 @@ static void
 sig_segv(int signo)
 {
    reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this! (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(DEBUG_SIGN, __FILE__, __LINE__,
+             "Aaarrrggh! Received SIGSEGV. Remove the programmer who wrote this!");
    abort();
 }
 
@@ -844,9 +824,7 @@ static void
 sig_bus(int signo)
 {
    reset_fsa((struct job *)&db, IS_FAULTY_VAR);
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Uuurrrggh! Received SIGBUS. (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(DEBUG_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    abort();
 }
 

@@ -1,6 +1,6 @@
 /*
  *  change_alias_order.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -45,14 +45,14 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>              /* remove()                              */
-#include <string.h>             /* strcpy(), strcat(), strerror()        */
+#include <stdio.h>
+#include <string.h>       /* strcpy(), strcat(), strerror()              */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifndef _NO_MMAP
-#include <sys/mman.h>           /* mmap()                                */
+#include <sys/mman.h>     /* mmap()                                      */
 #endif
-#include <unistd.h>             /* read(), write(), close(), lseek()     */
+#include <unistd.h>       /* read(), write(), close(), lseek(), unlink() */
 #include <fcntl.h>
 #include <errno.h>
 #include "amgdefs.h"
@@ -365,9 +365,9 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
    /* Remove the old FSA file. */
    (void)sprintf(new_fsa_stat, "%s%s%s.%d",
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, current_fsa_id - 1);
-   if (remove(new_fsa_stat) < 0)
+   if (unlink(new_fsa_stat) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN, "remove() error : %s (%s %d)\n",
+      (void)rec(sys_log_fd, WARN_SIGN, "unlink() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
    }
 

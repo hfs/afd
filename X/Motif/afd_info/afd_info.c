@@ -90,7 +90,7 @@ Widget                     protocol_label,
 Pixmap                     active_pixmap,
                            passive_pixmap;
 Colormap                   default_cmap;
-int                        sys_log_fd = STDERR_FILENO,
+int                        sys_log_fd = STDOUT_FILENO,
                            no_of_hosts,
                            fsa_id,
                            fsa_fd = -1,

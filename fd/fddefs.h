@@ -517,6 +517,7 @@ extern void  check_fsa_entries(void),
 #endif
              remove_msg(int),
              reset_fsa(struct job *, int),
+             system_log(char *, char *, int, char *, ...),
              trans_db_log(char *, char *, int, char *, ...),
              trans_log(char *, char *, int, char *, ...);
 #endif /* __fddefs_h */

@@ -1,6 +1,6 @@
 /*
  *  show_bench_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   03.10.1999 H.Kiehl Created
+ **   14.01.2001 H.Kiehl Show loop counter.
  **
  */
 DESCR__E_M1
@@ -246,7 +247,7 @@ summary(int dummy)
    }
    fps = (nfs - tmp_nfs) / (double)interval_time;
    bps = (nbs - tmp_nbs) / (double)interval_time;
-   (void)fprintf(stdout, "      ");
+   (void)fprintf(stdout, "%5d:", loops + 1);
    display_data(nfs - tmp_nfs, nbs - tmp_nbs, nc - tmp_nc, ne - tmp_ne,
                 fps, bps);
    tmp_nfs = nfs;
@@ -280,22 +281,22 @@ static void
 display_data(double nfs, double nbs, double nc, double ne,
              double fps, double bps)
 {
-   (void)fprintf(stdout, "%12.0f   ", nfs);
+   (void)fprintf(stdout, "%11.0f   ", nfs);
    if (nbs >= GIGABYTE)
    {
-      (void)fprintf(stdout, "%6.2f GB", nbs / GIGABYTE);
+      (void)fprintf(stdout, "%7.2f GB", nbs / GIGABYTE);
    }
    else if (nbs >= MEGABYTE)
         {
-           (void)fprintf(stdout, "%6.2f MB", nbs / MEGABYTE);
+           (void)fprintf(stdout, "%7.2f MB", nbs / MEGABYTE);
         }
    else if (nbs >= KILOBYTE)
         {
-           (void)fprintf(stdout, "%6.2f KB", nbs / KILOBYTE);
+           (void)fprintf(stdout, "%7.2f KB", nbs / KILOBYTE);
         }
         else
         {
-           (void)fprintf(stdout, "%6.0f B ", nbs);
+           (void)fprintf(stdout, "%7.0f B ", nbs);
         }
    (void)fprintf(stdout, "%8.0f", nc);
    (void)fprintf(stdout, "%6.0f", ne);

@@ -171,7 +171,7 @@ check_info_file(void)
 static void
 fill_default_info(void)
 {
-   if ((info_data = (char *)malloc(1000)) == NULL)
+   if ((info_data = (char *)malloc(384)) == NULL)
    {
       (void)xrec(info_w, FATAL_DIALOG,
                  "Failed to allocate memory : %s (%s %d)",

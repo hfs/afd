@@ -1,7 +1,7 @@
 /*
  *  move_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,11 +46,9 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>      /* rename(), remove()                            */
+#include <stdio.h>      /* rename()                                      */
 #include <string.h>     /* strerror()                                    */
-#ifdef _WORKING_UNLINK
 #include <unistd.h>     /* unlink()                                      */
-#endif
 #include <errno.h>
 
 extern int sys_log_fd;
@@ -80,11 +78,7 @@ move_file(char *from, char *to)
          }
 
          /* Remove the source file */
-#ifdef _WORKING_UNLINK
          if (unlink(from) < 0)
-#else
-         if (remove(from) < 0)
-#endif /* _WORKING_UNLINK */
          {
             /* Include some better error correction here. Since */
             /* if we do not delete the file successful we will  */

@@ -345,6 +345,11 @@ struct instant_db
           char    host_alias[MAX_HOSTNAME_LENGTH + 1];
                                        /* Alias of hostname of recipient.*/
           unsigned int protocol;
+          char    dup_paused_dir;      /* Flag to indicate that this     */
+                                       /* paused directory is already    */
+                                       /* in the list and does not have  */
+                                       /* to be checked again by         */
+                                       /* check_paused_dir().            */
           char    paused_dir[MAX_PATH_LENGTH];
                                        /* Stores absolute path of paused */
                                        /* or queued hosts.               */
@@ -485,19 +490,23 @@ extern void   check_old_time_jobs(int),
               eval_dir_options(int, char *, char *),
               eval_input_amg(int, char **, char *, char *, char *,
                              int *, int *),
-              handle_time_jobs(int *, char *),
+              handle_time_jobs(int *, char *, time_t),
               init_dir_check(int, char **, char *, time_t *, int *,
                              int *, int *, int *),
               init_job_data(int *),
               init_msg_buffer(void),
               lookup_job_id(struct instant_db *, int *),
               remove_pool_directory(char *, int),
+#ifdef _DELETE_LOG
               remove_time_dir(char *, int, int),
+#else
+              remove_time_dir(char *, int),
+#endif
               reread_dir_config(time_t *, time_t *, int, int, size_t,
                                 int, int, struct host_list *),
               reread_host_config(time_t *, int *, int *, size_t *,
                                  struct host_list **),
-              search_old_files(void),
+              search_old_files(time_t),
               send_message(char *, char *, unsigned short, time_t,
                            int, int, off_t),
               sort_time_job(void),

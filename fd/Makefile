@@ -46,7 +46,6 @@ SFFTPOBJS  = append.o\
 SFSMTPPROG = sf_smtp
 SFSMTPOBJS = append.o\
              archive_file.o\
-             encode_base64.o\
              eval_input_sf.o\
              eval_message.o\
              eval_recipient.o\

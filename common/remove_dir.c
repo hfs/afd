@@ -1,6 +1,6 @@
 /*
  *  remove_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,9 +45,9 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>              /* remove()                              */
+#include <stdio.h>
 #include <string.h>             /* strcpy(), strlen()                    */
-#include <unistd.h>             /* rmdir()                               */
+#include <unistd.h>             /* rmdir(), unlink()                     */
 #include <sys/types.h>
 #include <dirent.h>             /* opendir(), readdir(), closedir()      */
 #include <errno.h>
@@ -65,8 +65,6 @@ remove_dir(char *dirname)
    DIR           *dp;
 
    ptr = dirname + strlen(dirname);
-   *ptr++ = '/';
-   *ptr = '\0';
 
    if ((dp = opendir(dirname)) == NULL)
    {
@@ -75,6 +73,8 @@ remove_dir(char *dirname)
                 dirname, strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
+   *ptr++ = '/';
+   *ptr = '\0';
 
    while ((dirp = readdir(dp)) != NULL)
    {
@@ -84,11 +84,7 @@ remove_dir(char *dirname)
          continue;
       }
       (void)strcpy(ptr, dirp->d_name);
-#ifdef _WORKING_UNLINK
       if (unlink(dirname) == -1)
-#else
-      if (remove(dirname) == -1)
-#endif /* _WORKING_UNLINK */
       {
          if (errno == ENOENT)
          {
@@ -107,19 +103,19 @@ remove_dir(char *dirname)
       }
    }
    ptr[-1] = 0;
+   if (closedir(dp) == -1)
+   {
+      (void)rec(sys_log_fd, ERROR_SIGN,
+                "Failed to closedir() %s : %s (%s %d)\n",
+                dirname, strerror(errno), __FILE__, __LINE__);
+      return(INCORRECT);
+   }
    if (rmdir(dirname) == -1)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,
                 "Failed to rmdir() %s : %s (%s %d)\n",
                 dirname, strerror(errno), __FILE__, __LINE__);
       (void)closedir(dp);
-      return(INCORRECT);
-   }
-   if (closedir(dp) == -1)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to closedir() %s : %s (%s %d)\n",
-                dirname, strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
 

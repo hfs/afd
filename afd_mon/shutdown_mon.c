@@ -1,6 +1,6 @@
 /*
  *  shutdown_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,14 +41,14 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>            /* fprintf(), remove()                     */
+#include <stdio.h>            /* fprintf()                               */
 #include <string.h>
 #include <stdlib.h>           /* exit()                                  */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>         /* struct timeval                          */
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
-#include <unistd.h>           /* select()                                */
+#include <unistd.h>           /* select(), unlink()                      */
 #include <errno.h>
 #include "mondefs.h"
 #include "version.h"
@@ -160,9 +160,9 @@ shutdown_mon(int silent_shutdown)
          (void)strcpy(mon_cmd_fifo, p_work_dir);
          (void)strcat(mon_cmd_fifo, FIFO_DIR);
          (void)strcat(mon_cmd_fifo, MON_ACTIVE_FILE);
-         if (remove(mon_cmd_fifo) == -1)
+         if (unlink(mon_cmd_fifo) == -1)
          {
-            (void)fprintf(stderr, "Failed to remove() %s : %s (%s %d)\n",
+            (void)fprintf(stderr, "Failed to unlink() %s : %s (%s %d)\n",
                           mon_cmd_fifo, strerror(errno),
                           __FILE__, __LINE__);
          }

@@ -4,7 +4,7 @@
 
 include ../../../Include.mk
 
-CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I../../.. -I../../../init_afd -I../afd_ctrl -I../show_olog
+CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I../../.. -I../../../init_afd -I../afd_ctrl -I../show_olog $(XINCLUDES)
 LIB     = libxafd.a
 HEADERS = ../afd_ctrl/afd_ctrl.h ../../../config.h
 OBJS    = check_info_file.o\

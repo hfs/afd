@@ -1,6 +1,6 @@
 /*
  *  output_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,6 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int        sys_log_fd;
 extern char       *p_work_dir;
 extern struct job db;
 
@@ -107,6 +106,7 @@ output_log_ptrs(int            *ol_fd,
                 char           *tr_hostname,
                 int            protocol)
 {
+#ifdef _OUTPUT_LOG
    char output_log_fifo[MAX_PATH_LENGTH];
 
    (void)strcpy(output_log_fifo, p_work_dir);
@@ -114,9 +114,9 @@ output_log_ptrs(int            *ol_fd,
    (void)strcat(output_log_fifo, OUTPUT_LOG_FIFO);
    if ((*ol_fd = coe_open(output_log_fifo, O_RDWR)) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                output_log_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s",
+                 output_log_fifo, strerror(errno));
       db.output_log = NO;
    }
    else
@@ -153,8 +153,8 @@ output_log_ptrs(int            *ol_fd,
                  MAX_FILENAME_LENGTH + 1;       /* archive dir      */
       if ((*ol_data = calloc(*ol_size, sizeof(char))) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "calloc() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "calloc() error : %s", strerror(errno));
          db.output_log = NO;
       }
       else
@@ -178,5 +178,6 @@ output_log_ptrs(int            *ol_fd,
       }
    }
 
+#endif /* _OUTPUT_LOG */
    return;
 }

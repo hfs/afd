@@ -82,6 +82,7 @@ extern char       *p_work_dir;
 void
 delete_log_ptrs(struct delete_log *dl)
 {
+#ifdef _DELETE_LOG
    char delete_log_fifo[MAX_PATH_LENGTH];
 
    (void)strcpy(delete_log_fifo, p_work_dir);
@@ -151,5 +152,6 @@ delete_log_ptrs(struct delete_log *dl)
       }
    }
 
+#endif /* _DELETE_LOG */
    return;
 }

@@ -7,7 +7,8 @@ include ../Include.mk
 CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) -I. -I.. -I../init_afd -I../fd
 LIB     = libprotocols.a
 HEADERS = ../init_afd/afddefs.h ../config.h ../fd/fddefs.h
-OBJS    = ftpcmd.o\
+OBJS    = encode_base64.o\
+          ftpcmd.o\
           smtpcmd.o\
           wmocmd.o
 

@@ -36,10 +36,6 @@
 /* #define GERMAN */
 #define ENGLISH
 
-#if defined LINUX || defined IRIX
-#define _WORKING_UNLINK
-#endif
-
 #ifdef _LINK_MAX_TEST
 #define LINKY_MAX                  4
 #endif
@@ -1001,7 +997,7 @@ struct proc_table
        };
 
 /* Definitions for renaming */
-#define READ_RULES_INTERVAL        20          /* in seconds             */
+#define READ_RULES_INTERVAL        30          /* in seconds             */
 #define MAX_RULE_HEADER_LENGTH     50
 struct rule
        {
@@ -1232,6 +1228,7 @@ extern void    *attach_buf(char *, int *, size_t, char *),
                t_hostname(char *, char *),
                set_fl(int, int),
                shutdown_afd(void),
+               system_log(char *, char *, int, char *, ...),
                unlock_region(int, off_t);
 #ifdef _FIFO_DEBUG
 extern void    show_fifo_data(char, char *, char *, int, char *, int);

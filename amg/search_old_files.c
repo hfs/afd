@@ -1,6 +1,6 @@
 /*
  *  search_old_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@ DESCR__S_M3
  **                      files
  **
  ** SYNOPSIS
- **   void search_old_files(void)
+ **   void search_old_files(time_t now)
  **
  ** DESCRIPTION
  **   This function checks the user directory for any old files.
@@ -46,20 +46,19 @@ DESCR__S_M3
  **   09.06.1997 H.Kiehl Created
  **   21.02.1998 H.Kiehl Added delete logging.
  **                      Search queue directories as well.
+ **   04.01.2001 H.Kiehl Don't always check what the current time is.
  **
  */
 DESCR__E_M3
 
-#include <stdio.h>                 /* remove(), NULL                     */
+#include <stdio.h>                 /* NULL                               */
 #include <string.h>                /* strcpy(), strerror()               */
 #include <time.h>                  /* time()                             */
 #include <sys/types.h>
 #include <sys/stat.h>              /* stat(), S_ISREG()                  */
 #include <dirent.h>                /* opendir(), closedir(), readdir(),  */
                                    /* DIR, struct dirent                 */
-#ifdef _DELETE_LOG
-#include <unistd.h>                /* write()                            */
-#endif
+#include <unistd.h>                /* write(), unlink()                  */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -76,13 +75,12 @@ extern struct delete_log          dl;
 
 /*######################### search_old_files() ##########################*/
 void
-search_old_files(void)
+search_old_files(time_t now)
 {
    int           i,
                  junk_files = NO,
                  file_counter;
-   time_t        diff_time,
-                 now;
+   time_t        diff_time;
    char          *work_ptr,
                  tmp_dir[MAX_PATH_LENGTH];
    unsigned int  file_size;
@@ -104,7 +102,6 @@ search_old_files(void)
       {
          file_counter = 0;
          file_size    = 0;
-         time(&now);
 
          work_ptr = tmp_dir + strlen(tmp_dir);
          *work_ptr++ = '/';
@@ -141,14 +138,10 @@ search_old_files(void)
                   if ((fra[de[i].fra_pos].delete_unknown_files == YES) ||
                       (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
                   {
-#ifdef _WORKING_UNLINK
                      if (unlink(tmp_dir) == -1)
-#else
-                     if (remove(tmp_dir) == -1)
-#endif /* _WORKING_UNLINK */
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to delete %s : %s (%s %d)\n",
+                                  "Failed to unlink() %s : %s (%s %d)\n",
                                   tmp_dir, strerror(errno), __FILE__, __LINE__);
                      }
                      else
@@ -248,14 +241,10 @@ search_old_files(void)
                                 {
                                    if (fra[de[i].fra_pos].delete_unknown_files == YES)
                                    {
-#ifdef _WORKING_UNLINK
                                       if (unlink(tmp_dir) == -1)
-#else
-                                      if (remove(tmp_dir) == -1)
-#endif /* _WORKING_UNLINK */
                                       {
                                          (void)rec(sys_log_fd, WARN_SIGN,
-                                                   "Failed to delete %s : %s (%s %d)\n",
+                                                   "Failed to unlink() %s : %s (%s %d)\n",
                                                    tmp_dir, strerror(errno), __FILE__, __LINE__);
                                       }
                                       else

@@ -115,8 +115,7 @@ trans_db_log(char *sign, char *file, int line, char *fmt, ...)
    if ((file == NULL) || (line == 0))
    {
       buf[length] = '\n';
-      buf[length + 1] = '\0';
-      length += 2;
+      length += 1;
    }
    else
    {

@@ -1,6 +1,6 @@
 /*
  *  ftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1892,19 +1892,18 @@ get_reply(FILE *p_control)
 static int
 read_data_line(int read_fd, char *line)
 {
-   int  bytes_buffered = 0,
-        bytes_read = 0;
-   char *read_ptr = line;
+   int    bytes_buffered = 0,
+          bytes_read = 0,
+          status;
+   char   *read_ptr = line;
+   fd_set rset;
 
+   FD_ZERO(&rset);
    for (;;)
    {
       if (bytes_read <= 0)
       {
-         int    status;
-         fd_set rset;
-
          /* Initialise descriptor set */
-         FD_ZERO(&rset);
          FD_SET(read_fd, &rset);
          timeout.tv_usec = 0L;
          timeout.tv_sec = transfer_timeout;
@@ -1980,17 +1979,16 @@ read_data_line(int read_fd, char *line)
 static int
 read_data_to_buffer(int read_fd, char ***buffer)
 {
-   int  bytes_buffered = 0,
-        bytes_read = 0;
-   char tmp_buffer[MAX_RET_MSG_LENGTH];
+   int    bytes_buffered = 0,
+          bytes_read = 0,
+          status;
+   fd_set rset;
+   char   tmp_buffer[MAX_RET_MSG_LENGTH];
 
+   FD_ZERO(&rset);
    for (;;)
    {
-      int    status;
-      fd_set rset;
-
       /* Initialise descriptor set */
-      FD_ZERO(&rset);
       FD_SET(read_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = transfer_timeout;
@@ -2076,6 +2074,8 @@ read_msg(void)
    static int  bytes_buffered,
                bytes_read = 0;
    static char *read_ptr = NULL;
+   int         status;
+   fd_set      rset;
 
    if (bytes_read == 0)
    {
@@ -2088,15 +2088,12 @@ read_msg(void)
       read_ptr = msg_str;
    }
 
+   FD_ZERO(&rset);
    for (;;)
    {
       if (bytes_read <= 0)
       {
-         int    status;
-         fd_set rset;
-
          /* Initialise descriptor set */
-         FD_ZERO(&rset);
          FD_SET(control_fd, &rset);
          timeout.tv_usec = 0L;
          timeout.tv_sec = transfer_timeout;

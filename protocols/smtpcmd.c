@@ -1,6 +1,6 @@
 /*
  *  smtpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -578,14 +578,16 @@ smtp_close(void)
                 strerror(errno));
    }
 
-   if ((reply = get_reply(smtp_fp)) < 0)
+   if (timeout_flag == OFF)
    {
-      return(INCORRECT);
-   }
-
-   if (check_reply(2, reply, 250) < 0)
-   {
-      return(reply);
+      if ((reply = get_reply(smtp_fp)) < 0)
+      {
+         return(INCORRECT);
+      }
+      if (check_reply(2, reply, 250) < 0)
+      {
+         return(reply);
+      }
    }
 
    return(SUCCESS);
@@ -607,27 +609,29 @@ smtp_quit(void)
                 strerror(errno));
    }
 
-   if ((reply = get_reply(smtp_fp)) < 0)
+   if (timeout_flag == OFF)
    {
-      return(INCORRECT);
-   }
-
-   if (check_reply(2, reply, 221) < 0)
-   {
-      return(reply);
-   }
+      if ((reply = get_reply(smtp_fp)) < 0)
+      {
+         return(INCORRECT);
+      }
+      if (check_reply(2, reply, 221) < 0)
+      {
+         return(reply);
+      }
 
 #ifdef _WITH_SHUTDOWN
-   if (smtp_fp != NULL)
-   {
-      if (shutdown(smtp_fd, 1) < 0)
+      if (smtp_fp != NULL)
       {
-         msg_str[0] = '\0';
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__,
-                   "shutdown() error : %s", strerror(errno));
+         if (shutdown(smtp_fd, 1) < 0)
+         {
+            msg_str[0] = '\0';
+            trans_log(DEBUG_SIGN, __FILE__, __LINE__,
+                      "shutdown() error : %s", strerror(errno));
+         }
       }
-   }
 #endif
+   }
    if (fclose(smtp_fp) == EOF)
    {
       msg_str[0] = '\0';
@@ -673,6 +677,9 @@ read_msg(void)
    static int  bytes_buffered,
                bytes_read = 0;
    static char *read_ptr = NULL;
+   int         status;
+   fd_set      rset;
+
 
    if (bytes_read == 0)
    {
@@ -685,15 +692,12 @@ read_msg(void)
       read_ptr = msg_str;
    }
 
+   FD_ZERO(&rset);
    for (;;)
    {
       if (bytes_read <= 0)
       {
-         int    status;
-         fd_set rset;
-
          /* Initialise descriptor set */
-         FD_ZERO(&rset);
          FD_SET(smtp_fd, &rset);
          timeout.tv_usec = 0L;
          timeout.tv_sec = transfer_timeout;

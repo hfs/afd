@@ -445,8 +445,7 @@ get_rename_rules(char *rule_file)
 
 #ifdef _DEBUG_RULES
    {
-      int i,
-          j;
+      int i, j;
 
       for (i = 0; i < no_of_rule_headers; i++)
       {

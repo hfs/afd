@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ DESCR__E_M3
 #include <stdlib.h>                /* malloc(), realloc(), free()        */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#include <unistd.h>                /* unlink()                           */
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -589,14 +589,10 @@ remove_ls_data()
                     INCOMING_DIR, LS_DATA_DIR, fra[db.fra_pos].dir_alias);
       if (stat(list_file, &stat_buf) == 0)
       {
-#ifdef _WORKING_UNLINK
          if ((unlink(list_file) == -1) && (errno != ENOENT))
-#else
-         if ((remove(list_file) == -1) && (errno != ENOENT))
-#endif /* _WORKING_UNLINK */
          {
             (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to delete %s : %s (%s %d)\n",
+                      "Failed to unlink() %s : %s (%s %d)\n",
                       list_file, strerror(errno), __FILE__, __LINE__);
          }
       }

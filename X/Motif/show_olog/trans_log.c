@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -122,8 +122,7 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       if ((file == NULL) || (line == 0))
       {
          buf[length] = '\n';
-         buf[length + 1] = '\0';
-         length += 2;
+         length += 1;
       }
       else
       {

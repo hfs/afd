@@ -1,7 +1,7 @@
 /*
  *  open_log_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,9 +53,6 @@ DESCR__E_M3
 #include <errno.h>
 #include "logdefs.h"
 
-/* External global variables. */
-extern int sys_log_fd;
-
 
 /*########################### open_log_file() ###########################*/
 FILE *
@@ -67,9 +64,9 @@ open_log_file(char *log_file_name)
    {
       if (errno == ENOSPC)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
-                   DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "DISK FULL!!! Will retry in %d second interval.",
+                    DISK_FULL_RESCAN_TIME);
 
          while (errno == ENOSPC)
          {
@@ -79,24 +76,21 @@ open_log_file(char *log_file_name)
             {
                if (errno != ENOSPC)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Could not fopen() %s : %s (%s %d)\n",
-                            log_file_name, strerror(errno),
-                            __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Could not fopen() %s : %s",
+                             log_file_name, strerror(errno));
                   exit(INCORRECT);
                }
             }
          }
-
-         (void)rec(sys_log_fd, INFO_SIGN,
-                   "Continuing after disk was full. (%s %d)\n",
-                   __FILE__, __LINE__);
+         system_log(INFO_SIGN, __FILE__, __LINE__,
+                    "Continuing after disk was full.");
       }
       else
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Could not fopen() %s : %s (%s %d)\n",
-                   log_file_name, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not fopen() %s : %s",
+                    log_file_name, strerror(errno));
          exit(INCORRECT);
       }
    }

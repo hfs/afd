@@ -1,6 +1,6 @@
 /*
  *  handle_time_jobs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,9 @@ DESCR__S_M3
  **   handle_time_jobs - process all time jobs of AMG
  **
  ** SYNOPSIS
- **   void handle_time_jobs(int *no_of_process, char *afd_file_dir);
+ **   void handle_time_jobs(int    *no_of_process, 
+ **                         char   *afd_file_dir,
+ **                         time_t now);
  **
  ** DESCRIPTION
  **   The function handle_time_jobs() searches the time directory for
@@ -81,7 +83,7 @@ static void                       handle_time_dir(int, int *);
 
 /*######################### handle_time_jobs() ##########################*/
 void
-handle_time_jobs(int *no_of_process, char *afd_file_dir)
+handle_time_jobs(int *no_of_process, char *afd_file_dir, time_t now)
 {
    register int i;
 
@@ -91,7 +93,7 @@ handle_time_jobs(int *no_of_process, char *afd_file_dir)
     */
    for (i = 0; i < no_of_time_jobs; i++)
    {
-      if (db[time_job_list[i]].next_start_time <= time(NULL))
+      if (db[time_job_list[i]].next_start_time <= now)
       {
          handle_time_dir(i, no_of_process);
          if (files_handled > MAX_FILES_FOR_TIME_JOBS)
@@ -279,10 +281,10 @@ handle_time_dir(int time_job_no, int *no_of_process)
                        cmd[0] = ACKN; cmd[1] = '\0';
                        show_fifo_data('W', "ip_fin", cmd, 1, __FILE__, __LINE__);
 #endif
-                       if (send_cmd(ACKN, write_fin_fd) < 0)
+                       if (write(write_fin_fd, "", 1) != 1)
                        {
                           (void)rec(sys_log_fd, ERROR_SIGN,
-                                    "Could not write to fifo %s : %s (%s %d)\n",
+                                    "Could not write() to fifo %s : %s (%s %d)\n",
                                     fin_fifo, strerror(errno),
                                     __FILE__, __LINE__);
                        }

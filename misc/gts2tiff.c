@@ -1,7 +1,7 @@
 /*
  *  gts2tiff.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,9 +50,9 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>             /* sprintf(), remove()                    */
+#include <stdio.h>             /* sprintf()                              */
 #include <string.h>            /* strcat(), memcpy()                     */
-#include <unistd.h>            /* lseek(), exit()                        */
+#include <unistd.h>            /* lseek(), exit(), unlink()              */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifndef _NO_MMAP
@@ -177,10 +177,10 @@ gts2tiff(char *path, char *filename)
                      "Could not mmap() file %s : %s", from, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
-         if (remove(to) < 0)
+         if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to remove() %s : %s", to, strerror(errno));
+                        "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -201,10 +201,10 @@ gts2tiff(char *path, char *filename)
          }
          (void)close(fdin);
          (void)close(fdout);
-         if (remove(to) < 0)
+         if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to remove() %s : %s", to, strerror(errno));
+                        "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -231,10 +231,10 @@ gts2tiff(char *path, char *filename)
                               "Impossible!!!!");
                   (void)close(fdin);
                   (void)close(fdout);
-                  if (remove(to) < 0)
+                  if (unlink(to) < 0)
                   {
                      receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                                 "Failed to remove() %s : %s",
+                                 "Failed to unlink() %s : %s",
                                  to, strerror(errno));
                   }
                   return(INCORRECT);
@@ -254,10 +254,10 @@ gts2tiff(char *path, char *filename)
                      "Could not seek() on %s : %s", to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
-         if (remove(to) < 0)
+         if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to remove() %s : %s", to, strerror(errno));
+                        "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -267,10 +267,10 @@ gts2tiff(char *path, char *filename)
                      "Could not write() to %s : %s", to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
-         if (remove(to) < 0)
+         if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to remove() %s : %s", to, strerror(errno));
+                        "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -294,10 +294,10 @@ gts2tiff(char *path, char *filename)
                      "Could not mmap() file %s : %s", to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
-         if (remove(to) < 0)
+         if (unlink(to) < 0)
          {
             receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                        "Failed to remove() %s : %s", to, strerror(errno));
+                        "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
       }
@@ -372,10 +372,10 @@ gts2tiff(char *path, char *filename)
             }
             (void)close(fdin);
             (void)close(fdout);
-            if (remove(to) < 0)
+            if (unlink(to) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Failed to remove() %s : %s", to, strerror(errno));
+                           "Failed to unlink() %s : %s", to, strerror(errno));
             }
             return(INCORRECT);
          }
@@ -405,10 +405,10 @@ gts2tiff(char *path, char *filename)
             }
             (void)close(fdin);
             (void)close(fdout);
-            if (remove(to) < 0)
+            if (unlink(to) < 0)
             {
                receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Failed to remove() %s : %s", to, strerror(errno));
+                           "Failed to unlink() %s : %s", to, strerror(errno));
             }
             return(INCORRECT);
          }
@@ -426,10 +426,10 @@ gts2tiff(char *path, char *filename)
          receive_log(DEBUG_SIGN, __FILE__, __LINE__,
                      "close() error : %s", strerror(errno));
       }
-      if (remove(to) < 0)
+      if (unlink(to) < 0)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                     "Failed to remove() %s : %s (%s %d)\n",
+                     "Failed to unlink() %s : %s (%s %d)\n",
                      to, strerror(errno));
       }
       receive_log(WARN_SIGN, __FILE__, __LINE__,
@@ -620,10 +620,10 @@ gts2tiff(char *path, char *filename)
    }
 
    /* Time to remove the file with T4 code only */
-   if (remove(from) < 0)
+   if (unlink(from) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                  "Failed to remove() %s : %s", from, strerror(errno));
+                  "Failed to unlink() %s : %s", from, strerror(errno));
    }
 
 #ifdef _TIFF_CONVERSION_TIME_TEST

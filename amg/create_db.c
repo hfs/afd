@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ DESCR__S_M3
  **   26.10.1997 H.Kiehl If disk is full do not give up.
  **   21.01.1998 H.Kiehl Rewrite to accommodate new messages and job ID's.
  **   14.08.2000 H.Kiehl File mask no longer a fixed array.
+ **   04.01.2001 H.Kiehl Check for duplicate paused directories.
  **
  */
 DESCR__E_M3
@@ -583,6 +584,22 @@ create_db(int shmem_id)
          (void)rec(sys_log_fd, WARN_SIGN,
                    "Could not locate host %s in FSA. (%s %d)\n",
                    db[i].host_alias, __FILE__, __LINE__);
+      }
+
+      /*
+       * Always check if this directory is not already specified.
+       * This might help to reduce the number of directories that the
+       * function check_paused_dir() has to check.
+       */
+      db[i].dup_paused_dir = NO;
+      for (j = 0; j < i; j++)
+      {
+         if ((db[j].dir == db[i].dir) &&
+             (strcmp(db[j].host_alias, db[i].host_alias) == 0))
+         {
+            db[i].dup_paused_dir = YES;
+            break;
+         }
       }
       (void)strcpy(db[i].paused_dir, db[i].dir);
       (void)strcat(db[i].paused_dir, "/.");

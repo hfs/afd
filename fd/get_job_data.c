@@ -1,6 +1,6 @@
 /*
  *  get_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>           /* sprintf(), remove()                      */
+#include <stdio.h>           /* sprintf()                                */
 #include <string.h>          /* strcpy(), strcmp(), strerror()           */
 #include <stdlib.h>          /* malloc(), free(), atoi()                 */
 #ifdef _AGE_LIMIT
@@ -50,7 +50,7 @@ DESCR__E_M3
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>          /* fstat(), read(), close()                 */
+#include <unistd.h>          /* fstat(), read(), close(), unlink()       */
 #include <fcntl.h>           /* open()                                   */
 #include <errno.h>
 #include "fddefs.h"
@@ -140,14 +140,10 @@ retry:
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Removing %s. It is not a message. (%s %d)\n",
                 msg_dir, __FILE__, __LINE__);
-#ifdef _WORKING_UNLINK
       if (unlink(msg_dir) == -1)
-#else
-      if (remove(msg_dir) == -1)
-#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to delete %s : %s (%s %d)\n",
+                   "Failed to unlink() %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
       free(file_buf);
@@ -184,14 +180,10 @@ retry:
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "Removing %s because of unknown sheme [%s]. (%s %d)\n",
                                msg_dir, p_start, __FILE__, __LINE__);
-#ifdef _WORKING_UNLINK
                      if (unlink(msg_dir) == -1)
-#else
-                     if (remove(msg_dir) == -1)
-#endif /* _WORKING_UNLINK */
                      {
                         (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to delete %s : %s (%s %d)\n",
+                                  "Failed to unlink() %s : %s (%s %d)\n",
                                   msg_dir, strerror(errno),
                                   __FILE__, __LINE__);
                      }
@@ -232,14 +224,10 @@ retry:
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Removing %s. Could not locate end of sheme [:]. (%s %d)\n",
                 msg_dir, __FILE__, __LINE__);
-#ifdef _WORKING_UNLINK
       if (unlink(msg_dir) == -1)
-#else
-      if (remove(msg_dir) == -1)
-#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to delete %s : %s (%s %d)\n",
+                   "Failed to unlink() %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
       free(file_buf);
@@ -288,14 +276,10 @@ retry:
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Removing %s. Could not locate start of host name [@]. (%s %d)\n",
                 msg_dir, __FILE__, __LINE__);
-#ifdef _WORKING_UNLINK
       if (unlink(msg_dir) == -1)
-#else
-      if (remove(msg_dir) == -1)
-#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to delete %s : %s (%s %d)\n",
+                   "Failed to unlink() %s : %s (%s %d)\n",
                    msg_dir, strerror(errno), __FILE__, __LINE__);
       }
       free(file_buf);

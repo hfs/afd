@@ -70,6 +70,7 @@ OBJS    = attach_afd_status.o\
           send_cmd.o\
           set_fl.o\
           show_fifo_data.o\
+          system_log.o\
           t_hostname.o\
           unlock_region.o
 

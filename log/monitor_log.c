@@ -1,7 +1,7 @@
 /*
  *  monitor_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,7 +43,7 @@ DESCR__E_M1
 
 #include <stdio.h>           /* fopen(), fflush()                        */
 #include <string.h>          /* strcpy(), strcat(), strerror(), memcpy() */
-#include <stdlib.h>          /* calloc()                                 */
+#include <stdlib.h>          /* malloc()                                 */
 #include <sys/types.h>       /* fdset                                    */
 #include <sys/stat.h>
 #include <sys/time.h>        /* struct timeval, time()                   */
@@ -57,7 +57,7 @@ DESCR__E_M1
 
 /* External global variables */
 int  sys_log_fd = STDERR_FILENO;
-char *p_work_dir;
+char *p_work_dir = NULL;
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -97,49 +97,42 @@ main(int argc, char *argv[])
    }
    else
    {
-      char monitor_log_fifo[MAX_PATH_LENGTH],
-           sys_log_fifo[MAX_PATH_LENGTH];
+      char monitor_log_fifo[MAX_PATH_LENGTH];
 
       p_work_dir = work_dir;
 
       /* Create and open fifos that we need */
       (void)strcpy(monitor_log_fifo, work_dir);
       (void)strcat(monitor_log_fifo, FIFO_DIR);
-      (void)strcpy(sys_log_fifo, monitor_log_fifo);
-      (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
       (void)strcat(monitor_log_fifo, MON_LOG_FIFO);
-      if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      if ((monitor_fd = open(monitor_log_fifo, O_RDWR)) == -1)
       {
-         if (make_fifo(sys_log_fifo) < 0)
+         if (errno == ENOENT)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN, "Failed to create fifo %s. (%s %d)\n",
-                      sys_log_fifo, __FILE__, __LINE__);
+            if (make_fifo(monitor_log_fifo) == SUCCESS)
+            {
+               if ((monitor_fd = open(monitor_log_fifo, O_RDWR)) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to open() fifo %s : %s",
+                             monitor_log_fifo, strerror(errno));
+                  exit(INCORRECT);
+               }
+            }
+            else
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to create fifo %s.", monitor_log_fifo);
+               exit(INCORRECT);
+            }
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() fifo %s : %s",
+                       monitor_log_fifo, strerror(errno));
             exit(INCORRECT);
          }
-      }
-      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN, "Failed to open() fifo %s : %s (%s %d)\n",
-                   sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      if ((stat(monitor_log_fifo, &stat_buf) < 0) ||
-          (!S_ISFIFO(stat_buf.st_mode)))
-      {
-         if (make_fifo(monitor_log_fifo) < 0)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to create fifo %s. (%s %d)\n",
-                      monitor_log_fifo, __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-      }
-      if ((monitor_fd = open(monitor_log_fifo, O_RDWR)) < 0)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to open() fifo %s : %s (%s %d)\n",
-                   monitor_log_fifo, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
       }
    }
    
@@ -152,14 +145,13 @@ main(int argc, char *argv[])
       /* If we cannot determine the size of the fifo set default value */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
-   fifo_size++;  /* Just in case */
 
    /* Now lets allocate memory for the fifo buffer */
-   if ((fifo_buffer = calloc((size_t)fifo_size, sizeof(char))) == NULL)
+   if ((fifo_buffer = malloc((size_t)fifo_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not allocate memory for the fifo buffer : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not allocate memory for the fifo buffer : %s",
+                 strerror(errno));
       exit(INCORRECT);
    }
 
@@ -205,17 +197,17 @@ main(int argc, char *argv[])
    /* Ignore any SIGHUP signal */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "signal() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "signal() error : %s", strerror(errno));
    }
 
    /*
     * Now lets wait for data to be written to the monitor log.
     */
+   FD_ZERO(&rset);
    for (;;)
    {
       /* Initialise descriptor set and timeout */
-      FD_ZERO(&rset);
       FD_SET(monitor_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 1L;
@@ -240,12 +232,13 @@ main(int argc, char *argv[])
             }
             if (fclose(monitor_file) == EOF)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN, "fclose() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "fclose() error : %s", strerror(errno));
             }
             reshuffel_log_files(log_number, log_file, p_end);
             monitor_file = open_log_file(current_log_file);
-            next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
+            next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
+                             SWITCH_FILE_TIME;
          }
       }
       else if (FD_ISSET(monitor_fd, &rset))
@@ -365,8 +358,8 @@ main(int argc, char *argv[])
                  }
                  if (fclose(monitor_file) == EOF)
                  {
-                    (void)rec(sys_log_fd, ERROR_SIGN, "fclose() error : %s (%s %d)\n",
-                              strerror(errno), __FILE__, __LINE__);
+                    system_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "fclose() error : %s", strerror(errno));
                  }
                  reshuffel_log_files(log_number, log_file, p_end);
                  monitor_file = open_log_file(current_log_file);
@@ -375,8 +368,8 @@ main(int argc, char *argv[])
            }
            else
            {
-              (void)rec(sys_log_fd, FATAL_SIGN, "Select error : %s (%s %d)\n",
-                        strerror(errno), __FILE__, __LINE__);
+              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "select() error : %s", strerror(errno));
               exit(INCORRECT);
            }
    } /* for (;;) */

@@ -677,3 +677,30 @@
              remain in the internal directory forever, thus filling
              up the files directory until AMG would just stop.
 ------------------------> Released: 19.12.2000 <---------------------------
+
+
+---------------------------> Version 1.2.3 <-------------------------------
+                            ---------------                                
+24.12.2000 - New process asmtp to send mails automatically.
+26.12.2000 - When creating archives we will now always check the maximum
+             number of links a directory may have with pathconf() instead
+             of relying on LINK_MAX.
+           - Hopefully found bug in afd_stat that mysteriously moves the
+             hour counter backward and then forward again.
+27.12.2000 - More optimization for process archive_watch.
+04.01.2001 - Check for duplicate paused directories.
+06.01.2001 - More optimization to reduce the number of system calls
+             generated FD and AMG.
+           - More checks for reading garbage in process output_log.
+07.01.2001 - Process output_log, input_log and delete_log now handle
+             the case when the FIFO overflows.
+11.01.2001 - Failed to initialize process list properly in afd_mon for
+             disabled AFD's.
+12.01.2001 - Change the value of DEFAULT_TRANSFER_BLOCKSIZE from 1024
+             to 4096.
+21.01.2001 - Compiling without logfiles works again.
+23.01.2001 - When there is no recipient identifier, amg would SEGV.
+             Fixed.
+24.01.2001 - In sf_smtp if we fail to read from the local file we first
+             do a smtp_close() before we quit.
+------------------------> Released: 31.01.2001 <---------------------------

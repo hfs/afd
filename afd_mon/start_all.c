@@ -1,6 +1,6 @@
 /*
  *  start_all.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,13 @@ start_all(void)
 
    for (i = 0; i < no_of_afds; i++)
    {
-      if (msa[i].connect_status != DISABLED)
+      if (msa[i].connect_status == DISABLED)
+      {
+         pl[i].pid = 0;
+         pl[i].start_time = 0L;
+         pl[i].afd_alias[0] = '\0';
+      }
+      else
       {
          if ((pl[i].pid = start_process("mon", i)) != INCORRECT)
          {

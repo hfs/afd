@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,9 +54,7 @@ DESCR__E_M3
 #include <stdio.h>                       /* stderr, NULL                 */
 #include <string.h>                      /* strerror()                   */
 #include <stdlib.h>                      /* realloc(), free()            */
-#ifdef _WORKING_UNLINK
 #include <unistd.h>                      /* unlink()                     */
-#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <signal.h>                      /* kill()                       */
@@ -209,16 +207,12 @@ check_fra_fd(void)
                      (void)sprintf(fullname, "%s%s%s%s/%s", p_work_dir,
                                    AFD_FILE_DIR, INCOMING_DIR, LS_DATA_DIR,
                                    ord[i].dir_alias);
-#ifdef _WORKING_UNLINK
                      if (unlink(fullname) == -1)
-#else
-                     if (remove(fullname) == -1)
-#endif /* _WORKING_UNLINK */
                      {
                         if (errno != ENOENT)
                         {
                            (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to delete old ls data file %s : %s (%s %d)\n",
+                                     "Failed to unlink() old ls data file %s : %s (%s %d)\n",
                                      fullname, strerror(errno),
                                      __FILE__, __LINE__);
                         }

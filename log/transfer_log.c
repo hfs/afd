@@ -1,6 +1,6 @@
 /*
  *  transfer_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ DESCR__E_M1
 
 #include <stdio.h>           /* fopen(), fflush()                        */
 #include <string.h>          /* strcpy(), strcat(), strerror(), memcpy() */
-#include <stdlib.h>          /* calloc()                                 */
+#include <stdlib.h>          /* malloc()                                 */
 #include <sys/types.h>       /* fdset                                    */
 #include <sys/stat.h>
 #include <sys/time.h>        /* struct timeval, time()                   */
@@ -58,7 +58,7 @@ DESCR__E_M1
 
 /* External global variables */
 int               sys_log_fd = STDERR_FILENO;
-char              *p_work_dir;
+char              *p_work_dir = NULL;
 struct afd_status *p_afd_status;
 
 
@@ -104,50 +104,42 @@ main(int argc, char *argv[])
    }
    else
    {
-      char transfer_log_fifo[MAX_PATH_LENGTH],
-           sys_log_fifo[MAX_PATH_LENGTH];
+      char transfer_log_fifo[MAX_PATH_LENGTH];
 
       p_work_dir = work_dir;
 
       /* Create and open fifos that we need */
       (void)strcpy(transfer_log_fifo, work_dir);
       (void)strcat(transfer_log_fifo, FIFO_DIR);
-      (void)strcpy(sys_log_fifo, transfer_log_fifo);
-      (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
       (void)strcat(transfer_log_fifo, TRANSFER_LOG_FIFO);
-      if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
+      if ((transfer_fd = open(transfer_log_fifo, O_RDWR)) == -1)
       {
-         if (make_fifo(sys_log_fifo) < 0)
+         if (errno == ENOENT)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to create fifo %s. (%s %d)\n",
-                      sys_log_fifo, __FILE__, __LINE__);
+            if (make_fifo(transfer_log_fifo) == SUCCESS)
+            {
+               if ((transfer_fd = open(transfer_log_fifo, O_RDWR)) == -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to open() fifo %s : %s",
+                             transfer_log_fifo, strerror(errno));
+                  exit(INCORRECT);
+               }
+            }
+            else
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to create fifo %s.", transfer_log_fifo);
+               exit(INCORRECT);
+            }
+         }
+         else
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() fifo %s : %s",
+                       transfer_log_fifo, strerror(errno));
             exit(INCORRECT);
          }
-      }
-      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to open() fifo %s : %s (%s %d)\n",
-                   sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      if ((stat(transfer_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-      {
-         if (make_fifo(transfer_log_fifo) < 0)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to create fifo %s. (%s %d)\n",
-                      transfer_log_fifo, __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-      }
-      if ((transfer_fd = open(transfer_log_fifo, O_RDWR)) < 0)
-      {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to open() fifo %s : %s (%s %d)\n",
-                   transfer_log_fifo, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
       }
    }
    
@@ -160,14 +152,13 @@ main(int argc, char *argv[])
       /* If we cannot determine the size of the fifo set default value */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
-   fifo_size++;  /* Just in case */
 
    /* Now lets allocate memory for the fifo buffer */
-   if ((fifo_buffer = calloc((size_t)fifo_size, sizeof(char))) == NULL)
+   if ((fifo_buffer = malloc((size_t)fifo_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not allocate memory for the fifo buffer : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not allocate memory for the fifo buffer : %s",
+                 strerror(errno));
       exit(INCORRECT);
    }
 
@@ -175,9 +166,8 @@ main(int argc, char *argv[])
    /* Attach to the AFD Status Area and position pointers. */
    if (attach_afd_status() < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to attach to AFD status shared memory area. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to attach to AFD status shared memory area.");
       exit(INCORRECT);
    }
    p_log_counter = (unsigned int *)&p_afd_status->trans_log_ec;
@@ -232,17 +222,17 @@ main(int argc, char *argv[])
    /* Ignore any SIGHUP signal */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "signal() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "signal() error : %s", strerror(errno));
    }
 
    /*
     * Now lets wait for data to be written to the transfer log.
     */
+   FD_ZERO(&rset);
    for (;;)
    {
       /* Initialise descriptor set and timeout */
-      FD_ZERO(&rset);
       FD_SET(transfer_fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 1L;
@@ -267,9 +257,8 @@ main(int argc, char *argv[])
             }
             if (fclose(transfer_file) == EOF)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "fclose() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "fclose() error : %s", strerror(errno));
             }
             reshuffel_log_files(log_number, log_file, p_end);
             transfer_file = open_log_file(current_log_file);
@@ -432,9 +421,8 @@ main(int argc, char *argv[])
                  }
                  if (fclose(transfer_file) == EOF)
                  {
-                    (void)rec(sys_log_fd, ERROR_SIGN,
-                              "fclose() error : %s (%s %d)\n",
-                              strerror(errno), __FILE__, __LINE__);
+                    system_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "fclose() error : %s", strerror(errno));
                  }
                  reshuffel_log_files(log_number, log_file, p_end);
                  transfer_file = open_log_file(current_log_file);
@@ -443,9 +431,8 @@ main(int argc, char *argv[])
            }
            else
            {
-              (void)rec(sys_log_fd, FATAL_SIGN,
-                        "select() error : %s (%s %d)\n",
-                        strerror(errno), __FILE__, __LINE__);
+              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "select() error : %s", strerror(errno));
               exit(INCORRECT);
            }
    } /* for (;;) */

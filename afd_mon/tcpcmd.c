@@ -1,6 +1,6 @@
 /*
  *  tcpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -395,6 +395,8 @@ read_msg(void)
    static int  bytes_buffered,
                bytes_read = 0;
    static char *read_ptr = NULL;
+   int         status;
+   fd_set      rset;
 
    if (bytes_read == 0)
    {
@@ -406,16 +408,13 @@ read_msg(void)
       bytes_buffered = bytes_read;
       read_ptr = msg_str;
    }
+   FD_ZERO(&rset);
 
    for (;;)
    {
       if (bytes_read <= 0)
       {
-         int    status;
-         fd_set rset;
-
          /* Initialise descriptor set */
-         FD_ZERO(&rset);
          FD_SET(sock_fd, &rset);
          timeout.tv_usec = 0L;
          timeout.tv_sec = tcp_timeout;

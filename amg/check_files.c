@@ -201,9 +201,9 @@ check_files(struct directory_entry *p_de,
                   {
                      if (errno == ENOSPC)
                      {
-                        (void)rec(sys_log_fd, ERROR_SIGN,                          
-                                  "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",                                                                      
-                                  DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);      
+                        (void)rec(sys_log_fd, ERROR_SIGN,
+                                  "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
+                                  DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
 
                         while (errno == ENOSPC)
                         {
@@ -221,9 +221,9 @@ check_files(struct directory_entry *p_de,
                               }
                            }
                         }
-                        (void)rec(sys_log_fd, INFO_SIGN,                          
-                                  "Continuing after disk was full. (%s %d)\n",                                                                      
-                                  __FILE__, __LINE__);      
+                        (void)rec(sys_log_fd, INFO_SIGN,
+                                  "Continuing after disk was full. (%s %d)\n",
+                                  __FILE__, __LINE__);
 
                         /*
                          * If the disk is full, lets stop copying/moving
@@ -364,9 +364,9 @@ check_files(struct directory_entry *p_de,
                            {
                               if (errno == ENOSPC)
                               {
-                                 (void)rec(sys_log_fd, ERROR_SIGN,                          
-                                           "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",                                                                      
-                                           DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);      
+                                 (void)rec(sys_log_fd, ERROR_SIGN,
+                                           "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
+                                           DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
 
                                  while (errno == ENOSPC)
                                  {

@@ -1,6 +1,6 @@
 /*
  *  get_file_names.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,13 +57,12 @@ DESCR__E_M3
 #include <dirent.h>                    /* opendir(), closedir(), DIR,    */
                                        /* readdir(), struct dirent       */
 #include <fcntl.h>
-#include <unistd.h>                    /* remove(), getpid()             */
+#include <unistd.h>                    /* unlink(), getpid()             */
 #include <errno.h>
 #include "fddefs.h"
 
 /* Global variables */
-extern int                        sys_log_fd,
-                                  transfer_log_fd,
+extern int                        transfer_log_fd,
                                   fsa_fd;
 extern off_t                      *file_size_buffer;
 extern char                       *p_work_dir,
@@ -124,9 +123,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 
    if ((dp = opendir(file_path)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not opendir() %s : %s (%s %d)\n",
-                file_path, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not opendir() %s : %s", file_path, strerror(errno));
       exit(OPEN_FILE_DIR_ERROR);
    }
 
@@ -168,9 +166,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       (void)strcpy(p_source_file, p_dir->d_name);
       if (stat(fullname, &stat_buf) < 0)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Can't access file %s : %s (%s %d)\n",
-                   fullname, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Can't stat() file %s : %s", fullname, strerror(errno));
          continue;
       }
 
@@ -182,15 +179,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
          if ((db.age_limit > 0) &&
              ((diff_time = (now - stat_buf.st_mtime)) > db.age_limit))
          {
-#ifdef _WORKING_UNLINK
             if (unlink(fullname) == -1)
-#else
-            if (remove(fullname) == -1)
-#endif /* _WORKING_UNLINK */
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to delete file %s due to age : %s (%s %d)\n",
-                         p_dir->d_name, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to unlink() file %s due to age : %s",
+                          p_dir->d_name, strerror(errno));
             }
             else
             {
@@ -271,9 +264,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                dl_real_size = *dl.file_name_length + dl.size + prog_name_length;
                if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "write() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "write() error : %s", strerror(errno));
                }
 #endif /* _DELETE_LOG */
                files_not_send++;
@@ -293,9 +285,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                offset = p_file_name - file_name_buffer;
                if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)
                {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Could not realloc() memory : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Could not realloc() memory : %s",
+                             strerror(errno));
                   exit(ALLOC_ERROR);
                }
 
@@ -310,9 +302,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                offset = (char *)p_file_size - (char *)file_size_buffer;
                if ((file_size_buffer = realloc(file_size_buffer, new_size)) == NULL)
                {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Could not realloc() memory : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Could not realloc() memory : %s",
+                             strerror(errno));
                   free(file_name_buffer);
                   file_name_buffer = NULL;
                   exit(ALLOC_ERROR);
@@ -337,9 +329,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 
    if (errno)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not readdir() %s : %s (%s %d)\n",
-                file_path, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not readdir() %s : %s", file_path, strerror(errno));
    }
 
 #ifdef _AGE_LIMIT
@@ -355,9 +346,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #ifdef _VERIFY_FSA
       if (fsa[db.fsa_pos].total_file_counter < 0)
       {
-         (void)rec(sys_log_fd, INFO_SIGN,
-                   "Total file counter for host %s less then zero. Correcting. (%s %d)\n",
-                   fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+         system_log(INFO_SIGN, __FILE__, __LINE__,
+                    "Total file counter for host %s less then zero. Correcting.",
+                    fsa[db.fsa_pos].host_dsp_name);
          fsa[db.fsa_pos].total_file_counter = 0;
       }
 #endif
@@ -372,17 +363,17 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #ifdef _VERIFY_FSA
       if (fsa[db.fsa_pos].total_file_size > ui_variable)
       {
-         (void)rec(sys_log_fd, INFO_SIGN,
-                   "Total file size for host %s overflowed. Correcting. (%s %d)\n",
-                   fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+         system_log(INFO_SIGN, __FILE__, __LINE__,
+                    "Total file size for host %s overflowed. Correcting.",
+                    fsa[db.fsa_pos].host_dsp_name);
          fsa[db.fsa_pos].total_file_size = 0;
       }
       else if ((fsa[db.fsa_pos].total_file_counter == 0) &&
                (fsa[db.fsa_pos].total_file_size > 0))
            {
-              (void)rec(sys_log_fd, INFO_SIGN,
-                        "fc for host %s is zero but fs is not zero. Correcting. (%s %d)\n",
-                        fsa[db.fsa_pos].host_dsp_name, __FILE__, __LINE__);
+              system_log(INFO_SIGN, __FILE__, __LINE__,
+                         "fc for host %s is zero but fs is not zero. Correcting.",
+                         fsa[db.fsa_pos].host_dsp_name);
               fsa[db.fsa_pos].total_file_size = 0;
            }
 #endif
@@ -397,9 +388,8 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 
    if (closedir(dp) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not closedir() %s : %s (%s %d)\n",
-                file_path, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not closedir() %s : %s", file_path, strerror(errno));
       free(file_name_buffer); free(file_size_buffer);
       file_name_buffer = NULL;
       file_size_buffer = NULL;

@@ -1,6 +1,6 @@
 /*
  *  remove_time_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,12 +41,12 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>            /* remove()                                */
+#include <stdio.h>
 #include <string.h>           /* strerror(), strcpy(), strlen()          */
 #include <sys/types.h>
 #include <sys/stat.h>         /* S_ISDIR()                               */
 #include <dirent.h>           /* opendir(), readdir(), closedir()        */
-#include <unistd.h>           /* rmdir()                                 */
+#include <unistd.h>           /* rmdir(), unlink()                       */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -62,7 +62,11 @@ extern struct delete_log dl;
 
 /*++++++++++++++++++++++++++ remove_time_dir() ++++++++++++++++++++++++++*/
 void
+#ifdef _DELETE_LOG
 remove_time_dir(char *host_name, int job_id, int reason)
+#else
+remove_time_dir(char *host_name, int job_id)
+#endif
 {
 #ifdef _CHECK_TIME_DIR_DEBUG
    (void)rec(sys_log_fd, INFO_SIGN,
@@ -108,14 +112,10 @@ remove_time_dir(char *host_name, int job_id, int reason)
          }
          else
          {
-#ifdef _WORKING_UNLINK
             if (unlink(time_dir) == -1)
-#else
-            if (remove(time_dir) == -1)
-#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to delete file %s : %s (%s %d)\n",
+                         "Failed to unlink() file %s : %s (%s %d)\n",
                          time_dir, strerror(errno), __FILE__, __LINE__);
             }
             else

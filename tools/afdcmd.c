@@ -1,7 +1,7 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ DESCR__S_M1
  **                                    -A      stop AMG
  **                                    -Y      start/stop AMG
  **                                    -Z      start/stop FD
+ **                                    -v      Just print the version number.
  **
  ** DESCRIPTION
  **
@@ -120,6 +121,18 @@ main(int argc, char *argv[])
    struct stat stat_buf;
 
    CHECK_FOR_VERSION(argc, argv);
+
+   if ((argc > 1) &&
+       (argv[1][0] == '-') && (argv[1][1] == 'v') && (argv[1][2] == '\0'))
+   {
+      (void)fprintf(stdout,
+#ifdef PRE_RELEASE
+                    "PRE %d.%d.%d-%d\n", MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
+#else
+                    "%d.%d.%d\n", MAJOR, MINOR, BUG_FIX);
+#endif
+      exit(SUCCESS);
+   }
 
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
@@ -477,9 +490,7 @@ main(int argc, char *argv[])
             }
             else
             {
-               char dummy;
-
-               if (write(fd, &dummy, 1) != 1)
+               if (write(fd, "", 1) != 1)
                {
                   (void)fprintf(stderr,
                                 "WARNING : Failed to write() to %s : %s (%s %d)\n",
@@ -1158,5 +1169,7 @@ usage(char *progname)
                  "                                        -Z      start/stop FD\n");
    (void)fprintf(stderr,
                  "                                        -Y      start/stop AMG\n");
+   (void)fprintf(stderr,
+                 "                                        -v      just print Version\n");
    return;
 }

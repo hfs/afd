@@ -70,9 +70,9 @@ readn(int fd, void *buf, int nbyte)
 
    ptr = buf;
    nleft = nbyte;
+   FD_ZERO(&rset);
    while (nleft > 0)
    {
-      FD_ZERO(&rset);
       FD_SET(fd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = transfer_timeout;

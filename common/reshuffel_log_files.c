@@ -1,7 +1,7 @@
 /*
  *  reshuffel_log_files.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1997 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,9 +47,6 @@ DESCR__E_M3
 #include <unistd.h>            /* rename()                               */
 #include <errno.h>
 
-/* External global variables */
-extern int sys_log_fd;
-
 
 /*######################## reshuffel_log_files() ########################*/
 void
@@ -70,9 +67,9 @@ reshuffel_log_files(int log_number, char *log_file, char *p_end)
          {
             int error_flag = NO;
 
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "DISK FULL!!! Will retry in %d second interval. (%s %d)\n",
-                      DISK_FULL_RESCAN_TIME, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "DISK FULL!!! Will retry in %d second interval.",
+                       DISK_FULL_RESCAN_TIME);
 
             while (errno == ENOSPC)
             {
@@ -82,10 +79,9 @@ reshuffel_log_files(int log_number, char *log_file, char *p_end)
                {
                   if (errno != ENOSPC)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to rename() %s to %s : %s (%s %d)\n",
-                               log_file, dst, strerror(errno),
-                               __FILE__, __LINE__);
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Failed to rename() %s to %s : %s",
+                                log_file, dst, strerror(errno));
                      error_flag = YES;
                      break;
                   }
@@ -93,17 +89,15 @@ reshuffel_log_files(int log_number, char *log_file, char *p_end)
             }
             if (error_flag == NO)
             {
-               (void)rec(sys_log_fd, INFO_SIGN,
-                         "Continuing after disk was full. (%s %d)\n",
-                         __FILE__, __LINE__);
+               system_log(INFO_SIGN, __FILE__, __LINE__,
+                          "Continuing after disk was full.");
             }
          }
          else if (errno != ENOENT)
               {
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "Failed to rename() %s to %s : %s (%s %d)\n",
-                           log_file, dst, strerror(errno),
-                           __FILE__, __LINE__);
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to rename() %s to %s : %s",
+                            log_file, dst, strerror(errno));
               }
       }
    }

@@ -1,6 +1,6 @@
 /*
  *  fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -150,7 +150,6 @@ static time_t              now;
 #define START_PROCESS()                                       \
         {                                                     \
            int    fsa_pos;                                    \
-           time_t current_time = time(NULL);                  \
                                                               \
            /* Try handle any pending jobs. */                 \
            for (i = 0; i < *no_msg_queued; i++)               \
@@ -165,7 +164,7 @@ static time_t              now;
                  {                                            \
                     fsa_pos = fra[qb[i].pos].fsa_pos;         \
                  }                                            \
-                 if ((qb[i].pid = start_process(fsa_pos, i, current_time, NO)) == REMOVED) \
+                 if ((qb[i].pid = start_process(fsa_pos, i, now, NO)) == REMOVED) \
                  {                                            \
                     /*                                        \
                      * The message can be removed because the \
@@ -185,7 +184,6 @@ static time_t              now;
 #define START_PROCESS()                                       \
         {                                                     \
            int    fsa_pos;                                    \
-           time_t current_time = time(NULL);                  \
                                                               \
            /* Try handle any pending jobs. */                 \
            for (i = 0; i < *no_msg_queued; i++)               \
@@ -200,7 +198,7 @@ static time_t              now;
                  {                                            \
                     fsa_pos = fra[qb[i].pos].fsa_pos;         \
                  }                                            \
-                 qb[i].pid = start_process(fsa_pos, i, current_time, NO); \
+                 qb[i].pid = start_process(fsa_pos, i, now, NO); \
               }                                               \
            }                                                  \
         }
@@ -212,7 +210,7 @@ static time_t              now;
 #endif
 
 /* Local functions prototypes */
-static void  remove_connection(struct connection *, int),
+static void  remove_connection(struct connection *, int, time_t),
              to_error_dir(int),
              get_afd_config_value(void),
              get_new_positions(void),
@@ -224,7 +222,7 @@ static void  remove_connection(struct connection *, int),
              sig_bus(int);
 static int   get_free_connection(void),
              get_free_disp_pos(int),
-             zombie_check(struct connection *, int *, int);
+             zombie_check(struct connection *, time_t, int *, int);
 static pid_t make_process(struct connection *),
              start_process(int, int, time_t, int);
 
@@ -243,17 +241,18 @@ main(int argc, char *argv[])
    time_t            *creation_time,
                      abnormal_term_check_time,
                      next_dir_check_time,
-                     remote_file_check_time;
+                     remote_file_check_time,
+                     sleep_time;
    size_t            fifo_size,
                      msg_fifo_buf_size;
    char              stop_flag = 0,
                      *fifo_buffer,
+                     *msg_buffer,
                      *msg_priority,
                      work_dir[MAX_PATH_LENGTH],
                      sys_log_fifo[MAX_PATH_LENGTH];
    fd_set            rset;
    struct timeval    timeout;
-   struct stat       stat_buf;
 #ifdef SA_FULLDUMP
    struct sigaction  sact;
 #endif
@@ -315,28 +314,38 @@ main(int argc, char *argv[])
                  &job_id,
                  &unique_number,
                  &msg_priority,
-                 &fifo_buffer);
+                 &msg_buffer);
 
-   /* If the process AFD has not yet created the */
-   /* system log fifo create it now.             */
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
-      {
-         (void)fprintf(stderr,
-                       "ERROR   : Could not create fifo %s. (%s %d)\n",
-                       sys_log_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-
-   /* Open system log fifo */
+   /* Open system log fifo. */
    if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
    {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      if (errno == ENOENT)
+      {
+         if (make_fifo(sys_log_fifo) == SUCCESS)
+         {
+            if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
+            {
+               (void)fprintf(stderr,
+                             "ERROR   : Could not open fifo %s : %s (%s %d)\n",
+                             sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+         }
+         else
+         {
+            (void)fprintf(stderr,
+                          "ERROR   : Could not create fifo %s. (%s %d)\n",
+                          sys_log_fifo, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      else
+      {
+         (void)fprintf(stderr,
+                       "ERROR   : Could not open fifo %s : %s (%s %d)\n",
+                       sys_log_fifo, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
 
    /* Open and create all fifos */
@@ -419,7 +428,14 @@ main(int argc, char *argv[])
    {
       fifo_size = i;
    }
-   fifo_size++; /* Just in case. Cannot do any harm. */
+
+   /* Allocate a buffer for reading data from FIFO's. */
+   if ((fifo_buffer = malloc(fifo_size)) == NULL)
+   {
+      (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
+                strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
 
 #ifdef SA_FULLDUMP
    /*
@@ -523,12 +539,12 @@ main(int argc, char *argv[])
    remote_file_check_time = ((now / remote_file_check_interval) *
                              remote_file_check_interval) +
                             remote_file_check_interval;
+   FD_ZERO(&rset);
 
    /* Now watch and start transfer jobs */
    for (;;)
    {
       /* Initialise descriptor set and timeout */
-      FD_ZERO(&rset);
       FD_SET(fd_cmd_fd, &rset);
       FD_SET(read_fin_fd, &rset);
       FD_SET(msg_fifo_fd, &rset);
@@ -540,12 +556,12 @@ main(int argc, char *argv[])
           (force_check == YES))
       {
          timeout.tv_usec = 100000L;
-         timeout.tv_sec = 0L;
+         sleep_time = timeout.tv_sec = 0L;
       }
       else
       {
          timeout.tv_usec = 0L;
-         timeout.tv_sec = FD_RESCAN_TIME;
+         sleep_time = timeout.tv_sec = FD_RESCAN_TIME;
       }
 
       /*
@@ -569,7 +585,7 @@ main(int argc, char *argv[])
                   qb_pos_pid(connection[i].pid, &qb_pos);
                   if (qb_pos != -1)
                   {
-                     if ((faulty = zombie_check(&connection[i], &qb_pos,
+                     if ((faulty = zombie_check(&connection[i], now, &qb_pos,
                                                 WNOHANG)) == YES)
                      {
                         qb[qb_pos].pid = PENDING;
@@ -859,53 +875,56 @@ main(int argc, char *argv[])
             */
       else if ((status > 0) && (FD_ISSET(read_fin_fd, &rset)))
            {
-              pid_t pid;
+              int n;
 
-              if (read(read_fin_fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+              if ((n = read(read_fin_fd, fifo_buffer, fifo_size)) >= sizeof(pid_t))
               {
-                 (void)rec(sys_log_fd, DEBUG_SIGN,
-                           "read() error or reading garbage from fifo %s (%s %d)\n",
-                           SF_FIN_FIFO, __FILE__, __LINE__);
-              }
-              else
-              {
-                 int faulty = NO,
-                     qb_pos;
+                 int   bytes_done = 0,
+                       faulty = NO,
+                       qb_pos;
+                 pid_t pid;
 
-                 qb_pos_pid(pid, &qb_pos);
-                 if (qb_pos != -1)
+                 now = time(NULL);
+
+                 do
                  {
-                    if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
-                                               &qb_pos, 0)) == YES)
+                    pid = *(pid_t *)&fifo_buffer[bytes_done];
+                    qb_pos_pid(pid, &qb_pos);
+                    if (qb_pos != -1)
                     {
-                       qb[qb_pos].pid = PENDING;
-                       if (qb[qb_pos].msg_name[0] != '\0')
+                       if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
+                                                  now, &qb_pos, 0)) == YES)
                        {
-                          if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
+                          qb[qb_pos].pid = PENDING;
+                          if (qb[qb_pos].msg_name[0] != '\0')
                           {
-                             /* Move all jobs from this host to the error */
-                             /* directory.                                */
-                             for (i = 0; i < *no_msg_queued; i++)
+                             if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter == 1)
                              {
-                                if ((qb[i].in_error_dir != YES) &&
-                                    (qb[i].pid == PENDING) &&
-                                    (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                                /* Move all jobs from this host */
+                                /* to the error directory.      */
+                                for (i = 0; i < *no_msg_queued; i++)
                                 {
-                                   to_error_dir(i);
+                                   if ((qb[i].in_error_dir != YES) &&
+                                       (qb[i].pid == PENDING) &&
+                                       (mdb[qb[i].pos].fsa_pos == mdb[qb[qb_pos].pos].fsa_pos))
+                                   {
+                                      to_error_dir(i);
+                                   }
                                 }
                              }
                           }
                        }
+                       else if (faulty == NO)
+                            {
+                               remove_msg(qb_pos);
+                            }
+                       else if (faulty == NONE)
+                            {
+                               qb[qb_pos].pid = PENDING;
+                            }
                     }
-                    else if (faulty == NO)
-                         {
-                            remove_msg(qb_pos);
-                         }
-                    else if (faulty == NONE)
-                         {
-                            qb[qb_pos].pid = PENDING;
-                         }
-                 }
+                    bytes_done += sizeof(pid_t);
+                 } while (n > bytes_done);
 
                  if ((stop_flag == 0) && (faulty != NEITHER) &&
                      (*no_msg_queued > 0))
@@ -933,6 +952,12 @@ main(int argc, char *argv[])
                        }
                     }
                  }
+              }
+              else
+              {
+                 (void)rec(sys_log_fd, DEBUG_SIGN,
+                           "read() error or reading garbage from fifo %s (%s %d)\n",
+                           SF_FIN_FIFO, __FILE__, __LINE__);
               }
            } /* sf_xxx or gf_xxx PROCESS TERMINATED */
 
@@ -981,101 +1006,103 @@ main(int argc, char *argv[])
             */
       else if ((status > 0) && (FD_ISSET(msg_fifo_fd, &rset)))
            {
-              if ((read(msg_fifo_fd, fifo_buffer,
-                        msg_fifo_buf_size)) != msg_fifo_buf_size)
+              int n;
+
+              if ((n = read(msg_fifo_fd, fifo_buffer,
+                            fifo_size)) >= msg_fifo_buf_size)
               {
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "Hmmm. Seems like I am reading garbage from the fifo. (%s %d)\n",
-                           __FILE__, __LINE__);
-              }
-              else
-              {
-                 int pos,
-                     tmp_job_id = *job_id;
+                 int bytes_done = 0,
+                     pos;
 
-                 /* Queue the job order */
-                 check_queue_space();
+                 now = time(NULL);
 
-                 if ((pos = lookup_job_id(tmp_job_id)) == INCORRECT)
+                 do
                  {
-                    (void)rec(sys_log_fd, ERROR_SIGN,
-                              "Could not locate job %d (%s %d)\n",
-                              *job_id, __FILE__, __LINE__);
-                    if (*msg_priority != 0)
-                    {
-                       char del_dir[MAX_PATH_LENGTH];
+                    (void)memcpy(msg_buffer, &fifo_buffer[bytes_done],
+                                 msg_fifo_buf_size);
 
-                       (void)sprintf(del_dir, "%s%s/%c_%ld_%04d_%u",
-                                     p_work_dir, AFD_FILE_DIR, *msg_priority,
-                                     *creation_time, *unique_number, *job_id);
-#ifdef _DELETE_LOG
-                       remove_files(del_dir, -1, *job_id, OTHER_DEL);
-#else
-                       remove_files(del_dir, -1);
-#endif
-                    }
-                    else
+                    /* Queue the job order */
+                    check_queue_space();
+                    if ((pos = lookup_job_id(*job_id)) == INCORRECT)
                     {
-                       (void)rec(sys_log_fd, DEBUG_SIGN,
-                                 "Hmmm. Priority data is NULL! Must be reading garbage! (%s %d)\n",
-                                 __FILE__, __LINE__);
-                    }
-                 }
-                 else
-                 {
-                    int    i,
-                           qb_pos = *no_msg_queued;
-                    double msg_number = ((double)*msg_priority - 47.0) *
-                                        (((double)*creation_time * 10000.0) +
-                                        (double)*unique_number);
-
-                    for (i = 0; i < *no_msg_queued; i++)
-                    {
-                       if (msg_number < qb[i].msg_number)
+                       (void)rec(sys_log_fd, ERROR_SIGN,
+                                 "Could not locate job %d (%s %d)\n",
+                                 *job_id, __FILE__, __LINE__);
+                       if (*msg_priority != 0)
                        {
-                          size_t move_size;
+                          char del_dir[MAX_PATH_LENGTH];
 
-                          move_size = (*no_msg_queued - i) *
-                                      sizeof(struct queue_buf);
-                          (void)memmove(&qb[i + 1], &qb[i], move_size);
-                          qb_pos = i;
-
-                          break;
+                          (void)sprintf(del_dir, "%s%s/%c_%ld_%04d_%u",
+                                        p_work_dir, AFD_FILE_DIR, *msg_priority,
+                                        *creation_time, *unique_number, *job_id);
+#ifdef _DELETE_LOG
+                          remove_files(del_dir, -1, *job_id, OTHER_DEL);
+#else
+                          remove_files(del_dir, -1);
+#endif
+                       }
+                       else
+                       {
+                          (void)rec(sys_log_fd, DEBUG_SIGN,
+                                    "Hmmm. Priority data is NULL! Must be reading garbage! (%s %d)\n",
+                                    __FILE__, __LINE__);
                        }
                     }
-
-                    (void)sprintf(qb[qb_pos].msg_name, "%c_%ld_%04d_%u",
-                                  *msg_priority, *creation_time,
-                                  *unique_number, *job_id);
-                    qb[qb_pos].msg_number = msg_number;
-                    qb[qb_pos].pid = PENDING;
-                    qb[qb_pos].creation_time = *creation_time;
-                    qb[qb_pos].pos = pos;
-                    qb[qb_pos].connect_pos = -1;
-                    qb[qb_pos].in_error_dir = NO;
-                    (*no_msg_queued)++;
-
-                    if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter > 0)
-                    {
-                       to_error_dir(qb_pos);
-                    }
                     else
                     {
-                       if (stop_flag == 0)
+                       int    i,
+                              qb_pos = *no_msg_queued;
+                       double msg_number = ((double)*msg_priority - 47.0) *
+                                           (((double)*creation_time * 10000.0) +
+                                           (double)*unique_number);
+
+                       for (i = 0; i < *no_msg_queued; i++)
                        {
-#if defined _BURST_MODE || defined _AGE_LIMIT
-                          if ((qb[qb_pos].pid = start_process(mdb[qb[qb_pos].pos].fsa_pos,
-                                                              qb_pos,
-                                                              time(NULL),
-                                                              NO)) == REMOVED)
+                          if (msg_number < qb[i].msg_number)
                           {
-                             remove_msg(qb_pos);
+                             size_t move_size;
+
+                             move_size = (*no_msg_queued - i) *
+                                         sizeof(struct queue_buf);
+                             (void)memmove(&qb[i + 1], &qb[i], move_size);
+                             qb_pos = i;
+
+                             break;
                           }
+                       }
+
+                       (void)sprintf(qb[qb_pos].msg_name, "%c_%ld_%04d_%u",
+                                     *msg_priority, *creation_time,
+                                     *unique_number, *job_id);
+                       qb[qb_pos].msg_number = msg_number;
+                       qb[qb_pos].pid = PENDING;
+                       qb[qb_pos].creation_time = *creation_time;
+                       qb[qb_pos].pos = pos;
+                       qb[qb_pos].connect_pos = -1;
+                       qb[qb_pos].in_error_dir = NO;
+                       (*no_msg_queued)++;
+
+                       if (fsa[mdb[qb[qb_pos].pos].fsa_pos].error_counter > 0)
+                       {
+                          to_error_dir(qb_pos);
+                       }
+                       else
+                       {
+                          if (stop_flag == 0)
+                          {
+#if defined _BURST_MODE || defined _AGE_LIMIT
+                             if ((qb[qb_pos].pid = start_process(mdb[qb[qb_pos].pos].fsa_pos,
+                                                                 qb_pos, now,
+                                                                 NO)) == REMOVED)
+                             {
+                                remove_msg(qb_pos);
+                             }
 #else
-                          qb[qb_pos].pid = start_process(mdb[qb[qb_pos].pos].fsa_pos,
-                                                         qb_pos, time(NULL),
-                                                         NO);
+                             qb[qb_pos].pid = start_process(mdb[qb[qb_pos].pos].fsa_pos,
+                                                            qb_pos, now,
+                                                            NO);
 #endif
+                          }
                        }
                     }
 
@@ -1108,7 +1135,14 @@ main(int argc, char *argv[])
                           }
                        }
                     }
-                 }
+                    bytes_done += msg_fifo_buf_size;
+                 } while (n > bytes_done);
+              }
+              else
+              {
+                 (void)rec(sys_log_fd, WARN_SIGN,
+                           "Hmmm. Seems like I am reading garbage from the fifo. (%s %d)\n",
+                           __FILE__, __LINE__);
               }
            } /* NEW MESSAGE ARRIVED */
 
@@ -1119,16 +1153,6 @@ main(int argc, char *argv[])
       else if ((status > 0) && (FD_ISSET(delete_jobs_host_fd, &rset)))
            {
               int  n;
-              char *fifo_buffer;
-
-              /* Now lets allocate memory for the fifo buffer */
-              if ((fifo_buffer = calloc(fifo_size, sizeof(char))) == NULL)
-              {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Could not allocate memory for the fifo buffer : %s (%s %d)\n",
-                           strerror(errno), __FILE__, __LINE__);
-                 exit(INCORRECT);
-              }
 
               if ((n = read(delete_jobs_host_fd, fifo_buffer, fifo_size)) > 0)
               {
@@ -1137,6 +1161,8 @@ main(int argc, char *argv[])
                       j;
                  char *p_host_name = fifo_buffer,
                       *p_host_stored;
+
+                 now = time(NULL);
 
                  do
                  {
@@ -1171,7 +1197,8 @@ main(int argc, char *argv[])
                              }
                              else
                              {
-                                remove_connection(&connection[qb[i].connect_pos], NO);
+                                remove_connection(&connection[qb[i].connect_pos],
+                                                  NO, now);
                              }
                           }
 
@@ -1247,8 +1274,6 @@ main(int argc, char *argv[])
                     }
                  } while (n > bytes_done);
               }
-
-              free(fifo_buffer);
            } /* DELETE ALL JOBS FROM SPECIFIC HOST */
 
            /*
@@ -1258,21 +1283,13 @@ main(int argc, char *argv[])
       else if ((status > 0) && (FD_ISSET(delete_jobs_fd, &rset)))
            {
               int  n;
-              char *fifo_buffer;
-
-              /* Now lets allocate memory for the fifo buffer */
-              if ((fifo_buffer = calloc(fifo_size, sizeof(char))) == NULL)
-              {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Could not allocate memory for the fifo buffer : %s (%s %d)\n",
-                           strerror(errno), __FILE__, __LINE__);
-                 exit(INCORRECT);
-              }
 
               if ((n = read(delete_jobs_fd, fifo_buffer, fifo_size)) > 0)
               {
                  int  bytes_done = 0;
                  char *p_msg_name = fifo_buffer;
+
+                 now = time(NULL);
 
                  do
                  {
@@ -1302,7 +1319,8 @@ main(int argc, char *argv[])
                              }
                              else
                              {
-                                remove_connection(&connection[qb[i].connect_pos], NO);
+                                remove_connection(&connection[qb[i].connect_pos],
+                                                  NO, now);
                              }
                           }
 
@@ -1346,8 +1364,6 @@ main(int argc, char *argv[])
                     }
                  } while (n > bytes_done);
               }
-
-              free(fifo_buffer);
            } /* DELETE SPECIFIC JOBS */
 
            /*
@@ -1359,14 +1375,17 @@ main(int argc, char *argv[])
               /* Clear wake-up FIFO if necessary. */
               if (FD_ISSET(fd_wake_up_fd, &rset))
               {
-                 char fifo_buffer[10];
-
-                 if (read(fd_wake_up_fd, fifo_buffer, 10) < 0)
+                 if (read(fd_wake_up_fd, fifo_buffer, fifo_size) < 0)
                  {
                     (void)rec(sys_log_fd, DEBUG_SIGN,
                               "read() error : %s (%s %d)\n",
                               strerror(errno), __FILE__, __LINE__);
                  }
+                 now = time(NULL);
+              }
+              else
+              {
+                 now += sleep_time;
               }
 
               if (stop_flag == 0)
@@ -1769,7 +1788,10 @@ make_process(struct connection *con)
  *               is the case it is killed with waitpid().
  */
 static int
-zombie_check(struct connection *p_con, int *qb_pos, int options)
+zombie_check(struct connection *p_con,
+             time_t            now,
+             int               *qb_pos,
+             int               options)
 {
    int   faulty = YES,
          status;
@@ -1808,7 +1830,7 @@ zombie_check(struct connection *p_con, int *qb_pos, int options)
                                fsa[p_con->fsa_pos].host_dsp_name);
                   }
                }
-               fsa[p_con->fsa_pos].last_connection = time(NULL);
+               fsa[p_con->fsa_pos].last_connection = now;
                break;
 
             case SYNTAX_ERROR          : /* Syntax for sf_xxx/gf_xxx wrong. */
@@ -1918,14 +1940,12 @@ zombie_check(struct connection *p_con, int *qb_pos, int options)
             case DATE_ERROR            : /* */
             case OPEN_LOCAL_ERROR      : /* */
             case WRITE_LOCK_ERROR      : /* */
-            case CLOSE_REMOTE_ERROR    : /* */
 #ifdef _WITH_WMO_SUPPORT
             case CHECK_REPLY_ERROR     : /* Did not get a correct reply. */
 #endif
             case REMOVE_LOCKFILE_ERROR : /* */
             case CHDIR_ERROR           : /* Change remote directory */
             case STAT_ERROR            : /* Failed to stat() file/directory */
-            case MOVE_ERROR            : /* Move file locally */
             case RENAME_ERROR          : /* Rename file locally */
             case SELECT_ERROR          : /* selecting on sf_xxx command fifo */
 #ifdef _WITH_WMO_SUPPORT
@@ -1936,6 +1956,8 @@ zombie_check(struct connection *p_con, int *qb_pos, int options)
 #endif
                break;
 
+            case CLOSE_REMOTE_ERROR    : /* */
+            case MOVE_ERROR            : /* Move file locally */
             case MOVE_REMOTE_ERROR     : /* */
             case OPEN_REMOTE_ERROR     : /* Failed to open remote file. */
                if ((qb[*qb_pos].msg_name[0] != '\0') &&
@@ -2000,7 +2022,7 @@ zombie_check(struct connection *p_con, int *qb_pos, int options)
             case NO_FILES_TO_SEND : /* There are no files to send. Most */
                                     /* properly the files have benn     */
                                     /* deleted due to age.              */
-               remove_connection(p_con, NEITHER);
+               remove_connection(p_con, NEITHER, now);
 
                /*
                 * This is actually a good time to check if there are
@@ -2084,7 +2106,7 @@ zombie_check(struct connection *p_con, int *qb_pos, int options)
                          p_con->job_no, p_con->pid, __FILE__, __LINE__);
             }
 
-      remove_connection(p_con, faulty);
+      remove_connection(p_con, faulty, now);
 
       /*
        * Even if we did fail to send a file, lets set the transfer
@@ -2109,7 +2131,7 @@ zombie_check(struct connection *p_con, int *qb_pos, int options)
          if (tmp_errno == ECHILD)
          {
             faulty = NONE;
-            remove_connection(p_con, NONE);
+            remove_connection(p_con, NONE, now);
          }
       }
       else
@@ -2124,14 +2146,14 @@ zombie_check(struct connection *p_con, int *qb_pos, int options)
 
 /*------------------------- remove_connection() ------------------------*/
 static void
-remove_connection(struct connection *p_con, int faulty)
+remove_connection(struct connection *p_con, int faulty, time_t now)
 {
    if (p_con->fsa_pos != -1)
    {
       /* Decrease number of active transfers to this host in FSA */
       if (faulty == YES)
       {
-         fsa[p_con->fsa_pos].last_retry_time = time(NULL);
+         fsa[p_con->fsa_pos].last_retry_time = now;
          lock_region_w(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
          fsa[p_con->fsa_pos].error_counter += 1;
          fsa[p_con->fsa_pos].total_errors += 1;
@@ -2589,7 +2611,10 @@ static void
 fd_exit(void)
 {
    register int i, j, jobs_killed = 0;
+   time_t       now;
    struct stat  stat_buf;
+
+   now = time(NULL);
 
    /* Kill any job still active with a normal kill (2)! */
    for (i = 0; i < max_connections; i++)
@@ -2619,7 +2644,8 @@ fd_exit(void)
          qb_pos_pid(connection[i].pid, &qb_pos);
          if (qb_pos != -1)
          {
-            if ((faulty = zombie_check(&connection[i], &qb_pos, WNOHANG)) == YES)
+            if ((faulty = zombie_check(&connection[i], now, &qb_pos,
+                                       WNOHANG)) == YES)
             {
                qb[qb_pos].pid = PENDING;
                if (qb[qb_pos].msg_name[0] != '\0')
@@ -2677,7 +2703,8 @@ fd_exit(void)
             qb_pos_pid(connection[i].pid, &qb_pos);
             if (qb_pos != -1)
             {
-               if ((faulty = zombie_check(&connection[i], &qb_pos, 0)) == YES)
+               if ((faulty = zombie_check(&connection[i], now,
+                                          &qb_pos, 0)) == YES)
                {
                   qb[qb_pos].pid = PENDING;
                   if (qb[qb_pos].msg_name[0] != '\0')

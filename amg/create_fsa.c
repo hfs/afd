@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -993,14 +993,10 @@ create_fsa(void)
    /* Remove the old FSA file if there was one. */
    if (old_fsa_size > -1)
    {
-#ifdef _WORKING_UNLINK
       if (unlink(old_fsa_stat) < 0)
-#else
-      if (remove(old_fsa_stat) < 0)
-#endif /* _WORKING_UNLINK */
       {
          (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to delete %s : %s (%s %d)\n",
+                   "Failed to unlink() %s : %s (%s %d)\n",
                    old_fsa_stat, strerror(errno), __FILE__, __LINE__);
       }
    }

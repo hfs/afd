@@ -54,7 +54,6 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* Global variables */
-extern int                        sys_log_fd;
 extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
 
@@ -126,9 +125,8 @@ eval_input_sf(int        argc,
 
                   if (fsa_attach() < 0)
                   {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "Failed to attach to FSA. (%s %d)\n",
-                               __FILE__, __LINE__);
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to attach to FSA.");
                      return(-SYNTAX_ERROR);
                   }
 
@@ -139,9 +137,9 @@ eval_input_sf(int        argc,
                   }
                   if (*ptr != '_')
                   {
-                     (void)rec(sys_log_fd, ERROR_SIGN,
-                               "Failed to locate job ID in message name %s (%s %d)\n",
-                               argv[0], __FILE__, __LINE__);
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "Failed to locate job ID in message name %s",
+                                argv[0]);
                      return(-JID_NUMBER_ERROR);
                   }
                   ptr++;

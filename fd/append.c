@@ -56,7 +56,6 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -79,9 +78,8 @@ log_append(int job_id, char *file_name)
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to stat() message %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to stat() message %s : %s", msg, strerror(errno));
       (void)close(fd);
       return;
    }
@@ -89,16 +87,15 @@ log_append(int job_id, char *file_name)
               RESTART_FILE_ID_LENGTH + strlen(file_name) + 4;
    if ((buffer = malloc(buf_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       (void)close(fd);
       return;
    }
    if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to read() message %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to read() message %s : %s", msg, strerror(errno));
       free(buffer);
       (void)close(fd);
       return;
@@ -143,9 +140,9 @@ log_append(int job_id, char *file_name)
                free(buffer);
                if (close(fd) == -1)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "close() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "close() error : %s (%s %d)\n",
+                             strerror(errno), __FILE__, __LINE__);
                }
                return;
             }
@@ -174,17 +171,15 @@ log_append(int job_id, char *file_name)
 
    if (lseek(fd, 0, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to lseek() %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to lseek() %s : %s", msg, strerror(errno));
    }
    else
    {
       if (write(fd, buffer, buf_size) != buf_size)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   msg, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to %s : %s", msg, strerror(errno));
       }
       else
       {
@@ -192,9 +187,9 @@ log_append(int job_id, char *file_name)
          {
             if (ftruncate(fd, buf_size) == -1)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to ftruncate() %s : %s (%s %d)\n",
-                         msg, strerror(errno), __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to ftruncate() %s : %s",
+                          msg, strerror(errno));
             }
          }
       }
@@ -202,9 +197,8 @@ log_append(int job_id, char *file_name)
    free(buffer);
    if (close(fd) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to close() %s : %s", msg, strerror(errno));
    }
 
    return;
@@ -231,24 +225,22 @@ remove_append(int job_id, char *file_name)
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to stat() message %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to stat() message %s : %s", msg, strerror(errno));
       (void)close(fd);
       return;
    }
    if ((buffer = malloc(stat_buf.st_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       (void)close(fd);
       return;
    }
    if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to read() message %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to read() message %s : %s", msg, strerror(errno));
       free(buffer);
       (void)close(fd);
       return;
@@ -257,9 +249,9 @@ remove_append(int job_id, char *file_name)
 
    if ((ptr = posi(buffer, RESTART_FILE_ID)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to locate <%s> identifier in message %s. (%s %d)\n",
-                RESTART_FILE_ID, msg, __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Failed to locate <%s> identifier in message %s.",
+                 RESTART_FILE_ID, msg);
       free(buffer);
       (void)close(fd);
       return;
@@ -270,9 +262,9 @@ remove_append(int job_id, char *file_name)
    {
       if ((tmp_ptr = posi(ptr, file_name)) == NULL)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to locate %s in restart option of message %s. (%s %d)\n",
-                   file_name, msg, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to locate %s in restart option of message %s.",
+                    file_name, msg);
          free(buffer);
          (void)close(fd);
          return;
@@ -320,17 +312,15 @@ remove_append(int job_id, char *file_name)
 
    if (lseek(fd, 0, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to lseek() %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to lseek() %s : %s", msg, strerror(errno));
    }
    else
    {
       if (write(fd, buffer, length) != length)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   msg, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to %s : %s", msg, strerror(errno));
       }
       else
       {
@@ -338,9 +328,9 @@ remove_append(int job_id, char *file_name)
          {
             if (ftruncate(fd, length) == -1)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to ftruncate() %s : %s (%s %d)\n",
-                         msg, strerror(errno), __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to ftruncate() %s : %s",
+                          msg, strerror(errno));
             }
          }
       }
@@ -348,9 +338,8 @@ remove_append(int job_id, char *file_name)
    free(buffer);
    if (close(fd) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to close() %s : %s", msg, strerror(errno));
    }
 
    return;
@@ -376,24 +365,22 @@ remove_all_appends(int job_id)
    }
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to stat() message %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to stat() message %s : %s", msg, strerror(errno));
       (void)close(fd);
       return;
    }
    if ((buffer = malloc(stat_buf.st_size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN, "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       (void)close(fd);
       return;
    }
    if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to read() message %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to read() message %s : %s", msg, strerror(errno));
       free(buffer);
       (void)close(fd);
       return;
@@ -402,9 +389,9 @@ remove_all_appends(int job_id)
 
    if ((ptr = posi(buffer, RESTART_FILE_ID)) == NULL)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "Hmmm. %s identifier is already gone in message %d. (%s %d)\n",
-                RESTART_FILE_ID, job_id, __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "Hmmm. <%s> identifier is already gone in message %d.",
+                 RESTART_FILE_ID, job_id);
       free(buffer);
       (void)close(fd);
       return;
@@ -420,17 +407,15 @@ remove_all_appends(int job_id)
 
    if (lseek(fd, 0, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to lseek() %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to lseek() %s : %s", msg, strerror(errno));
    }
    else
    {
       if (write(fd, buffer, length) != length)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to write() to %s : %s (%s %d)\n",
-                   msg, strerror(errno), __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to write() to %s : %s", msg, strerror(errno));
       }
       else
       {
@@ -438,9 +423,9 @@ remove_all_appends(int job_id)
          {
             if (ftruncate(fd, length) == -1)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Failed to ftruncate() %s : %s (%s %d)\n",
-                         msg, strerror(errno), __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to ftruncate() %s : %s",
+                          msg, strerror(errno));
             }
          }
       }
@@ -448,14 +433,11 @@ remove_all_appends(int job_id)
    free(buffer);
    if (close(fd) < 0)
    {
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "Failed to close() %s : %s (%s %d)\n",
-                msg, strerror(errno), __FILE__, __LINE__);
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "Failed to close() %s : %s", msg, strerror(errno));
    }
-
-   (void)rec(sys_log_fd, DEBUG_SIGN,
-             "Hmm. Removed all append options for JID %d. (%s %d)\n",
-             job_id, __FILE__, __LINE__);
+   system_log(DEBUG_SIGN, __FILE__, __LINE__,
+              "Hmm. Removed all append options for JID %d.", job_id);
 
    return;
 }

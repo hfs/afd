@@ -8,7 +8,7 @@ INSTDIR = ../../../../bin
 COMDIR  = ../../../common
 XCOMDIR = ../common
 LIB     = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
-CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../.. -I../afd_ctrl -I../../../afd_mon -I../../../init_afd
+CFLAGS  = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../.. -I../afd_ctrl -I../../../afd_mon -I../../../init_afd $(XINCLUDES)
 
 VDCPROG = view_dc
 VDCOBJS = callbacks.o\

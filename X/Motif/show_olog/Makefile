@@ -9,7 +9,7 @@ COMDIR   = ../../../common
 XCOMDIR  = ../common
 LIB      = $(XCOMDIR)/libxafd.a $(COMDIR)/libafd.a
 PROTOLIB = ../../../protocols/libprotocols.a
-CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../.. -I../../../init_afd -I../../../log -I../../../fd -I../../../protocols -I../afd_ctrl
+CFLAGS   = $(DEBUG_FLAGS) $(COMPILER_FLAGS) $(XSTATIC_FLAG) -I. -I$(XCOMDIR) -I../../.. -I../../../init_afd -I../../../log -I../../../fd -I../../../protocols -I../afd_ctrl $(XINCLUDES)
 
 SLOGPROG = show_olog
 SLOGOBJS = calculate_summary.o\

@@ -275,10 +275,10 @@ extract(char  *file_name,
    }
 
    /* Remove the file that has just been extracted. */
-   if (remove(fullname) < 0)
+   if (unlink(fullname) < 0)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__,
-                  "Failed to remove() %s : %s", fullname, strerror(errno));
+                  "Failed to unlink() %s : %s", fullname, strerror(errno));
    }
    else
    {

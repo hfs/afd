@@ -1,7 +1,7 @@
 /*
  *  remove_pool_directory.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <dirent.h>                    /* opendir(), closedir(), DIR,    */
                                        /* readdir(), struct dirent       */
-#include <unistd.h>                    /* rmdir()                        */
+#include <unistd.h>                    /* rmdir(), unlink()              */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -102,14 +102,10 @@ remove_pool_directory(char *job_dir, int dir_id)
       /* Sure it is a normal file? */
       if (S_ISDIR(stat_buf.st_mode) == 0)
       {
-#ifdef _WORKING_UNLINK
          if (unlink(job_dir) == -1)
-#else
-         if (remove(job_dir) == -1)
-#endif /* _WORKING_UNLINK */
          {
             (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to delete file %s due to age : %s (%s %d)\n",
+                      "Failed to unlink() file %s due to age : %s (%s %d)\n",
                       p_dir->d_name, strerror(errno), __FILE__, __LINE__);
          }
          else

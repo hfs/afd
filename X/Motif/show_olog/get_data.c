@@ -588,6 +588,7 @@ static void   display_data(int, time_t, time_t),
 void
 get_data(void)
 {
+#ifdef _OUTPUT_LOG
    int          i,
                 j,
                 start_file_no = -1,
@@ -705,6 +706,7 @@ get_data(void)
    XmStringFree(xstr);
    XtFree((char *)str_list);
 
+#endif /* _OUTPUT_LOG */
    return;
 }
 

@@ -137,42 +137,39 @@ eval_message(char *message_name, struct job *p_db)
    /* Store message to buffer */
    if ((fd = open(message_name, O_RDONLY)) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open file %s : %s (%s %d)\n", message_name,
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to open() %s : %s", message_name, strerror(errno));
       exit(NO_MESSAGE_FILE);
    }
 
    /* Stat() message to get size of it */
    if (fstat(fd, &stat_buf) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not fstat() %s : %s (%s %d)\n",
-                message_name, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not fstat() %s : %s", message_name, strerror(errno));
       exit(INCORRECT);
    }
 
    /* Allocate memory to store message */
-   if ((msg_buf = calloc(stat_buf.st_size + 1, sizeof(char))) == NULL)
+   if ((msg_buf = malloc(stat_buf.st_size + 1)) == NULL)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not calloc() memory to read message : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not malloc() memory to read message : %s",
+                 strerror(errno));
       exit(INCORRECT);
    }
 
    /* Read message in one hunk. */
    if ((n = read(fd, msg_buf, stat_buf.st_size)) < stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to read file %s : %s (%s %d)\n",
-                strerror(errno), message_name, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to read() %s : %s", message_name, strerror(errno));
       exit(INCORRECT);
    }
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
    msg_buf[n] = '\0';
 
@@ -181,12 +178,8 @@ eval_message(char *message_name, struct job *p_db)
     */
    if ((ptr = posi(msg_buf, DESTINATION_IDENTIFIER)) == NULL)
    {
-#ifdef _DEBUG
-      (void)fprintf(stderr, "DEBUG   : Message %s is corrupt. (%s %d)\n",
-                    message_name, __FILE__, __LINE__);
-#endif
-      (void)rec(sys_log_fd, ERROR_SIGN, "Message %s is faulty. (%s %d)\n",
-                message_name, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Message %s is faulty.", message_name);
 
       /* Don't forget to free memory we have allocated */
       free(msg_buf);
@@ -204,14 +197,8 @@ eval_message(char *message_name, struct job *p_db)
 
    if (eval_recipient(ptr, p_db, message_name) < 0)
    {
-#ifdef _DEBUG
-      (void)fprintf(stderr,
-                    "DEBUG   : Recipient %s of message %s is faulty. (%s %d)\n",
-                    ptr, message_name, __FILE__, __LINE__);
-#endif
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Message %s has a faulty recipient. (%s %d)\n",
-                message_name, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Message %s has a faulty recipient.", message_name);
 
       /* Don't forget to free memory we have allocated */
       free(msg_buf);
@@ -356,17 +343,15 @@ eval_message(char *message_name, struct job *p_db)
                     p_db->trans_rename_rule[n] = '\0';
                     if (n == MAX_RULE_HEADER_LENGTH)
                     {
-                       (void)rec(sys_log_fd, WARN_SIGN,
-                                 "Rule header for trans_rename option %s to long. #%d (%s %d)\n",
-                                 p_db->trans_rename_rule, p_db->job_id,
-                                 __FILE__, __LINE__);
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Rule header for trans_rename option %s to long. #%d",
+                                  p_db->trans_rename_rule, p_db->job_id);
                     }
                     else if (n == 0)
                          {
-                            (void)rec(sys_log_fd, WARN_SIGN,
-                                      "No rule header specified in message %d. (%s %d)\n",
-                                      p_db->trans_rename_rule, p_db->job_id,
-                                      __FILE__, __LINE__);
+                            system_log(WARN_SIGN, __FILE__, __LINE__,
+                                       "No rule header specified in message %d.",
+                                       p_db->job_id);
                          }
                     ptr = end_ptr;
                     while (*ptr == '\n')
@@ -436,10 +421,9 @@ eval_message(char *message_name, struct job *p_db)
                                   else
                                   {
                                      error_flag = YES;
-                                     (void)rec(sys_log_fd, WARN_SIGN,
-                                               "Incorrect parameter for chmod option %c%c%c%c (%s %d)\n",
-                                               ptr, ptr + 1, ptr + 2, ptr + 3,
-                                               __FILE__, __LINE__);
+                                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                "Incorrect parameter for chmod option %c%c%c%c",
+                                                ptr, ptr + 1, ptr + 2, ptr + 3);
                                   }
                              ptr++;
                           }
@@ -478,10 +462,9 @@ eval_message(char *message_name, struct job *p_db)
                                else
                                {
                                   error_flag = YES;
-                                  (void)rec(sys_log_fd, WARN_SIGN,
-                                            "Incorrect parameter for chmod option %c%c%c (%s %d)\n",
-                                            ptr, ptr + 1, ptr + 2,
-                                            __FILE__, __LINE__);
+                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "Incorrect parameter for chmod option %c%c%c",
+                                             ptr, ptr + 1, ptr + 2);
                                }
                           ptr++;
                           if (*ptr == '7')
@@ -519,10 +502,9 @@ eval_message(char *message_name, struct job *p_db)
                                else
                                {
                                   error_flag = YES;
-                                  (void)rec(sys_log_fd, WARN_SIGN,
-                                            "Incorrect parameter for chmod option %c%c%c (%s %d)\n",
-                                            ptr, ptr + 1, ptr + 2,
-                                            __FILE__, __LINE__);
+                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "Incorrect parameter for chmod option %c%c%c",
+                                             ptr, ptr + 1, ptr + 2);
                                }
                           ptr++;
                           if (*ptr == '7')
@@ -560,10 +542,9 @@ eval_message(char *message_name, struct job *p_db)
                                else
                                {
                                   error_flag = YES;
-                                  (void)rec(sys_log_fd, WARN_SIGN,
-                                            "Incorrect parameter for chmod option %c%c%c (%s %d)\n",
-                                            ptr, ptr + 1, ptr + 2,
-                                            __FILE__, __LINE__);
+                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "Incorrect parameter for chmod option %c%c%c",
+                                             ptr, ptr + 1, ptr + 2);
                                }
                           if (error_flag == NO)
                           {
@@ -591,9 +572,8 @@ eval_message(char *message_name, struct job *p_db)
                             }
                             else
                             {
-                               (void)rec(sys_log_fd, WARN_SIGN,
-                                         "Incorrect parameter for chmod option, ignoring it. (%s %d).\n",
-                                         __FILE__, __LINE__);
+                               system_log(WARN_SIGN, __FILE__, __LINE__,
+                                          "Incorrect parameter for chmod option, ignoring it.");
                                p_db->chmod_str[0] = '\0';
                             }
                          }
@@ -856,9 +836,9 @@ eval_message(char *message_name, struct job *p_db)
                              }
                              else
                              {
-                                (void)rec(sys_log_fd, WARN_SIGN,
-                                          "malloc() error : %s (%s %d)\n",
-                                          strerror(errno), __FILE__, __LINE__);
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "malloc() error : %s",
+                                           strerror(errno));
                              }
                           }
                        }
@@ -1044,18 +1024,15 @@ eval_message(char *message_name, struct job *p_db)
                           p_db->trans_rename_rule[n] = '\0';
                           if (n == MAX_RULE_HEADER_LENGTH)
                           {
-                             (void)rec(sys_log_fd, WARN_SIGN,
-                                       "Rule header for trans_rename option %s to long. #%d (%s %d)\n",
-                                       p_db->trans_rename_rule, p_db->job_id,
-                                       __FILE__, __LINE__);
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Rule header for trans_rename option %s to long. #%d",
+                                        p_db->trans_rename_rule, p_db->job_id);
                           }
                           else if (n == 0)
                                {
-                                  (void)rec(sys_log_fd, WARN_SIGN,
-                                            "No rule header specified in message %d. (%s %d)\n",
-                                            p_db->trans_rename_rule,
-                                            p_db->job_id,
-                                            __FILE__, __LINE__);
+                                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                                             "No rule header specified in message %d.",
+                                             p_db->job_id);
                                }
                        }
                     }
@@ -1094,9 +1071,9 @@ eval_message(char *message_name, struct job *p_db)
                           *end_ptr = '\0';
                           if ((p_db->special_ptr = malloc(length + 1)) == NULL)
                           {
-                             (void)rec(sys_log_fd, WARN_SIGN,
-                                       "Failed to malloc() memory, will ignore mail header file : %s (%s %d)\n",
-                                       strerror(errno), __FILE__, __LINE__);
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to malloc() memory, will ignore mail header file : %s",
+                                        strerror(errno));
                           }
                           else
                           {
@@ -1144,10 +1121,9 @@ eval_message(char *message_name, struct job *p_db)
                           *end_ptr = '\0';
                           if ((p_db->special_ptr = malloc(length + 1)) == NULL)
                           {
-                             (void)rec(sys_log_fd, WARN_SIGN,
-                                       "Failed to malloc() memory, will ignore %s option : %s (%s %d)\n",
-                                       FTP_EXEC_CMD, strerror(errno),
-                                       __FILE__, __LINE__);
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to malloc() memory, will ignore %s option : %s",
+                                        FTP_EXEC_CMD, strerror(errno));
                           }
                           else
                           {
@@ -1180,10 +1156,9 @@ eval_message(char *message_name, struct job *p_db)
                     }
                     if ((p_db->special_ptr = malloc(4 + 1)) == NULL)
                     {
-                       (void)rec(sys_log_fd, WARN_SIGN,
-                                 "Failed to malloc() memory, will ignore option %s : %s (%s %d)\n",
-                                 EUMETSAT_HEADER_ID, strerror(errno),
-                                 __FILE__, __LINE__);
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Failed to malloc() memory, will ignore option %s : %s",
+                                  EUMETSAT_HEADER_ID, strerror(errno));
                     }
                     else
                     {
@@ -1204,10 +1179,9 @@ eval_message(char *message_name, struct job *p_db)
                        if ((length == 0) || (length == 4) ||
                            (*ptr == '\0'))
                        {
-                          (void)rec(sys_log_fd, WARN_SIGN,
-                                    "Missing/incorrect DestEnvId. Ignoring option %s. (%s %d)\n",
-                                    EUMETSAT_HEADER_ID,
-                                    __FILE__, __LINE__);
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Missing/incorrect DestEnvId. Ignoring option %s.",
+                                     EUMETSAT_HEADER_ID);
                           free(p_db->special_ptr);
                        }
                        else
@@ -1218,10 +1192,9 @@ eval_message(char *message_name, struct job *p_db)
                           number = atoi(str_num);
                           if (number > 255)
                           {
-                             (void)rec(sys_log_fd, WARN_SIGN,
-                                       "DestEnvId to large (%d). Ignoring option %s. (%s %d)\n",
-                                       number, EUMETSAT_HEADER_ID,
-                                       __FILE__, __LINE__);
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "DestEnvId to large (%d). Ignoring option %s.",
+                                        number, EUMETSAT_HEADER_ID);
                              free(p_db->special_ptr);
                           }
                           else
@@ -1233,10 +1206,9 @@ eval_message(char *message_name, struct job *p_db)
                               */
                              if (gethostname(local_host, 255) == -1)
                              {
-                                (void)rec(sys_log_fd, WARN_SIGN,
-                                          "Failed to gethostname() : %s (%s %d)\n",
-                                          strerror(errno),
-                                          __FILE__, __LINE__);
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "Failed to gethostname() : %s",
+                                           strerror(errno));
                              }
                              else
                              {
@@ -1244,10 +1216,9 @@ eval_message(char *message_name, struct job *p_db)
 
                                 if ((p_host = gethostbyname(local_host)) == NULL)
                                 {
-                                   (void)rec(sys_log_fd, WARN_SIGN,
-                                             "Failed to gethostbyname() of local host : %s (%s %d)\n",
-                                             strerror(errno),
-                                             __FILE__, __LINE__);
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Failed to gethostbyname() of local host : %s",
+                                              strerror(errno));
                                 }
                                 else
                                 {
@@ -1338,9 +1309,9 @@ eval_message(char *message_name, struct job *p_db)
                     }
                     byte_buf = *end_ptr;
                     *end_ptr = '\0';
-                    (void)rec(sys_log_fd, WARN_SIGN,
-                              "Unknown or duplicate option <%s> in message %s (%s %d)\n",
-                              ptr, message_name, __FILE__, __LINE__);
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Unknown or duplicate option <%s> in message %s",
+                               ptr, message_name);
                     *end_ptr = byte_buf;
                     ptr = end_ptr;
                     while (*ptr == '\n')

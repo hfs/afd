@@ -1,6 +1,6 @@
 /*
  *  remove_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,9 +41,9 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>                 /* remove()                           */
+#include <stdio.h>
 #include <string.h>                /* strcpy(), strerror()               */
-#include <unistd.h>                /* rmdir()                            */
+#include <unistd.h>                /* rmdir(), unlink()                  */
 #include <sys/types.h>
 #include <sys/stat.h>              /* struct stat                        */
 #include <dirent.h>                /* opendir(), closedir(), readdir(),  */
@@ -104,14 +104,10 @@ remove_files(char *del_dir, int fsa_pos)
             (void)rec(sys_log_fd, WARN_SIGN,
                       "Failed to stat() %s : %s (%s %d)\n",
                       del_dir, strerror(errno), __FILE__, __LINE__);
-#ifdef _WORKING_UNLINK
             if (unlink(del_dir) == -1)
-#else
-            if (remove(del_dir) == -1)
-#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to delete file %s : %s (%s %d)\n",
+                         "Failed to unlink() file %s : %s (%s %d)\n",
                          del_dir, strerror(errno), __FILE__, __LINE__);
             }
          }
@@ -120,14 +116,10 @@ remove_files(char *del_dir, int fsa_pos)
       {
          if (!S_ISDIR(stat_buf.st_mode))
          {
-#ifdef _WORKING_UNLINK
             if (unlink(del_dir) == -1)
-#else
-            if (remove(del_dir) == -1)
-#endif /* _WORKING_UNLINK */
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to delete file %s : %s (%s %d)\n",
+                         "Failed to unlink() file %s : %s (%s %d)\n",
                          del_dir, strerror(errno), __FILE__, __LINE__);
             }
             else

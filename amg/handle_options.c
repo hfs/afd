@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -722,14 +722,10 @@ handle_options(int   no_of_options,
                            receive_log(ERROR_SIGN, __FILE__, __LINE__,
                                        "Failed to open() %s : %s",
                                        fullname, strerror(errno));
-#ifdef _WORKING_UNLINK
                            if ((unlink(fullname) == -1) && (errno != ENOENT))
-#else
-                           if ((remove(fullname) == -1) && (errno != ENOENT))
-#endif /* _WORKING_UNLINK */
                            {
                               receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                                          "Failed to delete %s : %s",
+                                          "Failed to unlink() %s : %s",
                                           p_file_name, strerror(errno));
                            }
                            else
@@ -744,14 +740,10 @@ handle_options(int   no_of_options,
                               receive_log(ERROR_SIGN, __FILE__, __LINE__,
                                           "Failed to write() to %s : %s",
                                           p_file_name, strerror(errno));
-#ifdef _WORKING_UNLINK
                               if ((unlink(fullname) == -1) && (errno != ENOENT))
-#else
-                              if ((remove(fullname) == -1) && (errno != ENOENT))
-#endif /* _WORKING_UNLINK */
                               {
                                  receive_log(ERROR_SIGN, __FILE__, __LINE__,
-                                             "Failed to delete %s : %s",
+                                             "Failed to unlink() %s : %s",
                                              p_file_name, strerror(errno));
                               }
                               else
@@ -825,16 +817,12 @@ handle_options(int   no_of_options,
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                if ((size = tiff2gts(file_path, p_file_name)) < 0)
                {
-#ifdef _WORKING_UNLINK
                   if (unlink(fullname) == -1)
-#else
-                  if (remove(fullname) == -1)
-#endif /* _WORKING_UNLINK */
                   {
                      if (errno != ENOENT)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__,
-                                    "Failed to delete file %s : %s",
+                                    "Failed to unlink() file %s : %s",
                                     fullname, strerror(errno));
                      }
                   }
@@ -876,16 +864,12 @@ handle_options(int   no_of_options,
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                if ((size = gts2tiff(file_path, p_file_name)) < 0)
                {
-#ifdef _WORKING_UNLINK
                   if (unlink(fullname) == -1)
-#else
-                  if (remove(fullname) == -1)
-#endif /* _WORKING_UNLINK */
                   {
                      if (errno != ENOENT)
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__,
-                                    "Failed to delete file %s : %s",
+                                    "Failed to unlink() file %s : %s",
                                     fullname, strerror(errno));
                      }
                   }
@@ -979,16 +963,12 @@ handle_options(int   no_of_options,
                                  "An error occurred when extracting bulletins from file %s, deleting file!",
                                  fullname);
 
-#ifdef _WORKING_UNLINK
                      if (unlink(fullname) == -1)
-#else
-                     if (remove(fullname) == -1)
-#endif /* _WORKING_UNLINK */
                      {
                         if (errno != ENOENT)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__,
-                                       "Failed to delete file %s : %s",
+                                       "Failed to unlink() file %s : %s",
                                        fullname, strerror(errno));
                         }
                      }
@@ -1022,16 +1002,12 @@ handle_options(int   no_of_options,
                                  "An error occurred when extracting bulletins from file %s, deleting file!",
                                  fullname);
 
-#ifdef _WORKING_UNLINK
                      if (unlink(fullname) == -1)
-#else
-                     if (remove(fullname) == -1)
-#endif /* _WORKING_UNLINK */
                      {
                         if (errno != ENOENT)
                         {
                            receive_log(WARN_SIGN, __FILE__, __LINE__,
-                                       "Failed to delete file %s : %s",
+                                       "Failed to unlink() file %s : %s",
                                        fullname, strerror(errno));
                         }
                      }

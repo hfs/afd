@@ -1,6 +1,6 @@
 /*
  *  aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -76,7 +76,7 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
-#include <unistd.h>                    /* remove(), close()              */
+#include <unistd.h>                    /* unlink(), close()              */
 #include <errno.h>
 #include "ftpdefs.h"
 #include "version.h"
@@ -922,20 +922,26 @@ main(int argc, char *argv[])
                 * NOTE: This is NOT a fool proof way. There must be a better
                 *       way!
                 */
-               (void)stat(db.filename[files_send], &stat_buf);
-               if (stat_buf.st_size > local_file_size)
+               if (stat(db.filename[files_send], &stat_buf) == 0)
                {
-                  loops = (stat_buf.st_size - local_file_size) / db.blocksize;
-                  rest = (stat_buf.st_size - local_file_size) % db.blocksize;
-                  local_file_size = stat_buf.st_size;
+                  if (stat_buf.st_size > local_file_size)
+                  {
+                     loops = (stat_buf.st_size - local_file_size) / db.blocksize;
+                     rest = (stat_buf.st_size - local_file_size) % db.blocksize;
+                     local_file_size = stat_buf.st_size;
 
-                  /*
-                   * Give a warning in the system log, so some action
-                   * can be taken against the originator.
-                   */
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Someone is still writting to file %s. (%s %d)\n",
-                            db.filename[files_send], __FILE__, __LINE__);
+                     /*
+                      * Give a warning in the system log, so some action
+                      * can be taken against the originator.
+                      */
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "Someone is still writting to file %s. (%s %d)\n",
+                               db.filename[files_send], __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     break;
+                  }
                }
                else
                {
@@ -1329,10 +1335,10 @@ main(int argc, char *argv[])
          if ((db.remove == YES) && (db.aftp_mode == TRANSFER_MODE))
          {
             /* Delete the file we just have send */
-            if (remove(db.filename[files_send]) < 0)
+            if (unlink(db.filename[files_send]) < 0)
             {
                (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Could not remove local file %s after sending it successfully : %s (%s %d)\n",
+                         "Could not unlink() local file %s after sending it successfully : %s (%s %d)\n",
                          strerror(errno), db.filename[files_send],
                          __FILE__, __LINE__);
             }

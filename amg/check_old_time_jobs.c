@@ -1,7 +1,7 @@
 /*
  *  check_old_time_jobs.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,14 +49,14 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>            /* remove(), rename()                      */
+#include <stdio.h>            /* rename()                                */
 #include <string.h>           /* strerror(), strcpy(), strlen()          */
 #include <stdlib.h>           /* strtoul()                               */
 #include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>
 #include <sys/stat.h>         /* S_ISDIR()                               */
 #include <dirent.h>           /* opendir(), readdir(), closedir()        */
-#include <unistd.h>           /* rmdir()                                 */
+#include <unistd.h>           /* rmdir(), unlink()                       */
 #include <errno.h>
 #include "amgdefs.h"
 
@@ -179,7 +179,11 @@ check_old_time_jobs(int no_of_jobs)
                             * The job cannot be found in the JID structure!?
                             * The only thing we can do now is remove them.
                             */
+#ifdef _DELETE_LOG
                            remove_time_dir("-", -1, OTHER_DEL);
+#else
+                           remove_time_dir("-", -1);
+#endif
                         }
                         else
                         {
@@ -277,9 +281,14 @@ check_old_time_jobs(int no_of_jobs)
                                * DIR_CONFIG. In that case we have to remove
                                * all files.
                                */
-                              remove_time_dir(jd[jid_pos].host_alias,
+#ifdef _DELETE_LOG
+                             remove_time_dir(jd[jid_pos].host_alias,
                                               jd[jid_pos].job_id,
                                               OTHER_DEL);
+#else
+                             remove_time_dir(jd[jid_pos].host_alias,
+                                              jd[jid_pos].job_id);
+#endif
                            }
                            else
                            {
@@ -405,16 +414,12 @@ move_time_dir(int job_id)
                          time_dir, to_dir, strerror(errno),
                          __FILE__, __LINE__);
             }
-#ifdef _WORKING_UNLINK
             if (unlink(time_dir) == -1)
-#else
-            if (remove(time_dir) == -1)
-#endif /* _WORKING_UNLINK */
             {
                if (errno != ENOENT)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to delete %s : %s (%s %d)\n",
+                            "Failed to unlink() %s : %s (%s %d)\n",
                             time_dir, strerror(errno), __FILE__, __LINE__);
                }
             }

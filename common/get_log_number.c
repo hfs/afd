@@ -1,6 +1,6 @@
 /*
  *  get_log_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ DESCR__E_M3
 #include <ctype.h>                 /* isdigit()                          */
 #include <sys/types.h>
 #include <sys/stat.h>              /* stat(), S_ISREG()                  */
+#include <unistd.h>                /* unlink()                           */
 #include <dirent.h>                /* readdir(), closedir(), DIR,        */
                                    /* struct dirent                      */
 #include <errno.h>
@@ -136,10 +137,10 @@ get_log_number(int  *log_number,
                   {
                      if (tmp_number > max_log_number)
                      {
-                        if (remove(fullname) < 0)
+                        if (unlink(fullname) < 0)
                         {
                            (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to remove() %s : %s (%s %d)\n",
+                                     "Failed to unlink() %s : %s (%s %d)\n",
                                      fullname, strerror(errno),
                                      __FILE__, __LINE__);
                         }

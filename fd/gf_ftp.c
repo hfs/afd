@@ -49,7 +49,7 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <signal.h>                    /* signal()                       */
-#include <unistd.h>                    /* remove(), close(), getpid()    */
+#include <unistd.h>                    /* close(), getpid()              */
 #include <errno.h>
 #include "ftpdefs.h"
 #include "fddefs.h"

@@ -1,6 +1,6 @@
 /*
  *  shutdown_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,14 +43,14 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>            /* fprintf(), remove()                     */
+#include <stdio.h>            /* fprintf()                               */
 #include <string.h>
 #include <stdlib.h>           /* exit()                                  */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/time.h>         /* struct timeval                          */
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
-#include <unistd.h>           /* select()                                */
+#include <unistd.h>           /* select(), unlink()                      */
 #include <errno.h>
 #include "version.h"
 
@@ -161,9 +161,9 @@ shutdown_afd(void)
          (void)strcpy(afd_cmd_fifo, p_work_dir);
          (void)strcat(afd_cmd_fifo, FIFO_DIR);
          (void)strcat(afd_cmd_fifo, AFD_ACTIVE_FILE);
-         if (remove(afd_cmd_fifo) == -1)
+         if (unlink(afd_cmd_fifo) == -1)
          {
-            (void)fprintf(stderr, "Failed to remove() %s : %s (%s %d)\n",
+            (void)fprintf(stderr, "Failed to unlink() %s : %s (%s %d)\n",
                           afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
          }
       }

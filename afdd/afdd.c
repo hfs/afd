@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -324,11 +324,11 @@ main(int argc, char *argv[])
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+   FD_ZERO(&rset);
 
    for (;;)
    {
       /* Initialise descriptor set */
-      FD_ZERO(&rset);
       FD_SET(sockfd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 5L;
@@ -439,7 +439,7 @@ main(int argc, char *argv[])
 static int
 get_free_connection(void)
 {
-   static int i;
+   int i;
 
    for (i = 0; i < MAX_AFDD_CONNECTIONS; i++)
    {
@@ -481,10 +481,10 @@ zombie_check(void)
                   pid[i] = 0;
                   no_of_connections--;
                }
-               else if (WIFSTOPPED(status))
-                    {
-                       /* Child stopped */
-                    }
+          else if (WIFSTOPPED(status))
+               {
+                  /* Child stopped */;
+               }
       }
    }
 
