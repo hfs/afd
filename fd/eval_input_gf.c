@@ -99,6 +99,10 @@ eval_input_gf(int        argc,
              }
              break;
 
+         case 'e' : /* Errors for this host */
+            p_db->error_file = YES;
+            break;
+
          case 'j' : /* Job Number. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
@@ -154,6 +158,7 @@ usage(char *name)
    (void)fprintf(stderr, "  -d <dir alias>      - Directory alias.\n");
    (void)fprintf(stderr, "  -j <process number> - the process number under which this job is to be displayed.\n");
    (void)fprintf(stderr, "  -t                  - use other host\n");
+   (void)fprintf(stderr, "  -e                  - there are errors\n");
    (void)fprintf(stderr, "  %s                  - the working directory of the\n", WORK_DIR_ID);
    (void)fprintf(stderr, "                        AFD.\n");
 

@@ -1,7 +1,7 @@
 /*
  *  init_jd_structure.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -88,6 +88,10 @@ init_jd_structure(struct job_data *p_jd, int select_no, int job_no)
    {
       p_jd->stat_color_no = WHITE;
    }
+   else if ((fsa[select_no].special_flag & HOST_IN_DIR_CONFIG) == 0)
+        {
+           p_jd->stat_color_no = DEFAULT_BG;
+        }
    else if (fsa[select_no].error_counter >= fsa[select_no].max_errors)
         {
            p_jd->stat_color_no = NOT_WORKING2;

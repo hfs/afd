@@ -1,6 +1,6 @@
 /*
  *  draw_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -504,42 +504,20 @@ draw_dest_identifier(Window w, int pos, int x, int y)
 {
    XGCValues gc_values;
 
-   if (connect_data[pos].special_flag & HOST_IN_DIR_CONFIG)
+   /* Change color of letters when background color is to dark */
+   if ((connect_data[pos].stat_color_no == TRANSFER_ACTIVE) ||
+       (connect_data[pos].stat_color_no == NOT_WORKING2) ||
+       (connect_data[pos].stat_color_no == PAUSE_QUEUE) ||
+       ((connect_data[pos].stat_color_no == STOP_TRANSFER) &&
+       (fsa[pos].active_transfers > 0)))
    {
-      /* Change color of letters when background color is to dark */
-      if ((connect_data[pos].stat_color_no == TRANSFER_ACTIVE) ||
-          (connect_data[pos].stat_color_no == NOT_WORKING2) ||
-          (connect_data[pos].stat_color_no == PAUSE_QUEUE) ||
-          ((connect_data[pos].stat_color_no == STOP_TRANSFER) &&
-          (fsa[pos].active_transfers > 0)))
-      {
-         gc_values.foreground = color_pool[WHITE];
-      }
-      else
-      {
-         gc_values.foreground = color_pool[FG];
-      }
-      gc_values.background = color_pool[connect_data[pos].stat_color_no];
+      gc_values.foreground = color_pool[WHITE];
    }
    else
    {
-      /* The host is NOT in the DIR_CONFIG, show default background. */
-      if (connect_data[pos].inverse == OFF)
-      {
-         gc_values.background = color_pool[DEFAULT_BG];
-         gc_values.foreground = color_pool[FG];
-      }
-      else if (connect_data[pos].inverse == ON)
-           {
-              gc_values.background = color_pool[BLACK];
-              gc_values.foreground = color_pool[WHITE];
-           }
-           else
-           {
-              gc_values.background = color_pool[LOCKED_INVERSE];
-              gc_values.foreground = color_pool[WHITE];
-           }
+      gc_values.foreground = color_pool[FG];
    }
+   gc_values.background = color_pool[connect_data[pos].stat_color_no];
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
 
    XDrawImageString(display, w, color_letter_gc,

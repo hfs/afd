@@ -351,7 +351,9 @@ Widget   w;
 
    if (flush == YES)
    {
+/*
       XFlush(display);
+*/
       redraw_time_status = MIN_REDRAW_TIME;
    }
    else

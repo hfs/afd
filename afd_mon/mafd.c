@@ -1,6 +1,6 @@
 /*
  *  mafd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ DESCR__S_M1
  **          -d          only start mon_ctrl dialog
  **          -s          shutdown AFD_MON
  **          -S          silent AFD_MON shutdown
+ **          -u[ <user>] fake user
  **          --version   Current version
  **
  ** DESCRIPTION
@@ -107,6 +108,7 @@ main(int argc, char *argv[])
                   work_dir[MAX_PATH_LENGTH],
                   block_file[MAX_PATH_LENGTH],
                   exec_cmd[MAX_PATH_LENGTH],
+                  fake_user[MAX_FULL_USER_ID_LENGTH],
                   sys_log_fifo[MAX_PATH_LENGTH],
                   user[MAX_FULL_USER_ID_LENGTH],
                   buffer[2];
@@ -123,7 +125,8 @@ main(int argc, char *argv[])
    }
    p_work_dir = work_dir;
 
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(&argc, argv, MON_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -362,13 +365,13 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "Starting AFD_MON shutdown ");
          fflush(stdout);
 
-         shutdown_mon(NO);
+         shutdown_mon(NO, fake_user);
 
          (void)fprintf(stdout, "\nDone!\n");
       }
       else
       {
-         shutdown_mon(YES);
+         shutdown_mon(YES, fake_user);
       }
 
       exit(0);
@@ -397,7 +400,7 @@ main(int argc, char *argv[])
            }
 
            (void)strcpy(exec_cmd, AFD_MON);
-           get_user(user);
+           get_user(user, fake_user);
            (void)rec(sys_log_fd, WARN_SIGN,
                      "AFD_MON startup initiated by %s\n", user);
            switch(fork())
@@ -449,7 +452,7 @@ main(int argc, char *argv[])
                    }
 
                    (void)strcpy(exec_cmd, AFD_MON);
-                   get_user(user);
+                   get_user(user, fake_user);
                    (void)rec(sys_log_fd, WARN_SIGN,
                              "Hmm. AFD_MON is NOT running! Startup initiated by %s\n",
                              user);
@@ -551,7 +554,7 @@ main(int argc, char *argv[])
 
       /* Start AFD_MON */
       (void)strcpy(exec_cmd, AFD_MON);
-      get_user(user);
+      get_user(user, fake_user);
       (void)rec(sys_log_fd, WARN_SIGN,
                 "AFD_MON automatic startup initiated by %s\n", user);
       switch(fork())
@@ -688,6 +691,7 @@ usage(char *progname)
    (void)fprintf(stderr, "              -d          only start mon_ctrl dialog\n");
    (void)fprintf(stderr, "              -s          shutdown AFD_MON\n");
    (void)fprintf(stderr, "              -S          silent AFD_MON shutdown\n");
+   (void)fprintf(stderr, "              -u[ <user>] fake user\n");
    (void)fprintf(stderr, "              --version   Show current version\n");
 
    return;

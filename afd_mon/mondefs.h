@@ -1,6 +1,6 @@
 /*
  *  mondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -185,7 +185,7 @@ int   check_mon(long),
 pid_t start_process(char *, int);
 void  create_msa(void),
       eval_afd_mon_db(struct mon_list **),
-      shutdown_mon(int),
+      shutdown_mon(int, char *),
       start_all(void),
       stop_process(int, int);
 

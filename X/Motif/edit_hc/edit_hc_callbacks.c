@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -100,7 +100,8 @@ extern int                        fsa_id,
 #ifndef _NO_MMAP
 extern off_t                      fsa_size;
 #endif
-extern char                       *p_work_dir,
+extern char                       fake_user[],
+                                  *p_work_dir,
                                   last_selected_host[];
 extern struct filetransfer_status *fsa;
 extern struct afd_status          *p_afd_status;
@@ -1071,7 +1072,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       char user[MAX_FULL_USER_ID_LENGTH];
 
-      get_user(user);
+      get_user(user, fake_user);
       (void)rec(sys_log_fd, DEBUG_SIGN,
                 "%s was using edit_hc while someone changed the DIR_CONFIG! (%s %d)\n",
                 user, __FILE__, __LINE__);
@@ -1404,7 +1405,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
               char user[MAX_FULL_USER_ID_LENGTH];
 
               (void)sprintf(msg, "Changed alias order in FSA");
-              get_user(user);
+              get_user(user, fake_user);
               (void)rec(sys_log_fd, CONFIG_SIGN, "%s (%s)\n", msg, user);
            }
    }
@@ -1429,7 +1430,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       int  line_length;
       char user[MAX_FULL_USER_ID_LENGTH];
 
-      get_user(user);
+      get_user(user, fake_user);
       (void)rec(sys_log_fd, CONFIG_SIGN, "%s (%s)\n", msg, user);
 
       /*

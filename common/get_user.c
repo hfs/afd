@@ -1,6 +1,6 @@
 /*
  *  get_user.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ DESCR__S_M3
  **              DISPLAY
  **
  ** SYNOPSIS
- **   void get_user(char *user)
+ **   void get_user(char *user, char *fake_user)
  **
  ** DESCRIPTION
  **   Gets the username and display of the current process. This
@@ -49,6 +49,7 @@ DESCR__S_M3
  **                      with 'who am i'.
  **   29.10.2003 H.Kiehl Try to evaluate SSH_CLIENT as well when
  **                      DISPLAY is localhost.
+ **   02.05.2004 H.Kiehl Take user from command line option, if allowed.
  **
  */
 DESCR__E_M3
@@ -60,10 +61,13 @@ DESCR__E_M3
 #include <pwd.h>                /* getpwuid()                            */
 #include <unistd.h>             /* getuid()                              */
 
+/* External global variables. */
+extern char *p_work_dir;
+
 
 /*############################ get_user() ###############################*/
 void
-get_user(char *user)
+get_user(char *user, char *fake_user)
 {
    size_t        length;
    char          *ptr;
@@ -76,8 +80,21 @@ get_user(char *user)
       {
          if ((length + 1) < MAX_FULL_USER_ID_LENGTH)
          {
-            (void)strcpy(user, pwd->pw_name);
-            (void)strcat(user, "@");
+            (void)memcpy(user, pwd->pw_name, length);
+            if (fake_user[0] != '\0')
+            {
+               size_t tmp_length;
+
+               tmp_length = strlen(fake_user);
+               if ((length + 2 + tmp_length + 1) < MAX_FULL_USER_ID_LENGTH)
+               {
+                  user[length] = '-';
+                  user[length + 1] = '>';
+                  (void)memcpy(&user[length + 2], fake_user, tmp_length);
+                  length += (2 + tmp_length);
+               }
+            }
+            user[length] = '@';
             length++;
          }
          else
@@ -91,8 +108,23 @@ get_user(char *user)
       {
          if (8 < MAX_FULL_USER_ID_LENGTH)
          {
-            (void)strcpy(user, "unknown@");
-            length = 8;
+            length = 7;
+            (void)memcpy(user, "unknown", 7);
+            if (fake_user[0] != '\0')
+            {
+               size_t tmp_length;
+
+               tmp_length = strlen(fake_user);
+               if ((length + 2 + tmp_length + 1) < MAX_FULL_USER_ID_LENGTH)
+               {
+                  user[length] = '-';
+                  user[length + 1] = '>';
+                  (void)memcpy(&user[length + 2], fake_user, tmp_length);
+                  length += (2 + tmp_length);
+               }
+            }
+            user[length] = '@';
+            length++;
          }
          else
          {
@@ -105,8 +137,23 @@ get_user(char *user)
    {
       if (8 < MAX_FULL_USER_ID_LENGTH)
       {
-         (void)strcpy(user, "unknown@");
-         length = 8;
+         length = 7;
+         (void)memcpy(user, "unknown", 7);
+         if (fake_user[0] != '\0')
+         {
+            size_t tmp_length;
+
+            tmp_length = strlen(fake_user);
+            if ((length + 2 + tmp_length + 1) < MAX_FULL_USER_ID_LENGTH)
+            {
+               user[length] = '-';
+               user[length + 1] = '>';
+               (void)memcpy(&user[length + 2], fake_user, tmp_length);
+               length += (2 + tmp_length);
+            }
+         }
+         user[length] = '@';
+         length++;
       }
       else
       {
@@ -152,9 +199,7 @@ get_user(char *user)
 
                if ((buffer = malloc(MAX_PATH_LENGTH + MAX_PATH_LENGTH)) != NULL)
                {
-                  int ret;
-
-                  if ((ret = exec_cmd("who am i", buffer)) != INCORRECT)
+                  if (exec_cmd("who am i", buffer) != INCORRECT)
                   {
                      char *search_ptr = buffer;
 

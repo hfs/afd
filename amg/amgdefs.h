@@ -419,6 +419,8 @@ struct directory_entry
                                              /* directory.               */
           char                   *dir;       /* Pointer to directory     */
                                              /* name.                    */
+          char                   *paused_dir;/* Holds the full paused    */
+                                             /* REMOTE directory.        */
        };
 
 #define MAX_BIN_MSG_LENGTH 20
@@ -483,8 +485,7 @@ extern void   check_old_time_jobs(int),
               create_sa(int),
               enter_time_job(int),
               eval_dir_options(int, char *, char *),
-              eval_input_amg(int, char **, char *, char *, char *,
-                             int *, int *),
+              eval_input_amg(int, char **, char *, char *, char *, int *),
               handle_time_jobs(int *, char *, time_t),
               init_dir_check(int, char **, char *, time_t *, int *,
                              int *, int *),

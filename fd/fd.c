@@ -1,6 +1,6 @@
 /*
  *  fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -2227,6 +2227,11 @@ make_process(struct connection *con)
    {
       argcount = 5;
    }
+   if ((con->msg_name[0] == '\0') && (fsa[con->fsa_pos].error_counter > 0))
+   {
+      args[argcount] = "-e";
+      argcount++;
+   }
    if (con->error_file == YES)
    {
       if (con->temp_toggle == ON)
@@ -3188,7 +3193,7 @@ fd_exit(void)
    {
       char *ptr = (char *)qb - AFD_WORD_OFFSET;
 
-      if (msync(ptr, stat_buf.st_size, MS_ASYNC) == -1)
+      if (msync(ptr, stat_buf.st_size, MS_SYNC) == -1)
       {
          (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
                    strerror(errno), __FILE__, __LINE__);
@@ -3219,7 +3224,7 @@ fd_exit(void)
    {
       char *ptr = (char *)mdb - AFD_WORD_OFFSET;
 
-      if (msync(ptr, stat_buf.st_size, MS_ASYNC) == -1)
+      if (msync(ptr, stat_buf.st_size, MS_SYNC) == -1)
       {
          (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
                    strerror(errno), __FILE__, __LINE__);

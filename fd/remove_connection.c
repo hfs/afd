@@ -1,6 +1,6 @@
 /*
  *  remove_connection.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001, 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,6 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
          lock_region_w(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
          fsa[p_con->fsa_pos].error_counter += 1;
          fsa[p_con->fsa_pos].total_errors += 1;
-         unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
 
          /* Check if we need to toggle hosts */
          if (fsa[p_con->fsa_pos].auto_toggle == ON)
@@ -115,6 +114,7 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
                fsa[p_con->fsa_pos].host_dsp_name[(int)fsa[p_con->fsa_pos].toggle_pos] = fsa[p_con->fsa_pos].host_toggle_str[(int)fsa[p_con->fsa_pos].host_toggle];
             }
          }
+         unlock_region(fsa_fd, (char *)&fsa[p_con->fsa_pos].error_counter - (char *)fsa);
       }
       else
       {

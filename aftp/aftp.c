@@ -744,9 +744,9 @@ main(int argc, char *argv[])
                if (db.verbose == YES)
                {
                   msg_str[0] = '\0';
-                  trans_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Failed to open() local file %s",
-                            db.filename[files_send]);
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to open() local file %s : %s",
+                            db.filename[files_send], strerror(errno));
                }
                (void)rec(transfer_log_fd, INFO_SIGN,
                          "%-*s: %d Bytes send in %d file(s).\n",

@@ -173,8 +173,9 @@ main(int argc, char *argv[])
    }
    if (fifo_size < (sizeof(off_t) + sizeof(unsigned int) + MAX_FILENAME_LENGTH))
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Fifo is NOT large enough to ensure atomic writes!!!");
+      fifo_size = sizeof(off_t) + sizeof(unsigned int) + MAX_FILENAME_LENGTH;
    }
 
    /* Now lets allocate memory for the fifo buffer */

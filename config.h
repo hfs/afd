@@ -89,6 +89,9 @@
  *                          This requires a local ssh client.
  * _WITH_TRANS_EXEC       - With option to execute a command after each
  *                          file was send.
+ * FTP_REUSE_DATA_PORT    - Reuse the FTP data port when sending multiple
+ *                          files. This reduces the number of sockets in
+ *                          TIME_WAIT considerably.
  *-----------------------------------------------------------------------*/
 #define _INPUT_LOG
 #define _OUTPUT_LOG
@@ -111,6 +114,9 @@
 #define _WITH_SCP_SUPPORT
 #define _WITH_TRANS_EXEC
 #define FTP_CTRL_KEEP_ALIVE_INTERVAL 1200L
+#if !defined (DARWIN) && !defined (FREEBSD)
+/* #define FTP_REUSE_DATA_PORT */
+#endif
 
 /*-----------------------------------------------------------------------*
  * These following options are only for the dialogs of the AFD.

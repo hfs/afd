@@ -1,6 +1,6 @@
 /*
  *  mafdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,11 +26,12 @@ DESCR__S_M1
  **
  ** SYNOPSIS
  **   mafdcmd [-w <working directory>] option AFD|position
- **                                    -e      enable AFD
- **                                    -E      disable AFD
- **                                    -r      retry
- **                                    -X      toggle enable/disable AFD
- **                                    -v      Just print the version number.
+ **                    -e          enable AFD
+ **                    -E          disable AFD
+ **                    -r          retry
+ **                    -X          toggle enable/disable AFD
+ **                    -u[ <user>] fake user
+ **                    -v          Just print the version number.
  **
  ** DESCRIPTION
  **
@@ -91,7 +92,8 @@ main(int argc, char *argv[])
    int         errors = 0,
                i,
                position;
-   char        *perm_buffer,
+   char        fake_user[MAX_FULL_USER_ID_LENGTH],
+               *perm_buffer,
                *ptr,
                user[128],
                sys_log_fifo[MAX_PATH_LENGTH],
@@ -124,13 +126,14 @@ main(int argc, char *argv[])
       usage(argv[0]);
       exit(INCORRECT);
    }
+   check_fake_user(&argc, argv, MON_CONFIG_FILE, fake_user);
    eval_input(argc, argv);
-   get_user(user);
+   get_user(user, fake_user);
 
    /*
     * Ensure that the user may use this program.
     */
-   switch(get_permissions(&perm_buffer))
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -607,14 +610,16 @@ usage(char *progname)
                  "SYNTAX  : %s [-w working directory] options AFD|position\n",
                  progname);
    (void)fprintf(stderr,
-                 "                                           -e      enable AFD\n");
+                 "                 -e          enable AFD\n");
    (void)fprintf(stderr,
-                 "                                           -E      disable AFD\n");
+                 "                 -E          disable AFD\n");
    (void)fprintf(stderr,
-                 "                                           -r      retry\n");
+                 "                 -r          retry\n");
    (void)fprintf(stderr,
-                 "                                           -X      toggle enable/disable AFD\n");
+                 "                 -X          toggle enable/disable AFD\n");
    (void)fprintf(stderr,
-                 "                                           -v      just print Version\n");
+                 "                 -u[ <user>] fake user\n");
+   (void)fprintf(stderr,
+                 "                 -v          just print Version\n");
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -653,9 +653,7 @@ dir_popup_cb(Widget    w,
                if (fra[i].dir_status == DISABLED)
                {
                   fra[i].dir_status = NORMAL_STATUS;
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "ENABLED directory %s (%s)\n",
-                            fra[i].dir_alias, user);
+                  config_log("ENABLED directory %s", fra[i].dir_alias);
                }
                else
                {
@@ -664,9 +662,7 @@ dir_popup_cb(Widget    w,
                       fra[i].dir_alias) == YES)
                   {
                      fra[i].dir_status = DISABLED;
-                     (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "DISABLED directory %s (%s)\n",
-                               fra[i].dir_alias, user);
+                     config_log("DISABLED directory %s", fra[i].dir_alias);
                   }
                }
                break;

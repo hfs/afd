@@ -480,7 +480,7 @@ main(int argc, char *argv[])
 static void
 stat_exit(void)
 {
-   if (msync((void *)stat_db, stat_db_size, MS_ASYNC) == -1)
+   if (msync((void *)stat_db, stat_db_size, MS_SYNC) == -1)
    {
       (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);

@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -766,6 +766,7 @@ create_fsa(void)
          else
          {
             fsa[i].special_flag &= ~HOST_IN_DIR_CONFIG;
+            hl[i].host_status |= HOST_NOT_IN_DIR_CONFIG;
          }
          if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
          {
@@ -1003,6 +1004,10 @@ create_fsa(void)
                      if (fsa[j].special_flag & HOST_DISABLED)
                      {
                         hl[j].host_status |= HOST_CONFIG_HOST_DISABLED;
+                     }
+                     if ((fsa[j].special_flag & HOST_IN_DIR_CONFIG) == 0)
+                     {
+                        hl[j].host_status |= HOST_NOT_IN_DIR_CONFIG;
                      }
                      if (fsa[j].host_status & STOP_TRANSFER_STAT)
                      {

@@ -1,6 +1,6 @@
 /*
  *  check_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ DESCR__S_M1
  **   31.05.1997 H.Kiehl Added debug toggle.
  **   22.11.2003 H.Kiehl Do not show each individual line, buffer the
  **                      information and then show in one block.
+ **   26.03.2004 H.Kiehl Handle implementations with sticky EOF behaviour.
  **
  */
 DESCR__E_M1
@@ -250,6 +251,10 @@ Widget w;
          display_data(w, &lock_counter, &cursor_counter, &locked,
                       &chars_buffered, line_buffer);
       }
+
+      /* Required for implementations (BSD) with sticky EOF. */
+      clearerr(p_log_file);
+
       free(line_buffer);
    }
 
@@ -394,6 +399,7 @@ display_data(Widget       w,
                  XmNsliderSize, &slider_size,
                  NULL);
 
+   line_buffer[*chars_buffered] = '\0';
    XmTextInsert(w, wpr_position, line_buffer);
    wpr_position += *chars_buffered;
    XtVaSetValues(w, XmNcursorPosition, wpr_position, NULL);

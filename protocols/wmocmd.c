@@ -116,7 +116,7 @@ wmo_connect(char *hostname, int port)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
-#ifndef _HPUX
+#if !defined (_HPUX) && !defined (_SCO)
          if (h_errno != 0)
          {
 #ifdef LINUX
@@ -140,13 +140,13 @@ wmo_connect(char *hostname, int port)
          }
          else
          {
-#endif /* _HPUX */
+#endif /* !_HPUX && !_SCO */
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "Failed to gethostbyname() %s : %s",
                       hostname, strerror(errno));
-#ifndef _HPUX	 
+#if !defined (_HPUX) && !defined (_SCO)
          }
-#endif /* _HPUX */
+#endif
          return(INCORRECT);
       }
       sin.sin_family = p_host->h_addrtype;

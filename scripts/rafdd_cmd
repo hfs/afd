@@ -14,6 +14,8 @@
 #                                      the calling process mon_ctrl.
 #                 04.08.2000 H.Kiehl   Do not fix the number of arguments
 #                                      to three.
+#                 22.03.2004 H.Kiehl   Read afd-remote.env to allow
+#                                      to set special environment.
 #
 
 if [ $# -lt 3 ]
@@ -26,6 +28,10 @@ AFD_WORK_DIR=$2
 PATH=$PATH:$AFD_WORK_DIR/bin:$AFD_WORK_DIR/sbin
 DISPLAY=$1
 export DISPLAY AFD_WORK_DIR PATH
+if [ -f $AFD_WORK_DIR/etc/afd-remote.env ]
+then
+   . $AFD_WORK_DIR/etc/afd-remote.env
+fi
 shift
 shift
 

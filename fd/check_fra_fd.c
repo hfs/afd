@@ -47,7 +47,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   23.08.2000 H.Kiehl Created
- **   22.07.2002 H.Kiehl Consider th case when only dir_alias changes.
+ **   22.07.2002 H.Kiehl Consider the case when only dir_alias changes.
  **
  */
 DESCR__E_M3

@@ -1,6 +1,6 @@
 /*
  *  check_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -167,7 +167,55 @@ check_files(struct directory_entry *p_de,
    work_ptr = fullname + strlen(fullname);
    *work_ptr++ = '/';
    *work_ptr = '\0';
-   tmp_file_dir[0] = '\0';
+
+   /*
+    * Check if this is the special case when we have a dummy remote dir
+    * and its queue is stopped. In this case it is just necessary to
+    * move the files to the paused directory which is in tmp_file_dir
+    * or visa versa.
+    */
+   if (afd_file_path != NULL)
+   {
+      tmp_file_dir[0] = '\0';
+   }
+   else
+   {
+      if (count_files == PAUSED_REMOTE)
+      {
+         (void)strcpy(tmp_file_dir, p_de->paused_dir);
+         ptr = tmp_file_dir + strlen(tmp_file_dir);
+         *ptr = '/';
+         ptr++;
+         *ptr = '\0';
+
+         /* If remote paused directory does not exist, create it. */
+         if ((stat(tmp_file_dir, &stat_buf) < 0) ||
+             (S_ISDIR(stat_buf.st_mode) == 0))
+         {
+            /*
+             * Only the AFD may read and write in this directory!
+             */
+            if (mkdir(tmp_file_dir, (S_IRUSR | S_IWUSR | S_IXUSR)) < 0)
+            {
+               if (errno != EEXIST)
+               {
+                  (void)rec(sys_log_fd, ERROR_SIGN,
+                            "Could not mkdir() <%s> to save files : %s (%s %d)\n",
+                            tmp_file_dir, strerror(errno), __FILE__, __LINE__);
+                  errno = 0;
+                  return(INCORRECT);
+               }
+            }
+         }
+      }
+      else
+      {
+         (void)strcpy(tmp_file_dir, p_de->dir);
+         ptr = tmp_file_dir + strlen(tmp_file_dir);
+         *ptr = '/';
+         ptr++;
+      }
+   }
 
    if ((dp = opendir(fullname)) == NULL)
    {
@@ -322,7 +370,7 @@ check_files(struct directory_entry *p_de,
                   else
                   {
 #ifdef _INPUT_LOG
-                     if (count_files == YES)
+                     if ((count_files == YES) || (count_files == PAUSED_REMOTE))
                      {
                         /* Log the file name in the input log. */
                         (void)strcpy(il_file_name, p_dir->d_name);
@@ -525,7 +573,8 @@ check_files(struct directory_entry *p_de,
                            else
                            {
 #ifdef _INPUT_LOG
-                              if (count_files == YES)
+                              if ((count_files == YES) ||
+                                  (count_files == PAUSED_REMOTE))
                               {
                                  /* Log the file name in the input log. */
                                  (void)strcpy(il_file_name, p_dir->d_name);
@@ -705,7 +754,7 @@ done:
 
    if (files_copied > 0)
    {
-      if (count_files == YES)
+      if ((count_files == YES) || (count_files == PAUSED_REMOTE))
       {
          fra[p_de->fra_pos].files_received += files_copied;
          fra[p_de->fra_pos].bytes_received += *total_file_size;

@@ -1272,4 +1272,55 @@
            - Remove control connection from sf_scp since it did not
              work reliable. This makes it imposible to rename a file
              on the remote side. SCP protocol was not designed for this.
-------------------------> Released: 15.12.2004 <---------------------------
+------------------------> Released: 15.12.2003 <---------------------------
+
+
+---------------------------> Version 1.2.20 <------------------------------
+                            ----------------
+01.01.2004 - get_dc_data did not show all FD options. Fixed.
+11.01.2004 - The show_log dialog sometimes stopped showing data, due
+             to a string not being terminated correctly. Fixed.
+28.01.2004 - Allow scheme file to have no user name.
+           - Accept 500 as error return for changing user on an active
+             connection.
+           - Store information that a host is not in DIR_CONFIG in
+             the HOST_CONFIG.
+29.01.2004 - Failed to remember last time value when retrieving files
+             and time option is used.
+02.02.2004 - AFD compiles again under SCO.
+03.02.2004 - In HOST_CONFIG do not allow switching information with
+             no content, ie. only the brackets.
+           - Fix a bug in the function evaluating the afd.users file.
+             When there is only one character between the user name and
+             the permissions, it ends up in an endless loop.
+04.02.2004 - Function search_old_file() may not delete files that are to
+             be distributed.
+05.02.2004 - Stopping the queue for a host fetching files is now
+             implemented.
+24.03.2004 - Port to MacOS 10.3.
+           - msync() now called with MS_SYNC instead of MS_ASYNC.
+           - If fifo buffer is to small set it to what we need.
+27.03.2004 - One can now start afd_ctrl, dir_ctrl and mon_ctrl
+             with the -p option with a certain profile.
+17.04.2004 - Wrong label retry in dir_ctrl dialog, should have been
+             Enable/Disable.
+           - Corrected warn message about the number of no bursts.
+22.04.2004 - Function search_old_file() will also not delete unknown
+             dot files that are less the 60 second old.
+02.05.2004 - Implemented fake users.
+10.05.2004 - When rereading a new DIR_CONFIG the queued flag in FRA
+             could stay set (ie. stuck), although there are no more jobs.
+             This flag was then only reset when FD was restarted.
+             This effected only retrieving hosts in that it would
+             never again retrieve data from it.
+01.06.2004 - Process dir_check would handle only the files of an input
+             directory where the files are comming in at a very high
+             rate. Fixed.
+07.06.2004 - FD released a lock to early which could make it to
+             failover to the secondary host although the number of
+             errors has not yet reached the configured maximum. It
+             would also never switch back to the original host.
+17.06.2004 - On 64 bit systems delete_log could crash due to a missing
+             cast. Fixed.
+22.06.2004 - Print the message where AFD is active to stdout not stderr.
+------------------------> Released: 22.06.2004 <---------------------------

@@ -67,7 +67,7 @@ mmap_resize(int fd, void *area, size_t new_size)
    /* Always unmap from current mmapped area. */
    if (stat_buf.st_size > 0)
    {
-      if (msync(area, stat_buf.st_size, MS_ASYNC) == -1)
+      if (msync(area, stat_buf.st_size, MS_SYNC) == -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "msync() error : %s", strerror(errno));

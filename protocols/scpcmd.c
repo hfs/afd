@@ -836,7 +836,7 @@ get_reply(int fd, int check_reply)
               if (status == 0)
               {
                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                           "Other side colsed the pipe.");
+                           "Other side closed the pipe.");
                  status = INCORRECT;
               }
               else

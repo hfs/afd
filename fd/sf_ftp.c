@@ -392,7 +392,7 @@ main(int argc, char *argv[])
              (((status = ftp_user(db.user)) != SUCCESS) && (status != 230)))
          {
             if ((disconnect == YES) ||
-                ((burst_2_counter > 0) && (status == 530)))
+                ((burst_2_counter > 0) && ((status == 500) || (status == 530))))
             {
                /*
                 * Aaargghh..., we need to logout again! The server is

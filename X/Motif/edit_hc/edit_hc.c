@@ -1,6 +1,6 @@
 /*
  *  edit_hc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -156,7 +156,8 @@ int                        fra_fd = -1,
 off_t                      fra_size,
                            fsa_size;
 #endif
-char                       *p_work_dir,
+char                       fake_user[MAX_FULL_USER_ID_LENGTH],
+                           *p_work_dir,
                            last_selected_host[MAX_HOSTNAME_LENGTH + 1];
 struct fileretrieve_status *fra;
 struct filetransfer_status *fsa;
@@ -1207,7 +1208,8 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    struct stat stat_buf;
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE     : (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                       exit(INCORRECT);

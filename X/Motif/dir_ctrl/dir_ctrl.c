@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ DESCR__S_M1
  **   05.05.2002 H.Kiehl Show the number files currently in the directory.
  **   26.11.2003 H.Kiehl Disallow user to change window width and height
  **                      via any window manager.
+ **   27.03.2003 H.Kiehl Added profile option.
  **
  */
 DESCR__E_M1
@@ -160,6 +161,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            line_style,
                            font_name[20],
                            blink_flag,
+                           *profile,
                            user[MAX_FULL_USER_ID_LENGTH],
                            username[MAX_USER_NAME_LENGTH];
 clock_t                    clktck;
@@ -392,7 +394,8 @@ static void
 init_dir_ctrl(int *argc, char *argv[], char *window_title)
 {
    int           i;
-   char          *perm_buffer,
+   char          fake_user[MAX_FULL_USER_ID_LENGTH],
+                 *perm_buffer,
                  hostname[MAX_AFD_NAME_LENGTH],
                  sys_log_fifo[MAX_PATH_LENGTH];
    struct stat   stat_buf;
@@ -404,10 +407,17 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
        (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
       (void)fprintf(stdout,
-                    "Usage: %s [-w <work_dir>] [-no_input] [-f <font name>]\n",
+                    "Usage: %s [-w <work_dir>] [-p <profile>] [-u[ <user>]] [-no_input] [-f <font name>]\n",
                     argv[0]);
       exit(SUCCESS);
    }
+   if ((profile = malloc(41)) == NULL)
+   {
+      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
    /*
     * Determine the working directory. If it is not specified
     * in the command line try read it from the environment else
@@ -428,13 +438,19 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    {
       no_input = False;
    }
+   if (get_arg(argc, argv, "-p", profile, 40) == INCORRECT)
+   {
+      free(profile);
+      profile = NULL;
+   }
    if (get_arg(argc, argv, "-f", font_name, 20) == INCORRECT)
    {
       (void)strcpy(font_name, DEFAULT_FONT);
    }
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE : /* User is not allowed to use this program */
          {
@@ -534,7 +550,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       (void)strcat(window_title, hostname);
    }
 
-   get_user(user);
+   get_user(user, fake_user);
    if ((pwd = getpwuid(getuid())) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "getpwuid() error : %s (%s %d)\n",
@@ -573,7 +589,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
     */
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
-   read_setup(DIR_CTRL, NULL, NULL, NULL, 0, 0);
+   read_setup(DIR_CTRL, profile, NULL, NULL, NULL, 0, 0);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
@@ -955,7 +971,7 @@ init_popup_menu(Widget line_window_w)
       if (dcp.disable != NO_PERMISSION)
       {
          argcount = 0;
-         x_string = XmStringCreateLocalized("Retry");
+         x_string = XmStringCreateLocalized("Enable/Disable");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          pushbutton = XmCreatePushButton(popupmenu, "Disable", args, argcount);
          XtAddCallback(pushbutton, XmNactivateCallback,

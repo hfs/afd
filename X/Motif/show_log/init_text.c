@@ -173,7 +173,6 @@ init_text(void)
                     (((toggles_set & SHOW_ERROR) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'E')) ||
                     (((toggles_set & SHOW_FATAL) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'F')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'D')) ||
-                    (((toggles_set & SHOW_DEBUG) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'D')) ||
 #ifdef _TOGGLED_PROC_SELECTION
                     (((toggles_set_parallel_jobs & 1) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '0')) ||
                     (((toggles_set_parallel_jobs & 2) == 0) && (*(ptr_line + LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4) == '1')) ||
@@ -234,7 +233,6 @@ init_text(void)
                     (((toggles_set & SHOW_WARN) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'W')) ||
                     (((toggles_set & SHOW_ERROR) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'E')) ||
                     (((toggles_set & SHOW_FATAL) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'F')) ||
-                    (((toggles_set & SHOW_DEBUG) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'D')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (*(ptr_line + LOG_SIGN_POSITION) == 'D'))))
                {
                   if (last == HIT)

@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,6 +43,7 @@ DESCR__S_M1
  **   09.11.2002 H.Kiehl Short line support.
  **   26.11.2003 H.Kiehl Disallow user to change window width and height
  **                      via any window manager.
+ **   27.03.2003 H.Kiehl Added profile option.
  **
  */
 DESCR__E_M1
@@ -212,6 +213,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            font_name[20],
                            tv_window = OFF,
                            blink_flag,
+                           *profile,
                            *ping_cmd = NULL,
                            *ptr_ping_cmd,
                            *traceroute_cmd = NULL,
@@ -539,6 +541,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    time_t       start_time;
    char         *buffer,
                 config_file[MAX_PATH_LENGTH],
+                fake_user[MAX_FULL_USER_ID_LENGTH],
                 hostname[MAX_AFD_NAME_LENGTH],
                 **hosts = NULL,
                 *perm_buffer,
@@ -552,9 +555,15 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
        (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
       (void)fprintf(stdout,
-                    "Usage: %s [-w <work_dir>] [-no_input] [-f <numeric font name>]\n",
+                    "Usage: %s [-w <work_dir>] [-p <profile>] [-u[ <user>]] [-no_input] [-f <numeric font name>]\n",
                     argv[0]);
       exit(SUCCESS);
+   }
+   if ((profile = malloc(41)) == NULL)
+   {
+      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
    }
 
    /*
@@ -578,13 +587,19 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    {
       no_input = False;
    }
+   if (get_arg(argc, argv, "-p", profile, 40) == INCORRECT)
+   {
+      free(profile);
+      profile = NULL;
+   }
    if (get_arg(argc, argv, "-f", font_name, 20) == INCORRECT)
    {
       (void)strcpy(font_name, DEFAULT_FONT);
    }
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE : /* User is not allowed to use this program */
          {
@@ -709,7 +724,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       (void)strcat(window_title, hostname);
    }
 
-   get_user(user);
+   get_user(user, fake_user);
 
    /*
     * Attach to the FSA and get the number of host
@@ -801,7 +816,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    filename_display_length = DEFAULT_FILENAME_DISPLAY_LENGTH;
    RT_ARRAY(hosts, no_of_hosts, (MAX_HOSTNAME_LENGTH + 1), char);
-   read_setup(AFD_CTRL, &filename_display_length, NULL, hosts,
+   read_setup(AFD_CTRL, profile, &filename_display_length, NULL, hosts,
               no_of_hosts, MAX_HOSTNAME_LENGTH);
 
    /* Determine the default bar length */
@@ -831,10 +846,14 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       {
          connect_data[i].stat_color_no = WHITE;
       }
-      else
-      {
-         connect_data[i].stat_color_no = NORMAL_STATUS;
-      }
+      else if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+           {
+              connect_data[i].stat_color_no = DEFAULT_BG;
+           }
+           else
+           {
+              connect_data[i].stat_color_no = NORMAL_STATUS;
+           }
       if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
                                   /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
       {

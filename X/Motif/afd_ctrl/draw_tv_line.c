@@ -1,6 +1,6 @@
 /*
  *  draw_tv_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -318,29 +318,20 @@ draw_tv_dest_identifier(int pos, int x, int y)
 {
    XGCValues  gc_values;
 
-   if (jd[pos].special_flag & HOST_IN_DIR_CONFIG)
+   /* Change color of letters when background color is to dark */
+   if ((jd[pos].stat_color_no == TRANSFER_ACTIVE) ||
+       (jd[pos].stat_color_no == NOT_WORKING2) ||
+       (jd[pos].stat_color_no == PAUSE_QUEUE) ||
+       ((jd[pos].stat_color_no == STOP_TRANSFER) &&
+       (fsa[jd[pos].fsa_no].active_transfers > 0)))
    {
-      /* Change color of letters when background color is to dark */
-      if ((jd[pos].stat_color_no == TRANSFER_ACTIVE) ||
-          (jd[pos].stat_color_no == NOT_WORKING2) ||
-          (jd[pos].stat_color_no == PAUSE_QUEUE) ||
-          ((jd[pos].stat_color_no == STOP_TRANSFER) &&
-          (fsa[jd[pos].fsa_no].active_transfers > 0)))
-      {
-         gc_values.foreground = color_pool[WHITE];
-      }
-      else
-      {
-         gc_values.foreground = color_pool[FG];
-      }
-      gc_values.background = color_pool[jd[pos].stat_color_no];
+      gc_values.foreground = color_pool[WHITE];
    }
    else
    {
-      /* The host is NOT in the DIR_CONFIG, show default background. */
-      gc_values.background = color_pool[DEFAULT_BG];
       gc_values.foreground = color_pool[FG];
    }
+   gc_values.background = color_pool[jd[pos].stat_color_no];
    XChangeGC(display, color_letter_gc, GCForeground | GCBackground, &gc_values);
 
    XDrawImageString(display, detailed_window, color_letter_gc,

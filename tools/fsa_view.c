@@ -1,6 +1,6 @@
 /*
  *  fsa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -286,6 +286,10 @@ main(int argc, char *argv[])
       if (fsa[j].host_status & HOST_CONFIG_HOST_DISABLED)
       {
          (void)fprintf(stdout, "HOST_CONFIG_HOST_DISABLED ");
+      }
+      if ((fsa[j].special_flag & HOST_IN_DIR_CONFIG) == 0)
+      {
+         (void)fprintf(stdout, "HOST_NOT_IN_DIR_CONFIG ");
       }
       if (fsa[j].host_status & DANGER_PAUSE_QUEUE_STAT)
       {

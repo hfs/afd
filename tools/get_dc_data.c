@@ -1,6 +1,6 @@
 /*
  *  get_dc_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,7 +78,8 @@ static int                 get_current_jid_list(void);
 int
 main(int argc, char *argv[])
 {
-   char *perm_buffer,
+   char fake_user[MAX_FULL_USER_ID_LENGTH],
+        *perm_buffer,
         work_dir[MAX_PATH_LENGTH];
 
    CHECK_FOR_VERSION(argc, argv);
@@ -99,7 +100,8 @@ main(int argc, char *argv[])
    }
 
    /* Check if user may view the password. */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -496,6 +498,7 @@ show_data(struct job_id_data *p_jd, char *dir_name, int position)
          {
             break;
          }
+         ptr++;
       }
    }
 

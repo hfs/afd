@@ -1,6 +1,6 @@
 /*
  *  dir_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -620,6 +620,7 @@ init_dir_info(int *argc, char *argv[])
                        dnb_fd,
                        i;
    char                dir_name_file[MAX_PATH_LENGTH],
+                       fake_user[MAX_FULL_USER_ID_LENGTH],
                        *perm_buffer,
                        *ptr;
    struct stat         stat_buf;
@@ -655,7 +656,8 @@ init_dir_info(int *argc, char *argv[])
    }
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -816,7 +818,8 @@ usage(char *progname)
 {
    (void)fprintf(stderr, "Usage : %s [options] -d <dir-alias>\n", progname);
    (void)fprintf(stderr, "           --version\n");
-   (void)fprintf(stderr, "           -f <font name>]\n");
-   (void)fprintf(stderr, "           -w <working directory>]\n");
+   (void)fprintf(stderr, "           -f <font name>\n");
+   (void)fprintf(stderr, "           -u[ <user>]\n");
+   (void)fprintf(stderr, "           -w <working directory>\n");
    return;
 }

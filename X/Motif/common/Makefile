@@ -9,6 +9,7 @@ LIB     = libxafd.a
 HEADERS = ../afd_ctrl/afd_ctrl.h ../../../config.h x_common_defs.h
 OBJS    = check_info_file.o\
           check_nummeric.o\
+          config_log.o\
           generic_print.o\
           get_current_jid_list.o\
           get_dir_options.o\

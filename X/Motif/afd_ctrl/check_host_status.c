@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -185,7 +185,18 @@ Widget   w;
             {
                new_connect_data[i].host_toggle_display = fsa[i].host_dsp_name[(int)fsa[i].toggle_pos];
             }
-            new_connect_data[i].stat_color_no = NORMAL_STATUS;
+            if (fsa[i].special_flag & HOST_DISABLED)
+            {
+               new_connect_data[i].stat_color_no = WHITE;
+            }
+            else if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+                 {
+                    new_connect_data[i].stat_color_no = DEFAULT_BG;
+                 }
+                 else
+                 {
+                    new_connect_data[i].stat_color_no = NORMAL_STATUS;
+                 }
             new_connect_data[i].debug = fsa[i].debug;
             new_connect_data[i].start_time = end_time;
             new_connect_data[i].total_file_counter = fsa[i].total_file_counter;
@@ -650,52 +661,53 @@ Widget   w;
          }
       }
 
-      if (connect_data[i].special_flag & HOST_IN_DIR_CONFIG)
+      /* Did any significant change occur in the status */
+      /* for this host?                                 */
+      if (fsa[i].special_flag & HOST_DISABLED)
       {
-         /* Did any significant change occur in the status */
-         /* for this host?                                 */
-         if (fsa[i].special_flag & HOST_DISABLED)
-         {
-            new_color = WHITE;
-         }
-         else if (fsa[i].error_counter >= fsa[i].max_errors)
-              {
-                 new_color = NOT_WORKING2;
-              }
-         else if (fsa[i].active_transfers > 0)
-              {
-                 new_color = TRANSFER_ACTIVE; /* Transferring files */
-              }
-              else
-              {
-                 new_color = NORMAL_STATUS; /* Nothing to do but connection active */
-              }
+         new_color = WHITE;
+      }
+      else if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+           {
+              new_color = DEFAULT_BG;
+           }
+      else if (fsa[i].error_counter >= fsa[i].max_errors)
+           {
+              new_color = NOT_WORKING2;
+           }
+      else if (fsa[i].active_transfers > 0)
+           {
+              new_color = TRANSFER_ACTIVE; /* Transferring files */
+           }
+           else
+           {
+              new_color = NORMAL_STATUS; /* Nothing to do but connection active */
+           }
 
-         if (connect_data[i].stat_color_no != new_color)
-         {
-            connect_data[i].stat_color_no = new_color;
+      if (connect_data[i].stat_color_no != new_color)
+      {
+         connect_data[i].stat_color_no = new_color;
 
-            if ((i < location_where_changed) && (redraw_everything == NO))
+         if ((i < location_where_changed) && (redraw_everything == NO))
+         {
+            if (connect_data[i].short_pos == -1)
             {
-               if (connect_data[i].short_pos == -1)
+               if (x == -1)
                {
-                  if (x == -1)
-                  {
-                     locate_xy_column(connect_data[i].long_pos,
-                                      &x, &y, &column);
-                  }
-                  draw_dest_identifier(line_window, i, x, y);
+                  locate_xy_column(connect_data[i].long_pos,
+                                   &x, &y, &column);
                }
-               else
-               {
-                  if (x == -1)
-                  {
-                     locate_xy_short(connect_data[i].short_pos, &x, &y);
-                  }
-                  draw_dest_identifier(short_line_window, i, x, y);
-               }
-               flush = YES;
+               draw_dest_identifier(line_window, i, x, y);
             }
+            else
+            {
+               if (x == -1)
+               {
+                  locate_xy_short(connect_data[i].short_pos, &x, &y);
+               }
+               draw_dest_identifier(short_line_window, i, x, y);
+            }
+            flush = YES;
          }
       }
 

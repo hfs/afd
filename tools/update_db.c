@@ -132,7 +132,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   get_user(user);
+   get_user(user, "");
    if (strcmp((argv[0] + strlen(argv[0]) - 3), "udc") == 0)
    {
       (void)rec(sys_log_fd, INFO_SIGN,

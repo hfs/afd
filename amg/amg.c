@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,11 +26,9 @@ DESCR__S_M1
  **   amg - creates messages for the FD (File Distributor)
  **
  ** SYNOPSIS
- **   amg [working directory] [-f          filename of the AMG database
- **                            -r          rescan time
- **                            -p          max. no. of process
- **                            -b          busy time
- **                            --version   show current version]
+ **   amg [-r          rescan time
+ **        -w          working directory
+ **        --version   show current version]
  **
  ** DESCRIPTION
  **   The AMG (Automatic Message Generator) searches certain directories
@@ -235,7 +233,7 @@ main(int argc, char *argv[])
    if (argc > 1)
    {
       eval_input_amg(argc, argv, work_dir, dir_config_file,
-                     host_config_file, &rescan_time, &max_no_proc);
+                     host_config_file, &rescan_time);
    }
    p_work_dir = work_dir;
 
@@ -527,6 +525,10 @@ main(int argc, char *argv[])
                {
                   hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
                }
+               if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+               {
+                  hl[i].host_status |= HOST_NOT_IN_DIR_CONFIG;
+               }
                if (fsa[i].host_status & STOP_TRANSFER_STAT)
                {
                   hl[i].host_status |= STOP_TRANSFER_STAT;
@@ -648,8 +650,6 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%d.%d.%d)\n",
              AMG, MAJOR, MINOR, BUG_FIX);
 #endif
-   get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir,
-                        &create_source_dir_mode);
    (void)rec(sys_log_fd, DEBUG_SIGN,
              "AMG Configuration: Directory rescan time     %d (sec)\n",
              rescan_time);
@@ -789,6 +789,10 @@ main(int argc, char *argv[])
                              if (fsa[i].special_flag & HOST_DISABLED)
                              {
                                 hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
+                             }
+                             if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+                             {
+                                hl[i].host_status |= HOST_NOT_IN_DIR_CONFIG;
                              }
                              if (fsa[i].host_status & STOP_TRANSFER_STAT)
                              {

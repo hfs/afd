@@ -1,6 +1,6 @@
 /*
  *  search_old_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -53,6 +53,7 @@ DESCR__S_M3
  **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
  **   22.09.2003 H.Kiehl If old_file_time is 0, do not delete incoming dot
  **                      files.
+ **   04.02.2004 H.Kiehl Don't delete files that are to be distributed!
  **
  */
 DESCR__E_M3
@@ -84,11 +85,14 @@ extern struct delete_log          dl;
 void
 search_old_files(time_t current_time)
 {
-   int           i,
+   int           i, j, k,
+                 delete_file,
                  junk_files,
-                 file_counter;
+                 file_counter,
+                 ret;
    time_t        diff_time;
-   char          *work_ptr,
+   char          *ptr,
+                 *work_ptr,
                  tmp_dir[MAX_PATH_LENGTH];
    unsigned int  file_size;
    struct stat   stat_buf;
@@ -156,41 +160,77 @@ search_old_files(time_t current_time)
                      if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) ||
                          (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
                      {
-                        if (unlink(tmp_dir) == -1)
+                        delete_file = YES;
+                        if ((de[i].flag & ALL_FILES) ||
+                            ((p_dir->d_name[0] == '.') && (diff_time < 60)))
                         {
-                           (void)rec(sys_log_fd, WARN_SIGN,
-                                     "Failed to unlink() %s : %s (%s %d)\n",
-                                     tmp_dir, strerror(errno), __FILE__, __LINE__);
+                           delete_file = NO;
                         }
                         else
                         {
-#ifdef _DELETE_LOG
-                           size_t dl_real_size;
-
-                           (void)strcpy(dl.file_name, p_dir->d_name);
-                           (void)sprintf(dl.host_name, "%-*s %x",
-                                         MAX_HOSTNAME_LENGTH,
-                                         "-", AGE_INPUT);
-                           *dl.file_size = stat_buf.st_size;
-                           *dl.job_number = de[i].dir_no;
-                           *dl.file_name_length = strlen(p_dir->d_name);
-                           dl_real_size = *dl.file_name_length + dl.size +
-                                          sprintf((dl.file_name + *dl.file_name_length + 1),
-                                                  "dir_check() >%ld",
-                                                  diff_time);
-                           if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                           if (p_dir->d_name[0] == '.')
                            {
-                              (void)rec(sys_log_fd, ERROR_SIGN,
-                                        "write() error : %s (%s %d)\n",
-                                        strerror(errno), __FILE__, __LINE__);
+                              ptr = &p_dir->d_name[1];
                            }
-#endif /* _DELETE_LOG */
-                           file_counter++;
-                           file_size += stat_buf.st_size;
-
-                           if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) == 0)
+                           else
                            {
-                              junk_files++;
+                              ptr = p_dir->d_name;
+                           }
+                           for (j = 0; j < de[i].nfg; j++)
+                           {
+                              for (k = 0; ((k < de[i].fme[j].nfm) && (j < de[i].nfg)); k++)
+                              {
+                                 if ((ret = pmatch(de[i].fme[j].file_mask[k], ptr)) == 0)
+                                 {
+                                    delete_file = NO;
+                                    j = de[i].nfg;
+                                 }
+                                 else if (ret == 1)
+                                      {
+                                         break;
+                                      }
+                              }
+                           }
+                        }
+                        if (delete_file == YES)
+                        {
+                           if (unlink(tmp_dir) == -1)
+                           {
+                              (void)rec(sys_log_fd, WARN_SIGN,
+                                        "Failed to unlink() %s : %s (%s %d)\n",
+                                        tmp_dir, strerror(errno),
+                                        __FILE__, __LINE__);
+                           }
+                           else
+                           {
+#ifdef _DELETE_LOG
+                              size_t dl_real_size;
+
+                              (void)strcpy(dl.file_name, p_dir->d_name);
+                              (void)sprintf(dl.host_name, "%-*s %x",
+                                            MAX_HOSTNAME_LENGTH,
+                                            "-", AGE_INPUT);
+                              *dl.file_size = stat_buf.st_size;
+                              *dl.job_number = de[i].dir_no;
+                              *dl.file_name_length = strlen(p_dir->d_name);
+                              dl_real_size = *dl.file_name_length + dl.size +
+                                             sprintf((dl.file_name + *dl.file_name_length + 1),
+                                                     "dir_check() >%ld",
+                                                     diff_time);
+                              if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
+                              {
+                                 (void)rec(sys_log_fd, ERROR_SIGN,
+                                           "write() error : %s (%s %d)\n",
+                                           strerror(errno), __FILE__, __LINE__);
+                              }
+#endif /* _DELETE_LOG */
+                              file_counter++;
+                              file_size += stat_buf.st_size;
+
+                              if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) == 0)
+                              {
+                                 junk_files++;
+                              }
                            }
                         }
                      }

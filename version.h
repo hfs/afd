@@ -1,6 +1,6 @@
 /*
  *  version.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,14 +30,14 @@
  */
 #define MAJOR          1
 #define MINOR          2
-#define BUG_FIX        19
-/* #define PRE_RELEASE    3 */
+#define BUG_FIX        20
+/* #define PRE_RELEASE    6 */
 
 #define VERSION_ID     "--version"
 
 #define AFD_MAINTAINER "Holger.Kiehl@dwd.de"
 
-#define COPYRIGHT_0 "\n\n   Copyright (C) 1995 - 2002 Deutscher Wetterdienst, Holger Kiehl.\n\n"
+#define COPYRIGHT_0 "\n\n   Copyright (C) 1995 - 2004 Deutscher Wetterdienst, Holger Kiehl.\n\n"
 #define COPYRIGHT_1 "   This program is free software;  you can redistribute  it and/or\n"
 #define COPYRIGHT_2 "   modify it under the terms set out in the  COPYING  file,  which\n"
 #define COPYRIGHT_3 "   is included in the AFD source distribution.\n\n"

@@ -1,7 +1,7 @@
 /*
  *  afdcfg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2004 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,12 +26,12 @@ DESCR__S_M1
  **   afdcfg - configure AFD
  **
  ** SYNOPSIS
- **   afdcfg [-w <working directory>] option
- **                                    -a      enable archive
- **                                    -A      disable archive
- **                                    -r      enable retrieving of files
- **                                    -R      disable retrieving of files
- **                                    -s      status of the above flags
+ **   afdcfg [-w <working directory>] [-u[ <user>]] option
+ **                  -a      enable archive
+ **                  -A      disable archive
+ **                  -r      enable retrieving of files
+ **                  -R      disable retrieving of files
+ **                  -s      status of the above flags
  **
  ** DESCRIPTION
  **
@@ -87,6 +87,7 @@ main(int argc, char *argv[])
    int         action;
    char        *perm_buffer,
                *ptr,
+               fake_user[MAX_FULL_USER_ID_LENGTH],
                user[MAX_FULL_USER_ID_LENGTH],
                sys_log_fifo[MAX_PATH_LENGTH],
                work_dir[MAX_PATH_LENGTH];
@@ -142,12 +143,13 @@ main(int argc, char *argv[])
    {
       action = ENABLE_ARCHIVE_SEL;
    }
-   get_user(user);
+   check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
+   get_user(user, fake_user);
 
    /*
     * Ensure that the user may use this program.
     */
-   switch(get_permissions(&perm_buffer))
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE     : (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                       exit(INCORRECT);
@@ -297,17 +299,12 @@ static void
 usage(char *progname)
 {                    
    (void)fprintf(stderr,
-                 "SYNTAX  : %s [-w working directory] options\n",
+                 "SYNTAX  : %s [-w working directory] [-u[ <user>]]options\n",
                  progname);
-   (void)fprintf(stderr,
-                 "                                        -a      enable archive\n");
-   (void)fprintf(stderr,
-                 "                                        -A      disable archive\n");
-   (void)fprintf(stderr,
-                 "                                        -r      enable retrieving of files\n");
-   (void)fprintf(stderr,
-                 "                                        -R      disable retrieving of files\n");
-   (void)fprintf(stderr,
-                 "                                        -s      status of the above flags\n");
+   (void)fprintf(stderr, "             -a      enable archive\n");
+   (void)fprintf(stderr, "             -A      disable archive\n");
+   (void)fprintf(stderr, "             -r      enable retrieving of files\n");
+   (void)fprintf(stderr, "             -R      disable retrieving of files\n");
+   (void)fprintf(stderr, "             -s      status of the above flags\n");
    return;
 }

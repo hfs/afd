@@ -1,6 +1,6 @@
 /*
  *  afddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,7 +55,7 @@
 #ifdef LINUX
 #define REDUCED_LINK_MAX           8192 /* Reduced for testing.    */
 #endif /* LINUX */
-#if defined (FTX) || defined (_HPUX) || defined (IRIX) || defined (_SUN)
+#if defined (FTX) || defined (_HPUX) || defined (IRIX) || defined (_SUN) || defined (_SCO) || defined (DARWIN)
 typedef int my_socklen_t;
 #else
 #include <sys/socket.h>
@@ -304,6 +304,7 @@ typedef socklen_t my_socklen_t;
 #define ALL                        0
 #define ONE                        1
 #define PAUSED                     2
+#define PAUSED_REMOTE              2
 #define DONE                       3
 #define NORMAL                     4
 #define NONE                       5
@@ -481,6 +482,7 @@ typedef socklen_t my_socklen_t;
 #define TRUSTED_REMOTE_IP_DEF          "TRUSTED_REMOTE_IP"
 #define PING_CMD_DEF                   "PING_CMD"
 #define TRACEROUTE_CMD_DEF             "TRACEROUTE_CMD"
+#define FAKE_USER_DEF                  "FAKE_USER" 
 
 /* Heading identifiers for the DIR_CONFIG file and messages. */
 #define DIR_IDENTIFIER             "[directory]"
@@ -545,6 +547,8 @@ typedef socklen_t my_socklen_t;
 #define DANGER_PAUSE_QUEUE_STAT    8
 #define AUTO_PAUSE_QUEUE_LOCK_STAT 16
 #define HOST_CONFIG_HOST_DISABLED  32
+
+#define HOST_NOT_IN_DIR_CONFIG     4
 
 /* Position of each colour in global array */
 /*############################ LightBlue1 ###############################*/
@@ -1398,7 +1402,8 @@ struct delete_log
 
 /* Function prototypes */
 extern void    change_name(char *, char *, char *, char *),
-               get_user(char *),
+               check_fake_user(int *, char **, char *, char *),
+               get_user(char *, char *),
                get_rename_rules(char *, int),
                inform_fd_about_fsa_change(void),
                init_fifos_afd(void),
@@ -1431,7 +1436,9 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                create_name(char *, signed char, time_t, int, unsigned short *, char *),
                create_remote_dir(char *, char *),
                detach_afd_status(void),
+#ifndef _SCO
                eaccess(char *, int),
+#endif
                eval_host_config(int *, char *, struct host_list **, int),
                exec_cmd(char *, char *),
                extract(char *, char *, int, int *, off_t *),
@@ -1446,7 +1453,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                get_arg(int *, char **, char *, char *, int),
                get_dir_position(struct fileretrieve_status *, char *, int),
                get_mon_path(int *, char **, char *),
-               get_permissions(char **),
+               get_permissions(char **, char *),
                get_host_position(struct filetransfer_status *, char *, int),
                get_hostname(char *, char *),
                get_rule(char *, int),
@@ -1492,7 +1499,7 @@ extern void    *attach_buf(char *, int *, size_t, char *, mode_t),
                t_hostname(char *, char *),
                set_afd_euid(char *),
                set_fl(int, int),
-               shutdown_afd(void),
+               shutdown_afd(char *),
                system_log(char *, char *, int, char *, ...),
                unlock_region(int, off_t),
                wmoheader_from_grib(char *, char *, char *);

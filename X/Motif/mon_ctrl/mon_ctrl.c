@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -39,6 +39,7 @@ DESCR__S_M1
  **   01.09.1998 H.Kiehl Created
  **   26.11.2003 H.Kiehl Disallow user to change window width and height
  **                      via any window manager.
+ **   27.03.2003 H.Kiehl Added profile option.
  **
  */
 DESCR__E_M1
@@ -171,8 +172,10 @@ char                    work_dir[MAX_PATH_LENGTH],
                         *p_work_dir,
                         mon_active_file[MAX_PATH_LENGTH],
                         line_style,
+                        fake_user[MAX_FULL_USER_ID_LENGTH],
                         font_name[20],
                         blink_flag,
+                        *profile,
                         *ping_cmd = NULL,
                         *ptr_ping_cmd,
                         *traceroute_cmd = NULL,
@@ -428,10 +431,17 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
        (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
       (void)fprintf(stdout,
-                    "Usage: %s [-w <work_dir>] [-no_input] [-f <font name>]\n",
+                    "Usage: %s [-w <work_dir>] [-p <profile>] [-u[ <user>]] [-no_input] [-f <font name>]\n",
                     argv[0]);
       exit(SUCCESS);
    }
+   if ((profile = malloc(41)) == NULL)
+   {
+      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+
    /*
     * Determine the working directory. If it is not specified
     * in the command line try read it from the environment else
@@ -452,13 +462,19 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    {
       no_input = False;
    }
+   if (get_arg(argc, argv, "-p", profile, 40) == INCORRECT)
+   {
+      free(profile);
+      profile = NULL;
+   }
    if (get_arg(argc, argv, "-f", font_name, 20) == INCORRECT)
    {
       (void)strcpy(font_name, DEFAULT_FONT);
    }
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, MON_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE : /* User is not allowed to use this program */
          {
@@ -590,7 +606,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
       (void)strcat(window_title, hostname);
    }
 
-   get_user(user);
+   get_user(user, fake_user);
    if ((pwd = getpwuid(getuid())) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
@@ -631,7 +647,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    his_log_set = DEFAULT_NO_OF_HISTORY_LOGS;
-   read_setup(MON_CTRL, NULL, &his_log_set, NULL, 0, 0);
+   read_setup(MON_CTRL, profile, NULL, &his_log_set, NULL, 0, 0);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;

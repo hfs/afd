@@ -1,6 +1,6 @@
 /*
  *  x_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -634,6 +634,7 @@ extern int  check_info_file(void),
             store_host_names(char **, char *),
             xrec(Widget, char, char *, ...);
 extern void check_nummeric(Widget, XtPointer, XtPointer),
+            config_log(char *, ...),
             get_dir_options(int, struct dir_options *),
             get_ip_no(char *, char *),
             get_printer_cmd(char *, char *),
@@ -642,7 +643,7 @@ extern void check_nummeric(Widget, XtPointer, XtPointer),
             make_xprocess(char *, char *, char **, int),
             print_data(void),
             print_data_button(Widget, XtPointer, XtPointer),
-            read_setup(char *, int *, int *, char **, int, int),
+            read_setup(char *, char *, int *, int *, char **, int, int),
             remove_passwd(char *),
             reset_message(Widget),                /* show_?log */
             send_mail_cmd(char *),

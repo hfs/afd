@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -103,9 +103,9 @@ init_gf(int argc, char *argv[], int protocol)
    }
    db.transfer_mode = DEFAULT_TRANSFER_MODE;
    db.toggle_host = NO;
+   db.error_file = NO;
    db.protocol = protocol;
    db.special_ptr = NULL;
-   db.mode_flag = ACTIVE_MODE;  /* Lets first default to active mode. */
 
    if ((status = eval_input_gf(argc, argv, p_db)) < 0)
    {
@@ -141,6 +141,14 @@ init_gf(int argc, char *argv[], int protocol)
                  "Failed to evaluate recipient for directory alias <%s>.",
                  fra[db.fra_pos].dir_alias);
       exit(INCORRECT);
+   }
+   if (fsa[db.fsa_pos].protocol & FTP_PASSIVE_MODE)
+   {
+      db.mode_flag = PASSIVE_MODE;
+   }
+   else
+   {
+      db.mode_flag = ACTIVE_MODE;
    }
 
    /* Open/create log fifos */

@@ -1,7 +1,7 @@
 /*
  *  afd_load.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -336,7 +336,8 @@ init_afd_load(int  *argc,
               char *window_title)
 {
    register int i;
-   char         *perm_buffer,
+   char         fake_user[MAX_FULL_USER_ID_LENGTH],
+                *perm_buffer,
                 hostname[MAX_AFD_NAME_LENGTH];
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
@@ -355,7 +356,8 @@ init_afd_load(int  *argc,
    }
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE     : (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                       exit(INCORRECT);

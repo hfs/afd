@@ -93,7 +93,10 @@ clean :
 	cd $(STAPROG) && $(MAKE) clean
 	cd $(AFTPPROG) && $(MAKE) clean
 	cd $(ASMTPPROG) && $(MAKE) clean
-	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) clean
+	@if [ ! "$(XPROG)" = "" ] ; \
+	then \
+	   cd $(XPROG)/$(WIDGET_SET) && $(MAKE) clean ; \
+	fi
 
 clobber :
 	cd $(COMMONDIR) && $(MAKE) clobber
@@ -110,13 +113,18 @@ clobber :
 	cd $(STAPROG) && $(MAKE) clobber
 	cd $(AFTPPROG) && $(MAKE) clobber
 	cd $(ASMTPPROG) && $(MAKE) clobber
-	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) clobber
+	@if [ ! "$(XPROG)" = "" ] ; \
+	then \
+	   cd $(XPROG)/$(WIDGET_SET) && $(MAKE) clobber ; \
+	fi
 
 real_clobber :
 	$(MAKE) clobber
 	cd $(MAINTPROGS) && $(MAKE) real_clobber
 	rm -f $(INSTDIR)/bin/*
 	rm -f ../fifodir/*.fifo* ../fifodir/amg_counter
+
+.PHONY: install
 
 install :
 	@if [ ! -d $(INSTDIR)/bin ] ; \
@@ -139,7 +147,10 @@ install :
 	cd $(STAPROG) && $(MAKE) install
 	cd $(AFTPPROG) && $(MAKE) install
 	cd $(ASMTPPROG) && $(MAKE) install
-	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) install
+	@if [ ! "$(XPROG)" = "" ] ; \
+	then \
+	   cd $(XPROG)/$(WIDGET_SET) && $(MAKE) install ; \
+	fi
 	cd $(SCRIPTS) && $(MAKE) install
 
 sinstall :
@@ -163,5 +174,8 @@ sinstall :
 	cd $(STAPROG) && $(MAKE) sinstall
 	cd $(AFTPPROG) && $(MAKE) sinstall
 	cd $(ASMTPPROG) && $(MAKE) sinstall
-	cd $(XPROG)/$(WIDGET_SET) && $(MAKE) sinstall
+	@if [ ! "$(XPROG)" = "" ] ; \
+	then \
+	   cd $(XPROG)/$(WIDGET_SET) && $(MAKE) sinstall ; \
+	fi
 	cd $(SCRIPTS) && $(MAKE) sinstall

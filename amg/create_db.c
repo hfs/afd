@@ -315,6 +315,26 @@ create_db(void)
    de[0].dir_no      = dnb[fra[de[0].fra_pos].dir_pos].dir_id;
    de[0].mod_time    = -1;
    de[0].search_time = 0;
+   if (fra[de[0].fra_pos].fsa_pos != -1)        
+   {
+      size_t length;
+
+      length = strlen(de[0].dir) + 1 + 1 +
+               strlen(fsa[fra[de[0].fra_pos].fsa_pos].host_alias) + 1;
+      if ((de[0].paused_dir = malloc(length)) == NULL)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Failed to malloc() %d bytes : %s (%s %d)\n",
+                   length, strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      (void)sprintf(de[0].paused_dir, "%s/.%s", de[0].dir,
+                    fsa[fra[de[0].fra_pos].fsa_pos].host_alias);
+   }
+   else
+   {
+      de[0].paused_dir = NULL;
+   }
    if (stat(de[0].dir, &stat_buf) < 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to stat() %s : %s (%s %d)\n",
@@ -391,6 +411,27 @@ create_db(void)
          de[dir_counter].flag          = 0;
          de[dir_counter].mod_time      = -1;
          de[dir_counter].search_time   = 0;
+         if (fra[de[dir_counter].fra_pos].fsa_pos != -1)        
+         {
+            size_t length;
+
+            length = strlen(de[dir_counter].dir) + 1 + 1 +
+                     strlen(fsa[fra[de[dir_counter].fra_pos].fsa_pos].host_alias) + 1;
+            if ((de[dir_counter].paused_dir = malloc(length)) == NULL)
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Failed to malloc() %d bytes : %s (%s %d)\n",
+                         length, strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+            (void)sprintf(de[dir_counter].paused_dir, "%s/.%s",
+                          de[dir_counter].dir,
+                          fsa[fra[de[dir_counter].fra_pos].fsa_pos].host_alias);
+         }
+         else
+         {
+            de[dir_counter].paused_dir = NULL;
+         }
          if (stat(db[i].dir, &stat_buf) < 0)
          {
             (void)rec(sys_log_fd, FATAL_SIGN,
@@ -1073,7 +1114,7 @@ unmap_data(int fd, void *area)
    {
       char *ptr = (char *)area - AFD_WORD_OFFSET;
 
-      if (msync(ptr, stat_buf.st_size, MS_ASYNC) == -1)
+      if (msync(ptr, stat_buf.st_size, MS_SYNC) == -1)
       {
          (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
                    strerror(errno), __FILE__, __LINE__);

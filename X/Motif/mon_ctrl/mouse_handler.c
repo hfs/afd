@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -120,11 +120,13 @@ extern int                     no_of_active_process,
 extern float                   max_bar_length;
 extern unsigned long           color_pool[];
 extern char                    *p_work_dir,
+                               *profile,
                                *ping_cmd,
                                *ptr_ping_cmd,
                                *traceroute_cmd,
                                *ptr_traceroute_cmd,
                                line_style,
+                               fake_user[],
                                font_name[],
                                user[],
                                username[];
@@ -684,9 +686,18 @@ mon_popup_cb(Widget    w,
                                    mon_cmd_fifo, strerror(errno),
                                    __FILE__, __LINE__);
                      }
-                     (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "ENABLED monitoring for AFD %s (%s)\n",
-                               msa[i].afd_alias, user);
+                     if (profile != NULL)
+                     {
+                        (void)rec(sys_log_fd, CONFIG_SIGN,
+                                  "ENABLED monitoring for AFD %s (%s <%s>)\n",
+                                  msa[i].afd_alias, profile, user);
+                     }
+                     else
+                     {
+                        (void)rec(sys_log_fd, CONFIG_SIGN,
+                                  "ENABLED monitoring for AFD %s (%s)\n",
+                                  msa[i].afd_alias, user);
+                     }
                      if (close(fd) == -1)
                      {
                         (void)rec(sys_log_fd, DEBUG_SIGN,
@@ -727,9 +738,18 @@ mon_popup_cb(Widget    w,
                                       mon_cmd_fifo, strerror(errno),
                                       __FILE__, __LINE__);
                         }
-                        (void)rec(sys_log_fd, CONFIG_SIGN,
-                                  "DISABLED monitoring for AFD %s (%s)\n",
-                                  msa[i].afd_alias, user);
+                        if (profile != NULL)
+                        {
+                           (void)rec(sys_log_fd, CONFIG_SIGN,
+                                     "DISABLED monitoring for AFD %s (%s <%s>)\n",
+                                     msa[i].afd_alias, profile, user);
+                        }
+                        else
+                        {
+                           (void)rec(sys_log_fd, CONFIG_SIGN,
+                                     "DISABLED monitoring for AFD %s (%s)\n",
+                                     msa[i].afd_alias, user);
+                        }
                         if (close(fd) == -1)
                         {
                            (void)rec(sys_log_fd, DEBUG_SIGN,
@@ -909,7 +929,16 @@ start_remote_prog(Widget    w,
          (void)strcpy(prog_to_call, AFD_CTRL);
          args[9] = "-f";
          args[10] = font_name;
-         args[11] = NULL;
+         if (profile != NULL)
+         {
+            args[11] = "-p";
+            args[12] = profile;
+            args[13] = NULL;
+         }
+         else
+         {
+            args[11] = NULL;
+         }
          break;
 
       case S_LOG_SEL : /* Remote System Log */
@@ -1039,7 +1068,16 @@ start_remote_prog(Widget    w,
          (void)strcpy(prog_to_call, DIR_CTRL);
          args[9] = "-f";
          args[10] = font_name;
-         args[11] = NULL;
+         if (profile != NULL)
+         {
+            args[11] = "-p";
+            args[12] = profile;
+            args[13] = NULL;
+         }
+         else
+         {
+            args[11] = NULL;
+         }
          break;
 
       case STARTUP_AFD_SEL : /* Startup AFD */
@@ -1126,17 +1164,33 @@ start_remote_prog(Widget    w,
 
          if (item_no == STARTUP_AFD_SEL)
          {
-            (void)rec(mon_log_fd, INFO_SIGN,
-                      "%-*s: AFD startup initiated by %s\n",
-                      MAX_AFDNAME_LENGTH, msa[i].afd_alias,
-                      user);
+            if (profile != NULL)
+            {
+               (void)rec(mon_log_fd, CONFIG_SIGN,
+                         "%-*s: AFD startup initiated (%s <%s>)\n",
+                         MAX_AFDNAME_LENGTH, msa[i].afd_alias, profile, user);
+            }
+            else
+            {
+               (void)rec(mon_log_fd, CONFIG_SIGN,
+                         "%-*s: AFD startup initiated (%s)\n",
+                         MAX_AFDNAME_LENGTH, msa[i].afd_alias, user);
+            }
          }
          if (item_no == SHUTDOWN_AFD_SEL)
          {
-            (void)rec(mon_log_fd, WARN_SIGN,
-                      "%-*s: AFD shutdown initiated by %s\n",
-                      MAX_AFDNAME_LENGTH, msa[i].afd_alias,
-                      user);
+            if (profile != NULL)
+            {
+               (void)rec(mon_log_fd, CONFIG_SIGN,
+                         "%-*s: AFD shutdown initiated (%s <%s>)\n",
+                         MAX_AFDNAME_LENGTH, msa[i].afd_alias, profile, user);
+            }
+            else
+            {
+               (void)rec(mon_log_fd, CONFIG_SIGN,
+                         "%-*s: AFD shutdown initiated (%s)\n",
+                         MAX_AFDNAME_LENGTH, msa[i].afd_alias, user);
+            }
          }
       }
    }

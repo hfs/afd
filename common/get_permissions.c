@@ -1,6 +1,6 @@
 /*
  *  get_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -27,7 +27,7 @@ DESCR__S_M3
  **                     for the calling user
  **
  ** SYNOPSIS
- **   int get_permissions(char **perm_buffer)
+ **   int get_permissions(char **perm_buffer, char *fake_user)
  **
  ** DESCRIPTION
  **   This function returns a list of permissions in 'perm_buffer'.
@@ -67,7 +67,7 @@ extern char *p_work_dir;
 
 /*########################## get_permissions() ##########################*/
 int
-get_permissions(char **perm_buffer)
+get_permissions(char **perm_buffer, char *fake_user)
 {
    int           fd;
    char          *ptr = NULL,
@@ -78,13 +78,20 @@ get_permissions(char **perm_buffer)
    struct passwd *pwd;
 
    user[0] = '\n';
-   if ((pwd = getpwuid(getuid())) != NULL)
+   if (fake_user[0] == '\0')
    {
-      (void)strcpy(&user[1], pwd->pw_name);
+      if ((pwd = getpwuid(getuid())) != NULL)
+      {
+         (void)strcpy(&user[1], pwd->pw_name);
+      }
+      else
+      {
+         (void)strcpy(&user[1], "unknown");
+      }
    }
    else
    {
-      (void)strcpy(&user[1], "unknown");
+      (void)strcpy(&user[1], fake_user);
    }
 
    (void)strcpy(afd_user_file, p_work_dir);
@@ -111,7 +118,7 @@ get_permissions(char **perm_buffer)
 
    /* Create two buffers, one to scribble around 'buffer' the other */
    /* is returned to the calling process.                           */
-   if (((buffer = calloc(stat_buf.st_size + 1, sizeof(char))) == NULL) ||
+   if (((buffer = malloc(stat_buf.st_size + 2)) == NULL) ||
        ((*perm_buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL))
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -130,11 +137,13 @@ get_permissions(char **perm_buffer)
       return(INCORRECT);
    }
    buffer[0] = '\n';
+   buffer[stat_buf.st_size + 1] = '\0';
 
+   ptr = buffer;
    do
    {
-      if (((ptr = posi(buffer, user)) != NULL) &&
-          ((*ptr == ' ') || (*ptr == '\t')))
+      if (((ptr = posi(ptr, user)) != NULL) &&
+          ((*(ptr - 1) == ' ') || (*(ptr - 1) == '\t')))
       {
          break;
       }

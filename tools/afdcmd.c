@@ -1,6 +1,6 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,24 +26,24 @@ DESCR__S_M1
  **   afdcmd - send commands to the AFD
  **
  ** SYNOPSIS
- **   afdcmd [-w <working directory>] option hostname|position
- **                                    -q      start queue
- **                                    -Q      stop queue
- **                                    -t      start transfer
- **                                    -T      stop transfer
- **                                    -e      enable host
- **                                    -E      disable host
- **                                    -s      switch host
- **                                    -r      retry
- **                                    -d      enable/disable debug
- **                                    -f      start FD
- **                                    -F      stop FD
- **                                    -a      start AMG
- **                                    -A      stop AMG
- **                                    -X      toggle enable/disable host
- **                                    -Y      start/stop AMG
- **                                    -Z      start/stop FD
- **                                    -v      Just print the version number.
+ **   afdcmd [-w <working directory>] [-u[ <user>]] option hostname|position
+ **                    -q      start queue
+ **                    -Q      stop queue
+ **                    -t      start transfer
+ **                    -T      stop transfer
+ **                    -e      enable host
+ **                    -E      disable host
+ **                    -s      switch host
+ **                    -r      retry
+ **                    -d      enable/disable debug
+ **                    -f      start FD
+ **                    -F      stop FD
+ **                    -a      start AMG
+ **                    -A      stop AMG
+ **                    -X      toggle enable/disable host
+ **                    -Y      start/stop AMG
+ **                    -Z      start/stop FD
+ **                    -v      Just print the version number.
  **
  ** DESCRIPTION
  **
@@ -119,7 +119,8 @@ main(int argc, char *argv[])
                     hosts_found,
                     i,
                     position;
-   char             host_config_file[MAX_PATH_LENGTH],
+   char             fake_user[MAX_FULL_USER_ID_LENGTH],
+                    host_config_file[MAX_PATH_LENGTH],
                     *perm_buffer,
                     *ptr,
                     user[MAX_FULL_USER_ID_LENGTH],
@@ -154,13 +155,14 @@ main(int argc, char *argv[])
       usage(argv[0]);
       exit(INCORRECT);
    }
+   check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
    eval_input(argc, argv);
-   get_user(user);
+   get_user(user, fake_user);
 
    /*
     * Ensure that the user may use this program.
     */
-   switch(get_permissions(&perm_buffer))
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -1276,41 +1278,41 @@ static void
 usage(char *progname)
 {                    
    (void)fprintf(stderr,
-                 "SYNTAX  : %s [-w working directory] options hostname|position\n",
+                 "SYNTAX  : %s [-w working directory] [-u[ <user>]] options hostname|position\n",
                  progname);
    (void)fprintf(stderr,
-                 "                                        -q      start queue\n");
+                 "                -q      start queue\n");
    (void)fprintf(stderr,
-                 "                                        -Q      stop queue\n");
+                 "                -Q      stop queue\n");
    (void)fprintf(stderr,
-                 "                                        -t      start transfer\n");
+                 "                -t      start transfer\n");
    (void)fprintf(stderr,
-                 "                                        -T      stop transfer\n");
+                 "                -T      stop transfer\n");
    (void)fprintf(stderr,
-                 "                                        -e      enable host\n");
+                 "                -e      enable host\n");
    (void)fprintf(stderr,
-                 "                                        -E      disable host\n");
+                 "                -E      disable host\n");
    (void)fprintf(stderr,
-                 "                                        -s      switch host\n");
+                 "                -s      switch host\n");
    (void)fprintf(stderr,
-                 "                                        -r      retry\n");
+                 "                -r      retry\n");
    (void)fprintf(stderr,
-                 "                                        -d      enable/disable debug\n");
+                 "                -d      enable/disable debug\n");
    (void)fprintf(stderr,
-                 "                                        -f      start FD\n");
+                 "                -f      start FD\n");
    (void)fprintf(stderr,
-                 "                                        -F      stop FD\n");
+                 "                -F      stop FD\n");
    (void)fprintf(stderr,
-                 "                                        -a      start AMG\n");
+                 "                -a      start AMG\n");
    (void)fprintf(stderr,
-                 "                                        -A      stop AMG\n");
+                 "                -A      stop AMG\n");
    (void)fprintf(stderr,
-                 "                                        -Z      start/stop FD\n");
+                 "                -Z      start/stop FD\n");
    (void)fprintf(stderr,
-                 "                                        -X      toggle enable/disable host\n");
+                 "                -X      toggle enable/disable host\n");
    (void)fprintf(stderr,
-                 "                                        -Y      start/stop AMG\n");
+                 "                -Y      start/stop AMG\n");
    (void)fprintf(stderr,
-                 "                                        -v      just print Version\n");
+                 "                -v      just print Version\n");
    return;
 }

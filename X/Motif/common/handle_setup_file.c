@@ -1,7 +1,7 @@
 /*
  *  handle_setup_file.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   void read_setup(char *file_name,
+ **                   char *profile,
  **                   int  *filename_display_length,
  **                   int  *his_log_set,
  **                   char **hosts,
@@ -60,6 +61,7 @@ DESCR__S_M3
  **   01.06.1997 H.Kiehl Created
  **   10.09.2000 H.Kiehl Added history log for mon_ctrl dialog.
  **   25.12.2001 H.Kiehl Ignore display and screen number for file name.
+ **   27.03.2004 H.Kiehl Enable user to load a certain profile.
  **
  */
 DESCR__E_M3
@@ -90,6 +92,7 @@ static char setup_file[MAX_PATH_LENGTH] = { 0 };
 /*############################## read_setup() ###########################*/
 void
 read_setup(char *file_name,
+           char *profile,
            int  *filename_display_length,
            int  *his_log_set,
            char **hosts,
@@ -105,8 +108,7 @@ read_setup(char *file_name,
    {
       if ((ptr = getenv("HOME")) != NULL)
       {
-         char hostname[MAX_AFD_NAME_LENGTH],
-              *wptr;
+         char *wptr;
 
          (void)strcpy(setup_file, ptr);
          wptr = setup_file + strlen(setup_file);
@@ -123,26 +125,35 @@ read_setup(char *file_name,
          *(wptr + 5) = 'p';
          *(wptr + 6) = '.';
          wptr += 7;
-         ptr = user;
-         while ((*ptr != '@') && (*ptr != '\0'))
+         if (profile != NULL)
          {
-            *wptr = *ptr;
-            wptr++; ptr++;
+            (void)strcpy(wptr, profile);
          }
-         if ((*ptr == '@') && (*(ptr + 1) != '\0') && (*(ptr + 1) != ':'))
+         else
          {
-            *wptr = '@';
-            wptr++; ptr++;
-            while ((*ptr != ':') && (*ptr != '\0'))
+            char hostname[MAX_AFD_NAME_LENGTH];
+
+            ptr = user;
+            while ((*ptr != '@') && (*ptr != '\0'))
             {
                *wptr = *ptr;
                wptr++; ptr++;
             }
-         }
-         if (get_afd_name(hostname) != INCORRECT)
-         {
-            *wptr = '.';
-            (void)strcpy(wptr + 1, hostname);
+            if ((*ptr == '@') && (*(ptr + 1) != '\0') && (*(ptr + 1) != ':'))
+            {
+               *wptr = '@';
+               wptr++; ptr++;
+               while ((*ptr != ':') && (*ptr != '\0'))
+               {
+                  *wptr = *ptr;
+                  wptr++; ptr++;
+               }
+            }
+            if (get_afd_name(hostname) != INCORRECT)
+            {
+               *wptr = '.';
+               (void)strcpy(wptr + 1, hostname);
+            }
          }
       }
       else

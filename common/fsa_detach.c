@@ -92,10 +92,10 @@ fsa_detach(int sync)
 #else
       if (sync == YES)
       {
-         if (msync(((char *)fsa - AFD_WORD_OFFSET), fsa_size, MS_ASYNC) == -1)
+         if (msync(((char *)fsa - AFD_WORD_OFFSET), fsa_size, MS_SYNC) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to munmap() FSA : %s", strerror(errno));
+                       "Failed to msync() FSA : %s", strerror(errno));
             return(INCORRECT);
          }
       }

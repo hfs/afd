@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -850,6 +850,13 @@ main(int argc, char *argv[])
                               (ret == YES))
                           {
                              first_time = YES;
+                             if (i < fdc)
+                             {
+                                (void)memmove(&full_dir[i], &full_dir[i + 1],
+                                              ((fdc - i) * sizeof(int)));
+                             }
+                             fdc--;
+                             i--;
                           }
                        }
                     } /* while (fdc > 0) */
@@ -1020,6 +1027,10 @@ main(int argc, char *argv[])
          free(de[i].fme[j].file_mask);
       }
       free(de[i].fme);
+      if (de[i].paused_dir != NULL)
+      {
+         free(de[i].paused_dir);
+      }
    }
    free(de);
 
@@ -1214,7 +1225,8 @@ handle_dir(int    dir_no,
       int        j,
                  k,
                  files_moved,
-                 files_linked;
+                 files_linked,
+                 remove_orig_file_path = YES;
       off_t      file_size_linked,
                  total_file_size;
       char       orig_file_path[MAX_PATH_LENGTH],
@@ -1243,26 +1255,106 @@ handle_dir(int    dir_no,
       {
          (void)strcpy(src_file_dir, de[dir_no].dir);
 
-         if (host_name == NULL)
+         if ((host_name == NULL) &&
+             (fra[de[dir_no].fra_pos].fsa_pos != -1) &&
+             (fsa[fra[de[dir_no].fra_pos].fsa_pos].host_status & PAUSE_QUEUE_STAT))
          {
-            de[dir_no].search_time = current_time;
+            /*
+             * This is a remote directory that is paused. We just need
+             * to move all the files to the paused directory.
+             */
+            char paused_dir[MAX_PATH_LENGTH];
+
+            fra[de[dir_no].fra_pos].dir_status = DIRECTORY_ACTIVE;
+            files_moved = check_files(&de[dir_no],
+                                      src_file_dir,
+                                      NULL,
+                                      paused_dir,
+                                      PAUSED_REMOTE,
+                                      current_time,
+#ifdef _WITH_PTHREAD
+                                      file_size_pool, file_mtime_pool, file_name_pool,
+#endif
+                                      &total_file_size);
+            if (files_moved > 0)
+            {
+               lock_region_w(fra_fd,
+                             (char *)&fra[de[dir_no].fra_pos].files_queued - (char *)fra);
+               if ((fra[de[dir_no].fra_pos].dir_flag & FILES_IN_QUEUE) == 0)
+               {
+                  fra[de[dir_no].fra_pos].dir_flag ^= FILES_IN_QUEUE;
+               }
+               fra[de[dir_no].fra_pos].files_queued += files_moved;
+               fra[de[dir_no].fra_pos].bytes_in_queue += total_file_size;
+               unlock_region(fra_fd,
+                             (char *)&fra[de[dir_no].fra_pos].files_queued - (char *)fra);
+               fra[de[dir_no].fra_pos].files_received -= files_moved;
+               fra[de[dir_no].fra_pos].bytes_received -= total_file_size;
+#ifndef _WITH_PTHREAD
+               if (pdf != NULL)
+               {
+                  *pdf = YES;
+               }
+#endif
+            }
+            if ((pool_dir == NULL) &&
+                (fra[de[dir_no].fra_pos].no_of_process == 0) &&
+                (fra[de[dir_no].fra_pos].dir_status == DIRECTORY_ACTIVE) &&
+                (fra[de[dir_no].fra_pos].dir_status != DISABLED))
+            {
+               fra[de[dir_no].fra_pos].dir_status = NORMAL_STATUS;
+            }
+
+            if ((files_moved >= max_copied_files) ||
+                (total_file_size >= max_copied_file_size))
+            {
+               return(YES);
+            }
+            else
+            {
+               return(NO);
+            }
          }
          else
          {
-            (void)strcat(src_file_dir, "/.");
-            (void)strcat(src_file_dir, host_name);
-         }
-         p_dir_alias = de[dir_no].alias;
+            if (host_name == NULL)
+            {
+               de[dir_no].search_time = current_time;
+            }
+            else
+            {
+               (void)strcat(src_file_dir, "/.");
+               (void)strcat(src_file_dir, host_name);
+            }
+            p_dir_alias = de[dir_no].alias;
 
-         fra[de[dir_no].fra_pos].dir_status = DIRECTORY_ACTIVE;
-         files_moved = check_files(&de[dir_no], src_file_dir, afd_file_dir,
-                                   orig_file_path,
-                                   (host_name == NULL) ? YES : NO,
-                                   current_time,
+            fra[de[dir_no].fra_pos].dir_status = DIRECTORY_ACTIVE;
+            if ((host_name != NULL) && (fra[de[dir_no].fra_pos].fsa_pos != -1))
+            {
+               files_moved = check_files(&de[dir_no],
+                                         src_file_dir,
+                                         NULL,
+                                         orig_file_path,
+                                         NO,
+                                         current_time,
 #ifdef _WITH_PTHREAD
-                                   file_size_pool, file_mtime_pool, file_name_pool,
+                                         file_size_pool, file_mtime_pool, file_name_pool,
 #endif
-                                   &total_file_size);
+                                         &total_file_size);
+               remove_orig_file_path = NO;
+            }
+            else
+            {
+               files_moved = check_files(&de[dir_no], src_file_dir, afd_file_dir,
+                                         orig_file_path,
+                                         (host_name == NULL) ? YES : NO,
+                                         current_time,
+#ifdef _WITH_PTHREAD
+                                         file_size_pool, file_mtime_pool, file_name_pool,
+#endif
+                                         &total_file_size);
+            }
+         }
       }
       else
       {
@@ -1625,39 +1717,42 @@ handle_dir(int    dir_no,
             }
          }
 
-         /* Time to remove all files in orig_file_path. */
-         if ((de[dir_no].flag & RENAME_ONE_JOB_ONLY) &&
-             ((fsa[db[de[dir_no].fme[0].pos[0]].position].special_flag & HOST_DISABLED) == 0))
+         if (remove_orig_file_path == YES)
          {
-            if (rmdir(orig_file_path) == -1)
+            /* Time to remove all files in orig_file_path. */
+            if ((de[dir_no].flag & RENAME_ONE_JOB_ONLY) &&
+                ((fsa[db[de[dir_no].fme[0].pos[0]].position].special_flag & HOST_DISABLED) == 0))
             {
-               if ((errno == ENOTEMPTY) || (errno == EEXIST))
+               if (rmdir(orig_file_path) == -1)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Hmm, strange! The directory %s should be empty! (%s %d)\n",
-                            orig_file_path, __FILE__, __LINE__);
-                  if (remove_dir(orig_file_path) < 0)
+                  if ((errno == ENOTEMPTY) || (errno == EEXIST))
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Hmm, strange! The directory %s should be empty! (%s %d)\n",
+                               orig_file_path, __FILE__, __LINE__);
+                     if (remove_dir(orig_file_path) < 0)
+                     {
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Failed to remove %s (%s %d)\n",
+                                  orig_file_path, __FILE__, __LINE__);
+                     }
+                  }
+                  else
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
-                               "Failed to remove %s (%s %d)\n",
-                               orig_file_path, __FILE__, __LINE__);
+                               "Failed to rmdir() %s : %s (%s %d)\n",
+                               orig_file_path, strerror(errno),
+                               __FILE__, __LINE__);
                   }
                }
-               else
-               {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to rmdir() %s : %s (%s %d)\n",
-                            orig_file_path, strerror(errno),
-                            __FILE__, __LINE__);
-               }
             }
-         }
-         else
-         {
-            if (remove_dir(orig_file_path) < 0)
+            else
             {
-               (void)rec(sys_log_fd, WARN_SIGN, "Failed to remove %s (%s %d)\n",
-                         orig_file_path, __FILE__, __LINE__);
+               if (remove_dir(orig_file_path) < 0)
+               {
+                  (void)rec(sys_log_fd, WARN_SIGN, "Failed to remove %s (%s %d)\n",
+                            orig_file_path, __FILE__, __LINE__);
+               }
             }
          }
 
@@ -1876,6 +1971,11 @@ check_fifo(int read_fd, int write_fd)
                   }
                   free(de[i].fme);
                   de[i].fme = NULL;
+                  if (de[i].paused_dir != NULL)
+                  {
+                     free(de[i].paused_dir);
+                     de[i].paused_dir = NULL;
+                  }
                }
                free(de);
                FREE_RT_ARRAY(file_name_pool);

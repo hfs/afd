@@ -495,6 +495,10 @@ get_job_data(struct job_id_data *p_jd)
       (void)memcpy(id.dbe[0].soptions, p_jd->soptions, size);
       id.dbe[0].soptions[size] = '\0';
    }
+   else
+   {
+      id.dbe[0].soptions = NULL;
+   }
 
    (void)strcpy(id.dbe[0].recipient, p_jd->recipient);
 

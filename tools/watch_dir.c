@@ -62,7 +62,8 @@ static void usage(char *);
 int
 main(int argc, char *argv[])
 {
-   int           ret;
+   int           gotcha,
+                 ret;
    off_t         filesize = 0;
    char          *ptr,
                  filename[MAX_FILENAME_LENGTH],
@@ -95,6 +96,7 @@ main(int argc, char *argv[])
    (void)printf("----------------------------------------+-----------+-------------------------\n");
    for (;;)
    {
+      gotcha = 0;
       while ((dirp = readdir(dp)) != NULL)
       {
          if ((strcmp(dirp->d_name, ".") == 0) ||
@@ -122,11 +124,17 @@ main(int argc, char *argv[])
                             ctime(&stat_buf.st_mtime));
                (void)strcpy(filename, dirp->d_name);
                filesize = stat_buf.st_size;
+               gotcha = 1;
             }
          }
       }
 
       rewinddir(dp);
+
+      if (gotcha)
+      {
+         (void)printf("----------------------------------------+-----------+-------------------------\n");
+      }
 
       (void)my_usleep(10000L);
    }

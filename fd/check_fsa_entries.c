@@ -1,6 +1,6 @@
 /*
  *  check_fsa_entries.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,8 @@ DESCR__S_M3
  ** HISTORY
  **   14.06.1998 H.Kiehl Created
  **   07.04.2002 H.Kiehl Added some more checks for the job_status struct.
+ **   10.05.2004 H.Kiehl Reset the queued flag in FRA when we reset the
+ **                      active_transfers to zero.
  **
  */
 DESCR__E_M3
@@ -51,7 +53,8 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int                        no_of_hosts,
+extern int                        no_of_dirs,
+                                  no_of_hosts,
                                   *no_msg_queued,
                                   sys_log_fd;
 extern struct filetransfer_status *fsa;
@@ -104,6 +107,27 @@ check_fsa_entries(void)
                       fsa[i].host_dsp_name, fsa[i].active_transfers,
                       __FILE__, __LINE__);
             fsa[i].active_transfers = 0;
+
+            /*
+             * If active transfers is zero and this is a retrieve job
+             * we must reset the queued flag in FRA, otherwise retrieve
+             * for this job will never again be possible (unless FD is
+             * restarted).
+             */
+            if (fsa[i].protocol & RETRIEVE_FLAG)
+            {
+               for (j = 0; j < no_of_dirs; j++)
+               {
+                  if ((fra[i].queued == YES) &&
+                      (CHECK_STRCMP(fsa[i].host_alias, fra[j].dir_alias) == 0))
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Queued flag set for dir_alias %s, but actieve_transfers is 0. Unsetting queued flag. (%s %d)\n",
+                               fra[j].dir_alias, __FILE__, __LINE__);
+                     fra[i].queued = NO;
+                  }
+               }
+            }
          }
          if (fsa[i].total_file_counter != 0)
          {

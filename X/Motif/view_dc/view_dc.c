@@ -1,7 +1,7 @@
 /*
  *  view_dc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2004 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -257,7 +257,8 @@ main(int argc, char *argv[])
 static void
 init_view_dc(int *argc, char *argv[])
 {
-   char *perm_buffer;
+   char fake_user[MAX_FULL_USER_ID_LENGTH],
+        *perm_buffer;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
        (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
@@ -284,7 +285,8 @@ init_view_dc(int *argc, char *argv[])
    }
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -338,7 +340,8 @@ usage(char *progname)
 {
    (void)fprintf(stderr, "Usage : %s [options] -h hostname\n", progname);
    (void)fprintf(stderr, "             --version\n");
-   (void)fprintf(stderr, "             -f <font name>]\n");
-   (void)fprintf(stderr, "             -w <working directory>]\n");
+   (void)fprintf(stderr, "             -f <font name>\n");
+   (void)fprintf(stderr, "             -u[ <user>]\n");
+   (void)fprintf(stderr, "             -w <working directory>\n");
    return;
 }

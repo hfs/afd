@@ -217,7 +217,7 @@ select_host_dialog(Widget w, XtPointer client_data, XtPointer call_data)
       /*---------------------------------------------------------------*/
       /*                        Enter Hostname                         */
       /*---------------------------------------------------------------*/
-      dialog_w = XtVaCreateManagedWidget("Search hostbname:",
+      dialog_w = XtVaCreateManagedWidget("Search hostname:",
                         xmLabelGadgetClass,  criteriabox_w,
                         XmNleftAttachment,   XmATTACH_FORM,
                         XmNleftOffset,       5,

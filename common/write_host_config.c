@@ -1,7 +1,7 @@
 /*
  *  write_host_config.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -173,6 +173,7 @@ extern int    sys_log_fd;
 #                         are the integer values that may be set):\n\
 #                         1 (1) - If set transfer is stopped for this host.\n\
 #                         2 (2) - If set queue is stopped for this host.\n\
+#                         3 (4) - If set host is NOT in DIR_CONFIG.\n\
 #                         6 (32)- If set this host is disabled.\n\
 #                         DEFAULT: 0\n\
 #   Special flag        - To set some protocol specific features for\n\

@@ -1052,6 +1052,7 @@ eval_dir_config(size_t db_size)
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "File mask entry at line %d to long, max buffer size is %d. (%s %d)\n",
                                count_new_lines(database, ptr),
+                               MAX_FILE_MASK_BUFFER,
                                __FILE__, __LINE__);
                   }
                   else
@@ -1061,6 +1062,7 @@ eval_dir_config(size_t db_size)
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "To many file mask at line %d, max buffer size is %d. (%s %d)\n",
                                count_new_lines(database, ptr),
+                               MAX_FILE_MASK_BUFFER,
                                __FILE__, __LINE__);
                   }
                   break;
@@ -2812,7 +2814,16 @@ store_full_path(char *p_user, char *p_path)
 {
    struct passwd *pwd;
 
-   if ((pwd = getpwnam(p_user)) == NULL)
+   if ((p_user == NULL) || (*p_user == '\0'))
+   {
+      pwd = getpwuid(getuid());
+   }
+   else
+   {
+      pwd = getpwnam(p_user);
+   }
+
+   if (pwd == NULL)
    {
       (void)rec(sys_log_fd, WARN_SIGN,
                 "Cannot find users %s working directory in /etc/passwd : %s (%s %d)\n",

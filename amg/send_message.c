@@ -128,8 +128,7 @@ send_message(char           *afd_file_dir,
          *dl.file_name_length = strlen(file_name_pool[i]);
          dl_real_size = *dl.file_name_length + dl.size +
                         sprintf((dl.file_name + *dl.file_name_length + 1),
-                                "%s delete option (%s %d)",
-                                DIR_CHECK, __FILE__, __LINE__);
+                                "%s delete option", DIR_CHECK);
          if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
          {
             (void)rec(sys_log_fd, ERROR_SIGN, "write() error : %s (%s %d)\n",

@@ -184,9 +184,9 @@ DESCR__E_M3
                           /* setsockopt()                                */
 #include <netinet/in.h>   /* struct in_addr, sockaddr_in, htons()        */
 #if defined (_WITH_TOS) && defined (IP_TOS)
-#if defined (IRIX) || defined (_SUN) || defined (_HPUX) || defined (FREEBSD)
+#if defined (IRIX) || defined (_SUN) || defined (_HPUX) || defined (FREEBSD) || defined (_SCO) || defined (DARWIN)
 #include <netinet/in_systm.h>
-#endif /* IRIX || _SUN || _HPUX || FREEBSD */
+#endif /* IRIX || _SUN || _HPUX || FREEBSD || _SCO */
 #include <netinet/ip.h>   /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT            */
 #endif
 #include <arpa/telnet.h>  /* IAC, SYNCH, IP                              */
@@ -248,7 +248,7 @@ ftp_connect(char *hostname, int port)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
-#ifndef _HPUX
+#if !defined (_HPUX) && !defined (_SCO)
          if (h_errno != 0)
          {
 #ifdef LINUX
@@ -276,7 +276,7 @@ ftp_connect(char *hostname, int port)
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "ftp_connect(): Failed to gethostbyname() %s : %s",
                       hostname, strerror(errno));
-#ifndef _HPUX
+#if !defined (_HPUX) && !defined (_SCO)
          }
 #endif /* _HPUX */
          return(INCORRECT);
@@ -1464,13 +1464,29 @@ ftp_data(char *filename, off_t seek, int mode, int type)
       int                retries = 0,
                          ret,
                          sock_fd;
+#ifdef FTP_REUSE_DATA_PORT
+      unsigned int       loop_counter = 0;
+      static u_short     data_port = 0;
+#endif
       register char      *h, *p;
       struct sockaddr_in from;
 
       do
       {
          data = ctrl;
+#ifdef FTP_REUSE_DATA_PORT
+try_again:
+         if (type != DATA_READ)
+         {
+            data.sin_port = htons(data_port);
+         }
+         else
+         {
+            data.sin_port = htons((u_short)0);
+         }
+#else
          data.sin_port = htons((u_short)0);
+#endif
          msg_str[0] = '\0';
 
          if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
@@ -1492,19 +1508,39 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          length = sizeof(data);
          if (bind(sock_fd, (struct sockaddr *)&data, length) < 0)
          {
+#ifdef FTP_REUSE_DATA_PORT
+            if ((type != DATA_READ) &&
+                ((errno == EADDRINUSE) || (errno == EACCES)))
+            {
+               data_port = 0;
+               loop_counter++;
+               if (loop_counter < 100)
+               {
+                  goto try_again;
+               }
+            }
+#endif
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "ftp_data(): bind() error : %s", strerror(errno));
             (void)close(sock_fd);
             return(INCORRECT);
          }
 
-         if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
+#ifdef FTP_REUSE_DATA_PORT
+         if ((type == DATA_READ) || (data_port == (u_short)0))
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "ftp_data(): getsockname() error : %s", strerror(errno));
-            (void)close(sock_fd);
-            return(INCORRECT);
+#endif
+            if (getsockname(sock_fd, (struct sockaddr *)&data, &length) < 0)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "ftp_data(): getsockname() error : %s",
+                         strerror(errno));
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
+#ifdef FTP_REUSE_DATA_PORT
          }
+#endif
 
          if (listen(sock_fd, 1) < 0)
          {
@@ -1516,6 +1552,9 @@ ftp_data(char *filename, off_t seek, int mode, int type)
 
          h = (char *)&data.sin_addr;
          p = (char *)&data.sin_port;
+#ifdef FTP_REUSE_DATA_PORT
+         data_port = data.sin_port;
+#endif
 
          (void)fprintf(p_control, "PORT %d,%d,%d,%d,%d,%d\r\n",
                        (((int)h[0]) & 0xff),

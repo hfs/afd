@@ -1,6 +1,6 @@
 /*
  *  check_paused_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,6 +47,7 @@ DESCR__S_M3
  **   06.03.1996 H.Kiehl Created
  **   04.01.2001 H.Kiehl Don't check duplicate directories.
  **   29.05.2001 H.Kiehl Delete queue when host is disabled.
+ **   05.02.2004 H.Kiehl Also check for dummy remote paused directories.
  **
  */
 DESCR__E_M3
@@ -61,6 +62,7 @@ DESCR__E_M3
 extern int                        sys_log_fd;
 extern struct instant_db          *db;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 
 
 /*######################### check_paused_dir() ##########################*/
@@ -71,6 +73,46 @@ check_paused_dir(struct directory_entry *p_de,
                  int                    *pdf)
 {
    register int i, j;
+
+   /*
+    * First check if this is a dummy remote dir. This needs to be handled
+    * differently.
+    */
+   if (fra[p_de->fra_pos].fsa_pos != -1)
+   {
+      if ((fsa[fra[p_de->fra_pos].fsa_pos].host_status & PAUSE_QUEUE_STAT) == 0)
+      {
+         struct stat stat_buf;
+
+         if (stat(p_de->paused_dir, &stat_buf) == 0)
+         {
+            if (S_ISDIR(stat_buf.st_mode))
+            {
+               if (fsa[fra[p_de->fra_pos].fsa_pos].special_flag & HOST_DISABLED)
+               {
+                  if (remove_dir(p_de->paused_dir) < 0)
+                  {
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "Failed to remove %s (%s %d)\n",
+                               p_de->paused_dir, __FILE__, __LINE__);
+                  }
+                  return(NULL);
+               }
+               else
+               {
+                  return(fsa[fra[p_de->fra_pos].fsa_pos].host_alias);
+               }
+            }
+         }
+      }
+      else
+      {
+         if (pdf != NULL)
+         {
+            *pdf = YES;
+         }
+      }
+   }
 
    for (i = *nfg; i < p_de->nfg; i++)
    {

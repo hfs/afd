@@ -1,6 +1,6 @@
 /*
  *  shutdown_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   shutdown_mon - does a shutdown of the AFD_MON
  **
  ** SYNOPSIS
- **   void shutdown_mon(int silent_shutdown)
+ **   void shutdown_mon(int silent_shutdown, char *fake_user)
  **
  ** DESCRIPTION
  **
@@ -60,7 +60,7 @@ extern char *p_work_dir;
 
 /*########################### shutdown_mon() ############################*/
 void
-shutdown_mon(int silent_shutdown)
+shutdown_mon(int silent_shutdown, char *fake_user)
 {
    int            mon_cmd_fd,
                   mon_resp_fd,
@@ -93,7 +93,7 @@ shutdown_mon(int silent_shutdown)
    }
 
    /* Tell user what we are doing */
-   get_user(user);
+   get_user(user, fake_user);
    (void)rec(sys_log_fd, WARN_SIGN, "Starting AFD_MON shutdown (%s) ...\n",
              user);
 

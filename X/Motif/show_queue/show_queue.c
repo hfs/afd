@@ -1,6 +1,6 @@
 /*
  *  show_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1063,7 +1063,8 @@ main(int argc, char *argv[])
 static void
 init_show_queue(int *argc, char *argv[])
 {
-   char *perm_buffer;
+   char fake_user[MAX_FULL_USER_ID_LENGTH],
+        *perm_buffer;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
        (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
@@ -1085,7 +1086,8 @@ init_show_queue(int *argc, char *argv[])
    }
 
    /* Now lets see if user may use this program */
-   switch(get_permissions(&perm_buffer))
+   check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE     : (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                       exit(INCORRECT);
@@ -1135,7 +1137,7 @@ init_show_queue(int *argc, char *argv[])
       }
    }
 
-   get_user(user);
+   get_user(user, fake_user);
    start_time_val = -1;
    end_time_val = -1;
    search_file_size = -1;
@@ -1162,7 +1164,7 @@ static void
 usage(char *progname)
 {
    (void)fprintf(stderr,
-                 "Usage : %s [-w <working directory>] [-f <font name>] [host name 1..n]\n",
+                 "Usage : %s [-w <working directory>] [-u[ <user>]] [-f <font name>] [host name 1..n]\n",
                  progname);
    return;
 }

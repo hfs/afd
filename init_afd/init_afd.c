@@ -655,7 +655,7 @@ main(int argc, char *argv[])
          {
             for (i = 0; i < no_of_dirs; i++)
             {
-               if (fra[i].dir_flag & MAX_COPIED)
+               if ((fra[i].fsa_pos == -1) && (fra[i].dir_flag & MAX_COPIED))
                {
                   count_files(fra[i].url, &fra[i].files_in_dir,
                               &fra[i].bytes_in_dir);
@@ -1496,7 +1496,7 @@ zombie_check(void)
 
                         /* The log and archive process may never die! */
                         if ((i == SLOG_NO) || (i == TLOG_NO) ||
-                            (i == RLOG_NO) ||
+                            (i == RLOG_NO) || (i == FD_NO) ||
 #ifdef _NO_MMAP
                             (i == MAPPER_NO) ||
 #endif
@@ -1764,7 +1764,7 @@ afd_exit(void)
       *proc_table[SLOG_NO].status = STOPPED;
 
 #ifndef _NO_MMAP
-      if (msync((void *)p_afd_status, sizeof(struct afd_status), MS_ASYNC) == -1)
+      if (msync((void *)p_afd_status, sizeof(struct afd_status), MS_SYNC) == -1)
       {
          (void)rec(sys_log_fd, ERROR_SIGN, "msync() error : %s (%s %d)\n",
                    strerror(errno), __FILE__, __LINE__);

@@ -1,6 +1,6 @@
 /*
  *  check_tv_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -93,38 +93,39 @@ check_tv_status(Widget w)
          flush = YES;
       }
 
-      if (jd[i].special_flag & HOST_IN_DIR_CONFIG)
+      /* Did any significant change occur in the status */
+      /* for this host?                                 */
+      if (fsa[jd[i].fsa_no].special_flag & HOST_DISABLED)
       {
-         /* Did any significant change occur in the status */
-         /* for this host?                                 */
-         if (fsa[jd[i].fsa_no].special_flag & HOST_DISABLED)
-         {
-            new_color = WHITE;
-         }
-         else if (fsa[jd[i].fsa_no].error_counter >= fsa[jd[i].fsa_no].max_errors)
-              {
-                 new_color = NOT_WORKING2;
-              }
-              else if (fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files > 0)
-                   {
-                      new_color = TRANSFER_ACTIVE; /* Transferring files */
-                   }
-                   else
-                   {
-                      new_color = NORMAL_STATUS; /* Nothing to do but connection active */
-                   }
+         new_color = WHITE;
+      }
+      else if ((fsa[jd[i].fsa_no].special_flag & HOST_IN_DIR_CONFIG) == 0)
+           {
+              new_color = DEFAULT_BG;
+           }
+      else if (fsa[jd[i].fsa_no].error_counter >= fsa[jd[i].fsa_no].max_errors)
+           {
+              new_color = NOT_WORKING2;
+           }
+      else if (fsa[jd[i].fsa_no].job_status[jd[i].job_no].no_of_files > 0)
+           {
+              new_color = TRANSFER_ACTIVE; /* Transferring files */
+           }
+           else
+           {
+              new_color = NORMAL_STATUS; /* Nothing to do but connection active */
+           }
 
-         if (jd[i].stat_color_no != new_color)
-         {
-            jd[i].stat_color_no = new_color;
+      if (jd[i].stat_color_no != new_color)
+      {
+         jd[i].stat_color_no = new_color;
 
-            if (x == -1)
-            {
-               tv_locate_xy(i, &x, &y);
-            }
-            draw_tv_dest_identifier(i, x, y);
-            flush = YES;
+         if (x == -1)
+         {
+            tv_locate_xy(i, &x, &y);
          }
+         draw_tv_dest_identifier(i, x, y);
+         flush = YES;
       }
 
       /*

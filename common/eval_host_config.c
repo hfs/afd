@@ -1,6 +1,6 @@
 /*
  *  eval_host_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -377,6 +377,17 @@ eval_host_config(int              *hosts_found,
             ptr++;
          }
       }
+      else if ((i > 0) && (i != 4))
+           {
+              error_flag = YES;
+              (*hl)[host_counter].host_toggle_str[i] = '\0';
+              (void)rec(sys_log_fd, WARN_SIGN,
+                        "Host toggle string <%s> not four characters long for host %s in HOST_CONFIG. Will be ignored. (%s %d)\n",
+                        (*hl)[host_counter].host_toggle_str,
+                        (*hl)[host_counter].host_alias,
+                        __FILE__, __LINE__);
+              i = 0;
+           }
       (*hl)[host_counter].host_toggle_str[i] = '\0';
       if ((*ptr == '\n') || (*ptr == '\0'))
       {
@@ -1092,7 +1103,7 @@ eval_host_config(int              *hosts_found,
                            __FILE__, __LINE__);
                  (void)rec(sys_log_fd, WARN_SIGN,
                            "Setting it to %d.\n",
-                            (*hl)[host_counter].number_of_no_bursts);
+                            (*hl)[host_counter].allowed_transfers);
                  (*hl)[host_counter].number_of_no_bursts = (*hl)[host_counter].allowed_transfers;
               }
            }
@@ -1105,7 +1116,7 @@ eval_host_config(int              *hosts_found,
           * that hosts that are disabled or have transfer/queue stopped
           * suddenly have them enabled.
           */
-         (*hl)[host_counter].host_status  = 0;
+         (*hl)[host_counter].host_status = 0;
          if (first_time == NO)
          {
             if (fsa == NULL)
@@ -1120,6 +1131,10 @@ eval_host_config(int              *hosts_found,
                         if (fsa[i].special_flag & HOST_DISABLED)
                         {
                            (*hl)[host_counter].host_status |= HOST_CONFIG_HOST_DISABLED;
+                        }
+                        if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+                        {
+                           (*hl)[host_counter].host_status |= HOST_NOT_IN_DIR_CONFIG;
                         }
                         if (fsa[i].host_status & STOP_TRANSFER_STAT)
                         {
@@ -1145,6 +1160,10 @@ eval_host_config(int              *hosts_found,
                      if (fsa[i].special_flag & HOST_DISABLED)
                      {
                         (*hl)[host_counter].host_status |= HOST_CONFIG_HOST_DISABLED;
+                     }
+                     if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+                     {
+                        (*hl)[host_counter].host_status |= HOST_NOT_IN_DIR_CONFIG;
                      }
                      if (fsa[i].host_status & STOP_TRANSFER_STAT)
                      {
@@ -1225,14 +1244,14 @@ eval_host_config(int              *hosts_found,
            }
            else
            {
-              if (((*hl)[host_counter].host_status = (unsigned char)atoi(number)) > (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_CONFIG_HOST_DISABLED))
+              if (((*hl)[host_counter].host_status = (unsigned char)atoi(number)) > (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG))
               {
                  error_flag = YES;
                  (void)rec(sys_log_fd, WARN_SIGN,
                            "Unknown host status <%d> for host %s, largest value is %d. (%s %d)\n",
                            (*hl)[host_counter].host_status,
                            (*hl)[host_counter].host_alias,
-                           (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_CONFIG_HOST_DISABLED),
+                           (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG),
                            __FILE__, __LINE__);
                  (void)rec(sys_log_fd, WARN_SIGN, "Setting it to 0.\n");
                  (*hl)[host_counter].host_status = 0;

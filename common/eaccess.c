@@ -52,7 +52,7 @@ DESCR__E_M3
 #include <unistd.h>            /* geteuid(), getegid()                   */
 #include <errno.h>
 
-
+#ifndef _SCO
 /*############################# eaccess() ###############################*/
 int
 eaccess(char *pathname, int access_mode)
@@ -141,3 +141,4 @@ eaccess(char *pathname, int access_mode)
            return(-1);
         }
 }
+#endif /* !_SCO */

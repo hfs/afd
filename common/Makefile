@@ -20,6 +20,7 @@ OBJS    = attach_afd_status.o\
           create_remote_dir.o\
           check_burst.o\
           check_dir.o\
+          check_fake_user.o\
           check_fra.o\
           check_fsa.o\
           check_job_name.o\

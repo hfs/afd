@@ -39,7 +39,12 @@ clobber :
 install :
 	cd $(INSTDIR)/bin && rm -f $(PROGS)
 	cp -p $(PROGS) $(INSTDIR)/bin
-	chmod $(BINMODE) $(INSTDIR)/bin/$(EHCPROG)$(EXE_EXT)
+	@if [ "`find $(INSTDIR)/bin -user 0 -name $(EHCPROG)$(EXE_EXT) -print`" = "" ] ; \
+	then \
+		chmod $(SUIDMODE) $(INSTDIR)/bin/$(EHCPROG)$(EXE_EXT) ; \
+	else \
+		chmod $(BINMODE) $(INSTDIR)/bin/$(EHCPROG)$(EXE_EXT) ; \
+	fi
 
 sinstall :
 	strip $(PROGS)

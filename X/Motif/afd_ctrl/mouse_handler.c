@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -134,6 +134,7 @@ extern float                      max_bar_length;
 extern unsigned long              color_pool[];
 extern char                       *p_work_dir,
                                   *pid_list,
+                                  *profile,
                                   line_style,
                                   font_name[],
                                   *ping_cmd,
@@ -292,15 +293,17 @@ input(Widget w, XtPointer client_data, XEvent *event)
             }
             if (gotcha == NO)
             {
-               char *args[6],
+               char *args[8],
                     progname[MAX_PATH_LENGTH];
 
                args[0] = progname;
-               args[1] = "-f";
-               args[2] = font_name;
-               args[3] = "-h";
-               args[4] = fsa[pos].host_alias;
-               args[5] = NULL;
+               args[1] = WORK_DIR_ID;
+               args[2] = p_work_dir;
+               args[3] = "-f";
+               args[4] = font_name;
+               args[5] = "-h";
+               args[6] = fsa[pos].host_alias;
+               args[7] = NULL;
                (void)strcpy(progname, AFD_INFO);
 
                make_xprocess(progname, progname, args, select_no);
@@ -1193,9 +1196,20 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
-         args[3] = "-f";
-         args[4] = font_name;
-         args[5] = NULL;
+         if (profile != NULL)
+         {
+            args[3] = "-p";
+            args[4] = profile;
+            args[5] = "-f";
+            args[6] = font_name;
+            args[7] = NULL;
+         }
+         else
+         {
+            args[3] = "-f";
+            args[4] = font_name;
+            args[5] = NULL;
+         }
          (void)strcpy(progname, DIR_CTRL);
          make_xprocess(progname, progname, args, -1);
          return;
@@ -1361,29 +1375,31 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   {
                      if (fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT)
                      {
-                        (void)rec(sys_log_fd, CONFIG_SIGN,
-                                  "%s: STARTED input queue that stopped automatically (%s).\n",
-                                  connect_data[i].host_display_str, user);
-                        if (fsa[i].error_counter > 0)
+                        if (xrec(appshell, QUESTION_DIALOG,
+                                 "WARNING: The queue for %s has been stopped automatically to reduce system load!\n         Are you shure you want to enable it?",
+                                 fsa[i].host_dsp_name) == YES)
                         {
-                           fsa[i].error_counter = 0;
+                           config_log("%s: STARTED input queue that stopped automatically",
+                                      connect_data[i].host_display_str);
+                           if (fsa[i].error_counter > 0)
+                           {
+                              fsa[i].error_counter = 0;
+                           }
+                           fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                         }
-                        fsa[i].host_status ^= AUTO_PAUSE_QUEUE_STAT;
                      }
                      else
                      {
-                        (void)rec(sys_log_fd, CONFIG_SIGN,
-                                  "%s: STARTED input queue (%s).\n",
-                                  connect_data[i].host_display_str, user);
+                        config_log("%s: STARTED input queue",
+                                   connect_data[i].host_display_str);
                         fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                         hl[i].host_status &= ~PAUSE_QUEUE_STAT;
                      }
                   }
                   else
                   {
-                     (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: STOPPED input queue (%s).\n",
-                               connect_data[i].host_display_str, user);
+                     config_log("%s: STOPPED input queue",
+                                connect_data[i].host_display_str);
                      fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                      hl[i].host_status |= PAUSE_QUEUE_STAT;
                   }
@@ -1416,19 +1432,17 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                            (void)xrec(appshell, ERROR_DIALOG,
                                       "Failed to write() to %s : %s (%s %d)",
                                       FD_WAKE_UP_FIFO, strerror(errno),
-                                                    __FILE__, __LINE__);
+                                      __FILE__, __LINE__);
                         }
                         if (close(fd) == -1)
                         {
-                           (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Failed to close() FIFO %s : %s (%s %d)\n",
-                                  FD_WAKE_UP_FIFO, strerror(errno),
-                                  __FILE__, __LINE__);
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      "Failed to close() FIFO %s : %s",
+                                      FD_WAKE_UP_FIFO, strerror(errno));
                         }
                      }
-                     (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: STARTED transfer (%s).\n",
-                               connect_data[i].host_display_str, user);
+                     config_log("%s: STARTED transfer",
+                                connect_data[i].host_display_str);
                      hl[i].host_status &= ~STOP_TRANSFER_STAT;
                      fsa[i].host_status ^= STOP_TRANSFER_STAT;
                   }
@@ -1446,18 +1460,16 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                               if ((kill(fsa[i].job_status[m].proc_id, SIGINT) == -1) &&
                                   (errno != ESRCH))
                               {
-                                 (void)rec(sys_log_fd, DEBUG_SIGN,
-                                           "Failed to kill process %d : %s (%s %d)\n",
-                                           fsa[i].job_status[m].proc_id,
-                                           strerror(errno), __FILE__, __LINE__);
+                                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                            "Failed to kill process %d : %s",
+                                            fsa[i].job_status[m].proc_id,
+                                            strerror(errno));
                               }
                            }
                         }
                      }
-                     (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: STOPPED transfer (%s).\n",
-                               connect_data[i].host_display_str,
-                               user);
+                     config_log("%s: STOPPED transfer",
+                                connect_data[i].host_display_str);
                      hl[i].host_status |= STOP_TRANSFER_STAT;
                   }
                }
@@ -1470,9 +1482,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   {
                      fsa[i].special_flag ^= HOST_DISABLED;
                      hl[i].host_status &= ~HOST_CONFIG_HOST_DISABLED;
-                     (void)rec(sys_log_fd, CONFIG_SIGN,
-                               "%s: ENABLED (%s).\n",
-                               connect_data[i].host_display_str, user);
+                     config_log("%s: ENABLED",
+                                connect_data[i].host_display_str);
                   }
                   else
                   {
@@ -1487,9 +1498,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                         length = strlen(fsa[i].host_alias) + 1;
                         fsa[i].special_flag ^= HOST_DISABLED;
                         hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
-                        (void)rec(sys_log_fd, CONFIG_SIGN,
-                                  "%s: DISABLED (%s).\n",
-                                  connect_data[i].host_display_str, user);
+                        config_log("%s: DISABLED",
+                                   connect_data[i].host_display_str);
 
                         (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                       p_work_dir, FIFO_DIR, DELETE_JOBS_HOST_FIFO);
@@ -1552,9 +1562,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                if ((fsa[i].toggle_pos > 0) &&
                    (fsa[i].host_toggle_str[0] != '\0'))
                {
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "Host Switch initiated for host %s (%s)\n",
-                            fsa[i].host_dsp_name, user);
+                  config_log("Host Switch initiated for host %s",
+                             connect_data[i].host_display_str);
                   if (fsa[i].host_toggle == HOST_ONE)
                   {
                      connect_data[i].host_toggle = fsa[i].host_toggle = HOST_TWO;
@@ -1648,18 +1657,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
             case DEBUG_SEL :
                if (fsa[i].debug == NO)
                {
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "%s: ENABLED debug mode by user %s.\n",
-                            connect_data[i].host_display_str,
-                            user);
+                  config_log("%s: ENABLED debug mode",
+                             connect_data[i].host_display_str);
                   fsa[i].debug = YES;
                }
                else
                {
-                  (void)rec(sys_log_fd, CONFIG_SIGN,
-                            "%s: DISABLED debug mode by user %s.\n",
-                            connect_data[i].host_display_str,
-                            user);
+                  config_log("%s: DISABLED debug mode",
+                             connect_data[i].host_display_str);
                   fsa[i].debug = NO;
                }
                break;
@@ -1904,8 +1909,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              __FILE__, __LINE__);
                   return;
                }
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending STOP to %s by %s\n", AMG, user);
+               config_log("Stopping %s", AMG);
                if (send_cmd(STOP_AMG, afd_cmd_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,
@@ -1934,9 +1938,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                           afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
-
-            (void)rec(sys_log_fd, CONFIG_SIGN, "Sending START to %s by %s\n",
-                      AMG, user);
+            config_log("Starting %s", AMG);
             if (send_cmd(START_AMG, afd_cmd_fd) < 0)
             {
                (void)xrec(appshell, ERROR_DIALOG,
@@ -1971,8 +1973,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              __FILE__, __LINE__);
                   return;
                }
-               (void)rec(sys_log_fd, CONFIG_SIGN, 
-                         "Sending STOP to %s by %s\n", FD, user);
+               config_log("Stopping %d", FD);
                if (send_cmd(STOP_FD, afd_cmd_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,
@@ -2001,9 +2002,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                           afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
-
-            (void)rec(sys_log_fd, CONFIG_SIGN,
-                      "Sending START to %s by %s\n", FD, user);
+            config_log("Starting %s", FD);
             if (send_cmd(START_FD, afd_cmd_fd) < 0)
             {
                (void)xrec(appshell, ERROR_DIALOG,
@@ -2037,8 +2036,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
             if (item_no == REREAD_DIR_CONFIG_SEL)
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN, 
-                         "Rereading DIR_CONFIG initiated by %s\n", user);
+               config_log("Reread DIR_CONFIG initiated");
                if (send_cmd(REREAD_DIR_CONFIG, db_update_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,
@@ -2048,8 +2046,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
             }
             else
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN, 
-                         "Rereading HOST_CONFIG initiated by %s\n", user);
+               config_log("Reread HOST_CONFIG initiated");
                if (send_cmd(REREAD_HOST_CONFIG, db_update_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,

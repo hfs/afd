@@ -1,6 +1,6 @@
 /*
  *  afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M1
  **   afd - controls startup and shutdown of AFD
  **
  ** SYNOPSIS
- **   afd [options]
+ **   afd [options] [-u[ <user>]]
  **          -a          only start AFD
  **          -c          only check if AFD is active
  **          -C          check if AFD is active, if not start it
@@ -37,6 +37,7 @@ DESCR__S_M1
  **          -r          Removes blocking file
  **          -s          shutdown AFD
  **          -S          silent AFD shutdown
+ **          -v          Just print the version number.
  **          --version   Current version
  **
  ** DESCRIPTION
@@ -126,7 +127,6 @@ main(int argc, char *argv[])
    int            start_up,
                   status,
                   n,
-                  fd,
                   read_fd,
                   afd_ctrl_perm,
                   startup_perm,
@@ -135,6 +135,7 @@ main(int argc, char *argv[])
                   work_dir[MAX_PATH_LENGTH],
                   block_file[MAX_PATH_LENGTH],
                   exec_cmd[MAX_PATH_LENGTH],
+                  fake_user[MAX_FULL_USER_ID_LENGTH],
                   sys_log_fifo[MAX_PATH_LENGTH],
                   user[MAX_FULL_USER_ID_LENGTH],
                   buffer[2];
@@ -144,6 +145,17 @@ main(int argc, char *argv[])
                   stat_buf_fifo;
 
    CHECK_FOR_VERSION(argc, argv);
+   if ((argc > 1) &&
+       (argv[1][0] == '-') && (argv[1][1] == 'v') && (argv[1][2] == '\0'))
+   {
+      (void)fprintf(stdout,
+#ifdef PRE_RELEASE
+                    "%d.%d.%d-pre%d\n", MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
+#else
+                    "%d.%d.%d\n", MAJOR, MINOR, BUG_FIX);
+#endif
+      exit(SUCCESS);
+   }
 
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
@@ -151,9 +163,10 @@ main(int argc, char *argv[])
    }
    p_work_dir = work_dir;
    set_afd_euid(work_dir);
-   get_user(user);
+   check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
+   get_user(user, fake_user);
 
-   switch(get_permissions(&perm_buffer))
+   switch(get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s [%s]\n", PERMISSION_DENIED_STR, user);
@@ -414,7 +427,7 @@ main(int argc, char *argv[])
          fflush(stdout);
       }
 
-      shutdown_afd();
+      shutdown_afd(fake_user);
 
       /*
        * Wait for init_afd to terminate. But lets not wait forever.
@@ -547,7 +560,7 @@ main(int argc, char *argv[])
            {
               if (check_afd(18L) == 1)
               {
-                 (void)fprintf(stderr, "AFD is active in %s\n", p_work_dir);
+                 (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
                  exit(AFD_IS_ACTIVE);
               }
            }
@@ -555,7 +568,7 @@ main(int argc, char *argv[])
            {
               if (check_afd_heartbeat(18L) == 1)
               {
-                 (void)fprintf(stderr, "AFD is active in %s\n", p_work_dir);
+                 (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
                  exit(AFD_IS_ACTIVE);
               }
            }
@@ -610,6 +623,8 @@ main(int argc, char *argv[])
         }
    else if (start_up == MAKE_BLOCK_FILE)
         {
+           int fd;
+
            if ((fd = open(block_file, O_WRONLY | O_CREAT | O_TRUNC,
                           S_IRUSR | S_IWUSR)) == -1)
            {
@@ -642,25 +657,9 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Create a lock, to ensure that AFD does not get started twice */
-   if ((fd = lock_file(sys_log_fifo, ON)) == INCORRECT)
-   {
-      (void)fprintf(stderr, "Failed to create lock! (%s %d)\n",
-                    __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   else if (fd == LOCK_IS_SET)
-        {
-           (void)fprintf(stderr, "Someone else is trying to start the AFD!\n");
-           exit(INCORRECT);
-        }
-
    /* Is another AFD active in this directory? */
    if ((check_afd(10L) == 1) || (eaccess(block_file, F_OK) == 0))
    {
-      /* Unlock, so other users don't get blocked */
-      (void)close(fd);
-
       /* Another AFD is active. Only start afd_ctrl. */
       (void)strcpy(exec_cmd, AFD_CTRL);
       if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir, (char *) 0) == -1)
@@ -761,9 +760,6 @@ main(int argc, char *argv[])
 #endif
                  if (buffer[0] == ACKN)
                  {
-                    /* Unlock, so other users don't get blocked */
-                    (void)close(fd);
-
                     (void)close(read_fd);
 
                     (void)strcpy(exec_cmd, AFD_CTRL);
@@ -830,7 +826,7 @@ check_database(void)
 static void
 usage(char *progname)
 {
-   (void)fprintf(stderr, "USAGE: %s [-w <AFD working dir>] [option]\n", progname);
+   (void)fprintf(stderr, "USAGE: %s [-w <AFD working dir>] [-u[ <user>]] [option]\n", progname);
    (void)fprintf(stderr, "              -a          only start AFD\n");
    (void)fprintf(stderr, "              -c          only check if AFD is active\n");
    (void)fprintf(stderr, "              -C          check if AFD is active, if not start it\n");

@@ -1,6 +1,6 @@
 /*
  *  delete_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -194,10 +194,13 @@ main(int argc, char *argv[])
       /* If we cannot determine the size of the fifo set default value */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
-   if (fifo_size < (offset + offset + MAX_HOSTNAME_LENGTH + 2 + 1 + MAX_FILENAME_LENGTH + MAX_FILENAME_LENGTH))
+   if (fifo_size < (offset + offset + MAX_HOSTNAME_LENGTH + 2 + 1 +
+                    MAX_FILENAME_LENGTH + MAX_FILENAME_LENGTH))
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Fifo is NOT large enough to ensure atomic writes!");
+      fifo_size = offset + offset + MAX_HOSTNAME_LENGTH + 2 + 1 +
+                  MAX_FILENAME_LENGTH + MAX_FILENAME_LENGTH;
    }
 
    /* Now lets allocate memory for the fifo buffer */
@@ -359,7 +362,7 @@ main(int argc, char *argv[])
                                         SEPARATOR_CHAR,
                                         p_file_name,
                                         SEPARATOR_CHAR,
-                                        *file_size,
+                                        (unsigned long)*file_size,
                                         SEPARATOR_CHAR,
                                         *job_number,
                                         SEPARATOR_CHAR,

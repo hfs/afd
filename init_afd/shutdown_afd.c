@@ -1,6 +1,6 @@
 /*
  *  shutdown_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   shutdown_afd - does a shutdown of the AFD
  **
  ** SYNOPSIS
- **   void shutdown_afd(void)
+ **   void shutdown_afd(char *fake_user)
  **
  ** DESCRIPTION
  **
@@ -61,7 +61,7 @@ extern char *p_work_dir;
 
 /*########################### shutdown_afd() ############################*/
 void
-shutdown_afd(void)
+shutdown_afd(char *fake_user)
 {
    int            afd_cmd_fd,
                   afd_resp_fd,
@@ -95,7 +95,7 @@ shutdown_afd(void)
    }
 
    /* Tell user what we are doing */
-   get_user(user);
+   get_user(user, fake_user);
    (void)rec(sys_log_fd, CONFIG_SIGN, "Starting AFD shutdown (%s) ...\n",
              user);
 

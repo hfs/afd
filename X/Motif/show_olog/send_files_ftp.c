@@ -396,6 +396,16 @@ get_archive_data(int pos, int file_no)
    }
    *(ptr++) = '\0';
 
+   /* Check if there was a trans_rename */
+   if (*ptr == '/')
+   {
+      while (*ptr != ' ')
+      {
+         ptr++;
+      }
+      ptr++;
+   }
+
    /* Away with the size */
    while (*ptr != ' ')
    {
