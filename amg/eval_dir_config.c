@@ -26,7 +26,7 @@ DESCR__S_M3
  **   eval_dir_config - reads the DIR_CONFIG file and evaluates it
  **
  ** SYNOPSIS
- **   int eval_dir_config(size_t db_size, int *dc)
+ **   int eval_dir_config(size_t db_size)
  **
  ** DESCRIPTION
  **   The function eval_dir_config() reads the DIR_CONFIG file of the
@@ -133,9 +133,10 @@ extern int                 dnb_fd,
                            data_length,/* The size of data for one job.  */
                            sys_log_fd,
                            *no_of_dir_names,
-                           no_of_hosts;/* The number of remote hosts to  */
+                           no_of_hosts,/* The number of remote hosts to  */
                                        /* which files have to be         */
                                        /* transfered.                    */
+                           no_of_local_dirs;
 extern mode_t              create_source_dir_mode;
 extern struct host_list    *hl;        /* Structure that holds all the   */
                                        /* hosts.                         */
@@ -146,7 +147,8 @@ struct dir_data            *dd = NULL;
 
 /* Global local variables */
 char                       *database = NULL;
-int                        job_no;   /* By job number we here mean for   */
+int                        no_of_local_dirs,
+                           job_no;   /* By job number we here mean for   */
                                      /* each destination specified!      */
 struct p_array             *pp;
 static char                *p_t = NULL;   /* Start of directory table.   */
@@ -208,7 +210,7 @@ static void                copy_to_shm(void),
 
 /*########################## eval_dir_config() ##########################*/
 int
-eval_dir_config(size_t db_size, int *dc)
+eval_dir_config(size_t db_size)
 {
    int      i,
             j,
@@ -383,7 +385,7 @@ eval_dir_config(size_t db_size, int *dc)
    data_length = 0;
    unique_file_counter = 0;
    unique_dest_counter = 0;
-   *dc = 0;
+   no_of_local_dirs = 0;
    ptr = database;
 
    /* Read each directory entry one by one until we reach the end. */
@@ -551,6 +553,7 @@ eval_dir_config(size_t db_size, int *dc)
          if ((prev_user_name[0] == '\0') ||
              (CHECK_STRCMP(dir->location, prev_user_name) != 0))
          {
+            char          *p_end;
             struct passwd *pwd;
 
             if (*(tmp_ptr - 1) == '~')
@@ -578,6 +581,19 @@ eval_dir_config(size_t db_size, int *dc)
             }
             (void)strcpy(prev_user_name, dir->location);
             (void)strcpy(prev_user_dir, pwd->pw_dir);
+
+            /*
+             * Cut away /./ at end of user directory. This information
+             * is used by some FTP-servers so they chroot to this
+             * directory. We don't need that here.
+             */
+            p_end = prev_user_dir + strlen(prev_user_dir) - 1;
+            while ((p_end > prev_user_dir) &&
+                   ((*p_end == '/') || (*p_end == '.')))
+            {
+               *p_end = '\0';
+               p_end--;
+            }
          }
          *tmp_ptr = tmp_char;
          (void)strcpy(tmp_location, prev_user_dir);
@@ -1697,7 +1713,7 @@ check_dummy_line:
          int duplicate = NO;
 
          /* Check if this directory was not already specified. */
-         for (j = 0; j < *dc; j++)
+         for (j = 0; j < no_of_local_dirs; j++)
          {
             if (CHECK_STRCMP(dir->location, dd[j].dir_name) == 0)
             {
@@ -1711,12 +1727,12 @@ check_dummy_line:
 
          if (duplicate == NO)
          {
-            if ((*dc % 10) == 0)
+            if ((no_of_local_dirs % 10) == 0)
             {
-               size_t new_size = (((*dc / 10) + 1) * 10) *
+               size_t new_size = (((no_of_local_dirs / 10) + 1) * 10) *
                                  sizeof(struct dir_data);
 
-               if (*dc == 0)
+               if (no_of_local_dirs == 0)
                {
                   if ((dd = (struct dir_data *)malloc(new_size)) == NULL)
                   {
@@ -1739,20 +1755,20 @@ check_dummy_line:
                }
             }
 
-            dd[*dc].dir_pos = lookup_dir_no(dir->location, &did_number);
+            dd[no_of_local_dirs].dir_pos = lookup_dir_no(dir->location, &did_number);
             if (dir->alias[0] == '\0')
             {
-               (void)sprintf(dir->alias, "DIR-%d", dnb[dd[*dc].dir_pos].dir_id);
+               (void)sprintf(dir->alias, "DIR-%d", dnb[dd[no_of_local_dirs].dir_pos].dir_id);
             }
             else
             {
                /* Check if the directory alias was not already specified. */
-               for (j = 0; j < *dc; j++)
+               for (j = 0; j < no_of_local_dirs; j++)
                {
                   if (CHECK_STRCMP(dir->alias, dd[j].dir_alias) == 0)
                   {
                      (void)sprintf(dir->alias, "DIR-%d",
-                                   dnb[dd[*dc].dir_pos].dir_id);
+                                   dnb[dd[no_of_local_dirs].dir_pos].dir_id);
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "Duplicate directory alias %s, giving it another alias: %s (%s %d)\n",
                                dd[j].dir_alias, dir->alias,
@@ -1762,37 +1778,37 @@ check_dummy_line:
                }
             }
 
-            (void)strcpy(dd[*dc].dir_alias, dir->alias);
+            (void)strcpy(dd[no_of_local_dirs].dir_alias, dir->alias);
             if (dir->type == LOCALE_DIR)
             {
-               dd[*dc].fsa_pos = -1;
-               dd[*dc].host_alias[0] = '\0';
-               (void)strncpy(dd[*dc].url, dir->location, MAX_RECIPIENT_LENGTH);
+               dd[no_of_local_dirs].fsa_pos = -1;
+               dd[no_of_local_dirs].host_alias[0] = '\0';
+               (void)strncpy(dd[no_of_local_dirs].url, dir->location, MAX_RECIPIENT_LENGTH);
                if (strlen(dir->location) >= MAX_RECIPIENT_LENGTH)
                {
-                  dd[*dc].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
+                  dd[no_of_local_dirs].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
                }
             }
             else
             {
-               (void)strcpy(dd[*dc].url, dir->url);
-               dd[*dc].fsa_pos = check_hostname_list(dir->url, RETRIEVE_FLAG);
-               (void)strcpy(dd[*dc].host_alias, hl[dd[*dc].fsa_pos].host_alias);
-               store_file_mask(dd[*dc].dir_alias, dir);
+               (void)strcpy(dd[no_of_local_dirs].url, dir->url);
+               dd[no_of_local_dirs].fsa_pos = check_hostname_list(dir->url, RETRIEVE_FLAG);
+               (void)strcpy(dd[no_of_local_dirs].host_alias, hl[dd[no_of_local_dirs].fsa_pos].host_alias);
+               store_file_mask(dd[no_of_local_dirs].dir_alias, dir);
             }
-            (void)strcpy(dd[*dc].dir_name, dir->location);
-            dd[*dc].protocol = dir->protocol;
+            (void)strcpy(dd[no_of_local_dirs].dir_name, dir->location);
+            dd[no_of_local_dirs].protocol = dir->protocol;
 
             /* Evaluate the directory options.  */
-            eval_dir_options(*dc, dir->dir_options, dir->option);
+            eval_dir_options(no_of_local_dirs, dir->dir_options, dir->option);
 
             /* Increase directory counter */
-            (*dc)++;
+            no_of_local_dirs++;
 
 #ifdef _DEBUG
             (void)fprintf(p_debug_file,
                           "\n\n=================> Contents of directory struct %4d<=================\n",
-                          *dc);
+                          no_of_local_dirs);
             (void)fprintf(p_debug_file,
                           "                   =================================\n");
 
@@ -1863,7 +1879,7 @@ check_dummy_line:
    } /* while ((search_ptr = posi(ptr, DIR_IDENTIFIER)) != NULL) */
 
    /* See if there are any valid directory entries. */
-   if (*dc == 0)
+   if (no_of_local_dirs == 0)
    {
       /* We assume there is no entry in database   */
       /* or we have finished reading the database. */
@@ -1877,22 +1893,22 @@ check_dummy_line:
 
       /* Don't forget to create the FSA (Filetransfer */
       /* Status Area).                                */
-      create_sa(*dc);
+      create_sa(no_of_local_dirs);
 
       /* Tell user what we have found in DIR_CONFIG */
-      if (*dc > 1)
+      if (no_of_local_dirs > 1)
       {
          (void)rec(sys_log_fd, INFO_SIGN,
                    "Found %d directory entries with %d recipients in %d destinations.\n",
-                   *dc, t_rc, t_dgc);
+                   no_of_local_dirs, t_rc, t_dgc);
       }
-      else if ((*dc == 1) && (t_rc == 1))
+      else if ((no_of_local_dirs == 1) && (t_rc == 1))
            {
               (void)rec(sys_log_fd, INFO_SIGN,
                        "Found one directory entry with %d recipient in %d destination.\n",
                         t_rc, t_dgc);
            }
-      else if ((*dc == 1) && (t_rc > 1) && (t_dgc == 1))
+      else if ((no_of_local_dirs == 1) && (t_rc > 1) && (t_dgc == 1))
            {
               (void)rec(sys_log_fd, INFO_SIGN,
                         "Found one directory entry with %d recipients in %d destination.\n",
@@ -1902,7 +1918,7 @@ check_dummy_line:
            {
               (void)rec(sys_log_fd, INFO_SIGN,
                         "Found %d directory entry with %d recipients in %d destinations.\n",
-                        *dc, t_rc, t_dgc);
+                        no_of_local_dirs, t_rc, t_dgc);
            }
       ret = SUCCESS;
    }

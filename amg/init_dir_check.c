@@ -67,8 +67,7 @@ DESCR__E_M1
 
 
 /* global variables */
-extern int                    afd_status_fd,
-                              shm_id,      /* Shared memory ID of        */
+extern int                    shm_id,      /* Shared memory ID of        */
                                            /* dir_check.                 */
                               max_process,
                               max_copied_files,
@@ -204,7 +203,7 @@ init_dir_check(int    argc,
     * up running. If not we will very quickly fill up the
     * message fifo to the FD.
     */
-   if (attach_afd_status(&afd_status_fd) < 0)
+   if (attach_afd_status() < 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to attach to AFD status area. (%s %d)\n",

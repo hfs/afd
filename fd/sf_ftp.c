@@ -1096,6 +1096,10 @@ main(int argc, char *argv[])
                              }
                              else
                              {
+                                if (*(p_end_line - 1) == '\n')
+                                {
+                                   *(p_end_line - 1) = '\0';
+                                }
                                 system_log(WARN_SIGN, __FILE__, __LINE__,
                                            "Assuming <file size offset> for host %s is to large! [%s]",
                                            tr_hostname, line_buffer);

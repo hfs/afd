@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001, 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,6 +70,8 @@ DESCR__E_M3
 #include "show_queue.h"
 #include "fddefs.h"
 
+#define _WITH_HEAPSORT
+
 /* External global variables */
 extern Display                 *display;
 extern Widget                  listbox_w,
@@ -113,7 +115,11 @@ static void                    get_all_input_files(void),
                                insert_file(char *, char *, char *, char *,
                                            char, char, int, int),
                                searching(char *),
+#ifdef _WITH_HEAPSORT
+                               sort_data(int);
+#else
                                sort_data(int, int);
+#endif
 static int                     get_job_id(char *),
                                get_pos(int);
 
@@ -255,7 +261,11 @@ get_data(void)
    {
       (void)strcpy(status_message, "Sorting...");
       SHOW_MESSAGE();
+#ifdef _WITH_HEAPSORT
+      sort_data(total_no_files);
+#else
       sort_data(0, total_no_files - 1);
+#endif
       (void)strcpy(status_message, "Displaying...");
       SHOW_MESSAGE();
       display_data();
@@ -597,6 +607,50 @@ get_all_input_files(void)
    return;
 }
 
+#ifdef _WITH_HEAPSORT
+/*++++++++++++++++++++++++++++++ sort_data() ++++++++++++++++++++++++++++*/
+/*                               -----------                             */
+/* Description: Heapsort found in linux kernel mailing list from         */
+/*              Jamie Lokier.                                            */
+/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+static void
+sort_data(int count)
+{
+   int                     i, j, k;
+   struct queued_file_list tmp_qfl;
+
+   for (i = 1; i < count; i++)
+   {
+      j = i;
+      (void)memcpy(&tmp_qfl, &qfl[j], sizeof(struct queued_file_list));
+      while ((j > 0) && (tmp_qfl.mtime > qfl[(j - 1) / 2].mtime))
+      {
+         (void)memcpy(&qfl[j], &qfl[(j - 1) / 2], sizeof(struct queued_file_list));
+         j = (j - 1) / 2;
+      }
+      (void)memcpy(&qfl[j], &tmp_qfl, sizeof(struct queued_file_list));
+   }
+   for (i = (count - 1); i > 0; i--)
+   {
+      j = 0;
+      k = 1;
+      (void)memcpy(&tmp_qfl, &qfl[i], sizeof(struct queued_file_list));
+      (void)memcpy(&qfl[i], &qfl[0], sizeof(struct queued_file_list));
+      while ((k < i) &&
+             ((tmp_qfl.mtime < qfl[k].mtime) ||
+              (((k + 1) < i) && (tmp_qfl.mtime < qfl[k + 1].mtime))))
+      {
+         k += (((k + 1) < i) && (qfl[k + 1].mtime > qfl[k].mtime));
+         (void)memcpy(&qfl[j], &qfl[k], sizeof(struct queued_file_list));
+         j = k;
+         k = 2 * j + 1;
+      }
+      (void)memcpy(&qfl[j], &tmp_qfl, sizeof(struct queued_file_list));
+   }
+
+   return;
+}
+#else
 
 /*+++++++++++++++++++++++++++++ sort_data() +++++++++++++++++++++++++++++*/
 static void
@@ -637,6 +691,7 @@ sort_data(int start, int end)
 
    return;
 }
+#endif
 
 
 #ifdef _SORT_NOT_WORKING

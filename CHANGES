@@ -997,3 +997,38 @@
              under high load.
 03.03.2002 - Set effective user ID to the user ID of AFD_WORK_DIR.
 ------------------------> Released: 04.03.2002 <---------------------------
+
+
+---------------------------> Version 1.2.13 <------------------------------
+                            ----------------
+06.03.2002 - Include all fixes from pmatch() to sfilter().
+31.03.2002 - Button line in afd_ctrl dialog was not correctly redrawn
+             when number of rows changed due to a host being added or
+             deleted. Fixed.
+02.04.2002 - Central makefile creates install directory bin and sbin
+             if they do not exist.
+04.04.2002 - Failed to reset host_toggle in FSA when toggling the
+             hostname is removed.
+06.04.2002 - Added saving of old core files.
+07.04.2002 - Process AMG started dir_check with the wrong number of
+             local directories causing it crash or behave strangly
+             when a directory was added or removed and only reread
+             HOST_CONFIG was pressed. Reread DIR_CONFIG was fine, but
+             another reread HOST_CONFIG could trigger the bug. Fixed.
+09.04.2002 - Fixed yet another bug in function change_name().
+16.04.2002 - Backward insertion (introduced in 1.2.12) does not work
+             correctly, resulting in a completly unsorted queue and
+             thus priorities did not work. Using a new algorithm
+             which hopefully is faster and does work.
+17.04.2002 - Added counter to store maximum FD queue length on a daily
+             basis.
+19.04.2002 - FD did not remove old jobs from the joblist when it is
+             not in the cache. Fixed.
+           - The active fields for getting detailed information about
+             a process was to far to the right in the afd_ctrl dialog.
+           - Remove any trailing / from the users home path.
+20.04.2002 - Use a new sorting algorithm for sorting.
+22.04.2002 - FD failed to reset correct jobs_queued element in FSA, when
+             retrieving files. Fixed.
+25.04.2002 - FD tried to burst retrieve jobs which is not possible.
+------------------------> Released: 25.04.2002 <---------------------------

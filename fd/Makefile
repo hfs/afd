@@ -17,6 +17,7 @@ FDOBJS     = check_file_dir.o\
              check_msg_time.o\
              check_queue_space.o\
              fd.o\
+             fd_check_fsa.o\
              get_job_data.o\
              get_new_positions.o\
              init_fifos_fd.o\

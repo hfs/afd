@@ -412,7 +412,7 @@ init_afd_load(int  *argc,
    else if (get_arg(argc, argv, SHOW_TRANSFER_LOAD, NULL, 0) == SUCCESS)
         {
            /* Attach to the AFD Status Area */
-           if (attach_afd_status(NULL) < 0)
+           if (attach_afd_status() < 0)
            {
               (void)fprintf(stderr,
                             "Failed to map to AFD status area. (%s %d)\n",

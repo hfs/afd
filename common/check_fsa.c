@@ -1,6 +1,6 @@
 /*
  *  check_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -76,9 +76,7 @@ check_fsa(void)
    {
       char *ptr;
 
-      ptr = (char *)fsa;
-      ptr -= AFD_WORD_OFFSET;
-
+      ptr = (char *)fsa - AFD_WORD_OFFSET;
       if (*(int *)ptr == STALE)
       {
 #ifdef _NO_MMAP

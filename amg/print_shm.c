@@ -74,7 +74,7 @@ main(int argc, char *argv[])
 
    if (argc != 2)
    {
-      (void)fprintf(stderr, "Usage: %s <output filename>\n", argv[1]);
+      (void)fprintf(stderr, "Usage: %s <output filename>\n", argv[0]);
       exit(1);
    }
 

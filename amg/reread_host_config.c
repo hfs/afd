@@ -30,7 +30,8 @@ DESCR__S_M3
  **                           int              *old_no_of_hosts,
  **                           int              *rewrite_host_config,
  **                           size_t           *old_size,
- **                           struct host_list **old_hl)
+ **                           struct host_list **old_hl,
+ **                           int              inform_fd)
  **
  ** DESCRIPTION
  **   This function reads the HOST_CONFIG file and sets the values
@@ -69,6 +70,7 @@ extern char                       host_config_file[],
                                   *pid_list;
 extern struct host_list           *hl;
 extern struct filetransfer_status *fsa;
+extern struct afd_status          *p_afd_status;
 
 
 /*########################## reread_host_config() #######################*/
@@ -77,7 +79,8 @@ reread_host_config(time_t           *hc_old_time,
                    int              *old_no_of_hosts,
                    int              *rewrite_host_config,
                    size_t           *old_size,
-                   struct host_list **old_hl)
+                   struct host_list **old_hl,
+                   int              inform_fd)
 {
    struct stat stat_buf;
 
@@ -444,7 +447,22 @@ reread_host_config(time_t           *hc_old_time,
             dir_check_stopped = YES;
          }
          (void)rec(sys_log_fd, INFO_SIGN, "Changing host alias order.\n");
+         if (inform_fd == YES)
+         {
+            if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
+            {
+               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+            }
+            inform_fd_about_fsa_change();
+         }
          change_alias_order(p_host_names, new_no_of_hosts);
+         if (inform_fd == YES)
+         {
+            if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+            {
+               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+            }
+         }
          free(p_host_names);
       }
 

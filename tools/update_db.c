@@ -83,7 +83,7 @@ main(int argc, char *argv[])
    set_afd_euid(work_dir);
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status() < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to map to AFD status area. (%s %d)\n",

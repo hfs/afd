@@ -513,7 +513,8 @@ main(int argc, char *argv[])
          if ((status = smtp_user(local_user)) != SUCCESS)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to send local user <%s> (%d).", local_user, status);
+                      "Failed to send local user <%s> (%d).",
+                      local_user, status);
             (void)smtp_quit();
             exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
          }
@@ -558,7 +559,8 @@ main(int argc, char *argv[])
             if ((status = smtp_rcpt(remote_user)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to send remote user <%s> (%d).", remote_user, status);
+                         "Failed to send remote user <%s> (%d).",
+                         remote_user, status);
                (void)smtp_quit();
                exit((timeout_flag == ON) ? TIMEOUT_ERROR : REMOTE_USER_ERROR);
             }

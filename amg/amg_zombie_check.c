@@ -1,6 +1,6 @@
 /*
  *  amg_zombie_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,13 +43,25 @@ DESCR__S_M3
  ** HISTORY
  **   10.08.1995 H.Kiehl Created
  **   27.03.1998 H.Kiehl Put this function into a separate file.
+ **   08.04.2002 H.Kiehl Added saving of old core files.
  **
  */
 DESCR__E_M3
 
+#include <stdio.h>                    /* rename()                        */
+#include <string.h>                   /* strerror()                      */
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>                 /* waitpid()                       */
+#include <time.h>
+#include <errno.h>
 #include "amgdefs.h"
+
+#define NO_OF_SAVED_CORE_FILES 5
+
+#ifdef NO_OF_SAVED_CORE_FILES
+extern char *p_work_dir;
+#endif /* NO_OF_SAVED_CORE_FILES */
 
 
 /*########################## amg_zombie_check() #########################*/
@@ -78,13 +90,42 @@ amg_zombie_check(pid_t *proc_id, int option)
       else  if (WIFSIGNALED(status))
             {
                /* abnormal termination */
+#ifdef NO_OF_SAVED_CORE_FILES
+               static int no_of_saved_cores = 0;
+
+               if (no_of_saved_cores < NO_OF_SAVED_CORE_FILES)
+               {
+                  char        core_file[MAX_PATH_LENGTH];
+                  struct stat stat_buf;
+
+                  (void)sprintf(core_file, "%s/core", p_work_dir);
+                  if (stat(core_file, &stat_buf) != -1)
+                  {
+                     char new_core_file[MAX_PATH_LENGTH];
+
+                     (void)sprintf(new_core_file, "%s.%s.%ld.%d",
+                                   core_file, DC_PROC_NAME,
+                                   time(NULL), no_of_saved_cores);
+                     if (rename(core_file, new_core_file) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to rename() %s to %s : %s",
+                                   core_file, new_core_file, strerror(errno));
+                     }
+                     else
+                     {
+                        no_of_saved_cores++;
+                     }
+                  }
+               }
+#endif /* NO_OF_SAVED_CORE_FILES */
                exit_status = DIED;
             }
-            else  if (WIFSTOPPED(status))
-                  {
-                     /* Child stopped */
-                     exit_status = STOPPED;
-                  }
+       else  if (WIFSTOPPED(status))
+             {
+                /* Child stopped */
+                exit_status = STOPPED;
+             }
 
       /* update table */
       if (exit_status < STOPPED)

@@ -1,6 +1,6 @@
 /*
  *  get_send_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,64 +74,79 @@ DESCR__E_M3
 #include "scp1defs.h"
 #endif
 
+#define _WITH_CHANGE_APPEARANCE
+
 /* Global variables */
-Widget           log_output,
-                 send_statusbox_w;
-XmTextPosition   wpr_position;
-struct send_data *db = NULL;
+Widget            log_output,
+                  send_statusbox_w;
+XmTextPosition    wpr_position;
+struct send_data  *db = NULL;
 
 /* External global variables */
-extern Display   *display;
-extern Widget    listbox_w,
-                 statusbox_w,
-                 summarybox_w,
-                 toplevel_w;
-extern char      font_name[],
-                 search_file_name[],
-                 search_directory_name[],
-                 search_recipient[],
-                 search_file_size_str[],
-                 summary_str[],
-                 total_summary_str[];
-extern int       items_selected,
-                 toggles_set,
-                 file_name_length;
-extern time_t    start_time_val,
-                 end_time_val;
+extern Display    *display;
+extern Widget     listbox_w,
+                  statusbox_w,
+                  summarybox_w,
+                  toplevel_w;
+extern char       font_name[],
+                  search_file_name[],
+                  search_directory_name[],
+                  search_recipient[],
+                  search_file_size_str[],
+                  summary_str[],
+                  total_summary_str[];
+extern int        items_selected,
+                  toggles_set,
+                  file_name_length;
+extern time_t     start_time_val,
+                  end_time_val;
 
 /* Local global variables */
-static Widget    hostname_label_w,
-                 hostname_w,
-                 lock_box_w,
-                 mode_box_w,
-                 password_label_w,
-                 password_w,
-                 port_label_w,
-                 port_w,
-                 prefix_w,
-                 sf_shell = (Widget)NULL,
-                 target_dir_label_w,
-                 target_dir_w,
-                 timeout_label_w,
-                 timeout_w,
-                 user_name_label_w,
-                 user_name_w;
+static Widget     hostname_label_w,
+                  hostname_w,
+                  lock_box_w,
+                  mode_box_w,
+                  password_label_w,
+                  password_w,
+                  port_label_w,
+                  port_w,
+                  prefix_w,
+#ifdef _WITH_CHANGE_APPEARANCE
+                  optionbox1_w,
+                  option_menu_w,
+                  recipientbox_w,
+#endif /* _WITH_CHANGE_APPEARANCE */
+                  sf_shell = (Widget)NULL,
+                  target_dir_label_w,
+                  target_dir_w,
+                  timeout_label_w,
+                  timeout_w,
+                  user_name_label_w,
+                  user_name_w;
+static int        local_no_selected,
+                  *local_select_list;
+#ifdef _WITH_CHANGE_APPEARANCE
+static XmFontList p_fontlist;
+#endif
 
 /* Local function prototypes. */
-static void      cancel_send_button(Widget, XtPointer, XtPointer),
-                 debug_toggle(Widget, XtPointer, XtPointer),
-                 enter_passwd(Widget, XtPointer, XtPointer),
-                 lock_radio(Widget, XtPointer, XtPointer),
-                 mode_radio(Widget, XtPointer, XtPointer),
-                 send_save_input(Widget, XtPointer, XtPointer),
-                 send_toggled(Widget, XtPointer, XtPointer),
-                 transmit_button(Widget, XtPointer, XtPointer);
+static void       cancel_send_button(Widget, XtPointer, XtPointer),
+                  debug_toggle(Widget, XtPointer, XtPointer),
+                  enter_passwd(Widget, XtPointer, XtPointer),
+                  lock_radio(Widget, XtPointer, XtPointer),
+                  mode_radio(Widget, XtPointer, XtPointer),
+                  send_save_input(Widget, XtPointer, XtPointer),
+                  send_toggled(Widget, XtPointer, XtPointer),
+                  transmit_button(Widget, XtPointer, XtPointer);
 
 
 /*########################### get_send_data() ###########################*/
 void
-get_send_data(void)
+get_send_data(int no_selected, int *select_list)
 {
+   local_no_selected = no_selected;
+   local_select_list = select_list;
+
    /*
     * First, see if the window has already been created. If
     * no create a new window.
@@ -143,18 +158,23 @@ get_send_data(void)
                       button_w,
                       criteriabox_w,
                       main_form_w,
-                      optionbox_w,
-                      option_menu_w,
                       pane_w,
                       radio_w,
+#ifndef _WITH_CHANGE_APPEARANCE
+                      optionbox1_w,
+                      option_menu_w,
                       recipientbox_w,
+#endif
+                      optionbox2_w,
                       separator_w,
                       separator1_w;
       Boolean         set_button;
       Arg             args[MAXARGS];
       Cardinal        argcount;
       XmString        label;
+#ifndef _WITH_CHANGE_APPEARANCE
       XmFontList      p_fontlist;
+#endif
       XmFontListEntry entry;
 
       if (db == NULL)
@@ -172,6 +192,7 @@ get_send_data(void)
          db->lock = SET_LOCK_DOT;
          db->transfer_mode = SET_BIN;
          db->timeout = DEFAULT_TRANSFER_TIMEOUT;
+         db->smtp_server[0] = '\0';
          if (db->protocol == FTP)
          {
             db->port = DEFAULT_FTP_PORT;
@@ -366,16 +387,19 @@ get_send_data(void)
                                        pane_w, args, argcount);
       XtAddCallback(button_w, XmNactivateCallback, send_toggled,
                     (XtPointer)FTP);
+#ifdef _WHEN_DONE
       button_w = XtCreateManagedWidget("FILE",
                                        xmPushButtonWidgetClass,
                                        pane_w, args, argcount);
       XtAddCallback(button_w, XmNactivateCallback, send_toggled,
                     (XtPointer)LOC);
+#endif /* _WHEN_DONE */
       button_w = XtCreateManagedWidget("MAILTO",
                                        xmPushButtonWidgetClass,
                                        pane_w, args, argcount);
       XtAddCallback(button_w, XmNactivateCallback, send_toggled,
                     (XtPointer)SMTP);
+#ifdef _WHEN_DONE
 #ifdef _WITH_SCP1_SUPPORT
       button_w = XtCreateManagedWidget("SCP1",
                                        xmPushButtonWidgetClass,
@@ -397,6 +421,7 @@ get_send_data(void)
       XtAddCallback(button_w, XmNactivateCallback, send_toggled,
                     (XtPointer)MAP);
 #endif /* _WITH_MAP_SUPPORT */
+#endif /* _WHEN_DONE */
 
       /* User */
       user_name_label_w = XtVaCreateManagedWidget("User :",
@@ -522,7 +547,7 @@ get_send_data(void)
       /*---------------------------------------------------------------*/
       /*                        1st Option Box                         */
       /*---------------------------------------------------------------*/
-      optionbox_w = XtVaCreateManagedWidget("optionbox1",
+      optionbox1_w = XtVaCreateManagedWidget("optionbox1",
                         xmFormWidgetClass,  criteriabox_w,
                         XmNtopAttachment,   XmATTACH_WIDGET,
                         XmNtopWidget,       separator_w,
@@ -532,7 +557,7 @@ get_send_data(void)
 
       /* Directory */
       target_dir_label_w = XtVaCreateManagedWidget("Directory :",
-                        xmLabelGadgetClass,  optionbox_w,
+                        xmLabelGadgetClass,  optionbox1_w,
                         XmNfontList,         p_fontlist,
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNbottomAttachment, XmATTACH_FORM,
@@ -540,7 +565,7 @@ get_send_data(void)
                         XmNalignment,        XmALIGNMENT_END,
                         NULL);
       target_dir_w = XtVaCreateManagedWidget("",
-                        xmTextWidgetClass,   optionbox_w,
+                        xmTextWidgetClass,   optionbox1_w,
                         XmNfontList,         p_fontlist,
                         XmNmarginHeight,     1,
                         XmNmarginWidth,      1,
@@ -565,7 +590,7 @@ get_send_data(void)
 
       /* Transfer timeout. */
       timeout_label_w = XtVaCreateManagedWidget("Timeout :",
-                        xmLabelGadgetClass,  optionbox_w,
+                        xmLabelGadgetClass,  optionbox1_w,
                         XmNfontList,         p_fontlist,
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNbottomAttachment, XmATTACH_FORM,
@@ -574,7 +599,7 @@ get_send_data(void)
                         XmNalignment,        XmALIGNMENT_END,
                         NULL);
       timeout_w = XtVaCreateManagedWidget("",
-                        xmTextWidgetClass,   optionbox_w,
+                        xmTextWidgetClass,   optionbox1_w,
                         XmNfontList,         p_fontlist,
                         XmNmarginHeight,     1,
                         XmNmarginWidth,      1,
@@ -602,7 +627,7 @@ get_send_data(void)
 
       /* Port */
       port_label_w = XtVaCreateManagedWidget("Port :",
-                        xmLabelGadgetClass,  optionbox_w,
+                        xmLabelGadgetClass,  optionbox1_w,
                         XmNfontList,         p_fontlist,
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNbottomAttachment, XmATTACH_FORM,
@@ -611,7 +636,7 @@ get_send_data(void)
                         XmNalignment,        XmALIGNMENT_END,
                         NULL);
       port_w = XtVaCreateManagedWidget("",
-                        xmTextWidgetClass,   optionbox_w,
+                        xmTextWidgetClass,   optionbox1_w,
                         XmNfontList,         p_fontlist,
                         XmNmarginHeight,     1,
                         XmNmarginWidth,      1,
@@ -638,7 +663,7 @@ get_send_data(void)
       /*                      Debug toggle box                         */
       /*---------------------------------------------------------------*/
       buttonbox_w = XtVaCreateWidget("debug_togglebox",
-                        xmRowColumnWidgetClass, optionbox_w,
+                        xmRowColumnWidgetClass, optionbox1_w,
                         XmNorientation,      XmHORIZONTAL,
                         XmNpacking,          XmPACK_TIGHT,
                         XmNnumColumns,       1,
@@ -657,7 +682,7 @@ get_send_data(void)
       db->debug = NO;
       XtManageChild(buttonbox_w);
 
-      XtManageChild(optionbox_w);
+      XtManageChild(optionbox1_w);
 
       /*---------------------------------------------------------------*/
       /*                      Horizontal Separator                     */
@@ -667,7 +692,7 @@ get_send_data(void)
       argcount++;
       XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
       argcount++;
-      XtSetArg(args[argcount], XmNtopWidget,       optionbox_w);
+      XtSetArg(args[argcount], XmNtopWidget,       optionbox1_w);
       argcount++;
       XtSetArg(args[argcount], XmNleftAttachment,  XmATTACH_FORM);
       argcount++;
@@ -680,7 +705,7 @@ get_send_data(void)
       /*---------------------------------------------------------------*/
       /*                       2nd  Option Box                         */
       /*---------------------------------------------------------------*/
-      optionbox_w = XtVaCreateManagedWidget("optionbox2",
+      optionbox2_w = XtVaCreateManagedWidget("optionbox2",
                         xmFormWidgetClass,  criteriabox_w,
                         XmNtopAttachment,   XmATTACH_WIDGET,
                         XmNtopWidget,       separator_w,
@@ -700,7 +725,7 @@ get_send_data(void)
       argcount++;
       XtSetArg(args[argcount], XmNnumColumns,     1);
       argcount++;
-      mode_box_w = XmCreateRadioBox(optionbox_w, "radiobox", args, argcount);
+      mode_box_w = XmCreateRadioBox(optionbox2_w, "radiobox", args, argcount);
       if (db->transfer_mode == SET_ASCII)
       {
          set_button = True;
@@ -766,7 +791,7 @@ get_send_data(void)
       argcount++;
       XtSetArg(args[argcount], XmNleftWidget,       mode_box_w);
       argcount++;
-      separator_w = XmCreateSeparator(optionbox_w, "separator",
+      separator_w = XmCreateSeparator(optionbox2_w, "separator",
                                       args, argcount);
       XtManageChild(separator_w);
 
@@ -784,7 +809,7 @@ get_send_data(void)
       argcount++;
       XtSetArg(args[argcount], XmNnumColumns,     1);
       argcount++;
-      lock_box_w = XmCreateRadioBox(optionbox_w, "radiobox", args, argcount);
+      lock_box_w = XmCreateRadioBox(optionbox2_w, "radiobox", args, argcount);
       if (db->lock == SET_LOCK_DOT)
       {
          set_button = True;
@@ -868,7 +893,7 @@ get_send_data(void)
 
       /* Text box to enter the prefix. */
       prefix_w = XtVaCreateManagedWidget("",
-                        xmTextWidgetClass,   optionbox_w,
+                        xmTextWidgetClass,   optionbox2_w,
                         XmNfontList,         p_fontlist,
                         XmNmarginHeight,     1,
                         XmNmarginWidth,      1,
@@ -887,7 +912,7 @@ get_send_data(void)
                     (XtPointer)PREFIX_ENTER);
       XtSetSensitive(prefix_w, set_button);
 
-      XtManageChild(optionbox_w);
+      XtManageChild(optionbox2_w);
       XtManageChild(criteriabox_w);
 
       /*---------------------------------------------------------------*/
@@ -898,7 +923,7 @@ get_send_data(void)
       argcount++;
       XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
       argcount++;
-      XtSetArg(args[argcount], XmNtopWidget,       optionbox_w);
+      XtSetArg(args[argcount], XmNtopWidget,       optionbox2_w);
       argcount++;
       XtSetArg(args[argcount], XmNleftAttachment,  XmATTACH_FORM);
       argcount++;
@@ -1042,14 +1067,159 @@ mode_radio(Widget w, XtPointer client_data, XtPointer call_data)
 static void
 send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
 {
+#ifdef _WITH_CHANGE_APPEARANCE
+   XmString xstr;
+#endif
+
+   if (db->protocol == (int)client_data)
+   {
+      return;
+   }
    switch ((int)client_data)
    {
       case FTP :
+#ifdef _WITH_CHANGE_APPEARANCE
+         if (password_label_w == NULL)
+         {
+            XtDestroyWidget(user_name_label_w);
+            XtRemoveCallback(user_name_w, XmNlosingFocusCallback,
+                             send_save_input, (XtPointer)USER_NO_ENTER);
+            XtRemoveCallback(user_name_w, XmNactivateCallback,
+                             send_save_input, (XtPointer)USER_ENTER);
+            XtDestroyWidget(user_name_w);
+            XtDestroyWidget(hostname_label_w);
+            XtRemoveCallback(hostname_w, XmNmodifyVerifyCallback, send_save_input,
+                             (XtPointer)HOSTNAME_NO_ENTER);
+            XtRemoveCallback(hostname_w, XmNactivateCallback, send_save_input,
+                             (XtPointer)HOSTNAME_ENTER);
+            XtDestroyWidget(hostname_w);
+            user_name_label_w = XtVaCreateManagedWidget("User :",
+                              xmLabelGadgetClass,  recipientbox_w,
+                              XmNfontList,         p_fontlist,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNbottomAttachment, XmATTACH_FORM,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       option_menu_w,
+                              XmNalignment,        XmALIGNMENT_END,
+                              NULL);
+            user_name_w = XtVaCreateManagedWidget("",
+                              xmTextWidgetClass,   recipientbox_w,
+                              XmNfontList,         p_fontlist,
+                              XmNmarginHeight,     1,
+                              XmNmarginWidth,      1,
+                              XmNshadowThickness,  1,
+                              XmNrows,             1,
+                              XmNcolumns,          10,
+                              XmNmaxLength,        MAX_USER_NAME_LENGTH,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNtopOffset,        6,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       user_name_label_w,
+                              NULL);
+            XtAddCallback(user_name_w, XmNlosingFocusCallback, send_save_input,
+                          (XtPointer)USER_NO_ENTER);
+            XtAddCallback(user_name_w, XmNactivateCallback, send_save_input,
+                          (XtPointer)USER_ENTER);
+
+            /* Password */
+            password_label_w = XtVaCreateManagedWidget("Password :",
+                              xmLabelGadgetClass,  recipientbox_w,
+                              XmNfontList,         p_fontlist,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNbottomAttachment, XmATTACH_FORM,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       user_name_w,
+                              XmNalignment,        XmALIGNMENT_END,
+                              NULL);
+            password_w = XtVaCreateManagedWidget("",
+                              xmTextWidgetClass,   recipientbox_w,
+                              XmNfontList,         p_fontlist,
+                              XmNmarginHeight,     1,
+                              XmNmarginWidth,      1,
+                              XmNshadowThickness,  1,
+                              XmNrows,             1,
+                              XmNcolumns,          8,
+                              XmNmaxLength,        MAX_FILENAME_LENGTH - 1,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNtopOffset,        6,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       password_label_w,
+                              NULL);
+            XtAddCallback(password_w, XmNmodifyVerifyCallback, enter_passwd,
+                          (XtPointer)PASSWORD_NO_ENTER);
+            XtAddCallback(password_w, XmNactivateCallback, enter_passwd,
+                          (XtPointer)PASSWORD_ENTER);
+
+            /* Hostname */
+            hostname_label_w = XtVaCreateManagedWidget("Hostname :",
+                              xmLabelGadgetClass,  recipientbox_w,
+                              XmNfontList,         p_fontlist,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNbottomAttachment, XmATTACH_FORM,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       password_w,
+                              XmNalignment,        XmALIGNMENT_END,
+                              NULL);
+            hostname_w = XtVaCreateManagedWidget("",
+                              xmTextWidgetClass,   recipientbox_w,
+                              XmNfontList,         p_fontlist,
+                              XmNmarginHeight,     1,
+                              XmNmarginWidth,      1,
+                              XmNshadowThickness,  1,
+                              XmNrows,             1,
+                              XmNcolumns,          12,
+                              XmNmaxLength,        MAX_FILENAME_LENGTH - 1,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNtopOffset,        6,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       hostname_label_w,
+                              NULL);
+            XtAddCallback(hostname_w, XmNlosingFocusCallback, send_save_input,
+                          (XtPointer)HOSTNAME_NO_ENTER);
+            XtAddCallback(hostname_w, XmNactivateCallback, send_save_input,
+                          (XtPointer)HOSTNAME_ENTER);
+            xstr = XmStringCreateLtoR("Directory :", XmFONTLIST_DEFAULT_TAG);
+            XtVaSetValues(target_dir_label_w, XmNlabelString, xstr, NULL);
+            XmStringFree(xstr);
+            XmTextSetString(user_name_w, db->user);
+            if ((db->password != NULL) && (db->password[0] != '\0'))
+            {
+               size_t length;
+               char   *password_str;
+
+               length = strlen(db->password);
+               if ((password_str = malloc(length + 1)) == NULL)
+               {
+                  (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
+                                strerror(errno), __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+               else
+               {
+                  (void)memset(password_str, '*', length);
+                  password_str[length] = '\0';
+                  XmTextSetString(password_w, password_str);
+                  free(password_str);
+               }
+            }
+            XmTextSetString(hostname_w, db->hostname);
+            XmTextSetString(target_dir_w, db->target_dir);
+         }
+         else
+         {
+            XtSetSensitive(user_name_label_w, True);
+            XtSetSensitive(user_name_w, True);
+            XtSetSensitive(password_label_w, True);
+            XtSetSensitive(password_w, True);
+            XtSetSensitive(hostname_label_w, True);
+         }
+#else
          XtSetSensitive(user_name_label_w, True);
          XtSetSensitive(user_name_w, True);
          XtSetSensitive(password_label_w, True);
          XtSetSensitive(password_w, True);
          XtSetSensitive(hostname_label_w, True);
+#endif
          XtSetSensitive(hostname_w, True);
          XtSetSensitive(target_dir_label_w, True);
          XtSetSensitive(target_dir_w, True);
@@ -1060,7 +1230,7 @@ send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(mode_box_w, True);
          XtSetSensitive(lock_box_w, True);
          XtSetSensitive(prefix_w, True);
-         if ((db->port == 0) || (db->protocol != FTP))
+         if ((db->port == 0) || (db->port == DEFAULT_SMTP_PORT))
          {
             char str_line[MAX_PORT_DIGITS + 1];
 
@@ -1070,6 +1240,94 @@ send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          }
          break;
       case SMTP :
+#ifdef _WITH_CHANGE_APPEARANCE
+         XtDestroyWidget(user_name_label_w);
+         XtRemoveCallback(user_name_w, XmNlosingFocusCallback, send_save_input,
+                          (XtPointer)USER_NO_ENTER);
+         XtRemoveCallback(user_name_w, XmNactivateCallback, send_save_input,
+                          (XtPointer)USER_ENTER);
+         XtDestroyWidget(user_name_w);
+         XtDestroyWidget(password_label_w);
+         password_label_w = NULL;
+         XtRemoveCallback(password_w, XmNmodifyVerifyCallback, send_save_input,
+                          (XtPointer)PASSWORD_NO_ENTER);
+         XtRemoveCallback(password_w, XmNactivateCallback, send_save_input,
+                          (XtPointer)PASSWORD_ENTER);
+         XtDestroyWidget(password_w);
+         password_w = NULL;
+         XtDestroyWidget(hostname_label_w);
+         XtRemoveCallback(hostname_w, XmNmodifyVerifyCallback, send_save_input,
+                          (XtPointer)HOSTNAME_NO_ENTER);
+         XtRemoveCallback(hostname_w, XmNactivateCallback, send_save_input,
+                          (XtPointer)HOSTNAME_ENTER);
+         XtDestroyWidget(hostname_w);
+         user_name_label_w = XtVaCreateManagedWidget("Address :",
+                             xmLabelGadgetClass,  recipientbox_w,
+                             XmNfontList,         p_fontlist,
+                             XmNtopAttachment,    XmATTACH_FORM,
+                             XmNbottomAttachment, XmATTACH_FORM,
+                             XmNleftAttachment,   XmATTACH_WIDGET,
+                             XmNleftWidget,       option_menu_w,
+                             XmNalignment,        XmALIGNMENT_END,
+                             NULL);
+         user_name_w = XtVaCreateManagedWidget("",
+                             xmTextWidgetClass,   recipientbox_w,
+                             XmNfontList,         p_fontlist,
+                             XmNmarginHeight,     1,
+                             XmNmarginWidth,      1,
+                             XmNshadowThickness,  1,
+                             XmNrows,             1,
+                             XmNcolumns,          25,
+                             XmNmaxLength,        MAX_USER_NAME_LENGTH,
+                             XmNtopAttachment,    XmATTACH_FORM,
+                             XmNtopOffset,        6,
+                             XmNleftAttachment,   XmATTACH_WIDGET,
+                             XmNleftWidget,       user_name_label_w,
+                             NULL);
+         XtAddCallback(user_name_w, XmNlosingFocusCallback, send_save_input,
+                       (XtPointer)USER_NO_ENTER);
+         XtAddCallback(user_name_w, XmNactivateCallback, send_save_input,
+                       (XtPointer)USER_ENTER);
+         hostname_label_w = XtVaCreateManagedWidget("Server :",
+                             xmLabelGadgetClass,  recipientbox_w,
+                             XmNfontList,         p_fontlist,
+                             XmNtopAttachment,    XmATTACH_FORM,
+                             XmNbottomAttachment, XmATTACH_FORM,
+                             XmNleftAttachment,   XmATTACH_WIDGET,
+                             XmNleftWidget,       user_name_w,
+                             XmNalignment,        XmALIGNMENT_END,
+                             NULL);
+         hostname_w = XtVaCreateManagedWidget("",
+                             xmTextWidgetClass,   recipientbox_w,
+                             XmNfontList,         p_fontlist,
+                             XmNmarginHeight,     1,
+                             XmNmarginWidth,      1,
+                             XmNshadowThickness,  1,
+                             XmNrows,             1,
+                             XmNcolumns,          12,
+                             XmNmaxLength,        MAX_FILENAME_LENGTH - 1,
+                             XmNtopAttachment,    XmATTACH_FORM,
+                             XmNtopOffset,        6,
+                             XmNleftAttachment,   XmATTACH_WIDGET,
+                             XmNleftWidget,       hostname_label_w,
+                             NULL);
+         XtAddCallback(hostname_w, XmNlosingFocusCallback, send_save_input,
+                       (XtPointer)HOSTNAME_NO_ENTER);
+         XtAddCallback(hostname_w, XmNactivateCallback, send_save_input,
+                       (XtPointer)HOSTNAME_ENTER);
+         if ((db->hostname[0] == '\0') || (db->smtp_server[0] == '\0'))
+         {
+            (void)strcpy(db->hostname, SMTP_HOST_NAME);
+            (void)strcpy(db->smtp_server, SMTP_HOST_NAME);
+         }
+         XmTextSetString(user_name_w, db->user);
+         XmTextSetString(hostname_w, db->hostname);
+         xstr = XmStringCreateLtoR("Subject   :", XmFONTLIST_DEFAULT_TAG);
+         XtVaSetValues(target_dir_label_w, XmNlabelString, xstr, NULL);
+         XmTextSetString(target_dir_w, db->subject);
+         XmStringFree(xstr);
+         XtSetSensitive(target_dir_w, True);
+#else
          XtSetSensitive(user_name_label_w, True);
          XtSetSensitive(user_name_w, True);
          XtSetSensitive(password_label_w, False);
@@ -1078,6 +1336,7 @@ send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(hostname_w, True);
          XtSetSensitive(target_dir_label_w, False);
          XtSetSensitive(target_dir_w, False);
+#endif
          XtSetSensitive(port_label_w, True);
          XtSetSensitive(port_w, True);
          XtSetSensitive(timeout_label_w, True);
@@ -1085,7 +1344,7 @@ send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, False);
          XtSetSensitive(prefix_w, False);
-         if ((db->port == 0) || (db->protocol != SMTP))
+         if ((db->port == 0) || (db->port == DEFAULT_FTP_PORT))
          {
             char str_line[MAX_PORT_DIGITS + 1];
 
@@ -1128,7 +1387,7 @@ send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, True);
          XtSetSensitive(prefix_w, True);
-         if ((db->port == 0) || (db->protocol != SCP1))
+         if (db->port == 0)
          {
             char str_line[MAX_PORT_DIGITS + 1];
 
@@ -1155,7 +1414,7 @@ send_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(mode_box_w, False);
          XtSetSensitive(lock_box_w, False);
          XtSetSensitive(prefix_w, False);
-         if ((db->port == 0) || (db->protocol != WMO))
+         if (db->port == 0)
          {
             char str_line[MAX_PORT_DIGITS + 1];
 
@@ -1224,7 +1483,14 @@ send_save_input(Widget w, XtPointer client_data, XtPointer call_data)
          break;
 
       case TARGET_DIR_NO_ENTER :
-         (void)strcpy(db->target_dir, value);
+         if (db->protocol == SMTP)
+         {
+            (void)strcpy(db->subject, value);
+         }
+         else
+         {
+            (void)strcpy(db->target_dir, value);
+         }
          break;
 
       case TARGET_DIR_ENTER :
@@ -1384,9 +1650,6 @@ enter_passwd(Widget w, XtPointer client_data, XtPointer call_data)
 static void
 transmit_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   int no_selected,
-       *select_list;
-
    reset_message(send_statusbox_w);
 
    /*
@@ -1439,58 +1702,51 @@ transmit_button(Widget w, XtPointer client_data, XtPointer call_data)
          break;
    }
 
-   if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
+   send_files(local_no_selected, local_select_list);
+   XtFree((char *)local_select_list);
+
+   /*
+    * After resending, see if any items habe been left selected.
+    * If so, create a new summary string or else insert the total
+    * summary string if no items are left selected.
+    */
+   if (XmListGetSelectedPos(listbox_w, &local_select_list, &local_no_selected) == True)
    {
-      send_files(no_selected, select_list);
-      XtFree((char *)select_list);
+      int    i;
+      time_t date,
+             first_date_found,
+             last_date_found;
+      double current_file_size,
+             current_trans_time,
+             file_size = 0.0,
+             trans_time = 0.0;
 
-      /*
-       * After resending, see if any items habe been left selected.
-       * If so, create a new summary string or else insert the total
-       * summary string if no items are left selected.
-       */
-      if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
+      first_date_found = -1;
+      for (i = 0; i < local_no_selected; i++)
       {
-         int    i;
-         time_t date,
-                first_date_found,
-                last_date_found;
-         double current_file_size,
-                current_trans_time,
-                file_size = 0.0,
-                trans_time = 0.0;
-
-         first_date_found = -1;
-         for (i = 0; i < no_selected; i++)
+         if (get_sum_data((local_select_list[i] - 1),
+                          &date, &current_file_size,
+                          &current_trans_time) == INCORRECT)
          {
-            if (get_sum_data((select_list[i] - 1),
-                             &date, &current_file_size,
-                             &current_trans_time) == INCORRECT)
-            {
-               return;
-            }
-            if (first_date_found == -1)
-            {
-               first_date_found = date;
-            }
-            file_size += current_file_size;
-            trans_time += current_trans_time;
+            return;
          }
-         last_date_found = date;
-         XtFree((char *)select_list);
-         calculate_summary(summary_str, first_date_found, last_date_found,
-                           no_selected, file_size, trans_time);
+         if (first_date_found == -1)
+         {
+            first_date_found = date;
+         }
+         file_size += current_file_size;
+         trans_time += current_trans_time;
       }
-      else
-      {
-         (void)strcpy(summary_str, total_summary_str);
-      }
-      XmTextSetString(summarybox_w, summary_str);
+      last_date_found = date;
+      XtFree((char *)local_select_list);
+      calculate_summary(summary_str, first_date_found, last_date_found,
+                        local_no_selected, file_size, trans_time);
    }
    else
    {
-      show_message(statusbox_w, "No file selected!");
+      (void)strcpy(summary_str, total_summary_str);
    }
+   XmTextSetString(summarybox_w, summary_str);
 
    return;
 }

@@ -81,7 +81,8 @@ fsa_attach(void)
 {
    int          fd,
                 loop_counter,
-                retries = 0;
+                retries = 0,
+                timeout_loops = 0;
    char         *ptr = NULL,
                 *p_fsa_stat_file,
                 fsa_id_file[MAX_PATH_LENGTH],
@@ -105,6 +106,7 @@ fsa_attach(void)
       if ((no_of_hosts < 0) && (fsa != NULL))
       {
          /* Unmap from FSA */
+         ptr = (char *)fsa - AFD_WORD_OFFSET;
 #ifdef _NO_MMAP
          if (munmap_emu((void *)fsa) == -1)
          {
@@ -117,28 +119,25 @@ fsa_attach(void)
             fsa = NULL;
          }
 #else
-         (void)sprintf(p_fsa_stat_file, ".%d", fsa_id);
-
-         if (stat(fsa_stat_file, &stat_buf) == -1)
+         if (munmap(ptr, fsa_size) == -1)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() %s : %s",
+                       "Failed to munmap() %s : %s",
                        fsa_stat_file, strerror(errno));
          }
          else
          {
-            if (munmap((void *)fsa, stat_buf.st_size) == -1)
-            {
-               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                          "Failed to munmap() %s : %s",
-                          fsa_stat_file, strerror(errno));
-            }
-            else
-            {
-               fsa = NULL;
-            }
+            fsa = NULL;
          }
 #endif
+
+         timeout_loops++;
+         if (timeout_loops > 100)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Unable to attach to a new FSA.");
+            return(INCORRECT);
+         }
 
          /* No need to speed things up here */
          my_usleep(800000L);
@@ -268,13 +267,13 @@ fsa_attach(void)
 
       /* Read number of current FSA */
       no_of_hosts = *(int *)ptr;
-   } while (no_of_hosts <= 0);
 
-   ptr += AFD_WORD_OFFSET;
-   fsa = (struct filetransfer_status *)ptr;
+      ptr += AFD_WORD_OFFSET;
+      fsa = (struct filetransfer_status *)ptr;
 #ifndef _NO_MMAP
-   fsa_size = stat_buf.st_size;
+      fsa_size = stat_buf.st_size;
 #endif
+   } while (no_of_hosts <= 0);
 
    return(SUCCESS);
 }

@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,6 +61,8 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
+#define _WITH_HEAPSORT
+
 /* External global variables */
 extern int                        mdb_fd,
                                   qb_fd,
@@ -89,12 +91,19 @@ static int                        *no_of_job_ids,
                                   removed_messages,
                                   *rjl, /* removed job list */
                                   *rml; /* removed message list */
+static struct job_id_data         *jd;
 
 /* Local function prototypes */
 static void                       read_current_msg_list(int **, int *),
+                                  remove_jobs(int, off_t *, char *),
+#ifdef _WITH_HEAPSORT
+                                  sort_array(int);
+#else
                                   sort_array(int, int);
-static int                        remove_job(int, int, struct job_id_data *,
-                                             unsigned int);
+#endif
+static int                        list_job_to_remove(int, int,
+                                                     struct job_id_data *,
+                                                     unsigned int);
 
 
 /*########################## init_msg_buffer() ##########################*/
@@ -111,7 +120,6 @@ init_msg_buffer(void)
    char               *ptr,
                       job_id_data_file[MAX_PATH_LENGTH];
    struct stat        stat_buf;
-   struct job_id_data *jd;
    DIR                *dp;
 
    removed_jobs = removed_messages = 0;
@@ -322,15 +330,15 @@ stat_again:
     * the cache. All messages that are in the current message list
     * are marked.
     */
+   for (i = 0; i < *no_msg_cached; i++)
+   {
+      mdb[i].in_current_fsa = NO;
+   }
    if ((mdb != NULL) && (*no_msg_cached > 0))
    {
       register int gotcha,
                    j;
 
-      for (i = 0; i < *no_msg_cached; i++)
-      {
-         mdb[i].in_current_fsa = NO;
-      }
       for (i = 0; i < no_of_current_msg; i++)
       {
          gotcha = NO;
@@ -491,7 +499,7 @@ stat_again:
                 */
                if (gotcha == NO)
                {
-                  (void)remove_job(i, jd_fd, jd, job_id);
+                  (void)list_job_to_remove(i, jd_fd, jd, job_id);
                } /* if (gotcha == NO) */
             }
          }
@@ -511,110 +519,7 @@ stat_again:
                    strerror(errno), __FILE__, __LINE__);
       }
 
-      if (removed_jobs > 0)
-      {
-         lock_region_w(jd_fd, 1);
-         sort_array(0, removed_jobs - 1);
-
-         /*
-          * Always ensure that the JID structure size did NOT
-          * change, else we might be moving things that do not
-          * belong to us!
-          */
-         if (((*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET) > jid_struct_size)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Hmmmm. Size of %s is %d Bytes, but calculation says it should be %d Bytes! (%s %d)\n",
-                      JOB_ID_DATA_FILE, jid_struct_size,
-                      (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET,
-                      __FILE__, __LINE__);
-            ptr = (char *)jd - AFD_WORD_OFFSET;
-            if (munmap(ptr, jid_struct_size) == -1)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "munmap() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
-            }
-            if (fstat(jd_fd, &stat_buf) == -1)
-            {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Failed to fstat() %s : %s (%s %d)\n",
-                         job_id_data_file, strerror(errno),
-                         __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-            if (stat_buf.st_size > 0)
-            {
-               if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
-                               MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to mmap() to %s : %s (%s %d)\n",
-                            job_id_data_file, strerror(errno),
-                            __FILE__, __LINE__);
-                  exit(INCORRECT);
-               }
-               no_of_job_ids = (int *)ptr;
-               ptr += AFD_WORD_OFFSET;
-               jd = (struct job_id_data *)ptr;
-               jid_struct_size = stat_buf.st_size;
-            }
-            else
-            {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "File %s is empty! Terminating, don't know what to do :-( (%s %d)\n",
-                         job_id_data_file, __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-         }
-
-         for (i = 0; i < removed_jobs; i++)
-         {
-            int end_pos = i,
-                j,
-                jobs_deleted,
-                start_pos = i;
-
-            while ((++end_pos < removed_jobs) &&
-                   ((rjl[end_pos - 1] + 1) == rjl[end_pos]))
-            {
-               /* Nothing to be done. */;
-            }
-            if (rjl[end_pos - 1] != (*no_of_job_ids - 1))
-            {
-               size_t move_size = (*no_of_job_ids - (rjl[end_pos - 1] + 1)) *
-                                  sizeof(struct job_id_data);
-
-#ifdef _DEBUG
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "no_of_job_ids = %d|struct size = %d|move_size = %d|&jd[%d] = %d|&jd[%d] = %d (%s %d)\n",
-                         *no_of_job_ids, sizeof(struct job_id_data),
-                         move_size, rjl[i], &jd[rjl[i]],
-                         rjl[end_pos - 1] + 1, &jd[rjl[end_pos - 1] + 1],
-                         __FILE__, __LINE__);
-#endif /* _DEBUG */
-               (void)memmove(&jd[rjl[i]], &jd[rjl[end_pos - 1] + 1], move_size);
-            }
-            jobs_deleted = end_pos - i;
-            (*no_of_job_ids) -= jobs_deleted;
-            i += (end_pos - i - 1);
-            for (j = (i + 1); j < removed_jobs; j++)
-            {
-               if (rjl[j] > rjl[start_pos])
-               {
-                  rjl[j] -= jobs_deleted;
-               }
-            }
-         } /* for (i = 0; i < removed_jobs; i++) */
-         unlock_region(jd_fd, 1);
-#ifdef _DEBUG
-         (void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
-                   *no_of_job_ids, __FILE__, __LINE__);
-#endif /* _DEBUG */
-         free(rjl);
-         rjl = NULL;
-         removed_jobs = 0;
-      }
+      remove_jobs(jd_fd, &jid_struct_size, job_id_data_file);
 
       /*
        * Lets go through the message cache again and locate any jobs
@@ -648,9 +553,12 @@ stat_again:
 
                   if ((new_pos = get_host_position(fsa, mdb[i].host_name, no_of_hosts)) == INCORRECT)
                   {
-                     (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "Hmm. Host %s is no longer in the FSA. Removed it from cache. (%s %d)\n",
-                               mdb[i].host_name, __FILE__, __LINE__);
+                     if (remove_flag == NO)
+                     {
+                        (void)rec(sys_log_fd, DEBUG_SIGN,
+                                  "Hmm. Host %s is no longer in the FSA. Removed it from cache. (%s %d)\n",
+                                  mdb[i].host_name, __FILE__, __LINE__);
+                     }
                      mdb[i].fsa_pos = -1; /* So remove_files() does NOT write to FSA! */
                      remove_flag = YES;
                   }
@@ -673,9 +581,12 @@ stat_again:
                if ((new_pos = get_host_position(fsa, mdb[i].host_name,
                                                 no_of_hosts)) == INCORRECT)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Hmm. Host %s is no longer in the FSA. Removed it from cache. (%s %d)\n",
-                            mdb[i].host_name, __FILE__, __LINE__);
+                  if (remove_flag == NO)
+                  {
+                     (void)rec(sys_log_fd, DEBUG_SIGN,
+                               "Hmm. Host %s is no longer in the FSA. Removed it from cache. (%s %d)\n",
+                               mdb[i].host_name, __FILE__, __LINE__);
+                  }
                   mdb[i].fsa_pos = -1; /* So remove_files() does NOT write to FSA! */
                   remove_flag = YES;
                }
@@ -694,7 +605,7 @@ stat_again:
             if (remove_flag == YES)
             {
                (void)sprintf(p_msg_dir, "%d", mdb[i].job_id);
-               if (remove_job(i, jd_fd, jd, mdb[i].job_id) == SUCCESS)
+               if (list_job_to_remove(i, jd_fd, jd, mdb[i].job_id) == SUCCESS)
                {
                   i--;
                }
@@ -704,109 +615,7 @@ stat_again:
 
          free(ck_ml);
       }
-
-      if (removed_jobs > 0)
-      {
-         lock_region_w(jd_fd, 1);
-         sort_array(0, removed_jobs - 1);
-
-         /*
-          * Always ensure that the JID structure size did NOT
-          * change, else we might be moving things that do not
-          * belong to us!
-          */
-         if (((*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET) > jid_struct_size)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Hmmmm. Size of %s is %d Bytes, but calculation says it should be %d Bytes! (%s %d)\n",
-                      JOB_ID_DATA_FILE, jid_struct_size,
-                      (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET,
-                      __FILE__, __LINE__);
-            ptr = (char *)jd - AFD_WORD_OFFSET;
-            if (munmap(ptr, jid_struct_size) == -1)
-            {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "munmap() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
-            }
-            if (fstat(jd_fd, &stat_buf) == -1)
-            {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Failed to fstat() %s : %s (%s %d)\n",
-                         job_id_data_file, strerror(errno),
-                         __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-            if (stat_buf.st_size > 0)
-            {
-               if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
-                               MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
-               {
-                  (void)rec(sys_log_fd, FATAL_SIGN,
-                            "Failed to mmap() to %s : %s (%s %d)\n",
-                            job_id_data_file, strerror(errno),
-                            __FILE__, __LINE__);
-                  exit(INCORRECT);
-               }
-               no_of_job_ids = (int *)ptr;
-               ptr += AFD_WORD_OFFSET;
-               jd = (struct job_id_data *)ptr;
-               jid_struct_size = stat_buf.st_size;
-            }
-            else
-            {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "File %s is empty! Terminating, don't know what to do :-( (%s %d)\n",
-                         job_id_data_file, __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-         }
-
-         for (i = 0; i < removed_jobs; i++)
-         {
-            int end_pos = i,
-                j,
-                jobs_deleted,
-                start_pos = i;
-
-            while ((++end_pos < removed_jobs) &&
-                   ((rjl[end_pos - 1] + 1) == rjl[end_pos]))
-            {
-               /* Nothing to be done. */;
-            }
-            if (rjl[end_pos - 1] != (*no_of_job_ids - 1))
-            {
-               size_t move_size = (*no_of_job_ids - (rjl[end_pos - 1] + 1)) *
-                                  sizeof(struct job_id_data);
-
-#ifdef _DEBUG
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "no_of_job_ids = %d|struct size = %d|move_size = %d|&jd[%d] = %d|&jd[%d] = %d (%s %d)\n",
-                         *no_of_job_ids, sizeof(struct job_id_data),
-                         move_size, rjl[i], &jd[rjl[i]],
-                         rjl[end_pos - 1] + 1, &jd[rjl[end_pos - 1] + 1],
-                         __FILE__, __LINE__);
-#endif /* _DEBUG */
-               (void)memmove(&jd[rjl[i]], &jd[rjl[end_pos - 1] + 1], move_size);
-            }
-            jobs_deleted = end_pos - i;
-            (*no_of_job_ids) -= jobs_deleted;
-            i += (end_pos - i - 1);
-            for (j = (i + 1); j < removed_jobs; j++)
-            {
-               if (rjl[j] > rjl[start_pos])
-               {
-                  rjl[j] -= jobs_deleted;
-               }
-            }
-         } /* for (i = 0; i < removed_jobs; i++) */
-         unlock_region(jd_fd, 1);
-#ifdef _DEBUG
-         (void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
-                   *no_of_job_ids, __FILE__, __LINE__);
-#endif /* _DEBUG */
-         free(rjl);
-      }
+      remove_jobs(jd_fd, &jid_struct_size, job_id_data_file);
    }
 #endif /* _OUTPUT_LOG */
 
@@ -931,12 +740,12 @@ read_current_msg_list(int **cml, int *no_of_current_msg)
 }
 
 
-/*++++++++++++++++++++++++++++ remove_job() +++++++++++++++++++++++++++++*/
+/*++++++++++++++++++++++++ list_job_to_remove() +++++++++++++++++++++++++*/
 static int
-remove_job(int                cache_pos,
-           int                jd_fd,
-           struct job_id_data *jd,
-           unsigned int       job_id)
+list_job_to_remove(int                cache_pos,
+                   int                jd_fd,
+                   struct job_id_data *jd,
+                   unsigned int       job_id)
 {
    int dir_id_pos = -1,
        j,
@@ -1081,73 +890,65 @@ remove_job(int                cache_pos,
       }
    }
 
-   if (cache_pos < *no_msg_cached)
+   /* Remember the position in jd structure where we */
+   /* have to remove the job.                        */
+   for (j = 0; j < *no_of_job_ids; j++)
    {
-      /* Remove it from job_id_data structure. */
-      for (j = 0; j < *no_of_job_ids; j++)
+      if (jd[j].job_id == job_id)
       {
-         if (jd[j].job_id == mdb[cache_pos].job_id)
+         /*
+          * Before we remove it, lets remember the
+          * directory ID from where it came from.
+          * So we can remove any stale directory
+          * entries in the dir_name_buf structure.
+          */
+         dir_id_pos = jd[j].dir_id_pos;
+
+         if ((removed_jobs % 10) == 0)
          {
-            /*
-             * Before we remove it, lets remember the
-             * directory ID from where it came from.
-             * So we can remove any stale directory
-             * entries in the dir_name_buf structure.
-             */
-            dir_id_pos = jd[j].dir_id_pos;
+            size_t new_size = ((removed_jobs / 10) + 1) * 10 * sizeof(int);
 
-            if ((removed_jobs % 10) == 0)
+            if (removed_jobs == 0)
             {
-               size_t new_size = ((removed_jobs / 10) + 1) * 10 * sizeof(int);
-
-               if (removed_jobs == 0)
+               if ((rjl = malloc(new_size)) == NULL)
                {
-                  if ((rjl = malloc(new_size)) == NULL)
-                  {
-                     (void)rec(sys_log_fd, FATAL_SIGN,
-                               "Could not malloc() memory : %s (%s %d)\n",
-                               strerror(errno), __FILE__, __LINE__);
-                     exit(INCORRECT);
-                  }
-               }
-               else
-               {
-                  if ((rjl = realloc(rjl, new_size)) == NULL)
-                  {
-                     (void)rec(sys_log_fd, FATAL_SIGN,
-                               "Could not realloc() memory : %s (%s %d)\n",
-                               strerror(errno), __FILE__, __LINE__);
-                     exit(INCORRECT);
-                  }
+                  (void)rec(sys_log_fd, FATAL_SIGN,
+                            "Could not malloc() memory : %s (%s %d)\n",
+                            strerror(errno), __FILE__, __LINE__);
+                  exit(INCORRECT);
                }
             }
-            removed_job_pos = rjl[removed_jobs] = j;
-            removed_jobs++;
+            else
+            {
+               if ((rjl = realloc(rjl, new_size)) == NULL)
+               {
+                  (void)rec(sys_log_fd, FATAL_SIGN,
+                            "Could not realloc() memory : %s (%s %d)\n",
+                            strerror(errno), __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+            }
+         }
+         removed_job_pos = rjl[removed_jobs] = j;
+         removed_jobs++;
+         break;
+      }
+   }
+   if (dir_id_pos != -1)
+   {
+      /*
+       * Go through job list and make sure no other job
+       * has the same dir_id_pos, ie is using this directory
+       * as its source directory.
+       */
+      for (j = 0; j < *no_of_job_ids; j++)
+      {
+         if ((removed_job_pos != j) && (dir_id_pos == jd[j].dir_id_pos))
+         {
+            dir_id_pos = -1;
             break;
          }
       }
-      if (dir_id_pos != -1)
-      {
-         /*
-          * Go through job list and make sure no other job
-          * has the same dir_id_pos, ie is using this directory
-          * as its source directory.
-          */
-         for (j = 0; j < *no_of_job_ids; j++)
-         {
-            if ((removed_job_pos != j) && (dir_id_pos == jd[j].dir_id_pos))
-            {
-               dir_id_pos = -1;
-               break;
-            }
-         }
-      }
-   } /* if (cache_pos < *no_msg_cached) */
-   else
-   {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "How can this be?! cache_pos [%d] is not less then no_msg_cached [%d]. (%s %d)\n",
-                cache_pos, *no_msg_cached, __FILE__, __LINE__);
    }
 
    /* Remove message from message directory. */
@@ -1197,21 +998,20 @@ remove_job(int                cache_pos,
     * messages are still there, we would delete the
     * current message cache.
     */
-   if ((cache_pos != *no_msg_cached) &&
-       (mdb[cache_pos].job_id == job_id) &&
-       (mdb[cache_pos].in_current_fsa != YES))
+   if (cache_pos < *no_msg_cached)
    {
-      /* Remove message from msg_cache_buf structure. */
-      if (cache_pos != (*no_msg_cached - 1))
+      if ((cache_pos != (*no_msg_cached - 1)) &&
+          (mdb[cache_pos].job_id == job_id) &&
+          (mdb[cache_pos].in_current_fsa != YES))
       {
-         int    j;
-         size_t move_size = (*no_msg_cached - 1 - cache_pos) *
-                            sizeof(struct msg_cache_buf);
+         register int j;
+         size_t       move_size = (*no_msg_cached - 1 - cache_pos) *
+                                  sizeof(struct msg_cache_buf);
 
          /*
           * The position in struct queue_buf is no longer
           * correct. Update all positions that are larger
-          * then i.
+          * then cache_pos.
           */
          for (j = 0; j < *no_msg_queued; j++)
          {
@@ -1219,42 +1019,6 @@ remove_job(int                cache_pos,
             {
                qb[j].pos--;
             }
-            else if ((qb[j].pos == cache_pos) && (qb[j].pid < 1))
-                 {
-                    /*
-                     * NOOOO. There may not be any message in the queue.
-                     * Remove it if there is one.
-                     */
-                    if (qb[j].msg_name[0] != '\0')
-                    {
-                       char *ptr,
-                            *p_job_dir;
-
-                       if (qb[j].in_error_dir == YES)
-                       {
-                          p_job_dir = err_file_dir;
-                          ptr = p_err_file_dir;
-                          (void)sprintf(p_err_file_dir, "%s/%s",
-                                        mdb[qb[j].pos].host_name,
-                                        qb[j].msg_name);
-                       }
-                       else
-                       {
-                          p_job_dir = file_dir;
-                          ptr = p_file_dir;
-                          (void)strcpy(p_file_dir, qb[j].msg_name);
-                       }
-#ifdef _DELETE_LOG
-                       remove_files(p_job_dir, mdb[qb[j].pos].fsa_pos,
-                                    mdb[qb[j].pos].job_id, USER_DEL);
-#else
-                       remove_files(p_job_dir, -1);
-#endif
-                       *ptr = '\0';
-                    }
-                    remove_msg(j);
-                    j--;
-                 }
          } /* for (j = 0; j < *no_msg_queued; j++) */
 
          /*
@@ -1262,52 +1026,13 @@ remove_job(int                cache_pos,
           */
          (void)memmove(&mdb[cache_pos], &mdb[cache_pos + 1], move_size);
       }
-      else
-      {
-         /*
-          * Don't forget to throw away any messages in the queue
-          * for which we want to remove the data in the cache.
-          */
-         for (j = 0; j < *no_msg_queued; j++)
-         {
-            if ((qb[j].pos == cache_pos) && (qb[j].pid < 1))
-            {
-               /*
-                * NOOOO. There may not be any message in the queue.
-                * Remove it if there is one.
-                */
-               if (qb[j].msg_name[0] != '\0')
-               {
-                  char *ptr,
-                       *p_job_dir;
-
-                  if (qb[j].in_error_dir == YES)
-                  {
-                     p_job_dir = err_file_dir;
-                     ptr = p_err_file_dir;
-                     (void)sprintf(p_err_file_dir, "%s/%s",
-                                   mdb[qb[j].pos].host_name, qb[j].msg_name);
-                  }
-                  else
-                  {
-                     p_job_dir = file_dir;
-                     ptr = p_file_dir;
-                     (void)strcpy(p_file_dir, qb[j].msg_name);
-                  }
-#ifdef _DELETE_LOG
-                  remove_files(p_job_dir, mdb[qb[j].pos].fsa_pos,
-                               mdb[qb[j].pos].job_id, USER_DEL);
-#else
-                  remove_files(p_job_dir, -1);
-#endif
-                  *ptr = '\0';
-               }
-               remove_msg(j);
-               j--;
-            }
-         }
-      }
       (*no_msg_cached)--;
+   }
+   else
+   {
+      (void)rec(sys_log_fd, DEBUG_SIGN,
+                "Hmmm, whats this!? cache_pos (%d) >= *no_msg_cached (%d)! (%s %d)\n",
+                cache_pos, *no_msg_cached, __FILE__, __LINE__);
    }
 
    /*
@@ -1360,32 +1085,42 @@ remove_job(int                cache_pos,
          ptr += AFD_WORD_OFFSET;
          dnb = (struct dir_name_buf *)ptr;
 
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "Removing %s [%d] from dir_name_buf structure.\n",
-                   dnb[dir_id_pos].dir_name, dnb[dir_id_pos].dir_id);
-         if (dir_id_pos != (*no_of_dir_names - 1))
+         if (dir_id_pos < *no_of_dir_names)
          {
-            int    k;
-            size_t move_size = (*no_of_dir_names - 1 - dir_id_pos) *
-                               sizeof(struct dir_name_buf);
-
-            (void)memmove(&dnb[dir_id_pos], &dnb[dir_id_pos + 1], move_size);
-
-            /*
-             * Correct position dir_id_pos in struct job_id_data.
-             */
-            lock_region_w(jd_fd, 1);
-            for (k = 0; k < *no_of_job_ids; k++)
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Removing %s [%d] from dir_name_buf structure.\n",
+                      dnb[dir_id_pos].dir_name, dnb[dir_id_pos].dir_id);
+            if (dir_id_pos != (*no_of_dir_names - 1))
             {
-               if ((removed_job_pos != k) &&
-                   (jd[k].dir_id_pos > dir_id_pos))
+               int    k;
+               size_t move_size = (*no_of_dir_names - 1 - dir_id_pos) *
+                                  sizeof(struct dir_name_buf);
+
+               (void)memmove(&dnb[dir_id_pos], &dnb[dir_id_pos + 1], move_size);
+
+               /*
+                * Correct position dir_id_pos in struct job_id_data.
+                */
+               lock_region_w(jd_fd, 1);
+               for (k = 0; k < *no_of_job_ids; k++)
                {
-                  jd[k].dir_id_pos--;
+                  if ((removed_job_pos != k) &&
+                      (jd[k].dir_id_pos > dir_id_pos))
+                  {
+                     jd[k].dir_id_pos--;
+                  }
                }
+               unlock_region(jd_fd, 1);
             }
-            unlock_region(jd_fd, 1);
+            (*no_of_dir_names)--;
          }
-         (*no_of_dir_names)--;
+         else
+         {
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "Hmmm, whats this? dir_id_pos (%d) >= *no_of_dir_names (%d)!? (%s %d)\n",
+                      dir_id_pos, *no_of_dir_names,
+                      __FILE__, __LINE__);
+         }
 
          ptr -= AFD_WORD_OFFSET;
          if (munmap(ptr, stat_buf.st_size) == -1)
@@ -1406,6 +1141,171 @@ remove_job(int                cache_pos,
 
    return(SUCCESS);
 }
+
+
+/*+++++++++++++++++++++++++++ remove_jobs() +++++++++++++++++++++++++++++*/
+static void
+remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
+{
+   if (removed_jobs > 0)
+   {
+      int i;
+
+      lock_region_w(jd_fd, 1);
+#ifdef _WITH_HEAPSORT
+      sort_array(removed_jobs);
+#else
+      sort_array(0, removed_jobs - 1);
+#endif
+
+      /*
+       * Always ensure that the JID structure size did NOT
+       * change, else we might be moving things that do not
+       * belong to us!
+       */
+      if (((*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET) > *jid_struct_size)
+      {
+         char        *ptr;
+         struct stat stat_buf;
+
+         (void)rec(sys_log_fd, DEBUG_SIGN,
+                   "Hmmmm. Size of %s is %d Bytes, but calculation says it should be %d Bytes! (%s %d)\n",
+                   JOB_ID_DATA_FILE, *jid_struct_size,
+                   (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET,
+                   __FILE__, __LINE__);
+         ptr = (char *)jd - AFD_WORD_OFFSET;
+         if (munmap(ptr, *jid_struct_size) == -1)
+         {
+            (void)rec(sys_log_fd, ERROR_SIGN,
+                      "munmap() error : %s (%s %d)\n",
+                      strerror(errno), __FILE__, __LINE__);
+         }
+         if (fstat(jd_fd, &stat_buf) == -1)
+         {
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Failed to fstat() %s : %s (%s %d)\n",
+                      job_id_data_file, strerror(errno),
+                      __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+         if (stat_buf.st_size > 0)
+         {
+            if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                            MAP_SHARED, jd_fd, 0)) == (caddr_t) -1)
+            {
+               (void)rec(sys_log_fd, FATAL_SIGN,
+                         "Failed to mmap() to %s : %s (%s %d)\n",
+                         job_id_data_file, strerror(errno),
+                         __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+            no_of_job_ids = (int *)ptr;
+            ptr += AFD_WORD_OFFSET;
+            jd = (struct job_id_data *)ptr;
+            *jid_struct_size = stat_buf.st_size;
+         }
+         else
+         {
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "File %s is empty! Terminating, don't know what to do :-( (%s %d)\n",
+                      job_id_data_file, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+
+      for (i = 0; i < removed_jobs; i++)
+      {
+         int end_pos = i,
+             j,
+             jobs_deleted,
+             start_pos = i;
+
+         while ((++end_pos < removed_jobs) &&
+                ((rjl[end_pos - 1] + 1) == rjl[end_pos]))
+         {
+            /* Nothing to be done. */;
+         }
+         if (rjl[end_pos - 1] != (*no_of_job_ids - 1))
+         {
+            size_t move_size = (*no_of_job_ids - (rjl[end_pos - 1] + 1)) *
+                               sizeof(struct job_id_data);
+
+#ifdef _DEBUG
+            (void)rec(sys_log_fd, DEBUG_SIGN,
+                      "no_of_job_ids = %d|struct size = %d|move_size = %d|&jd[%d] = %d|&jd[%d] = %d (%s %d)\n",
+                      *no_of_job_ids, sizeof(struct job_id_data),
+                      move_size, rjl[i], &jd[rjl[i]],
+                      rjl[end_pos - 1] + 1, &jd[rjl[end_pos - 1] + 1],
+                      __FILE__, __LINE__);
+#endif /* _DEBUG */
+            (void)memmove(&jd[rjl[i]], &jd[rjl[end_pos - 1] + 1], move_size);
+         }
+         jobs_deleted = end_pos - i;
+         (*no_of_job_ids) -= jobs_deleted;
+         i += (end_pos - i - 1);
+         for (j = (i + 1); j < removed_jobs; j++)
+         {
+            if (rjl[j] > rjl[start_pos])
+            {
+               rjl[j] -= jobs_deleted;
+            }
+         }
+      } /* for (i = 0; i < removed_jobs; i++) */
+      unlock_region(jd_fd, 1);
+#ifdef _DEBUG
+      (void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
+                *no_of_job_ids, __FILE__, __LINE__);
+#endif /* _DEBUG */
+      free(rjl);
+      rjl = NULL;
+      removed_jobs = 0;
+   }
+   return;
+}
+
+
+#ifdef _WITH_HEAPSORT
+/*+++++++++++++++++++++++++++++ sort_array() ++++++++++++++++++++++++++++*/
+/*                              ------------                             */
+/* Description: Heapsort found in linux kernel mailing list from         */
+/*              Jamie Lokier.                                            */
+/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+static void
+sort_array(int count)
+{
+   int i, j, k, tmp;
+
+   for (i = 1; i < count; i++)
+   {
+      j = i;
+      tmp = rjl[j];
+      while ((j > 0) && (tmp > rjl[(j - 1) / 2]))
+      {
+         rjl[j] = rjl[(j - 1) / 2];
+         j = (j - 1) / 2;
+      }
+      rjl[j] = tmp;
+   }
+   for (i = (count - 1); i > 0; i--)
+   {
+      j = 0;
+      k = 1;
+      tmp = rjl[i];
+      rjl[i] = rjl[0];
+      while ((k < i) &&
+             ((tmp < rjl[k]) || (((k + 1) < i) && (tmp < rjl[k + 1]))))
+      {
+         k += (((k + 1) < i) && (rjl[k + 1] > rjl[k]));
+         rjl[j] = rjl[k];
+         j = k;
+         k = 2 * j + 1;
+      }
+      rjl[j] = tmp;
+   }
+
+   return;
+}
+#else
 
 
 /*+++++++++++++++++++++++++++++ sort_array() ++++++++++++++++++++++++++++*/
@@ -1447,3 +1347,4 @@ sort_array(int start, int end)
 
    return;
 }
+#endif

@@ -1,6 +1,6 @@
 /*
  *  ftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1315,7 +1315,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "ftp_data(): Failed to connect() to : %s", strerror(errno));
+                      "ftp_data(): connect() error : %s", strerror(errno));
             (void)close(new_sock_fd);
             return(INCORRECT);
          }

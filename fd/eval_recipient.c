@@ -94,7 +94,7 @@ eval_recipient(char *recipient, struct job *p_db, char *full_msg_path)
 
       ptr += 3; /* Away with '://' */
 
-      if (*ptr == '$')
+      if (*ptr == MAIL_GROUP_IDENTIFIER)
       {
          ptr++;
          i = 0;

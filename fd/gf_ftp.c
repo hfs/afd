@@ -963,7 +963,7 @@ sig_bus(int signo)
 static void
 sig_kill(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
+   exitflag = 0;
    exit(GOT_KILLED);
 }
 
@@ -972,6 +972,5 @@ sig_kill(int signo)
 static void
 sig_exit(int signo)
 {
-   reset_fsa((struct job *)&db, IS_FAULTY_VAR);
    exit(INCORRECT);
 }

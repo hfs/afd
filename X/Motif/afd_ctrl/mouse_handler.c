@@ -361,7 +361,7 @@ input(Widget      w,
       if (select_no < no_of_hosts)
       {
          int x_pos,
-             min_length = DEFAULT_FRAME_SPACE + x_offset_proc;
+             min_length = x_offset_proc;
 
          if (dummy_length < 0)
          {

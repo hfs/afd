@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -124,15 +124,16 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       {
          length += sprintf(&buf[length], " (%s %d)\n", file, line);
       }
-   }
-   if (msg_str[0] != '\0')
-   {
-      char tmp_char;
 
-      tmp_char = buf[header_length];
-      buf[header_length] = '\0';
-      length += sprintf(&buf[length], "%s%s\n", buf, msg_str);
-      buf[header_length] = tmp_char;
+      if (msg_str[0] != '\0')
+      {
+         char tmp_char;
+
+         tmp_char = buf[header_length];
+         buf[header_length] = '\0';
+         length += sprintf(&buf[length], "%s%s\n", buf, msg_str);
+         buf[header_length] = tmp_char;
+      }
    }
 
    XmTextInsert(log_output, wpr_position, buf);

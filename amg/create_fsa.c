@@ -72,11 +72,11 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
+/* #define DEBUG_WAIT_LOOP */
 
 /* External global variables */
 extern char                       *p_work_dir;
-extern int                        afd_status_fd,
-                                  first_time,
+extern int                        first_time,
                                   sys_log_fd,
                                   fsa_id,
                                   fsa_fd,
@@ -185,7 +185,11 @@ create_fsa(void)
       }
    }
 
-   lock_region(afd_status_fd, (char *)&p_afd_status->amg - (char *)p_afd_status);
+   /* Set flag to indicate that we are rereading the DIR_CONFIG. */
+   if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
+   {
+      p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+   }
 
    /*
     * Mark memory mapped region as old, so no process puts
@@ -302,106 +306,6 @@ create_fsa(void)
 
          old_fsa = (struct filetransfer_status *)ptr;
       }
-
-      /*
-       * Inform FD we are about to change the FSA. We need to ensure
-       * that FD gets this message so it does not continue to write stuff
-       * to the FSA and FD must confirm it.
-       */
-      if (p_afd_status->fd == ON)
-      {
-         int            cmd_fd,
-                        reply_fd,
-                        status;
-         char           cmd_fifo[MAX_PATH_LENGTH],
-                        reply_fifo[MAX_PATH_LENGTH];
-         fd_set         rset;
-         struct timeval timeout;
-
-         (void)sprintf(cmd_fifo, "%s%s%s", p_work_dir, FIFO_DIR, FD_CMD_FIFO);
-         if ((stat(cmd_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
-         {
-            if (make_fifo(cmd_fifo) < 0)
-            {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Could not create fifo %s. (%s %d)\n",
-                         cmd_fifo, __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-         }
-         if ((cmd_fd = open(cmd_fifo, O_RDWR)) == -1)
-         {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not open() fifo %s : %s (%s %d)\n",
-                      cmd_fifo, strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-         (void)sprintf(reply_fifo, "%s%s%s", p_work_dir, FIFO_DIR, FD_READY_FIFO);
-         if ((stat(reply_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
-         {
-            if (make_fifo(reply_fifo) < 0)
-            {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Could not create fifo %s. (%s %d)\n",
-                         reply_fifo, __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-         }
-         if ((reply_fd = open(reply_fifo, O_RDWR)) == -1)
-         {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Could not open() fifo %s : %s (%s %d)\n",
-                      reply_fifo, strerror(errno), __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-
-         if ((status = send_cmd(FSA_ABOUT_TO_CHANGE, cmd_fd)) < 0)
-         {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to send update command to FD : %s (%s %d)\n",
-                      strerror(-status), __FILE__, __LINE__);
-         }
-         if (close(cmd_fd) == -1)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
-         }
-
-         FD_ZERO(&rset);
-         FD_SET(reply_fd, &rset);
-         timeout.tv_usec = 0L;
-         timeout.tv_sec = FD_REPLY_TIMEOUT;
-         status = select(reply_fd + 1, &rset, NULL, NULL, &timeout);
-         if (status == 0)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "FD timeout (%ds), ignoring. (%s %d)\n",
-                      FD_REPLY_TIMEOUT, __FILE__, __LINE__);
-         }
-         else if ((status > 0) && (FD_ISSET(reply_fd, &rset)))
-              {
-                 char buffer[10];
-
-                 if (read(reply_fd, buffer, 10) == -1)
-                 {
-                    (void)rec(sys_log_fd, WARN_SIGN,
-                              "read() error on %s : %s (%s %d)\n",
-                              FD_READY_FIFO, strerror(errno),
-                              __FILE__, __LINE__);
-                 }
-              }
-              else
-              {
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "select() error : %s (%s %d)\n",
-                           strerror(errno), __FILE__, __LINE__);
-              }
-         if (close(reply_fd) == -1)
-         {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
-         }
-      } /* if (p_afd_status->fd == ON) */
    }
 
    /*
@@ -606,6 +510,7 @@ create_fsa(void)
          for (k = 0; k < fsa[i].allowed_transfers; k++)
          {
             fsa[i].job_status[k].connect_status = DISCONNECT;
+            fsa[i].job_status[k].proc_id = -1;
 #if defined (_BURST_MODE) || defined (_OUTPUT_LOG)
             fsa[i].job_status[k].job_id = NO_ID;
 #endif
@@ -613,6 +518,7 @@ create_fsa(void)
          for (k = fsa[i].allowed_transfers; k < MAX_NO_PARALLEL_JOBS; k++)
          {
             fsa[i].job_status[k].no_of_files = -1;
+            fsa[i].job_status[k].proc_id = -1;
          }
       } /* for (i = 0; i < no_of_hosts; i++) */
    }
@@ -637,6 +543,7 @@ create_fsa(void)
       for (i = 0; i < no_of_hosts; i++)
       {
          (void)memcpy(fsa[i].host_alias, hl[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
+         (void)memcpy(fsa[i].host_dsp_name, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
          (void)memcpy(fsa[i].real_hostname[0], hl[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
          (void)memcpy(fsa[i].real_hostname[1], hl[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
          (void)memcpy(fsa[i].proxy_name, hl[i].proxy_name, MAX_PROXY_NAME_LENGTH + 1);
@@ -681,12 +588,12 @@ create_fsa(void)
              * to always evaluate the host name :-(
              */
             fsa[i].host_toggle = old_fsa[host_pos].host_toggle;
-            (void)memcpy(fsa[i].host_dsp_name, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
             fsa[i].toggle_pos = strlen(fsa[i].host_alias);
             if (hl[i].host_toggle_str[0] == '\0')
             {
                fsa[i].host_toggle_str[0]  = '\0';
                fsa[i].original_toggle_pos = NONE;
+               fsa[i].host_toggle         = DEFAULT_TOGGLE_HOST;
                if (fsa[i].real_hostname[0][0] == '\0')
                {
                   (void)memcpy(fsa[i].real_hostname[0], hl[i].fullname, MAX_REAL_HOSTNAME_LENGTH);
@@ -775,7 +682,6 @@ create_fsa(void)
          {
             fsa[i].host_toggle         = DEFAULT_TOGGLE_HOST;
             fsa[i].original_toggle_pos = NONE;
-            (void)memcpy(fsa[i].host_dsp_name, fsa[i].host_alias, MAX_HOSTNAME_LENGTH + 1);
             fsa[i].toggle_pos = strlen(fsa[i].host_alias);
             if (hl[i].host_toggle_str[0] == '\0')
             {
@@ -842,6 +748,7 @@ create_fsa(void)
             for (k = 0; k < fsa[i].allowed_transfers; k++)
             {
                fsa[i].job_status[k].connect_status = DISCONNECT;
+               fsa[i].job_status[k].proc_id = -1;
 #if defined (_BURST_MODE) || defined (_OUTPUT_LOG)
                fsa[i].job_status[k].job_id = NO_ID;
 #endif
@@ -849,6 +756,7 @@ create_fsa(void)
             for (k = fsa[i].allowed_transfers; k < MAX_NO_PARALLEL_JOBS; k++)
             {
                fsa[i].job_status[k].no_of_files = -1;
+               fsa[i].job_status[k].proc_id = -1;
             }
          }
 

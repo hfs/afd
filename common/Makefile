@@ -49,6 +49,7 @@ OBJS    = attach_afd_status.o\
           get_rename_rules.o\
           get_rule.o\
           get_user.o\
+          inform_fd_about_fsa_change.o\
           lock_file.o\
           lock_proc.o\
           lock_region.o\

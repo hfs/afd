@@ -27,8 +27,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int get_job_data(unsigned int job_id,
  **                    int          mdb_position,
- **                    time_t       mtime,,
- **                    off_t        mdb_size)
+ **                    time_t       msg_mtime,
+ **                    off_t        msg_size)
  **
  ** DESCRIPTION
  **
@@ -74,8 +74,8 @@ extern struct msg_cache_buf       *mdb;
 int
 get_job_data(unsigned int job_id,
              int          mdb_position,
-             time_t       mtime,
-             off_t        mdb_size)
+             time_t       msg_mtime,
+             off_t        msg_size)
 {
    int         fd,
                pos,
@@ -121,17 +121,17 @@ retry:
          (void)close(fd);
          return(INCORRECT);
       }
-      mdb_size = stat_buf.st_size;
-      mtime = stat_buf.st_mtime;
+      msg_size = stat_buf.st_size;
+      msg_mtime = stat_buf.st_mtime;
    }
-   if ((file_buf = malloc(mdb_size + 1)) == NULL)
+   if ((file_buf = malloc(msg_size + 1)) == NULL)
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
       (void)close(fd);
       exit(INCORRECT);
    }
-   if (read(fd, file_buf, mdb_size) != mdb_size)
+   if (read(fd, file_buf, msg_size) != msg_size)
    {
       (void)rec(sys_log_fd, WARN_SIGN, "Failed to read() %s : %s (%s %d)\n",
                 msg_dir, strerror(errno), __FILE__, __LINE__);
@@ -139,7 +139,7 @@ retry:
       free(file_buf);
       return(INCORRECT);
    }
-   file_buf[mdb_size] = '\0';
+   file_buf[msg_size] = '\0';
    if (close(fd) == -1)
    {
       (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
@@ -260,7 +260,7 @@ retry:
    }
 
    ptr += 3;
-   if (*ptr == '#')
+   if (*ptr == MAIL_GROUP_IDENTIFIER)
    {
       ptr++;
       while ((*ptr != '/') && (*ptr != '.') &&
@@ -288,6 +288,7 @@ retry:
    if (*ptr == '@')
    {
       ptr++;
+      length = 0;
       while ((*ptr != '/') && (*ptr != '.') &&
              (*ptr != ':') && (*ptr != '\n') &&
              (*ptr != ';') && (length < MAX_HOSTNAME_LENGTH))
@@ -362,7 +363,7 @@ retry:
    else
    {
       (void)rec(sys_log_fd, WARN_SIGN,
-                "Removing %s. Could not locate start of host name [@]. (%s %d)\n",
+                "Removing %s. Could not locate host name. (%s %d)\n",
                 msg_dir, __FILE__, __LINE__);
       if (unlink(msg_dir) == -1)
       {
@@ -431,7 +432,7 @@ retry:
       }
 #endif
       mdb[*no_msg_cached - 1].type = sheme;
-      mdb[*no_msg_cached - 1].msg_time = mtime;
+      mdb[*no_msg_cached - 1].msg_time = msg_mtime;
       mdb[*no_msg_cached - 1].last_transfer_time = 0L;
    }
    else
@@ -470,7 +471,7 @@ retry:
       }
 #endif
       mdb[mdb_position].type = sheme;
-      mdb[mdb_position].msg_time = mtime;
+      mdb[mdb_position].msg_time = msg_mtime;
       /*
        * NOTE: Do NOT initialize last_transfer_time! This could
        *       lead to a to early deletion of a job.

@@ -1,6 +1,6 @@
 /*
  *  fsa_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -179,7 +179,8 @@ main(int argc, char *argv[])
                     (void)fprintf(stdout, "     Start/Stop auto queue.........(3)\n");
                     (void)fprintf(stdout, "     Start/Stop danger queue.......(4)\n");
                     (void)fprintf(stdout, "     Start/Stop auto queue lock....(5)\n");
-                    (void)fprintf(stderr, "     None..........................(6) ");
+                    (void)fprintf(stdout, "     HOST_CONFIG host disabled.....(6)\n");
+                    (void)fprintf(stderr, "     None..........................(7) ");
                     switch(get_key())
                     {
                        case '1' : fsa[position].host_status ^= PAUSE_QUEUE_STAT;
@@ -192,7 +193,9 @@ main(int argc, char *argv[])
                                   break;
                        case '5' : fsa[position].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
                                   break;
-                       case '6' : break;
+                       case '6' : fsa[position].host_status ^= HOST_CONFIG_HOST_DISABLED;
+                                  break;
+                       case '7' : break;
                        default  : (void)printf("Wrong choice!\n");
                                   (void)sleep(1);
                                   break;

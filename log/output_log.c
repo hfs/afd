@@ -76,6 +76,7 @@ DESCR__S_M1
  **   14.02.1998 H.Kiehl Support for local and remote file name.
  **   07.01.2001 H.Kiehl Build in some checks when fifo buffer overflows.
  **   14.06.2001 H.Kiehl Removed the above unnecessary checks.
+ **   13.04.2002 H.Kiehl Added SEPARATOR_CHAR.
  **
  */
 DESCR__E_M1
@@ -396,13 +397,18 @@ main(int argc, char *argv[])
                        if (*archive_name_length > 0)
                        {
                           (void)fprintf(output_file,
-                                        "%-10ld %s %s %lu %.2f %u %s\n",
+                                        "%-10ld %s%c%s%c%lu%c%.2f%c%u%c%s\n",
                                         now,
                                         p_host_name,
+                                        SEPARATOR_CHAR,
                                         p_file_name,
+                                        SEPARATOR_CHAR,
                                         (unsigned long)*file_size,
+                                        SEPARATOR_CHAR,
                                         *transfer_duration / (double)clktck,
+                                        SEPARATOR_CHAR,
                                         *job_number,
+                                        SEPARATOR_CHAR,
                                         &p_file_name[*file_name_length + 1]);
                           length = check_size + *file_name_length +
                                    *archive_name_length + 1;
@@ -410,12 +416,16 @@ main(int argc, char *argv[])
                        else
                        {
                           (void)fprintf(output_file,
-                                        "%-10ld %s %s %lu %.2f %u\n",
+                                        "%-10ld %s%c%s%c%lu%c%.2f%c%u\n",
                                         now,
                                         p_host_name,
+                                        SEPARATOR_CHAR,
                                         p_file_name,
+                                        SEPARATOR_CHAR,
                                         (unsigned long)*file_size,
+                                        SEPARATOR_CHAR,
                                         *transfer_duration / (double)clktck,
+                                        SEPARATOR_CHAR,
                                         *job_number);
                           length = check_size + *file_name_length;
                        }

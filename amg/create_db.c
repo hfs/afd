@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,14 +78,17 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        no_of_hosts,
+                                  no_of_local_dirs,
                                   no_of_time_jobs,
 #ifndef _WITH_PTHREAD
                                   no_of_important_dirs,
                                   *important_dir_no,
 #endif
+#ifdef _TEST_FILE_TABLE
                                   no_of_local_dirs,/* No. of directories */
                                                    /* in DIR_CONFIG file */
                                                    /* that are local.    */
+#endif /* _TEST_FILE_TABLE */
                                   counter_fd,     /* File descriptor for */
                                                   /* AFD counter file.   */
                                   sys_log_fd,
@@ -122,8 +125,7 @@ static void                       write_numbers(int),
 int
 create_db(int shmem_id)
 {
-   int             cmd_fd,
-                   i,
+   int             i,
                    j,
                    jid_number,
 #ifdef _TEST_FILE_TABLE
@@ -135,8 +137,7 @@ create_db(int shmem_id)
                    dir_counter = 0,
                    no_of_jobs;
    dev_t           ldv;               /* local device number (filesystem) */
-   char            cmd_fifo[MAX_PATH_LENGTH],
-                   *ptr,
+   char            *ptr,
                    *p_sheme,
                    *tmp_ptr,
                    *p_offset,
@@ -156,6 +157,10 @@ create_db(int shmem_id)
    if (stat(p_work_dir, &stat_buf) == -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to stat() %s : %s (%s %d)\n",
                 p_work_dir, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
@@ -166,6 +171,10 @@ create_db(int shmem_id)
    if ((void *)(p_shm = shmat(shmem_id, 0, 0)) == (void *) -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not attach to shared memory region %d : %s (%s %d)\n",
                 shmem_id, strerror(errno), __FILE__, __LINE__);
@@ -180,9 +189,13 @@ create_db(int shmem_id)
    /* Allocate some memory to store instant database. */
    if ((db = malloc(no_of_jobs * sizeof(struct instant_db))) == NULL)
    {
+      p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
       (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
-      p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
       exit(INCORRECT);
    }
 
@@ -194,6 +207,10 @@ create_db(int shmem_id)
    if ((gotcha = malloc(size)) == NULL)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to malloc() memory : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
@@ -233,6 +250,10 @@ create_db(int shmem_id)
    if ((tmp_ptr = calloc(no_of_jobs, sizeof(struct p_array))) == NULL)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Could not allocate memory : %s (%s %d)\n",
                 strerror(errno), __FILE__, __LINE__);
@@ -262,6 +283,10 @@ create_db(int shmem_id)
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to stat() %s : %s (%s %d)\n",
                 de[0].dir, strerror(errno), __FILE__, __LINE__);
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
       free(db); free(de);
       free(tmp_ptr);
       unmap_data(jd_fd, jd);
@@ -306,6 +331,13 @@ create_db(int shmem_id)
       if ((i > 0) && (db[i].dir != db[i - 1].dir))
       {
          dir_counter++;
+         if (dir_counter >= no_of_local_dirs)
+         {
+            (void)rec(sys_log_fd, FATAL_SIGN,
+                      "Aaarghhh, dir_counter (%d) >= no_of_local_dirs (%d)!? (%s %d)\n",
+                      dir_counter, no_of_local_dirs, __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
          de[dir_counter].dir           = db[i].dir;
          de[dir_counter].alias         = (int)(p_ptr[i].ptr[2]) + p_offset;
          if ((de[dir_counter].fra_pos = lookup_fra_pos(de[dir_counter].alias)) == INCORRECT)
@@ -328,6 +360,10 @@ create_db(int shmem_id)
                       "Failed to stat() %s : %s (%s %d)\n",
                       db[i].dir, strerror(errno), __FILE__, __LINE__);
             p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+            if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+            {
+               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+            }
             free(db); free(de);
             free(tmp_ptr);
             unmap_data(jd_fd, jd);
@@ -378,6 +414,10 @@ create_db(int shmem_id)
                          "realloc() error : %s (%s %d)\n",
                          strerror(errno), __FILE__, __LINE__);
                p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+               if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+               {
+                  p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+               }
                unmap_data(jd_fd, jd);
                exit(INCORRECT);
             }
@@ -402,6 +442,10 @@ create_db(int shmem_id)
             (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
                       strerror(errno), __FILE__, __LINE__);
             p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+            if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+            {
+               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+            }
             unmap_data(jd_fd, jd);
             exit(INCORRECT);
          }
@@ -442,6 +486,10 @@ create_db(int shmem_id)
                          "realloc() error : %s (%s %d)\n",
                          strerror(errno), __FILE__, __LINE__);
                p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+               if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+               {
+                  p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+               }
                unmap_data(jd_fd, jd);
                exit(INCORRECT);
             }
@@ -466,6 +514,10 @@ create_db(int shmem_id)
                               "realloc() error : %s (%s %d)\n",
                               strerror(errno), __FILE__, __LINE__);
                     p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+                    if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+                    {
+                       p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+                    }
                     unmap_data(jd_fd, jd);
                     exit(INCORRECT);
                  }
@@ -603,6 +655,10 @@ create_db(int shmem_id)
                    "Could not extract hostname. (%s %d)\n",
                    __FILE__, __LINE__);
          p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+         if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+         {
+            p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+         }
          free(db); free(de);
          free(tmp_ptr);
          unmap_data(jd_fd, jd);
@@ -651,6 +707,10 @@ create_db(int shmem_id)
                    "Impossible, could not determine the sheme! (%s %d)\n",
                    __FILE__, __LINE__);
          p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+         if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+         {
+            p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+         }
          free(db); free(de);
          free(tmp_ptr);
          unmap_data(jd_fd, jd);
@@ -679,6 +739,10 @@ create_db(int shmem_id)
                                   "Unknown sheme <%s>. (%s %d)\n",
                                   db[i].recipient, __FILE__, __LINE__);
                         p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+                        if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+                        {
+                           p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+                        }
                         free(db); free(de);
                         free(tmp_ptr);
                         unmap_data(jd_fd, jd);
@@ -747,33 +811,10 @@ create_db(int shmem_id)
    unmap_data(dnb_fd, dnb);
    unmap_data(jd_fd, jd);
    p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-
-   /* Tell AMG we have updated the FSA and message list. */
-   (void)sprintf(cmd_fifo, "%s%s%s", p_work_dir, FIFO_DIR, DB_UPDATE_FIFO);
-   if ((stat(cmd_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
+   if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
    {
-      if (make_fifo(cmd_fifo) < 0)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not create fifo %s. (%s %d)\n",
-                   cmd_fifo, __FILE__, __LINE__);     
-         exit(INCORRECT);
-      }
+      p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
    }
-   if ((cmd_fd = coe_open(cmd_fifo, O_RDWR)) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                cmd_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   if ((i = send_cmd(UNLOCK_NEW_FSA_AND_JID, cmd_fd)) < 0)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to send update command to FD : %s (%s %d)\n",
-                strerror(-i), __FILE__, __LINE__);
-   }
-   (void)close(cmd_fd);
 
    if (p_afd_status->start_time == 0)
    {

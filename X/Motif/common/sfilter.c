@@ -1,6 +1,6 @@
 /*
  *  sfilter.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -34,8 +34,12 @@ DESCR__S_M3
  **   in any order. Where '*' matches any string and '?' matches
  **   any single character.
  **
+ **   This function only differs from pmatch() in that it expects
+ **   p_file to be terminated by a SEPARATOR_CHAR.
+ **
  ** RETURN VALUES
- **   Returns 0 when pattern matches, else it will return -1.
+ **   Returns 0 when pattern matches, if this file is definitly
+ **   not wanted 1 and otherwise -1.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -58,21 +62,17 @@ static char *find(char *, register char *, register int);
 int
 sfilter(char *p_filter, char *p_file)
 {
-   register int  length = 0,
-                 count = 0,
-                 inverse = NO;
-   register char *ptr = p_filter,
+   register int  length;
+   register char *p_gap_file = NULL,
+                 *p_gap_filter,
+                 *ptr = p_filter,
                  *p_tmp = NULL,
-                 *p_buffer = NULL,
-                 *p_file_buffer = p_file,
                  buffer;
 
    if (*ptr == '!')
    {
       ptr++;
-      inverse = YES;
    }
-
    while (*ptr != '\0')
    {
       length = 0;
@@ -88,58 +88,69 @@ sfilter(char *p_filter, char *p_file)
             }
             if (length == 0)
             {
+               p_gap_filter = ptr;
+               while (*ptr == '*')
+               {
+                  ptr++;
+               }
+               if (*ptr != '\0')
+               {
+                  ptr = p_gap_filter;
+               }
                if ((*ptr == '*') || (*ptr == '?'))
                {
+                  p_gap_file = p_file + 1;
+                  p_gap_filter = p_tmp;
                   break;
                }
                else
                {
-                  return((inverse == NO) ? 0 : -1);
+                  return((*p_filter != '!') ? 0 : 1);
                }
             }
             buffer = *ptr;
-            if ((*ptr == '?') && (*(ptr + 1) == '\0'))
+            if ((p_file = find(p_file, p_tmp + 1, length)) == NULL)
             {
-               count = 0;
-               while ((p_file_buffer = find(p_file_buffer, p_tmp + 1, length)) != NULL)
+               return((*p_filter != '!') ? -1 : 0);
+            }
+            else
+            {
+               if (*ptr == '?')
                {
-                  p_buffer = p_file_buffer;
-                  count++;
+                  if (length > 1 )
+                  {
+                     p_gap_file = p_file - length + 1;
+                  }
+                  else
+                  {
+                     p_gap_file = p_file + 1;
+                  }
+                  p_gap_filter = p_tmp;
                }
-               if (count == 0)
+               if ((*ptr == '\0') && (*p_file != SEPARATOR_CHAR))
                {
-                  return((inverse == NO) ? -1 : 0);
-               }
-               else
-               {
-                  p_file_buffer = p_buffer;
+                  ptr = p_tmp;
                }
             }
-            else if ((p_file_buffer = find(p_file_buffer, p_tmp + 1, length)) == NULL)
-                 {
-                    return((inverse == NO) ? -1 : 0);
-                 }
-                 else
-                 {
-                    if ((buffer == '\0') && (*p_file != '\0'))
-                    {
-                       ptr = p_tmp;
-                    }
-                 }
-            if ((buffer == '\0') && (*p_file_buffer == ' '))
+            if ((buffer == '\0') && (*p_file == SEPARATOR_CHAR))
             {
-               return((inverse == NO) ? 0 : -1);
+               return((*p_filter != '!') ? 0 : 1);
             }
             break;
 
          case '?' :
-            if (*(p_file_buffer++) == ' ')
+            if (*(p_file++) == SEPARATOR_CHAR)
             {
-               return((inverse == NO) ? -1 : 0);
+               return((*p_filter != '!') ? -1 : 0);
             }
-            if ((*(++ptr) == '\0') && (*p_file_buffer == ' '))
+            if ((*(++ptr) == '\0') && (*p_file == SEPARATOR_CHAR))
             {
-               return((inverse == NO) ? 0 : -1);
+               return((*p_filter != '!') ? 0 : 1);
+            }
+            if ((*ptr == '\0') && (p_gap_file != NULL))
+            {
+               p_file = p_gap_file;
+               ptr = p_gap_filter;
             }
             break;
 
@@ -149,20 +160,26 @@ sfilter(char *p_filter, char *p_file)
                length++;
                ptr++;
             }
-            if (strncmp(p_file_buffer, p_tmp, length) != 0)
+            if (strncmp(p_file, p_tmp, length) != 0)
             {
-               return((inverse == NO) ? -1 : 0);
+               if (p_gap_file != NULL)
+               {
+                  p_file = p_gap_file;
+                  ptr = p_gap_filter;
+                  break;
+               }
+               return((*p_filter != '!') ? -1 : 0);
             }
-            p_file_buffer += length;
-            if ((*ptr == '\0') && (*p_file_buffer == ' '))
+            p_file += length;
+            if ((*ptr == '\0') && (*p_file == SEPARATOR_CHAR))
             {
-               return((inverse == NO) ? 0 : -1);
+               return((*p_filter != '!') ? 0 : 1);
             }
             break;
       }
    }
 
-   return(-1);
+   return((*p_filter != '!') ? -1 : 0);
 }
 
 
@@ -184,7 +201,7 @@ find(char          *search_text,
 {
    register int hit = 0;
 
-   while (*search_text != ' ')
+   while (*search_text != SEPARATOR_CHAR)
    {
       if (*(search_text++) == *(search_string++))
       {

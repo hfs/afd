@@ -440,7 +440,7 @@ extern int    amg_zombie_check(pid_t *, int),
 #endif
               check_process_list(int),
               create_db(int),
-              eval_dir_config(size_t, int *),
+              eval_dir_config(size_t),
               eval_time_str(char *, struct bd_time_entry *),
               handle_options(int, char *, char *, int *, off_t *),
               in_time(time_t, struct bd_time_entry *),
@@ -448,7 +448,7 @@ extern int    amg_zombie_check(pid_t *, int),
               lookup_fra_pos(char *),
               rename_files(char *, char *, int, struct instant_db *, time_t *,
                            unsigned short *, char *, off_t *);
-extern pid_t  make_process_amg(char *, char *, int, int, int, int);
+extern pid_t  make_process_amg(char *, char *, int, int, int);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *),
               *next(char *);
 extern void   check_old_time_jobs(int),
@@ -477,7 +477,7 @@ extern void   check_old_time_jobs(int),
               reread_dir_config(time_t *, time_t *, int, int, size_t,
                                 int, int, struct host_list *),
               reread_host_config(time_t *, int *, int *, size_t *,
-                                 struct host_list **),
+                                 struct host_list **, int),
               search_old_files(time_t),
               send_message(char *, char *, unsigned short, time_t,
                            int, int, off_t),

@@ -1,6 +1,6 @@
 /*
  *  delete_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001, 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -208,7 +208,7 @@ delete_files(int no_selected, int *select_list)
          exit(INCORRECT);
       }
 
-      if (attach_afd_status(NULL) < 0)
+      if (attach_afd_status() < 0)
       {
          (void)fprintf(stderr,
                        "Failed to map to AFD status area. (%s %d)\n",
@@ -219,7 +219,8 @@ delete_files(int no_selected, int *select_list)
 
    for (i = 0; i < no_selected; i++)
    {
-      if (qfl[select_list[i] - 1].queue_type == SHOW_OUTPUT)
+      if ((qfl[select_list[i] - 1].queue_type == SHOW_OUTPUT) &&
+          (toggles_set & SHOW_OUTPUT))
       {
          /*
           * Ensure that it's still in queue and currently not processed.

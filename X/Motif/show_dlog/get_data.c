@@ -43,6 +43,7 @@ DESCR__S_M3
  ** HISTORY
  **   22.02.1998 H.Kiehl Created
  **   17.02.1999 H.Kiehl Multiple recipients.
+ **   13.04.2002 Separator definable via SEPARATOR_CHAR.
  **
  */
 DESCR__E_M3
@@ -132,132 +133,129 @@ static void   display_data(int, time_t, time_t),
               file_size_and_recipient(register char *, char *, int, char *),
               file_name_size_recipient(register char *, char *, int, char *);
 
-#define REALLOC_OFFSET_BUFFER()                                         \
-        {                                                               \
-           if (((loops + 1) * LINES_BUFFERED - item_counter) <= LINES_BUFFERED) \
-           {                                                            \
-              int new_int_size,                                         \
-                  new_char_size;                                        \
-                                                                        \
-              new_char_size = (loops + 1) * LINES_BUFFERED;             \
-              new_int_size = new_char_size * sizeof(int);               \
-                                                                        \
-              if (((il[file_no].offset = realloc(il[file_no].offset, new_int_size)) == NULL) ||           \
-                  ((il[file_no].line_offset = realloc(il[file_no].line_offset, new_int_size)) == NULL) || \
-                  ((il[file_no].input_id = realloc(il[file_no].input_id, new_char_size)) == NULL))        \
-              {                                                         \
-                 (void)xrec(toplevel_w, FATAL_DIALOG,                   \
-                            "realloc() error : %s (%s %d)",             \
-                            strerror(errno), __FILE__, __LINE__);       \
-                 return;                                                \
-              }                                                         \
-           }                                                            \
+#define REALLOC_OFFSET_BUFFER()                                  \
+        {                                                        \
+           if (((loops + 1) * LINES_BUFFERED - item_counter) <= LINES_BUFFERED)\
+           {                                                     \
+              int new_int_size,                                  \
+                  new_char_size;                                 \
+                                                                 \
+              new_char_size = (loops + 1) * LINES_BUFFERED;      \
+              new_int_size = new_char_size * sizeof(int);        \
+                                                                 \
+              if (((il[file_no].offset = realloc(il[file_no].offset, new_int_size)) == NULL) ||          \
+                  ((il[file_no].line_offset = realloc(il[file_no].line_offset, new_int_size)) == NULL) ||\
+                  ((il[file_no].input_id = realloc(il[file_no].input_id, new_char_size)) == NULL))       \
+              {                                                  \
+                 (void)xrec(toplevel_w, FATAL_DIALOG,            \
+                            "realloc() error : %s (%s %d)",      \
+                            strerror(errno), __FILE__, __LINE__);\
+                 return;                                         \
+              }                                                  \
+           }                                                     \
         }
-#define IGNORE_ENTRY()            \
-        {                         \
-           while (*ptr != '\n')   \
-              ptr++;              \
-           ptr++; i--;            \
-           continue;              \
+#define IGNORE_ENTRY()         \
+        {                      \
+           while (*ptr != '\n')\
+              ptr++;           \
+           ptr++; i--;         \
+           continue;           \
         }
-#define CONVERT_TIME()                                      \
-        {                                                   \
-           line[0] = ((p_ts->tm_mon + 1) / 10) + '0';       \
-           line[1] = ((p_ts->tm_mon + 1) % 10) + '0';       \
-           line[2] = '.';                                   \
-           line[3] = (p_ts->tm_mday / 10) + '0';            \
-           line[4] = (p_ts->tm_mday % 10) + '0';            \
-           line[5] = '.';                                   \
-           line[7] = (p_ts->tm_hour / 10) + '0';            \
-           line[8] = (p_ts->tm_hour % 10) + '0';            \
-           line[9] = ':';                                   \
-           line[10] = (p_ts->tm_min / 10) + '0';            \
-           line[11] = (p_ts->tm_min % 10) + '0';            \
-           line[12] = ':';                                  \
-           line[13] = (p_ts->tm_sec / 10) + '0';            \
-           line[14] = (p_ts->tm_sec % 10) + '0';            \
+#define CONVERT_TIME()                               \
+        {                                            \
+           line[0] = ((p_ts->tm_mon + 1) / 10) + '0';\
+           line[1] = ((p_ts->tm_mon + 1) % 10) + '0';\
+           line[2] = '.';                            \
+           line[3] = (p_ts->tm_mday / 10) + '0';     \
+           line[4] = (p_ts->tm_mday % 10) + '0';     \
+           line[5] = '.';                            \
+           line[7] = (p_ts->tm_hour / 10) + '0';     \
+           line[8] = (p_ts->tm_hour % 10) + '0';     \
+           line[9] = ':';                            \
+           line[10] = (p_ts->tm_min / 10) + '0';     \
+           line[11] = (p_ts->tm_min % 10) + '0';     \
+           line[12] = ':';                           \
+           line[13] = (p_ts->tm_sec / 10) + '0';     \
+           line[14] = (p_ts->tm_sec % 10) + '0';     \
         }
-#define INSERT_TIME_TYPE(reason, reason_length)               \
-        {                                                     \
-           (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length); \
-           (void)memcpy(time_buf, ptr_start_line, 10);        \
-           time_buf[10] = '\0';                               \
-           time_when_transmitted = (time_t)atol(time_buf);    \
-           if (first_date_found == -1)                        \
-           {                                                  \
-              first_date_found = time_when_transmitted;       \
-           }                                                  \
-           p_ts = localtime(&time_when_transmitted);          \
-           CONVERT_TIME();                                    \
-           (void)memcpy(p_type, (reason), (reason_length));   \
+#define INSERT_TIME_TYPE(reason, reason_length)            \
+        {                                                  \
+           (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+           (void)memcpy(time_buf, ptr_start_line, 10);     \
+           time_buf[10] = '\0';                            \
+           time_when_transmitted = (time_t)atol(time_buf); \
+           if (first_date_found == -1)                     \
+           {                                               \
+              first_date_found = time_when_transmitted;    \
+           }                                               \
+           p_ts = localtime(&time_when_transmitted);       \
+           CONVERT_TIME();                                 \
+           (void)memcpy(p_type, (reason), (reason_length));\
         }
-#define COMMON_BLOCK()                                                 \
-        {                                                              \
-           ptr++;                                                      \
+#define COMMON_BLOCK()                                     \
+        {                                                  \
+           ptr++;                                          \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);\
-                                                                       \
-           if (search_directory_name[0] != '\0')                       \
-           {                                                           \
-              int  count = 0;                                          \
-              char job_id_str[15];                                     \
-                                                                       \
-              while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))  \
-              {                                                        \
-                 job_id_str[count] = *ptr;                             \
-                 count++; ptr++;                                       \
-              }                                                        \
-              job_id_str[count] = '\0';                                \
-              id.job_no = (unsigned int)strtoul(job_id_str, NULL, 10); \
-                                                                       \
-              id.dir[0] = '\0';                                        \
-              get_info(GOT_JOB_ID_DIR_ONLY, il[file_no].input_id[item_counter]); \
-              count = strlen(id.dir);                                  \
-              id.dir[count] = ' ';                                     \
-              id.dir[count + 1] = '\0';                                \
-                                                                       \
-              if (sfilter(search_directory_name, id.dir) != 0)         \
-              {                                                        \
-                 IGNORE_ENTRY();                                       \
-              }                                                        \
-           }                                                           \
-           else                                                        \
-           {                                                           \
-              while ((*ptr != ' ') && (*ptr != '\n'))                  \
-              {                                                        \
-                 ptr++;                                                \
-              }                                                        \
-           }                                                           \
-                                                                       \
-           ptr++;                                                      \
-           j = 0;                                                      \
-           while ((*ptr != ' ') && (*ptr != '\n') &&                   \
-                  (j <= MAX_PROC_USER_LENGTH))                         \
-           {                                                           \
-              *(p_proc_user + j) = *ptr;                               \
-              ptr++; j++;                                              \
-           }                                                           \
-           while (*ptr != '\n')                                        \
-           {                                                           \
-              ptr++;                                                   \
-           }                                                           \
-                                                                       \
-           item_counter++;                                             \
-                                                                       \
-           str_list[i] = XmStringCreateLocalized(line);                \
-                                                                       \
-           ptr++;                                                      \
+                                                           \
+           if (search_directory_name[0] != '\0')           \
+           {                                               \
+              int  count = 0;                              \
+              char job_id_str[15];                         \
+                                                           \
+              while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))\
+              {                                            \
+                 job_id_str[count] = *ptr;                 \
+                 count++; ptr++;                           \
+              }                                            \
+              job_id_str[count] = '\0';                    \
+              id.job_no = (unsigned int)strtoul(job_id_str, NULL, 10);\
+                                                           \
+              id.dir[0] = '\0';                            \
+              get_info(GOT_JOB_ID_DIR_ONLY, il[file_no].input_id[item_counter]);\
+              count = strlen(id.dir);                      \
+              id.dir[count] = ' ';                         \
+              id.dir[count + 1] = '\0';                    \
+                                                           \
+              if (sfilter(search_directory_name, id.dir) != 0)\
+              {                                            \
+                 IGNORE_ENTRY();                           \
+              }                                            \
+           }                                               \
+           else                                            \
+           {                                               \
+              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))\
+              {                                            \
+                 ptr++;                                    \
+              }                                            \
+           }                                               \
+                                                           \
+           ptr++;                                          \
+           j = 0;                                          \
+           while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&\
+                  (j <= MAX_PROC_USER_LENGTH))             \
+           {                                               \
+              *(p_proc_user + j) = *ptr;                   \
+              ptr++; j++;                                  \
+           }                                               \
+           while (*ptr != '\n')                            \
+           {                                               \
+              ptr++;                                       \
+           }                                               \
+           item_counter++;                                 \
+           str_list[i] = XmStringCreateLocalized(line);    \
+           ptr++;                                          \
         }
-#define CHECK_LIST_LIMIT()                                             \
-        {                                                              \
-           if ((perm.list_limit > 0) && (item_counter > perm.list_limit)) \
-           {                                                           \
-              char msg_buffer[40];                                     \
-                                                                       \
-              (void)sprintf(msg_buffer, "List limit (%d) reached!",    \
-                            perm.list_limit);                          \
-              show_message(statusbox_w, msg_buffer);                   \
-              break;                                                   \
-           }                                                           \
+#define CHECK_LIST_LIMIT()                                 \
+        {                                                  \
+           if ((perm.list_limit > 0) && (item_counter > perm.list_limit))\
+           {                                               \
+              char msg_buffer[40];                         \
+                                                           \
+              (void)sprintf(msg_buffer, "List limit (%d) reached!",\
+                            perm.list_limit);              \
+              show_message(statusbox_w, msg_buffer);       \
+              break;                                       \
+           }                                               \
         }
 
 #define FILE_SIZE_AND_RECIPIENT(id_string, id_string_length)           \
@@ -266,7 +264,7 @@ static void   display_data(int, time_t, time_t),
                                                                        \
            for (ii = 0; ii < no_of_search_hosts; ii++)                 \
            {                                                           \
-              if (sfilter(search_recipient[ii], ptr_start_line + 11) == 0) \
+              if (sfilter(search_recipient[ii], ptr_start_line + 11) == 0)\
               {                                                        \
                  current_search_host = ii;                             \
                  break;                                                \
@@ -275,7 +273,7 @@ static void   display_data(int, time_t, time_t),
            if (current_search_host != -1)                              \
            {                                                           \
               ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                     \
-              while (*ptr != ' ')                                      \
+              while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
               }                                                        \
@@ -283,7 +281,7 @@ static void   display_data(int, time_t, time_t),
               if (*ptr == '/')                                         \
               {                                                        \
                  /* Ignore  the remote file name */                    \
-                 while (*ptr != ' ')                                   \
+                 while (*ptr != SEPARATOR_CHAR)                        \
                  {                                                     \
                     ptr++;                                             \
                  }                                                     \
@@ -294,22 +292,22 @@ static void   display_data(int, time_t, time_t),
               if ((gt_lt_sign == EQUAL_SIGN) &&                        \
                   (tmp_file_size == search_file_size))                 \
               {                                                        \
-                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length); \
+                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
                  (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                  /* Write file size. */                                \
-                 while (*ptr != ' ')                                   \
+                 while (*ptr != SEPARATOR_CHAR)                        \
                  {                                                     \
                     ptr++;                                             \
                  }                                                     \
                  tmp_ptr = ptr - 1;                                    \
                  j = 0;                                                \
-                 while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE)) \
+                 while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))\
                  {                                                     \
                     *(p_file_size - j) = *tmp_ptr;                     \
                     tmp_ptr--; j++;                                    \
                  }                                                     \
-                 if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                 if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))\
                  {                                                     \
                     *(p_file_size - j) = '>';                          \
                  }                                                     \
@@ -317,22 +315,22 @@ static void   display_data(int, time_t, time_t),
               else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
                        (tmp_file_size < search_file_size))             \
                    {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length); \
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
                       (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                       /* Write file size. */                           \
-                      while (*ptr != ' ')                              \
+                      while (*ptr != SEPARATOR_CHAR)                   \
                       {                                                \
                          ptr++;                                        \
                       }                                                \
                       tmp_ptr = ptr - 1;                               \
                       j = 0;                                           \
-                      while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE)) \
+                      while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))\
                       {                                                \
                          *(p_file_size - j) = *tmp_ptr;                \
                          tmp_ptr--; j++;                               \
                       }                                                \
-                      if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                      if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))\
                       {                                                \
                          *(p_file_size - j) = '>';                     \
                       }                                                \
@@ -340,22 +338,22 @@ static void   display_data(int, time_t, time_t),
               else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
                        (tmp_file_size > search_file_size))             \
                    {                                                   \
-                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length); \
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
                       (void)memcpy(p_type, (id_string), (id_string_length)); \
                                                                        \
                       /* Write file size. */                           \
-                      while (*ptr != ' ')                              \
+                      while (*ptr != SEPARATOR_CHAR)                   \
                       {                                                \
                          ptr++;                                        \
                       }                                                \
                       tmp_ptr = ptr - 1;                               \
                       j = 0;                                           \
-                      while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE)) \
+                      while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))\
                       {                                                \
                          *(p_file_size - j) = *tmp_ptr;                \
                          tmp_ptr--; j++;                               \
                       }                                                \
-                      if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                      if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))\
                       {                                                \
                          *(p_file_size - j) = '>';                     \
                       }                                                \
@@ -379,7 +377,7 @@ static void   display_data(int, time_t, time_t),
                                                                        \
                for (ii = 0; ii < no_of_search_hosts; ii++)             \
                {                                                       \
-                  if (sfilter(search_recipient[ii], ptr_start_line + 11) == 0) \
+                  if (sfilter(search_recipient[ii], ptr_start_line + 11) == 0)\
                   {                                                    \
                      current_search_host = ii;                         \
                      break;                                            \
@@ -390,10 +388,10 @@ static void   display_data(int, time_t, time_t),
                   ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                 \
                   if (sfilter(search_file_name, ptr) == 0)             \
                   {                                                    \
-                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file); \
+                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);\
                      INSERT_TIME_TYPE((id_string), (id_string_length));\
                      j = 0;                                            \
-                     while ((*ptr != ' ') && (j < file_name_length))   \
+                     while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))\
                      {                                                 \
                         *(p_file_name + j) = *ptr;                     \
                         ptr++; j++;                                    \
@@ -418,7 +416,7 @@ static void   display_data(int, time_t, time_t),
 #define FILE_SIZE_ONLY(id_string, id_string_length)                    \
         {                                                              \
            ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                        \
-           while (*ptr != ' ')                                         \
+           while (*ptr != SEPARATOR_CHAR)                              \
            {                                                           \
               ptr++;                                                   \
            }                                                           \
@@ -426,7 +424,7 @@ static void   display_data(int, time_t, time_t),
            if (*ptr == '/')                                            \
            {                                                           \
               /* Ignore  the remote file name */                       \
-              while (*ptr != ' ')                                      \
+              while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
               }                                                        \
@@ -437,22 +435,22 @@ static void   display_data(int, time_t, time_t),
            if ((gt_lt_sign == EQUAL_SIGN) &&                           \
                (tmp_file_size == search_file_size))                    \
            {                                                           \
-              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length); \
+              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
               (void)memcpy(p_type, (id_string), (id_string_length));   \
                                                                        \
               /* Write file size. */                                   \
-              while (*ptr != ' ')                                      \
+              while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
               }                                                        \
               tmp_ptr = ptr - 1;                                       \
               j = 0;                                                   \
-              while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE)) \
+              while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))\
               {                                                        \
                  *(p_file_size - j) = *tmp_ptr;                        \
                  tmp_ptr--; j++;                                       \
               }                                                        \
-              if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+              if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))\
               {                                                        \
                  *(p_file_size - j) = '>';                             \
               }                                                        \
@@ -460,22 +458,22 @@ static void   display_data(int, time_t, time_t),
            else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
                     (tmp_file_size < search_file_size))                \
                 {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length); \
-                   (void)memcpy(p_type, (id_string), (id_string_length)); \
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+                   (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                    /* Write file size. */                              \
-                   while (*ptr != ' ')                                 \
+                   while (*ptr != SEPARATOR_CHAR)                      \
                    {                                                   \
                       ptr++;                                           \
                    }                                                   \
                    tmp_ptr = ptr - 1;                                  \
                    j = 0;                                              \
-                   while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE)) \
+                   while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))\
                    {                                                   \
                       *(p_file_size - j) = *tmp_ptr;                   \
                       tmp_ptr--; j++;                                  \
                    }                                                   \
-                   if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                   if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))\
                    {                                                   \
                       *(p_file_size - j) = '>';                        \
                    }                                                   \
@@ -483,22 +481,22 @@ static void   display_data(int, time_t, time_t),
            else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
                     (tmp_file_size > search_file_size))                \
                 {                                                      \
-                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length); \
-                   (void)memcpy(p_type, (id_string), (id_string_length)); \
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
+                   (void)memcpy(p_type, (id_string), (id_string_length));\
                                                                        \
                    /* Write file size. */                              \
-                   while (*ptr != ' ')                                 \
+                   while (*ptr != SEPARATOR_CHAR)                      \
                    {                                                   \
                       ptr++;                                           \
                    }                                                   \
                    tmp_ptr = ptr - 1;                                  \
                    j = 0;                                              \
-                   while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE)) \
+                   while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))\
                    {                                                   \
                       *(p_file_size - j) = *tmp_ptr;                   \
                       tmp_ptr--; j++;                                  \
                    }                                                   \
-                   if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' ')) \
+                   if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))\
                    {                                                   \
                       *(p_file_size - j) = '>';                        \
                    }                                                   \
@@ -614,6 +612,10 @@ get_data(void)
       (void)extract_data(log_file, j);
       total_file_size += file_size;
       total_trans_time += trans_time;
+      if ((perm.list_limit > 0) && (total_no_files >= perm.list_limit))
+      {
+         break;
+      }
    }
 
    if (total_no_files != 0)
@@ -872,7 +874,7 @@ search_time(char   *src,
           time_buf[MAX_INT_LENGTH];
    time_t time_val;
 
-   if (search_time_val == -1)
+   if ((search_time_val == -1) || (latest_entry < search_time_val))
    {
       return(src + size);
    }
@@ -885,10 +887,6 @@ search_time(char   *src,
        * or end in our buffer. Thats where we will start our
        * search.
        */
-      if (latest_entry < search_time_val)
-      {
-         return(src + size);
-      }
       if (abs(search_time_val - earliest_entry) >
           abs(latest_entry - search_time_val))
       {
@@ -970,7 +968,7 @@ no_criteria(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -1042,7 +1040,7 @@ no_criteria(register char *ptr,
          il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
          ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
          j = 0;
-         while ((*ptr != ' ') && (j < file_name_length))
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
             *(p_file_name + j) = *ptr;
             ptr++; j++;
@@ -1051,7 +1049,7 @@ no_criteria(register char *ptr,
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -1059,18 +1057,18 @@ no_criteria(register char *ptr,
 
          /* Write file size. */
          p_size = ptr;
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          tmp_ptr = ptr - 1;
          j = 0;
-         while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE))
+         while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))
          {
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))
          {
             *(p_file_size - j) = '>';
          }
@@ -1089,7 +1087,7 @@ no_criteria(register char *ptr,
             char job_id_str[15];
 
             /* Get the job ID */
-            while ((*ptr != '\n') && (*ptr != ' ') && (count < 15))
+            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))
             {
                job_id_str[count] = *ptr;
                count++; ptr++;
@@ -1111,7 +1109,7 @@ no_criteria(register char *ptr,
          else
          {
             /* Ignore the ID */
-            while ((*ptr != ' ') && (*ptr != '\n'))
+            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
             {
                ptr++;
             }
@@ -1120,7 +1118,7 @@ no_criteria(register char *ptr,
          /* Save the process/user */
          ptr++;
          j = 0;
-         while ((*ptr != ' ') && (*ptr != '\n') &&
+         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&
                 (j <= MAX_PROC_USER_LENGTH))
          {
             *(p_proc_user + j) = *ptr;
@@ -1195,7 +1193,7 @@ file_name_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -1221,7 +1219,7 @@ file_name_only(register char *ptr,
                   il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                   INSERT_TIME_TYPE(AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
                   j = 0;
-                  while ((*ptr != ' ') && (j < file_name_length))
+                  while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                   {
                      *(p_file_name + j) = *ptr;
                      ptr++; j++;
@@ -1248,7 +1246,7 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
                        j = 0;
-                       while ((*ptr != ' ') && (j < file_name_length))
+                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                        {
                           *(p_file_name + j) = *ptr;
                           ptr++; j++;
@@ -1275,7 +1273,7 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
                        j = 0;
-                       while ((*ptr != ' ') && (j < file_name_length))
+                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                        {
                           *(p_file_name + j) = *ptr;
                           ptr++; j++;
@@ -1302,7 +1300,7 @@ file_name_only(register char *ptr,
                        il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(OTHER_DEL_ID_STR, OTHER_DEL_ID_LENGTH);
                        j = 0;
-                       while ((*ptr != ' ') && (j < file_name_length))
+                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                        {
                           *(p_file_name + j) = *ptr;
                           ptr++; j++;
@@ -1326,7 +1324,7 @@ file_name_only(register char *ptr,
                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                     INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
                     j = 0;
-                    while ((*ptr != ' ') && (j < file_name_length))
+                    while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                     {
                        *(p_file_name + j) = *ptr;
                        ptr++; j++;
@@ -1341,7 +1339,7 @@ file_name_only(register char *ptr,
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -1349,18 +1347,18 @@ file_name_only(register char *ptr,
 
          /* Write file size. */
          p_size = ptr;
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          tmp_ptr = ptr - 1;
          j = 0;
-         while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE))
+         while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))
          {
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))
          {
             *(p_file_size - j) = '>';
          }
@@ -1424,7 +1422,7 @@ file_size_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -1504,7 +1502,7 @@ file_size_only(register char *ptr,
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          j = 0;
-         while ((*ptr != ' ') && (j < file_name_length))
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
             *(p_file_name + j) = *ptr;
             ptr++; j++;
@@ -1512,14 +1510,14 @@ file_size_only(register char *ptr,
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          ptr++;
 
          /* File size is already stored. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -1584,7 +1582,7 @@ file_name_and_size(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -1675,7 +1673,7 @@ file_name_and_size(register char *ptr,
          il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -1731,30 +1729,30 @@ file_name_and_size(register char *ptr,
                  (void)memcpy(p_type, UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
               }
          j = 0;
-         while ((*ptr != ' ') && (j < file_name_length))
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
             *(p_file_name + j) = *ptr;
             ptr++; j++;
          }
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          ptr++;
 
          /* Write file size. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          tmp_ptr = ptr - 1;
          j = 0;
-         while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE))
+         while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))
          {
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))
          {
             *(p_file_size - j) = '>';
          }
@@ -1819,7 +1817,7 @@ recipient_only(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -1976,7 +1974,7 @@ recipient_only(register char *ptr,
          il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
          ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
          j = 0;
-         while ((*ptr != ' ') && (j < file_name_length))
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
             *(p_file_name + j) = *ptr;
             ptr++; j++;
@@ -1985,7 +1983,7 @@ recipient_only(register char *ptr,
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -1993,18 +1991,18 @@ recipient_only(register char *ptr,
 
          /* Write file size. */
          p_size = ptr;
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          tmp_ptr = ptr - 1;
          j = 0;
-         while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE))
+         while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))
          {
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))
          {
             *(p_file_size - j) = '>';
          }
@@ -2064,7 +2062,7 @@ file_name_and_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -2120,7 +2118,7 @@ file_name_and_recipient(register char *ptr,
                        il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
                        j = 0;
-                       while ((*ptr != ' ') && (j < file_name_length))
+                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                        {
                           *(p_file_name + j) = *ptr;
                           ptr++; j++;
@@ -2140,7 +2138,7 @@ file_name_and_recipient(register char *ptr,
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -2148,18 +2146,18 @@ file_name_and_recipient(register char *ptr,
 
          /* Write file size. */
          p_size = ptr;
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          tmp_ptr = ptr - 1;
          j = 0;
-         while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE))
+         while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))
          {
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))
          {
             *(p_file_size - j) = '>';
          }
@@ -2219,7 +2217,7 @@ file_size_and_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -2300,7 +2298,7 @@ file_size_and_recipient(register char *ptr,
          p_ts = localtime(&time_when_transmitted);
          CONVERT_TIME();
          j = 0;
-         while ((*ptr != ' ') && (j < file_name_length))
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
             *(p_file_name + j) = *ptr;
             ptr++; j++;
@@ -2308,14 +2306,14 @@ file_size_and_recipient(register char *ptr,
          (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          ptr++;
 
          /* File size is already stored. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -2375,7 +2373,7 @@ file_name_size_recipient(register char *ptr,
 
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
-         if (time(&now) > next_check_time)
+         if (((i % 200) == 0) && (time(&now) > next_check_time))
          {
             next_check_time = ((now / CHECK_TIME_INTERVAL) *
                                CHECK_TIME_INTERVAL) + CHECK_TIME_INTERVAL;
@@ -2552,7 +2550,7 @@ file_name_size_recipient(register char *ptr,
          il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
@@ -2608,30 +2606,30 @@ file_name_size_recipient(register char *ptr,
                  (void)memcpy(p_type, UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
               }
          j = 0;
-         while ((*ptr != ' ') && (j < file_name_length))
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
             *(p_file_name + j) = *ptr;
             ptr++; j++;
          }
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          ptr++;
 
          /* Write file size. */
-         while (*ptr != ' ')
+         while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
          }
          tmp_ptr = ptr - 1;
          j = 0;
-         while ((*tmp_ptr != ' ') && (j < MAX_DISPLAYED_FILE_SIZE))
+         while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_FILE_SIZE))
          {
             *(p_file_size - j) = *tmp_ptr;
             tmp_ptr--; j++;
          }
-         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != ' '))
+         if ((j == MAX_DISPLAYED_FILE_SIZE) && (*tmp_ptr != SEPARATOR_CHAR))
          {
             *(p_file_size - j) = '>';
          }

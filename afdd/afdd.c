@@ -233,7 +233,7 @@ main(int argc, char *argv[])
    host_config_counter = (int)*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET + sizeof(int));
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status() < 0)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to map to AFD status area. (%s %d)\n",

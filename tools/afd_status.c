@@ -70,7 +70,7 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status() < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to map to AFD status area. (%s %d)\n",
@@ -257,6 +257,7 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "AMG burst counter    : %u\n", p_afd_status->amg_burst_counter);
    (void)fprintf(stdout, "FD burst counter     : %u\n", p_afd_status->fd_burst_counter);
    (void)fprintf(stdout, "Burst2 counter       : %u\n", p_afd_status->burst2_counter);
+   (void)fprintf(stdout, "Max. FD queue length : %u\n", p_afd_status->max_queue_length);
    (void)fprintf(stdout, "AFD start time       : %s", ctime(&p_afd_status->start_time));
 
    exit(SUCCESS);

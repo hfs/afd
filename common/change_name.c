@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -110,6 +110,7 @@ change_name(char *orig_file_name,
           *ptr_newname = NULL;
    int    count_asterix = 0,
           count_questioner = 0,
+          tmp_count_questioner,
           act_asterix = 0,
           act_questioner = 0,
           i,
@@ -146,6 +147,7 @@ change_name(char *orig_file_name,
          default  : /* search the char, found in filter, in oldname */
 
             pattern_found = NO;
+            tmp_count_questioner = 0;
 
             /* mark the latest position */
             ptr_filter_tmp = ptr_filter;
@@ -171,7 +173,7 @@ change_name(char *orig_file_name,
                      if (*ptr_filter_tmp == '?')
                      {
                         /* mark questioner */
-                        ptr_questioner[count_questioner++] = ptr_oldname_tmp;
+                        ptr_questioner[count_questioner + tmp_count_questioner++] = ptr_oldname_tmp;
                      }
                      ptr_filter_tmp++;
                      ptr_oldname_tmp++;
@@ -189,17 +191,17 @@ change_name(char *orig_file_name,
                   /* and position the pointer to next char           */
                   *ptr_oldname = '\0';
                   ptr_oldname = ptr_oldname_tmp;
-
                   ptr_filter = ptr_filter_tmp;
+                  count_questioner += tmp_count_questioner;
                   break;
                }
                else
                {
                   ptr_filter_tmp = ptr_filter;
                   ptr_oldname++;
-                  if (count_questioner > 0)
+                  if (tmp_count_questioner > 0)
                   {
-                     count_questioner = 0;
+                     tmp_count_questioner = 0;
                   }
                }
             }
@@ -477,7 +479,7 @@ change_name(char *orig_file_name,
             {
                system_log(WARN_SIGN, NULL, 0,
                           "can not paste more '*' as defined before -> ignored");
-               system_log(WARN_SIGN, NULL, 0,
+               system_log(DEBUG_SIGN, NULL, 0,
                           "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
                           orig_file_name, filter, rename_to_rule, new_name);
             }
@@ -495,7 +497,7 @@ change_name(char *orig_file_name,
             {
                system_log(WARN_SIGN, NULL, 0,
                           "can not paste more '?' as defined before -> ignored");
-               system_log(WARN_SIGN, NULL, 0,
+               system_log(DEBUG_SIGN, NULL, 0,
                           "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s",
                           orig_file_name, filter, rename_to_rule, new_name);
             }

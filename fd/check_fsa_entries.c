@@ -1,6 +1,6 @@
 /*
  *  check_fsa_entries.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   14.06.1998 H.Kiehl Created
+ **   07.04.2002 H.Kiehl Added some more checks for the job_status struct.
  **
  */
 DESCR__E_M3
@@ -139,6 +140,24 @@ check_fsa_entries(void)
                          DISCONNECT, __FILE__, __LINE__);
                fsa[i].job_status[j].connect_status = DISCONNECT;
             }
+            if (fsa[i].job_status[j].proc_id != -1)
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "Process ID in job %d for host %s is %d. It should be -1. Correcting. (%s %d)\n",
+                         j, fsa[i].host_dsp_name, fsa[i].job_status[j].proc_id,
+                         __FILE__, __LINE__);
+               fsa[i].job_status[j].proc_id = -1;
+            }
+#if defined (_BURST_MODE) || defined (_OUTPUT_LOG)
+            if (fsa[i].job_status[j].job_id != NO_ID)
+            {
+               (void)rec(sys_log_fd, DEBUG_SIGN,
+                         "Job ID in job %d for host %s is %d. It should be %d. Correcting. (%s %d)\n",
+                         j, fsa[i].host_dsp_name, fsa[i].job_status[j].job_id,
+                         NO_ID, __FILE__, __LINE__);
+               fsa[i].job_status[j].job_id = NO_ID;
+            }
+#endif
          }
       } /* if (gotcha == NO) */
    } /* for (i = 0; i < no_of_hosts; i++) */

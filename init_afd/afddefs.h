@@ -163,9 +163,14 @@ typedef socklen_t my_socklen_t;
 #define DIR_CONFIG_UPDATE          5
 #define REREAD_HOST_CONFIG         6
 #define REREAD_DIR_CONFIG          7
-#define UNLOCK_NEW_FSA_AND_JID     8
 
 #define WORK_DIR_ID                "-w"
+
+#ifdef FTX
+#define WAIT_LOOPS 600 /* 60 seconds */
+#else
+#define WAIT_LOOPS 300 /* 30 seconds */
+#endif
 
 /* Definitions when AFD file directory is running full. */
 #define STOP_AMG_THRESHOLD         20
@@ -183,12 +188,6 @@ typedef socklen_t my_socklen_t;
 /* Bit map flag to to enable/disable certain features in the AFD. */
 #define DISABLE_RETRIEVE           1
 #define DISABLE_ARCHIVE            2
-
-/* Bit map flag for AMG and FD communication. */
-#define INST_JOB_ACTIVE            1
-#define TIME_JOB_ACTIVE            2
-#define WRITTING_JID_STRUCT        64
-#define FD_DIR_CHECK_ACTIVE        128
 
 /* The number of directories that are always in the AFD file directory: */
 /*         ".", "..", "error", "pool", "time", "incoming"               */
@@ -320,6 +319,9 @@ typedef socklen_t my_socklen_t;
 #define DUMMY_SIGN                 "<#>"   /* To always show some general*/
                                            /* information, eg month.     */
 #define SEPARATOR                  "-->"
+
+/* Separator to separate elements in log files. */
+#define SEPARATOR_CHAR             ' '
 
 /* Definitions of different exit status */
 #define NOT_RUNNING                -1
@@ -465,6 +467,9 @@ typedef socklen_t my_socklen_t;
 #define DESTINATION_IDENTIFIER     "[destination]"
 #define RECIPIENT_IDENTIFIER       "[recipient]"
 #define OPTION_IDENTIFIER          "[options]"
+
+/* Group identifier for mails. */
+#define MAIL_GROUP_IDENTIFIER      '$'
 
 /* Definitions of maximum values */
 #define MAX_SHUTDOWN_TIME          60    /* When the AMG gets the order  */
@@ -1075,29 +1080,39 @@ struct fileretrieve_status
                                             /* forked for this directory.*/
        };
 
+/* Bit map flag for AMG and FD communication. */
+#define DIR_CHECK_ACTIVE     1
+#define REREADING_DIR_CONFIG 2
+#define FD_WAITING           4
+#define WRITTING_JID_STRUCT  64
+#define FD_DIR_CHECK_ACTIVE  128
+
 /* Structure that holds status of all process */
 struct afd_status
        {
-          signed char   amg;              /* Automatic Message Generator */
-          unsigned char amg_jobs;         /* Bitmap to show if jobs of   */
-                                          /* the AMG (dir_check(),       */
-                                          /* time_job(), ...) are active:*/
-                                          /*+------+--------------------+*/
-                                          /*|Bit(s)|      Meaning       |*/
-                                          /*+------+--------------------+*/
-                                          /*| 1    | dir_check() active |*/
-                                          /*| 2 - 6| Not used.          |*/
-                                          /*| 7    | AMG writting to    |*/
-                                          /*|      | JID structure.     |*/
-                                          /*| 8    | FD searching dirs. |*/
-                                          /*+------+--------------------+*/
-          signed char   fd;               /* File Distributor            */
-          signed char   sys_log;          /* System Log                  */
-          signed char   receive_log;      /* Receive Log                 */
-          signed char   trans_log;        /* Transfer Log                */
-          signed char   trans_db_log;     /* Transfer Debug Log          */
+          signed char   amg;             /* Automatic Message Generator  */
+          unsigned char amg_jobs;        /* Bitmap to show if jobs of    */
+                                         /* the AMG (dir_check(),        */
+                                         /* time_job(), ...) are active: */
+                                         /*+------+---------------------+*/
+                                         /*|Bit(s)|      Meaning        |*/
+                                         /*+------+---------------------+*/
+                                         /*| 1    | dir_check() active  |*/
+                                         /*| 2    | Rereading DIR_CONFIG|*/
+                                         /*| 3    | FD waiting for AMG  |*/
+                                         /*|      | to finish DIR_CONFIG|*/
+                                         /*| 4 - 6| Not used.           |*/
+                                         /*| 7    | AMG writting to     |*/
+                                         /*|      | JID structure.      |*/
+                                         /*| 8    | FD searching dirs.  |*/
+                                         /*+------+---------------------+*/
+          signed char   fd;              /* File Distributor             */
+          signed char   sys_log;         /* System Log                   */
+          signed char   receive_log;     /* Receive Log                  */
+          signed char   trans_log;       /* Transfer Log                 */
+          signed char   trans_db_log;    /* Transfer Debug Log           */
           signed char   archive_watch;
-          signed char   afd_stat;         /* Statistic program           */
+          signed char   afd_stat;        /* Statistic program            */
           signed char   afdd;
 #ifdef _NO_MMAP
           signed char   mapper;
@@ -1138,6 +1153,7 @@ struct afd_status
            unsigned int fd_burst_counter;   /* Number of burst by FD.    */
            unsigned int burst2_counter;     /* Number of burst2 done by  */
                                             /* FD.                       */
+           unsigned int max_queue_length;   /* Max. FD queue length.     */
        };
 
 /* Structure that holds all relevant information of */
@@ -1301,6 +1317,7 @@ struct delete_log
 extern void    change_name(char *, char *, char *, char *),
                get_user(char *),
                get_rename_rules(char *),
+               inform_fd_about_fsa_change(void),
                init_fifos_afd(void),
 #ifdef _NO_MMAP
                log_shmid(int, int),
@@ -1311,7 +1328,7 @@ extern char    *get_definition(char *, char *, char *, int),
                *lock_proc(int, int),
                *posi(char *, char *);
 extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
-               attach_afd_status(int *),
+               attach_afd_status(void),
                afw2wmo(char *, int *, char **, char *),
                bin_file_chopper(char *, int *, off_t *),
                bittest(unsigned char *, int),

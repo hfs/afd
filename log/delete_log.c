@@ -1,6 +1,6 @@
 /*
  *  delete_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,6 +66,7 @@ DESCR__S_M1
  **   14.01.1998 H.Kiehl Created
  **   07.01.2001 H.Kiehl Build in some checks when fifo buffer overflows.
  **   14.06.2001 H.Kiehl Removed the above unnecessary checks.
+ **   13.04.2002 H.Kiehl Added SEPARATOR_CHAR.
  **
  */
 DESCR__E_M1
@@ -352,12 +353,16 @@ main(int argc, char *argv[])
                        }
                        else
                        {
-                          (void)fprintf(delete_file, "%-10ld %s %s %lu %d %s\n",
+                          (void)fprintf(delete_file, "%-10ld %s%c%s%c%lu%c%d%c%s\n",
                                         now,
                                         p_host_name,
+                                        SEPARATOR_CHAR,
                                         p_file_name,
+                                        SEPARATOR_CHAR,
                                         *file_size,
+                                        SEPARATOR_CHAR,
                                         *job_number,
+                                        SEPARATOR_CHAR,
                                         &p_file_name[*file_name_length + 1]);
                        }
                     }

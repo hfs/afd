@@ -200,9 +200,11 @@ struct resend_list
 struct send_data
        {
           char   hostname[MAX_FILENAME_LENGTH];
+          char   smtp_server[MAX_FILENAME_LENGTH];
           char   user[MAX_USER_NAME_LENGTH + 1];
           char   target_dir[MAX_PATH_LENGTH];
           char   prefix[MAX_FILENAME_LENGTH];
+          char   subject[MAX_PATH_LENGTH];
           char   lock;                    /* DOT, OFF, etc.              */
           char   mode_flag;               /* FTP passive or active mode. */
           char   transfer_mode;
@@ -276,7 +278,7 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             file_name_toggle(Widget, XtPointer, XtPointer),
             format_info(char *),
             get_info(int),
-            get_send_data(void),
+            get_send_data(int, int *),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),
@@ -289,6 +291,8 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             send_files(int, int *),
             send_files_ftp(int, int *, int *, int *, int *,
                            struct resend_list *, int *, int *),
+            send_files_smtp(int, int *, int *, int *, int *,
+                            struct resend_list *, int *, int *),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
             toggled(Widget, XtPointer, XtPointer),

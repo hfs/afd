@@ -1,6 +1,6 @@
 /*
  *  edit_hc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -160,6 +160,7 @@ char                       *p_work_dir,
                            last_selected_host[MAX_HOSTNAME_LENGTH + 1];
 struct fileretrieve_status *fra;
 struct filetransfer_status *fsa;
+struct afd_status          *p_afd_status;
 struct host_list           *hl = NULL; /* required by change_alias_order() */
 struct changed_entry       *ce;
 struct parallel_transfers  pt;
@@ -1319,6 +1320,14 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    else
    {
       (void)strcat(window_title, hostname);
+   }
+
+   if (attach_afd_status() < 0)
+   {
+      (void)fprintf(stderr,
+                    "ERROR   : Failed to attach to AFD status area. (%s %d)\n",
+                    __FILE__, __LINE__);
+      exit(INCORRECT);
    }
 
    return;

@@ -469,6 +469,10 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
                     no_selected--;
                     draw_selection = YES;
                  }
+                 else
+                 {
+                    draw_selection = NO;
+                 }
             connect_data[i].inverse = OFF;
          }
          else

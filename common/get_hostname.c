@@ -72,7 +72,7 @@ get_hostname(char *recipient, char *real_hostname)
       ptr++;
    }
    if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/') &&
-       (*(ptr + 3) == '$'))
+       (*(ptr + 3) == MAIL_GROUP_IDENTIFIER))
    {
       ptr += 4;
       while ((*ptr != '\0') && (*ptr != '@') &&

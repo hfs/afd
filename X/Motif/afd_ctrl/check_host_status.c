@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -83,6 +83,7 @@ extern int                        no_of_hosts,
                                   no_of_rows,
                                   button_width,
                                   tv_no_of_rows,
+                                  window_width,
                                   x_offset_proc;
 extern unsigned short             step_size;
 extern unsigned long              color_pool[];
@@ -299,7 +300,7 @@ Widget   w;
       free(new_connect_data);
 
       /* Resize window if necessary */
-      if (resize_window() == YES)
+      if ((redraw_everything = resize_window()) == YES)
       {
          if (no_of_columns != 0)
          {
@@ -413,16 +414,16 @@ Widget   w;
          }
       } /* if (no_of_jobs_selected > 0) */
 
-      /* Make sure changes are drawn !!! */
+      /* Make sure changes are drawn!!! */
       flush = YES;
    } /* if (check_fsa() == YES) */
 
-   if (line_style & SHOW_CHARACTERS)
+   if ((line_style & SHOW_CHARACTERS) || (line_style & SHOW_BARS))
    {
       end_time = times(&tmsdummy);
    }
 
-   /* Change information for each remote host if necessary */
+   /* Change information for each remote host if necessary. */
    for (i = 0; i < no_of_hosts; i++)
    {
       x = y = -1;
@@ -972,7 +973,7 @@ Widget   w;
                flush = YES;
             }
          }
-      }
+      } /* if (line_style & SHOW_CHARACTERS) */
 
       /*
        * BAR INFORMATION
@@ -1111,10 +1112,14 @@ Widget   w;
    }
    if (redraw_everything == YES)
    {
+      calc_but_coord(window_width);
+      XClearWindow(display, line_window);
+      draw_label_line();
       for (i = 0; i < no_of_hosts; i++)
       {
          draw_line_status(i, 1);
       }
+      draw_button_line();
       flush = YES;
    }
 

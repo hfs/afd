@@ -107,10 +107,10 @@ main(int argc, char *argv[])
 
    if (*no_msg_queued > 0)
    {
-      (void)fprintf(stdout, "Message number     Message name                    Pid   time      Pos  CPos E\n");
+      (void)fprintf(stdout, "Message number   Message name                      Pid time         Pos  CP E\n");
       for (i = 0; i < *no_msg_queued; i++)
       {
-         (void)fprintf(stdout, "%-18.0f %-*s %-6d %-ld %-4d %-3d  %d\n",
+         (void)fprintf(stdout, "%-16.0f %-*s %6d %-10ld %5d %3d %d\n",
                        qb[i].msg_number, MAX_MSG_NAME_LENGTH,
                        qb[i].msg_name, qb[i].pid,
                        qb[i].creation_time, qb[i].pos,

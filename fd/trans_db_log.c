@@ -168,7 +168,11 @@ trans_db_log(char *sign, char *file, int line, char *fmt, ...)
       buf[header_length] = tmp_char;
    }
 
-   (void)write(trans_db_log_fd, buf, length);
+   if (write(trans_db_log_fd, buf, length) != length)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "write() error : %s", strerror(errno));
+   }
 
    return;
 }

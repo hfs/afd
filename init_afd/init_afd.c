@@ -54,6 +54,7 @@ DESCR__S_M1
  **                      daemon.
  **   30.06.2001 H.Kiehl Starting afdd process is now only done when
  **                      this is configured in AFD_CONFIG file.
+ **   06.04.2002 H.Kiehl Added saving of old core files.
  **
  */
 DESCR__E_M1
@@ -77,6 +78,8 @@ DESCR__E_M1
 #include <errno.h>
 #include "amgdefs.h"
 #include "version.h"
+
+#define NO_OF_SAVED_CORE_FILES 10
 
 /* Global definitions */
 int                        sys_log_fd = STDERR_FILENO,
@@ -111,6 +114,7 @@ static pid_t               make_process(char *, char *);
 static void                afd_exit(void),
                            check_dirs(char *),
                            get_afd_config_value(int *, int *),
+                           init_afd_check_fsa(void),
                            log_pid(pid_t, int),
                            sig_exit(int),
                            sig_bus(int),
@@ -597,6 +601,10 @@ main(int argc, char *argv[])
          p_afd_status->amg_burst_counter = 0;
          p_afd_status->fd_burst_counter = 0;
          p_afd_status->burst2_counter = 0;
+         (void)rec(sys_log_fd, DEBUG_SIGN,
+                   "Max FD queue length : %10u\n",
+                   p_afd_status->max_queue_length);
+         p_afd_status->max_queue_length = 0;
          bd_time = localtime(&now);
          if (bd_time->tm_mon != current_month)
          {
@@ -719,7 +727,7 @@ main(int argc, char *argv[])
           */
          if (fsa != NULL)
          {
-            (void)check_fsa();
+            init_afd_check_fsa();
 
             for (i = 0; i < no_of_hosts; i++)
             {
@@ -1435,12 +1443,44 @@ zombie_check(void)
          }
          else if (WIFSIGNALED(status))
               {
+#ifdef NO_OF_SAVED_CORE_FILES
+                 static int no_of_saved_cores = 0;
+#endif /* NO_OF_SAVED_CORE_FILES */
+
                  /* abnormal termination */
                  proc_table[i].pid = 0;
                  *proc_table[i].status = OFF;
                  (void)rec(sys_log_fd, ERROR_SIGN,
                            "<INIT> Abnormal termination of %s! (%s %d)\n",
                            proc_table[i].proc_name, __FILE__, __LINE__);
+#ifdef NO_OF_SAVED_CORE_FILES
+                 if (no_of_saved_cores < NO_OF_SAVED_CORE_FILES)
+                 {
+                    char        core_file[MAX_PATH_LENGTH];
+                    struct stat stat_buf;
+
+                    (void)sprintf(core_file, "%s/core", p_work_dir);
+                    if (stat(core_file, &stat_buf) != -1)
+                    {
+                       char new_core_file[MAX_PATH_LENGTH];
+
+                       (void)sprintf(new_core_file, "%s.%s.%ld.%d",
+                                     core_file, proc_table[i].proc_name,
+                                     time(NULL), no_of_saved_cores);
+                       if (rename(core_file, new_core_file) == -1)
+                       {
+                          (void)rec(sys_log_fd, DEBUG_SIGN,
+                                    "Failed to rename() %s to %s : %s (%s %d)\n",
+                                    core_file, new_core_file,
+                                    strerror(errno), __FILE__, __LINE__);
+                       }
+                       else
+                       {
+                          no_of_saved_cores++;
+                       }
+                    }
+                 }
+#endif /* NO_OF_SAVED_CORE_FILES */
 
                  /* No process may end abnormally! */
                  proc_table[i].pid = make_process(proc_table[i].proc_name, p_work_dir);
@@ -1485,6 +1525,46 @@ log_pid(pid_t pid, int pos)
                     "write() error when writing to %s : %s (%s %d)\n",
                     afd_active_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
+   }
+
+   return;
+}
+
+/*####################### init_afd_check_fsa() ##########################*/
+static void
+init_afd_check_fsa(void)
+{
+   if (fsa != NULL)
+   {
+      char *ptr;
+
+      ptr = (char *)fsa;
+      ptr -= AFD_WORD_OFFSET;
+
+      if (*(int *)ptr == STALE)
+      {
+#ifdef _NO_MMAP
+         if (munmap_emu(ptr) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap_emu() from FSA (%d) : %s",
+                       fsa_id, strerror(errno));
+         }
+#else
+         if (munmap(ptr, fsa_size) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() from FSA [fsa_id = %d fsa_size = %d] : %s",
+                       fsa_id, fsa_size, strerror(errno));
+         }
+#endif
+
+         if (fsa_attach() < 0)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to attach to FSA.");
+         }
+      }
    }
 
    return;
@@ -1591,7 +1671,7 @@ afd_exit(void)
                }
                else
                {
-                  if ((i != DC_NO) &&
+                  if ((i != DC_NO) && (proc_table[i - 1].status != NULL) &&
                       ((i != AFDD_NO) || (*proc_table[i - 1].status != NEITHER)))
                   {
                      *proc_table[i - 1].status = STOPPED;
@@ -1600,7 +1680,7 @@ afd_exit(void)
             }
             else
             {
-               if ((i != DC_NO) &&
+               if ((i != DC_NO) && (proc_table[i - 1].status != NULL) &&
                    ((i != AFDD_NO) || (*proc_table[i - 1].status != NEITHER)))
                {
                   *proc_table[i - 1].status = STOPPED;

@@ -1,6 +1,6 @@
 /*
  *  check_file_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -45,6 +45,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   08.04.1998 H.Kiehl Created
+ **   16.04.2002 H.Kiehl Improve speed when inserting new jobs in queue.
  **
  */
 DESCR__E_M3
@@ -332,29 +333,79 @@ add_message_to_queue(char *dir_name, char in_error_dir)
    }
    else
    {
-      int    qb_pos = *no_msg_queued;
+      int    qb_pos;
       double msg_number = ((double)msg_priority - 47.0) *
                           (((double)creation_time * 10000.0) +
                           (double)unique_number);
 
-      if ((*no_msg_queued > 0) &&
-          (msg_number < qb[*no_msg_queued - 1].msg_number))
+      if (*no_msg_queued > 0)
       {
-         register int i;
-
-         for (i = (*no_msg_queued - 1); i > -1; i--)
+         if (*no_msg_queued == 1)
          {
-            if (msg_number > qb[i].msg_number)
+            if (qb[0].msg_number < msg_number)
+            {
+               qb_pos = 1;
+            }
+            else
             {
                size_t move_size;
 
-               move_size = (*no_msg_queued - (i + 1)) * sizeof(struct queue_buf);
-               (void)memmove(&qb[i + 2], &qb[i + 1], move_size);
-               qb_pos = i + 1;
-               break;
+               move_size = *no_msg_queued * sizeof(struct queue_buf);
+               (void)memmove(&qb[1], &qb[0], move_size);
+               qb_pos = 0;
             }
          }
+         else
+         {
+            if (msg_number < qb[0].msg_number)
+            {
+               size_t move_size;
+
+               move_size = *no_msg_queued * sizeof(struct queue_buf);
+               (void)memmove(&qb[1], &qb[0], move_size);
+               qb_pos = 0;
+            }
+            else if (msg_number > qb[*no_msg_queued - 1].msg_number)
+                 {
+                    qb_pos = *no_msg_queued;
+                 }
+                 else
+                 {
+                    int center,
+                        end = *no_msg_queued - 1,
+                        start = 0;
+
+                    for (;;)
+                    {
+                       center = (end - start) / 2;
+                       if (center == 0)
+                       {
+                          size_t move_size;
+
+                          move_size = (*no_msg_queued - (start + 1)) *
+                                      sizeof(struct queue_buf);
+                                   (void)memmove(&qb[start + 2], &qb[start + 1],
+                                        move_size);
+                          qb_pos = start + 1;
+                          break;
+                       }
+                                if (msg_number < qb[start + center].msg_number)
+                       {
+                          end = start + center;
+                       }
+                       else
+                       {
+                          start = start + center;
+                       }
+                    }
+                 }
+         }
       }
+      else
+      {
+         qb_pos = 0;
+      }
+
       (void)strcpy(qb[qb_pos].msg_name, dir_name);
       qb[qb_pos].msg_number = msg_number;
       qb[qb_pos].pid = PENDING;

@@ -60,6 +60,7 @@ DESCR__S_M1
  **   11.02.1997 H.Kiehl Created
  **   07.01.2001 H.Kiehl Build in some checks when fifo buffer overflows.
  **   14.06.2001 H.Kiehl Removed the above unneccessary checks.
+ **   13.04.2002 H.Kiehl Added SEPARATOR_CHAR.
  **
  */
 DESCR__E_M1
@@ -321,10 +322,12 @@ main(int argc, char *argv[])
                        }
                        else
                        {
-                          (void)fprintf(input_file, "%-10ld %s %lu %u\n",
+                          (void)fprintf(input_file, "%-10ld %s%c%lu%c%u\n",
                                         now, 
                                         p_file_name,
+                                        SEPARATOR_CHAR,
                                         (unsigned long)*file_size,
+                                        SEPARATOR_CHAR,
                                         *dir_number);
                           length = length + check_size;
                        }

@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -294,6 +294,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          {
             free((void *)id.dbe);
             id.dbe = NULL;
+            id.count = 0;
          }
       }
    }

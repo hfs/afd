@@ -1,6 +1,6 @@
 /*
  *  remove_connection.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001, 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,8 @@ DESCR__E_M3
 #include <stdio.h>
 #include "fddefs.h"
 
+/* #define WITH_MULTI_FSA_CHECKS */
+
 /* External global variables */
 extern int                        sys_log_fd,
                                   fsa_fd;
@@ -68,7 +70,8 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
        * active transfers without ever resetting the pid! This can lead to
        * some very fatal behaviour of the AFD.
        */
-      if (check_fsa() == YES)
+#ifdef WITH_MULTI_FSA_CHECKS
+      if (fd_check_fsa() == YES)
       {
          if (check_fra_fd() == YES)
          {
@@ -77,6 +80,7 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
          get_new_positions();
          init_msg_buffer();
       }
+#endif /* WITH_MULTI_FSA_CHECKS */
 
       /* Decrease number of active transfers to this host in FSA */
       if (faulty == YES)

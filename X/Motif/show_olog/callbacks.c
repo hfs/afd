@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -615,10 +615,49 @@ resend_button(Widget w, XtPointer client_data, XtPointer call_data)
 void
 send_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
+   int no_selected,
+       *select_list;
+
    reset_message(statusbox_w);
-   if (items_selected == YES)
+   if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
    {
-      get_send_data();
+      int           gotcha = NO,
+                    i;
+      char          *line,
+                    *ptr;
+      XmStringTable all_items;
+
+      XtVaGetValues(listbox_w, XmNitems, &all_items, NULL);
+      for (i = 0; i < no_selected; i++)
+      {
+         XmStringGetLtoR(all_items[select_list[i] - 1],
+                         XmFONTLIST_DEFAULT_TAG, &line);
+         ptr = line + strlen(line) - 1;
+         if ((*ptr == 'Y') || (*ptr == '?'))
+         {
+            gotcha = YES;
+            XtFree(line);
+            break;
+         }
+         XtFree(line);
+      }
+      if (gotcha == YES)
+      {
+         get_send_data(no_selected, select_list);
+      }
+      else
+      {
+         if (no_selected == 1)
+         {
+            show_message(statusbox_w,
+                         "The file selected is NOT in the archive!");
+         }
+         else
+         {
+            show_message(statusbox_w,
+                         "None of the selected files are in the archive!");
+         }
+      }
    }
    else
    {

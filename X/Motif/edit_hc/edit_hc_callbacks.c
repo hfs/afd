@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -103,6 +103,7 @@ extern off_t                      fsa_size;
 extern char                       *p_work_dir,
                                   last_selected_host[];
 extern struct filetransfer_status *fsa;
+extern struct afd_status          *p_afd_status;
 extern struct changed_entry       *ce;
 extern struct parallel_transfers  pt;
 extern struct no_of_no_bursts     nob;
@@ -122,6 +123,7 @@ static char                       label_str[8] =
 void
 close_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
+   (void)detach_afd_status();
    exit(0);
 }
 
@@ -1372,7 +1374,16 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       {
          XmStringGetLtoR(item_list[i], XmFONTLIST_DEFAULT_TAG, &p_host_names[i]);
       }
+      if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
+      inform_fd_about_fsa_change();
       change_alias_order(p_host_names, -1);
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
       for (i = 0; i < no_of_hosts; i++)
       {
          XtFree(p_host_names[i]);

@@ -1,7 +1,6 @@
 /*
- *  cache_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  del_cache.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,12 +22,16 @@
 DESCR__S_M1
 /*
  ** NAME
- **   cache_spy - shows all messages currently being cached by the FD
+ **   del_cache - deletes a single FD cache element
  **
  ** SYNOPSIS
- **   cache_spy [-w <AFD work dir>] [--version]
+ **   del_cache [-w <AFD work dir>] [--version] <cache pos>
  **
  ** DESCRIPTION
+ **   This program is only used for debugging, so if you are not debugging
+ **   don't use it!
+ **   NOTE: This function may only called when no files are being queued
+ **         by FD.
  **
  ** RETURN VALUES
  **
@@ -36,19 +39,18 @@ DESCR__S_M1
  **   H.Kiehl
  **
  ** HISTORY
- **   03.02.1998 H.Kiehl Created
- **   09.04.2002 H.Kiehl Added cache pos.
+ **   09.04.2002 H.Kiehl Created
  **
  */
 DESCR__E_M1
 
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>                 /* exit()                            */
+#include <stdlib.h>                 /* exit(), atoi()                    */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>                  /* open()                            */
-#include <unistd.h>                 /* fstat(), lseek(), write()         */
+#include <unistd.h>                 /* fstat()                           */
 #include <sys/mman.h>               /* mmap()                            */
 #include <errno.h>
 #include "fddefs.h"
@@ -64,7 +66,6 @@ int
 main(int argc, char *argv[])
 {
    int                  fd,
-                        i,
                         *no_msg_cached;
    char                 file[MAX_PATH_LENGTH],
                         *ptr,
@@ -77,6 +78,14 @@ main(int argc, char *argv[])
    /* First get working directory for the AFD */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
+      exit(INCORRECT);
+   }
+
+   if (argc != 2)
+   {
+      (void)fprintf(stderr,
+                    "Usage: %s [-w <AFD work dir>] [--version] <cache pos>\n",
+                    argv[0]);
       exit(INCORRECT);
    }
 
@@ -111,34 +120,22 @@ main(int argc, char *argv[])
 
    if (*no_msg_cached > 0)
    {
-#ifdef _AGE_LIMIT
-      (void)fprintf(stdout, "Pos  Hostname FSA-pos Job-ID      msg-time    last-trans  Age-limit Type in FSA\n");
-      for (i = 0; i < *no_msg_cached; i++)
+      int del_pos = atoi(argv[1]);
+
+      if (del_pos < *no_msg_cached)
       {
-         (void)fprintf(stdout, "%-4d %-*s %-7d %-11u %-11lu %-11lu %-9u %-4d %-4d\n",
-                       i, MAX_HOSTNAME_LENGTH, mb[i].host_name,
-                       mb[i].fsa_pos,
-                       mb[i].job_id,
-                       mb[i].msg_time,
-                       mb[i].last_transfer_time,
-                       mb[i].age_limit,
-                       (int)mb[i].type,
-                       (int)mb[i].in_current_fsa);
+         size_t move_size = (*no_msg_cached - 1 - del_pos) *
+                            sizeof(struct msg_cache_buf);
+
+         (void)memmove(&mb[del_pos], &mb[del_pos + 1], move_size);
+         (*no_msg_cached)--;
       }
-#else
-      (void)fprintf(stdout, "Pos  Hostname FSA-pos Job-ID      msg-time    last-trans  Type in FSA\n");
-      for (i = 0; i < *no_msg_cached; i++)
+      else
       {
-         (void)fprintf(stdout, "%-4d %-*s %-7d %-11u %-11u %-11ul %-4d %-4d\n",
-                       i, MAX_HOSTNAME_LENGTH, mb[i].host_name,
-                       mb[i].fsa_pos,
-                       mb[i].job_id,
-                       mb[i].msg_time,
-                       mb[i].last_transfer_time,
-                       (int)mb[i].type,
-                       (int)mb[i].in_current_fsa);
+         (void)fprintf(stderr,
+                       "Delete position (%d) to high, there are only %d elements.\n",
+                       del_pos, *no_msg_cached);
       }
-#endif /* _AGE_LIMIT */
    }
    else
    {
@@ -154,5 +151,5 @@ main(int argc, char *argv[])
    }
    (void)close(fd);
 
-   exit(INCORRECT);
+   exit(SUCCESS);
 }

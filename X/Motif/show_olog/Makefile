@@ -22,6 +22,7 @@ SLOGOBJS = calculate_summary.o\
            resend_files.o\
            send_files.o\
            send_files_ftp.o\
+           send_files_smtp.o\
            show_olog.o\
            trans_log.o
 

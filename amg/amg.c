@@ -99,8 +99,7 @@ DESCR__E_M1
 #ifdef _DEBUG
 FILE                       *p_debug_file;
 #endif
-int                        afd_status_fd,
-                           dnb_fd,
+int                        dnb_fd,
                            shm_id,      /* The shared memory ID's for    */
                                         /* the sorted data and pointers. */
                            data_length, /* The size of data for one job. */
@@ -108,6 +107,9 @@ int                        afd_status_fd,
                            *no_of_dir_names,
                            no_of_dirs,
                            no_of_hosts,
+                           no_of_local_dir,  /* Number of local          */
+                                             /* directories found in the */
+                                             /* DIR_CONFIG file.         */
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -159,9 +161,6 @@ main(int argc, char *argv[])
                                              /* notify AMG over this     */
                                              /* fifo.                    */
                     max_fd,                  /* Biggest file descriptor. */
-                    no_of_local_dir,         /* Number of local          */
-                                             /* directories found in the */
-                                             /* DIR_CONFIG file.         */
                     afd_active_fd,           /* File descriptor to file  */
                                              /* holding all active pid's */
                                              /* of the AFD.              */
@@ -251,6 +250,8 @@ main(int argc, char *argv[])
    {
       (void)fprintf(stderr, "Process AMG already started by %s : (%s %d)\n",
                     ptr, __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Process AMG already started by %s", ptr);
       _exit(INCORRECT);
    }
    else
@@ -312,7 +313,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      if (attach_afd_status(&afd_status_fd) < 0)
+      if (attach_afd_status() < 0)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Failed to attach to AFD status shared area. (%s %d)\n",
@@ -565,7 +566,7 @@ main(int argc, char *argv[])
       dc_old_time = stat_buf.st_mtime;
 
       /* evaluate database */
-      if (eval_dir_config(stat_buf.st_size, &no_of_local_dir) != SUCCESS)
+      if (eval_dir_config(stat_buf.st_size) != SUCCESS)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
                    "Could not find any valid entries in database file %s (%s %d)\n",
@@ -627,7 +628,7 @@ main(int argc, char *argv[])
    if (data_length > 0)
    {
       dc_pid = make_process_amg(work_dir, DC_PROC_NAME, shm_id, rescan_time,
-                                max_no_proc, no_of_local_dir);
+                                max_no_proc);
       if (pid_list != NULL)
       {
          *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
@@ -806,7 +807,7 @@ main(int argc, char *argv[])
 
                        case REREAD_HOST_CONFIG :
                           reread_host_config(&hc_old_time, NULL, NULL,
-                                             NULL, NULL);
+                                             NULL, NULL, YES);
 
                           /*
                            * Do not forget to start dir_check if we have
@@ -816,8 +817,7 @@ main(int argc, char *argv[])
                           {
                              dc_pid = make_process_amg(work_dir, DC_PROC_NAME,
                                                        shm_id, rescan_time,
-                                                       max_no_proc,
-                                                       no_of_local_dir);
+                                                       max_no_proc);
                              if (pid_list != NULL)
                              {
                                 *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
@@ -848,12 +848,19 @@ main(int argc, char *argv[])
                                    size_t           old_size = 0;
                                    struct host_list *old_hl = NULL;
 
+                                   /* Set flag to indicate that we are */
+                                   /* rereading the DIR_CONFIG.        */
+                                   if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
+                                   {
+                                      p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+                                   }
+                                   inform_fd_about_fsa_change();
+
                                    /* Better check if there was a change in HOST_CONFIG */
                                    reread_host_config(&hc_old_time,
                                                       &old_no_of_hosts,
                                                       &rewrite_host_config,
-                                                      &old_size,
-                                                      &old_hl);
+                                                      &old_size, &old_hl, NO);
 
                                    reread_dir_config(&dc_old_time,
                                                      &hc_old_time,
@@ -865,15 +872,6 @@ main(int argc, char *argv[])
                                                      old_hl);
                                 }
                              }
-                          }
-                          break;
-
-                       case UNLOCK_NEW_FSA_AND_JID :
-                          {
-                             int lock_offset;
-
-                             lock_offset = (char *)&p_afd_status->amg - (char *)p_afd_status;
-                             unlock_region(afd_status_fd, lock_offset);
                           }
                           break;
 
@@ -951,8 +949,7 @@ main(int argc, char *argv[])
                exit(3);
             }
             dc_pid = make_process_amg(work_dir, DC_PROC_NAME, shm_id,
-                                      rescan_time, max_no_proc,
-                                      no_of_local_dir);
+                                      rescan_time, max_no_proc);
             if (pid_list != NULL)
             {
                *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;

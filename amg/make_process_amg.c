@@ -1,6 +1,6 @@
 /*
  *  make_process_amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -30,8 +30,7 @@ DESCR__S_M3
  **                          char *prog_name,
  **                          int  shmid,
  **                          int  rescan_time,
- **                          int  max_process,
- **                          int  no_of_directories)
+ **                          int  max_process)
  **
  ** DESCRIPTION
  **   The function make_process_amg() allows the AMG to generate new
@@ -60,7 +59,8 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables */
-extern int sys_log_fd;
+extern int no_of_local_dirs,
+           sys_log_fd;
 
 
 /*########################## make_process_amg() #########################*/
@@ -69,8 +69,7 @@ make_process_amg(char *work_dir,
                  char *prog_name,
                  int  shmid,
                  int  rescan_time,
-                 int  max_process,
-                 int  no_of_directories)
+                 int  max_process)
 {
    static pid_t proc_id;
    char         shm_str[MAX_INT_LENGTH],
@@ -82,7 +81,7 @@ make_process_amg(char *work_dir,
    (void)sprintf(shm_str, "%d", shmid);
    (void)sprintf(rt_str, "%d", rescan_time);
    (void)sprintf(mp_str, "%d", max_process);
-   (void)sprintf(nd_str, "%d", no_of_directories);
+   (void)sprintf(nd_str, "%d", no_of_local_dirs);
 
    switch(proc_id = fork())
    {

@@ -363,7 +363,7 @@ main(int argc, char *argv[])
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status() < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to attach to AFD status area. (%s %d)\n",

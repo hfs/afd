@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>         /* strerror(), strcmp(), strcpy(), strcat()  */
 #include <stdlib.h>         /* calloc(), free()                          */
-#include <unistd.h>         /* sysconf()                                 */
+#include <unistd.h>
 #include <time.h>           /* time()                                    */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -74,22 +74,20 @@ extern Widget           toplevel_w,
                         listbox_w;
 extern int              no_of_log_files,
                         sys_log_fd,
-                        special_button_flag;
+                        special_button_flag,
+                        timeout_flag;
+extern long             transfer_timeout;
+extern clock_t          clktck;
 extern char             archive_dir[],
+                        msg_str[],
+                        *ascii_buffer,
                         *p_archive_name;
 extern struct item_list *il;
 extern struct send_data *db;
 extern struct sol_perm  perm;
 
-/* Local variables. */
-int                     timeout_flag = OFF;
-long                    transfer_timeout;
-char                    *ascii_buffer = NULL,
-                        msg_str[MAX_RET_MSG_LENGTH];
-
 /* Local global variables */
 static char             *p_file_name;
-static clock_t          clktck;
 
 /* Local function prototypes */
 static int              get_archive_data(int, int),
@@ -148,7 +146,9 @@ send_files_ftp(int                no_selected,
             }
             if (ftp_type(db->transfer_mode) == SUCCESS)
             {
-               int ret;
+               int  lstatus,
+                    ret;
+               char file_name[MAX_FILENAME_LENGTH];
 
                if (db->debug == YES)
                {
@@ -178,138 +178,29 @@ send_files_ftp(int                no_selected,
                }
 
                /* Prepare some data for send_file_ftp() */
-               if ((clktck = sysconf(_SC_CLK_TCK)) > 0)
+               if (db->lock == SET_LOCK_LOCKFILE)
                {
-                  int  lstatus;
-                  char file_name[MAX_FILENAME_LENGTH];
-
-                  if (db->lock == SET_LOCK_LOCKFILE)
+                  /* Create lock file on remote host */
+                  if ((lstatus = ftp_data(LOCK_FILENAME, 0, ACTIVE_MODE,
+                                          DATA_WRITE)) != SUCCESS)
                   {
-                     /* Create lock file on remote host */
-                     if ((lstatus = ftp_data(LOCK_FILENAME, 0, ACTIVE_MODE,
-                                             DATA_WRITE)) != SUCCESS)
-                     {
-                        trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "Failed to send lock file %s.",
-                                  LOCK_FILENAME);
-                     }
-                     else
-                     {
-                        if (db->debug == YES)
-                        {
-                           trans_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Opened remote lockfile %s.",
-                                     LOCK_FILENAME);
-                        }
-
-                        /* Close remote lock file */
-                        if (ftp_close_data(DATA_WRITE) != SUCCESS)
-                        {
-                           trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                     "Failed to close data connection for lock file %s.",
-                                     LOCK_FILENAME);
-                        }
-                        else
-                        {
-                           if (db->debug == YES)
-                           {
-                              trans_log(INFO_SIGN, __FILE__, __LINE__,
-                                        "Closed data connection for remote lock file %s.",
-                                        LOCK_FILENAME);
-                           }
-                        }
-                     }
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to send lock file %s.", LOCK_FILENAME);
                   }
-
-                  /*
-                   * Distribute each file from the archive.
-                   */
-                  for (i = 0; i < no_selected; i++)
+                  else
                   {
-                     if (get_archive_data(rl[i].pos, rl[i].file_no) < 0)
+                     if (db->debug == YES)
                      {
-                        (*not_in_archive)++;
-                        msg_str[0] = '\0';
-                        trans_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "%s not in archive", p_file_name);
+                        trans_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Opened remote lockfile %s.",
+                                  LOCK_FILENAME);
                      }
-                     else
-                     {
-                        if ((db->lock == SET_LOCK_DOT) ||
-                            (db->lock == SET_LOCK_DOT_VMS))
-                        {
-                           file_name[0] = '.';
-                           (void)strcpy(&file_name[1], p_file_name);
-                        }
-                        else if (db->lock == SET_LOCK_PREFIX)
-                             {
-                                (void)strcpy(file_name, db->prefix);
-                                (void)strcat(file_name, p_file_name);
-                             }
-                             else
-                             {
-                                (void)strcpy(file_name, p_file_name);
-                             }
-                        if (send_file_ftp(file_name) < 0)
-                        {
-                           (*failed_to_send)++;
-                        }
-                        else
-                        {
-                           (*no_done)++;
-                           XmListDeselectPos(listbox_w, select_list[i]);
-                           (*select_done)++;
 
-                           if (perm.send_limit >= 0)
-                           {
-                              (*user_limit)++;
-                              if (*user_limit >= perm.send_limit)
-                              {
-                                 break;
-                              }
-                           }
-                           if ((db->lock == SET_LOCK_DOT) ||
-                               (db->lock == SET_LOCK_PREFIX) ||
-                               (db->lock == SET_LOCK_DOT_VMS))
-                           {
-                              if (db->lock == SET_LOCK_DOT_VMS)
-                              {
-                                 (void)strcat(p_file_name, ".");
-                              }
-                              if (ftp_move(file_name, p_file_name) != SUCCESS)
-                              {
-                                 trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                           "Failed to move remote file %s to %s.",
-                                           file_name, p_file_name);
-                              }
-                              else
-                              {
-                                 if (db->debug == YES)
-                                 {
-                                    trans_log(INFO_SIGN, __FILE__, __LINE__,
-                                              "Moved remote file %s to %s.",
-                                              file_name, p_file_name);
-                                 }
-                              }
-                           }
-                        }
-                     }
-                     CHECK_INTERRUPT();
-
-                     if ((special_button_flag == STOP_BUTTON_PRESSED) ||
-                         ((perm.resend_limit >= 0) &&
-                          (*user_limit >= perm.resend_limit)))
-                     {
-                        break;
-                     }
-                  } /* for (i = 0; i < no_selected; i++) */
-
-                  if ((db->lock == SET_LOCK_LOCKFILE) && (lstatus == SUCCESS))
-                  {
-                     if (ftp_dele(LOCK_FILENAME) != SUCCESS)
+                     /* Close remote lock file */
+                     if (ftp_close_data(DATA_WRITE) != SUCCESS)
                      {
                         trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "Failed to remove remote lock file %s.",
+                                  "Failed to close data connection for lock file %s.",
                                   LOCK_FILENAME);
                      }
                      else
@@ -317,24 +208,112 @@ send_files_ftp(int                no_selected,
                         if (db->debug == YES)
                         {
                            trans_log(INFO_SIGN, __FILE__, __LINE__,
-                                     "Removed remote lock file %s.",
+                                     "Closed data connection for remote lock file %s.",
                                      LOCK_FILENAME);
                         }
                      }
                   }
                }
-               else
+
+               /*
+                * Distribute each file from the archive.
+                */
+               for (i = 0; i < no_selected; i++)
                {
-                  msg_str[0] = '\0';
-                  if (clktck == -1)
+                  if (get_archive_data(rl[i].pos, rl[i].file_no) < 0)
                   {
-                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "sysconf() error : %s", strerror(errno));
+                     (*not_in_archive)++;
+                     msg_str[0] = '\0';
+                     trans_log(WARN_SIGN, __FILE__, __LINE__,
+                               "%s not in archive", p_file_name);
                   }
                   else
                   {
+                     if ((db->lock == SET_LOCK_DOT) ||
+                         (db->lock == SET_LOCK_DOT_VMS))
+                     {
+                        file_name[0] = '.';
+                        (void)strcpy(&file_name[1], p_file_name);
+                     }
+                     else if (db->lock == SET_LOCK_PREFIX)
+                          {
+                             (void)strcpy(file_name, db->prefix);
+                             (void)strcat(file_name, p_file_name);
+                          }
+                          else
+                          {
+                             (void)strcpy(file_name, p_file_name);
+                          }
+                     if (send_file_ftp(file_name) < 0)
+                     {
+                        (*failed_to_send)++;
+                     }
+                     else
+                     {
+                        (*no_done)++;
+                        XmListDeselectPos(listbox_w, select_list[i]);
+                        (*select_done)++;
+
+                        if (perm.send_limit >= 0)
+                        {
+                           (*user_limit)++;
+                           if (*user_limit >= perm.send_limit)
+                           {
+                              break;
+                           }
+                        }
+                        if ((db->lock == SET_LOCK_DOT) ||
+                            (db->lock == SET_LOCK_PREFIX) ||
+                            (db->lock == SET_LOCK_DOT_VMS))
+                        {
+                           if (db->lock == SET_LOCK_DOT_VMS)
+                           {
+                              (void)strcat(p_file_name, ".");
+                           }
+                           if (ftp_move(file_name, p_file_name) != SUCCESS)
+                           {
+                              trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                                        "Failed to move remote file %s to %s.",
+                                        file_name, p_file_name);
+                           }
+                           else
+                           {
+                              if (db->debug == YES)
+                              {
+                                 trans_log(INFO_SIGN, __FILE__, __LINE__,
+                                           "Moved remote file %s to %s.",
+                                           file_name, p_file_name);
+                              }
+                           }
+                        }
+                     }
+                  }
+                  CHECK_INTERRUPT();
+
+                  if ((special_button_flag == STOP_BUTTON_PRESSED) ||
+                      ((perm.resend_limit >= 0) &&
+                       (*user_limit >= perm.resend_limit)))
+                  {
+                     break;
+                  }
+               } /* for (i = 0; i < no_selected; i++) */
+
+               if ((db->lock == SET_LOCK_LOCKFILE) && (lstatus == SUCCESS))
+               {
+                  if (ftp_dele(LOCK_FILENAME) != SUCCESS)
+                  {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                               "sysconf() error, option _SC_CLK_TCK not available.");
+                               "Failed to remove remote lock file %s.",
+                               LOCK_FILENAME);
+                  }
+                  else
+                  {
+                     if (db->debug == YES)
+                     {
+                        trans_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Removed remote lock file %s.",
+                                  LOCK_FILENAME);
+                     }
                   }
                }
             }
@@ -583,7 +562,7 @@ send_file_ftp(char *file_name)
    }
    transfer_time = (double)(times(&tmsdummy) - start_time) / (double)clktck;
    msg_str[0] = '\0';
-   trans_log(INFO_SIGN, NULL, 0, "%s %.2fs %.0fBytes/s",
+   trans_log(INFO_SIGN, NULL, 0, "%s %.2fs %.0f Bytes/s",
              (file_name[0] == '.') ? &file_name[1] : file_name,
              transfer_time, stat_buf.st_size / transfer_time);
 

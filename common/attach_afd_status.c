@@ -1,6 +1,6 @@
 /*
  *  attach_afd_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   attach_afd_status - attaches to the AFD status area
  **
  ** SYNOPSIS
- **   int attach_afd_status(int *afd_status_fd)
+ **   int attach_afd_status(void)
  **
  ** DESCRIPTION
  **   The function attach_afd_status() reads the shared memory ID
@@ -65,7 +65,7 @@ extern struct afd_status *p_afd_status;
 
 /*######################### attach_afd_status() #########################*/
 int
-attach_afd_status(int *afd_status_fd)
+attach_afd_status(void)
 {
    int         fd,
                loop_counter;
@@ -110,17 +110,10 @@ attach_afd_status(int *afd_status_fd)
       (void)close(fd);
       return(INCORRECT);
    }
-   if (afd_status_fd == NULL)
+   if (close(fd) == -1)
    {
-      if (close(fd) == -1)
-      {
-         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "close() error : %s", strerror(errno));
-      }
-   }
-   else
-   {
-      *afd_status_fd = fd;
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
    p_afd_status = (struct afd_status *)ptr;
 

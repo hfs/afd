@@ -123,7 +123,7 @@ main(int argc, char *argv[])
                       MAX_SYSTEM_LOG_FILES);
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status(NULL) < 0)
+   if (attach_afd_status() < 0)
    {
       (void)fprintf(stderr,
                     "Failed to attach to AFD status shared memory area. (%s %d)\n",

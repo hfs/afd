@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999, 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -158,15 +158,16 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
            {
               length += sprintf(&buf[length], " (%s %d)\n", file, line);
            }
-   }
-   if ((msg_str[0] != '\0') && (timeout_flag == OFF))
-   {
-      char tmp_char;
 
-      tmp_char = buf[header_length];
-      buf[header_length] = '\0';
-      length += sprintf(&buf[length], "%s%s\n", buf, msg_str);
-      buf[header_length] = tmp_char;
+      if (msg_str[0] != '\0')
+      {
+         char tmp_char;
+
+         tmp_char = buf[header_length];
+         buf[header_length] = '\0';
+         length += sprintf(&buf[length], "%s%s\n", buf, msg_str);
+         buf[header_length] = tmp_char;
+      }
    }
 
    (void)write(transfer_log_fd, buf, length);
@@ -202,7 +203,11 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
       }
       if (trans_db_log_fd != -1)
       {
-         (void)write(trans_db_log_fd, buf, length);
+         if (write(trans_db_log_fd, buf, length) != length)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "write() error : %s", strerror(errno));
+         }
       }
    }
 

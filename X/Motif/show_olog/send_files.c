@@ -1,6 +1,6 @@
 /*
  *  send_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,7 +56,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>         /* strerror(), strcmp(), strcpy(), strcat()  */
 #include <stdlib.h>         /* calloc(), free()                          */
-#include <unistd.h>         /* rmdir()                                   */
+#include <unistd.h>         /* rmdir(), sysconf()                        */
 #include <time.h>           /* time()                                    */
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -85,7 +85,12 @@ extern struct send_data *db;
 extern struct sol_perm  perm;
 
 /* Global variables */
+int                     timeout_flag = OFF;
+long                    transfer_timeout;
+clock_t                 clktck;
 char                    archive_dir[MAX_PATH_LENGTH],
+                        msg_str[MAX_RET_MSG_LENGTH],
+                        *ascii_buffer = NULL,
                         *p_archive_name;
 
 
@@ -175,6 +180,20 @@ send_files(int no_selected, int *select_list)
          not_found++;
       }
    }
+   if ((clktck = sysconf(_SC_CLK_TCK)) < 0)
+   {
+      if (clktck == -1)
+      {
+         (void)sprintf(user_message, "sysconf() error : %s", strerror(errno));
+      }
+      else
+      {
+         (void)sprintf(user_message,
+                       "sysconf() error, option _SC_CLK_TCK not available.");
+      }
+      show_message(statusbox_w, user_message);
+      return;
+   }
 
    /*
     * Now we have the job ID of every file that is to be resend.
@@ -197,7 +216,9 @@ send_files(int no_selected, int *select_list)
       } /* FTP */
       else if (db->protocol == SMTP)
            {
-              (void)fprintf(stderr, "Sorry, not yet done!\n");
+              send_files_smtp(no_selected, &not_in_archive, &failed_to_send,
+                              &no_done, &select_done, rl, select_list,
+                              &user_limit);
            }
            else
            {
@@ -214,11 +235,11 @@ send_files(int no_selected, int *select_list)
    {
       if (no_done == 1)
       {
-         length = sprintf(user_message, "1 file resend");
+         length = sprintf(user_message, "1 file send");
       }
       else
       {
-         length = sprintf(user_message, "%d files resend", no_done);
+         length = sprintf(user_message, "%d files send", no_done);
       }
    }
    if (not_archived > 0)

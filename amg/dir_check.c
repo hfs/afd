@@ -103,8 +103,7 @@ DESCR__E_M1
 
 
 /* global variables */
-int                        afd_status_fd,
-                           shm_id,         /* Shared memory ID of        */
+int                        shm_id,         /* Shared memory ID of        */
                                            /* dir_check.                 */
                            fra_id,         /* ID of FRA.                 */
                            fra_fd = -1,    /* Needed by fra_attach()     */
@@ -356,9 +355,9 @@ main(int argc, char *argv[])
    FD_ZERO(&rset);
 
    /* Set flag to indicate that the the dir_check is active. */
-   if ((p_afd_status->amg_jobs & INST_JOB_ACTIVE) == 0)
+   if ((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0)
    {
-      p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+      p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
    }
    fd_search_start_time = time(NULL);
 
@@ -571,9 +570,9 @@ main(int argc, char *argv[])
                  struct stat dir_stat_buf;
 
                  /* Set flag to indicate that the the dir_check is active. */
-                 if ((p_afd_status->amg_jobs & INST_JOB_ACTIVE) == 0)
+                 if ((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0)
                  {
-                    p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+                    p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
                  }
 
                  /*
@@ -885,26 +884,26 @@ main(int argc, char *argv[])
                        /*
                         * Show FD that we are waiting for it to finish it's
                         * file directory check by deactivating the
-                        * INST_JOB_ACTIVE flag. Remember the time when the
+                        * DIR_CHECK_ACTIVE flag. Remember the time when the
                         * flag has been deactivated, otherwise when the FD
                         * crashes we will wait forever!
                         */
-                       if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+                       if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
                        {
-                          p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+                          p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
                           (void)time(&fd_search_start_time);
                        }
                     }
                  }
                  else
                  {
-                    if (((p_afd_status->amg_jobs & INST_JOB_ACTIVE) == 0) &&
+                    if (((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0) &&
                         ((time(NULL) - fd_search_start_time) > 30))
                     {
                        (void)rec(sys_log_fd, WARN_SIGN,
                                  "Reseting FD_DIR_CHECK_ACTIVE flag due to timeout! (%s %d)\n",
                                  __FILE__, __LINE__);
-                       p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+                       p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
                        p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
                     }
                  }
@@ -1529,7 +1528,7 @@ handle_dir(int    dir_no,
          {
             if (rmdir(orig_file_path) == -1)
             {
-               if (errno == ENOTEMPTY)
+               if ((errno == ENOTEMPTY) || (errno == EEXIST))
                {
                   (void)rec(sys_log_fd, DEBUG_SIGN,
                             "Hmm, strange! The directory %s should be empty!\n",
@@ -1786,9 +1785,9 @@ check_fifo(int read_fd, int write_fd)
                (void)rec(sys_log_fd, INFO_SIGN, "Stopped dir_check.\n");
 
                /* Set flag to indicate that the the dir_check is NOT active. */
-               if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+               if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
                {
-                  p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+                  p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
                }
 
                /* Unmap from AFD status area. */
@@ -1866,9 +1865,13 @@ sig_segv(int signo)
    else
    {
       /* Set flag to indicate that the the dir_check is NOT active. */
-      if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+      if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
       {
-         p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+         p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
+      }
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
       }
 
       /* Detach shared memory regions */
@@ -1909,9 +1912,13 @@ sig_bus(int signo)
    else
    {
       /* Set flag to indicate that the the dir_check is NOT active. */
-      if (p_afd_status->amg_jobs & INST_JOB_ACTIVE)
+      if (p_afd_status->amg_jobs & DIR_CHECK_ACTIVE)
       {
-         p_afd_status->amg_jobs ^= INST_JOB_ACTIVE;
+         p_afd_status->amg_jobs ^= DIR_CHECK_ACTIVE;
+      }
+      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
       }
 
       /* Detach shared memory regions */

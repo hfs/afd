@@ -11,8 +11,7 @@ WARN_OPTIONS         = -Wall \
 OPTIMIZATION_OPTIONS = -O2 \
                        -fomit-frame-pointer \
                        -fno-strength-reduce \
-                       -pipe \
-                       -m486
+                       -pipe
 BINMODE              = 755
 SUIDMODE             = 4755
 SBINMODE             = 700
@@ -22,7 +21,7 @@ AR                   = ar
 ARFLAGS              = rsv
 MMAP_FLAG            = 
 COMPILER_FLAGS       = ${WARN_OPTIONS} ${OPTIMIZATION_OPTIONS} ${MMAP_FLAG} -DLINUX -D_WITH_SETUID_CHECK
-#COMPILER_FLAGS       = ${WARN_OPTIONS} ${MMAP_FLAG} -DLINUX -D_WITH_SETUID_CHECK -g
+#COMPILER_FLAGS       = ${WARN_OPTIONS} ${MMAP_FLAG} -DLINUX -D_WITH_SETUID_CHECK -ggdb
 #DEBUG_FLAGS          = -D_DEBUG -D_FIFO_DEBUG
 DEBUG_FLAGS          = 
 #EFENCE               = -lefence

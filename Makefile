@@ -119,6 +119,14 @@ real_clobber :
 	rm -f ../fifodir/*.fifo* ../fifodir/amg_counter
 
 install :
+	@if [ ! -d $(INSTDIR)/bin ] ; \
+	then \
+	   mkdir $(INSTDIR)/bin ; \
+	fi
+	@if [ ! -d $(INSTDIR)/sbin ] ; \
+	then \
+	   mkdir $(INSTDIR)/sbin ; \
+	fi
 	cd $(IAFDPROG) && $(MAKE) install
 	cd $(AMGPROG) && $(MAKE) install
 	cd $(FDPROG) && $(MAKE) install
@@ -135,6 +143,14 @@ install :
 	cd $(SCRIPTS) && $(MAKE) install
 
 sinstall :
+	@if [ ! -d $(INSTDIR)/bin ] ; \
+	then \
+	   mkdir $(INSTDIR)/bin ; \
+	fi
+	@if [ ! -d $(INSTDIR)/sbin ] ; \
+	then \
+	   mkdir $(INSTDIR)/sbin ; \
+	fi
 	cd $(IAFDPROG) && $(MAKE) sinstall
 	cd $(AMGPROG) && $(MAKE) sinstall
 	cd $(FDPROG) && $(MAKE) sinstall

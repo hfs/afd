@@ -177,8 +177,7 @@ reread_dir_config(time_t           *dc_old_time,
       /* Check if DIR_CONFIG has changed */
       if (*dc_old_time < stat_buf.st_mtime)
       {
-         int   no_of_local_dir,
-               i;
+         int   i;
          pid_t tmp_dc_pid;
 
          /* Tell user we have to reread the new DIR_CONFIG file */
@@ -226,7 +225,7 @@ reread_dir_config(time_t           *dc_old_time,
          {
             hl[i].in_dir_config = NO;
          }
-         if (eval_dir_config(stat_buf.st_size, &no_of_local_dir) < 0)
+         if (eval_dir_config(stat_buf.st_size) < 0)
          {
             (void)rec(sys_log_fd, FATAL_SIGN,
                       "Could not find any valid entries in database file %s (%s %d)\n",
@@ -258,8 +257,7 @@ reread_dir_config(time_t           *dc_old_time,
                case NOT_RUNNING :
                case DIED :
                   dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
-                                            shm_id, rescan_time,
-                                            max_no_proc, no_of_local_dir);
+                                            shm_id, rescan_time, max_no_proc);
                   if (pid_list != NULL)
                   {
                      *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
@@ -284,8 +282,7 @@ reread_dir_config(time_t           *dc_old_time,
                   (void)amg_zombie_check(&tmp_dc_pid, 0);
 
                   dc_pid = make_process_amg(p_work_dir, DC_PROC_NAME,
-                                            shm_id, rescan_time,
-                                            max_no_proc, no_of_local_dir);
+                                            shm_id, rescan_time, max_no_proc);
                   if (pid_list != NULL)
                   {
                      *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;

@@ -123,9 +123,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
          {
             write_header(fd);
 
-            XtVaGetValues(listbox_w,
-                          XmNitems, &all_items,
-                          NULL);
+            XtVaGetValues(listbox_w, XmNitems, &all_items, NULL);
             for (i = 0; i < no_selected; i++)
             {
                XmStringGetLtoR(all_items[select_list[i] - 1],

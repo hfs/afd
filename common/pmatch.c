@@ -1,6 +1,6 @@
 /*
  *  pmatch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,8 @@ DESCR__S_M3
  **   any single character.
  **
  ** RETURN VALUES
- **   Returns 0 when pattern matches, else it will return -1.
+ **   Returns 0 when pattern matches, if this file is definitly
+ **   not wanted 1 and otherwise -1.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -59,8 +60,7 @@ static char *find(char *, register char *, register int);
 int
 pmatch(char *p_filter, char *p_file)
 {
-   register int  length = 0,
-                 inverse = NO;
+   register int  length;
    register char *p_gap_file = NULL,
                  *p_gap_filter,
                  *ptr = p_filter,
@@ -70,9 +70,7 @@ pmatch(char *p_filter, char *p_file)
    if (*ptr == '!')
    {
       ptr++;
-      inverse = YES;
    }
-
    while (*ptr != '\0')
    {
       length = 0;
@@ -105,7 +103,7 @@ pmatch(char *p_filter, char *p_file)
                }
                else
                {
-                  return((inverse == NO) ? 0 : 1);
+                  return((*p_filter != '!') ? 0 : 1);
                }
             }
             buffer = *ptr;
@@ -134,7 +132,7 @@ pmatch(char *p_filter, char *p_file)
             }
             if ((buffer == '\0') && (*p_file == '\0'))
             {
-               return((inverse == NO) ? 0 : 1);
+               return((*p_filter != '!') ? 0 : 1);
             }
             break;
 
@@ -145,7 +143,7 @@ pmatch(char *p_filter, char *p_file)
             }
             if ((*(++ptr) == '\0') && (*p_file == '\0'))
             {
-               return((inverse == NO) ? 0 : 1);
+               return((*p_filter != '!') ? 0 : 1);
             }
             if ((*ptr == '\0') && (p_gap_file != NULL))
             {
@@ -173,7 +171,7 @@ pmatch(char *p_filter, char *p_file)
             p_file += length;
             if ((*ptr == '\0') && (*p_file == '\0'))
             {
-               return((inverse == NO) ? 0 : 1);
+               return((*p_filter != '!') ? 0 : 1);
             }
             break;
       }

@@ -437,6 +437,31 @@ main(int argc, char *argv[])
          }
       }
 
+      /*
+       * Before we exit lets check if init_afd is really gone.
+       */
+      loops = 0;
+      for (;;)
+      {
+         if (kill(ia_pid, 0) == -1)
+         {
+            break;
+         }
+         (void)sleep(1);
+
+         if (loops++ >= 40)
+         {
+            (void)fprintf(stdout, "\nSecond timeout reached, killing init_afd the hard way.\n");
+            if (kill(ia_pid, SIGKILL) == -1)
+            {
+               (void)fprintf(stderr,
+                             "Failed to kill init_afd (%d) : %s (%s %d)\n",
+                             ia_pid, strerror(errno),  __FILE__, __LINE__);
+            }
+            break;
+         }
+      }
+
       exit(0);
    }
    else if (start_up == AFD_CTRL_ONLY)

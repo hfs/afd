@@ -101,6 +101,9 @@ UDBOBJS   = update_db.o
 GDDPROG   = get_dc_data
 GDDOBJS   = get_dc_data.o
 
+DELCPROG  = del_cache
+DELCOBJS  = del_cache.o
+
 PROGS   = $(FSAVPROG) $(FRAVPROG) $(FSAEPROG) $(RFSAPROG) $(WDIRPROG)\
           $(DSPYPROG) $(AFDSPROG) $(BFCPROG) $(GCPROG) $(SCPROG) $(TSPROG)\
           $(G2TPROG) $(GFSPROG) $(CFSAPROG) $(CJIDPROG) $(QSPYPROG) $(CSPYPROG)\
@@ -112,7 +115,7 @@ OBJS    = $(FSAVOBJS) $(FRAVOBJS) $(FSAEOBJS) $(RFSAOBJS) $(WDIROBJS)\
           $(G2TOBJS) $(GFSOBJS) $(CFSAOBJS) $(CJIDOBJS) $(QSPYOBJS) $(CSPYOBJS)\
           $(JSPYOBJS) $(CJSPYOBJS) $(RMJOBOBJS) $(DATEOBJS) $(FCHEKOBJS)\
           $(ACHEKOBJS) $(CSTATOBJS) $(UDBOBJS) $(ACMDOBJS) $(ACFGOBJS)\
-          $(GDDOBJS) # $(SYSCOBJS)
+          $(GDDOBJS) $(DELCOBJS) # $(SYSCOBJS)
 HEADERS = ../init_afd/afddefs.h ../config.h ../fd/fddefs.h
 
 all : $(PROGS)
@@ -235,6 +238,10 @@ $(GDDPROG) : $(GDDOBJS) $(LIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(GDDOBJS) $(LIB) $(EFENCE)
 
+$(DELCPROG) : $(DELCOBJS) $(LIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(DELCOBJS) $(LIB) $(EFENCE)
+
 #$(SYSCPROG) : $(SYSCOBJS) $(LIB)
 #	rm -f $@
 #	$(CC) $(CFLAGS) -o $@ $(SYSCOBJS) $(LIB) $(EFENCE)
@@ -244,11 +251,11 @@ clean :
 
 clobber :
 	$(MAKE) clean
-	rm -f $(PROGS)
+	rm -f $(PROGS) $(DELCPROG)
 
 real_clobber :
 	$(MAKE) clobber
-	cd $(INSTDIR)/sbin && rm -f $(PROGS) uhc
+	cd $(INSTDIR)/sbin && rm -f $(PROGS) uhc $(DELCPROG)
 
 install :
 	cd $(INSTDIR)/sbin && rm -f $(PROGS)
