@@ -437,7 +437,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
       int  pos = XmListYToPos(w, event->xbutton.y),
            max_pos;
 
-      /* Check if pos is valid */
+      /* Check if pos is valid. */
       XtVaGetValues(w, XmNitemCount, &max_pos, NULL);
       if ((max_pos > 0) && (pos <= max_pos))
       {
@@ -454,13 +454,13 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          id.soptions = NULL;
          id.archive_dir[0] = '\0';
 
-         /* Get the information */
+         /* Get the information. */
          get_info(pos);
 
          /* Format information in a human readable text. */
          format_info(text);
 
-         /* Show the information */
+         /* Show the information. */
          show_info(text);
 
          /* Free all memory that was allocated in get_info(). */

@@ -20,6 +20,7 @@ AFDCOBJS = afd_ctrl.o\
            draw_line.o\
            draw_tv_line.o\
            expose_handler.o\
+           find_host_dialog.o\
            init_jd_structure.o\
            mouse_handler.o\
            resize_tv_window.o\

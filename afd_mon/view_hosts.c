@@ -149,7 +149,7 @@ main(int argc, char *argv[])
          {
             for (k = 0; k < no_of_filters; k++)
             {
-               if (filter(argv[k + 2], ahl[i][j].host_alias) == 0)
+               if (pmatch(argv[k + 2], ahl[i][j].host_alias) == 0)
                {
                   if (show_header == YES)
                   {
@@ -230,9 +230,9 @@ main(int argc, char *argv[])
          {
             for (k = 0; k < no_of_filters; k++)
             {
-               if ((filter(argv[k + 2], ahl[i][j].real_hostname[0]) == 0) ||
+               if ((pmatch(argv[k + 2], ahl[i][j].real_hostname[0]) == 0) ||
                    ((ahl[i][j].real_hostname[1][0] != '\0') &&
-                    (filter(argv[k + 2], ahl[i][j].real_hostname[1]) == 0)))
+                    (pmatch(argv[k + 2], ahl[i][j].real_hostname[1]) == 0)))
                {
                   if (show_header == YES)
                   {

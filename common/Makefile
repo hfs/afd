@@ -27,7 +27,6 @@ OBJS    = attach_afd_status.o\
           copy_file.o\
           daemon_init.o\
           delete_log_ptrs.o\
-          filter.o\
           fra_attach.o\
           fra_detach.o\
           fsa_attach.o\
@@ -60,6 +59,7 @@ OBJS    = attach_afd_status.o\
           next_counter.o\
           open_counter_file.o\
           posi.o\
+          pmatch.o\
           read_file.o\
           readn.o\
           rec.o\

@@ -300,11 +300,13 @@ stat_again:
       sleep_counter++;
       goto stat_again;
    }
+#ifdef _DEBUG
    (void)rec(sys_log_fd, DEBUG_SIGN,
              "stat_buf.st_size = %d|no_of_job_ids = %d|struct size = %d|total plus word offset = %d (%s %d)\n",
              stat_buf.st_size, *no_of_job_ids, sizeof(struct job_id_data),
              (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET,
              __FILE__, __LINE__);
+#endif /* DEBUG */
    jid_struct_size = stat_buf.st_size;
 
    /* Read and store current message list. */
@@ -572,12 +574,14 @@ stat_again:
                size_t move_size = (*no_of_job_ids - (rjl[end_pos - 1] + 1)) *
                                   sizeof(struct job_id_data);
 
+#ifdef _DEBUG
                (void)rec(sys_log_fd, DEBUG_SIGN,
                          "no_of_job_ids = %d|struct size = %d|move_size = %d|&jd[%d] = %d|&jd[%d] = %d (%s %d)\n",
                          *no_of_job_ids, sizeof(struct job_id_data),
                          move_size, rjl[i], &jd[rjl[i]],
                          rjl[end_pos - 1] + 1, &jd[rjl[end_pos - 1] + 1],
                          __FILE__, __LINE__);
+#endif /* _DEBUG */
                (void)memmove(&jd[rjl[i]], &jd[rjl[end_pos - 1] + 1], move_size);
             }
             jobs_deleted = end_pos - i;
@@ -592,8 +596,10 @@ stat_again:
             }
          } /* for (i = 0; i < removed_jobs; i++) */
          unlock_region(jd_fd, 1);
+#ifdef _DEBUG
          (void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
-          *no_of_job_ids, __FILE__, __LINE__);
+                   *no_of_job_ids, __FILE__, __LINE__);
+#endif /* _DEBUG */
          free(rjl);
          rjl = NULL;
          removed_jobs = 0;
@@ -639,10 +645,12 @@ stat_again:
                   }
                   else
                   {
+#ifdef _DEBUG
                      (void)rec(sys_log_fd, DEBUG_SIGN,
                                "Hmm. Host position for %s is incorrect!? Correcting %d->%d (%s %d)\n",
                                mdb[i].host_name, mdb[i].fsa_pos,
                                new_pos, __FILE__, __LINE__);
+#endif /* _DEBUG */
                      mdb[i].fsa_pos = new_pos;
                   }
                }
@@ -662,10 +670,12 @@ stat_again:
                }
                else
                {
+#ifdef _DEBUG
                   (void)rec(sys_log_fd, DEBUG_SIGN,
                             "Hmm. Host position for %s is incorrect!? Correcting %d->%d (%s %d)\n",
                             mdb[i].host_name, mdb[i].fsa_pos,
                             new_pos, __FILE__, __LINE__);
+#endif /* _DEBUG */
                   mdb[i].fsa_pos = new_pos;
                }
             }
@@ -758,12 +768,14 @@ stat_again:
                size_t move_size = (*no_of_job_ids - (rjl[end_pos - 1] + 1)) *
                                   sizeof(struct job_id_data);
 
+#ifdef _DEBUG
                (void)rec(sys_log_fd, DEBUG_SIGN,
                          "no_of_job_ids = %d|struct size = %d|move_size = %d|&jd[%d] = %d|&jd[%d] = %d (%s %d)\n",
                          *no_of_job_ids, sizeof(struct job_id_data),
                          move_size, rjl[i], &jd[rjl[i]],
                          rjl[end_pos - 1] + 1, &jd[rjl[end_pos - 1] + 1],
                          __FILE__, __LINE__);
+#endif /* _DEBUG */
                (void)memmove(&jd[rjl[i]], &jd[rjl[end_pos - 1] + 1], move_size);
             }
             jobs_deleted = end_pos - i;
@@ -778,8 +790,10 @@ stat_again:
             }
          } /* for (i = 0; i < removed_jobs; i++) */
          unlock_region(jd_fd, 1);
+#ifdef _DEBUG
          (void)rec(sys_log_fd, DEBUG_SIGN, "no_of_job_ids = %d (%s %d)\n",
-          *no_of_job_ids, __FILE__, __LINE__);
+                   *no_of_job_ids, __FILE__, __LINE__);
+#endif /* _DEBUG */
          free(rjl);
       }
    }

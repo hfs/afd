@@ -142,14 +142,14 @@ gts2tiff(char *path, char *filename)
    (void)sprintf(from, "%s/%s", path, filename);
    if ((fdin = open(from, O_RDONLY)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Could not open %s for copying : %s", from, strerror(errno));
       return(INCORRECT);
    }
 
    if (fstat(fdin, &stat_buf) < 0)   /* need size of input file */
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Could not fstat() on %s : %s", from, strerror(errno));
       (void)close(fdin);
       return(INCORRECT);
@@ -159,7 +159,7 @@ gts2tiff(char *path, char *filename)
    (void)sprintf(to, "%s%s", from, TIFF_END);
    if ((fdout = open(to, (O_RDWR | O_CREAT | O_TRUNC), stat_buf.st_mode)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Could not open %s for copying : %s", to, strerror(errno));
       (void)close(fdin);
       return(INCORRECT);
@@ -173,13 +173,13 @@ gts2tiff(char *path, char *filename)
       if ((src = mmap(0, stat_buf.st_size, PROT_READ, (MAP_FILE | MAP_SHARED), fdin, 0)) == (caddr_t) -1)
 #endif
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Could not mmap() file %s : %s", from, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
@@ -196,14 +196,14 @@ gts2tiff(char *path, char *filename)
          if (munmap(src, stat_buf.st_size) < 0)
 #endif
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "munmap() error : %s", strerror(errno));
          }
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
@@ -227,13 +227,13 @@ gts2tiff(char *path, char *filename)
                  break;
          case 3: word_offset = 3;
                  break;
-         default: receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         default: receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                               "Impossible!!!!");
                   (void)close(fdin);
                   (void)close(fdout);
                   if (unlink(to) < 0)
                   {
-                     receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                     receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                  "Failed to unlink() %s : %s",
                                  to, strerror(errno));
                   }
@@ -250,26 +250,26 @@ gts2tiff(char *path, char *filename)
       /* set size of output file */
       if (lseek(fdout, tiff_file_size - 1, SEEK_SET) == -1)
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Could not seek() on %s : %s", to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
       }
       if (write(fdout, "", 1) != 1)
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Could not write() to %s : %s", to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
@@ -287,16 +287,16 @@ gts2tiff(char *path, char *filename)
          if (munmap(src, stat_buf.st_size) < 0)
 #endif
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "munmap() error : %s", strerror(errno));
          }
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Could not mmap() file %s : %s", to, strerror(errno));
          (void)close(fdin);
          (void)close(fdout);
          if (unlink(to) < 0)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to unlink() %s : %s", to, strerror(errno));
          }
          return(INCORRECT);
@@ -353,12 +353,12 @@ gts2tiff(char *path, char *filename)
          {
             if (no_of_eols < 0)
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "T4-code is corrupt since there were no 6 EOL's in a row.");
             }
             else
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "There are no EOL's.");
             }
 #ifdef _NO_MMAP
@@ -367,14 +367,14 @@ gts2tiff(char *path, char *filename)
             if (munmap(src, stat_buf.st_size) < 0)
 #endif
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "munmap() error : %s", strerror(errno));
             }
             (void)close(fdin);
             (void)close(fdout);
             if (unlink(to) < 0)
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "Failed to unlink() %s : %s", to, strerror(errno));
             }
             return(INCORRECT);
@@ -386,12 +386,12 @@ gts2tiff(char *path, char *filename)
          {
             if (no_of_eols < 0)
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "T4-code is corrupt since there were no 6 EOL's in a row.");
             }
             else
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "There are no EOL's");
             }
 #ifdef _NO_MMAP
@@ -400,14 +400,14 @@ gts2tiff(char *path, char *filename)
             if (munmap(src, stat_buf.st_size) < 0)
 #endif
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "munmap() error : %s", strerror(errno));
             }
             (void)close(fdin);
             (void)close(fdout);
             if (unlink(to) < 0)
             {
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "Failed to unlink() %s : %s", to, strerror(errno));
             }
             return(INCORRECT);
@@ -418,21 +418,21 @@ gts2tiff(char *path, char *filename)
    {
       if (close(fdin) == -1)
       {
-         receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                      "close() error : %s", strerror(errno));
       }
       if (close(fdout) == -1)
       {
-         receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                      "close() error : %s", strerror(errno));
       }
       if (unlink(to) < 0)
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Failed to unlink() %s : %s (%s %d)\n",
                      to, strerror(errno));
       }
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Unusable data size (%d) for file %s (%s %d)\n",
                   stat_buf.st_size, from);
       return(stat_buf.st_size);
@@ -589,9 +589,9 @@ gts2tiff(char *path, char *filename)
    offset += 12;
 
 #ifdef _WITH_FILE_INFO
-   receive_log(INFO_SIGN, __FILE__, __LINE__,
+   receive_log(INFO_SIGN, __FILE__, __LINE__, 0L,
                "T4 to TIFF conversion : %s %s", filename, bh);
-   receive_log(INFO_SIGN, __FILE__, __LINE__,
+   receive_log(INFO_SIGN, __FILE__, __LINE__, 0L,
                "                      : hr = %d  vr = %d  eol's = %d",
                hr, vr, no_of_eols);
 #endif
@@ -602,7 +602,7 @@ gts2tiff(char *path, char *filename)
    if (munmap(src, stat_buf.st_size) < 0)
 #endif
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "munmap() error : %s", strerror(errno));
       return(INCORRECT);
    }
@@ -612,7 +612,7 @@ gts2tiff(char *path, char *filename)
    if (munmap(dst, tiff_file_size) < 0)
 #endif
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "munmap() error : %s", strerror(errno));
       (void)close(fdin);
       (void)close(fdout);
@@ -622,7 +622,7 @@ gts2tiff(char *path, char *filename)
    /* Time to remove the file with T4 code only */
    if (unlink(from) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to unlink() %s : %s", from, strerror(errno));
    }
 
@@ -633,12 +633,12 @@ gts2tiff(char *path, char *filename)
 
    if (close(fdin) == -1)
    {
-      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
    if (close(fdout) == -1)
    {
-      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
 
@@ -670,7 +670,7 @@ evaluate_wmo_stuff(char *buf, size_t size)
 #endif
          if ((ptr = posi(ptr, search_str)) == NULL)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to find third <CR><CR><LF>.");
             return(INCORRECT);
          }
@@ -681,14 +681,14 @@ evaluate_wmo_stuff(char *buf, size_t size)
       }
       else
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Failed to find second <CR><CR><LF>.");
          return(INCORRECT);
       }
    }
    else
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to find first <CR><CR><LF>.");
       return(INCORRECT);
    }
@@ -719,7 +719,7 @@ evaluate_wmo_stuff(char *buf, size_t size)
                     }
                     else
                     {
-                       receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                    "Unknown horizontal resolution of %c.",
                                    ptr[6]);
                        return(INCORRECT);
@@ -730,7 +730,7 @@ evaluate_wmo_stuff(char *buf, size_t size)
    }
    if ((vr != 2) && (vr != 4))
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to get the vertical resolution (%d).", vr);
       return(INCORRECT);
    }
@@ -742,7 +742,7 @@ evaluate_wmo_stuff(char *buf, size_t size)
    if ((buf[(size - 1)] != 3) || (buf[(size - 2)] != 10) ||
        (buf[(size - 3)] != 13) || (buf[(size - 4)] != 13))
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to locate bulletin end.");
       return(INCORRECT);
    }

@@ -268,7 +268,6 @@
 #define NO                         0
 #define YES                        1
 #define NEITHER                    2
-#define OK                         1
 #define INCORRECT                  -1
 #define SUCCESS                    0
 #define STALE                      -1
@@ -427,6 +426,9 @@
 #define MAX_COPIED_FILE_SIZE       100   /* Same as above only that this */
                                          /* limits the total size copied */
                                          /* in Megabytes.                */
+#define MAX_RENAME_BUFFER_LENGTH   8192  /* Buffer size to hold new file-*/
+                                         /* names after a rename, exec,  */
+                                         /* etc.                         */
     
 /* Miscellaneous definitions */
 #define LOG_SIGN_POSITION          13    /* Position in log file where   */
@@ -1179,7 +1181,6 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                create_name(char *, signed char, time_t, int, unsigned short *, char *),
                create_remote_dir(char *, char *),
                extract(char *, char *, int, int *, off_t *),
-               filter(char *, char *),
                fra_attach(void),
                fra_detach(void),
                fsa_attach(void),
@@ -1201,6 +1202,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                next_counter(int *),
                normal_copy(char *, char *),
                open_counter_file(char *),
+               pmatch(char *, char *),
                read_file(char *, char **buffer),
                rec(int, char *, char *, ...),
                rec_rmdir(char *),
@@ -1223,7 +1225,7 @@ extern void    *attach_buf(char *, int *, size_t, char *),
                get_log_number(int *, int, char *, int),
                *map_file(char *, int *),
                *mmap_resize(int, void *, size_t),
-               receive_log(char *, char *, int, char *, ...),
+               receive_log(char *, char *, int, time_t, char *, ...),
                reshuffel_log_files(int, char *, char *),
                t_hostname(char *, char *),
                set_fl(int, int),

@@ -116,10 +116,10 @@ rename_files(char                   *src_file_path,
           * This however involves several system calls (opendir(),
           * readdir(), closedir()), ie high system load. This
           * we hopefully reduce by using the array file_name_pool
-          * and filter() to get the names we need. Let's see
+          * and pmatch() to get the names we need. Let's see
           * how things work.
           */
-         if ((ret = filter(p_de->fme[pos_in_fm].file_mask[j],
+         if ((ret = pmatch(p_de->fme[pos_in_fm].file_mask[j],
                            file_name_pool[i])) == 0)
          {
             /* Only create a unique name and the corresponding */
@@ -172,8 +172,8 @@ rename_files(char                   *src_file_path,
                }
                p_src = src_file_path + strlen(src_file_path);
                p_dest_end = dest_file_path + strlen(dest_file_path);
-               (void)strcpy(p_dest_end, unique_name);
-               p_dest = p_dest_end + strlen(unique_name);
+               (void)strcpy(p_dest_end, (unique_name - 1));
+               p_dest = p_dest_end + strlen((unique_name - 1));
                *(p_dest++) = '/';
                *p_dest = '\0';
             }

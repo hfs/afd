@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -64,6 +64,7 @@ DESCR__S_M3
  ** HISTORY
  **   03.02.1997 T.Freyberg Created
  **   15.11.1997 H.Kiehl    Insert option day of the year.
+ **   07.03.2001 H.Kiehl    Put in some more syntax checks.
  **
  */
 DESCR__E_M3
@@ -88,7 +89,7 @@ change_name(char *orig_file_name,
             char *new_name)
 {
    char   buffer[MAX_FILENAME_LENGTH],
-          string[32],
+          string[MAX_INT_LENGTH + 1],
           *ptr_asterix[10] =
           {
              NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
@@ -131,72 +132,72 @@ change_name(char *orig_file_name,
       {
          case '*' : /* '*' in filter detected -> mark position in array */
 
-                    ptr_asterix[count_asterix++] = ptr_oldname;
-                    ptr_filter++;
-                    break;
+            ptr_asterix[count_asterix++] = ptr_oldname;
+            ptr_filter++;
+            break;
 
          case '?' : /* '?' in filter -> skip one character in both words */
                     /*                  and mark questioner              */
 
-                    ptr_filter++;
-                    ptr_questioner[count_questioner++] = ptr_oldname++;
-                    break;
+            ptr_filter++;
+            ptr_questioner[count_questioner++] = ptr_oldname++;
+            break;
 
          default  : /* search the char, found in filter, in oldname */
 
-                    pattern_found = NO;
+            pattern_found = NO;
 
-                    /* mark the latest position */
-                    ptr_filter_tmp = ptr_filter;
-                    while (*ptr_filter_tmp != '\0')
-                    {
-                       /* position the orig_file_name pointer to the next      */
-                       /* place where filter pointer and orig_file_name pointer*/
-                       /* are equal                                            */
-                       while (*ptr_oldname != *ptr_filter_tmp)
-                       {
-                          ptr_oldname++;
-                       }
-                       /* mark the latest position */
-                       ptr_oldname_tmp = ptr_oldname;
+            /* mark the latest position */
+            ptr_filter_tmp = ptr_filter;
+            while (*ptr_filter_tmp != '\0')
+            {
+               /* position the orig_file_name pointer to the next      */
+               /* place where filter pointer and orig_file_name pointer*/
+               /* are equal                                            */
+               while (*ptr_oldname != *ptr_filter_tmp)
+               {
+                  ptr_oldname++;
+               }
+               /* mark the latest position */
+               ptr_oldname_tmp = ptr_oldname;
 
-                       /* test the rest of the pattern */
-                       while ((*ptr_filter_tmp != '*') && (*ptr_filter_tmp != '\0'))
-                       {
-                          if ((*ptr_filter_tmp == *ptr_oldname_tmp) || (*ptr_filter_tmp == '?'))
-                          {
-                             if (*ptr_filter_tmp == '?')
-                             {
-                                /* mark questioner */
-                                ptr_questioner[count_questioner++] = ptr_oldname_tmp;
-                             }
-                             ptr_filter_tmp++;
-                             ptr_oldname_tmp++;
-                             pattern_found = YES;
-                          }
-                          else
-                          {
-                             pattern_found = NO;
-                             break;
-                          }
-                       }
-                       if (pattern_found == YES)
-                       {
-                          /* mark end of string 'ptr_asterix[count_asterix]' */
-                          /* and position the pointer to next char           */
-                          *ptr_oldname = '\0';
-                          ptr_oldname = ptr_oldname_tmp;
+               /* test the rest of the pattern */
+               while ((*ptr_filter_tmp != '*') && (*ptr_filter_tmp != '\0'))
+               {
+                  if ((*ptr_filter_tmp == *ptr_oldname_tmp) || (*ptr_filter_tmp == '?'))
+                  {
+                     if (*ptr_filter_tmp == '?')
+                     {
+                        /* mark questioner */
+                        ptr_questioner[count_questioner++] = ptr_oldname_tmp;
+                     }
+                     ptr_filter_tmp++;
+                     ptr_oldname_tmp++;
+                     pattern_found = YES;
+                  }
+                  else
+                  {
+                     pattern_found = NO;
+                     break;
+                  }
+               }
+               if (pattern_found == YES)
+               {
+                  /* mark end of string 'ptr_asterix[count_asterix]' */
+                  /* and position the pointer to next char           */
+                  *ptr_oldname = '\0';
+                  ptr_oldname = ptr_oldname_tmp;
 
-                          ptr_filter = ptr_filter_tmp;
-                          break;
-                       }
-                       else
-                       {
-                          ptr_filter_tmp = ptr_filter;
-                          ptr_oldname = ptr_oldname_tmp;
-                       }
-                    }
-                    break;
+                  ptr_filter = ptr_filter_tmp;
+                  break;
+               }
+               else
+               {
+                  ptr_filter_tmp = ptr_filter;
+                  ptr_oldname = ptr_oldname_tmp;
+               }
+            }
+            break;
       }
    }
 
@@ -215,7 +216,6 @@ change_name(char *orig_file_name,
    }
 #endif
 
-
    /* Create new_name as specified in rename_to_rule */
    ptr_rule = rename_to_rule;
    ptr_newname = new_name;
@@ -225,242 +225,275 @@ change_name(char *orig_file_name,
       switch (*ptr_rule)
       {
          case '%' : /* locate the '%' -> handle the rule */
-                    ptr_rule++;
-                    switch (*ptr_rule)
-                    {
-                       case '*' : /* insert the addressed ptr_asterix */
+            ptr_rule++;
+            switch (*ptr_rule)
+            {
+               case '*' : /* insert the addressed ptr_asterix */
 
-                                  ptr_rule++;
+                  ptr_rule++;
 
-                                  /* test for number */
-                                  i = 0;
-                                  while (isdigit(*ptr_rule))
-                                  {
-                                     string[i++] = *ptr_rule++;
-                                  }
-                                  string[i] = '\0';
-                                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
-                                  if (number >= count_asterix)
-                                  {
-                                     (void)rec(sys_log_fd, ERROR_SIGN,
-                                               "illegal '*' addressed: %d (%s %d)\n",
-                                               number + 1, __FILE__, __LINE__);
-                                  }
-                                  else
-                                  {
-                                     (void)strcpy(ptr_newname, ptr_asterix[number]);
-                                     ptr_newname += strlen(ptr_asterix[number]);
-                                  }
-                                  break;
+                  /* test for number */
+                  i = 0;
+                  while ((isdigit(*ptr_rule)) && (i < MAX_INT_LENGTH))
+                  {
+                     string[i++] = *ptr_rule++;
+                  }
+                  string[i] = '\0';
+                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                  if (number >= count_asterix)
+                  {
+                     (void)rec(sys_log_fd, ERROR_SIGN,
+                               "illegal '*' addressed: %d (%s %d)\n",
+                               number + 1, __FILE__, __LINE__);
+                  }
+                  else
+                  {
+                     (void)strcpy(ptr_newname, ptr_asterix[number]);
+                     ptr_newname += strlen(ptr_asterix[number]);
+                  }
+                  break;
 
-                       case '?' : /* insert the addressed ptr_questioner */
+               case '?' : /* insert the addressed ptr_questioner */
 
-                                  ptr_rule++;
+                  ptr_rule++;
 
-                                  /* test for a number */
-                                  i = 0;
-                                  while (isdigit(*ptr_rule))
-                                  {
-                                     string[i++] = *ptr_rule++;
-                                  }
-                                  string[i] = '\0';
-                                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
-                                  if (number >= count_questioner)
-                                  {
-                                     (void)rec(sys_log_fd, ERROR_SIGN,
-                                               "illegal '?' addressed: %d (%s %d)\n",
-                                               number + 1, __FILE__, __LINE__);
+                  /* test for a number */
+                  i = 0;
+                  while ((isdigit(*ptr_rule)) && (i < MAX_INT_LENGTH))
+                  {
+                     string[i++] = *ptr_rule++;
+                  }
+                  string[i] = '\0';
+                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                  if (number >= count_questioner)
+                  {
+                     (void)rec(sys_log_fd, ERROR_SIGN,
+                               "illegal '?' addressed: %d (%s %d)\n",
+                               number + 1, __FILE__, __LINE__);
 
-                                  }
-                                  else
-                                  {
-                                     *ptr_newname = *ptr_questioner[number];
-                                     ptr_newname++;
-                                  }
-                                  break;
+                  }
+                  else
+                  {
+                     *ptr_newname = *ptr_questioner[number];
+                     ptr_newname++;
+                  }
+                  break;
 
-                       case 'o' : /* insert the addressed character from orig_file_name */
+               case 'o' : /* insert the addressed character from orig_file_name */
 
-                                  ptr_rule++;
+                  ptr_rule++;
 
-                                  /* test for a number */
-                                  i = 0;
-                                  while (isdigit(*ptr_rule))
-                                  {
-                                     string[i++] = *ptr_rule++;
-                                  }
-                                  string[i] = '\0';
-                                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
-                                  *ptr_newname++ = *(orig_file_name + number);
-                                  break;
+                  /* test for a number */
+                  i = 0;
+                  while ((isdigit(*ptr_rule)) && (i < MAX_INT_LENGTH))
+                  {
+                     string[i++] = *ptr_rule++;
+                  }
+                  string[i] = '\0';
+                  number = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                  *ptr_newname++ = *(orig_file_name + number);
+                  break;
 
-		       case 'O' : /* insert the addressed range of characters from orig_file_name */
+               case 'O' : /* insert the addressed range of characters from orig_file_name */
 
-		                  ptr_rule++;
+                  ptr_rule++;
 
-		                  /* read the begin */
-		                  if (*ptr_rule == '^') /* means start from the beginning */
-		                  {
-		                     ptr_oldname = orig_file_name;
-		                     ptr_rule++;
-		                  }
-		                  else /* read the start number */
-                                  {
-                                     i = 0;
-                                     while (isdigit(*ptr_rule))
-                                     {
-                                        string[i++] = *ptr_rule++;
-                                     }
-                                     string[i] = '\0';
-                                     start = atoi(string) - 1; /* human count from 1 and computer from 0 */
-                                     ptr_oldname = orig_file_name + start;
-                                  }
-                                  /* skip the '-' */
-                                  ptr_rule++;
-                                  /* read the end */
-                                  if (*ptr_rule == '$') /* means up to the end */
-                                  {
-                                     (void)strcpy(ptr_newname, ptr_oldname);
-                                     ptr_newname += strlen(ptr_oldname);
-                                     ptr_rule++;
-                                  }
-                                  else
-                                  {
-                                     i = 0;
-                                     while (isdigit(*ptr_rule))
-                                     {
-                                        string[i++] = *ptr_rule++;
-                                     }
-                                     string[i] = '\0';
-                                     end = atoi(string) - 1; /* human count from 1 and computer from 0 */
-                                     number = end - start + 1;  /* including the first and last */
-                                     strncpy(ptr_newname, ptr_oldname, number);
-                                     ptr_newname += number;
-                                  }
-		                  break;
+                  /* read the begin */
+                  if (*ptr_rule == '^') /* means start from the beginning */
+                  {
+                     ptr_oldname = orig_file_name;
+                     ptr_rule++;
+                  }
+                  else /* read the start number */
+                  {
+                     i = 0;
+                     while ((isdigit(*ptr_rule)) && (i < MAX_INT_LENGTH))
+                     {
+                        string[i++] = *ptr_rule++;
+                     }
+                     string[i] = '\0';
+                     start = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                     ptr_oldname = orig_file_name + start;
+                  }
+                  if (*ptr_rule == '-')
+                  {
+                     /* skip the '-' */
+                     ptr_rule++;
+                     /* read the end */
+                     if (*ptr_rule == '$') /* means up to the end */
+                     {
+                        (void)strcpy(ptr_newname, ptr_oldname);
+                        ptr_newname += strlen(ptr_oldname);
+                        ptr_rule++;
+                     }
+                     else
+                     {
+                        i = 0;
+                        while ((isdigit(*ptr_rule)) && (i < MAX_INT_LENGTH))
+                        {
+                           string[i++] = *ptr_rule++;
+                        }
+                        string[i] = '\0';
+                        end = atoi(string) - 1; /* human count from 1 and computer from 0 */
+                        number = end - start + 1;  /* including the first and last */
+                        if (number < 0)
+                        {
+                           (void)rec(sys_log_fd, WARN_SIGN,
+                                     "The start (%d) and end (%d) range do not make sense in rule %s. Start must be larger then end! (%s %d)\n",
+                                     rename_to_rule, __FILE__, __LINE__);
+                        }
+                        else
+                        {
+                           strncpy(ptr_newname, ptr_oldname, number);
+                           ptr_newname += number;
+                        }
+                     }
+                  }
+                  else
+                  {
+                     (void)rec(sys_log_fd, WARN_SIGN,
+                               "There is no end range specified for rule %s (%s %d)\n",
+                               rename_to_rule, __FILE__, __LINE__);
+                  }
+                  break;
 
-		       case 'n' : /* generate a unique number 4 characters */
+               case 'n' : /* generate a unique number 4 characters */
 
-                                  ptr_rule++;
-                                  next_counter(&number);
-                                  (void)sprintf(ptr_newname, "%04d", number);
-                                  ptr_newname += 4;
-		                  break;
+                  ptr_rule++;
+                  next_counter(&number);
+                  (void)sprintf(ptr_newname, "%04d", number);
+                  ptr_newname += 4;
+                  break;
 
-		       case 't' : /* insert the actual time like strftime */
+               case 't' : /* insert the actual time like strftime */
 
-		                  time(&time_buf);
-		                  ptr_rule++;
-                                  switch (*ptr_rule)
-                                  {
-                                     case 'a' : /* short day of the week 'Tue' */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%a", gmtime(&time_buf));
-                                                break;
-                                     case 'A' : /* long day of the week 'Tuesday' */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%A", gmtime(&time_buf));
-                                                break;
-                                     case 'b' : /* short month 'Jan' */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%b", gmtime(&time_buf));
-                                                break;
-                                     case 'B' : /* month 'January' */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%B", gmtime(&time_buf));
-                                                break;
-                                     case 'd' : /* day of month [01,31] */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%d", gmtime(&time_buf));
-                                                break;
-                                     case 'j' : /* day of year [001,366] */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%j", gmtime(&time_buf));
-                                                break;
-                                     case 'm' : /* month [01,12] */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%m", gmtime(&time_buf));
-                                                break;
-                                     case 'y' : /* year 2char [01,99] */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%y", gmtime(&time_buf));
-                                                break;
-                                     case 'Y' : /* year 4char 1997 */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%Y", gmtime(&time_buf));
-                                                break;
-                                     case 'H' : /* hour [00,23] */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%H", gmtime(&time_buf));
-                                                break;
-                                     case 'M' : /* minute [00,59] */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%M", gmtime(&time_buf));
-                                                break;
-                                     case 'S' : /* minute [00,59] */
-                                                number = strftime (ptr_newname, MAX_FILENAME_LENGTH, "%S", gmtime(&time_buf));
-                                                break;
-                                     default  : /* unknown character - ignore */
-                                                ptr_rule++;
-		                  }
-                                  ptr_newname += number;
-                                  ptr_rule++;
-		                  break;
+                  time(&time_buf);
+                  ptr_rule++;
+                  switch (*ptr_rule)
+                  {
+                     case 'a' : /* short day of the week 'Tue' */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%a", gmtime(&time_buf));
+                        break;
+                     case 'A' : /* long day of the week 'Tuesday' */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%A", gmtime(&time_buf));
+                        break;
+                     case 'b' : /* short month 'Jan' */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%b", gmtime(&time_buf));
+                        break;
+                     case 'B' : /* month 'January' */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%B", gmtime(&time_buf));
+                        break;
+                     case 'd' : /* day of month [01,31] */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%d", gmtime(&time_buf));
+                        break;
+                     case 'j' : /* day of year [001,366] */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%j", gmtime(&time_buf));
+                        break;
+                     case 'm' : /* month [01,12] */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%m", gmtime(&time_buf));
+                        break;
+                     case 'y' : /* year 2char [01,99] */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%y", gmtime(&time_buf));
+                        break;
+                     case 'Y' : /* year 4char 1997 */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%Y", gmtime(&time_buf));
+                        break;
+                     case 'H' : /* hour [00,23] */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%H", gmtime(&time_buf));
+                        break;
+                     case 'M' : /* minute [00,59] */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%M", gmtime(&time_buf));
+                        break;
+                     case 'S' : /* minute [00,59] */
+                        number = strftime (ptr_newname, MAX_FILENAME_LENGTH,
+                                           "%S", gmtime(&time_buf));
+                        break;
+                     default  : /* unknown character - ignore */
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Illegal time option (%c) in rule %s (%s %d)\n",
+                                  *ptr_rule, rename_to_rule,
+                                  __FILE__, __LINE__);
+                        number = 0;
+                        break;
+                  }
+                  ptr_newname += number;
+                  ptr_rule++;
+                  break;
 
-		       case '%' : /* insert the '%' sign */
+               case '%' : /* insert the '%' sign */
 
-                                  *ptr_newname = '%';
-                                  ptr_newname++;
-                                  ptr_rule++;
-		                  break;
+                  *ptr_newname = '%';
+                  ptr_newname++;
+                  ptr_rule++;
+                  break;
 
-		       default  : /* no action be specified, write an error message */
+               default  : /* no action be specified, write an error message */
 
-		                  (void)rec(sys_log_fd, WARN_SIGN,
-		                            "Illegal option (%d) in rule %s (%s %d)\n",
-		                            *ptr_rule, rename_to_rule,
-		                            __FILE__, __LINE__);
-		                  break;
-                    }
-                    break;
-                    
+                  (void)rec(sys_log_fd, WARN_SIGN,
+                            "Illegal option (%d) in rule %s (%s %d)\n",
+                            *ptr_rule, rename_to_rule, __FILE__, __LINE__);
+                  ptr_rule++;
+                  break;
+            }
+            break;
+            
          case '*' : /* locate the '*' -> insert the next 'ptr_asterix' */
-                    if (act_asterix == count_asterix)
-                    {
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "can not paste more '*' as defined before -> ignored\n");
-                       (void)rec(sys_log_fd, INFO_SIGN,
-                                 "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s\n",
-                                 orig_file_name, filter, rename_to_rule, new_name);
-                       ptr_rule++;
-                    }
-                    else
-                    {
-                       (void)strcpy(ptr_newname, ptr_asterix[act_asterix]);
-                       ptr_newname += strlen(ptr_asterix[act_asterix]);
-                       act_asterix++;
-                       ptr_rule++;
-                    }
-                    break;
+            if (act_asterix == count_asterix)
+            {
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "can not paste more '*' as defined before -> ignored\n");
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s\n",
+                         orig_file_name, filter, rename_to_rule, new_name);
+            }
+            else
+            {
+               (void)strcpy(ptr_newname, ptr_asterix[act_asterix]);
+               ptr_newname += strlen(ptr_asterix[act_asterix]);
+               act_asterix++;
+            }
+            ptr_rule++;
+            break;
 
          case '?' : /* locate the '?' -> insert the next 'ptr_questioner' */
-                    if (act_questioner == count_questioner)
-                    {
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "can not paste more '?' as defined before -> ignored\n");
-                       (void)rec(sys_log_fd, INFO_SIGN,
-                                 "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s\n",
-                                 orig_file_name, filter, rename_to_rule, new_name);
-                       ptr_rule++;
-                    }
-                    else
-                    {
-                       *ptr_newname = *ptr_questioner[act_questioner];
-                       ptr_newname++;
-                       act_questioner++;
-                       ptr_rule++;
-                    }
-                    break;
+            if (act_questioner == count_questioner)
+            {
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "can not paste more '?' as defined before -> ignored\n");
+               (void)rec(sys_log_fd, WARN_SIGN,
+                         "orig_file_name = %s | filter = %s | rename_to_rule = %s | new_name = %s\n",
+                         orig_file_name, filter, rename_to_rule, new_name);
+            }
+            else
+            {
+               *ptr_newname = *ptr_questioner[act_questioner];
+               ptr_newname++;
+               act_questioner++;
+            }
+            ptr_rule++;
+            break;
 
          case '\\' : /* ignore */
 
-                    ptr_rule++;
-                    break;
+            ptr_rule++;
+            break;
 
          default  : /* found an ordinary character -> append it */
-                    *ptr_newname = *ptr_rule;
-                    ptr_newname++;
-                    ptr_rule++;
-                    break;
+            *ptr_newname = *ptr_rule;
+            ptr_newname++;
+            ptr_rule++;
+            break;
       }
    }
    *ptr_newname = '\0';

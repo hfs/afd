@@ -1,8 +1,8 @@
 /*
  *  setup_mon_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ extern XFontStruct             *font_struct;
 extern XmFontList              fontlist;
 extern Widget                  mw[],
                                ow[],
+                               tw[],
                                vw[],
                                cw[],
                                sw[],
@@ -64,7 +65,8 @@ extern Widget                  mw[],
                                rw[],
                                hlw[],
                                lw[],
-                               lsw[];
+                               lsw[],
+                               pw[];
 extern GC                      letter_gc,
                                normal_letter_gc,
                                locked_letter_gc,
@@ -102,7 +104,9 @@ extern unsigned int            glyph_height,
 extern unsigned short          step_size;
 extern unsigned long           color_pool[];
 extern struct coord            coord[LOG_FIFO_SIZE];
-extern char                    line_style;
+extern char                    line_style,
+                               *ping_cmd,
+                               *traceroute_cmd;
 extern struct mon_line         *connect_data;
 extern struct mon_status_area  *msa;
 extern struct mon_control_perm mcp;
@@ -151,22 +155,39 @@ setup_mon_window(char *font_name)
          if (mcp.show_ms_log != NO_PERMISSION)
          {
             XtVaSetValues(ow[MON_SYS_LOG_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[0], XmNfontList, fontlist, NULL);
          }
          if (mcp.show_mm_log != NO_PERMISSION)
          {
             XtVaSetValues(ow[MON_LOG_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[1], XmNfontList, fontlist, NULL);
          }
          if (mcp.info != NO_PERMISSION)
          {
             XtVaSetValues(ow[MON_INFO_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[3], XmNfontList, fontlist, NULL);
          }
          if (mcp.retry != NO_PERMISSION)
          {
             XtVaSetValues(ow[MON_RETRY_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[2], XmNfontList, fontlist, NULL);
          }
          if (mcp.disable != NO_PERMISSION)
          {
             XtVaSetValues(ow[MON_DISABLE_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[4], XmNfontList, fontlist, NULL);
+         }
+         if ((ping_cmd != NULL) || (traceroute_cmd != NULL))
+         {
+            XtVaSetValues(ow[MON_TEST_W], XmNfontList, fontlist, NULL);
+            if (ping_cmd != NULL)
+            {
+               XtVaSetValues(tw[PING_W], XmNfontList, fontlist, NULL);
+            }
+            if (traceroute_cmd != NULL)
+            {
+               XtVaSetValues(tw[TRACEROUTE_W], XmNfontList, fontlist, NULL);
+            }
          }
       }
       XtVaSetValues(ow[MON_EXIT_W], XmNfontList, fontlist, NULL);

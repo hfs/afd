@@ -1,6 +1,6 @@
 /*
  *  setup_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -62,7 +62,8 @@ extern Widget                     mw[],
                                   hw[],
                                   rw[],
                                   lw[],
-                                  lsw[];
+                                  lsw[],
+                                  pw[];
 extern GC                         letter_gc,
                                   normal_letter_gc,
                                   locked_letter_gc,
@@ -148,27 +149,34 @@ setup_window(char *font_name)
          if (acp.ctrl_queue != NO_PERMISSION)
          {
             XtVaSetValues(ow[QUEUE_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[0], XmNfontList, fontlist, NULL);
          }
          if (acp.ctrl_transfer != NO_PERMISSION)
          {
             XtVaSetValues(ow[TRANSFER_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[1], XmNfontList, fontlist, NULL);
          }
          if (acp.disable != NO_PERMISSION)
          {
             XtVaSetValues(ow[DISABLE_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[2], XmNfontList, fontlist, NULL);
          }
          if (acp.switch_host != NO_PERMISSION)
          {
             XtVaSetValues(ow[SWITCH_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[3], XmNfontList, fontlist, NULL);
          }
          if (acp.retry != NO_PERMISSION)
          {
             XtVaSetValues(ow[RETRY_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[4], XmNfontList, fontlist, NULL);
          }
          if (acp.debug != NO_PERMISSION)
          {
             XtVaSetValues(ow[DEBUG_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[5], XmNfontList, fontlist, NULL);
          }
+         XtVaSetValues(ow[SELECT_W], XmNfontList, fontlist, NULL);
          if ((ping_cmd != NULL) || (traceroute_cmd != NULL))
          {
             XtVaSetValues(ow[TEST_W], XmNfontList, fontlist, NULL);
@@ -236,10 +244,12 @@ setup_window(char *font_name)
          if (acp.info != NO_PERMISSION)
          {
             XtVaSetValues(vw[INFO_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[6], XmNfontList, fontlist, NULL);
          }
          if (acp.view_dc != NO_PERMISSION)
          {
             XtVaSetValues(vw[VIEW_DC_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(pw[7], XmNfontList, fontlist, NULL);
          }
          if (acp.view_jobs != NO_PERMISSION)
          {

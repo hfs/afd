@@ -1,6 +1,6 @@
 /*
  *  receive_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   receive_log - writes formated log output to receive log
  **
  ** SYNOPSIS
- **   void receive_log(char *sign, char *file, int line, char *fmt, ...)
+ **   void receive_log(char *sign, char *file, int line, time_t current_time, char *fmt, ...)
  **
  ** DESCRIPTION
  **
@@ -52,7 +52,11 @@ extern int receive_log_fd;
 
 /*########################### receive_log() #############################*/
 void
-receive_log(char *sign, char *file, int line, char *fmt, ...)
+receive_log(char   *sign,
+            char   *file,
+            int    line,
+            time_t current_time,
+            char   *fmt, ...)
 {
    size_t  length = 0;
    char    buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];

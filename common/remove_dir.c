@@ -60,6 +60,7 @@ extern int sys_log_fd;
 int
 remove_dir(char *dirname)
 {
+   int           addchar = NO;
    char          *ptr;
    struct dirent *dirp;
    DIR           *dp;
@@ -73,8 +74,11 @@ remove_dir(char *dirname)
                 dirname, strerror(errno), __FILE__, __LINE__);
       return(INCORRECT);
    }
-   *ptr++ = '/';
-   *ptr = '\0';
+   if (*(ptr - 1) != '/')
+   {
+      *(ptr++) = '/';
+      addchar = YES;
+   }
 
    while ((dirp = readdir(dp)) != NULL)
    {
@@ -102,7 +106,14 @@ remove_dir(char *dirname)
          }
       }
    }
-   ptr[-1] = 0;
+   if (addchar == YES)
+   {
+      ptr[-1] = 0;
+   }
+   else
+   {
+      *ptr = '\0';
+   }
    if (closedir(dp) == -1)
    {
       (void)rec(sys_log_fd, ERROR_SIGN,

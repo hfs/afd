@@ -121,56 +121,57 @@ close_button(Widget w, XtPointer client_data, XtPointer call_data)
 void
 remove_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   int           fsa_pos,
-                 i,
-                 last_removed_position = -1,
-                 no_selected,
-                 removed_hosts = 0;
-   char          *host_selected,
-                 msg[MAX_MESSAGE_LENGTH];
-   XmStringTable xmsel;
+   int  last_removed_position = -1,
+        no_selected,
+        removed_hosts = 0,
+        *select_list;
+   char msg[MAX_MESSAGE_LENGTH];
 
-   /* Retrieve the selected items from the list. */
-   XtVaGetValues(host_list_w,
-                 XmNselectedItemCount, &no_selected,
-                 XmNselectedItems,     &xmsel,
-                 NULL);
-
-   for (i = 0; i < no_selected; i++)
+   if (XmListGetSelectedPos(host_list_w, &select_list, &no_selected) == True)
    {
-      /* Get the selected hostname and the position in the FSA. */
-      XmStringGetLtoR(xmsel[i], XmFONTLIST_DEFAULT_TAG, &host_selected);
-      if ((fsa_pos = get_host_position(fsa, host_selected, no_of_hosts)) < 0)
+      int           fsa_pos,
+                    i;
+      char          *host_selected;
+      XmStringTable all_items;
+
+      XtVaGetValues(host_list_w, XmNitems, &all_items, NULL);
+      for (i = (no_selected - 1); i > -1; i--)
       {
-         (void)xrec(w, WARN_DIALOG,
-                    "Could not find host %s in FSA. Assume it has already been removed. (%s %d)",
-                    host_selected, __FILE__, __LINE__);
-      }
-      else
-      {
-         if (fsa[fsa_pos].special_flag & HOST_IN_DIR_CONFIG)
+         XmStringGetLtoR(all_items[select_list[i] - 1],
+                         XmFONTLIST_DEFAULT_TAG, &host_selected);
+         if ((fsa_pos = get_host_position(fsa, host_selected,
+                                          no_of_hosts)) < 0)
          {
             (void)xrec(w, WARN_DIALOG,
-                       "Host %s is still in the DIR_CONFIG. Will NOT remove it! (%s %d)",
+                       "Could not find host %s in FSA. Assume it has already been removed. (%s %d)",
                        host_selected, __FILE__, __LINE__);
          }
          else
          {
-            if (xrec(w, QUESTION_DIALOG,
-                     "Removing host %s will destroy all statistic information for it!\nAre you really sure?",
-                     host_selected) == YES)
+            if (fsa[fsa_pos].special_flag & HOST_IN_DIR_CONFIG)
             {
-               if (remove_host(host_selected) == SUCCESS)
+               (void)xrec(w, WARN_DIALOG,
+                          "Host %s is still in the DIR_CONFIG. Will NOT remove it! (%s %d)",
+                          host_selected, __FILE__, __LINE__);
+            }
+            else
+            {
+               if (xrec(w, QUESTION_DIALOG,
+                        "Removing host %s will destroy all statistic information for it!\nAre you really sure?",
+                        host_selected) == YES)
                {
-                  last_removed_position = XmListItemPos(host_list_w, xmsel[i]);
-                  XmListDeleteItem(host_list_w, xmsel[i]);
-                  removed_hosts++;
+                  if (remove_host(host_selected) == SUCCESS)
+                  {
+                     last_removed_position = XmListItemPos(host_list_w, all_items[select_list[i] - 1]);
+                     XmListDeleteItem(host_list_w, all_items[select_list[i] - 1]);
+                     removed_hosts++;
+                  }
                }
             }
          }
+         XtFree(host_selected);
       }
-
-      XtFree(host_selected);
+      XtFree((char *)select_list);
    }
 
    if (removed_hosts > 0)
@@ -183,10 +184,8 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
       (void)strcat(db_update_fifo, DB_UPDATE_FIFO);
       if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
       {
-         (void)xrec(w, WARN_DIALOG,
-                    "Failed to open() %s : %s (%s %d)",
-                    db_update_fifo, strerror(errno),
-                    __FILE__, __LINE__);
+         (void)xrec(w, WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
+                    db_update_fifo, strerror(errno), __FILE__, __LINE__);
       }
       else
       {
@@ -237,6 +236,8 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          else
          {
+            XmStringTable xmsel;
+
             XtVaGetValues(host_list_w,
                           XmNselectedItemCount, &no_selected,
                           XmNselectedItems,     &xmsel,

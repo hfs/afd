@@ -148,6 +148,7 @@ handle_time_dir(int time_job_no, int *no_of_process)
       struct dirent  *p_dir;
       struct stat    stat_buf;
 
+      unique_name[0] = '/';
       p_src = time_dir + strlen(time_dir);
       *p_src++ = '/';
       do
@@ -185,7 +186,7 @@ handle_time_dir(int time_job_no, int *no_of_process)
                                   db[time_job_list[time_job_no]].priority,
                                   creation_time,
                                   db[time_job_list[time_job_no]].job_id,
-                                  &unique_number, unique_name) < 0)
+                                  &unique_number, &unique_name[1]) < 0)
                   {
                      if (errno == ENOSPC)
                      {
@@ -202,7 +203,7 @@ handle_time_dir(int time_job_no, int *no_of_process)
                                            db[time_job_list[time_job_no]].priority,
                                            creation_time,
                                            db[time_job_list[time_job_no]].job_id,
-                                           &unique_number, unique_name) < 0)
+                                           &unique_number, &unique_name[1]) < 0)
                            {
                               if (errno != ENOSPC)
                               {

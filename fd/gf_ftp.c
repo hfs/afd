@@ -1,6 +1,6 @@
 /*
  *  gf_ftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -772,16 +772,13 @@ main(int argc, char *argv[])
                 * the remote ls command, give a warning in the transfer log
                 * so some action can be taken against the originator.
                 */
-               if ((rl[i].size != -1) && (bytes_done != rl[i].size))
+               if ((rl[i].size != -1) && ((bytes_done + offset) != rl[i].size))
                {
-                  if ((offset != 0) && ((bytes_done + offset) != rl[i].size))
-                  {
-                     msg_str[0] = '\0';
-                     trans_log(WARN_SIGN, __FILE__, __LINE__,
-                               "File size of file %s changed from %u to %u when it was retrieved.",
-                               rl[i].file_name, rl[i].size, bytes_done);
-                     rl[i].size = bytes_done;
-                  }
+                  msg_str[0] = '\0';
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "File size of file %s changed from %u to %u when it was retrieved.",
+                            rl[i].file_name, rl[i].size, bytes_done + offset);
+                  rl[i].size = bytes_done;
                }
 
                /* Rename the file so AMG can grab it. */

@@ -49,6 +49,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   22.12.1997 H.Kiehl Created
+ **   05.04.2001 H.Kiehl Fill file with data before it is mapped.
  **
  */
 DESCR__E_M3
@@ -93,18 +94,20 @@ struct afd_status                 *p_afd_status; /* Used by attach_afd_status() 
 void
 create_fsa(void)
 {
-   int                        i,
-                              k,
+   int                        i, k,
                               fd,
+                              loops,
                               old_fsa_fd = -1,
                               old_fsa_id,
                               old_no_of_hosts = -1,
+                              rest,
                               size;
    off_t                      old_fsa_size = -1;
-   char                       *ptr = NULL,
+   char                       buffer[4096],
+                              fsa_id_file[MAX_PATH_LENGTH],
                               new_fsa_stat[MAX_PATH_LENGTH],
                               old_fsa_stat[MAX_PATH_LENGTH],
-                              fsa_id_file[MAX_PATH_LENGTH];
+                              *ptr = NULL;
    struct filetransfer_status *old_fsa = NULL;
    struct flock               wlock = {F_WRLCK, SEEK_SET, 0, 1},
                               ulock = {F_UNLCK, SEEK_SET, 0, 1};
@@ -153,7 +156,7 @@ create_fsa(void)
    }
    else
    {
-      if ((fd = open(fsa_id_file, (O_RDWR | O_CREAT | O_TRUNC),
+      if ((fd = open(fsa_id_file, (O_RDWR | O_CREAT),
                      (S_IRUSR | S_IWUSR))) < 0)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
@@ -349,19 +352,34 @@ create_fsa(void)
       exit(INCORRECT);
    }
 
-   if (lseek(fsa_fd, fsa_size - 1, SEEK_SET) == -1)
+   /*
+    * Write the complete file before we mmap() to it. If we just lseek()
+    * to the end, write one byte and then mmap to it can cause a SIGBUS
+    * on some systems when the disk is full and data is written to the
+    * mapped area. So to detect that the disk is full always write the
+    * complete file we want to map.
+    */
+   loops = fsa_size / 4096;
+   rest = fsa_size % 4096;
+   for (i = 0; i < loops; i++)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to lseek() in %s : %s (%s %d)\n",
-                new_fsa_stat, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      if (write(fsa_fd, buffer, 4096) != 4096)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
-   if (write(fsa_fd, "", 1) != 1)
+   if (rest > 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      if (write(fsa_fd, buffer, rest) != rest)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
+
 #ifdef _NO_MMAP
    if ((ptr = mmap_emu(0, fsa_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        new_fsa_stat, 0)) == (caddr_t) -1)
@@ -374,6 +392,7 @@ create_fsa(void)
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+   (void)memset(ptr, 0, fsa_size);
 
    /* Write number of hosts to new memory mapped region */
    *(int*)ptr = no_of_hosts;

@@ -99,7 +99,7 @@ main(int argc, char *argv[])
    off_t          *file_size;
    time_t         next_file_time,
                   now;
-   unsigned int   *job_number;
+   unsigned int   *dir_number;
    long           fifo_size;
    char           *p_end,
                   *fifo_buffer,
@@ -224,7 +224,7 @@ main(int argc, char *argv[])
    /* Position pointers in fifo so that we only need to read */
    /* the data as they are in the fifo.                      */
    file_size = (off_t *)(fifo_buffer);
-   job_number = (unsigned int *)(fifo_buffer + sizeof(off_t));
+   dir_number = (unsigned int *)(fifo_buffer + sizeof(off_t));
    p_file_name = (char *)(fifo_buffer + sizeof(off_t) + sizeof(unsigned int));
    check_size = sizeof(off_t) + sizeof(unsigned int) + 1;
 
@@ -305,7 +305,7 @@ main(int argc, char *argv[])
                                      now, 
                                      p_file_name,
                                      (unsigned long)*file_size,
-                                     *job_number);
+                                     *dir_number);
                        length = check_size + strlen(p_file_name);
                        n -= length;
                        if (n > 0)

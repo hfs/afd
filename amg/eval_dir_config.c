@@ -548,8 +548,7 @@ eval_dir_config(size_t db_size, int *dc)
                {
                   (void)rec(sys_log_fd, WARN_SIGN,
                             "Cannot find working directory for user with the user ID %d in /etc/passwd (ignoring directory) : %s (%s %d)\n",
-                            getuid(), strerror(errno),
-                            __FILE__, __LINE__);
+                            getuid(), strerror(errno), __FILE__, __LINE__);
                   *tmp_ptr = tmp_char;
                   continue;
                }
@@ -1219,6 +1218,10 @@ eval_dir_config(size_t db_size, int *dc)
                              dest[dir->file[dir->fgc].dgc].rc][i] = *ptr;
                      ptr++; i++;
                   }
+                  dir->file[dir->fgc].\
+                          dest[dir->file[dir->fgc].dgc].\
+                          recipient[dir->file[dir->fgc].\
+                          dest[dir->file[dir->fgc].dgc].rc][i] = '\0';
                   ptr++;
 
                   /* Make sure that we did read a line. */
@@ -1618,7 +1621,7 @@ eval_dir_config(size_t db_size, int *dc)
       } /* while () searching for FILE_IDENTIFIER */
 
       /* Check special case when no file identifier is found. */
-      if (dir->fgc == 0)
+      if ((dir->fgc == 0) && (dir->file != NULL))
       {
          /* We assume that all files in this dir should be send. */
          dir->file[dir->fgc].files[0] = '*';
@@ -1634,7 +1637,7 @@ eval_dir_config(size_t db_size, int *dc)
       }
 
       /* Check if a destination was defined for the last directory. */
-      if (dir->file[0].dest[0].rc == 0)
+      if ((dir->file == NULL) || (dir->file[0].dest[0].rc == 0))
       {
          char *end_ptr;
 

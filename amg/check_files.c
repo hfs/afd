@@ -345,7 +345,7 @@ check_files(struct directory_entry *p_de,
             {
                for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++)
                {
-                  if ((ret = filter(p_de->fme[i].file_mask[j], p_dir->d_name)) == 0)
+                  if ((ret = pmatch(p_de->fme[i].file_mask[j], p_dir->d_name)) == 0)
                   {
                      if ((fra[p_de->fra_pos].end_character == -1) ||
                          (fra[p_de->fra_pos].end_character == get_last_char(fullname, stat_buf.st_size)))
@@ -538,7 +538,7 @@ done:
                    strerror(rtn), __FILE__, __LINE__);
       }
 #endif
-      receive_log(INFO_SIGN, NULL, 0,
+      receive_log(INFO_SIGN, NULL, 0, now,
                   "Received %d files with %d Bytes.",
                   files_copied, *total_file_size);
    }

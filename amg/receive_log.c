@@ -1,6 +1,6 @@
 /*
  *  receive_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,11 @@ DESCR__S_M3
  **   receive_log - writes formated log output to receive log
  **
  ** SYNOPSIS
- **   void receive_log(char *sign, char *file, int line, char *fmt, ...)
+ **   void receive_log(char   *sign,
+ **                    char   *file,
+ **                    int    line,
+ **                    time_t current_time,
+ **                    char   *fmt, ...)
  **
  ** DESCRIPTION
  **
@@ -57,18 +61,24 @@ extern char *p_dir_alias;
 
 /*########################### receive_log() #############################*/
 void
-receive_log(char *sign, char *file, int line, char *fmt, ...)
+receive_log(char   *sign,
+            char   *file,
+            int    line,
+            time_t current_time,
+            char   *fmt, ...)
 {
    char      *ptr = p_dir_alias;
    size_t    header_length,
              length = DIR_ALIAS_OFFSET;
-   time_t    tvalue;
    char      buf[MAX_LINE_LENGTH + MAX_LINE_LENGTH];
    va_list   ap;
    struct tm *p_ts;
 
-   (void)time(&tvalue);
-   p_ts    = gmtime(&tvalue);
+   if (current_time == 0L)
+   {
+      current_time = time(NULL);
+   }
+   p_ts    = gmtime(&current_time);
    buf[0]  = (p_ts->tm_mday / 10) + '0';
    buf[1]  = (p_ts->tm_mday % 10) + '0';
    buf[2]  = ' ';

@@ -26,11 +26,11 @@ DESCR__S_M3
  **                    the AMG
  **
  ** SYNOPSIS
- **   int handle_options(int   no_of_options,
- **                      char  *options,
- **                      char  *file_path,
- **                      int   *files_to_send,
- **                      off_t *file_size)
+ **   int handle_options(int          no_of_options,
+ **                      char         *options,
+ **                      char         *file_path,
+ **                      int          *files_to_send,
+ **                      off_t        *file_size)
  **
  ** DESCRIPTION
  **   This functions executes the options for AMG. The following
@@ -128,11 +128,11 @@ static int         get_file_names(char *, char **, char **),
 
 /*############################ handle_options() #########################*/
 int
-handle_options(int   no_of_options,
-               char  *options,
-               char  *file_path,
-               int   *files_to_send,
-               off_t *file_size)
+handle_options(int          no_of_options,
+               char         *options,
+               char         *file_path,
+               int          *files_to_send,
+               off_t        *file_size)
 {
    int         i,
                j,
@@ -168,7 +168,7 @@ handle_options(int   no_of_options,
           */
          if (no_of_rule_headers == 0)
          {
-            receive_log(WARN_SIGN, __FILE__, __LINE__,
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                         "You want to do renaming, but there is no valid file with rules for renaming. Ignoring this option.");
          }
          else
@@ -184,7 +184,7 @@ handle_options(int   no_of_options,
             }
             if ((*p_rule == '\n') || (*p_rule == '\0'))
             {
-               receive_log(WARN_SIGN, __FILE__, __LINE__,
+               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                            "No rule specified for renaming. Ignoring this option.");
             }
             else
@@ -193,7 +193,7 @@ handle_options(int   no_of_options,
 
                if ((rule_pos = get_rule(p_rule, no_of_rule_headers)) < 0)
                {
-                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Could NOT find rule %s. Ignoring this option.",
                               p_rule);
                }
@@ -225,7 +225,7 @@ handle_options(int   no_of_options,
                             * can have different rename rules for different
                             * files.
                             */
-                           if ((ret = filter(rule[rule_pos].filter[k],
+                           if ((ret = pmatch(rule[rule_pos].filter[k],
                                              p_file_name)) == 0)
                            {
                               /* We found a rule, what more do you want? */
@@ -256,7 +256,7 @@ handle_options(int   no_of_options,
                               }
                               if (rename(fullname, newname) < 0)
                               {
-                                 receive_log(WARN_SIGN, __FILE__, __LINE__,
+                                 receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                              "Failed to rename() %s to %s : %s",
                                              fullname, newname, strerror(errno));
                               }
@@ -307,7 +307,7 @@ handle_options(int   no_of_options,
          }
          if ((*p_command == '\n') || (*p_command == '\0'))
          {
-            receive_log(WARN_SIGN, __FILE__, __LINE__,
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                         "No command specified for executing. Ignoring this option.");
          }
          else
@@ -397,7 +397,7 @@ handle_options(int   no_of_options,
 
                      if ((ret = exec_cmd(command_str, return_str)) != 0) /* ie != SUCCESS */
                      {
-                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to execute command %s [Return code = %d]",
                                     command_str, ret);
                         if (return_str[0] != '\0')
@@ -417,8 +417,8 @@ handle_options(int   no_of_options,
                                  *end_ptr = '\0';
                                  end_ptr++;
                               }
-                              receive_log(WARN_SIGN, __FILE__, __LINE__, "%s",
-                                          start_ptr);
+                              receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                                          "%s", start_ptr);
                            } while (*end_ptr != '\0');
                         }
                      }
@@ -439,10 +439,10 @@ handle_options(int   no_of_options,
 
                if ((ret = exec_cmd(command_str, return_str)) != 0)
                {
-                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to execute command %s [Return code = %d]",
                               command_str, ret);
-                  receive_log(WARN_SIGN, __FILE__, __LINE__, "%s", return_str);
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L, "%s", return_str);
                }
             }
          }
@@ -497,7 +497,7 @@ handle_options(int   no_of_options,
 
                if (rename(fullname, newname) == -1)
                {
-                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to rename() %s to %s : %s",
                               fullname, newname, strerror(errno));
                }
@@ -558,7 +558,7 @@ handle_options(int   no_of_options,
  
                if (rename(fullname, newname) == -1)
                {
-                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to rename() %s to %s : %s",
                               fullname, newname, strerror(errno));
                }
@@ -604,7 +604,7 @@ handle_options(int   no_of_options,
 
                if (rename(fullname, newname) == -1)
                {
-                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to rename() %s to %s : %s",
                               fullname, newname, strerror(errno));
                }
@@ -651,7 +651,7 @@ handle_options(int   no_of_options,
 
                   if (rename(fullname, newname) == -1)
                   {
-                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "Failed to rename() %s to %s : %s",
                                  fullname, newname, strerror(errno));
                   }
@@ -702,7 +702,7 @@ handle_options(int   no_of_options,
                                    AFD_FILE_DIR, ERROR_DIR, p_file_name);
                      if (rename(fullname, error_name) == -1)
                      {
-                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to rename file %s to %s : %s",
                                     fullname, error_name, strerror(errno));
                      }
@@ -719,12 +719,12 @@ handle_options(int   no_of_options,
 
                         if ((fd = open(fullname, O_WRONLY | O_TRUNC)) == -1)
                         {
-                           receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                           receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                        "Failed to open() %s : %s",
                                        fullname, strerror(errno));
                            if ((unlink(fullname) == -1) && (errno != ENOENT))
                            {
-                              receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                              receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                           "Failed to unlink() %s : %s",
                                           p_file_name, strerror(errno));
                            }
@@ -737,12 +737,12 @@ handle_options(int   no_of_options,
                         {
                            if (write(fd, wmo_buffer, length) != length)
                            {
-                              receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                              receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                           "Failed to write() to %s : %s",
                                           p_file_name, strerror(errno));
                               if ((unlink(fullname) == -1) && (errno != ENOENT))
                               {
-                                 receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                                 receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                              "Failed to unlink() %s : %s",
                                              p_file_name, strerror(errno));
                               }
@@ -780,7 +780,7 @@ handle_options(int   no_of_options,
                                 AFD_FILE_DIR, ERROR_DIR, p_file_name);
                   if (rename(fullname, error_name) == -1)
                   {
-                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "Failed to rename file %s to %s : %s",
                                  fullname, error_name, strerror(errno));
                   }
@@ -821,14 +821,14 @@ handle_options(int   no_of_options,
                   {
                      if (errno != ENOENT)
                      {
-                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to unlink() file %s : %s",
                                     fullname, strerror(errno));
                      }
                   }
                   else
                   {
-                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "Removing corrupt file %s", p_file_name);
                      (*files_to_send)--;
                   }
@@ -868,14 +868,14 @@ handle_options(int   no_of_options,
                   {
                      if (errno != ENOENT)
                      {
-                        receive_log(WARN_SIGN, __FILE__, __LINE__,
+                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to unlink() file %s : %s",
                                     fullname, strerror(errno));
                      }
                   }
                   else
                   {
-                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "Removing corrupt file %s", p_file_name);
                      (*files_to_send)--;
                   }
@@ -938,7 +938,7 @@ handle_options(int   no_of_options,
               }
               else
               {
-                 receive_log(WARN_SIGN, __FILE__, __LINE__,
+                 receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                              "Unknown extract ID (%s) in DIR_CONFIG file.",
                              p_extract_id);
                  NEXT(options);
@@ -959,7 +959,7 @@ handle_options(int   no_of_options,
                   (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                   if (bin_file_chopper(fullname, files_to_send, file_size) < 0)
                   {
-                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "An error occurred when extracting bulletins from file %s, deleting file!",
                                  fullname);
 
@@ -967,7 +967,7 @@ handle_options(int   no_of_options,
                      {
                         if (errno != ENOENT)
                         {
-                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                           receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                        "Failed to unlink() file %s : %s",
                                        fullname, strerror(errno));
                         }
@@ -976,7 +976,7 @@ handle_options(int   no_of_options,
                      {
                         if (stat(fullname, &stat_buf) == -1)
                         {
-                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                           receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                        "Can't access file %s : %s",
                                        fullname, strerror(errno));
                         }
@@ -998,7 +998,7 @@ handle_options(int   no_of_options,
                   if (extract(p_file_name, file_path, extract_typ,
                               files_to_send, file_size) < 0)
                   {
-                     receive_log(WARN_SIGN, __FILE__, __LINE__,
+                     receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "An error occurred when extracting bulletins from file %s, deleting file!",
                                  fullname);
 
@@ -1006,7 +1006,7 @@ handle_options(int   no_of_options,
                      {
                         if (errno != ENOENT)
                         {
-                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                           receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                        "Failed to unlink() file %s : %s",
                                        fullname, strerror(errno));
                         }
@@ -1015,7 +1015,7 @@ handle_options(int   no_of_options,
                      {
                         if (stat(fullname, &stat_buf) == -1)
                         {
-                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                           receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                        "Can't access file %s : %s",
                                        fullname, strerror(errno));
                         }
@@ -1082,7 +1082,7 @@ handle_options(int   no_of_options,
               }
               else
               {
-                 receive_log(WARN_SIGN, __FILE__, __LINE__,
+                 receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                              "Unknown assemble ID (%s) in DIR_CONFIG file.",
                              p_assemble_id);
                  NEXT(options);
@@ -1130,7 +1130,7 @@ handle_options(int   no_of_options,
                          fullname, assemble_typ, files_to_send,
                          file_size) < 0)
             {
-               receive_log(WARN_SIGN, __FILE__, __LINE__,
+               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                            "An error occurred when assembling bulletins!");
             }
          }
@@ -1327,7 +1327,7 @@ create_assembled_name(char *name, char *rule)
                   int    n;
                   time_t current_time;
 
-                  (void)time(&current_time);
+                  current_time = time(NULL);
                   switch (*p_rule)
                   {
                      case 'a' : /* Short day eg. Tue */

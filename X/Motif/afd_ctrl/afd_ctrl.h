@@ -49,9 +49,10 @@
 #define SWITCH_W                        3
 #define RETRY_W                         4
 #define DEBUG_W                         5
-#define TEST_W                          6
-#define VIEW_LOAD_W                     7
-#define EXIT_W                          8
+#define SELECT_W                        6
+#define TEST_W                          7
+#define VIEW_LOAD_W                     8
+#define EXIT_W                          9
 
 /* Definitions for View pulldown */
 #define SYSTEM_W                        0
@@ -307,6 +308,7 @@ extern void        calc_but_coord(void),
                    popup_cb(Widget, XtPointer, XtPointer),
                    popup_menu_cb(Widget, XtPointer, XEvent *),
                    save_setup_cb(Widget, XtPointer, XtPointer),
+                   select_host_dialog(Widget, XtPointer, XtPointer),
                    setup_tv_window(void),
                    setup_window(char *),
                    tv_locate_xy(int, int *, int *);

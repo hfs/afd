@@ -176,7 +176,6 @@ init_dir_check(int    argc,
    (void)strcat(time_dir, AFD_TIME_DIR);
    (void)strcat(time_dir, "/");
    p_time_dir = time_dir + strlen(time_dir);
-   (void)strcat(afd_file_dir, "/");
    (void)strcpy(dc_cmd_fifo, p_work_dir);
    (void)strcat(dc_cmd_fifo, FIFO_DIR);
    (void)strcpy(fin_fifo, dc_cmd_fifo);

@@ -1,5 +1,5 @@
 /*
- *  filter.c - Part of AFD, an automatic file distribution program.
+ *  pmatch.c - Part of AFD, an automatic file distribution program.
  *  Copyright (c) 1995 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -22,14 +22,14 @@
 DESCR__S_M3
 /*
  ** NAME
- **   filter - checks string if it matches a certain pattern specified
+ **   pmatch - checks string if it matches a certain pattern specified
  **            with wild cards
  **
  ** SYNOPSIS
- **   int filter(char *p_filter, char *p_file)
+ **   int pmatch(char *p_filter, char *p_file)
  **
  ** DESCRIPTION
- **   The function filter() checks if 'p_file' matches 'p_filter'.
+ **   The function pmatch() checks if 'p_file' matches 'p_filter'.
  **   'p_filter' may have the wild cards '*' and '?' anywhere and
  **   in any order. Where '*' matches any string and '?' matches
  **   any single character.
@@ -56,9 +56,9 @@ DESCR__E_M3
 static char *find(char *, register char *, register int);
 
 
-/*################################ filter() #############################*/
+/*################################ pmatch() #############################*/
 int
-filter(char *p_filter, char *p_file)
+pmatch(char *p_filter, char *p_file)
 {
    register int  length = 0,
                  inverse = NO;

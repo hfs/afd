@@ -114,14 +114,14 @@ assemble(char  *source_dir,
       (void)strcpy(p_src, p_file_name);
       if ((fd = open(source_dir, O_RDONLY)) == -1)
       {
-         receive_log(WARN_SIGN, __FILE__, __LINE__,
+         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                      "Failed to open() %s : %s", source_dir, strerror(errno));
       }
       else
       {
          if (fstat(fd, &stat_buf) == -1)
          {
-            receive_log(WARN_SIGN, __FILE__, __LINE__,
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to stat() : %s", source_dir, strerror(errno));
             (void)close(fd);
          }
@@ -133,7 +133,7 @@ assemble(char  *source_dir,
                {
                   if ((buffer = realloc(buffer, stat_buf.st_size)) == NULL)
                   {
-                     receive_log(FATAL_SIGN, __FILE__, __LINE__,
+                     receive_log(FATAL_SIGN, __FILE__, __LINE__, 0L,
                                  "realloc() error : %s", strerror(errno));
                      (void)close(fd);
                      exit(INCORRECT);
@@ -146,7 +146,7 @@ assemble(char  *source_dir,
 
                if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
                {
-                  receive_log(WARN_SIGN, __FILE__, __LINE__,
+                  receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to read() %s : %s",
                               source_dir, strerror(errno));
                   (void)close(fd);
@@ -159,7 +159,7 @@ assemble(char  *source_dir,
 
                   if (close(fd) == -1)
                   {
-                     receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                     receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                                  "close() error : %s", strerror(errno));
                   }
                   if (to_fd == -1)
@@ -167,7 +167,7 @@ assemble(char  *source_dir,
                      if ((to_fd = open(dest_file, O_CREAT | O_RDWR,
                                        FILE_MODE)) == -1)
                      {
-                        receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to open() %s : %s",
                                     dest_file, strerror(errno));
                         free(buffer);
@@ -198,7 +198,7 @@ assemble(char  *source_dir,
                      {
                         if (length == -1)
                         {
-                           receive_log(WARN_SIGN, __FILE__, __LINE__,
+                           receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                        "write() error : %s", strerror(errno));
                         }
                         continue;
@@ -212,7 +212,7 @@ assemble(char  *source_dir,
                   {
                      if (write(to_fd, "\001\015\015\012", 4) != 4)
                      {
-                        receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to write() SOH<CR><CR><LF> : %s",
                                     strerror(errno));
                      }
@@ -226,7 +226,7 @@ assemble(char  *source_dir,
                   /* Write data */
                   if (write(to_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
                   {
-                      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                   "Failed to write() data part : %s",
                                   strerror(errno));
                   }
@@ -241,7 +241,7 @@ assemble(char  *source_dir,
                   {
                      if (write(to_fd, "\015\015\012\003", 4) != 4)
                      {
-                        receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                        receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to write() <CR><CR><LF>ETX : %s",
                                     strerror(errno));
                      }
@@ -257,14 +257,14 @@ assemble(char  *source_dir,
             {
                if (close(fd) == -1)
                {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                               "close() error : %s", strerror(errno));
                }
             }
          }
          if (unlink(source_dir) == -1)
          {
-            receive_log(WARN_SIGN, __FILE__, __LINE__,
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to unlink() %s : %s",
                         source_dir, strerror(errno));
          }
@@ -276,7 +276,7 @@ assemble(char  *source_dir,
    {
       if (close(to_fd) == -1)
       {
-         receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                      "close() error : %s", strerror(errno));
       }
    }
@@ -388,7 +388,7 @@ write_length_indicator(int fd, int type, int length)
          break;
 
       default            : /* Impossible! */
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Unknown length type (%d) for assembling bulletins.",
                      type);
          return(-2);

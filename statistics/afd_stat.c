@@ -1,6 +1,6 @@
 /*
  *  afd_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,7 +87,8 @@ main(int argc, char *argv[])
                   test_sec_counter,
                   test_hour_counter;
    unsigned int   ui_value;          /* Temporary storage for uns. ints  */
-   time_t         now;
+   time_t         next_rescan_time = 0L,
+                  now;
    long int       sleep_time;
    double         d_value;           /* Temporary storage for doubles    */
    char           work_dir[MAX_PATH_LENGTH],
@@ -200,12 +201,15 @@ main(int argc, char *argv[])
       stat_db[i].day_counter = p_ts->tm_yday;
    }
 
+   next_rescan_time = (now / STAT_RESCAN_TIME) *
+                      STAT_RESCAN_TIME + STAT_RESCAN_TIME;
+
    for (;;)
    {
-      /* Initialize timeout */
-      (void)time(&now);
-      sleep_time = ((now / STAT_RESCAN_TIME) * STAT_RESCAN_TIME) +
-                   STAT_RESCAN_TIME - now;
+      if ((sleep_time = (next_rescan_time - time(NULL))) < 0)
+      {
+         sleep_time = 0L;
+      }
       timeout.tv_usec = 0;
       timeout.tv_sec = sleep_time;
       status = select(0, NULL, NULL, NULL, &timeout);
@@ -213,7 +217,14 @@ main(int argc, char *argv[])
       /* Did we get a timeout? */
       if (status == 0)
       {
-         now += sleep_time;
+         now = time(NULL);
+         if (now != next_rescan_time)
+         {
+            now = (now + (STAT_RESCAN_TIME / 2)) / STAT_RESCAN_TIME *
+                  STAT_RESCAN_TIME;
+         }
+         next_rescan_time = (now / STAT_RESCAN_TIME) *
+                            STAT_RESCAN_TIME + STAT_RESCAN_TIME;
          p_ts = gmtime(&now);
          test_sec_counter = ((p_ts->tm_min * 60) + p_ts->tm_sec) /
                             STAT_RESCAN_TIME;

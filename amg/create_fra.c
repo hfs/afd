@@ -49,6 +49,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   27.03.2000 H.Kiehl Created
+ **   05.04.2001 H.Kiehl Fill file with data before it is mapped.
  **
  */
 DESCR__E_M3
@@ -85,15 +86,18 @@ create_fra(int no_of_dirs)
 {
    int                        i, k,
                               fd,
+                              loops,
                               old_fra_fd = -1,
                               old_fra_id,
-                              old_no_of_dirs = -1;
+                              old_no_of_dirs = -1,
+                              rest;
    size_t                     size;
    off_t                      old_fra_size = -1;
-   char                       *ptr = NULL,
+   char                       buffer[4096],
+                              fra_id_file[MAX_PATH_LENGTH],
                               new_fra_stat[MAX_PATH_LENGTH],
                               old_fra_stat[MAX_PATH_LENGTH],
-                              fra_id_file[MAX_PATH_LENGTH];
+                              *ptr = NULL;
    struct fileretrieve_status *old_fra = NULL;
    struct flock               wlock = {F_WRLCK, SEEK_SET, 0, 1},
                               ulock = {F_UNLCK, SEEK_SET, 0, 1};
@@ -141,7 +145,7 @@ create_fra(int no_of_dirs)
    }
    else
    {
-      if ((fd = open(fra_id_file, (O_RDWR | O_CREAT | O_TRUNC),
+      if ((fd = open(fra_id_file, (O_RDWR | O_CREAT),
                      (S_IRUSR | S_IWUSR))) < 0)
       {
          (void)rec(sys_log_fd, FATAL_SIGN,
@@ -268,25 +272,39 @@ create_fra(int no_of_dirs)
    if ((fra_fd = open(new_fra_stat, (O_RDWR | O_CREAT | O_TRUNC),
                       FILE_MODE)) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to open() %s : %s (%s %d)\n",
                 new_fra_stat, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
-   if (lseek(fra_fd, fra_size - 1, SEEK_SET) == -1)
+   /*
+    * Write the complete file before we mmap() to it. If we just lseek()
+    * to the end, write one byte and then mmap to it can cause a SIGBUS
+    * on some systems when the disk is full and data is written to the
+    * mapped area. So to detect that the disk is full always write the
+    * complete file we want to map.
+    */
+   loops = fra_size / 4096;
+   rest = fra_size % 4096;
+   for (i = 0; i < loops; i++)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to lseek() in %s : %s (%s %d)\n",
-                new_fra_stat, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      if (write(fra_fd, buffer, 4096) != 4096)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
-   if (write(fra_fd, "", 1) != 1)
+   if (rest > 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
+      if (write(fra_fd, buffer, rest) != rest)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
+                   strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
    }
+
 #ifdef _NO_MMAP
    if ((ptr = mmap_emu(0, fra_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        new_fra_stat, 0)) == (caddr_t) -1)
@@ -299,6 +317,7 @@ create_fra(int no_of_dirs)
                 strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+   (void)memset(ptr, 0, fra_size);
 
    /* Write number of directories to new memory mapped region */
    *(int*)ptr = no_of_dirs;

@@ -494,6 +494,7 @@ save_printer_name(Widget w, XtPointer client_data, XtPointer call_data)
    char *value = XmTextGetString(w);
 
    (void)strcpy(printer_name, value);
+   XtFree(value);
 
    return;
 }
@@ -506,6 +507,7 @@ save_file_name(Widget w, XtPointer client_data, XtPointer call_data)
    char *value = XmTextGetString(w);
 
    (void)strcpy(file_name, value);
+   XtFree(value);
 
    return;
 }

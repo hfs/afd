@@ -128,10 +128,10 @@ save_files(char                   *src_path,
           * This however involves several system calls (opendir(),
           * readdir(), closedir()), ie high system load. This
           * we hopefully reduce by using the array file_name_pool
-          * and filter() to get the names we need. Let's see
+          * and pmatch() to get the names we need. Let's see
           * how things work.
           */
-         if ((ret = filter(p_de->fme[pos_in_fm].file_mask[j], file_name_pool[i])) == 0)
+         if ((ret = pmatch(p_de->fme[pos_in_fm].file_mask[j], file_name_pool[i])) == 0)
          {
             (void)strcpy(p_src, file_name_pool[i]);
             (void)strcpy(p_dest, file_name_pool[i]);

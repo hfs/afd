@@ -176,7 +176,7 @@ main(int argc, char *argv[])
          }
          for (i = 0; i < rule[rule_pos].no_of_rules; i++)
          {
-            if (filter(rule[rule_pos].filter[i], argv[1]) == 0)
+            if (pmatch(rule[rule_pos].filter[i], argv[1]) == 0)
             {
                gotcha = YES;
                wmo_header[0] = 1;

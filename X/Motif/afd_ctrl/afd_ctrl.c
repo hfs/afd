@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -106,7 +106,7 @@ Colormap                   default_cmap;
 XFontStruct                *font_struct;
 XmFontList                 fontlist = NULL;
 Widget                     mw[5],        /* Main menu */
-                           ow[9],        /* Host menu */
+                           ow[10],       /* Host menu */
                            vw[10],       /* View menu */
                            cw[8],        /* Control menu */
                            sw[4],        /* Setup menu */
@@ -115,7 +115,8 @@ Widget                     mw[5],        /* Main menu */
                            rw[13],       /* Select rows */
                            tw[2],        /* Test (ping, traceroute) */
                            lw[4],        /* AFD load */
-                           lsw[3];
+                           lsw[3],
+                           pw[8];        /* Popup menu */
 Widget                     appshell,
                            button_window_w,
                            detailed_window_w,
@@ -242,6 +243,11 @@ main(int argc, char *argv[])
                     "*mwmDecorations : 42",
                     "*mwmFunctions : 12",
                     ".afd_ctrl*background : NavajoWhite2",
+                    ".afd_ctrl.Search Host.main_form.buttonbox*background : PaleVioletRed2",
+                    ".afd_ctrl.Search Host.main_form.buttonbox*foreground : Black",
+                    ".afd_ctrl.Search Host.main_form.buttonbox*highlightColor : Black",
+                    ".afd_ctrl.Search Host*background : NavajoWhite2",
+                    ".afd_ctrl.Search Host*XmText.background : NavajoWhite1",
                     NULL
                  };
    Widget        mainform_w,
@@ -610,7 +616,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    }
    if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
+      (void)rec(STDERR_FILENO, FATAL_SIGN,
                 "Could not open fifo %s : %s (%s %d)\n",
                 sys_log_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
@@ -1032,6 +1038,14 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          XtAddCallback(ow[DEBUG_W], XmNactivateCallback, popup_cb,
                        (XtPointer)DEBUG_SEL);
       }
+      ow[SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select",
+                                 xmPushButtonWidgetClass, host_pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 XmNmnemonic,             'S',
+                                 XmNaccelerator,          "Alt<Key>S",
+                                 NULL);
+      XtAddCallback(ow[SELECT_W], XmNactivateCallback, select_host_dialog,
+                    (XtPointer)0);
       if ((traceroute_cmd != NULL) || (ping_cmd != NULL))
       {
          XtVaCreateManagedWidget("Separator",
@@ -1398,8 +1412,7 @@ static void
 init_popup_menu(Widget line_window_w)
 {
    XmString x_string;
-   Widget   popupmenu,
-            pushbutton;
+   Widget   popupmenu;
    Arg      args[MAXARGS];
    Cardinal argcount;
 
@@ -1423,10 +1436,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Start/Stop queue");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Queue", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[0] = XmCreatePushButton(popupmenu, "Queue", args, argcount);
+         XtAddCallback(pw[0], XmNactivateCallback,
                        popup_cb, (XtPointer)QUEUE_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[0]);
          XmStringFree(x_string);
       }
       if (acp.ctrl_transfer != NO_PERMISSION)
@@ -1434,10 +1448,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Start/Stop transfer");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Transfer", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[1] = XmCreatePushButton(popupmenu, "Transfer", args, argcount);
+         XtAddCallback(pw[1], XmNactivateCallback,
                        popup_cb, (XtPointer)TRANS_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[1]);
          XmStringFree(x_string);
       }
       if (acp.disable != NO_PERMISSION)
@@ -1445,10 +1460,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Enable/Disable host");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Disable", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[2] = XmCreatePushButton(popupmenu, "Disable", args, argcount);
+         XtAddCallback(pw[2], XmNactivateCallback,
                        popup_cb, (XtPointer)DISABLE_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[2]);
          XmStringFree(x_string);
       }
       if (acp.switch_host != NO_PERMISSION)
@@ -1456,10 +1472,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Switch host");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Switch", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[3] = XmCreatePushButton(popupmenu, "Switch", args, argcount);
+         XtAddCallback(pw[3], XmNactivateCallback,
                        popup_cb, (XtPointer)SWITCH_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[3]);
          XmStringFree(x_string);
       }
       if (acp.retry != NO_PERMISSION)
@@ -1469,10 +1486,11 @@ init_popup_menu(Widget line_window_w)
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>R"); argcount++;
          XtSetArg(args[argcount], XmNmnemonic, 'R'); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Retry", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[4] = XmCreatePushButton(popupmenu, "Retry", args, argcount);
+         XtAddCallback(pw[4], XmNactivateCallback,
                        popup_cb, (XtPointer)RETRY_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[4]);
          XmStringFree(x_string);
       }
       if (acp.debug != NO_PERMISSION)
@@ -1482,10 +1500,11 @@ init_popup_menu(Widget line_window_w)
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>D"); argcount++;
          XtSetArg(args[argcount], XmNmnemonic, 'D'); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Debug", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[5] = XmCreatePushButton(popupmenu, "Debug", args, argcount);
+         XtAddCallback(pw[5], XmNactivateCallback,
                        popup_cb, (XtPointer)DEBUG_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[5]);
          XmStringFree(x_string);
       }
       if (acp.info != NO_PERMISSION)
@@ -1495,10 +1514,11 @@ init_popup_menu(Widget line_window_w)
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>I"); argcount++;
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Info", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[6] = XmCreatePushButton(popupmenu, "Info", args, argcount);
+         XtAddCallback(pw[6], XmNactivateCallback,
                        popup_cb, (XtPointer)INFO_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[6]);
          XmStringFree(x_string);
       }
       if (acp.view_dc != NO_PERMISSION)
@@ -1506,11 +1526,12 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Configuration");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Configuration",
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[7] = XmCreatePushButton(popupmenu, "Configuration",
                                          args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtAddCallback(pw[7], XmNactivateCallback,
                        popup_cb, (XtPointer)VIEW_DC_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[7]);
          XmStringFree(x_string);
       }
    }
@@ -1538,6 +1559,7 @@ create_pullright_test(Widget pullright_test)
       argcount = 0;
       x_string = XmStringCreateLocalized(SHOW_PING_TEST);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       tw[PING_W] = XmCreatePushButton(pullright_test, "Ping",
                                       args, argcount);
       XtAddCallback(tw[PING_W], XmNactivateCallback, popup_cb,
@@ -1552,6 +1574,7 @@ create_pullright_test(Widget pullright_test)
       argcount = 0;
       x_string = XmStringCreateLocalized(SHOW_TRACEROUTE_TEST);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       tw[TRACEROUTE_W] = XmCreatePushButton(pullright_test, "Traceroute",
                                             args, argcount);
       XtAddCallback(tw[TRACEROUTE_W], XmNactivateCallback, popup_cb,
@@ -1576,6 +1599,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_FILE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[FILE_LOAD_W] = XmCreatePushButton(pullright_line_load, "file",
 				        args, argcount);
    XtAddCallback(lw[FILE_LOAD_W], XmNactivateCallback, popup_cb,
@@ -1587,6 +1611,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_KBYTE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[KBYTE_LOAD_W] = XmCreatePushButton(pullright_line_load, "kbytes",
 				        args, argcount);
    XtAddCallback(lw[KBYTE_LOAD_W], XmNactivateCallback, popup_cb,
@@ -1598,6 +1623,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_CONNECTION_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[CONNECTION_LOAD_W] = XmCreatePushButton(pullright_line_load,
                                               "connection",
 				              args, argcount);
@@ -1610,6 +1636,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_TRANSFER_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[TRANSFER_LOAD_W] = XmCreatePushButton(pullright_line_load,
                                               "active-transfers",
 				              args, argcount);
@@ -1698,6 +1725,7 @@ create_pullright_row(Widget pullright_row)
       x_string = XmStringCreateLocalized(row[i]);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
       XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       rw[i] = XmCreateToggleButton(pullright_row, "row_x", args, argcount);
       XtAddCallback(rw[i], XmNvalueChangedCallback, change_rows_cb, (XtPointer)i);
       XtManageChild(rw[i]);
@@ -1721,6 +1749,7 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Bars only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_0_W] = XmCreateToggleButton(pullright_line_style, "style_0",
 				   args, argcount);
    XtAddCallback(lsw[STYLE_0_W], XmNvalueChangedCallback, change_style_cb,
@@ -1733,6 +1762,7 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Characters only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_1_W] = XmCreateToggleButton(pullright_line_style, "style_1",
 				   args, argcount);
    XtAddCallback(lsw[STYLE_1_W], XmNvalueChangedCallback, change_style_cb,
@@ -1744,6 +1774,7 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Characters and bars");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_2_W] = XmCreateToggleButton(pullright_line_style, "style_2",
 				   args, argcount);
    XtAddCallback(lsw[STYLE_2_W], XmNvalueChangedCallback, change_style_cb,

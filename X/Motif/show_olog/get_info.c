@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -266,13 +266,14 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
    /* Get the date, file size and transfer time. */
    if (pos > -1)
    {
+      int  i = 0;
       char *ptr,
            *p_start,
            buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH];
 
       /* Go to beginning of line to read complete line. */
       if (fseek(il[file_no].fp,
-                (long)(il[file_no].line_offset[pos] - (11 + MAX_HOSTNAME_LENGTH + 3)),
+                (long)(il[file_no].line_offset[pos]),
                 SEEK_SET) == -1)
       {
          (void)xrec(toplevel_w, FATAL_DIALOG,
@@ -289,9 +290,9 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
          return(INCORRECT);
       }
       ptr = buffer;
-      while (*ptr != ' ')
+      while ((*ptr != ' ') && (i < 11))
       {
-         ptr++;
+         ptr++; i++;
       }
       *ptr = '\0';
       *date = atol(buffer);
@@ -364,7 +365,7 @@ get_all(int item)
    /* Get the job ID and file name. */
    if (pos > -1)
    {
-      int  i;
+      int  i = 0;
       char *ptr,
            *p_job_id,
            buffer[MAX_FILENAME_LENGTH + MAX_PATH_LENGTH];
@@ -384,7 +385,18 @@ get_all(int item)
                     strerror(errno), __FILE__, __LINE__);
          return(0);
       }
+
+      /* Store the date. */
       ptr = buffer;
+      while ((*ptr != ' ') && (i < 11))
+      {
+         ptr++; i++;
+      }
+      *ptr = '\0';
+      id.date_send = atol(buffer);
+
+      /* Store local file name. */
+      ptr = &buffer[11 + MAX_HOSTNAME_LENGTH + 3];
       i = 0;
       while (*ptr != ' ')
       {
@@ -394,7 +406,7 @@ get_all(int item)
       id.local_file_name[i] = '\0';
       ptr++;
 
-      /* Store remote file name */
+      /* Store remote file name. */
       i = 0;
       if (*ptr == '/')
       {

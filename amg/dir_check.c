@@ -655,7 +655,7 @@ main(int argc, char *argv[])
                  } /* for (i = 0; i < no_of_local_dirs; i++) */
 
 #ifdef REPORT_DIR_TIME_INTERVAL
-                 (void)time(&now);
+                 now = time(NULL);
                  diff_time = now - start_time;
                  if (diff_time > max_diff_time)
                  {
@@ -677,7 +677,7 @@ main(int argc, char *argv[])
                     while (fdc > 0)
                     {
 #ifndef REPORT_DIR_TIME_INTERVAL
-                       (void)time(&now);
+                       now = time(NULL);
                        diff_time = now - start_time;
 #endif /* !REPORT_DIR_TIME_INTERVAL */
 
@@ -685,7 +685,7 @@ main(int argc, char *argv[])
                        {
                           /*
                            * When starting and all directories are full with
-                           * files, it will take far too long before the dir_check
+                           * files, it will take far too long before dir_check
                            * checks if it has to stop. So lets check the fifo
                            * every time we have checked a directory.
                            */
@@ -730,7 +730,7 @@ main(int argc, char *argv[])
                        {
                           /*
                            * When starting and all directories are full with
-                           * files, it will take far too long before the dir_check
+                           * files, it will take far too long before dir_check
                            * checks if it has to stop. So lets check the fifo
                            * every time we have checked a directory.
                            */
@@ -1063,6 +1063,7 @@ handle_dir(int   dir_no,
          time_t         creation_time;
          unsigned short unique_number;
 
+         unique_name[0] = '/';
 #ifdef _DEBUG_THREAD
          if ((p_debug_file = fopen(debug_file, "a")) == NULL)
          {
@@ -1104,14 +1105,12 @@ handle_dir(int   dir_no,
                                                        &unique_number,
                                                        j,
                                                        files_moved,
-                                                       unique_name,
+                                                       &unique_name[1],
                                                        &file_size_linked)) > 0)
                         {
 #ifndef _WITH_PTHREAD
                            if ((db[de[dir_no].fme[j].pos[k]].lfs & GO_PARALLEL) &&
-                               (no_of_process < max_process) &&
-                               (fsa[db[de[dir_no].fme[j].pos[k]].position].host_status < 2) &&
-                               ((fsa[db[de[dir_no].fme[j].pos[k]].position].special_flag & HOST_DISABLED) == 0))
+                               (no_of_process < max_process))
                            {
                               switch(dcpl[no_of_process].pid = fork())
                               {
@@ -1153,6 +1152,7 @@ handle_dir(int   dir_no,
                                        (void)strcpy(src_file_path, afd_file_dir);
                                        (void)strcat(src_file_path, unique_name);
                                        (void)strcat(src_file_path, "/");
+                                       tmp_unique_name[0] = '/';
 
                                        /*
                                         * If there are lots of files in the directory,
@@ -1173,7 +1173,7 @@ handle_dir(int   dir_no,
                                                                                   &tmp_unique_number,
                                                                                   j,
                                                                                   MAX_FILES_TO_PROCESS,
-                                                                                  tmp_unique_name,
+                                                                                  &tmp_unique_name[1],
                                                                                   &split_file_size_renamed,
                                                                                   ii * MAX_FILES_TO_PROCESS)) > 0)
                                           {
@@ -1235,6 +1235,13 @@ handle_dir(int   dir_no,
                            }
                            else
                            {
+                              if ((db[de[dir_no].fme[j].pos[k]].lfs & GO_PARALLEL) &&
+                                  (no_of_process >= max_process))
+                              {
+                                 (void)rec(sys_log_fd, DEBUG_SIGN,
+                                           "Unable to fork() since maximum number (%d) reached. (%s %d)\n",
+                                           max_process, __FILE__, __LINE__);
+                              }
 #endif
                               /*
                                * No need to fork() since files are in same
@@ -1365,6 +1372,18 @@ handle_dir(int   dir_no,
    }
    else
    {
+      if (no_of_process >= max_process)
+      {
+         (void)rec(sys_log_fd, DEBUG_SIGN,
+                   "Unable to handle directory since maximum number of process (%d) reached. (%s %d)\n",
+                   max_process, __FILE__, __LINE__);
+      }
+      else if (fra[de[dir_no].fra_pos].no_of_process >= fra[de[dir_no].fra_pos].max_process)
+           {
+              (void)rec(sys_log_fd, DEBUG_SIGN,
+                        "Unable to handle directory since maximum number of process (%d) reached for this directory. (%s %d)\n",
+                        fra[de[dir_no].fra_pos].max_process, __FILE__, __LINE__);
+           }
       return(NO);
    }
 }

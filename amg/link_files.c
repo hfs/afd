@@ -70,11 +70,11 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* External global variables */
-extern int             counter_fd,
-                       sys_log_fd;
+extern int   counter_fd,
+             sys_log_fd;
 #ifndef _WITH_PTHREAD
-extern off_t           *file_size_pool;
-extern char            **file_name_pool;
+extern off_t *file_size_pool;
+extern char  **file_name_pool;
 #endif
 
 
@@ -109,7 +109,7 @@ link_files(char                   *src_file_path,
    {
       for (j = 0; j < p_de->fme[pos_in_fm].nfm; j++)
       {
-         if ((ret = filter(p_de->fme[pos_in_fm].file_mask[j], file_name_pool[i])) == 0)
+         if ((ret = pmatch(p_de->fme[pos_in_fm].file_mask[j], file_name_pool[i])) == 0)
          {
             /* Only create a unique name and the corresponding */
             /* directory when we have found a file that is to  */
@@ -161,8 +161,8 @@ link_files(char                   *src_file_path,
                }
                p_src = src_file_path + strlen(src_file_path);
                p_dest_end = dest_file_path + strlen(dest_file_path);
-               (void)strcpy(p_dest_end, unique_name);
-               p_dest = p_dest_end + strlen(unique_name);
+               (void)strcpy(p_dest_end, (unique_name - 1));
+               p_dest = p_dest_end + strlen((unique_name - 1));
                *(p_dest++) = '/';
                *p_dest = '\0';
             }

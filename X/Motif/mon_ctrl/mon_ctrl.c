@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2001 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -115,7 +115,8 @@ Widget                  mw[5],       /* Main menu */
                         rw[13],      /* Select rows */
                         hlw[NO_OF_HISTORY_LOGS],
                         lw[4],       /* AFD load */
-                        lsw[3];      /* Select line style */
+                        lsw[3],      /* Select line style */
+                        pw[5];       /* Popup menu */
 Widget                  appshell,
                         label_window_w,
                         line_window_w;
@@ -937,8 +938,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               XmNmnemonic,             'A',
                               XmNaccelerator,          "Alt<Key>A",
                               NULL);
-         XtAddCallback(vw[MON_AFD_CTRL_W], XmNactivateCallback, start_remote_prog,
-                       (XtPointer)AFD_CTRL_SEL);
+         XtAddCallback(vw[MON_AFD_CTRL_W], XmNactivateCallback,
+                       start_remote_prog, (XtPointer)AFD_CTRL_SEL);
       }
       if ((mcp.show_slog != NO_PERMISSION) ||
           (mcp.show_rlog != NO_PERMISSION) ||
@@ -955,8 +956,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  XmNmnemonic,             'S',
                                  XmNaccelerator,          "Alt<Key>S",
                                  NULL);
-            XtAddCallback(vw[MON_SYSTEM_W], XmNactivateCallback, start_remote_prog,
-                          (XtPointer)S_LOG_SEL);
+            XtAddCallback(vw[MON_SYSTEM_W], XmNactivateCallback,
+                          start_remote_prog, (XtPointer)S_LOG_SEL);
          }
          if (mcp.show_rlog != NO_PERMISSION)
          {
@@ -966,8 +967,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  XmNmnemonic,             'R',
                                  XmNaccelerator,          "Alt<Key>R",
                                  NULL);
-            XtAddCallback(vw[MON_RECEIVE_W], XmNactivateCallback, start_remote_prog,
-                          (XtPointer)R_LOG_SEL);
+            XtAddCallback(vw[MON_RECEIVE_W], XmNactivateCallback,
+                          start_remote_prog, (XtPointer)R_LOG_SEL);
          }
          if (mcp.show_tlog != NO_PERMISSION)
          {
@@ -977,8 +978,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  XmNmnemonic,             'T',
                                  XmNaccelerator,          "Alt<Key>T",
                                  NULL);
-            XtAddCallback(vw[MON_TRANS_W], XmNactivateCallback, start_remote_prog,
-                          (XtPointer)T_LOG_SEL);
+            XtAddCallback(vw[MON_TRANS_W], XmNactivateCallback,
+                          start_remote_prog, (XtPointer)T_LOG_SEL);
          }
       }
       if ((mcp.show_ilog != NO_PERMISSION) ||
@@ -994,8 +995,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               xmPushButtonWidgetClass, rafd_pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
-            XtAddCallback(vw[MON_INPUT_W], XmNactivateCallback, start_remote_prog,
-                          (XtPointer)I_LOG_SEL);
+            XtAddCallback(vw[MON_INPUT_W], XmNactivateCallback,
+                          start_remote_prog, (XtPointer)I_LOG_SEL);
          }
          if (mcp.show_olog != NO_PERMISSION)
          {
@@ -1003,8 +1004,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               xmPushButtonWidgetClass, rafd_pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
-            XtAddCallback(vw[MON_OUTPUT_W], XmNactivateCallback, start_remote_prog,
-                          (XtPointer)O_LOG_SEL);
+            XtAddCallback(vw[MON_OUTPUT_W], XmNactivateCallback,
+                          start_remote_prog, (XtPointer)O_LOG_SEL);
          }
          if (mcp.show_elog != NO_PERMISSION)
          {
@@ -1012,8 +1013,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               xmPushButtonWidgetClass, rafd_pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
-            XtAddCallback(vw[MON_DELETE_W], XmNactivateCallback, start_remote_prog,
-                          (XtPointer)E_LOG_SEL);
+            XtAddCallback(vw[MON_DELETE_W], XmNactivateCallback,
+                          start_remote_prog, (XtPointer)E_LOG_SEL);
          }
       }
       if (mcp.afd_load != NO_PERMISSION)
@@ -1203,7 +1204,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            XmNmnemonic,             'a',
                            XmNaccelerator,          "Alt<Key>a",
                            NULL);
-   XtAddCallback(sw[SAVE_W], XmNactivateCallback, save_mon_setup_cb, (XtPointer)0);
+   XtAddCallback(sw[SAVE_W], XmNactivateCallback, save_mon_setup_cb,
+                 (XtPointer)0);
 
 #ifdef _WITH_HELP_PULLDOWN
    /**********************************************************************/
@@ -1243,8 +1245,7 @@ static void
 init_popup_menu(Widget line_window_w)
 {
    XmString x_string;
-   Widget   popupmenu,
-            pushbutton;
+   Widget   popupmenu;
    Arg      args[MAXARGS];
    Cardinal argcount;
 
@@ -1255,17 +1256,19 @@ init_popup_menu(Widget line_window_w)
    if ((mcp.show_ms_log != NO_PERMISSION) ||
        (mcp.show_mm_log != NO_PERMISSION) ||
        (mcp.retry != NO_PERMISSION) ||
-       (mcp.info != NO_PERMISSION))
+       (mcp.info != NO_PERMISSION) ||
+       (mcp.disable != NO_PERMISSION))
    {
       if (mcp.show_ms_log != NO_PERMISSION)
       {
          argcount = 0;
          x_string = XmStringCreateLocalized("System Log");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "System", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[0] = XmCreatePushButton(popupmenu, "System", args, argcount);
+         XtAddCallback(pw[0], XmNactivateCallback,
                        mon_popup_cb, (XtPointer)MON_SYS_LOG_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[0]);
          XmStringFree(x_string);
       }
       if (mcp.show_mm_log != NO_PERMISSION)
@@ -1273,10 +1276,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Monitor Log");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Monitor", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[1] = XmCreatePushButton(popupmenu, "Monitor", args, argcount);
+         XtAddCallback(pw[1], XmNactivateCallback,
                        mon_popup_cb, (XtPointer)MON_LOG_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[1]);
          XmStringFree(x_string);
       }
       if (mcp.retry != NO_PERMISSION)
@@ -1286,10 +1290,11 @@ init_popup_menu(Widget line_window_w)
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>R"); argcount++;
          XtSetArg(args[argcount], XmNmnemonic, 'R'); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Retry", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[2] = XmCreatePushButton(popupmenu, "Retry", args, argcount);
+         XtAddCallback(pw[2], XmNactivateCallback,
                        mon_popup_cb, (XtPointer)MON_RETRY_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[2]);
          XmStringFree(x_string);
       }
       if (mcp.info != NO_PERMISSION)
@@ -1299,10 +1304,25 @@ init_popup_menu(Widget line_window_w)
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>I"); argcount++;
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
-         pushbutton = XmCreatePushButton(popupmenu, "Info", args, argcount);
-         XtAddCallback(pushbutton, XmNactivateCallback,
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[3] = XmCreatePushButton(popupmenu, "Info", args, argcount);
+         XtAddCallback(pw[3], XmNactivateCallback,
                        mon_popup_cb, (XtPointer)MON_INFO_SEL);
-         XtManageChild(pushbutton);
+         XtManageChild(pw[3]);
+         XmStringFree(x_string);
+      }
+      if (mcp.disable != NO_PERMISSION)
+      {
+         argcount = 0;
+         x_string = XmStringCreateLocalized("Disable");
+         XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>D"); argcount++;
+         XtSetArg(args[argcount], XmNmnemonic, 'D'); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[4] = XmCreatePushButton(popupmenu, "Disable", args, argcount);
+         XtAddCallback(pw[4], XmNactivateCallback,
+                       mon_popup_cb, (XtPointer)MON_DISABLE_SEL);
+         XtManageChild(pw[4]);
          XmStringFree(x_string);
       }
    }
@@ -1330,6 +1350,7 @@ create_pullright_test(Widget pullright_test)
       argcount = 0;
       x_string = XmStringCreateLocalized(SHOW_PING_TEST);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       tw[PING_W] = XmCreatePushButton(pullright_test, "Ping",
                                       args, argcount);
       XtAddCallback(tw[PING_W], XmNactivateCallback, mon_popup_cb,
@@ -1344,6 +1365,7 @@ create_pullright_test(Widget pullright_test)
       argcount = 0;
       x_string = XmStringCreateLocalized(SHOW_TRACEROUTE_TEST);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       tw[TRACEROUTE_W] = XmCreatePushButton(pullright_test, "Traceroute",
                                             args, argcount);
       XtAddCallback(tw[TRACEROUTE_W], XmNactivateCallback, mon_popup_cb,
@@ -1368,6 +1390,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_FILE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[FILE_LOAD_W] = XmCreatePushButton(pullright_line_load, "file",
 				        args, argcount);
    XtAddCallback(lw[FILE_LOAD_W], XmNactivateCallback, start_remote_prog,
@@ -1379,6 +1402,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_KBYTE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[KBYTE_LOAD_W] = XmCreatePushButton(pullright_line_load, "kbytes",
 				        args, argcount);
    XtAddCallback(lw[KBYTE_LOAD_W], XmNactivateCallback, start_remote_prog,
@@ -1390,6 +1414,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_CONNECTION_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[CONNECTION_LOAD_W] = XmCreatePushButton(pullright_line_load,
                                               "connection",
 				              args, argcount);
@@ -1402,6 +1427,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_TRANSFER_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[TRANSFER_LOAD_W] = XmCreatePushButton(pullright_line_load,
                                               "active-transfers",
 				              args, argcount);
@@ -1491,6 +1517,7 @@ create_pullright_row(Widget pullright_row)
       x_string = XmStringCreateLocalized(row[i]);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
       XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       rw[i] = XmCreateToggleButton(pullright_row, "row_x", args, argcount);
       XtAddCallback(rw[i], XmNvalueChangedCallback, change_mon_rows_cb,
                     (XtPointer)i);
@@ -1515,6 +1542,7 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Bars only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_0_W] = XmCreateToggleButton(pullright_line_style, "style_0",
 				   args, argcount);
    XtAddCallback(lsw[STYLE_0_W], XmNvalueChangedCallback, change_mon_style_cb,
@@ -1527,6 +1555,7 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Characters only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_1_W] = XmCreateToggleButton(pullright_line_style, "style_1",
 				   args, argcount);
    XtAddCallback(lsw[STYLE_1_W], XmNvalueChangedCallback, change_mon_style_cb,
@@ -1538,6 +1567,7 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Characters and bars");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_2_W] = XmCreateToggleButton(pullright_line_style, "style_2",
 				   args, argcount);
    XtAddCallback(lsw[STYLE_2_W], XmNvalueChangedCallback, change_mon_style_cb,
@@ -1572,6 +1602,7 @@ create_pullright_history(Widget pullright_history)
       x_string = XmStringCreateLocalized(his_log[i]);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
       XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       hlw[i] = XmCreateToggleButton(pullright_history, "history_x", args,
                                     argcount);
       XtAddCallback(hlw[i], XmNvalueChangedCallback, change_mon_history_cb,

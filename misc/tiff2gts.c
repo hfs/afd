@@ -81,14 +81,14 @@ tiff2gts(char *path, char* filename)
 
    if (stat(fullname, &stat_buf) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Can't access file %s : %s", fullname, strerror(errno));
       return(INCORRECT);
    }
 
    if (stat_buf.st_size <= (OFFSET_END + 4))
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Could not convert file %s. File does not have the correct length.",
                   filename);
       return(INCORRECT);
@@ -96,14 +96,14 @@ tiff2gts(char *path, char* filename)
 
    if ((buf = (char *)malloc(stat_buf.st_size)) == NULL)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "malloc() error : %s", strerror(errno));
       return(INCORRECT);
    }
 
    if ((fd = open(fullname, O_RDONLY, 0)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to open() %s : %s", fullname, strerror(errno));
       free(buf);
       return(INCORRECT);
@@ -111,7 +111,7 @@ tiff2gts(char *path, char* filename)
 
    if (read(fd, buf, stat_buf.st_size) != stat_buf.st_size)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "read() error : %s", fullname, strerror(errno));
       free(buf);
       (void)close(fd);
@@ -130,7 +130,7 @@ tiff2gts(char *path, char* filename)
    data_size = data_end - data_start + 1;
    if (data_size > stat_buf.st_size)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "File %s is corrupt. Data size (%d) larger then file size (%d).",
                   filename, data_size, stat_buf.st_size);
       free(buf);
@@ -138,7 +138,7 @@ tiff2gts(char *path, char* filename)
    }
    else if (data_size <= 0)
         {
-           receive_log(ERROR_SIGN, __FILE__, __LINE__,
+           receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                        "File %s is corrupt. Data size (%d) less then or equal to file size (%d).",
                        filename, data_size, stat_buf.st_size);
            free(buf);
@@ -151,7 +151,7 @@ tiff2gts(char *path, char* filename)
    (void)sprintf(dest_file_name, "%s/.%s", path, filename);
    if ((fd = open(dest_file_name, (O_WRONLY | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to open() %s : %s", dest_file_name, strerror(errno));
       free(buf);
       return(INCORRECT);
@@ -159,7 +159,7 @@ tiff2gts(char *path, char* filename)
 
    if (write(fd, &buf[data_start], data_size) != data_size)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "write() error : %s", fullname, strerror(errno));
       free(buf);
       (void)close(fd);
@@ -169,14 +169,14 @@ tiff2gts(char *path, char* filename)
    free(buf);
    if (close(fd) == -1)
    {
-      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
 
    /* Remove the original file */
    if (unlink(fullname) < 0)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to unlink() original TIFF file %s : %s",
                   fullname, strerror(errno));
    }
@@ -185,7 +185,7 @@ tiff2gts(char *path, char* filename)
    (void)sprintf(fullname, "%s/%s", path, filename);
    if (rename(dest_file_name, fullname) < 0)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to rename() file %s to %s : %s",
                   dest_file_name, fullname, strerror(errno));
    }

@@ -166,7 +166,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
             p_mask = fml[i].file_list;
             for (j = 0; j < fml[i].nfm; j++)
             {
-               if (((status = filter(p_mask, p_list)) == 0) &&
+               if (((status = pmatch(p_mask, p_list)) == 0) &&
                    (check_list(p_list, file_size_to_retrieve) == 0))
                {
                   gotcha = YES;

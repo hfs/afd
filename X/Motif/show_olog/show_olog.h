@@ -155,6 +155,7 @@ struct info_data
        {
           unsigned int job_no;
           int          no_of_files;
+          time_t       date_send;
           char         **files;
 #ifdef _WITH_DYNAMIC_MEMORY
           int          no_of_loptions;

@@ -52,6 +52,7 @@ DESCR__S_M3
  **   21.01.1998 H.Kiehl Rewrite to accommodate new messages and job ID's.
  **   14.08.2000 H.Kiehl File mask no longer a fixed array.
  **   04.01.2001 H.Kiehl Check for duplicate paused directories.
+ **   05.04.2001 H.Kiehl Remove O_TRUNC.
  **
  */
 DESCR__E_M3
@@ -762,24 +763,23 @@ create_db(int shmem_id)
 static void
 write_current_msg_list(int no_of_jobs)
 {
-   int    i,
-          *int_buf,
-          fd;
-   size_t buf_size;
-   char   current_msg_list_file[MAX_PATH_LENGTH];
+   int         i,
+               *int_buf,
+               fd;
+   size_t      buf_size;
+   char        current_msg_list_file[MAX_PATH_LENGTH];
+   struct stat stat_buf;
 
    (void)strcpy(current_msg_list_file, p_work_dir);
    (void)strcat(current_msg_list_file, FIFO_DIR);
    (void)strcat(current_msg_list_file, CURRENT_MSG_LIST_FILE);
 
    /* Overwrite current message list file. */
-   if ((fd = open(current_msg_list_file, (O_WRONLY | O_CREAT | O_TRUNC),
+   if ((fd = open(current_msg_list_file, (O_WRONLY | O_CREAT),
                   (S_IRUSR | S_IWUSR))) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                current_msg_list_file, strerror(errno),
-                __FILE__, __LINE__);
+      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to open() %s : %s (%s %d)\n",
+                current_msg_list_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    lock_region_w(fd, 0);
@@ -803,9 +803,26 @@ write_current_msg_list(int no_of_jobs)
    {
       (void)rec(sys_log_fd, FATAL_SIGN,
                 "Failed to write() to %s : %s (%s %d)\n",
-                current_msg_list_file, strerror(errno),
-                __FILE__, __LINE__);
+                current_msg_list_file, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
+   }
+   if (fstat(fd, &stat_buf) == -1)
+   {
+      (void)rec(sys_log_fd, DEBUG_SIGN, "Failed to fstat() %s : %s (%s %d)\n",
+                current_msg_list_file, strerror(errno), __FILE__, __LINE__);
+   }
+   else
+   {
+      if (stat_buf.st_size > buf_size)
+      {
+         if (ftruncate(fd, buf_size) == -1)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Failed to ftruncate() %s to %d Bytes : %s (%s %d)\n",
+                      current_msg_list_file, buf_size,
+                      strerror(errno), __FILE__, __LINE__);
+         }
+      }
    }
    if (close(fd) == -1)
    {

@@ -704,3 +704,30 @@
 24.01.2001 - In sf_smtp if we fail to read from the local file we first
              do a smtp_close() before we quit.
 ------------------------> Released: 31.01.2001 <---------------------------
+
+
+---------------------------> Version 1.2.4 <-------------------------------
+                            ---------------                                
+03.02.2001 - sf_xxx now sorts the files by date (oldes date first) before
+             it starts sending files.
+15.02.2001 - view_hosts showed garbage just behind the first real hostname.
+             Fixed.
+01.03.2001 - Bug in evaluating DIR_CONFIG file. If there are more then
+             one recipients in one RECIPIENT group and the first
+             recipient is longer then the second one it can happen that
+             the second one had garbage in it. Fixed.
+           - Deleting more than one host with the dialog edit_hc now
+             works.
+07.03.2001 - Put in some more syntax checks for function that does the
+             renaming.
+13.03.2001 - All fonts in the menu or popup of the afd_ctrl and mon_ctrl
+             dialog are now set correctly.
+01.04.2001 - New function to search and select or deselect hosts in the
+             afd_ctrl dialog.
+03.04.2001 - Fix memory leak in generic_print.c.
+05.04.2001 - Before mapping to a new file we write the complete file in AMG.
+             Hope that this will eliminate the problem causing it to SIGBUS
+             when mapping to a file and the disk is full.
+           - Show the hostname and full date where AFD was started or
+             stopped in the SYSTEM_LOG.
+------------------------> Released: 05.04.2001 <---------------------------

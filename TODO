@@ -339,6 +339,8 @@ o       Option to execute command on the
 o       Ageing priorities for process FD.       ***    [DONE]
 o       Reduce disk load of process
         archive_watch.                           **    [DONE]
+o       Rename log, so it is possible to trace
+        files.                                   **    [UNDER CONSTRUCTION]
 o       Convert all dialogs to gtk+.             **    [TODO]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
 o       Support for IP6.                        ***    [TODO]

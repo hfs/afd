@@ -41,6 +41,7 @@ DESCR__S_M3
  **   31.12.1996 H.Kiehl Created
  **   31.01.1997 H.Kiehl Support for age limit.
  **   14.10.1998 H.Kiehl Free unused memory.
+ **   03.02.2001 H.Kiehl Sort the files by date.
  **
  */
 DESCR__E_M3
@@ -76,6 +77,8 @@ extern struct job                 db;
 extern struct delete_log          dl;
 #endif
 
+#define _WITH_FILE_NAME_SORTING
+
 
 /*########################## get_file_names() ###########################*/
 int
@@ -91,6 +94,10 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                  new_size,
                  offset;
    off_t         *p_file_size;
+#ifdef _WITH_FILE_NAME_SORTING
+   time_t        *mtime_buffer = NULL,
+                 *p_mtime;
+#endif /* _WITH_FILE_NAME_SORTING */
    char          *p_file_name,
                  *p_source_file,
                  fullname[MAX_PATH_LENGTH];
@@ -144,6 +151,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       file_size_buffer = NULL;
    }
    p_file_size = file_size_buffer;
+#ifdef _WITH_FILE_NAME_SORTING
+   p_mtime = mtime_buffer;
+#endif /* _WITH_FILE_NAME_SORTING */
 #ifdef _AGE_LIMIT
    if (db.age_limit > 0)
    {
@@ -277,11 +287,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #endif /* _AGE_LIMIT */
             if ((files_to_send % 10) == 0)
             {
-               /* Calculate new size of file name buffer */
+               /* Increase the space for the file name buffer */
                new_size = ((files_to_send / 10) + 1) *
                           10 * MAX_FILENAME_LENGTH;
-
-               /* Increase the space for the file name buffer */
                offset = p_file_name - file_name_buffer;
                if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)
                {
@@ -290,15 +298,10 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                              strerror(errno));
                   exit(ALLOC_ERROR);
                }
-
-               /* After realloc, don't forget to position */
-               /* pointer correctly.                      */
                p_file_name = file_name_buffer + offset;
 
-               /* Calculate new size of file size buffer */
-               new_size = ((files_to_send / 10) + 1) * 10 * sizeof(off_t);
-
                /* Increase the space for the file size buffer */
+               new_size = ((files_to_send / 10) + 1) * 10 * sizeof(off_t);
                offset = (char *)p_file_size - (char *)file_size_buffer;
                if ((file_size_buffer = realloc(file_size_buffer, new_size)) == NULL)
                {
@@ -306,18 +309,68 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                              "Could not realloc() memory : %s",
                              strerror(errno));
                   free(file_name_buffer);
-                  file_name_buffer = NULL;
                   exit(ALLOC_ERROR);
                }
-
-               /* After realloc, don't forget to position */
-               /* pointer correctly.                      */
                p_file_size = (off_t *)((char *)file_size_buffer + offset);
+
+#ifdef _WITH_FILE_NAME_SORTING
+               /* Increase the space for the mtime buffer. */
+               new_size = ((files_to_send / 10) + 1) * 10 * sizeof(time_t);
+               offset = (char *)p_mtime - (char *)mtime_buffer;
+               if ((mtime_buffer = realloc(mtime_buffer, new_size)) == NULL)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Could not realloc() memory : %s",
+                             strerror(errno));
+                  free(file_name_buffer);
+                  free(file_size_buffer);
+                  exit(ALLOC_ERROR);
+               }
+               p_mtime = (time_t *)((char *)mtime_buffer + offset);
+#endif /* _WITH_FILE_NAME_SORTING */
             }
-            (void)strcpy(p_file_name, p_dir->d_name);
-            *p_file_size = stat_buf.st_size;
+
+#ifdef _WITH_FILE_NAME_SORTING
+            /* Sort the files, newest must be last (FIFO). */
+            if ((files_to_send > 1) && (*(p_mtime - 1) > stat_buf.st_mtime))
+            {
+               int    i;
+               off_t  *sp_file_size = p_file_size - 1;
+               time_t *sp_mtime = p_mtime - 1;
+               char   *sp_file_name = p_file_name - MAX_FILENAME_LENGTH;
+
+               for (i = files_to_send; i > 0; i--)
+               {
+                  if (*sp_mtime <= stat_buf.st_mtime)
+                  {
+                     break;
+                  }
+                  sp_mtime--; sp_file_size--;
+                  sp_file_name -= MAX_FILENAME_LENGTH;
+               }
+               (void)memmove(sp_mtime + 2, sp_mtime + 1,
+                             (files_to_send - i) * sizeof(time_t));
+               *(sp_mtime + 1) = stat_buf.st_mtime;
+               (void)memmove(sp_file_size + 2, sp_file_size + 1,
+                             (files_to_send - i) * sizeof(off_t));
+               *(sp_file_size + 1) = stat_buf.st_size;
+               (void)memmove(sp_file_name + (2 * MAX_FILENAME_LENGTH),
+                             sp_file_name + MAX_FILENAME_LENGTH,
+                             (files_to_send - i) * MAX_FILENAME_LENGTH);
+               (void)strcpy(sp_file_name + MAX_FILENAME_LENGTH, p_dir->d_name);
+            }
+            else
+            {
+#endif /* _WITH_FILE_NAME_SORTING */
+               (void)strcpy(p_file_name, p_dir->d_name);
+               *p_file_size = stat_buf.st_size;
+               *p_mtime = stat_buf.st_mtime;
+#ifdef _WITH_FILE_NAME_SORTING
+            }
+#endif /* _WITH_FILE_NAME_SORTING */
             p_file_name += MAX_FILENAME_LENGTH;
             p_file_size++;
+            p_mtime++;
             files_to_send++;
             *file_size_to_send += stat_buf.st_size;
 #ifdef _AGE_LIMIT
@@ -332,6 +385,13 @@ get_file_names(char *file_path, off_t *file_size_to_send)
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not readdir() %s : %s", file_path, strerror(errno));
    }
+
+#ifdef _WITH_FILE_NAME_SORTING
+   if (mtime_buffer != NULL)
+   {
+      free(mtime_buffer);
+   }
+#endif /* _WITH_FILE_NAME_SORTING */
 
 #ifdef _AGE_LIMIT
    if (files_not_send > 0)

@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -464,7 +464,7 @@ static void   display_data(int, time_t, time_t),
                   SET_FILE_NAME_POINTER();                             \
                   if (sfilter(search_file_name, ptr) == 0)             \
                   {                                                    \
-                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file); \
+                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file); \
                      INSERT_TIME_TYPE((id_string));                    \
                      j = 0;                                            \
                      while ((*ptr != ' ') && (j < file_name_length))   \
@@ -1129,7 +1129,7 @@ no_criteria(register char *ptr,
                  INSERT_TIME_TYPE(UNKNOWN_ID_STR);
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
          SET_FILE_NAME_POINTER();
          j = 0;
          while ((*ptr != ' ') && (j < file_name_length))
@@ -1263,7 +1263,7 @@ file_name_only(register char *ptr,
                SET_FILE_NAME_POINTER();
                if (sfilter(search_file_name, ptr) == 0)
                {
-                  il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                  il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
                   INSERT_TIME_TYPE(FTP_ID_STR);
                   j = 0;
                   while ((*ptr != ' ') && (j < file_name_length))
@@ -1289,7 +1289,7 @@ file_name_only(register char *ptr,
                     SET_FILE_NAME_POINTER();
                     if (sfilter(search_file_name, ptr) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
                        INSERT_TIME_TYPE(SMTP_ID_STR);
                        j = 0;
                        while ((*ptr != ' ') && (j < file_name_length))
@@ -1315,7 +1315,7 @@ file_name_only(register char *ptr,
                     SET_FILE_NAME_POINTER();
                     if (sfilter(search_file_name, ptr) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
                        INSERT_TIME_TYPE(FILE_ID_STR);
                        j = 0;
                        while ((*ptr != ' ') && (j < file_name_length))
@@ -1342,7 +1342,7 @@ file_name_only(register char *ptr,
                     SET_FILE_NAME_POINTER();
                     if (sfilter(search_file_name, ptr) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
                        INSERT_TIME_TYPE(WMO_ID_STR);
                        j = 0;
                        while ((*ptr != ' ') && (j < file_name_length))
@@ -1370,7 +1370,7 @@ file_name_only(register char *ptr,
                     SET_FILE_NAME_POINTER();
                     if (sfilter(search_file_name, ptr) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
                        INSERT_TIME_TYPE(MAP_ID_STR);
                        j = 0;
                        while ((*ptr != ' ') && (j < file_name_length))
@@ -1395,7 +1395,7 @@ file_name_only(register char *ptr,
                  SET_FILE_NAME_POINTER();
                  if (sfilter(search_file_name, ptr) == 0)
                  {
-                    il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                    il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
                     INSERT_TIME_TYPE(UNKNOWN_ID_STR);
                     j = 0;
                     while ((*ptr != ' ') && (j < file_name_length))
@@ -1593,7 +1593,7 @@ file_size_only(register char *ptr,
               }
 
          ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
-         il[file_no].line_offset[item_counter] = (int)(ptr - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
          (void)memcpy(time_buf, ptr_start_line, 10);
          time_buf[10] = '\0';
          time_when_transmitted = (time_t)atol(time_buf);
@@ -1816,7 +1816,7 @@ file_name_and_size(register char *ptr,
                  }
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != ' ')
@@ -2181,7 +2181,7 @@ recipient_only(register char *ptr,
                  }
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
          SET_FILE_NAME_POINTER();
          j = 0;
          while ((*ptr != ' ') && (j < file_name_length))
@@ -2345,7 +2345,7 @@ file_name_and_recipient(register char *ptr,
                     SET_FILE_NAME_POINTER();
                     if (sfilter(search_file_name, ptr) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
                        INSERT_TIME_TYPE(UNKNOWN_ID_STR);
                        j = 0;
                        while ((*ptr != ' ') && (j < file_name_length))
@@ -2544,7 +2544,7 @@ file_size_and_recipient(register char *ptr,
               }
 
          ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
-         il[file_no].line_offset[item_counter] = (int)(ptr - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
          (void)memcpy(time_buf, ptr_start_line, 10);
          time_buf[10] = '\0';
          time_when_transmitted = (time_t)atol(time_buf);
@@ -2855,7 +2855,7 @@ file_name_size_recipient(register char *ptr,
                  }
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != ' ')

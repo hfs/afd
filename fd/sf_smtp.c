@@ -526,7 +526,7 @@ main(int argc, char *argv[])
 
             for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
             {
-               if (filter(rule[user_rule_pos].filter[k],
+               if (pmatch(rule[user_rule_pos].filter[k],
                           p_file_name_buffer) == 0)
                {
                   change_name(p_file_name_buffer,
@@ -802,7 +802,7 @@ main(int argc, char *argv[])
                new_filename[0] = '\0';
                for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
                {
-                  if (filter(rule[trans_rule_pos].filter[k],
+                  if (pmatch(rule[trans_rule_pos].filter[k],
                              final_filename) == 0)
                   {
                      change_name(final_filename,

@@ -558,30 +558,30 @@ get_archive_data(int pos, int file_no)
       return(INCORRECT);
    }
 
-   ptr = buffer;
+   ptr = &buffer[11 + MAX_HOSTNAME_LENGTH + 3];
 
-   /* Mark end of file name */
+   /* Mark end of file name. */
    while (*ptr != ' ')
    {
       ptr++;
    }
    *(ptr++) = '\0';
 
-   /* Away with the size */
+   /* Away with the size. */
    while (*ptr != ' ')
    {
       ptr++;
    }
    ptr++;
 
-   /* Away with transfer duration */
+   /* Away with transfer duration. */
    while (*ptr != ' ')
    {
       ptr++;
    }
    ptr++;
 
-   /* Away with the job ID */
+   /* Away with the job ID. */
    while (*ptr != ' ')
    {
       ptr++;

@@ -843,9 +843,9 @@ evaluate_message(int *bytes_done)
                        ahl[pos].real_hostname[0][i] = *ptr;
                        ptr++; i++;
                     }
+                    ahl[pos].real_hostname[0][i] = '\0';
                     if (*ptr == ' ')
                     {
-                       ahl[pos].real_hostname[0][i] = '\0';
                        i = 0;
                        ptr = ptr + 1;
                        while ((*ptr != ' ') && (*ptr != '\0') &&

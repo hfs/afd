@@ -1583,7 +1583,7 @@ main(int argc, char *argv[])
 
                for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
                {
-                  if (filter(rule[trans_rule_pos].filter[k],
+                  if (pmatch(rule[trans_rule_pos].filter[k],
                              final_filename) == 0)
                   {
                      change_name(final_filename,
@@ -1920,8 +1920,7 @@ main(int argc, char *argv[])
              */
             if (archive_file(file_path, final_filename, p_db) < 0)
             {
-               if ((fsa[db.fsa_pos].debug == YES) &&
-                   (trans_db_log_fd != -1))
+               if ((fsa[db.fsa_pos].debug == YES) && (trans_db_log_fd != -1))
                {
                   (void)rec(trans_db_log_fd, ERROR_SIGN,
                             "%-*s[%d]: Failed to archive file %s (%s %d)\n",

@@ -128,7 +128,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    /* then 20 Bytes.                                           */
    if (*msg_length < 20)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Message %s to short [%d]", msg_name, *msg_length);
       return(INCORRECT);
    }
@@ -146,7 +146,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
       }
       else
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "%s is contains an unknown message type!", msg_name);
          return(INCORRECT);
       }
@@ -156,7 +156,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    /* then 1 Megabytes.                                        */
    if (*msg_length > 1048576)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Message %s to long [%d]", msg_name, *msg_length);
       return(INCORRECT);
    }
@@ -186,7 +186,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    /* Allocate memory for the wmo_buffer. */
    if ((*wmo_buffer = malloc((2 * *msg_length))) == NULL)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to malloc() memory : %s", strerror(errno));
       exit(INCORRECT);
    }
@@ -472,7 +472,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
               }
               else
               {
-                 receive_log(ERROR_SIGN, __FILE__, __LINE__,
+                 receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                              "Error in message %s", msg_name);
                  show_error(read_ptr, "CCCC");
 /*
@@ -515,7 +515,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
         else
         {
            /* Impossible! Should never come here. */
-           receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+           receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                        "Hmmm. This should never happen!");
            return(INCORRECT);
         }
@@ -610,7 +610,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
    *msg_length = *msg_length + garbage - (read_ptr - msg);
    if (*msg_length < 1)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Premature end of message %s!", msg_name);
 /*
       show_buffer(receive_log_fd, msg, read_ptr - msg);
@@ -631,7 +631,7 @@ afw2wmo(char *msg, int *msg_length, char **wmo_buffer, char *msg_name)
 
    /* Tell user we have converted a message. */
    *msg_header_ptr = '\0';
-   receive_log(INFO_SIGN, __FILE__, __LINE__,
+   receive_log(INFO_SIGN, __FILE__, __LINE__, 0L,
                "Converted %s [%d]", msg_header, *msg_length);
 #endif /* _WITH_AFW2WMO */
 
@@ -672,7 +672,7 @@ show_error(char *is, char *expect)
       }
    }
    tmp_buf[buf_length] = '\0';
-   receive_log(WARN_SIGN, __FILE__, __LINE__,
+   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                "Received <%s> instead of <%s>", tmp_buf, expect);
 
    free(tmp_buf);

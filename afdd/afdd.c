@@ -364,7 +364,7 @@ main(int argc, char *argv[])
             (void)strcpy(remote_ip_str, inet_ntoa(peer_address.sin_addr));
             for (i = 0; i < number_of_trusted_hosts; i++)
             {
-               if (filter(trusted_host[i], remote_ip_str) == 0)
+               if (pmatch(trusted_host[i], remote_ip_str) == 0)
                {
                   gotcha = YES;
                   break;

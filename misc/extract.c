@@ -124,7 +124,7 @@ extract(char  *file_name,
    (void)sprintf(fullname, "%s/%s", dest_dir, file_name);
    if ((from_fd = open(fullname, O_RDONLY)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Could not open %s for extracting : %s",
                   fullname, strerror(errno));
       return(INCORRECT);
@@ -132,7 +132,7 @@ extract(char  *file_name,
 
    if (fstat(from_fd, &stat_buf) < 0)   /* need size of input file */
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "fstat() error : %s", strerror(errno));
       (void)close(from_fd);
       return(INCORRECT);
@@ -144,7 +144,7 @@ extract(char  *file_name,
     */
    if (stat_buf.st_size < 10)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Got a file for extracting that is %ld bytes long!",
                   stat_buf.st_size);
       (void)close(from_fd);
@@ -167,7 +167,7 @@ extract(char  *file_name,
                        from_fd, 0)) == (caddr_t) -1)
 #endif
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "mmap() error : %s", strerror(errno));
       (void)close(from_fd);
       return(INCORRECT);
@@ -245,7 +245,7 @@ extract(char  *file_name,
          break;
 
       default            : /* Impossible! */
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Unknown length type (%d) for extracting bulletins.",
                      type);
 #ifdef _NO_MMAP
@@ -264,20 +264,20 @@ extract(char  *file_name,
    if (munmap((void *)src_ptr, stat_buf.st_size) == -1)
 #endif
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to munmap() %s : %s", fullname, strerror(errno));
    }
 
    if (close(from_fd) == -1)
    {
-      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
 
    /* Remove the file that has just been extracted. */
    if (unlink(fullname) < 0)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to unlink() %s : %s", fullname, strerror(errno));
    }
    else
@@ -553,7 +553,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
     */
    if ((soh_etx == YES) && (msg[0] != 1)) /* Must start with SOH */
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to read bulletin header. No SOH at start.");
       return(INCORRECT);
    }
@@ -580,7 +580,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
    }
    if (i == 0)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Length of WMO header is 0!? Discarding file.");
       *p_file_name = '\0';
       return(INCORRECT);
@@ -595,7 +595,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
    if ((fd = open(p_full_file_name, (O_RDWR | O_CREAT | O_TRUNC),
                   file_mode)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to open() %s while extracting bulletins : %s",
                   p_full_file_name, strerror(errno));
       *p_file_name = '\0';
@@ -606,7 +606,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
    {
       if (write(fd, "\001", 1) != 1)
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Failed to write() SOH : %s", strerror(errno));
          (void)close(fd);
          *p_file_name = '\0';
@@ -615,7 +615,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
    }
    if (write(fd, msg, (size_t)length) != (ssize_t)length)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to write() message : %s", strerror(errno));
       (void)close(fd);
       *p_file_name = '\0';
@@ -625,7 +625,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
    {
       if (write(fd, "\003", 1) != 1)
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Failed to write() ETX : %s", strerror(errno));
          (void)close(fd);
          *p_file_name = '\0';
@@ -641,7 +641,7 @@ write_file(char *msg, unsigned int length, int soh_etx)
 
    if (close(fd) == -1)
    {
-      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
    *p_file_name = '\0';

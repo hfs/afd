@@ -121,7 +121,10 @@ create_name(char           *p_path,     /* Path where the new directory  */
    /* Now try to create directory */
    (void)strcpy(tmpname, p_path);
    ptr = tmpname + strlen(tmpname);
-   *(ptr++) = '/';
+   if (*(ptr - 1) != '/')
+   {
+      *(ptr++) = '/';
+   }
    do
    {
       if ((errno == EMLINK) || (errno == ENOSPC))

@@ -356,7 +356,7 @@ main(int argc, char *argv[])
    
          for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
          {
-            if (filter(rule[trans_rule_pos].filter[k], p_file_name_buffer) == 0)
+            if (pmatch(rule[trans_rule_pos].filter[k], p_file_name_buffer) == 0)
             {
                change_name(p_file_name_buffer,
                            rule[trans_rule_pos].filter[k],

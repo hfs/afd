@@ -130,7 +130,7 @@ bin_file_chopper(char  *bin_file,
       }
       else
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__,
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                      "Failed to stat() %s : %s", bin_file, strerror(errno));
          return(INCORRECT);
       }
@@ -147,14 +147,14 @@ bin_file_chopper(char  *bin_file,
 
    if ((fd = open(bin_file, O_RDONLY)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to open() %s : %s", bin_file, strerror(errno));
       return(INCORRECT);
    }
 
    if ((buffer = (char *)malloc(stat_buf.st_size)) == NULL)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "malloc() error (size = %d) : %s",
                   stat_buf.st_size, strerror(errno));
       return(INCORRECT);
@@ -167,7 +167,7 @@ bin_file_chopper(char  *bin_file,
     */
    if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "read() error : %s", strerror(errno));
       free(p_file);
       return(INCORRECT);
@@ -177,7 +177,7 @@ bin_file_chopper(char  *bin_file,
    /* Close the file since we do not need it anymore */
    if (close(fd) == -1)
    {
-      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
 
@@ -191,7 +191,7 @@ bin_file_chopper(char  *bin_file,
    if (*p_new_file != '/')
    {
       /* Impossible */
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Cannot determine directory where to store files!");
       return(INCORRECT);
    }
@@ -206,7 +206,7 @@ bin_file_chopper(char  *bin_file,
    if (*ptr != '/')
    {
       /* Impossible */
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Cannot determine directory where to store files!");
       return(INCORRECT);
    }
@@ -225,7 +225,7 @@ bin_file_chopper(char  *bin_file,
     */
    if ((counter_fd = open_counter_file(COUNTER_FILE)) < 0)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to open AFD counter file.");
       return(INCORRECT);
    }
@@ -261,7 +261,7 @@ bin_file_chopper(char  *bin_file,
                buffer = ptr;
                continue;
 #else
-               receive_log(ERROR_SIGN, __FILE__, __LINE__,
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                            "Failed to extract data from %s", bin_file);
                (void)close(counter_fd);
                free(p_file);
@@ -285,7 +285,7 @@ bin_file_chopper(char  *bin_file,
             {
                if (first_time == YES)
                {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                               "Hey! Whats this? Message length (%u) > then total length (%u) [%s]",
                               message_length, total_length + id_length[i],
                               bin_file);
@@ -302,7 +302,7 @@ bin_file_chopper(char  *bin_file,
 
                if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
                {
-                  receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                               "Hey! Whats this? End locator not where it should be!");
                   buffer = ptr;
                   continue;
@@ -322,7 +322,7 @@ bin_file_chopper(char  *bin_file,
           */
          if (next_counter(&counter) < 0)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to get the next number.");
             free(p_file);
             (void)close(counter_fd);
@@ -330,7 +330,7 @@ bin_file_chopper(char  *bin_file,
          }
          if (time(&tvalue) == -1)
          {
-            receive_log(WARN_SIGN, __FILE__, __LINE__,
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to get time() : %s", strerror(errno));
             (void)strcpy(date_str, "YYYYMMDDhhmmss");
          }
@@ -349,7 +349,7 @@ bin_file_chopper(char  *bin_file,
          if ((fd = open(new_file, (O_WRONLY | O_CREAT | O_TRUNC),
                         (S_IRUSR | S_IWUSR))) < 0)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
                         "Failed to open() %s : %s", new_file, strerror(errno));
             free(p_file);
             (void)close(counter_fd);
@@ -369,7 +369,7 @@ bin_file_chopper(char  *bin_file,
 
          if (write(fd, ptr, data_length) != data_length)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__,
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
                         "write() error : %s", strerror(errno));
             free(p_file);
             (void)close(fd);
@@ -379,7 +379,7 @@ bin_file_chopper(char  *bin_file,
          }
          if (close(fd) == -1)
          {
-            receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+            receive_log(DEBUG_SIGN, __FILE__, __LINE__, tvalue,
                         "close() error : %s", strerror(errno));
          }
          *file_size += data_length;
@@ -390,7 +390,7 @@ bin_file_chopper(char  *bin_file,
          {
             if ((data_length - total_length) > 5)
             {
-               receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+               receive_log(DEBUG_SIGN, __FILE__, __LINE__, tvalue,
                            "Hmmm. data_length (%d) > total_length (%u)?",
                            data_length, total_length);
             }
@@ -433,7 +433,7 @@ bin_file_chopper(char  *bin_file,
    /* Remove the original file */
    if (unlink(bin_file) < 0)
    {
-      receive_log(WARN_SIGN, __FILE__, __LINE__,
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Failed to unlink() original file %s : %s",
                   bin_file, strerror(errno));
    }
@@ -444,7 +444,7 @@ bin_file_chopper(char  *bin_file,
    }
    if (close(counter_fd) == -1)
    {
-      receive_log(DEBUG_SIGN, __FILE__, __LINE__,
+      receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
    }
    free(p_file);

@@ -137,7 +137,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
          *p_end = '\0';
          for (i = 0; i < db.no_of_files; i++)
          {
-            if ((filter(db.filename[i], p_list) == 0) &&
+            if ((pmatch(db.filename[i], p_list) == 0) &&
                 (check_list(p_list, file_size_to_retrieve) == 0))
             {
                files_to_retrieve++;

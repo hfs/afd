@@ -68,8 +68,8 @@ DESCR__E_M1
 #include <sys/time.h>            /* struct timeval                      */
 #include <sys/wait.h>            /* waitpid()                           */
 #include <signal.h>              /* signal()                            */
-#include <unistd.h>              /* select(), unlink(), lseek(),        */
-                                 /* sleep(), STDERR_FILENO              */
+#include <unistd.h>              /* select(), unlink(), lseek(), sleep()*/
+                                 /* gethostname(),  STDERR_FILENO       */
 #include <fcntl.h>               /* O_RDWR, O_CREAT, O_WRONLY, etc      */
 #include <limits.h>              /* LINK_MAX                            */
 #include <errno.h>
@@ -134,7 +134,8 @@ main(int argc, char *argv[])
    fd_set         rset;
    signed char    stop_typ = STARTUP_ID,
                   char_value;
-   char           *ptr = NULL,
+   char           hostname[64],
+                  *ptr = NULL,
 #ifdef _FIFO_DEBUG
                   cmd[2],
 #endif
@@ -494,6 +495,11 @@ main(int argc, char *argv[])
    log_pid(getpid(), 0);
    (void)rec(sys_log_fd, CONFIG_SIGN,
              "=================> STARTUP <=================\n");
+   if (gethostname(hostname, 64) == 0)
+   {
+      (void)rec(sys_log_fd, CONFIG_SIGN,
+                "Starting on <%s> %s", hostname, ctime(&now));
+   }
 #ifdef PRE_RELEASE
    (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (PRE %d.%d.%d-%d)\n",
              AFD, MAJOR, MINOR, BUG_FIX, PRE_RELEASE);
@@ -1306,6 +1312,8 @@ afd_exit(void)
 
    if (probe_only != 1)
    {
+      char hostname[64];
+
       (void)rec(sys_log_fd, INFO_SIGN,
 #ifdef PRE_RELEASE
                 "<INIT> Stopped %s (PRE %d.%d.%d-%d)\n",
@@ -1392,6 +1400,14 @@ afd_exit(void)
       (void)munmap((void *)p_afd_status, sizeof(struct afd_status));
 #endif
 
+      if (gethostname(hostname, 64) == 0)
+      {
+         time_t now;
+
+         now = time(NULL);
+         (void)rec(sys_log_fd, CONFIG_SIGN,
+                   "Shutdown on <%s> %s", hostname, ctime(&now));
+      }
       (void)rec(sys_log_fd, CONFIG_SIGN,
                 "=================> SHUTDOWN <=================\n");
 

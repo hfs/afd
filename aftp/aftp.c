@@ -331,202 +331,222 @@ main(int argc, char *argv[])
       exit(ALLOC_ERROR);
    }
 
-   if ((db.aftp_mode == RETRIEVE_MODE) &&
-       ((files_to_retrieve = get_remote_file_names(&file_size_to_retrieve)) > 0))
+   if (db.aftp_mode == RETRIEVE_MODE)
    {
-      int   i;
-      off_t offset;
-      char  local_file[MAX_PATH_LENGTH];
-
-      local_file[0] = '.';
-      for (i = 0; i < *no_of_listed_files; i++)
+      if ((files_to_retrieve = get_remote_file_names(&file_size_to_retrieve)) > 0)
       {
-         (void)strcpy(&local_file[1], rl[i].file_name);
-         if (stat(local_file, &stat_buf) == -1)
-         {
-            offset = 0;
-         }
-         else
-         {
-            offset = stat_buf.st_size;
-         }
-         if (((status = ftp_data(rl[i].file_name, offset, db.ftp_mode,
-                                 DATA_READ)) != SUCCESS) &&
-             (status != -550))
-         {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "Failed to open remote file %s (%d).",
-                      rl[i].file_name, status);
-            (void)ftp_quit();
-            exit(OPEN_REMOTE_ERROR);
-         }
-         if (status == -550) /* ie. file has been deleted or is NOT a file. */
-         {
-            trans_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Failed to open remote file %s (%d).",
-                      rl[i].file_name, status);
-         }
-         else /* status == SUCCESS */
-         {
-            off_t bytes_done;
+         int   i;
+         off_t offset;
+         char  local_file[MAX_PATH_LENGTH];
 
-            if (db.verbose == YES)
+         local_file[0] = '.';
+         for (i = 0; i < *no_of_listed_files; i++)
+         {
+            (void)strcpy(&local_file[1], rl[i].file_name);
+            if (stat(local_file, &stat_buf) == -1)
             {
-               trans_log(INFO_SIGN, __FILE__, __LINE__,
-                         "Opened data connection for file %s.",
-                         rl[i].file_name);
-            }
-
-            if (offset > 0)
-            {
-               fd = open(local_file, O_WRONLY | O_APPEND);
+               offset = 0;
             }
             else
             {
-               fd = open(local_file, O_WRONLY | O_CREAT, FILE_MODE);
+               offset = stat_buf.st_size;
             }
-            if (fd == -1)
+            if (((status = ftp_data(rl[i].file_name, offset, db.ftp_mode,
+                                    DATA_READ)) != SUCCESS) &&
+                (status != -550))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to open local file %s : %s",
-                         local_file, strerror(errno));
+                         "Failed to open remote file %s (%d).",
+                         rl[i].file_name, status);
                (void)ftp_quit();
-               exit(OPEN_LOCAL_ERROR);
+               exit(OPEN_REMOTE_ERROR);
             }
-            else
+            if (status == -550) /* ie. file has been deleted or is NOT a file. */
             {
-               if (db.verbose == YES)
-               {
-                  msg_str[0] = '\0';
-                  trans_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Opened local file %s.", local_file);
-               }
-            }
-            bytes_done = 0;
-            do
-            {
-               if ((status = ftp_read(buffer, db.blocksize)) == INCORRECT)
-               {
-                  msg_str[0] = '\0';
-                  if ((sigpipe_flag == ON) && (status != EPIPE))
-                  {
-                     (void)ftp_get_reply();
-                  }
-                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                            "Failed to read from remote file %s",
-                            rl[i].file_name);
-                  if (status == EPIPE)
-                  {
-                     (void)rec(transfer_log_fd, DEBUG_SIGN,
-                               "%-*s: Hmm. Pipe is broken. Will NOT send a QUIT. (%s %d)\n",
-                               MAX_HOSTNAME_LENGTH, tr_hostname,
-                               __FILE__, __LINE__);
-                  }
-                  else
-                  {
-                     (void)ftp_quit();
-                  }
-                  exit(READ_REMOTE_ERROR);
-               }
-               else if (status > 0)
-                    {
-                       if (write(fd, buffer, status) != status)
-                       {
-                          trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                                    "Failed to write() to file %s : %s",
-                                    local_file, strerror(errno));
-                          (void)ftp_quit();
-                          exit(WRITE_LOCAL_ERROR);
-                       }
-                       bytes_done += status;
-                    }
-            } while (status != 0);
-
-            /* Close the FTP data connection. */
-            if ((status = ftp_close_data(DATA_READ)) != SUCCESS)
-            {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Failed to close data connection (%d).", status);
-               (void)ftp_quit();
-               exit(CLOSE_REMOTE_ERROR);
-            }
-            else
-            {
-               if (db.verbose == YES)
-               {
-                  trans_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Closed data connection for file %s.",
-                            rl[i].file_name);
-               }
-            }
-
-            /* Close the local file. */
-            if (close(fd) == -1)
-            {
-               msg_str[0] = '\0';
                trans_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to close() local file %s.", local_file);
+                         "Failed to open remote file %s (%d).",
+                         rl[i].file_name, status);
             }
-            else
+            else /* status == SUCCESS */
             {
+               off_t bytes_done;
+
                if (db.verbose == YES)
                {
-                  msg_str[0] = '\0';
                   trans_log(INFO_SIGN, __FILE__, __LINE__,
-                            "Closed local file %s.", local_file);
+                            "Opened data connection for file %s.",
+                            rl[i].file_name);
                }
-            }
-            /* Check if remote file is to be deleted. */
-            if (db.remove == YES)
-            {
-               if ((status = ftp_dele(rl[i].file_name)) != SUCCESS)
+
+               if (offset > 0)
                {
-                  trans_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to delete remote file %s (%d).",
-                            rl[i].file_name, status);
+                  fd = open(local_file, O_WRONLY | O_APPEND);
+               }
+               else
+               {
+                  fd = open(local_file, O_WRONLY | O_CREAT, FILE_MODE);
+               }
+               if (fd == -1)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to open local file %s : %s",
+                            local_file, strerror(errno));
+                  (void)ftp_quit();
+                  exit(OPEN_LOCAL_ERROR);
+               }
+               else
+               {
+                  if (db.verbose == YES)
+                  {
+                     msg_str[0] = '\0';
+                     trans_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Opened local file %s.", local_file);
+                  }
+               }
+               bytes_done = 0;
+               do
+               {
+                  if ((status = ftp_read(buffer, db.blocksize)) == INCORRECT)
+                  {
+                     msg_str[0] = '\0';
+                     if ((sigpipe_flag == ON) && (status != EPIPE))
+                     {
+                        (void)ftp_get_reply();
+                     }
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to read from remote file %s",
+                               rl[i].file_name);
+                     if (status == EPIPE)
+                     {
+                        (void)rec(transfer_log_fd, DEBUG_SIGN,
+                                  "%-*s: Hmm. Pipe is broken. Will NOT send a QUIT. (%s %d)\n",
+                                  MAX_HOSTNAME_LENGTH, tr_hostname,
+                                  __FILE__, __LINE__);
+                     }
+                     else
+                     {
+                        (void)ftp_quit();
+                     }
+                     exit(READ_REMOTE_ERROR);
+                  }
+                  else if (status > 0)
+                       {
+                          if (write(fd, buffer, status) != status)
+                          {
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                                       "Failed to write() to file %s : %s",
+                                       local_file, strerror(errno));
+                             (void)ftp_quit();
+                             exit(WRITE_LOCAL_ERROR);
+                          }
+                          bytes_done += status;
+                       }
+               } while (status != 0);
+
+               /* Close the FTP data connection. */
+               if ((status = ftp_close_data(DATA_READ)) != SUCCESS)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to close data connection (%d).", status);
+                  (void)ftp_quit();
+                  exit(CLOSE_REMOTE_ERROR);
                }
                else
                {
                   if (db.verbose == YES)
                   {
                      trans_log(INFO_SIGN, __FILE__, __LINE__,
-                               "Deleted remote file %s.", rl[i].file_name);
+                               "Closed data connection for file %s.",
+                               rl[i].file_name);
                   }
                }
-            }
 
-            /*
-             * If the file size is not the same as the one when we did
-             * the remote ls command, give a warning in the transfer log
-             * so some action can be taken against the originator.
+               /* Close the local file. */
+               if (close(fd) == -1)
+               {
+                  msg_str[0] = '\0';
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to close() local file %s.", local_file);
+               }
+               else
+               {
+                  if (db.verbose == YES)
+                  {
+                     msg_str[0] = '\0';
+                     trans_log(INFO_SIGN, __FILE__, __LINE__,
+                               "Closed local file %s.", local_file);
+                  }
+               }
+               /* Check if remote file is to be deleted. */
+               if (db.remove == YES)
+               {
+                  if ((status = ftp_dele(rl[i].file_name)) != SUCCESS)
+                  {
+                     trans_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Failed to delete remote file %s (%d).",
+                               rl[i].file_name, status);
+                  }
+                  else
+                  {
+                     if (db.verbose == YES)
+                     {
+                        trans_log(INFO_SIGN, __FILE__, __LINE__,
+                                  "Deleted remote file %s.", rl[i].file_name);
+                     }
+                  }
+               }
+
+               /*
+                * If the file size is not the same as the one when we did
+                * the remote ls command, give a warning in the transfer log
+                * so some action can be taken against the originator.
                 */
-            if ((rl[i].size != -1) && (bytes_done != rl[i].size))
-            {
-               if ((offset != 0) && ((bytes_done + offset) != rl[i].size))
+               if ((rl[i].size != -1) && ((bytes_done + offset) != rl[i].size))
                {
                   msg_str[0] = '\0';
                   trans_log(WARN_SIGN, __FILE__, __LINE__,
                             "File size of file %s changed from %u to %u when it was retrieved.",
-                            rl[i].file_name, rl[i].size, bytes_done);
+                            rl[i].file_name, rl[i].size, bytes_done + offset);
                   rl[i].size = bytes_done;
                }
-            }
 
-            /* Rename the file to indicate that download is done. */
-            if (rename(local_file, &local_file[1]) == -1)
-            {
-               msg_str[0] = '\0';
-               trans_log(WARN_SIGN, __FILE__, __LINE__,
-                         "Failed to rename() %s to %s : %s",
-                         local_file, &local_file[1], strerror(errno));
-            }
-            else
-            {
-               no_of_files_done++;
-               file_size_done += bytes_done;
+               /* Rename the file to indicate that download is done. */
+               if (rename(local_file, &local_file[1]) == -1)
+               {
+                  msg_str[0] = '\0';
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Failed to rename() %s to %s : %s",
+                            local_file, &local_file[1], strerror(errno));
+               }
+               else
+               {
+                  no_of_files_done++;
+                  file_size_done += bytes_done;
+                  if (offset > 0)
+                  {
+                     append_count++;
+                  }
+               }
             }
          }
       }
+      (void)sprintf(msg_str, "%-*s: %d Bytes retrieved in %d file(s).",
+                    MAX_HOSTNAME_LENGTH, tr_hostname,
+                    file_size_done, no_of_files_done);
+
+       if (append_count == 1)
+       {
+          (void)strcat(msg_str, " [APPEND]");
+       }
+       else if (append_count > 1)
+            {
+               char tmp_buffer[40];
+
+               (void)sprintf(tmp_buffer, " [APPEND * %d]", append_count);
+               (void)strcat(msg_str, tmp_buffer);
+            }
+      (void)rec(transfer_log_fd, INFO_SIGN, "%s\n", msg_str);
+      msg_str[0] = '\0';
    }
    else
    {
