@@ -349,7 +349,7 @@ save_mon_setup_cb(Widget    w,
                   XtPointer client_data,
                   XtPointer call_data)
 {
-   write_setup(-1, his_log_set);
+   write_setup(-1, his_log_set, NULL, 0, 0);
 
    return;
 }
@@ -673,7 +673,7 @@ mon_popup_cb(Widget    w,
                   }
                   else
                   {
-                     int length;
+                     int  length;
                      char cmd[2 + MAX_INT_LENGTH];
 
                      length = sprintf(cmd, "%c %d", ENABLE_MON, i) + 1;
@@ -716,7 +716,7 @@ mon_popup_cb(Widget    w,
                      }
                      else
                      {
-                        int length;
+                        int  length;
                         char cmd[2 + MAX_INT_LENGTH];
 
                         length = sprintf(cmd, "%c %d", DISABLE_MON, i) + 1;

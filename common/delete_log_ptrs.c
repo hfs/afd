@@ -1,6 +1,6 @@
 /*
  *  delete_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,6 +59,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   14.02.1998 H.Kiehl Created
+ **   11.11.2002 H.Kiehl Create delete log fifo if it does not exist.
  **
  */
 DESCR__E_M3
@@ -69,6 +70,7 @@ DESCR__E_M3
 #include <time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 #include "fddefs.h"
@@ -82,11 +84,22 @@ void
 delete_log_ptrs(struct delete_log *dl)
 {
 #ifdef _DELETE_LOG
-   char delete_log_fifo[MAX_PATH_LENGTH];
+   char        delete_log_fifo[MAX_PATH_LENGTH];
+   struct stat stat_buf;
 
    (void)strcpy(delete_log_fifo, p_work_dir);
    (void)strcat(delete_log_fifo, FIFO_DIR);
    (void)strcat(delete_log_fifo, DELETE_LOG_FIFO);
+   if ((stat(delete_log_fifo, &stat_buf) < 0) ||
+       (!S_ISFIFO(stat_buf.st_mode)))
+   {
+      if (make_fifo(delete_log_fifo) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to create fifo %s.", delete_log_fifo);
+         return;
+      }
+   }
    if ((dl->fd = coe_open(delete_log_fifo, O_RDWR)) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,

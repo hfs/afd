@@ -235,8 +235,52 @@ handle_options(int          no_of_options,
                   {
 #endif
                      register int k,
+                                  overwrite,
                                   ret;
-                     char         changed_name[MAX_FILENAME_LENGTH];
+                     char         changed_name[MAX_FILENAME_LENGTH],
+                                  *p_overwrite;
+
+                     /*
+                      * Check if we want to overwrite the file
+                      * if rename would lead to an overwrite.
+                      */
+                     p_overwrite = p_rule;
+                     while ((*p_overwrite != '\n') && (*p_overwrite != ' ') &&
+                            (*p_overwrite != '\t') && (*p_overwrite != '\0'))
+                     {
+                        p_overwrite++;
+                     }
+                     if ((*p_overwrite == ' ') || (*p_overwrite == '\t'))
+                     {
+                        while ((*p_overwrite == ' ') || (*p_overwrite == '\t'))
+                        {
+                           p_overwrite++;
+                        }
+                        if (((*p_overwrite == 'o') || (*p_overwrite == 'O')) &&
+                            (*(p_overwrite + 1) == 'v') &&
+                            (*(p_overwrite + 2) == 'e') &&
+                            (*(p_overwrite + 3) == 'r') &&
+                            (*(p_overwrite + 4) == 'w') &&
+                            (*(p_overwrite + 5) == 'r') &&
+                            (*(p_overwrite + 6) == 'i') &&
+                            (*(p_overwrite + 7) == 't') &&
+                            (*(p_overwrite + 8) == 'e') &&
+                            ((*(p_overwrite + 9) == '\n') ||
+                             (*(p_overwrite + 9) == '\0') ||
+                             (*(p_overwrite + 9) == ' ') ||
+                             (*(p_overwrite + 9) == '\t')))
+                        {
+                           overwrite = YES;
+                        }
+                        else
+                        {
+                           overwrite = NO;
+                        }
+                     }
+                     else
+                     {
+                        overwrite = NO;
+                     }
 
                      (void)strcpy(newname, file_path);
                      p_newname = newname + strlen(newname);
@@ -257,47 +301,47 @@ handle_options(int          no_of_options,
                            if ((ret = pmatch(rule[rule_pos].filter[k],
                                              p_file_name)) == 0)
                            {
-#ifndef _WITH_PTHREAD
-                              int  dup_count = 0,
-                                   ii;
-                              char *p_end = NULL,
-                                   *p_search_name;
-#endif /* !_WITH_PTHREAD */
-
                               /* We found a rule, what more do you want? */
                               /* Now lets get the new name.              */
                               change_name(p_file_name,
                                           rule[rule_pos].filter[k],
                                           rule[rule_pos].rename_to[k],
                                           changed_name);
-
                               (void)strcpy(ptr, p_file_name);
 
 #ifndef _WITH_PTHREAD
-                              /*
-                               * Lets try to avoid a system call stat()
-                               * to see if the file does exists. Hope that
-                               * this is cheaper by going through the own
-                               * buffer and check if this name is there.
-                               */
-search_again:
-                              p_search_name = file_name_buffer;
-                              for (ii = 0; ii < *files_to_send; ii++)
+                              if (overwrite == NO)
                               {
-                                 if (p_search_name != p_file_name)
+                                 int  dup_count = 0,
+                                      ii;
+                                 char *p_end = NULL,
+                                      *p_search_name;
+
+                                 /*
+                                  * Lets try to avoid a system call stat()
+                                  * to see if the file does exists. Hope that
+                                  * this is cheaper by going through the own
+                                  * buffer and check if this name is there.
+                                  */
+search_again:
+                                 p_search_name = file_name_buffer;
+                                 for (ii = 0; ii < *files_to_send; ii++)
                                  {
-                                    if (CHECK_STRCMP(p_search_name, changed_name) == 0)
+                                    if (p_search_name != p_file_name)
                                     {
-                                       if (p_end == NULL)
+                                       if (CHECK_STRCMP(p_search_name, changed_name) == 0)
                                        {
-                                          p_end = changed_name + strlen(changed_name);
+                                          if (p_end == NULL)
+                                          {
+                                             p_end = changed_name + strlen(changed_name);
+                                          }
+                                          (void)sprintf(p_end, ";%d", dup_count);
+                                          dup_count++;
+                                          goto search_again;
                                        }
-                                       (void)sprintf(p_end, ";%d", dup_count);
-                                       dup_count++;
-                                       goto search_again;
                                     }
+                                    p_search_name += MAX_FILENAME_LENGTH;
                                  }
-                                 p_search_name += MAX_FILENAME_LENGTH;
                               }
 #endif /* !_WITH_PTHREAD */
                               (void)strcpy(p_newname, changed_name);
@@ -1489,6 +1533,11 @@ search_again:
               {
                  extract_typ = FOUR_BYTE_MRZ;
               }
+         else if ((*p_extract_id == 'G') && (*(p_extract_id + 1) == 'R') &&
+                  (*(p_extract_id + 2) == 'I') && (*(p_extract_id + 3) == 'B'))
+              {
+                 extract_typ = FOUR_BYTE_GRIB;
+              }
          else if ((*p_extract_id == 'W') && (*(p_extract_id + 1) == 'M') &&
                   (*(p_extract_id + 2) == 'O'))
               {
@@ -1517,12 +1566,14 @@ search_again:
              * Hopefully we have read all file names! Now it is save
              * to chop the files up.
              */
-            if (extract_typ == FOUR_BYTE_MRZ)
+            if ((extract_typ == FOUR_BYTE_MRZ) ||
+                (extract_typ == FOUR_BYTE_GRIB))
             {
                for (j = 0; j < file_counter; j++)
                {
                   (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
-                  if (bin_file_chopper(fullname, files_to_send, file_size) < 0)
+                  if (bin_file_chopper(fullname, files_to_send, file_size,
+                      (extract_typ == FOUR_BYTE_MRZ) ? NO : YES) < 0)
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                  "An error occurred when extracting bulletins from file %s, deleting file!",
@@ -1593,14 +1644,14 @@ search_again:
                   }
                   p_file_name += MAX_FILENAME_LENGTH;
                }
+            }
 #ifdef _WITH_PTHREAD
 #ifndef _WITH_UNIQUE_NUMBERS
-               *files_to_send = recount_files(file_path, file_size);
+            *files_to_send = recount_files(file_path, file_size);
 #endif
 #else
-               *files_to_send = restore_files(file_path, file_size);
+            *files_to_send = restore_files(file_path, file_size);
 #endif
-            }
 #ifdef _WITH_PTHREAD
          }
 

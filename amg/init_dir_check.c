@@ -403,7 +403,7 @@ init_dir_check(int    argc,
    (void)strcpy(rule_file, p_work_dir);
    (void)strcat(rule_file, ETC_DIR);
    (void)strcat(rule_file, RENAME_RULE_FILE);
-   get_rename_rules(rule_file);
+   get_rename_rules(rule_file, YES);
 
    return;
 }

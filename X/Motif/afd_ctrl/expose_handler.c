@@ -1,6 +1,6 @@
 /*
  *  expose_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,11 +22,20 @@
 DESCR__S_M3
 /*
  ** NAME
- **   expose_handler - handles any expose event
+ **   expose_handler - handles any expose event for the various
+ **                    drawing areas
  **
  ** SYNOPSIS
- **   void expose_handler(Widget w, XtPointer client_data,
- **                       XmDrawingAreaCallbackStruct *call_data)
+ **   void expose_handler_label(Widget w, XtPointer client_data,
+ **                             XmDrawingAreaCallbackStruct *call_data)
+ **   void expose_handler_line(Widget w, XtPointer client_data,
+ **                            XmDrawingAreaCallbackStruct *call_data)
+ **   void expose_handler_short_line(Widget w, XtPointer client_data,
+ **                                  XmDrawingAreaCallbackStruct *call_data)
+ **   void expose_handler_button(Widget w, XtPointer client_data,
+ **                              XmDrawingAreaCallbackStruct *call_data)
+ **   void expose_handler_tv_line(Widget w, XtPointer client_data,
+ **                               XmDrawingAreaCallbackStruct *call_data)
  **
  ** DESCRIPTION
  **   When an expose event occurs, only those parts of the window
@@ -47,6 +56,7 @@ DESCR__S_M3
  **                      Backing store now also for menu bar.
  **   10.01.1998 H.Kiehl Support for detailed view of transfers.
  **   30.07.2001 H.Kiehl Support for the show_queue dialog.
+ **   08.11.2002 H.Kiehl Expose handler for short line drawing area.
  **
  */
 DESCR__E_M3
@@ -67,6 +77,7 @@ extern Window                  button_window,
                                detailed_window,
                                label_window,
                                line_window,
+                               short_line_window,
                                tv_label_window;
 extern Widget                  appshell,
                                detailed_window_w,
@@ -82,8 +93,13 @@ extern int                     ft_exposure_tv_line,
                                tv_line_length,
                                line_height,
                                no_of_columns,
+                               no_of_long_lines,
+                               no_of_short_lines,
+                               no_of_short_columns,
+                               short_line_length,
                                tv_no_of_columns,
                                no_of_rows,
+                               no_of_short_rows,
                                tv_no_of_rows,
                                redraw_time_host,
                                redraw_time_status;
@@ -130,7 +146,7 @@ expose_handler_line(Widget                      w,
                     XmDrawingAreaCallbackStruct *call_data)
 {
    XEvent     *p_event = call_data->event;
-   int        i,
+   int        i, pos,
               top_line,
               bottom_line,
               left_column = 0,
@@ -188,7 +204,7 @@ expose_handler_line(Widget                      w,
    {
       top_line = (right_column * no_of_rows) + top_row;
       bottom_line = (right_column * no_of_rows) + bottom_row;
-      while (bottom_line >= no_of_hosts)
+      while (bottom_line >= no_of_long_lines)
       {
          bottom_line--;
       }
@@ -202,7 +218,10 @@ expose_handler_line(Widget                      w,
 
       for (i = top_line; i <= bottom_line; i++)
       {
-         connect_data[i].expose_flag = YES;
+         if ((pos = get_long_pos(i, NO)) != -1)
+         {
+            connect_data[pos].expose_flag = YES;
+         }
       }
       right_column--;
    } while (left_column <= right_column);
@@ -213,7 +232,8 @@ expose_handler_line(Widget                      w,
    {
       for (i = 0; i < no_of_hosts; i++)
       {
-         if (connect_data[i].expose_flag == YES)
+         if ((connect_data[i].long_pos > -1) &&
+             (connect_data[i].expose_flag == YES))
          {
             draw_line_status(i, 1);
             connect_data[i].expose_flag = NO;
@@ -245,6 +265,8 @@ expose_handler_line(Widget                      w,
             attr.backing_store = bs_attribute;
             attr.save_under = DoesSaveUnders(c_screen);
             XChangeWindowAttributes(display, line_window,
+                                    CWBackingStore | CWSaveUnder, &attr);
+            XChangeWindowAttributes(display, short_line_window,
                                     CWBackingStore | CWSaveUnder, &attr);
             XChangeWindowAttributes(display, button_window,
                                     CWBackingStore, &attr);
@@ -295,10 +317,94 @@ expose_handler_line(Widget                      w,
           * Calculate the magic unkown height factor we need to add to the
           * height of the widget when it is being resized.
           */
-         XtVaGetValues(appshell, XmNheight, &height, NULL);
+         XtVaGetValues(appshell, XmNheight, &height, NULL);                  
          magic_value = height - (window_height + line_height +
-                                 line_height + glyph_height);
+                       line_height + glyph_height);
       }
+   }
+
+   return;
+}
+
+
+/*##################### expose_handler_short_line() #####################*/
+void
+expose_handler_short_line(Widget                      w,
+                          XtPointer                   client_data,
+                          XmDrawingAreaCallbackStruct *call_data)
+{
+   XEvent *p_event = call_data->event;
+   int    i, pos,
+          first_column,
+          last_column,
+          left_column,
+          top_row,
+          bottom_row,
+          right_column;
+
+   /* Get the hosts, which have to be redrawn */
+   left_column = p_event->xexpose.x / short_line_length;
+   top_row = p_event->xexpose.y / line_height;
+   bottom_row = (p_event->xexpose.y  + p_event->xexpose.height) / line_height;
+   if (bottom_row > (no_of_short_rows - 1))
+   {
+      bottom_row--;
+   }
+   right_column = (p_event->xexpose.x  + p_event->xexpose.width) /
+                   short_line_length;
+   if (right_column > (no_of_short_columns - 1))
+   {
+      right_column--;
+   }
+
+#ifdef _DEBUG
+   (void)printf("xexpose xy = %d, %d  width= %d  height = %d   short_line_length = %d\n",
+                 p_event->xexpose.x, p_event->xexpose.y, p_event->xexpose.width, p_event->xexpose.height, short_line_length);
+   (void)printf("left_column = %d    right_column = %d\n",
+                 left_column, right_column);
+   (void)printf("top_row     = %d    bottom_row   = %d\n",
+                 top_row, bottom_row);
+#endif /* _DEBUG */
+
+   /* Note which lines have to be redrawn, but do not    */
+   /* redraw them here. First collect all expose events. */
+   do
+   {
+      first_column = (bottom_row * no_of_short_columns) + left_column;
+      last_column = (bottom_row * no_of_short_columns) + right_column;
+      while (last_column >= no_of_short_lines)
+      {
+         last_column--;
+      }
+#ifdef _DEBUG
+      (void)printf("first_column = %d  last_column = %d\n",
+                   first_column, last_column);
+#endif /* _DEBUG */
+      for (i = first_column; i <= last_column; i++)
+      {
+         if ((pos = get_short_pos(i, NO)) != -1)
+         {
+            connect_data[pos].expose_flag = YES;
+         }
+      }
+      bottom_row--;
+   } while (top_row <= bottom_row);
+
+   /* Now see if there are still expose events. If so, */
+   /* do NOT redraw.                                   */
+   if (p_event->xexpose.count == 0)
+   {
+      for (i = 0; i < no_of_hosts; i++)
+      {
+         if ((connect_data[i].short_pos > -1) &&
+             (connect_data[i].expose_flag == YES))
+         {
+            draw_line_status(i, 1);
+            connect_data[i].expose_flag = NO;
+         }
+      }
+
+      XFlush(display);
    }
 
    return;
@@ -314,6 +420,7 @@ expose_handler_button(Widget                      w,
    XEvent     *p_event = call_data->event;
    static int ft_exposure_status = 0;
 
+   XFlush(display);
    if (p_event->xexpose.count == 0)
    {
       draw_button_line();

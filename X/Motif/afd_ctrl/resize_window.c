@@ -1,6 +1,6 @@
 /*
  *  resize_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 1999 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -49,6 +49,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <X11/Xlib.h>
+#include <X11/IntrinsicP.h>
 #include <Xm/Xm.h>
 #include "afd_ctrl.h"
 
@@ -56,9 +57,12 @@ extern Display      *display;
 extern Widget       appshell,
                     line_window_w,
                     label_window_w,
-                    button_window_w;
+                    button_window_w,
+                    short_line_window_w;
 extern int          line_height,
                     magic_value,
+                    no_of_rows,
+                    no_of_short_rows,
                     window_width,
                     window_height;
 extern unsigned int glyph_height;
@@ -68,6 +72,14 @@ extern unsigned int glyph_height;
 signed char
 resize_window(void)
 {
+   static int old_long_window_height = -1,
+              old_short_window_height = -1;
+   int        long_window_height,
+              ret,
+              short_window_height;
+   Arg        args[2];
+   Cardinal   argcount;
+
    if (window_size(&window_width, &window_height) == YES)
    {
 #ifdef _AUTO_REPOSITION
@@ -80,16 +92,7 @@ resize_window(void)
                         root_y;
 #endif
       static int        old_line_height = 0;
-      Arg               args[2];
-      Cardinal          argcount;
 
-      argcount = 0;
-      XtSetArg(args[argcount], XmNheight, (Dimension) window_height);
-      argcount++;
-      XtSetArg(args[argcount], XmNwidth, (Dimension) window_width);
-      argcount++;
-      XtSetValues(line_window_w, args, argcount);
-      XtSetValues(button_window_w, args, argcount);
 #ifdef _AUTO_REPOSITION
       /* Get new window position */
       display_width = DisplayWidth(display, DefaultScreen(display));
@@ -132,20 +135,11 @@ resize_window(void)
          new_y = root_y;
       }
 
-#ifdef _WITH_VA_SET_VALUES_
-      XtVaSetValues(appshell,
-                    XmNx, new_x, XmNy, new_y,
-                    XmNwidth, window_width,
-                    XmNheight,
-                    window_height + line_height + line_height + glyph_height + magic_value,
-                    NULL);
-#else
       /* Resize window */
       XMoveResizeWindow(display, XtWindow(appshell),
                         new_x, new_y,
                         window_width,
                         window_height + line_height + line_height + glyph_height + magic_value);
-#endif
 #else
       XResizeWindow(display, XtWindow(appshell), window_width,
                     window_height + line_height + line_height + glyph_height + magic_value);
@@ -153,20 +147,74 @@ resize_window(void)
 
       /* If the line_height changed, don't forget to change the */
       /* height of the label and button window!                 */
+      argcount = 0;
+      XtSetArg(args[argcount], XmNwidth, (Dimension)window_width);
+      argcount++;
+      long_window_height = no_of_rows * line_height;
+      if (long_window_height != old_long_window_height)
+      {
+         XtSetArg(args[argcount], XmNheight, (Dimension)long_window_height);
+         argcount++;
+         old_long_window_height = long_window_height;
+      }
+      XtSetValues(line_window_w, args, argcount);
+      argcount = 0;
+      XtSetArg(args[argcount], XmNwidth, (Dimension)window_width);
+      argcount++;
+      short_window_height = no_of_short_rows * line_height;
+      if (short_window_height != old_short_window_height)
+      {
+         XtSetArg(args[argcount], XmNheight, (Dimension)(short_window_height));
+         argcount++;
+         old_short_window_height = short_window_height;
+      }
+      XtSetValues(short_line_window_w, args, argcount);
+      argcount = 0;
+      XtSetArg(args[argcount], XmNwidth, (Dimension)window_width);
+      argcount++;
       if (line_height != old_line_height)
       {
-         argcount = 0;
-         XtSetArg(args[argcount], XmNheight, (Dimension) line_height);
+         XtSetArg(args[argcount], XmNheight, (Dimension)line_height);
          argcount++;
-         XtSetValues(label_window_w, args, argcount);
-
          old_line_height = line_height;
       }
-
-      return(YES);
+      XtSetValues(label_window_w, args, argcount);
+      XtSetValues(button_window_w, args, argcount);
+      ret = YES;
    }
    else
    {
-      return(NO);
+      long_window_height = no_of_rows * line_height;
+      if (long_window_height != old_long_window_height)
+      {
+         argcount = 0;
+         XtSetArg(args[argcount], XmNheight, (Dimension)long_window_height);
+         argcount++;
+         XtSetValues(line_window_w, args, argcount);
+         XtResizeWidget(line_window_w, window_width, long_window_height, 0);
+      }
+      short_window_height = (no_of_short_rows * line_height) + 1;
+      if (short_window_height != old_short_window_height)
+      {
+         argcount = 0;
+         XtSetArg(args[argcount], XmNheight, (Dimension)(short_window_height));
+         argcount++;
+         XtSetValues(short_line_window_w, args, argcount);
+         XtResizeWidget(short_line_window_w, window_width,
+                        short_window_height, 0);
+      }
+      if ((old_long_window_height != -1) && (old_short_window_height != -1))
+      {
+         if (short_line_window_w->core.y != (line_window_w->core.y + long_window_height))
+         {
+            XtMoveWidget(short_line_window_w,
+                         short_line_window_w->core.x,
+                         line_window_w->core.y + long_window_height);
+         }
+      }
+      old_long_window_height = long_window_height;
+      old_short_window_height = short_window_height;
+      ret = NO;
    }
+   return(ret);
 }

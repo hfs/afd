@@ -293,6 +293,7 @@ convert_fra(int           old_fra_fd,
       (void)rec(sys_log_fd, ERROR_SIGN,
                 "Don't know how to convert a version %d FRA to version %d.\n",
                 old_version, new_version);
+      ptr = NULL;
    }
 
    return(ptr);

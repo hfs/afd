@@ -159,9 +159,6 @@ init_sf_burst2(struct job   *p_new_db,
       db.archive_dir[0]      = '\0';
       db.transfer_mode       = p_new_db->transfer_mode;
       db.lock                = p_new_db->lock;
-#ifdef _WITH_WMO_SUPPORT
-      db.file_name_is_header = p_new_db->file_name_is_header;
-#endif
       if (db.subject != NULL)
       {
          free(db.subject);
@@ -214,7 +211,7 @@ init_sf_burst2(struct job   *p_new_db,
       (void)strcpy(gbuf, p_work_dir);
       (void)strcat(gbuf, ETC_DIR);
       (void)strcat(gbuf, RENAME_RULE_FILE);
-      get_rename_rules(gbuf);
+      get_rename_rules(gbuf, NO);
       if (db.trans_rename_rule[0] != '\0')
       {
          if ((trans_rule_pos = get_rule(db.trans_rename_rule,

@@ -40,7 +40,8 @@ MISCOBJS = afw2wmo.o\
            extract.o\
            gts2tiff.o\
            tiff2gts.o\
-           wmo2ascii.o
+           wmo2ascii.o\
+	   wmoheader_from_grib.o
 
 CENPROG  = create_eumetsat_name
 CENOBJS  = create_eumetsat_name.o

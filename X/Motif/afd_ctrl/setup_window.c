@@ -1,6 +1,6 @@
 /*
  *  setup_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -87,9 +87,9 @@ extern int                        no_of_hosts,
                                   max_line_length,
                                   line_height,
                                   led_width,
-                                  no_of_columns,
                                   bar_thickness_2,
                                   button_width,
+                                  short_line_length,
                                   x_offset_led,
                                   x_offset_debug_led,
                                   x_offset_proc,
@@ -184,6 +184,7 @@ setup_window(char *font_name, int redraw_mainmenu)
                XtVaSetValues(pw[5], XmNfontList, fontlist, NULL);
             }
             XtVaSetValues(ow[SELECT_W], XmNfontList, fontlist, NULL);
+            XtVaSetValues(ow[LONG_SHORT_W], XmNfontList, fontlist, NULL);
             if ((ping_cmd != NULL) || (traceroute_cmd != NULL))
             {
                XtVaSetValues(ow[TEST_W], XmNfontList, fontlist, NULL);
@@ -347,6 +348,7 @@ setup_window(char *font_name, int redraw_mainmenu)
          XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(lsw[STYLE_1_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(lsw[STYLE_2_W], XmNfontList, fontlist, NULL);
+         XtVaSetValues(lsw[STYLE_3_W], XmNfontList, fontlist, NULL);
 
          XmFontListFree(fontlist);
       }
@@ -438,6 +440,7 @@ setup_window(char *font_name, int redraw_mainmenu)
    led_width       = glyph_height / 3;
    max_line_length = DEFAULT_FRAME_SPACE + (MAX_HOSTNAME_LENGTH * glyph_width) +
                      DEFAULT_FRAME_SPACE;
+   short_line_length = max_line_length;
 
    x_offset_proc = x_offset_characters = x_offset_bars = max_line_length;
    if (line_style & SHOW_LEDS)

@@ -30,8 +30,8 @@
  */
 #define MAJOR          1
 #define MINOR          2
-#define BUG_FIX        15
-/* #define PRE_RELEASE    4 */
+#define BUG_FIX        16
+/* #define PRE_RELEASE    7 */
 
 #define VERSION_ID     "--version"
 

@@ -89,6 +89,7 @@ DESCR__E_M1
 
 /* Global variables */
 int                        amg_flag = NO,
+                           default_age_limit = 0,
                            delete_jobs_fd,
                            delete_jobs_host_fd,
                            fd_cmd_fd,
@@ -558,6 +559,9 @@ main(int argc, char *argv[])
    (void)rec(sys_log_fd, DEBUG_SIGN,
              "FD configuration: FD rescan interval         %d (sec)\n",
              FD_RESCAN_TIME);
+   (void)rec(sys_log_fd, DEBUG_SIGN,
+             "FD configuration: Default age limit          %d (sec)\n",
+             default_age_limit);
    abnormal_term_check_time = (time(&now) / 45) * 45 + 45;
    next_dir_check_time = ((now / DIR_CHECK_TIME) * DIR_CHECK_TIME) +
                          DIR_CHECK_TIME;
@@ -2116,9 +2120,11 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
 static pid_t
 make_process(struct connection *con)
 {
+   int   argcount;
    pid_t pid;
-   char  *args[10],
-         str_job_no[3];
+   char  *args[12],
+         str_job_no[3],
+         str_age_limit[MAX_INT_LENGTH];
 
 
    if (con->job_no < 10)
@@ -2190,22 +2196,33 @@ make_process(struct connection *con)
    args[2] = p_work_dir;
    args[3] = "-j";
    args[4] = str_job_no;
+   if ((default_age_limit > 0) && (con->msg_name[0] != '\0'))
+   {
+      args[5] = "-a";
+      (void)sprintf(str_age_limit, "%u", default_age_limit);
+      args[6] = str_age_limit;
+      argcount = 7;
+   }
+   else
+   {
+      argcount = 5;
+   }
    if (con->error_file == YES)
    {
       if (con->temp_toggle == ON)
       {
-         args[5] = "-f";
-         args[6] = "-t";
-         args[7] = "-m";
-         args[8] = con->msg_name;
-         args[9] = NULL;
+         args[argcount] = "-f";
+         args[argcount + 1] = "-t";
+         args[argcount + 2] = "-m";
+         args[argcount + 3] = con->msg_name;
+         args[argcount + 4] = NULL;
       }
       else
       {
-         args[5] = "-f";
-         args[6] = "-m";
-         args[7] = con->msg_name;
-         args[8] = NULL;
+         args[argcount] = "-f";
+         args[argcount + 1] = "-m";
+         args[argcount + 2] = con->msg_name;
+         args[argcount + 3] = NULL;
       }
    }
    else
@@ -2214,32 +2231,32 @@ make_process(struct connection *con)
       {
          if (con->msg_name[0] == '\0')
          {
-            args[5] = "-t";
-            args[6] = "-d";
-            args[7] = fra[con->fra_pos].dir_alias;
-            args[8] = NULL;
+            args[argcount] = "-t";
+            args[argcount + 1] = "-d";
+            args[argcount + 2] = fra[con->fra_pos].dir_alias;
+            args[argcount + 3] = NULL;
          }
          else
          {
-            args[5] = "-t";
-            args[6] = "-m";
-            args[7] = con->msg_name;
-            args[8] = NULL;
+            args[argcount] = "-t";
+            args[argcount + 1] = "-m";
+            args[argcount + 2] = con->msg_name;
+            args[argcount + 3] = NULL;
          }
       }
       else
       {
          if (con->msg_name[0] == '\0')
          {
-            args[5] = "-d";
-            args[6] = fra[con->fra_pos].dir_alias;
-            args[7] = NULL;
+            args[argcount] = "-d";
+            args[argcount + 1] = fra[con->fra_pos].dir_alias;
+            args[argcount + 2] = NULL;
          }
          else
          {
-            args[5] = "-m";
-            args[6] = con->msg_name;
-            args[7] = NULL;
+            args[argcount] = "-m";
+            args[argcount + 1] = con->msg_name;
+            args[argcount + 2] = NULL;
          }
       }
    }
@@ -2886,6 +2903,11 @@ get_afd_config_value(void)
          {
             max_output_log_files = MAX_OUTPUT_LOG_FILES;
          }
+      }
+      if (get_definition(buffer, DEFAULT_AGE_LIMIT_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         default_age_limit = (unsigned int)atoi(value);
       }
       free(buffer);
    }

@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,9 +50,10 @@
 #define RETRY_W                         4
 #define DEBUG_W                         5
 #define SELECT_W                        6
-#define TEST_W                          7
-#define VIEW_LOAD_W                     8
-#define EXIT_W                          9
+#define LONG_SHORT_W                    7
+#define TEST_W                          8
+#define VIEW_LOAD_W                     9
+#define EXIT_W                          10
 
 /* Definitions for View pulldown */
 #define SYSTEM_W                        0
@@ -84,9 +85,10 @@
 #define DEBUG_SEL                       3
 #define INFO_SEL                        4
 #define DISABLE_SEL                     5
-#define VIEW_JOB_SEL                    6
-#define SWITCH_SEL                      7
-#define VIEW_DC_SEL                     8
+#define LONG_SHORT_SEL                  6
+#define VIEW_JOB_SEL                    7
+#define SWITCH_SEL                      8
+#define VIEW_DC_SEL                     9
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
 /*         afd_ctrl.h        0 - 39                    */
@@ -167,6 +169,10 @@ struct line
                                              /* number.                  */
           int            max_errors;
           int            allowed_transfers;
+          int            long_pos;           /* Position in full details */
+                                             /* portion of dialog.       */
+          int            short_pos;          /* Position in hostname     */
+                                             /* only portion of dialog.  */
           float          scale;
           unsigned int   bar_length[2];
           unsigned short green_color_offset;
@@ -269,16 +275,18 @@ extern void        calc_but_coord(int),
                    expose_handler_button(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
                    expose_handler_label(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
                    expose_handler_line(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
+                   expose_handler_short_line(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
                    expose_handler_tv_line(Widget, XtPointer, XmDrawingAreaCallbackStruct *),
                    draw_file_name(int, int, int),
                    draw_label_line(void),
                    draw_line_status(int, signed char),
                    draw_button_line(void),
                    draw_blank_line(int),
+                   draw_long_blank_line(int),
                    draw_proc_stat(int, int, int, int),
                    draw_detailed_line(int),
                    draw_detailed_selection(int, int),
-                   draw_dest_identifier(int, int, int),
+                   draw_dest_identifier(Window, int, int, int),
                    draw_debug_led(int, int, int),
                    draw_led(int, int, int, int),
                    draw_bar(int, signed char, char, int, int, int),
@@ -299,13 +307,17 @@ extern void        calc_but_coord(int),
                    init_jd_structure(struct job_data *, int, int),
                    input(Widget, XtPointer, XEvent *),
                    locate_xy_column(int, int *, int *, int *),
+                   locate_xy_short(int, int *, int *),
                    popup_cb(Widget, XtPointer, XtPointer),
                    popup_menu_cb(Widget, XtPointer, XEvent *),
                    save_setup_cb(Widget, XtPointer, XtPointer),
                    select_host_dialog(Widget, XtPointer, XtPointer),
                    setup_tv_window(void),
                    setup_window(char *, int),
+                   short_input(Widget, XtPointer, XEvent *),
                    tv_locate_xy(int, int *, int *);
+extern int         get_long_pos(int, int),
+                   get_short_pos(int, int);
 extern signed char resize_tv_window(void),
                    resize_window(void),
                    tv_window_size(Dimension *, Dimension *),

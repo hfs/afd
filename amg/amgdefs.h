@@ -134,9 +134,10 @@
 #define FOUR_BYTE_HBF              3
 #define FOUR_BYTE_MSS              4
 #define FOUR_BYTE_MRZ              5
-#define WMO_STANDARD               6
-#define ASCII_STANDARD             7
-#define FOUR_BYTE_DWD              8
+#define FOUR_BYTE_GRIB             6
+#define WMO_STANDARD               7
+#define ASCII_STANDARD             8
+#define FOUR_BYTE_DWD              9
 
 /* Definition of fifos for the AMG to communicate */
 /* with the above jobs.                           */

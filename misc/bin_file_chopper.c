@@ -1,6 +1,6 @@
 /*
  *  bin_file_chopper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,7 +29,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int bin_file_chopper(char  *bin_file,
  **                        int   *files_to_send,
- **                        off_t *file_size)
+ **                        off_t *file_size,
+ **                        char  wmo_header_file_name)
  **
  ** DESCRIPTION
  **   The function bin_file_chopper reads a binary WMO bulletin file,
@@ -55,6 +56,7 @@ DESCR__S_M3
  **   10.08.1996 H.Kiehl Created
  **   28.05.1998 H.Kiehl Added support for GRIB edition 1, ie using
  **                      length indicator to find end.
+ **   18.11.2002 H.Kiehl WMO header file names.
  **
  */
 DESCR__E_M3
@@ -100,7 +102,8 @@ static int  bin_search_end(char *, char *, size_t);
 int
 bin_file_chopper(char  *bin_file,
                  int   *files_to_send,
-                 off_t *file_size)
+                 off_t *file_size,
+                 char  wmo_header_file_name)
 {
    int         i,
                fd,
@@ -312,38 +315,54 @@ bin_file_chopper(char  *bin_file,
             }
          }
 
-         /*
-          * Create a unique file name of the following format:
-          *
-          *       xxxx_yyyy_YYYYMMDDhhmmss_zzzz
-          *        |    |         |         |
-          *        |    |         |         +----> counter
-          *        |    |         +--------------> date when created
-          *        |    +------------------------> originator
-          *        +-----------------------------> data type
-          */
-         if (next_counter(&counter) < 0)
+         if (wmo_header_file_name == YES)
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to get the next number.");
-            free(p_file);
-            (void)close(counter_fd);
-            return(INCORRECT);
-         }
-         if (time(&tvalue) == -1)
-         {
-            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                        "Failed to get time() : %s", strerror(errno));
-            (void)strcpy(date_str, "YYYYMMDDhhmmss");
+            char *p_end;
+
+            wmoheader_from_grib(ptr - 4, p_new_file);
+            p_end = p_new_file + strlen(p_new_file);
+            counter = 0;
+            while (eaccess(new_file, F_OK) == 0)
+            {
+               (void)sprintf(p_end, ";%d", counter);
+               counter++;
+            }
          }
          else
          {
-            length = strftime(date_str, sizeof(date_str) + 1, "%Y%m%d%H%M%S",
-                              gmtime(&tvalue));
-            date_str[length] = '\0';
+            /*
+             * Create a unique file name of the following format:
+             *
+             *       xxxx_yyyy_YYYYMMDDhhmmss_zzzz
+             *        |    |         |         |
+             *        |    |         |         +----> counter
+             *        |    |         +--------------> date when created
+             *        |    +------------------------> originator
+             *        +-----------------------------> data type
+             */
+            if (next_counter(&counter) < 0)
+            {
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                           "Failed to get the next number.");
+               free(p_file);
+               (void)close(counter_fd);
+               return(INCORRECT);
+            }
+            if (time(&tvalue) == -1)
+            {
+               receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                           "Failed to get time() : %s", strerror(errno));
+               (void)strcpy(date_str, "YYYYMMDDhhmmss");
+            }
+            else
+            {
+               length = strftime(date_str, sizeof(date_str) + 1, "%Y%m%d%H%M%S",
+                                 gmtime(&tvalue));
+               date_str[length] = '\0';
+            }
+            (void)sprintf(p_new_file, "%s_%s_%s_%d", bul_format[i],
+                          originator, date_str, counter);
          }
-         (void)sprintf(p_new_file, "%s_%s_%s_%d", bul_format[i],
-                       originator, date_str, counter);
 
          /*
           * Store data of each bulletin into an extra file.

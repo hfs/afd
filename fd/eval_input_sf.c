@@ -1,6 +1,6 @@
 /*
  *  eval_input_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,6 +43,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   02.11.1995 H.Kiehl Created
+ **   12.11.2002 H.Kiehl Option -a to supply the default age-limit.
  **
  */
 DESCR__E_M3
@@ -79,6 +80,28 @@ eval_input_sf(int        argc,
    {
       switch (*(argv[0] + 1))
       {
+         case 'a' : /* Default age-limit. */
+            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            {   
+               (void)fprintf(stderr,
+                             "ERROR   : You did not specify the age-limit.\n");
+               correct = NO;        
+            }   
+            else
+            {   
+               if (isdigit(*(argv + 1)[0]) == 0)
+               {
+                  p_db->job_no = -1;
+               }
+               else
+               {
+                  p_db->age_limit = atoi(*(argv + 1));
+               }
+               argc--;
+               argv++;
+            }
+            break;
+
          case 'f' : /* Error message file. */
             p_db->error_file = YES;
             break;
@@ -206,6 +229,7 @@ usage(char *name)
    (void)fprintf(stderr, "SYNTAX: %s [options] -m message\n\n", name);
    (void)fprintf(stderr, "OPTIONS                 DESCRIPTION\n");
    (void)fprintf(stderr, "  --version           - Show current version\n");
+   (void)fprintf(stderr, "  -a <age limit>      - set the default age limit in seconds.\n");
    (void)fprintf(stderr, "  -f                  - error message\n");
    (void)fprintf(stderr, "  -j <process number> - the process number under which this job is to be displayed.\n");
    (void)fprintf(stderr, "  -m <message name>   - Message name.\n");

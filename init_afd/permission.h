@@ -65,6 +65,8 @@
 #define MON_CTRL_PERM        "mon_ctrl"          /* mon_ctrl dialog      */
 #define MON_STARTUP_PERM     "mon_startup"       /* Startup AFD_MON      */
 #define MON_SHUTDOWN_PERM    "mon_shutdown"      /* Shutdown AFD_MON     */
+#define MAFD_CMD_PERM        "mafd_cmd"          /* Send commands to AFD */
+                                                 /* monitor.             */
 
 #define DIR_CTRL_PERM        "dir_ctrl"          /* dir_ctrl dialog      */
 #define DIR_INFO_PERM        "dir_info"          /* dir_info dialog      */

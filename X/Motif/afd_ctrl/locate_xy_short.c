@@ -1,6 +1,6 @@
 /*
- *  test_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  locate_xy_short.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,56 +22,43 @@
 DESCR__S_M3
 /*
  ** NAME
- **   test_time -
+ **   locate_xy_short - calculates x and y coordinates for a certain position
  **
  ** SYNOPSIS
- **   test_time <crontab like time entry>
+ **   void locate_xy_short(int pos, int *x, int *y)
  **
  ** DESCRIPTION
  **
  ** RETURN VALUES
+ **   Fills x and y with data.
  **
  ** AUTHOR
  **   H.Kiehl
  **
  ** HISTORY
- **   04.05.1999 H.Kiehl Created
+ **   08.11.2002 H.Kiehl Created
  **
  */
 DESCR__E_M3
 
-#include <stdio.h>
-#include <time.h>
-#include <unistd.h>
-#include "amgdefs.h"
+#include "afd_ctrl.h"
 
-/* Global variables */
-int  sys_log_fd = STDERR_FILENO;
-char *p_work_dir = NULL;
+extern int line_height,
+           no_of_short_columns,
+           short_line_length;
 
 
-/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ test_time() $$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
-int
-main(int argc, char *argv[])
+/*########################## locate_xy_short() ##########################*/
+void
+locate_xy_short(int pos, int *x, int *y)
 {
-   time_t               next_time;
-   struct bd_time_entry te;
+   int column_no,
+       row_no;
 
-   if (argc != 2)
-   {
-      (void)fprintf(stderr, "Usage: %s <crontab like time entry>\n",
-                    argv[0]);
-      exit(INCORRECT);
-   }
+   row_no = pos / no_of_short_columns;
+   column_no = pos % no_of_short_columns;
+   *x = column_no * short_line_length;
+   *y = row_no * line_height;
 
-   if (eval_time_str(argv[1], &te) == INCORRECT)
-   {
-      exit(INCORRECT);
-   }
-
-   next_time = calc_next_time(&te);
-
-   (void)fprintf(stdout, "%s", ctime(&next_time));
-
-   exit(SUCCESS);
+   return;
 }

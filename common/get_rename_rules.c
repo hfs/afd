@@ -26,7 +26,7 @@ DESCR__S_M3
  **                      in a shared memory area
  **
  ** SYNOPSIS
- **   void get_rename_rules(char *rule_file)
+ **   void get_rename_rules(char *rule_file, int verbose)
  **
  ** DESCRIPTION
  **   This function reads the rule file and stores the contents in the
@@ -54,6 +54,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   01.02.1997 H.Kiehl Created
+ **   01.12.2002 H.Kiehl No need for two newlines before each rule header.
+ **                      Added verbose flag and more info when set.
  **
  */
 DESCR__E_M3
@@ -75,7 +77,7 @@ extern struct rule *rule;
 
 /*########################## get_rename_rules() #########################*/
 void
-get_rename_rules(char *rule_file)
+get_rename_rules(char *rule_file, int verbose)
 {
    static time_t last_read = 0;
    static int    first_time = YES;
@@ -91,8 +93,11 @@ get_rename_rules(char *rule_file)
           */
          if (first_time == YES)
          {
-            system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "No renaming rules file!");
+            if (verbose == YES)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "No renaming rules file!");
+            }
             first_time = NO;
          }
       }
@@ -118,7 +123,10 @@ get_rename_rules(char *rule_file)
          }
          else
          {
-            system_log(INFO_SIGN, NULL, 0, "Rereading renaming rules file.");
+            if (verbose == YES)
+            {
+               system_log(INFO_SIGN, NULL, 0, "Rereading renaming rules file.");
+            }
          }
 
          if (last_read != 0)
@@ -184,7 +192,11 @@ get_rename_rules(char *rule_file)
           */
          ptr = buffer;
          last_ptr = buffer + stat_buf.st_size;
-         while ((ptr = posi(ptr, "\n\n[")) != NULL)
+         if (buffer[0] == '[')
+         {
+            no_of_rule_headers++;
+         }
+         while ((ptr = posi(ptr, "\n[")) != NULL)
          {
             no_of_rule_headers++;
          }
@@ -194,7 +206,8 @@ get_rename_rules(char *rule_file)
             register int j;
             int          no_of_rules,
                          max_rule_length,
-                         count;
+                         count,
+                         total_no_of_rules = 0;
             char         *end_ptr,
                          *search_ptr,
                          tmp_char;
@@ -210,17 +223,8 @@ get_rename_rules(char *rule_file)
 
             for (i = 0; i < no_of_rule_headers; i++)
             {
-               if ((ptr = posi(ptr, "\n\n[")) == NULL)
-               {
-                  /* Impossible! We just did find it and now it's gone?!? */
-                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Could not get start of rule header %d [%d].",
-                             i, no_of_rule_headers);
-                  rule[i].filter = NULL;
-                  rule[i].rename_to = NULL;
-                  break;
-               }
-               else
+               if (((ptr == buffer) && (buffer[0] == '[')) ||
+                   ((ptr = posi(ptr, "\n[")) != NULL))
                {
                   /*
                    * Lets first determine how many rules there are.
@@ -228,6 +232,10 @@ get_rename_rules(char *rule_file)
                    * While doing this, lets also find the longest rule or
                    * rename_to string.
                    */
+                  if ((ptr == buffer) && (buffer[0] == '['))
+                  {
+                     ptr++;
+                  }
                   no_of_rules = max_rule_length = 0;
                   search_ptr = ptr;
                   while (*search_ptr != '\n')
@@ -278,6 +286,8 @@ get_rename_rules(char *rule_file)
                         no_of_rules++;
                      }
                   } while ((*(search_ptr + 1) != '\n') &&
+                           (*(search_ptr + 1) != '[') &&
+                           (*search_ptr != '\0') &&
                            (*(search_ptr + 1) != '\0'));
 
                   /* Allocate memory for filter and rename_to */
@@ -404,6 +414,7 @@ get_rename_rules(char *rule_file)
                            } while ((*ptr == '\n') && (j < no_of_rules));
 
                            rule[i].no_of_rules = j;
+                           total_no_of_rules += j;
                         }
                         else
                         {
@@ -425,30 +436,55 @@ get_rename_rules(char *rule_file)
                                 MAX_RULE_HEADER_LENGTH);
                   }
                }
+               else
+               {
+                  /* Impossible! We just did find it and now it's gone?!? */
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Could not get start of rule header %d [%d].",
+                             i, no_of_rule_headers);
+                  rule[i].filter = NULL;
+                  rule[i].rename_to = NULL;
+                  break;
+               }
             } /* for (i = 0; i < no_of_rule_headers; i++) */
+
+            if (verbose == YES)
+            {
+               system_log(INFO_SIGN, NULL, 0,
+                          "Found %d rename rule headers with %d rules.",
+                          no_of_rule_headers, total_no_of_rules);
+            }
          } /* if (no_of_rule_headers > 0) */
+         else
+         {
+            if (verbose == YES)
+            {
+               system_log(INFO_SIGN, NULL, 0,
+                          "No rename rules found in %s", rule_file);
+            }
+         }
 
          /* The buffer holding the contents of the rule file */
          /* is no longer needed.                             */
          free(buffer);
-      } /* if (stat_buf.st_mtime != last_read) */
-   }
 
 #ifdef _DEBUG_RULES
-   {
-      int i, j;
-
-      for (i = 0; i < no_of_rule_headers; i++)
-      {
-         system_log(INFO_SIGN, NULL, 0, "[%s]", rule[i].header);
-         for (j = 0; j < rule[i].no_of_rules; j++)
          {
-            system_log(INFO_SIGN, NULL, 0, "%s\t\t%s",
-                       rule[i].filter[j], rule[i].rename_to[j]);
+            register int j;
+
+            for (i = 0; i < no_of_rule_headers; i++)
+            {
+               system_log(DEBUG_SIGN, NULL, 0, "[%s]", rule[i].header);
+               for (j = 0; j < rule[i].no_of_rules; j++)
+               {
+                  system_log(DEBUG_SIGN, NULL, 0, "%s  %s",
+                             rule[i].filter[j], rule[i].rename_to[j]);
+               }
+            }
          }
-      }
-   }
 #endif /* _DEBUG_RULES */
+      } /* if (stat_buf.st_mtime != last_read) */
+   }
 
 
    return;

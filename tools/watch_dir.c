@@ -1,7 +1,7 @@
 /*
  *  watch_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,12 +58,12 @@ char *p_work_dir = NULL;
 static void usage(char *);
 
 
-/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$ fsa_view() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
+/*$$$$$$$$$$$$$$$$$$$$$$$$$$$$ watch_dir() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
    int           ret;
-   off_t         filesize;
+   off_t         filesize = 0;
    char          *ptr,
                  filename[MAX_FILENAME_LENGTH],
                  watch_dir[MAX_PATH_LENGTH];

@@ -403,10 +403,6 @@ struct job
           int           no_listed;       /* No. of elements in a group.  */
           char          **group_list;    /* List of elements found in    */
                                          /* the group file.              */
-#ifdef _WITH_WMO_SUPPORT
-          char          file_name_is_header; /* Assumes that the file    */
-                                         /* name is bulletin header.     */
-#endif
           char          *charset;        /* MIME charset.                */
           char          *subject;        /* Subject for mail.            */
           char          *reply_to;       /* The address where the        */

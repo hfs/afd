@@ -401,6 +401,7 @@ main(int argc, char *argv[])
                }
                if (fd == -1)
                {
+                  msg_str[0] = '\0';
                   trans_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to open local file %s : %s",
                             local_file, strerror(errno));
@@ -742,6 +743,7 @@ main(int argc, char *argv[])
             {
                if (db.verbose == YES)
                {
+                  msg_str[0] = '\0';
                   trans_log(INFO_SIGN, __FILE__, __LINE__,
                             "Failed to open() local file %s",
                             db.filename[files_send]);
@@ -757,6 +759,7 @@ main(int argc, char *argv[])
             {
                if (db.verbose == YES)
                {
+                  msg_str[0] = '\0';
                   trans_log(INFO_SIGN, __FILE__, __LINE__,
                             "Failed to fstat() local file %s",
                             db.filename[files_send]);
@@ -771,6 +774,7 @@ main(int argc, char *argv[])
             local_file_size = stat_buf.st_size;
             if (db.verbose == YES)
             {
+               msg_str[0] = '\0';
                trans_log(INFO_SIGN, __FILE__, __LINE__,
                          "Open local file %s", db.filename[files_send]);
             }
@@ -787,6 +791,7 @@ main(int argc, char *argv[])
                                strerror(errno), __FILE__, __LINE__);
                      if (db.verbose == YES)
                      {
+                        msg_str[0] = '\0';
                         trans_log(WARN_SIGN, __FILE__, __LINE__,
                                   "Failed to seek() in %s (Ignoring append): %s",
                                   final_filename, strerror(errno));
@@ -797,6 +802,7 @@ main(int argc, char *argv[])
                      append_count++;
                      if (db.verbose == YES)
                      {
+                        msg_str[0] = '\0';
                         trans_log(INFO_SIGN, __FILE__, __LINE__,
                                   "Appending file %s.", final_filename);
                      }
@@ -824,6 +830,7 @@ main(int argc, char *argv[])
                   {
                      if (db.verbose == YES)
                      {
+                        msg_str[0] = '\0';
                         trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                   "Could not read local file %s : %s",
                                   final_filename, strerror(errno));
@@ -913,6 +920,7 @@ main(int argc, char *argv[])
                   {
                      if (db.verbose == YES)
                      {
+                        msg_str[0] = '\0';
                         trans_log(ERROR_SIGN, __FILE__, __LINE__,
                                   "Could not read local file %s : %s",
                                   final_filename, strerror(errno));

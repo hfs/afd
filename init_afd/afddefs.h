@@ -459,6 +459,7 @@ typedef socklen_t my_socklen_t;
 #define AFD_TCP_PORT_DEF               "AFD_TCP_PORT"
 #define DEFAULT_PRINTER_CMD_DEF        "DEFAULT_PRINTER_CMD"
 #define DEFAULT_PRINTER_NAME_DEF       "DEFAULT_PRINTER_NAME"
+#define DEFAULT_AGE_LIMIT_DEF          "DEFAULT_AGE_LIMIT"
 #define MAX_CONNECTIONS_DEF            "MAX_CONNECTIONS"
 #define MAX_COPIED_FILES_DEF           "MAX_COPIED_FILES"
 #define MAX_COPIED_FILE_SIZE_DEF       "MAX_COPIED_FILE_SIZE"
@@ -1376,7 +1377,7 @@ struct delete_log
 /* Function prototypes */
 extern void    change_name(char *, char *, char *, char *),
                get_user(char *),
-               get_rename_rules(char *),
+               get_rename_rules(char *, int),
                inform_fd_about_fsa_change(void),
                init_fifos_afd(void),
                my_usleep(unsigned long),
@@ -1387,7 +1388,7 @@ extern char    *get_definition(char *, char *, char *, int),
 extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                attach_afd_status(void),
                afw2wmo(char *, int *, char **, char *),
-               bin_file_chopper(char *, int *, off_t *),
+               bin_file_chopper(char *, int *, off_t *, char),
                bittest(unsigned char *, int),
                check_afd(long),
                check_afd_heartbeat(long),
@@ -1440,7 +1441,7 @@ extern int     assemble(char *, char *, int, char *, int, int *, off_t *),
                send_cmd(char, int),
                wmo2ascii(char *, char *, off_t *);
 extern off_t   gts2tiff(char *, char *),
-               read_file(char *, char **buffer),
+               read_file(char *, char **),
                tiff2gts(char *, char *);
 #if defined (_INPUT_LOG) || defined (_OUTPUT_LOG)
 extern pid_t   start_log(char *);
@@ -1467,7 +1468,8 @@ extern void    *attach_buf(char *, int *, size_t, char *),
                set_fl(int, int),
                shutdown_afd(void),
                system_log(char *, char *, int, char *, ...),
-               unlock_region(int, off_t);
+               unlock_region(int, off_t),
+               wmoheader_from_grib(char *, char *);
 #ifdef _FIFO_DEBUG
 extern void    show_fifo_data(char, char *, char *, int, char *, int);
 #endif

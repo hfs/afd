@@ -28,8 +28,15 @@ DESCR__S_M3
  ** SYNOPSIS
  **   void read_setup(char *file_name,
  **                   int  *filename_display_length,
- **                   int  *his_log_set)
- **   void write_setup(int filename_display_length)
+ **                   int  *his_log_set,
+ **                   char **hosts,
+ **                   int  max_no_hosts,
+ **                   int  max_hostname_length)
+ **   void write_setup(int  filename_display_length,
+ **                    int  his_log_set,
+ **                    char **hosts,
+ **                    int  max_no_hosts,
+ **                    int  max_hostname_length)
  **
  ** DESCRIPTION
  **   read_setup() looks in the home directory for the file
@@ -62,14 +69,15 @@ DESCR__E_M3
 #include <stdlib.h>                  /* getenv()                         */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>
+#include <unistd.h>                  /* ftruncate()                      */
 #include <fcntl.h>
 #include <errno.h>
 #include "x_common_defs.h"
 #include "afd_ctrl.h"
 
 /* External global variables */
-extern int    no_of_rows_set;
+extern int    no_of_rows_set,
+              no_of_short_lines;
 extern char   font_name[],
               line_style,
               user[];
@@ -83,7 +91,10 @@ static char setup_file[MAX_PATH_LENGTH] = { 0 };
 void
 read_setup(char *file_name,
            int  *filename_display_length,
-           int  *his_log_set)
+           int  *his_log_set,
+           char **hosts,
+           int  max_no_hosts,
+           int  max_hostname_length)
 {
    int         fd;
    char        *ptr,
@@ -319,6 +330,45 @@ read_setup(char *file_name,
       }
    }
 
+   /* Get the list of unimportant host's/AFD's. */
+   if (hosts != NULL)
+   {
+      int i, j, gotcha;
+
+      ptr = buffer;
+      while ((ptr = posi(ptr, UNIMPORTANT_ID)) != NULL)
+      {
+         i = 0;
+         gotcha = NO;
+         ptr--;
+         while ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            ptr++;
+         }
+         while ((*ptr != '\n') && (*ptr != '\0') && (i < max_hostname_length))
+         {
+            hosts[no_of_short_lines][i] = *ptr;
+            i++; ptr++;
+         }
+         hosts[no_of_short_lines][i] = '\0';
+         if (i > 0)
+         {
+            for (j = 0; j < (no_of_short_lines - 1); j++)
+            {
+               if (strcmp(hosts[no_of_short_lines], hosts[j]) == 0)
+               {
+                  gotcha = YES;
+                  break;
+               }
+            }
+            if (gotcha == NO)
+            {
+               no_of_short_lines++;
+            }
+         }
+      }
+   }
+
    if (buffer != NULL)
    {
       free(buffer);
@@ -330,11 +380,16 @@ read_setup(char *file_name,
 
 /*############################# write_setup() ###########################*/
 void
-write_setup(int filename_display_length, int his_log_set)
+write_setup(int  filename_display_length,
+            int  his_log_set,
+            char **hosts,
+            int  max_no_hosts,
+            int  max_hostname_length)
 {
-   int         fd = -1,
+   int         buf_length,
+               fd = -1,
                length;
-   char        buffer[100];
+   char        *buffer;
    struct stat stat_buf;
    
    if (setup_file[0] == '\0')
@@ -355,18 +410,45 @@ write_setup(int filename_display_length, int his_log_set)
          {
             (void)xrec(appshell, ERROR_DIALOG,
                        "Failed to open() setup file %s : %s (%s %d)",
-                       setup_file, strerror(errno),
-                       __FILE__, __LINE__);
+                       setup_file, strerror(errno), __FILE__, __LINE__);
             return;
          }
       }
    }
 
+   buf_length = strlen(FONT_ID) +  1 + strlen(font_name) + 1 +
+                strlen(ROW_ID) + 1 + MAX_INT_LENGTH + 1 +
+                strlen(STYLE_ID) + 1 + MAX_INT_LENGTH + 1;
+   if (filename_display_length != -1)
+   {
+      buf_length += strlen(FILENAME_DISPLAY_LENGTH_ID) + 1 + MAX_INT_LENGTH + 1;
+   }
+   if (his_log_set != -1)
+   {
+      buf_length += strlen(NO_OF_HISTORY_LENGTH_ID) + 1 + MAX_INT_LENGTH + 1;
+   }
+   if (hosts != NULL)
+   {
+      buf_length += ((strlen(UNIMPORTANT_ID) + 1 + max_hostname_length) *
+                     max_no_hosts);
+   }
+   if ((buffer = malloc(buf_length)) == NULL)
+   {
+      (void)xrec(appshell, ERROR_DIALOG, "malloc() error : %s (%s %d)",
+                 strerror(errno), __FILE__, __LINE__);
+      return;
+   }
    if (fd == -1)
    {
       if ((fd = lock_file(setup_file, ON)) < 0)
       {
          return;
+      }
+      if (ftruncate(fd, 0) == -1)
+      {
+         (void)xrec(appshell, ERROR_DIALOG,
+                    "Failed to truncate file %s : %s (%s %d)\n",
+                    setup_file, strerror(errno), __FILE__, __LINE__);
       }
       length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
@@ -381,12 +463,21 @@ write_setup(int filename_display_length, int his_log_set)
          length += sprintf(&buffer[length], "%s %d\n",
                            NO_OF_HISTORY_LENGTH_ID, his_log_set);
       }
+      if (hosts != NULL)
+      {
+         int i;
+
+         for (i = 0; i < max_no_hosts; i++)
+         {
+            length += sprintf(&buffer[length], "%s %s\n",
+                              UNIMPORTANT_ID, hosts[i]);
+         }
+      }
       if (write(fd, buffer, length) != length)
       {
          (void)xrec(appshell, ERROR_DIALOG,
                     "Failed to write to setup file %s : %s (%s %d)",
-                    setup_file, strerror(errno),
-                    __FILE__, __LINE__);
+                    setup_file, strerror(errno), __FILE__, __LINE__);
       }
       (void)close(fd);
    }
@@ -399,6 +490,12 @@ write_setup(int filename_display_length, int his_log_set)
          (void)close(fd);
          return;
       }
+      if (ftruncate(fd, 0) == -1)
+      {
+         (void)xrec(appshell, ERROR_DIALOG,
+                    "Failed to truncate file %s : %s (%s %d)\n",
+                    setup_file, strerror(errno), __FILE__, __LINE__);
+      }
       length = sprintf(buffer, "%s %s\n%s %d\n%s %d\n",
                        FONT_ID, font_name, ROW_ID, no_of_rows_set,
                        STYLE_ID, line_style);
@@ -412,16 +509,26 @@ write_setup(int filename_display_length, int his_log_set)
          length += sprintf(&buffer[length], "%s %d\n",
                            NO_OF_HISTORY_LENGTH_ID, his_log_set);
       }
+      if (hosts != NULL)
+      {
+         int i;
+
+         for (i = 0; i < max_no_hosts; i++)
+         {
+            length += sprintf(&buffer[length], "%s %s\n",
+                              UNIMPORTANT_ID, hosts[i]);
+         }
+      }
       if (write(fd, buffer, length) != length)
       {
          (void)xrec(appshell, ERROR_DIALOG,
                     "Failed to write to setup file %s : %s (%s %d)",
-                    setup_file, strerror(errno),
-                    __FILE__, __LINE__);
+                    setup_file, strerror(errno), __FILE__, __LINE__);
       }
       (void)close(fd);
       (void)close(lock_fd);
    }
+   free(buffer);
 
    return;
 }

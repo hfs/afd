@@ -345,7 +345,7 @@ save_dir_setup_cb(Widget    w,
                   XtPointer client_data,
                   XtPointer call_data)
 {
-   write_setup(-1, -1);
+   write_setup(-1, -1, NULL, 0, 0);
 
    return;
 }

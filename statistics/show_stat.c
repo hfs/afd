@@ -93,6 +93,7 @@ char *p_work_dir,
 #define KILOBYTE                       1024.0
 #define MEGABYTE                       1048576.0
 #define GIGABYTE                       1073741824.0
+#define TERABYTE                       1099511627776.0
 
 /* Function prototypes */
 static void display_data(double, double, double, double);
@@ -1345,10 +1346,14 @@ static void
 display_data(double nfs, double nbs, double nc, double ne)
 {
    (void)fprintf(stdout, "%14.0f   ", nfs);
-   if (nbs >= GIGABYTE)
+   if (nbs >= TERABYTE)
    {
-      (void)fprintf(stdout, "%12.3f GB", nbs / GIGABYTE);
+      (void)fprintf(stdout, "%12.3f TB", nbs / TERABYTE);
    }
+   else if (nbs >= GIGABYTE)
+        {
+           (void)fprintf(stdout, "%12.3f GB", nbs / GIGABYTE);
+        }
    else if (nbs >= MEGABYTE)
         {
            (void)fprintf(stdout, "%12.3f MB", nbs / MEGABYTE);

@@ -64,7 +64,8 @@ extern XtIntervalId               interval_id_host,
                                   interval_id_tv;
 extern GC                         color_gc;
 extern Widget                     transviewshell;
-extern Window                     line_window;
+extern Window                     line_window,
+                                  short_line_window;
 extern char                       line_style,
                                   tv_window;
 extern float                      max_bar_length;
@@ -80,6 +81,8 @@ extern int                        no_of_hosts,
                                   max_line_length,
                                   no_selected,
                                   no_of_columns,
+                                  no_of_long_lines,
+                                  no_of_short_lines,
                                   no_of_rows,
                                   button_width,
                                   tv_no_of_rows,
@@ -248,6 +251,16 @@ Widget   w;
                   new_connect_data[i].connect_status[j] = WHITE;
                }
             }
+            new_connect_data[i].short_pos = -1;
+            new_connect_data[i].long_pos = i;
+            for (j = 0; j < i; j++)
+            {
+               if (new_connect_data[j].long_pos == -1)
+               {
+                  new_connect_data[i].long_pos--;
+               }
+            }
+            no_of_long_lines++;
 
             /*
              * If this line has been selected in the old
@@ -255,12 +268,23 @@ Widget   w;
              * that this host has not been deleted. If it
              * is deleted reduce the select counter!
              */
-            if ((i < prev_no_of_hosts) && (connect_data[i].inverse == ON))
+            if (i < prev_no_of_hosts)
             {
-               if ((pos = check_fsa_data(connect_data[i].hostname)) == INCORRECT)
+               if (check_fsa_data(connect_data[i].hostname) == INCORRECT)
                {
-                  /* Host has been deleted */
-                  no_selected--;
+                  if (connect_data[i].long_pos == -1)
+                  {
+                     no_of_short_lines--;
+                  }
+                  else
+                  {
+                     no_of_long_lines--;
+                  }
+                  if (connect_data[i].inverse == ON)
+                  {
+                     /* Host has been deleted */
+                     no_selected--;
+                  }
                }
             }
          }
@@ -274,9 +298,17 @@ Widget   w;
       {
          while (i < prev_no_of_hosts)
          {
-            if (connect_data[i].inverse == ON)
+            if (check_fsa_data(connect_data[i].hostname) == INCORRECT)
             {
-               if ((pos = check_fsa_data(connect_data[i].hostname)) == INCORRECT)
+               if (connect_data[i].long_pos == -1)
+               {
+                  no_of_short_lines--;
+               }
+               else
+               {
+                  no_of_long_lines--;
+               }
+               if (connect_data[i].inverse == ON)
                {
                   /* Host has been deleted */
                   no_selected--;
@@ -428,7 +460,7 @@ Widget   w;
    {
       x = y = -1;
 
-      if (line_style & SHOW_JOBS)
+      if ((connect_data[i].short_pos == -1) && (line_style & SHOW_JOBS))
       {
          if (connect_data[i].allowed_transfers != fsa[i].allowed_transfers)
          {
@@ -437,7 +469,7 @@ Widget   w;
                 max_no_parallel_jobs,
                 row_counter;
 
-            locate_xy_column(i, &x, &y, &column);
+            locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
 
             /*
              * Lets determine if this does change the column length.
@@ -572,7 +604,7 @@ Widget   w;
                   connect_data[i].no_of_files[j] = fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done;
                }
 
-               locate_xy_column(i, &x, &y, &column);
+               locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
 
                /* Draw changed process file counter button */
                draw_proc_stat(i, j, x, y);
@@ -583,7 +615,7 @@ Widget   w;
                  {
                     connect_data[i].no_of_files[j] = fsa[i].job_status[j].no_of_files - fsa[i].job_status[j].no_of_files_done;
 
-                    locate_xy_column(i, &x, &y, &column);
+                    locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
 
                     /* Draw changed process file counter button */
                     draw_proc_stat(i, j, x, y);
@@ -610,11 +642,19 @@ Widget   w;
 
          if ((i < location_where_changed) && (redraw_everything == NO))
          {
-            if (x == -1)
+            if (connect_data[i].short_pos == -1)
             {
-               locate_xy_column(i, &x, &y, &column);
+               if (x == -1)
+               {
+                  locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
+               }
+               draw_dest_identifier(line_window, i, x, y);
             }
-            draw_dest_identifier(i, x, y);
+            else
+            {
+               locate_xy_short(connect_data[i].short_pos, &x, &y);
+               draw_dest_identifier(short_line_window, i, x, y);
+            }
             flush = YES;
          }
       }
@@ -646,11 +686,23 @@ Widget   w;
 
             if ((i < location_where_changed) && (redraw_everything == NO))
             {
-               if (x == -1)
+               if (connect_data[i].short_pos == -1)
                {
-                  locate_xy_column(i, &x, &y, &column);
+                  if (x == -1)
+                  {
+                     locate_xy_column(connect_data[i].long_pos,
+                                      &x, &y, &column);
+                  }
+                  draw_dest_identifier(line_window, i, x, y);
                }
-               draw_dest_identifier(i, x, y);
+               else
+               {
+                  if (x == -1)
+                  {
+                     locate_xy_short(connect_data[i].short_pos, &x, &y);
+                  }
+                  draw_dest_identifier(short_line_window, i, x, y);
+               }
                flush = YES;
             }
          }
@@ -668,11 +720,23 @@ Widget   w;
 
             if ((i < location_where_changed) && (redraw_everything == NO))
             {
-               if (x == -1)
+               if (connect_data[i].short_pos == -1)
                {
-                  locate_xy_column(i, &x, &y, &column);
+                  if (x == -1)
+                  {
+                     locate_xy_column(connect_data[i].long_pos,
+                                      &x, &y, &column);
+                  }
+                  draw_dest_identifier(line_window, i, x, y);
                }
-               draw_dest_identifier(i, x, y);
+               else
+               {
+                  if (x == -1)
+                  {
+                     locate_xy_short(connect_data[i].short_pos, &x, &y);
+                  }
+                  draw_dest_identifier(short_line_window, i, x, y);
+               }
                flush = YES;
             }
 
@@ -717,11 +781,22 @@ Widget   w;
 
          if ((i < location_where_changed) && (redraw_everything == NO))
          {
-            if (x == -1)
+            if (connect_data[i].short_pos == -1)
             {
-               locate_xy_column(i, &x, &y, &column);
+               if (x == -1)
+               {
+                  locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
+               }
+               draw_dest_identifier(line_window, i, x, y);
             }
-            draw_dest_identifier(i, x, y);
+            else
+            {
+               if (x == -1)
+               {
+                  locate_xy_short(connect_data[i].short_pos, &x, &y);
+               }
+               draw_dest_identifier(short_line_window, i, x, y);
+            }
             flush = YES;
          }
 
@@ -749,352 +824,365 @@ Widget   w;
          }
       }
 
-      /*
-       * LED INFORMATION
-       * ===============
-       */
-      if (line_style & SHOW_LEDS)
+      if (connect_data[i].short_pos == -1)
       {
          /*
-          * DEBUG LED
-          * =========
+          * LED INFORMATION
+          * ===============
           */
-         if (connect_data[i].debug != fsa[i].debug)
+         if (line_style & SHOW_LEDS)
          {
-            connect_data[i].debug = fsa[i].debug;
-
-            if ((i < location_where_changed) && (redraw_everything == NO))
-            {
-               if (x == -1)
-               {
-                  locate_xy_column(i, &x, &y, &column);
-               }
-               draw_debug_led(i, x, y);
-               flush = YES;
-            }
-         }
-
-         /*
-          * STATUS LED
-          * ==========
-          */
-         if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
-                                     /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
-         {
-            if (fsa[i].host_status & PAUSE_QUEUE_STAT)
-            {
-               if (connect_data[i].status_led[0] != PAUSE_QUEUE)
-               {
-                  connect_data[i].status_led[0] = PAUSE_QUEUE;
-                  led_changed |= LED_ONE;
-               }
-            }
-            else
-            {
-               if (connect_data[i].status_led[0] != AUTO_PAUSE_QUEUE)
-               {
-                  connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
-                  led_changed |= LED_ONE;
-               }
-            }
-         }
-         else
-         {
-            if (connect_data[i].status_led[0] != NORMAL_STATUS)
-            {
-               connect_data[i].status_led[0] = NORMAL_STATUS;
-               led_changed |= LED_ONE;
-            }
-         }
-         if (fsa[i].host_status & STOP_TRANSFER_STAT)
-         {
-            if (connect_data[i].status_led[1] != STOP_TRANSFER)
-            {
-               connect_data[i].status_led[1] = STOP_TRANSFER;
-               led_changed |= LED_TWO;
-            }
-         }
-         else
-         {
-            if (connect_data[i].status_led[1] != NORMAL_STATUS)
-            {
-               connect_data[i].status_led[1] = NORMAL_STATUS;
-               led_changed |= LED_TWO;
-            }
-         }
-         if (led_changed > 0)
-         {
-            if ((i < location_where_changed) && (redraw_everything == NO))
-            {
-               if (x == -1)
-               {
-                  locate_xy_column(i, &x, &y, &column);
-               }
-               if (led_changed & LED_ONE)
-               {
-                  draw_led(i, 0, x, y);
-               }
-               if (led_changed & LED_TWO)
-               {
-                  draw_led(i, 1, x + led_width + LED_SPACING, y);
-               }
-               led_changed = 0;
-               flush = YES;
-            }
-         }
-      }
-
-      /*
-       * CHARACTER INFORMATION
-       * =====================
-       *
-       * If in character mode see if any change took place,
-       * if so, redraw only those characters.
-       */
-      if (line_style & SHOW_CHARACTERS)
-      {
-         /*
-          * Number of files to be send (NF)
-          */
-         if (connect_data[i].total_file_counter != fsa[i].total_file_counter)
-         {
-            if (x == -1)
-            {
-               locate_xy_column(i, &x, &y, &column);
-            }
-
-            connect_data[i].total_file_counter = fsa[i].total_file_counter;
-            CREATE_FC_STRING(connect_data[i].str_tfc, connect_data[i].total_file_counter);
-
-            if ((i < location_where_changed) && (redraw_everything == NO))
-            {
-               draw_chars(i, NO_OF_FILES, x, y, column);
-               flush = YES;
-            }
-         }
-
-         /*
-          * Total File Size (TFS)
-          */
-         if (connect_data[i].total_file_size != fsa[i].total_file_size)
-         {
-            char tmp_string[5];
-
-            if (x == -1)
-            {
-               locate_xy_column(i, &x, &y, &column);
-            }
-
-            connect_data[i].total_file_size = fsa[i].total_file_size;
-            CREATE_FS_STRING(tmp_string, connect_data[i].total_file_size);
-
-            if ((tmp_string[2] != connect_data[i].str_tfs[2]) ||
-                (tmp_string[1] != connect_data[i].str_tfs[1]) ||
-                (tmp_string[0] != connect_data[i].str_tfs[0]) ||
-                (tmp_string[3] != connect_data[i].str_tfs[3]))
-            {
-               connect_data[i].str_tfs[0] = tmp_string[0];
-               connect_data[i].str_tfs[1] = tmp_string[1];
-               connect_data[i].str_tfs[2] = tmp_string[2];
-               connect_data[i].str_tfs[3] = tmp_string[3];
-
-               if ((i < location_where_changed) && (redraw_everything == NO))
-               {
-                  draw_chars(i, TOTAL_FILE_SIZE, x + (5 * glyph_width), y, column);
-                  flush = YES;
-               }
-            }
-         }
-
-         /*
-          * Transfer Rate (TR)
-          */
-         tmp_transfer_rate = connect_data[i].bytes_per_sec;
-         calc_transfer_rate(i, end_time);
-
-         /* NOTE: We show the actual active transfer rate at this */
-         /*       moment. When drawing the bar we show the        */
-         /*       average transfer rate.                          */
-         /*       ^^^^^^^                                         */
-         if (connect_data[i].bytes_per_sec != tmp_transfer_rate)
-         {
-            char tmp_string[5];
-
-            if (x == -1)
-            {
-               locate_xy_column(i, &x, &y, &column);
-            }
-
-            CREATE_FS_STRING(tmp_string, connect_data[i].bytes_per_sec);
-
-            if ((tmp_string[2] != connect_data[i].str_tr[2]) ||
-                (tmp_string[1] != connect_data[i].str_tr[1]) ||
-                (tmp_string[0] != connect_data[i].str_tr[0]) ||
-                (tmp_string[3] != connect_data[i].str_tr[3]))
-            {
-               connect_data[i].str_tr[0] = tmp_string[0];
-               connect_data[i].str_tr[1] = tmp_string[1];
-               connect_data[i].str_tr[2] = tmp_string[2];
-               connect_data[i].str_tr[3] = tmp_string[3];
-
-               if ((i < location_where_changed) && (redraw_everything == NO))
-               {
-                  draw_chars(i, TRANSFER_RATE, x + (10 * glyph_width), y, column);
-                  flush = YES;
-               }
-            }
-         }
-
-         /*
-          * Error Counter (EC)
-          */
-         if (connect_data[i].error_counter != fsa[i].error_counter)
-         {
-            if (x == -1)
-            {
-               locate_xy_column(i, &x, &y, &column);
-            }
-
             /*
-             * If line_style is CHARACTERS and BARS don't update
-             * the connect_data structure. Otherwise when we draw the bar
-             * we will not notice any change. There we will then update
-             * the structure.
+             * DEBUG LED
+             * =========
              */
-            if ((line_style & SHOW_BARS) == 0)
+            if (connect_data[i].debug != fsa[i].debug)
             {
-               connect_data[i].error_counter = fsa[i].error_counter;
-            }
-            CREATE_EC_STRING(connect_data[i].str_ec, fsa[i].error_counter);
-
-            if ((i < location_where_changed) && (redraw_everything == NO))
-            {
-               draw_chars(i, ERROR_COUNTER, x + (15 * glyph_width), y, column);
-               flush = YES;
-            }
-         }
-      } /* if (line_style & SHOW_CHARACTERS) */
-
-      /*
-       * BAR INFORMATION
-       * ===============
-       */
-      if (line_style & SHOW_BARS)
-      {
-         /*
-          * Transfer Rate Bar
-          */
-         /* Did we already calculate the transfer rate? */
-         if ((line_style & SHOW_CHARACTERS) == 0)
-         {
-            calc_transfer_rate(i, end_time);
-         }
-
-         if (connect_data[i].average_tr > 1.0)
-         {
-            if (connect_data[i].max_average_tr < 2.0)
-            {
-               new_bar_length = (log10(connect_data[i].average_tr) *
-                                 max_bar_length /
-                                 log10((double) 2.0));
-            }
-            else
-            {
-               new_bar_length = (log10(connect_data[i].average_tr) *
-                                 max_bar_length /
-                                 log10(connect_data[i].max_average_tr));
-            }
-         }
-         else
-         {
-            new_bar_length = 0;
-         }
-
-         if ((connect_data[i].bar_length[TR_BAR_NO] != new_bar_length) &&
-             (new_bar_length < max_bar_length))
-         {
-            old_bar_length = connect_data[i].bar_length[TR_BAR_NO];
-            connect_data[i].bar_length[TR_BAR_NO] = new_bar_length;
-
-            if ((i < location_where_changed) && (redraw_everything == NO))
-            {
-               if (x == -1)
-               {
-                  locate_xy_column(i, &x, &y, &column);
-               }
-
-               if (old_bar_length < new_bar_length)
-               {
-                  draw_bar(i, 1, TR_BAR_NO, x, y, column);
-               }
-               else
-               {
-                  draw_bar(i, -1, TR_BAR_NO, x, y, column);
-               }
-
-               if (flush != YES)
-               {
-                  flush = YUP;
-               }
-            }
-         }
-         else if ((new_bar_length >= max_bar_length) &&
-                  (connect_data[i].bar_length[TR_BAR_NO] < max_bar_length))
-              {
-                 connect_data[i].bar_length[TR_BAR_NO] = max_bar_length;
-                 if ((i < location_where_changed) && (redraw_everything == NO))
-                 {
-                    if (x == -1)
-                    {
-                       locate_xy_column(i, &x, &y, &column);
-                    }
-
-                    draw_bar(i, 1, TR_BAR_NO, x, y, column);
-
-                    if (flush != YES)
-                    {
-                       flush = YUP;
-                    }
-                 }
-              }
-
-         /*
-          * Error Bar
-          */
-         if (connect_data[i].error_counter != fsa[i].error_counter)
-         {
-            connect_data[i].error_counter = fsa[i].error_counter;
-            if (connect_data[i].error_counter >= connect_data[i].max_errors)
-            {
-               new_bar_length = max_bar_length;
-            }
-            else
-            {
-               new_bar_length = connect_data[i].error_counter * connect_data[i].scale;
-            }
-            if (connect_data[i].bar_length[ERROR_BAR_NO] != new_bar_length)
-            {
-               connect_data[i].red_color_offset = new_bar_length * step_size;
-               connect_data[i].green_color_offset = MAX_INTENSITY - connect_data[i].red_color_offset;
+               connect_data[i].debug = fsa[i].debug;
 
                if ((i < location_where_changed) && (redraw_everything == NO))
                {
                   if (x == -1)
                   {
-                     locate_xy_column(i, &x, &y, &column);
+                     locate_xy_column(connect_data[i].long_pos,
+                                      &x, &y, &column);
+                  }
+                  draw_debug_led(i, x, y);
+                  flush = YES;
+               }
+            }
+
+            /*
+             * STATUS LED
+             * ==========
+             */
+            if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
+                                        /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
+            {
+               if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+               {
+                  if (connect_data[i].status_led[0] != PAUSE_QUEUE)
+                  {
+                     connect_data[i].status_led[0] = PAUSE_QUEUE;
+                     led_changed |= LED_ONE;
+                  }
+               }
+               else
+               {
+                  if (connect_data[i].status_led[0] != AUTO_PAUSE_QUEUE)
+                  {
+                     connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
+                     led_changed |= LED_ONE;
+                  }
+               }
+            }
+            else
+            {
+               if (connect_data[i].status_led[0] != NORMAL_STATUS)
+               {
+                  connect_data[i].status_led[0] = NORMAL_STATUS;
+                  led_changed |= LED_ONE;
+               }
+            }
+            if (fsa[i].host_status & STOP_TRANSFER_STAT)
+            {
+               if (connect_data[i].status_led[1] != STOP_TRANSFER)
+               {
+                  connect_data[i].status_led[1] = STOP_TRANSFER;
+                  led_changed |= LED_TWO;
+               }
+            }
+            else
+            {
+               if (connect_data[i].status_led[1] != NORMAL_STATUS)
+               {
+                  connect_data[i].status_led[1] = NORMAL_STATUS;
+                  led_changed |= LED_TWO;
+               }
+            }
+            if (led_changed > 0)
+            {
+               if ((i < location_where_changed) && (redraw_everything == NO))
+               {
+                  if (x == -1)
+                  {
+                     locate_xy_column(connect_data[i].long_pos,
+                                      &x, &y, &column);
+                  }
+                  if (led_changed & LED_ONE)
+                  {
+                     draw_led(i, 0, x, y);
+                  }
+                  if (led_changed & LED_TWO)
+                  {
+                     draw_led(i, 1, x + led_width + LED_SPACING, y);
+                  }
+                  led_changed = 0;
+                  flush = YES;
+               }
+            }
+         }
+
+         /*
+          * CHARACTER INFORMATION
+          * =====================
+          *
+          * If in character mode see if any change took place,
+          * if so, redraw only those characters.
+          */
+         if (line_style & SHOW_CHARACTERS)
+         {
+            /*
+             * Number of files to be send (NF)
+             */
+            if (connect_data[i].total_file_counter != fsa[i].total_file_counter)
+            {
+               if (x == -1)
+               {
+                  locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
+               }
+
+               connect_data[i].total_file_counter = fsa[i].total_file_counter;
+               CREATE_FC_STRING(connect_data[i].str_tfc,
+                                connect_data[i].total_file_counter);
+
+               if ((i < location_where_changed) && (redraw_everything == NO))
+               {
+                  draw_chars(i, NO_OF_FILES, x, y, column);
+                  flush = YES;
+               }
+            }
+
+            /*
+             * Total File Size (TFS)
+             */
+            if (connect_data[i].total_file_size != fsa[i].total_file_size)
+            {
+               char tmp_string[5];
+
+               if (x == -1)
+               {
+                  locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
+               }
+
+               connect_data[i].total_file_size = fsa[i].total_file_size;
+               CREATE_FS_STRING(tmp_string, connect_data[i].total_file_size);
+
+               if ((tmp_string[2] != connect_data[i].str_tfs[2]) ||
+                   (tmp_string[1] != connect_data[i].str_tfs[1]) ||
+                   (tmp_string[0] != connect_data[i].str_tfs[0]) ||
+                   (tmp_string[3] != connect_data[i].str_tfs[3]))
+               {
+                  connect_data[i].str_tfs[0] = tmp_string[0];
+                  connect_data[i].str_tfs[1] = tmp_string[1];
+                  connect_data[i].str_tfs[2] = tmp_string[2];
+                  connect_data[i].str_tfs[3] = tmp_string[3];
+
+                  if ((i < location_where_changed) && (redraw_everything == NO))
+                  {
+                     draw_chars(i, TOTAL_FILE_SIZE, x + (5 * glyph_width),
+                                y, column);
+                     flush = YES;
+                  }
+               }
+            }
+
+            /*
+             * Transfer Rate (TR)
+             */
+            tmp_transfer_rate = connect_data[i].bytes_per_sec;
+            calc_transfer_rate(i, end_time);
+
+            /* NOTE: We show the actual active transfer rate at this */
+            /*       moment. When drawing the bar we show the        */
+            /*       average transfer rate.                          */
+            /*       ^^^^^^^                                         */
+            if (connect_data[i].bytes_per_sec != tmp_transfer_rate)
+            {
+               char tmp_string[5];
+
+               if (x == -1)
+               {
+                  locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
+               }
+
+               CREATE_FS_STRING(tmp_string, connect_data[i].bytes_per_sec);
+
+               if ((tmp_string[2] != connect_data[i].str_tr[2]) ||
+                   (tmp_string[1] != connect_data[i].str_tr[1]) ||
+                   (tmp_string[0] != connect_data[i].str_tr[0]) ||
+                   (tmp_string[3] != connect_data[i].str_tr[3]))
+               {
+                  connect_data[i].str_tr[0] = tmp_string[0];
+                  connect_data[i].str_tr[1] = tmp_string[1];
+                  connect_data[i].str_tr[2] = tmp_string[2];
+                  connect_data[i].str_tr[3] = tmp_string[3];
+
+                  if ((i < location_where_changed) && (redraw_everything == NO))
+                  {
+                     draw_chars(i, TRANSFER_RATE, x + (10 * glyph_width),
+                                y, column);
+                     flush = YES;
+                  }
+               }
+            }
+
+            /*
+             * Error Counter (EC)
+             */
+            if (connect_data[i].error_counter != fsa[i].error_counter)
+            {
+               if (x == -1)
+               {
+                  locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
+               }
+
+               /*
+                * If line_style is CHARACTERS and BARS don't update
+                * the connect_data structure. Otherwise when we draw the bar
+                * we will not notice any change. There we will then update
+                * the structure.
+                */
+               if ((line_style & SHOW_BARS) == 0)
+               {
+                  connect_data[i].error_counter = fsa[i].error_counter;
+               }
+               CREATE_EC_STRING(connect_data[i].str_ec, fsa[i].error_counter);
+
+               if ((i < location_where_changed) && (redraw_everything == NO))
+               {
+                  draw_chars(i, ERROR_COUNTER, x + (15 * glyph_width),
+                             y, column);
+                  flush = YES;
+               }
+            }
+         } /* if (line_style & SHOW_CHARACTERS) */
+
+         /*
+          * BAR INFORMATION
+          * ===============
+          */
+         if (line_style & SHOW_BARS)
+         {
+            /*
+             * Transfer Rate Bar
+             */
+            /* Did we already calculate the transfer rate? */
+            if ((line_style & SHOW_CHARACTERS) == 0)
+            {
+               calc_transfer_rate(i, end_time);
+            }
+
+            if (connect_data[i].average_tr > 1.0)
+            {
+               if (connect_data[i].max_average_tr < 2.0)
+               {
+                  new_bar_length = (log10(connect_data[i].average_tr) *
+                                    max_bar_length /
+                                    log10((double) 2.0));
+               }
+               else
+               {
+                  new_bar_length = (log10(connect_data[i].average_tr) *
+                                    max_bar_length /
+                                    log10(connect_data[i].max_average_tr));
+               }
+            }
+            else
+            {
+               new_bar_length = 0;
+            }
+
+            if ((connect_data[i].bar_length[TR_BAR_NO] != new_bar_length) &&
+                (new_bar_length < max_bar_length))
+            {
+               old_bar_length = connect_data[i].bar_length[TR_BAR_NO];
+               connect_data[i].bar_length[TR_BAR_NO] = new_bar_length;
+
+               if ((i < location_where_changed) && (redraw_everything == NO))
+               {
+                  if (x == -1)
+                  {
+                     locate_xy_column(connect_data[i].long_pos,
+                                      &x, &y, &column);
                   }
 
-                  if (connect_data[i].bar_length[ERROR_BAR_NO] < new_bar_length)
+                  if (old_bar_length < new_bar_length)
                   {
-                     connect_data[i].bar_length[ERROR_BAR_NO] = new_bar_length;
-                     draw_bar(i, 1, ERROR_BAR_NO, x, y + bar_thickness_2, column);
+                     draw_bar(i, 1, TR_BAR_NO, x, y, column);
                   }
                   else
                   {
-                     connect_data[i].bar_length[ERROR_BAR_NO] = new_bar_length;
-                     draw_bar(i, -1, ERROR_BAR_NO, x, y + bar_thickness_2, column);
+                     draw_bar(i, -1, TR_BAR_NO, x, y, column);
                   }
-                  flush = YES;
+
+                  if (flush != YES)
+                  {
+                     flush = YUP;
+                  }
+               }
+            }
+            else if ((new_bar_length >= max_bar_length) &&
+                     (connect_data[i].bar_length[TR_BAR_NO] < max_bar_length))
+                 {
+                    connect_data[i].bar_length[TR_BAR_NO] = max_bar_length;
+                    if ((i < location_where_changed) &&
+                        (redraw_everything == NO))
+                    {
+                       if (x == -1)
+                       {
+                          locate_xy_column(connect_data[i].long_pos,
+                                           &x, &y, &column);
+                       }
+
+                       draw_bar(i, 1, TR_BAR_NO, x, y, column);
+
+                       if (flush != YES)
+                       {
+                          flush = YUP;
+                       }
+                    }
+                 }
+
+            /*
+             * Error Bar
+             */
+            if (connect_data[i].error_counter != fsa[i].error_counter)
+            {
+               connect_data[i].error_counter = fsa[i].error_counter;
+               if (connect_data[i].error_counter >= connect_data[i].max_errors)
+               {
+                  new_bar_length = max_bar_length;
+               }
+               else
+               {
+                  new_bar_length = connect_data[i].error_counter * connect_data[i].scale;
+               }
+               if (connect_data[i].bar_length[ERROR_BAR_NO] != new_bar_length)
+               {
+                  connect_data[i].red_color_offset = new_bar_length * step_size;
+                  connect_data[i].green_color_offset = MAX_INTENSITY - connect_data[i].red_color_offset;
+
+                  if ((i < location_where_changed) && (redraw_everything == NO))
+                  {
+                     if (x == -1)
+                     {
+                        locate_xy_column(connect_data[i].long_pos,
+                                         &x, &y, &column);
+                     }
+
+                     if (connect_data[i].bar_length[ERROR_BAR_NO] < new_bar_length)
+                     {
+                        connect_data[i].bar_length[ERROR_BAR_NO] = new_bar_length;
+                        draw_bar(i, 1, ERROR_BAR_NO, x, y + bar_thickness_2, column);
+                     }
+                     else
+                     {
+                        connect_data[i].bar_length[ERROR_BAR_NO] = new_bar_length;
+                        draw_bar(i, -1, ERROR_BAR_NO, x, y + bar_thickness_2, column);
+                     }
+                     flush = YES;
+                  }
                }
             }
          }

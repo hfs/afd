@@ -359,40 +359,83 @@ check_day(struct bd_time_entry *te, struct tm *bd_time)
       if ((ALL_DAY_OF_WEEK & te->day_of_week) != ALL_DAY_OF_WEEK)
       {
          gotcha = NO;
-         for (i = (bd_time->tm_wday - 1); i < 7; i++)
+         if (bd_time->tm_wday == 0)
          {
-            if (te->day_of_week & bit_array[i])
+            if (te->day_of_week & bit_array[6])
             {
                gotcha = YES;
-               break;
+            }
+         }
+         else
+         {
+            if (te->day_of_week & bit_array[bd_time->tm_wday - 1])
+            {
+               gotcha = YES;
             }
          }
          if (gotcha == NO)
          {
-            for (i = 0; i < (bd_time->tm_wday - 1); i++)
+            int offset_counter = 1,
+                wday;
+
+            /*
+             * It's not this day of the week. Let's find the next possible
+             * day.
+             */
+            wday = bd_time->tm_wday + 1;
+            if (wday > 6)
             {
-               if (te->day_of_week & bit_array[i])
+               wday = 0;
+            }
+            for (i = wday; i < 7; i++)
+            {
+               if (i == 0)
                {
-                  gotcha = NEITHER;
-                  break;
+                  if (te->day_of_week & bit_array[6])
+                  {
+                     gotcha = YES;
+                     break;
+                  }
+               }
+               else
+               {
+                  if (te->day_of_week & bit_array[i - 1])
+                  {
+                     gotcha = YES;
+                     break;
+                  }
+               }
+               offset_counter++;
+            }
+            if (gotcha == NO)
+            {
+               if (te->day_of_week & bit_array[6])
+               {
+                  gotcha = YES;
+               }
+               else
+               {
+                  offset_counter++;
+                  for (i = 1; i < wday; i++)
+                  {
+                     if (te->day_of_week & bit_array[i - 1])
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                     offset_counter++;
+                  }
                }
             }
-         }
-         if (gotcha == NO)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to locate any valid day of week!?");
-            return(INCORRECT);
-         }
-         if ((bd_time->tm_wday - 1) != i)
-         {
-            if (gotcha == NEITHER)
+            if (gotcha == NO)
             {
-               bd_time->tm_mday += (7 - bd_time->tm_wday + i + 1);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to locate any valid day of week!?");
+               return(INCORRECT);
             }
-            else
+            if (offset_counter > 0)
             {
-               bd_time->tm_mday += (i + 1 - bd_time->tm_wday);
+               bd_time->tm_mday += offset_counter;
             }
             bd_time->tm_hour = 0;
             bd_time->tm_min = 0;

@@ -47,6 +47,8 @@ DESCR__S_M3
  **   12.10.1996 H.Kiehl    Created
  **   13.11.1996 T.Freyberg Debugged function dup_count_eols().
  **   02.09.2002 H.Kiehl    Return file name with TIFF_END.
+ **   20.11.2002 H.Kiehl    Don't mark T4 code wrong if it does not have
+ **                         the 6 EOL's at end.
  **
  */
 DESCR__E_M3
@@ -140,7 +142,14 @@ gts2tiff(char *path, char *filename)
 #endif
 
    /* Open source file */
-   (void)sprintf(from, "%s/%s", path, filename);
+   if (path[0] == '\0')
+   {
+      (void)strcpy(from, filename);
+   }
+   else
+   {
+      (void)sprintf(from, "%s/%s", path, filename);
+   }
    if ((fdin = open(from, O_RDONLY)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
@@ -786,7 +795,7 @@ count_eols(char *buf, size_t size)
             {
                if (++last_was_eol == 6)
                {
-                  return((no_of_eols - 6)); /* 1 at start and 5 at end */
+                  return((no_of_eols - 6)); /* 1 at start and 6 at end */
                }
                no_of_eols++;
                zero_hit = 0;
@@ -799,6 +808,14 @@ count_eols(char *buf, size_t size)
          shifter = shifter << 1;
       }
       count++;
+   }
+
+   if (no_of_eols > 0)
+   {
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                  "Failed to read 6 EOL's in a row, after reading %d EOL's [last_was_eol = %d].",
+                  no_of_eols, last_was_eol);
+      return((no_of_eols - 7));
    }
 
    /* Since we did not read 6 EOL's in a row, lets assume */
@@ -883,39 +900,16 @@ dup_count_eols(char *buf, size_t size, char *dst)
                }
                else
                {
-               /* Time to duplicate last line? */
-               if (last_was_eol == 0)
-               {
-                  /*
-                   * Duplicate last line
-                   */
-                  /* Copy bits in first byte we have to copy */
-                  s_shifter_copy = buf[byte_offset_start];
-                  s_shifter_copy = s_shifter_copy << bit_offset_start;
-                  for (j = bit_offset_start; j < 8; j++)
+                  /* Time to duplicate last line? */
+                  if (last_was_eol == 0)
                   {
-                     if ((s_shifter_copy & 0x80) != 0)
-                     {
-                        d_shifter |= 0x01;
-                     }
-                     s_shifter_copy = s_shifter_copy << 1;
-                     if (++bit_count == 8)
-                     {
-                        dst[d_count++] = d_shifter;
-                        bit_count = d_shifter = 0;
-                     }
-                     else
-                     {
-                        d_shifter = d_shifter << 1;
-                     }
-                  }
-
-                  /* Copy all bytes between start and end */
-                  for (j = (byte_offset_start + 1); j < s_count; j++)
-                  {
-                     s_shifter_copy = buf[j];
-
-                     for (k = 0; k < 8; k++)
+                     /*
+                      * Duplicate last line
+                      */
+                     /* Copy bits in first byte we have to copy */
+                     s_shifter_copy = buf[byte_offset_start];
+                     s_shifter_copy = s_shifter_copy << bit_offset_start;
+                     for (j = bit_offset_start; j < 8; j++)
                      {
                         if ((s_shifter_copy & 0x80) != 0)
                         {
@@ -932,59 +926,82 @@ dup_count_eols(char *buf, size_t size, char *dst)
                            d_shifter = d_shifter << 1;
                         }
                      }
-                  }
 
-                  /* Copy bits in last byte */
-                  s_shifter_copy = buf[s_count];
-                  for (j = 0; j < (i + 1); j++)
-                  {
-                     if ((s_shifter_copy & 0x80) != 0)
+                     /* Copy all bytes between start and end */
+                     for (j = (byte_offset_start + 1); j < s_count; j++)
                      {
-                        d_shifter |= 0x01;
+                        s_shifter_copy = buf[j];
+
+                        for (k = 0; k < 8; k++)
+                        {
+                           if ((s_shifter_copy & 0x80) != 0)
+                           {
+                              d_shifter |= 0x01;
+                           }
+                           s_shifter_copy = s_shifter_copy << 1;
+                           if (++bit_count == 8)
+                           {
+                              dst[d_count++] = d_shifter;
+                              bit_count = d_shifter = 0;
+                           }
+                           else
+                           {
+                              d_shifter = d_shifter << 1;
+                           }
+                        }
                      }
-                     s_shifter_copy = s_shifter_copy << 1;
-                     if (++bit_count == 8)
+
+                     /* Copy bits in last byte */
+                     s_shifter_copy = buf[s_count];
+                     for (j = 0; j < (i + 1); j++)
                      {
-                        dst[d_count++] = d_shifter;
-                        bit_count = d_shifter = 0;
+                        if ((s_shifter_copy & 0x80) != 0)
+                        {
+                           d_shifter |= 0x01;
+                        }
+                        s_shifter_copy = s_shifter_copy << 1;
+                        if (++bit_count == 8)
+                        {
+                           dst[d_count++] = d_shifter;
+                           bit_count = d_shifter = 0;
+                        }
+                        else
+                        {
+                           d_shifter = d_shifter << 1;
+                        }
+                     }
+
+                     /* Remember the start offset for the next line */
+                     if (i == 7)
+                     {
+                        bit_offset_start = 0;
+                        byte_offset_start = s_count + 1;
                      }
                      else
                      {
-                        d_shifter = d_shifter << 1;
+                        bit_offset_start = i + 1;
+                        byte_offset_start = s_count;
                      }
+
+                     no_of_eols++;
                   }
 
-                  /* Remember the start offset for the next line */
-                  if (i == 7)
+                  if (++last_was_eol == 6)
                   {
-                     bit_offset_start = 0;
-                     byte_offset_start = s_count + 1;
+                     /* Don't forget to shift in destination buffer */
+                     if (bit_count != 0)
+                     {
+                        d_shifter = d_shifter << (8 - bit_count);
+                        dst[d_count++] = d_shifter;
+                     }
+
+                     /* Write bulletin end */
+                     dst[d_count] = dst[d_count + 1] = 13;
+                     dst[d_count + 2] = 10;
+                     dst[d_count + 3] = '\0';
+
+                     return((no_of_eols - 6)); /* 1 at start and 5 at end */
                   }
-                  else
-                  {
-                     bit_offset_start = i + 1;
-                     byte_offset_start = s_count;
-                  }
-
-                  no_of_eols++;
-               }
-
-               if (++last_was_eol == 6)
-               {
-                  /* Don't forget to shift in destination buffer */
-                  if (bit_count != 0)
-                  {
-                     d_shifter = d_shifter << (8 - bit_count);
-                     dst[d_count++] = d_shifter;
-                  }
-
-                  /* Write bulletin end */
-                  dst[d_count] = dst[d_count + 1] = 13;
-                  dst[d_count + 2] = 10;
-                  dst[d_count + 3] = '\0';
-
-                  return((no_of_eols - 6)); /* 1 at start and 5 at end */
-               }
                }
                no_of_eols++;
                zero_hit = 0;
@@ -996,6 +1013,27 @@ dup_count_eols(char *buf, size_t size, char *dst)
          }
      }
       s_count++;
+   }
+
+   if (no_of_eols > 0)
+   {
+      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                  "Failed to read 6 EOL's in a row, after reading %d EOL's [last_was_eol = %d].",
+                  no_of_eols, last_was_eol);
+
+      /* Don't forget to shift in destination buffer */
+      if (bit_count != 0)
+      {
+         d_shifter = d_shifter << (8 - bit_count);
+         dst[d_count++] = d_shifter;
+      }
+
+      /* Write bulletin end */
+      dst[d_count] = dst[d_count + 1] = 13;
+      dst[d_count + 2] = 10;
+      dst[d_count + 3] = '\0';
+
+      return((no_of_eols - 7)); /* 1 at start and 5 at end */
    }
 
    /* Since we did not read 6 EOL's in a row, lets assume */

@@ -407,7 +407,7 @@ main(int argc, char *argv[])
 #endif /* REPORT_DIR_TIME_INTERVAL */
       if (now >= next_rename_rule_check_time)
       {
-         get_rename_rules(rule_file);
+         get_rename_rules(rule_file, YES);
          next_rename_rule_check_time = (now / READ_RULES_INTERVAL) *
                                        READ_RULES_INTERVAL + READ_RULES_INTERVAL;
       }
@@ -1206,10 +1206,6 @@ handle_dir(int    dir_no,
                                    file_size_pool, file_name_pool,
 #endif
                                    &total_file_size);
-         if (host_name != NULL)
-         {
-            ABS_REDUCE_QUEUE(de[dir_no].fra_pos, files_moved, total_file_size);
-         }
       }
       else
       {

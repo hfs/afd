@@ -559,6 +559,16 @@ main(int argc, char *argv[])
       /* store its value here in dc_old_time.        */
       dc_old_time = stat_buf.st_mtime;
 
+      /*
+       * If necessary inform FD that AMG is (possibly) about to change
+       * the FSA. This is needed when we start/stop the AMG by hand.
+       */
+      if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
+      {
+         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+      }
+      inform_fd_about_fsa_change();
+
       /* evaluate database */
       if (eval_dir_config(stat_buf.st_size) != SUCCESS)
       {

@@ -1119,3 +1119,41 @@
 02.09.2002 - Function handle_option() did not notice that the filename
              is changed by gts2tiff(). Fixed.
 ------------------------> Released: 04.09.2002 <---------------------------
+
+
+---------------------------> Version 1.2.16 <------------------------------
+                            ----------------
+24.10.2002 - The time directory option did not work correctly with a
+             7 (Sunday) for day of week. Fixed.
+29.10.2002 - Delete the remote file if the FTP command RNTO fails.
+30.10.2002 - Take the $AFD_WORK_DIR/files to determine if we can just
+             do a move from the user directory and not just $AFD_WORK_DIR.
+04.11.2002 - If AMG is restarted FD did not notice that FSA has changed.
+             Fixed.
+06.11.2002 - If we fail to open a remote file because the remote FTP
+             server does not allow to open an existing file, we now try
+             to delete the file and try again.
+11.11.2002 - Function delete_log_ptrs() now creates the fifo if it does
+             not exist.
+12.11.2002 - The default age-limit can be configured in the AFD_CONFIG
+             file.
+14.11.2002 - Using the option "extract MRZ" together with other options
+             did not work correctly. Fixed.
+17.11.2002 - Command line tool mafdcmd to enable/disable monitoring an
+             AFD.
+           - Dialog afd_ctrl with optional short lines.
+23.11.2002 - New extract option GRIB, that extracts multiple gribs from
+             one file and store them in separate files with the WMO
+             header as file name.
+01.12.2002 - dir_ctrl dialog showed the wrong number of files queued.
+             Fixed.
+           - It is no longer required to have two newlines before each
+             rule header in the rename.rule file.
+04.12.2002 - Set fonts correctly for popups from main menu in dir_ctrl
+             dialog.
+10.12.2002 - New option overwrite that allows overwritting of files
+             during renaming, so no file names with a ; are created.
+           - Save setup in afd_ctrl, dir_ctrl or mon_ctrl dialog did
+             not work when the information to be stored was shorter
+             then the original length. Fixed.
+------------------------> Released: 11.12.2002 <---------------------------

@@ -232,7 +232,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       (void)strcpy(gbuf, p_work_dir);
       (void)strcat(gbuf, ETC_DIR);
       (void)strcat(gbuf, RENAME_RULE_FILE);
-      get_rename_rules(gbuf);
+      get_rename_rules(gbuf, NO);
       if (db.trans_rename_rule[0] != '\0')
       {
          if ((trans_rule_pos = get_rule(db.trans_rename_rule,

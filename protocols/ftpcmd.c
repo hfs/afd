@@ -162,6 +162,11 @@ DESCR__S_M3
  **   26.07.2001 H.Kiehl Added ftp_account() function.
  **   05.08.2001 H.Kiehl Added ftp_idle() function.
  **   02.09.2001 H.Kiehl Added ftp_keepalive() function.
+ **   29.10.2002 H.Kiehl Remove remote file if RNTO command files in
+ **                      function ftp_move().
+ **   06.11.2002 H.Kiehl Try to remove remote file if we fail to open
+ **                      a remote file and the return message says this
+ **                      is a overwrite error with ftp_data().
  */
 DESCR__E_M3
 
@@ -342,7 +347,7 @@ ftp_connect(char *hostname, int port)
             msg_str[0] = '\0';
             trans_log(ERROR_SIGN, __FILE__, __LINE__,
                       "ftp_connect(): setvbuf() error : %s", strerror(errno));
-            (void)close(control_fd);
+            (void)fclose(p_control);
             return(INCORRECT);
          }
       }
@@ -357,7 +362,7 @@ ftp_connect(char *hostname, int port)
       msg_str[0] = '\0';
       trans_log(ERROR_SIGN, __FILE__, __LINE__,
                 "ftp_connect(): setvbuf() error : %s", strerror(errno));
-      (void)close(control_fd);
+      (void)fclose(p_control);
       return(INCORRECT);
    }
 
@@ -587,7 +592,40 @@ ftp_move(char *from, char *to)
 
    if (check_reply(3, reply, 250, 200) < 0)
    {
-      return(reply);
+      if (ftp_dele(to) == SUCCESS)
+      {
+         /*
+          * YUCK! Window system require that we send the RNFR again!
+          * This is unnecessary, we only need to send the RNTO
+          * again.
+          */
+         (void)fprintf(p_control, "RNFR %s\r\n", from);
+
+         if ((reply = get_reply(p_control)) < 0)
+         {
+            return(INCORRECT);
+         }
+
+         if (check_reply(3, reply, 350, 200) < 0)
+         {
+            return(reply);
+         }
+
+         (void)fprintf(p_control, "RNTO %s\r\n", to);
+         if ((reply = get_reply(p_control)) < 0)
+         {
+            return(INCORRECT);
+         }
+
+         if (check_reply(3, reply, 250, 200) < 0)
+         {
+            return(reply);
+         }
+      }
+      else
+      {
+         return(reply);
+      }
    }
 
    return(SUCCESS);
@@ -1368,8 +1406,44 @@ ftp_data(char *filename, off_t seek, int mode, int type)
 
          if (check_reply(3, reply, 150, 125) < 0)
          {
-            (void)close(new_sock_fd);
-            return(reply);
+            /*
+             * Assume that we may not overwrite the remote file so let's
+             * just delete it and try again.
+             * This is not 100% correct since there is no shure way to
+             * tell that this is an overwrite error, since there are
+             * just to many different return codes possible:
+             *    553 (Upload)
+             *    550 (Filename (deny))
+             *    553 (Overwrite)
+             * So lets just do it for those cases we know and where
+             * a delete makes sence.
+             */
+            if ((reply == 553) && (posi(&msg_str[3], "(Overwrite)") != NULL) &&
+                (ftp_dele(filename) == SUCCESS))
+            {  
+               (void)fprintf(p_control, "%s %s\r\n", cmd, filename);
+               if ((reply = get_reply(p_control)) < 0)
+               {
+                  if (timeout_flag == OFF)
+                  {
+                     trans_log(WARN_SIGN, __FILE__, __LINE__,
+                               "ftp_data(): Failed to get proper reply (%d).",
+                               reply);         
+                  }
+                  (void)close(new_sock_fd);
+                  return(INCORRECT);
+               }
+               if (check_reply(3, reply, 150, 125) < 0)
+               {
+                  (void)close(new_sock_fd);
+                  return(INCORRECT);
+               }
+            }   
+            else
+            {  
+               (void)close(new_sock_fd);
+               return(reply);
+            }
          }
       }
       else
@@ -1509,15 +1583,46 @@ ftp_data(char *filename, off_t seek, int mode, int type)
          }
       } while ((ret = check_data_socket(reply, sock_fd, &retries)) == 1);
 
-      if (ret < 0)
+      if (ret == -2)
       {
-         if (reply < 0)
-         {
+         if (ftp_dele(filename) == SUCCESS)
+         {  
+            (void)fprintf(p_control, "%s %s\r\n", cmd, filename);
+            if ((reply = get_reply(p_control)) < 0)
+            {
+               if (timeout_flag == OFF)
+               {
+                  trans_log(WARN_SIGN, __FILE__, __LINE__,
+                            "ftp_data(): Failed to get proper reply (%d).",
+                            reply);         
+               }
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
+            if (check_reply(3, reply, 150, 125) < 0)
+            {
+               (void)close(sock_fd);
+               return(INCORRECT);
+            }
+         }   
+         else
+         {  
+            (void)close(sock_fd);
             return(reply);
          }
-         else
+      }
+      else
+      {
+         if (ret < 0)
          {
-            return(-reply);
+            if (reply < 0)
+            {
+               return(reply);
+            }
+            else
+            {
+               return(-reply);
+            }
          }
       }
 
@@ -1619,6 +1724,11 @@ check_data_socket(int reply, int sock_fd, int *retries)
     */
    if (check_reply(6, reply, 150, 125, 120, 250, 200) < 0)
    {
+      if ((reply == 553) && (posi(&msg_str[3], "(Overwrite)") != NULL))
+      {
+         return(-2);
+      }
+
       if (close(sock_fd) == -1)
       {
          msg_str[0] = '\0';

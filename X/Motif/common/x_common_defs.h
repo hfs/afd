@@ -121,6 +121,7 @@
 #define STYLE_0_W                       0
 #define STYLE_1_W                       1
 #define STYLE_2_W                       2
+#define STYLE_3_W                       3
 
 /* Definitions of popup selections */
 #define S_LOG_SEL                       100    /* System Log */
@@ -167,6 +168,7 @@
 #define STYLE_ID                        "Line style:"
 #define FILENAME_DISPLAY_LENGTH_ID      "Filename display length:"
 #define NO_OF_HISTORY_LENGTH_ID         "History log length:"
+#define UNIMPORTANT_ID                  "Short host line:"
 
 #define NO_INFO_AVAILABLE               "No information available for this host."
 
@@ -639,13 +641,13 @@ extern void check_nummeric(Widget, XtPointer, XtPointer),
             make_xprocess(char *, char *, char **, int),
             print_data(void),
             print_data_button(Widget, XtPointer, XtPointer),
-            read_setup(char *, int *, int *),
+            read_setup(char *, int *, int *, char **, int, int),
             remove_passwd(char *),
             reset_message(Widget),                /* show_?log */
             show_info(char *),                    /* show_?log */
             show_message(Widget, char *),         /* show_?log */
             update_time(XtPointer, XtIntervalId), /* show_?log */
             wait_visible(Widget),
-            write_setup(int, int);
+            write_setup(int, int, char **, int, int);
 
 #endif /* __x_common_defs_h */

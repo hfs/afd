@@ -1,6 +1,6 @@
 /*
  *  calc_but_coord.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,8 +47,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 
 extern Display       *display;
-extern int           no_of_columns,
-                     x_offset_stat_leds,
+extern int           x_offset_stat_leds,
                      x_offset_receive_log,
                      x_center_receive_log,
                      x_offset_sys_log,
@@ -75,13 +74,9 @@ calc_but_coord(int new_window_width)
     */
    x_offset_sys_log     = (new_window_width / 2);
    x_center_sys_log     = x_offset_sys_log + (glyph_height / 2);
-   x_offset_receive_log = x_offset_sys_log -
-                          (no_of_columns * DEFAULT_FRAME_SPACE) -
-                          glyph_height;
+   x_offset_receive_log = x_offset_sys_log - DEFAULT_FRAME_SPACE - glyph_height;
    x_center_receive_log = x_offset_receive_log + (glyph_height / 2);
-   x_offset_trans_log   = x_offset_sys_log +
-                          (no_of_columns * DEFAULT_FRAME_SPACE) +
-                          glyph_height;
+   x_offset_trans_log   = x_offset_sys_log + DEFAULT_FRAME_SPACE + glyph_height;
    x_center_trans_log   = x_offset_trans_log + (glyph_height / 2);
    y_center_log         = SPACE_ABOVE_LINE + (glyph_height / 2);
    for (i = 0; i < LOG_FIFO_SIZE; i++)

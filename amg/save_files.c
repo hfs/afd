@@ -150,12 +150,32 @@ save_files(char                   *src_path,
             {
                if (p_de->flag & RENAME_ONE_JOB_ONLY)
                {
+                  if (stat(dest_path, &stat_buf) != -1)
+                  {
+                     if (unlink(dest_path) == -1)
+                     {
+                        (void)rec(sys_log_fd, WARN_SIGN,
+                                  "Failed to unlink() file <%s> : %s (%s %d)\n",
+                                  dest_path, strerror(errno),
+                                  __FILE__, __LINE__);
+                     }
+                     else
+                     {
+                        files_saved--;
+                        *file_size_saved -= stat_buf.st_size;
+                     }
+                  }
                   if ((retstat = rename(src_path, dest_path)) == -1)
                   {
                      (void)rec(sys_log_fd, WARN_SIGN,
                                "Failed to rename() file <%s> to <%s> (%s %d)\n",
                                src_path, dest_path, __FILE__, __LINE__);
                      errno = 0;
+                  }
+                  else
+                  {
+                     files_saved++;
+                     *file_size_saved += file_size_pool[i];
                   }
                }
                else
@@ -164,6 +184,20 @@ save_files(char                   *src_path,
                   {
                      if (errno == EEXIST)
                      {
+                        off_t del_file_size = 0;
+
+                        if (stat(dest_path, &stat_buf) == -1)
+                        {
+                           (void)rec(sys_log_fd, WARN_SIGN,
+                                     "Failed to stat() %s : %s (%s %d)\n",
+                                     dest_path, strerror(errno),
+                                     __FILE__, __LINE__);
+                        }
+                        else
+                        {
+                           del_file_size = stat_buf.st_size;
+                        }
+
                         /*
                          * A file with the same name already exists. Remove
                          * this file and try to link again.
@@ -178,6 +212,8 @@ save_files(char                   *src_path,
                         }
                         else
                         {
+                           files_saved--;
+                           *file_size_saved -= del_file_size;
                            if ((retstat = link(src_path, dest_path)) == -1)
                            {
                               (void)rec(sys_log_fd, WARN_SIGN,
@@ -185,6 +221,11 @@ save_files(char                   *src_path,
                                         src_path, dest_path, strerror(errno),
                                         __FILE__, __LINE__);
                               errno = 0;
+                           }
+                           else
+                           {
+                              files_saved++;
+                              *file_size_saved += file_size_pool[i];
                            }
                         }
                      }
@@ -196,6 +237,11 @@ save_files(char                   *src_path,
                                   __FILE__, __LINE__);
                         errno = 0;
                      }
+                  }
+                  else
+                  {
+                     files_saved++;
+                     *file_size_saved += file_size_pool[i];
                   }
                }
             }
@@ -210,6 +256,8 @@ save_files(char                   *src_path,
                }
                else
                {
+                  files_saved++;
+                  *file_size_saved += file_size_pool[i];
                   if (p_de->flag & RENAME_ONE_JOB_ONLY)
                   {
                      if (unlink(src_path) == -1)
@@ -222,12 +270,6 @@ save_files(char                   *src_path,
                      }
                   }
                }
-            }
-
-            if (retstat != -1)
-            {
-               files_saved++;
-               *file_size_saved += file_size_pool[i];
             }
 
             /* No need to test any further filters. */

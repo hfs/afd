@@ -56,6 +56,8 @@ DESCR__S_M3
  **   25.04.2001 H.Kiehl Rename files from pool directory if there is only
  **                      one job for this directory.
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
+ **   30.10.2002 H.Kiehl Take afd_file_dir as the directory to determine
+ **                      if we can just move a file.
  **
  */
 DESCR__E_M3
@@ -89,7 +91,8 @@ extern int                        no_of_hosts,
                                   sys_log_fd,
                                   *time_job_list;
 extern off_t                      amg_data_size;
-extern char                       *p_mmap,
+extern char                       afd_file_dir[],
+                                  *p_mmap,
                                   *p_work_dir;
 extern struct directory_entry     *de;
 extern struct instant_db          *db;
@@ -152,7 +155,7 @@ create_db(void)
    }
 
    /* Get device number for working directory */
-   if (stat(p_work_dir, &stat_buf) == -1)
+   if (stat(afd_file_dir, &stat_buf) == -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
       if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
@@ -160,7 +163,7 @@ create_db(void)
          p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
       }
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to stat() %s : %s (%s %d)\n",
-                p_work_dir, strerror(errno), __FILE__, __LINE__);
+                afd_file_dir, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    ldv = stat_buf.st_dev;

@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,7 @@ DESCR__S_M1
  **   14.08.1997 H.Kiehl Support for multi-selection of lines.
  **   12.01.2000 H.Kiehl Added receive log.
  **   30.07.2001 H.Kiehl Support for the show_queue dialog.
+ **   09.11.2002 H.Kiehl Short line support.
  **
  */
 DESCR__E_M1
@@ -107,7 +108,7 @@ Colormap                   default_cmap;
 XFontStruct                *font_struct;
 XmFontList                 fontlist = NULL;
 Widget                     mw[5],        /* Main menu */
-                           ow[10],       /* Host menu */
+                           ow[11],       /* Host menu */
                            vw[11],       /* View menu */
                            cw[8],        /* Control menu */
                            sw[4],        /* Setup menu */
@@ -123,12 +124,14 @@ Widget                     mw[5],        /* Main menu */
                            detailed_window_w,
                            label_window_w,
                            line_window_w,
+                           short_line_window_w,
                            transviewshell = NULL,
                            tv_label_window_w;
 Window                     button_window,
                            detailed_window,
                            label_window,
                            line_window,
+                           short_line_window,
                            tv_label_window;
 float                      max_bar_length;
 int                        amg_flag = NO,
@@ -152,12 +155,17 @@ int                        amg_flag = NO,
                            no_selected_static,
                            no_of_active_process = 0,
                            no_of_columns,
+                           no_of_short_columns,
                            no_of_rows,
                            no_of_rows_set,
+                           no_of_short_rows,
                            no_of_hosts,
                            no_of_jobs_selected,
+                           no_of_long_lines = 0,
+                           no_of_short_lines = 0,
                            redraw_time_host,
                            redraw_time_status,
+                           short_line_length,
                            sys_log_fd = STDERR_FILENO,
                            tv_line_length,
                            tv_no_of_columns,
@@ -339,9 +347,9 @@ main(int argc, char *argv[])
 
    /* Create the line_window_w */
    argcount = 0;
-   XtSetArg(args[argcount], XmNheight, (Dimension) window_height);
+   XtSetArg(args[argcount], XmNheight, (Dimension)(line_height * no_of_rows));
    argcount++;
-   XtSetArg(args[argcount], XmNwidth, (Dimension) window_width);
+   XtSetArg(args[argcount], XmNwidth, (Dimension)window_width);
    argcount++;
    XtSetArg(args[argcount], XmNbackground, color_pool[DEFAULT_BG]);
    argcount++;
@@ -357,6 +365,33 @@ main(int argc, char *argv[])
                                        argcount);
    XtManageChild(line_window_w);
 
+   /* Create the short_line_window_w */
+   argcount = 0;
+   if (no_of_short_rows > 0)
+   {
+      XtSetArg(args[argcount], XmNheight, (Dimension)((line_height * no_of_short_rows) + 1));
+   }
+   else
+   {
+      XtSetArg(args[argcount], XmNheight, (Dimension)(line_height * no_of_short_rows));
+   }
+   argcount++;
+   XtSetArg(args[argcount], XmNwidth, (Dimension)window_width);
+   argcount++;
+   XtSetArg(args[argcount], XmNbackground, color_pool[DEFAULT_BG]);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment, XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget, line_window_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
+   argcount++;
+   short_line_window_w = XmCreateDrawingArea(mainform_w, "short_line_window_w",
+                                             args, argcount);
+   XtManageChild(short_line_window_w);
+
    /* Initialise the GC's */
    init_gcs();
 
@@ -367,15 +402,15 @@ main(int argc, char *argv[])
 
    /* Create the button_window_w */
    argcount = 0;
-   XtSetArg(args[argcount], XmNheight, (Dimension) line_height);
+   XtSetArg(args[argcount], XmNheight, (Dimension)line_height);
    argcount++;
-   XtSetArg(args[argcount], XmNwidth, (Dimension) window_width);
+   XtSetArg(args[argcount], XmNwidth, (Dimension)window_width);
    argcount++;
    XtSetArg(args[argcount], XmNbackground, color_pool[LABEL_BG]);
    argcount++;
    XtSetArg(args[argcount], XmNtopAttachment, XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNtopWidget, line_window_w);
+   XtSetArg(args[argcount], XmNtopWidget, short_line_window_w);
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment, XmATTACH_FORM);
    argcount++;
@@ -393,15 +428,13 @@ main(int argc, char *argv[])
    argcount++;
    XtGetValues(button_window_w, args, argcount);
 
-   /* Add call back to handle expose events for the label window */
+   /* Add call back to handle expose events for the drawing areas. */
    XtAddCallback(label_window_w, XmNexposeCallback,
                  (XtCallbackProc)expose_handler_label, (XtPointer)0);
-
-   /* Add call back to handle expose events for the line window */
    XtAddCallback(line_window_w, XmNexposeCallback,
                  (XtCallbackProc)expose_handler_line, NULL);
-
-   /* Add call back to handle expose events for the button window */
+   XtAddCallback(short_line_window_w, XmNexposeCallback,
+                 (XtCallbackProc)expose_handler_short_line, NULL);
    XtAddCallback(button_window_w, XmNexposeCallback,
                  (XtCallbackProc)expose_handler_button, NULL);
 
@@ -409,6 +442,8 @@ main(int argc, char *argv[])
    {
       XtAddEventHandler(line_window_w, ButtonPressMask | Button1MotionMask,
                         False, (XtEventHandler)input, NULL);
+      XtAddEventHandler(short_line_window_w, ButtonPressMask | Button1MotionMask,
+                        False, (XtEventHandler)short_input, NULL);
 
       /* Set toggle button for font|row|style */
       XtVaSetValues(fw[current_font], XmNset, True, NULL);
@@ -432,8 +467,11 @@ main(int argc, char *argv[])
 
       /* Setup popup menu */
       init_popup_menu(line_window_w);
+      init_popup_menu(short_line_window_w);
 
       XtAddEventHandler(line_window_w, EnterWindowMask | LeaveWindowMask,
+                        False, (XtEventHandler)focus, NULL);
+      XtAddEventHandler(short_line_window_w, EnterWindowMask | LeaveWindowMask,
                         False, (XtEventHandler)focus, NULL);
    }
 
@@ -467,6 +505,7 @@ main(int argc, char *argv[])
    /* Get window ID of three main windows */
    label_window = XtWindow(label_window_w);
    line_window = XtWindow(line_window_w);
+   short_line_window = XtWindow(short_line_window_w);
    button_window = XtWindow(button_window_w);
 
    /* Start the main event-handling loop */
@@ -487,8 +526,9 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    time_t       start_time;
    char         *buffer,
                 config_file[MAX_PATH_LENGTH],
-                *perm_buffer,
                 hostname[MAX_AFD_NAME_LENGTH],
+                **hosts = NULL,
+                *perm_buffer,
                 sys_log_fifo[MAX_PATH_LENGTH];
    struct tms   tmsdummy;
    struct stat  stat_buf;
@@ -747,7 +787,9 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    line_style = SHOW_LEDS | SHOW_JOBS | SHOW_CHARACTERS | SHOW_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
    filename_display_length = DEFAULT_FILENAME_DISPLAY_LENGTH;
-   read_setup(AFD_CTRL, &filename_display_length, NULL);
+   RT_ARRAY(hosts, no_of_hosts, (MAX_HOSTNAME_LENGTH + 1), char);
+   read_setup(AFD_CTRL, &filename_display_length, NULL, hosts,
+              no_of_hosts, MAX_HOSTNAME_LENGTH);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
@@ -854,6 +896,35 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
          connect_data[i].connect_status[j] = fsa[i].job_status[j].connect_status;
          connect_data[i].detailed_selection[j] = NO;
       }
+      connect_data[i].short_pos = -1;
+   }
+
+   /* Locate positions for long and short version of line in dialog. */
+   for (i = 0; i < no_of_short_lines; i++)
+   {
+      for (j = 0; j < no_of_hosts; j++)
+      {
+         if ((connect_data[j].short_pos == -1) &&
+             (strcmp(connect_data[j].hostname, hosts[i]) == 0))
+         {
+            connect_data[j].short_pos = i;
+            connect_data[j].long_pos = -1;
+            break;
+         }
+      }
+   }
+   FREE_RT_ARRAY(hosts);
+   for (i = 0; i < no_of_hosts; i++)
+   {
+      if (connect_data[i].short_pos == -1)
+      {
+         connect_data[i].long_pos = no_of_long_lines;
+         no_of_long_lines++;
+      }
+   }
+   if ((no_of_long_lines + no_of_short_lines) != no_of_hosts)
+   {
+      no_of_short_lines -= ((no_of_long_lines + no_of_short_lines) - no_of_hosts);
    }
 
    /*
@@ -1056,6 +1127,14 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  NULL);
       XtAddCallback(ow[SELECT_W], XmNactivateCallback, select_host_dialog,
                     (XtPointer)0);
+      ow[LONG_SHORT_W] = XtVaCreateManagedWidget("Long/Short line",
+                                 xmPushButtonWidgetClass, pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 XmNmnemonic,             'L',
+                                 XmNaccelerator,          "Alt<Key>L",
+                                 NULL);
+      XtAddCallback(ow[LONG_SHORT_W], XmNactivateCallback, popup_cb,
+                    (XtPointer)LONG_SHORT_SEL);
       if ((traceroute_cmd != NULL) || (ping_cmd != NULL))
       {
          XtVaCreateManagedWidget("Separator",
@@ -1429,7 +1508,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 
 /*+++++++++++++++++++++++++ init_popup_menu() +++++++++++++++++++++++++++*/
 static void
-init_popup_menu(Widget line_window_w)
+init_popup_menu(Widget w)
 {
    XmString x_string;
    Widget   popupmenu;
@@ -1438,7 +1517,7 @@ init_popup_menu(Widget line_window_w)
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtearOffModel, XmTEAR_OFF_ENABLED); argcount++;
-   popupmenu = XmCreateSimplePopupMenu(line_window_w, "popup", args, argcount);
+   popupmenu = XmCreateSimplePopupMenu(w, "popup", args, argcount);
 
    if ((acp.ctrl_queue != NO_PERMISSION) ||
        (acp.ctrl_transfer != NO_PERMISSION) ||
@@ -1556,7 +1635,7 @@ init_popup_menu(Widget line_window_w)
       }
    }
 
-   XtAddEventHandler(line_window_w,
+   XtAddEventHandler(w,
                      ButtonPressMask | ButtonReleaseMask |
                      Button1MotionMask,
                      False, (XtEventHandler)popup_menu_cb, popupmenu);

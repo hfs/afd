@@ -136,6 +136,7 @@ int                        bar_thickness_2,
                            no_of_rows_set,
                            no_of_dirs,
                            no_of_jobs_selected,
+                           no_of_short_lines, /* Not yet used. */
                            redraw_time_line,
                            sys_log_fd = STDERR_FILENO,
                            window_width,
@@ -559,7 +560,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
     */
    line_style = CHARACTERS_AND_BARS;
    no_of_rows_set = DEFAULT_NO_OF_ROWS;
-   read_setup(DIR_CTRL, NULL, NULL);
+   read_setup(DIR_CTRL, NULL, NULL, NULL, 0, 0);
 
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
@@ -984,6 +985,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_FILE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[FILE_LOAD_W] = XmCreatePushButton(pullright_line_load, "file",
 				        args, argcount);
    XtAddCallback(lw[FILE_LOAD_W], XmNactivateCallback, dir_popup_cb,
@@ -995,6 +997,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_KBYTE_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[KBYTE_LOAD_W] = XmCreatePushButton(pullright_line_load, "kbytes",
 				        args, argcount);
    XtAddCallback(lw[KBYTE_LOAD_W], XmNactivateCallback, dir_popup_cb,
@@ -1006,6 +1009,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_CONNECTION_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[CONNECTION_LOAD_W] = XmCreatePushButton(pullright_line_load,
                                               "connection",
 				              args, argcount);
@@ -1018,6 +1022,7 @@ create_pullright_load(Widget pullright_line_load)
    argcount = 0;
    x_string = XmStringCreateLocalized(SHOW_TRANSFER_LOAD);
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lw[TRANSFER_LOAD_W] = XmCreatePushButton(pullright_line_load,
                                               "active-transfers",
 				              args, argcount);
@@ -1107,6 +1112,7 @@ create_pullright_row(Widget pullright_row)
       x_string = XmStringCreateLocalized(row[i]);
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
       XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+      XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       rw[i] = XmCreateToggleButton(pullright_row, "row_x", args, argcount);
       XtAddCallback(rw[i], XmNvalueChangedCallback, change_dir_rows_cb,
                     (XtPointer)i);
@@ -1131,6 +1137,7 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Bars only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_0_W] = XmCreateToggleButton(pullright_line_style, "style_0",
 				   args, argcount);
    XtAddCallback(lsw[STYLE_0_W], XmNvalueChangedCallback, change_dir_style_cb,
@@ -1143,8 +1150,9 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Characters only");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_1_W] = XmCreateToggleButton(pullright_line_style, "style_1",
-				   args, argcount);
+				         args, argcount);
    XtAddCallback(lsw[STYLE_1_W], XmNvalueChangedCallback, change_dir_style_cb,
 		 (XtPointer)1);
    XtManageChild(lsw[STYLE_1_W]);
@@ -1154,8 +1162,9 @@ create_pullright_style(Widget pullright_line_style)
    x_string = XmStringCreateLocalized("Characters and bars");
    XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
    XtSetArg(args[argcount], XmNindicatorType, XmONE_OF_MANY); argcount++;
+   XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
    lsw[STYLE_2_W] = XmCreateToggleButton(pullright_line_style, "style_2",
-				   args, argcount);
+				         args, argcount);
    XtAddCallback(lsw[STYLE_2_W], XmNvalueChangedCallback, change_dir_style_cb,
 		 (XtPointer)2);
    XtManageChild(lsw[STYLE_2_W]);

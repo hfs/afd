@@ -528,12 +528,12 @@ main(int argc, char *argv[])
                for (;;)
                {
                   while ((*ptr != '_') && (*ptr != '-') &&
-                         (*ptr != ' ') && (*ptr != '\0'))
+                         (*ptr != ' ') && (*ptr != '\0') && (*ptr != ';'))
                   {
                      buffer[length_type_indicator + header_length] = *ptr;
                      header_length++; ptr++;
                   }
-                  if (*ptr == '\0')
+                  if ((*ptr == '\0') || (*ptr == ';'))
                   {
                      break;
                   }

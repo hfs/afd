@@ -33,12 +33,15 @@ TOPVOBJS = topview.o
 VHSTPROG = view_hosts
 VHSTOBJS = view_hosts.o
 
+MCMDPROG = mafdcmd
+MCMDOBJS = mafdcmd.o
+
 MONPROG  = mon
 MONOBJS  = mon.o\
            tcpcmd.o
 
-PROGS    = $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT) $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT)
-OBJS     = $(MAFDOBJS) $(AMONOBJS) $(MONOBJS) $(MSAVOBJS) $(TOPVOBJS) $(VHSTOBJS)
+PROGS    = $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT) $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(MCMDPROG)$(EXE_EXT)
+OBJS     = $(MAFDOBJS) $(AMONOBJS) $(MONOBJS) $(MSAVOBJS) $(TOPVOBJS) $(VHSTOBJS) $(MCMDOBJS)
 HEADERS  = ../init_afd/afddefs.h ../config.h mondefs.h
 
 all : $(PROGS)
@@ -65,6 +68,10 @@ $(TOPVPROG)$(EXE_EXT) : $(TOPVOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(TOPVOBJS) $(AFDLIB) $(EFENCE)
 
+$(MCMDPROG)$(EXE_EXT) : $(MCMDOBJS) $(AFDLIB)
+	rm -f $@
+	$(CC) $(CFLAGS) -o $@ $(MCMDOBJS) $(AFDLIB) $(EFENCE)
+
 $(VHSTPROG)$(EXE_EXT) : $(VHSTOBJS) $(AFDLIB)
 	rm -f $@
 	$(CC) $(CFLAGS) -o $@ $(VHSTOBJS) $(AFDLIB) $(EFENCE)
@@ -81,13 +88,13 @@ install :
 	cp -p $(MAFDPROG)$(EXE_EXT) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT) $(INSTDIR)/bin
 	cd $(INSTDIR)/bin && chmod $(BINMODE) $(AMONPROG)$(EXE_EXT) $(MONPROG)$(EXE_EXT)
 	cd $(INSTDIR)/bin && chmod $(SUIDMODE) $(MAFDPROG)$(EXE_EXT)
-	cd $(INSTDIR)/sbin && rm -f $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT)
-	cp -p $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(INSTDIR)/sbin
-	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT)
+	cd $(INSTDIR)/sbin && rm -f $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(MCMDPROG)$(EXE_EXT)
+	cp -p $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(MCMDPROG)$(EXE_EXT) $(INSTDIR)/sbin
+	cd $(INSTDIR)/sbin && chmod $(SBINMODE) $(MSAVPROG)$(EXE_EXT) $(TOPVPROG)$(EXE_EXT) $(VHSTPROG)$(EXE_EXT) $(MCMDPROG)$(EXE_EXT)
 
 sinstall :
 	strip $(PROGS)
 	$(MAKE) install
 
 # Other depnedencies
-afd_mon.o mafd.o : ../version.h ../init_afd/permission.h
+afd_mon.o mafd.o mafdcmd.o : ../version.h ../init_afd/permission.h
