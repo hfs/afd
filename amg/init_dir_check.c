@@ -190,8 +190,12 @@ init_dir_check(int    argc,
    (void)strcpy(receive_log_fifo, dc_cmd_fifo);
    (void)strcat(receive_log_fifo, RECEIVE_LOG_FIFO);
    (void)strcat(dc_cmd_fifo, DC_CMD_FIFO);
-   msg_fifo_buf_size = 1 + sizeof(time_t) + sizeof(unsigned short) +
-                       sizeof(int);
+   i = sizeof(time_t);
+   if (sizeof(int) > i)
+   {
+      i = sizeof(int);
+   }
+   msg_fifo_buf_size = i + i + sizeof(unsigned short) + 1;
    init_msg_buffer();
 
 #ifdef _DELETE_LOG

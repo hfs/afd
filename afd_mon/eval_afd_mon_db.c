@@ -171,12 +171,12 @@ eval_afd_mon_db(struct mon_list **nml)
       /* Store AFD alias */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
-             (*ptr != '\0') && (i <= MAX_AFDNAME_LENGTH))
+             (*ptr != '\0') && (i < MAX_AFDNAME_LENGTH))
       {
          (*nml)[no_of_afds].afd_alias[i] = *ptr;
          ptr++; i++;
       }
-      if ((i == (MAX_AFDNAME_LENGTH + 1)) && ((*ptr != ' ') || (*ptr != '\t')))
+      if ((i == MAX_AFDNAME_LENGTH) && ((*ptr != ' ') || (*ptr != '\t')))
       {
          (void)rec(sys_log_fd, WARN_SIGN,
                    "Maximum length for AFD alias name %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",

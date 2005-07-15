@@ -120,24 +120,28 @@ trans_log(char *sign, char *file, int line, char *fmt, ...)
 
    if (timeout_flag == ON)
    {
-      if (buf[length - 1] == '.')
-      {
-         length--;
-      }
       if ((file == NULL) || (line == 0))
       {
          /* Don't write anything. */
-         buf[length + 1] = '\n';
-         length += 2;
+         buf[length] = '\n';
+         length += 1;
       }
       else if (fsa[db.fsa_pos].protocol & SEND_FLAG)
            {
+              if (buf[length - 1] == '.')
+              {
+                 length--;
+              }
               length += sprintf(&buf[length],
                                 " due to timeout (%lds). #%d (%s %d)\n",
                                 transfer_timeout, db.job_id, file, line);
            }
            else
            {
+              if (buf[length - 1] == '.')
+              {
+                 length--;
+              }
               length += sprintf(&buf[length], " due to timeout (%lds). (%s %d)\n",
                                 transfer_timeout, file, line);
            }

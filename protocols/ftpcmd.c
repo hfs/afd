@@ -1907,9 +1907,10 @@ ftp_close_data(int type)
 int
 ftp_write(char *block, char *buffer, int size)
 {
-   char   *ptr = block;
-   int    status;
-   fd_set wset;
+   char        *ptr = block;
+   static char last_char = 0;
+   int         status;
+   fd_set      wset;
 
    /* Initialise descriptor set */
    FD_ZERO(&wset);
@@ -1941,14 +1942,26 @@ ftp_write(char *block, char *buffer, int size)
               {
                  if (*ptr == '\n')
                  {
-                    buffer[count++] = '\r';
-                    buffer[count++] = '\n';
+                    if (((i > 0) && (*(ptr - 1) == '\r')) ||
+                        ((i == 0) && (last_char == '\r')))
+                    {
+                       buffer[count++] = *ptr;
+                    }
+                    else
+                    {
+                       buffer[count++] = '\r';
+                       buffer[count++] = '\n';
+                    }
                  }
                  else
                  {
                     buffer[count++] = *ptr;
                  }
                  ptr++;
+              }
+              if (i > 0)
+              {
+                 last_char = *(ptr - 1);
               }
               size = count;
               ptr = buffer;

@@ -1,6 +1,6 @@
 /*
  *  version.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,8 +30,8 @@
  */
 #define MAJOR          1
 #define MINOR          2
-#define BUG_FIX        22
-/* #define PRE_RELEASE    3 */
+#define BUG_FIX        23
+/* #define PRE_RELEASE    2 */
 
 #define VERSION_ID     "--version"
 

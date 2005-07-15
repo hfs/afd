@@ -1,6 +1,6 @@
 /*
  *  assemble.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,6 +68,7 @@ DESCR__S_M3
  **   16.05.1999 H.Kiehl Created
  **   14.06.2002 H.Kiehl Fixed assembling MSS files.
  **   08.08.2002 H.Kiehl Added new type DWD.
+ **   18.05.2005 H.Kiehl Forgot to write type indicator for WMO standard.
  **
  */
 DESCR__E_M3
@@ -84,7 +85,7 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 /* Local function prototypes. */
-static int write_length_indicator(int, int, int);
+static int write_length_indicator(int, int, int, int);
 
 /* #define _WITH_SOH_ETX_CHECK */
 
@@ -104,6 +105,9 @@ assemble(char  *source_dir,
                i,
                length,
                to_fd = -1;
+#ifndef _WITH_SOH_ETX_CHECK
+   int         have_sohetx;
+#endif
    char        *buffer = NULL,
                *p_src;
    struct stat stat_buf;
@@ -202,13 +206,22 @@ assemble(char  *source_dir,
                         additional_length += 4;
                      }
                      if ((length = write_length_indicator(to_fd,
-                                                          type,
+                                                          type, YES,
                                                           stat_buf.st_size + additional_length)) < 0)
 #else
                   if (type != ASCII_STANDARD)
                   {
+                     if ((buffer[0] == 1) &&
+                         (buffer[stat_buf.st_size - 1] == 3))
+                     {
+                        have_sohetx = YES;
+                     }
+                     else
+                     {
+                        have_sohetx = NO;
+                     }
                      if ((length = write_length_indicator(to_fd,
-                                                          type,
+                                                          type, have_sohetx,
                                                           stat_buf.st_size)) < 0)
 #endif
                      {
@@ -253,7 +266,7 @@ assemble(char  *source_dir,
                   if (type == FOUR_BYTE_DWD)
                   {
                      if ((length = write_length_indicator(to_fd,
-                                                          type,
+                                                          type, NO,
                                                           stat_buf.st_size)) < 0)
                      {
                         if (length == -1)
@@ -340,7 +353,7 @@ assemble(char  *source_dir,
 
 /*+++++++++++++++++++++++ write_length_indicator() ++++++++++++++++++++++*/
 static int
-write_length_indicator(int fd, int type, int length)
+write_length_indicator(int fd, int type, int have_sohetx, int length)
 {
    int  byte_order = 1,
         write_length;
@@ -431,6 +444,15 @@ write_length_indicator(int fd, int type, int length)
 
       case WMO_STANDARD  : /* WMO Standard */
          (void)sprintf(buffer, "%08lu", (unsigned long)length);
+         buffer[8] = '0';
+         if (have_sohetx == YES)
+         {
+            buffer[9] = '0';
+         }
+         else
+         {
+            buffer[9] = '1';
+         }
          write_length = 10;
          break;
 

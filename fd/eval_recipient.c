@@ -115,7 +115,7 @@ eval_recipient(char       *recipient,
             p_db->user[i] = *ptr;
             ptr++; i++;
          }
-         if (i == MAX_HOSTNAME_LENGTH)
+         if (i > MAX_HOSTNAME_LENGTH)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Unable to store group name. It may only be %d characters long!",
@@ -181,7 +181,7 @@ eval_recipient(char       *recipient,
                        "Hmm. This does NOT look like URL for me!?");
             return(INCORRECT);
          }
-         if (i == MAX_USER_NAME_LENGTH)
+         if (i > MAX_USER_NAME_LENGTH)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Unable to store user name. It is longer than %d Bytes!",
@@ -210,7 +210,7 @@ eval_recipient(char       *recipient,
                           "Hmmm. How am I suppose to find the hostname?");
                return(INCORRECT);
             }
-            if (i == MAX_USER_NAME_LENGTH)
+            if (i > MAX_USER_NAME_LENGTH)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Unable to store password. It is longer than %d Bytes!",

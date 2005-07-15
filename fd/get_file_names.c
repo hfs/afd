@@ -183,7 +183,9 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    errno = 0;
    while ((p_dir = readdir(dp)) != NULL)
    {
-      if (p_dir->d_name[0] == '.')
+      if (((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '\0')) ||
+          ((p_dir->d_name[0] == '.') && (p_dir->d_name[1] == '.') &&
+          (p_dir->d_name[2] == '\0')))
       {
          continue;
       }

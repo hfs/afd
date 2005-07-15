@@ -1396,3 +1396,20 @@
 03.02.2005 - Fake user was not passed to view_dc when called from
              afd_ctrl dialog. Fixed.
 ------------------------> Released: 04.02.2005 <---------------------------
+
+
+---------------------------> Version 1.2.23 <------------------------------
+                            ----------------
+10.03.2005 - Calculated fifo size for sending messages from AMG to FD
+             wrong. This fix makes AFD run on 64 bit systems again.
+18.03.2005 - At one point FD failed to check if queue position is valid.
+20.04.2005 - FTP ASCII mode added a CR to a newline even if it already
+             had one.
+26.04.2005 - Enable FD to transmit files with a leading dot.
+12.05.2005 - Do not bail out during initialization when AFD_CONFIG is
+             of size zero.
+18.05.2005 - Forgot to write type indicator for WMO standard when
+             assembling files.
+16.06.2005 - When alias name in AFD_MON_CONFIG is more then 11 characters
+             it would not be stored correctly. Fixed.
+------------------------> Released: 19.06.2005 <---------------------------

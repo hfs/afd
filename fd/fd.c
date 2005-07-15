@@ -1167,21 +1167,29 @@ main(int argc, char *argv[])
                     {
                        pid = -pid;
                        qb_pos_pid(pid, &qb_pos);
-
-                       /*
-                        * Check third byte in unique_name. If this is
-                        * NOT set to zero the process sf_xxx has given up
-                        * waiting for FD to give it a new job, ie. the
-                        * process no longer exists and we need to start
-                        * a new one.
-                        */
-                       if (fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[2] == 4)
+                       if (qb_pos == -1)
                        {
-                          start_new_process = NO;
+                          (void)rec(sys_log_fd, DEBUG_SIGN,
+                                    "Hmmm, qb_pos is -1! (%s %d)\n",
+                                    __FILE__, __LINE__);
                        }
                        else
                        {
-                          start_new_process = YES;
+                          /*
+                           * Check third byte in unique_name. If this is
+                           * NOT set to zero the process sf_xxx has given up
+                           * waiting for FD to give it a new job, ie. the
+                           * process no longer exists and we need to start
+                           * a new one.
+                           */
+                          if (fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[2] == 4)
+                          {
+                             start_new_process = NO;
+                          }
+                          else
+                          {
+                             start_new_process = YES;
+                          }
                        }
                     }
                     else

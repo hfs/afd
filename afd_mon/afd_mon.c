@@ -592,8 +592,8 @@ zombie_check(void)
          else if (ret == -1)
               {
                  (void)rec(sys_log_fd, ERROR_SIGN,
-                           "waitpid() error : %s (%s %d)\n",
-                           strerror(errno), __FILE__, __LINE__);
+                           "waitpid() error [%d] : %s (%s %d)\n",
+                           pl[i].pid, strerror(errno), __FILE__, __LINE__);
               }
 
          if ((faulty == YES) && (msa[i].connect_status != DISABLED))

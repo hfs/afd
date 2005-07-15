@@ -1,6 +1,6 @@
 /*
  *  check_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,6 +44,7 @@ DESCR__S_M3
  **   02.04.1996 H.Kiehl Created
  **   03.05.1998 H.Kiehl Added wait_time parameter to function call.
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
+ **   12.05.2005 H.Kiehl Do not bail out if AFD_CONFIG is zero.
  **
  */
 DESCR__E_M3
@@ -241,48 +242,51 @@ check_afd(long wait_time)
 static void
 kill_jobs(void)
 {
-   char *ptr,
-        *buffer;
-   int  i,
-        read_fd;
-
-   if ((read_fd = open(afd_active_file, O_RDWR)) < 0)
+   if (stat_buf.st_size > 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open %s : %s (%s %d)\n",
-                afd_active_file, strerror(errno), __FILE__, __LINE__);
-      exit(-10);
-   }
+      char *ptr,
+           *buffer;
+      int  i,
+           read_fd;
 
-   if ((buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "calloc() error : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
-      exit(-11);
-   }
-
-   if (read(read_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "read() error : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
-      exit(-12);
-   }
-
-   /* Try to send kill signal to all running process. */
-   ptr = buffer;
-   for (i = 0; i <= NO_OF_PROCESS; i++)
-   {
-      if (*(pid_t *)ptr > 0)
+      if ((read_fd = open(afd_active_file, O_RDWR)) < 0)
       {
-         (void)kill(*(pid_t *)ptr, SIGINT);
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "Failed to open %s : %s (%s %d)\n",
+                   afd_active_file, strerror(errno), __FILE__, __LINE__);
+         exit(-10);
       }
-      ptr += sizeof(pid_t);
-   }
 
-   (void)close(read_fd);
-   free(buffer);
+      if ((buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "calloc() error : %s (%s %d)\n",
+                   strerror(errno),  __FILE__, __LINE__);
+         exit(-11);
+      }
+
+      if (read(read_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+      {
+         (void)rec(sys_log_fd, FATAL_SIGN,
+                   "read() error : %s (%s %d)\n",
+                   strerror(errno),  __FILE__, __LINE__);
+         exit(-12);
+      }
+
+      /* Try to send kill signal to all running process. */
+      ptr = buffer;
+      for (i = 0; i <= NO_OF_PROCESS; i++)
+      {
+         if (*(pid_t *)ptr > 0)
+         {
+            (void)kill(*(pid_t *)ptr, SIGINT);
+         }
+         ptr += sizeof(pid_t);
+      }
+
+      (void)close(read_fd);
+      free(buffer);
+   }
 
    return;
 }

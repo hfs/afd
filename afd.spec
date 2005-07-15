@@ -1,6 +1,6 @@
 Summary: A file distribution system
 Name: afd
-Version: 1.2.20
+Version: 1.2.23
 Release: 3
 License: GPL
 Group: Applications/Communications
