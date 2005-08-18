@@ -332,7 +332,7 @@ o       New time option that does NOT collect
 
 
 
------------------------->>>>> Version 2.0.x <<<<<--------------------------
+------------------------>>>>> Version 1.3.x <<<<<--------------------------
 o       Option chmod for FTP.                     *    [DONE]
 o       Option to execute command on the
         remote host.                              *    [DONE]
@@ -348,19 +348,48 @@ o       Dialog to view and delete any files in
 o       Store active/passive mode in HOST_CONFIG. *    [DONE]
 o       Store host status in HOST_CONFIG.         *    [DONE]
 o       Port to AIX.                              *    [DONE]
-o       Support for the SCP protocol (SSH1+2).   **    [UNDER CONSTRUCTION]
-o       Rename log, so it is possible to trace
-        files.                                   **    [UNDER CONSTRUCTION]
+o       Multiple DIR_CONFIG´s.                   **    [DONE]
+o       Support for the SCP protocol (SSH1+2).   **    [DONE]
 o       Use GNU autoconfig and automake to build
-        AFD.                                      *    [UNDER CONSTRUCTION]
-o       Convert all dialogs to gtk+.             **    [TODO]
+        AFD.                                      *    [DONE]
+o       The programm name to call other programms
+        on the remote node should be made
+        configurable in AFD_MON_CONFIG.          **    [DONE]
+o       Configuration option for afd_mon to
+        always disconnect.                        *    [DONE]
+o       Port to MacOS/Darwin.                     *    [DONE]
+o       Production log, so it is possible to
+        trace files within AFD.                  **    [DONE]
+o       A SSL FTP client.                        **    [DONE]
+o       Support for the HTTP and HTTPS protocol. **    [DONE]
+o       Input statistics.                         *    [DONE]
+o       Option to make show_olog and show_ilog
+        show the information continuesly.         *    [DONE]
+o       Timeout for exec option.                  *    [DONE]
+o       Create target directory remote and local
+        (both optionally).                       **    [DONE]
+o       Transfer rate control for each host.     **    [DONE]
+o       Implement sending files from AFD queue. ***    [DONE]
+o       Optional central info file.               *    [DONE]
+o       Allow user to specify some actions if a
+        host is not working.                     **    [DONE]
+o       Option to initialize AFD.                 *    [DONE]
+o       Switching AFD's in afd_mon, mon_ctrl.     *    [DONE]
+-------------------------> Rel: ?? ????????? 2005 <-------------------------
+
+
+
+------------------------>>>>> Version 2.0.x <<<<<--------------------------
+o       Dialog to view statistics.                *    [UNDER CONSTRUCTION]
+o       Rename option for send in show_olog.      *    [TODO]
+o       SFTP support.                           ***    [TODO]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
 o       Support for IP6.                        ***    [TODO]
-o       Support for the HTTP protocol.            *    [TODO]
-o       Implement tar/un-tar command.            **    [TODO]
-o       A SSL FTP client (sf_sftp).              **    [TODO]
+o       Convert all dialogs to gtk+.            ***    [TODO]
 o       Write process sf_sql to send files to
-        a database.                              **    [TODO]
+        a database.                               *    [TODO]
 o       Implement context sensitive help for
         the 'afd_ctrl' dialog.                    *    [TODO]
 o       Create process that can do multi-casting.**    [TODO]
+o       Support for sending files via HTTP
+        protocol.

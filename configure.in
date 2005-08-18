@@ -1,0 +1,854 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_PREREQ(2.54)
+AC_INIT([afd], [1.3.0], [Holger.Kiehl@dwd.de])
+AC_CONFIG_SRCDIR(src/init_afd/afd.c)
+AC_CONFIG_AUX_DIR(ac-tools)
+dnl# AC_PREFIX_DEFAULT("/usr/local/afd")
+dnl# [no-dependencies dist-bzip2]
+AM_INIT_AUTOMAKE([dist-bzip2])
+AM_CONFIG_HEADER(config.h:ac-tools/config.h.in)
+
+REQUIRES=""
+BUILD_REQUIRES=""
+
+dnl# --------------------------------------------------------------------------
+dnl# Checking Configure Command Line Options
+dnl# --------------------------------------------------------------------------
+AC_ARG_ENABLE(input_log,
+   [  --disable-input_log             disable input_log support],
+   [AM_CONDITIONAL(WITH_INPUT_LOG, false)
+    ac_cv_input_log=""],
+   [AC_DEFINE([_INPUT_LOG], [], [With input log support])
+    ac_cv_input_log="INPUT "
+    AM_CONDITIONAL(WITH_INPUT_LOG, true)])
+
+AC_ARG_ENABLE(output_log,
+   [  --disable-output_log            disable output_log support],
+   [AM_CONDITIONAL(WITH_OUTPUT_LOG, false)
+    ac_cv_output_log=""],
+   [AC_DEFINE([_OUTPUT_LOG], [], [With output log support])
+    ac_cv_output_log="OUTPUT "
+    AM_CONDITIONAL(WITH_OUTPUT_LOG, true)])
+
+AC_ARG_ENABLE(delete_log,
+   [  --disable-delete_log            disable delete_log support],
+   [AM_CONDITIONAL(WITH_DELETE_LOG, false)
+    ac_cv_delete_log=""],
+   [AC_DEFINE([_DELETE_LOG], [], [With delete log support])
+    ac_cv_delete_log="DELETE "
+    AM_CONDITIONAL(WITH_DELETE_LOG, true)])
+
+AC_ARG_ENABLE(production_log,
+   [  --disable-production_log        disable production_log support],
+   [AM_CONDITIONAL(WITH_PRODUCTION_LOG, false)
+    ac_cv_production_log=""],
+   [AC_DEFINE([_PRODUCTION_LOG], [], [With production log support])
+    ac_cv_production_log="PRODUCTION "
+    AM_CONDITIONAL(WITH_PRODUCTION_LOG, true)])
+
+AC_ARG_ENABLE(wmo_support,
+   [  --disable-wmo_support           disable WMO socket support],
+   [AM_CONDITIONAL(WITH_WMO_SUPPORT, false)
+    ac_cv_wmo_support="no"],
+   [AC_DEFINE([_WITH_WMO_SUPPORT], [], [With WMO socket support])
+    ac_cv_wmo_support="yes"
+    AM_CONDITIONAL(WITH_WMO_SUPPORT, true)])
+
+AC_ARG_ENABLE(dupcheck_support,
+   [  --disable-dupcheck_support      disable duplicate check support],
+   [AM_CONDITIONAL(WITHOUT_DUPCHECK, true)
+    ac_cv_dupcheck_support="no"],
+   [AC_DEFINE([WITH_DUP_CHECK], [], [With duplicate check support])
+    ac_cv_dupcheck_support="yes"
+    AM_CONDITIONAL(WITHOUT_DUPCHECK, false)])
+
+AC_ARG_ENABLE(largefile,
+   [  --disable-largefile             disable large file support],
+   [ac_cv_largefile="$enableval"],
+   [ac_cv_largefile="yes"])
+
+AC_ARG_ENABLE(verify_fsa,
+   [  --disable-verify_fsa            disable verify_fsa support],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([_VERIFY_FSA], [], [With verify FSA support])
+    fi],
+   [AC_DEFINE([_VERIFY_FSA], [], [With verify FSA support])])
+
+AC_ARG_ENABLE(auto_create_config,
+   [  --disable-auto_create_config    disable automatic creation of configuration],
+   [ac_cv_auto_create_config="no"],
+   [AC_DEFINE([WITH_AUTO_CONFIG], [], [With automatic creation of configuration])
+    ac_cv_auto_create_config="yes"])
+
+AC_ARG_ENABLE(afd_ctrl_proc_check,
+   [  --disable-afd_ctrl_proc_check   disable afd_ctrl dialog checking for main AFD process],
+   [ac_cv_afd_ctrl_proc_check="no"],
+   [AC_DEFINE([AFD_CTRL_PROC_CHECK], [], [With afd_ctrl dialog checking for main AFD process])
+    ac_cv_afd_ctrl_proc_check="yes"])
+
+AC_ARG_ENABLE(setuid_progs,
+   [  --enable-setuid_progs           enable setuid flag when installing],
+   [ac_cv_setuid_progs="$enableval"
+    AC_DEFINE([WITH_SETUID_PROGS], [], [Set some programms setuid.])
+    AM_CONDITIONAL(WITH_SETUID, true)],
+   [ac_cv_setuid_progs="no"
+    AM_CONDITIONAL(WITH_SETUID, false)])
+
+AC_ARG_ENABLE(ftp_reuse_data_port,
+   [  --enable-ftp_reuse_data_port    enable reusing FTP data port],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([FTP_REUSE_DATA_PORT], [], [With reusing FTP data port])
+   fi])
+
+AC_ARG_ENABLE(ms_error_workaround,
+   [  --enable-ms_error_workaround    enable workaround for MS FTP bug],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([WITH_MS_ERROR_WORKAROUND], [], [With MS FTP error workaround])
+   fi])
+
+AC_ARG_ENABLE(group_can_write,
+   [  --enable-group_can_write        allow group write access],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([GROUP_CAN_WRITE], [], [Allow group write access])
+   fi])
+
+AC_ARG_ENABLE(lockdebug,
+   [  --enable-lockdebug              enable debug messages of locking],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([LOCK_DEBUG], [], [With debug messages of locking])
+   fi])
+
+AC_ARG_ENABLE(readyfile,
+   [  --enable-readyfile              enable readyfile support],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([WITH_READY_FILES], [], [With FSS-type ready files])
+   fi])
+
+AC_ARG_ENABLE(map_support,
+   [  --enable-map_support            enable MAP support],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([_WITH_MAP_SUPPORT], [], [With MAP support])
+      AM_CONDITIONAL(WITH_MAP_SUPPORT, true)
+   else
+      AM_CONDITIONAL(WITH_MAP_SUPPORT, false)
+   fi],
+   [AM_CONDITIONAL(WITH_MAP_SUPPORT, false)])
+
+AC_ARG_WITH(map-libraries,
+   [  --with-map-libraries=DIR        location where MAP libraries are],
+   afd_map_lib_dir="$withval")
+if test "x$afd_map_lib_dir" = "x"
+then
+   AFD_MAP_LIBS=""
+else
+   AFD_MAP_LIBS="-L$afd_map_lib_dir -lmfse2 -lz -lfaxe -lgeo"
+fi
+AC_SUBST(AFD_MAP_LIBS)
+
+AC_ARG_ENABLE(passwd_in_msg,
+   [  --enable-passwd_in_msg          enable password in message],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([WITH_PASSWD_IN_MSG], [], [With password in message])
+   fi])
+
+AC_ARG_ENABLE(eumetsat,
+   [  --enable-eumetsat               enable eumetsat header support],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([WITH_EUMETSAT_HEADERS], [], [With eumetsat header support])
+      AM_CONDITIONAL(WITH_MISC_LIB, true)
+   else
+      AM_CONDITIONAL(WITH_MISC_LIB, false)
+   fi],
+   AM_CONDITIONAL(WITH_MISC_LIB, true))
+
+AC_ARG_ENABLE(ssl,
+   [  --enable-ssl                    enable TLS/SSL support],
+   [if test x$enableval != xno
+    then
+      if test x$enableval != xyes
+      then
+         ssl_all_roots=$enableval
+      else
+         ssl_all_roots="/usr/local/ssl /usr/lib/ssl /usr/ssl /usr/pkg /usr/local /usr /opt"
+      fi
+      with_ssl="yes"
+    fi])
+
+AC_ARG_WITH(ssl-includes,
+   [  --with-ssl-includes=DIR         location where TLS/SSL includes are],
+   ssl_include_dir="$withval")
+AC_ARG_WITH(ssl-libraries,
+   [  --with-ssl-libraries=DIR        location where TLS/SSL libraries are],
+   ssl_lib_dir="$withval")
+
+AC_ARG_ENABLE(editres,
+   [  --enable-editres                enable editres support],
+   [if test x$enableval = xyes; then
+      AC_DEFINE([WITH_EDITRES], [], [With editres support])
+   fi])
+
+AC_ARG_ENABLE(efence,
+   [  --enable-efence                 enable debugging with Electric Fence],
+   [ac_cv_efence="$enableval"],
+   [ac_cv_efence="no"])
+
+dnl **** Check if we should build with GUI and with which widget set.
+AC_ARG_WITH(gui,
+   [  --with-gui=GUI          Where GUI is either motif (default), gtk or none],
+   if test "x$with_gui" = xmotif || test "x$with_gui" = xgtk ; then
+      afd_gui="$with_gui"
+   else
+      afd_gui=
+   fi ,
+   afd_gui="motif")
+
+dnl **** check if we want to compile afd_mon only
+compile_afd_mon_only=false
+AC_ARG_ENABLE(compile_afd_mon_only,
+   [  --enable-compile_afd_mon_only   enable compiling of afd_mon only],
+   [case "${enableval}" in
+      yes) compile_afd_mon_only=true ;;
+      no)  compile_afd_mon_only=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-afd_mon) ;;
+   esac],[compile_afd_mon_only=false])
+AM_CONDITIONAL(WITH_AFD_MON_ONLY, $compile_afd_mon_only)
+
+dnl **** check if we want to use afd_mon
+afd_mon=false
+AC_ARG_ENABLE(afd_mon,
+   [  --enable-afd_mon                enable afd_mon support],
+   [case "${enableval}" in
+      yes) afd_mon=true ;;
+      no)  afd_mon=false;;
+      *) AC_MSG_ERROR(bad value ${enableval} for --enable-afd_mon) ;;
+   esac
+   ac_cv_afd_mon="$enableval"],[afd_mon=false;ac_cv_afd_mon="no"])
+AM_CONDITIONAL(WITH_AFD_MON, $afd_mon)
+
+dnl **** check if user wants to compile with debugging support
+AC_ARG_ENABLE(compiler_debug,
+   [  --enable-compiler-debug         turn on debugging],
+   [case "${enableval}" in
+     yes) compiler_debug=true ;;
+     no)  compiler_debug=false;;
+     *) AC_MSG_ERROR(bad value ${enableval} for --enable-compiler-debug) ;;
+   esac],[compiler_debug=false])
+
+dnl **** check if user wants to compile with compiler warnings
+AC_ARG_ENABLE(compiler_warn,
+   [  --enable-compiler-warn          turn on compiler warnings],
+   [case "${enableval}" in
+     yes) compiler_warn=true ;;
+     no)  compiler_warn=false;;
+     *) AC_MSG_ERROR(bad value ${enableval} for --enable-compiler-warn) ;;
+   esac],[compiler_warn=false])
+
+dnl **** check if user wants to compile with optimization support
+AC_ARG_ENABLE(compiler_optimizations,
+   [  --enable-compiler-optimizations Enable optimization of the binaries],
+   [case "$enableval" in
+     yes) compiler_optimizations=true ;;
+     no)  compiler_optimizations=false;;
+     *) AC_MSG_ERROR(bad value ${enableval} for --enable-compiler-optimizations) ;;
+   esac],[compiler_optimizations=false])
+
+dnl **** check if user wants to compile with 64-bit support
+AC_ARG_ENABLE(compile_64_bit,
+   [  --enable-compile-64-bit         Enable compiling 64-bit binaries],
+   [case "$enableval" in
+     yes) compile_64_bit=true ;;
+     no)  compile_64_bit=false;;
+     *) AC_MSG_ERROR(bad value ${enableval} for --enable-compile-64-bit) ;;
+   esac],[compile_64_bit=false])
+
+dnl **** check where init/rc directory is, taken from heartbeat
+AC_MSG_CHECKING(which init (rc) directory to use)
+INITDIR=""
+for initdir in /etc/init.d /etc/rc.d/init.d /sbin/init.d        \
+         /usr/local/etc/rc.d /etc/rc.d
+do
+   if test -d $initdir
+   then
+      INITDIR=$initdir
+      AC_MSG_RESULT($INITDIR);
+      break
+   fi
+done
+AC_ARG_WITH(initdir,
+   [  --with-initdir=DIR      directroy for init (rc) scripts [${INITDIR}]],
+   [ if test x"$withval" = xprefix; then INITDIR=${prefix}; else
+         INITDIR="$withval"; fi ])
+AC_SUBST(INITDIR)
+AC_MSG_CHECKING(which sysconfig directory to use)
+SYSCONFIGDIR=""
+for sysconfigdir in /etc/sysconfig ${prefix}/etc
+do
+   if test -d $sysconfigdir
+   then
+      SYSCONFIGDIR=$sysconfigdir
+      AC_MSG_RESULT($SYSCONFIGDIR);
+      break
+   fi
+done
+AC_ARG_WITH(sysconfigdir,
+   [  --with-sysconfigdir=DIR directory for afd users initialized by init script [${SYSCONFIGDIR}]],
+   [ if test x"$withval" = xprefix; then SYSCONFIGDIR=${prefix}; else
+         SYSCONFIGDIR="$withval"; fi ])
+AC_SUBST(SYSCONFIGDIR)
+
+dnl **** check under which user to install
+BINARY_OWNER="root"
+AC_ARG_WITH(rpm-binary-owner,
+            [  --with-rpm-binary-owner=BINARY_OWNER
+                                  BINARY_OWNER who owns the RPM binaries. [default=root]  ],
+            [ BINARY_OWNER="$withval" ],
+            [ BINARY_OWNER="root" ],
+           )
+AC_SUBST(BINARY_OWNER)
+AC_ARG_WITH(rpm-binary-group,
+            [  --with-rpm-binary-group=BINARY_GROUP
+                                  BINARY_GROUP who owns the RPM binaries. [default=BINARY_OWNER]  ],
+            [ BINARY_GROUP="$withval" ],
+            [ BINARY_GROUP=$BINARY_OWNER ],
+           )
+AC_SUBST(BINARY_GROUP)
+
+dnl Check for host type
+AC_CANONICAL_HOST
+
+dnl Checks for programs.
+AC_PROG_INSTALL
+AC_PROG_CC
+AC_PROG_RANLIB
+
+case "${host_os}"
+in
+   aix*)     if test "${compile_64_bit}" = "true"
+             then
+                if test "x${GCC}" = "xyes"
+                then
+                   OS_FLAG="-m64"
+                else
+                   OS_FLAG="-q64"
+                fi
+             else
+                OS_FLAG=""
+             fi
+             ;;
+   bsdi*)    OS_FLAG="" ;;
+   cygwin*)  OS_FLAG="-D_CYGWIN" ;;
+   freebsd*) OS_FLAG="-DFREEBSD" ;;
+   hpux*)    OS_FLAG="-D_HPUX" ;;
+   irix*)    if test "x$afd_map_lib_dir" = "x"
+             then
+                if test "${compile_64_bit}" = "true"
+                then
+                   if test "x${GCC}" = "xyes"
+                   then
+                      OS_FLAG="-m64 -DMMAP_KILLER -DIRIX"
+                   else
+                      OS_FLAG="-64 -DMMAP_KILLER -DIRIX"
+                   fi
+                else
+                   OS_FLAG="-DMMAP_KILLER -DIRIX"
+                fi
+             else
+                dnl **** MAP libs are only available in 32 Bit
+                OS_FLAG="-32 -DMMAP_KILLER -DIRIX"
+             fi
+             AC_DEFINE([my_socklen_t], [int], [Set argument of getsockname and other functions]) ;;
+   linux*)   if test "${compile_64_bit}" = "true"
+             then
+                OS_FLAG="-m64 -DLINUX"
+             else
+                OS_FLAG="-DLINUX"
+             fi
+             ;;
+   netbsd*)  OS_FLAG="" ;;
+   sco*)     OS_FLAG="-D_SCO" ;;
+   solaris*) OS_FLAG="-D_SUN" ;;
+   sunos*)   OS_FLAG="-D_SUN" ;;
+   *)        OS_FLAG="" ;;
+esac
+
+if test "${compiler_optimizations}" = "true"
+then
+   if test "x${GCC}" = "xyes"
+   then
+     OPTIMIZE_FLAG="-O2"
+
+     dnl **** some arch-specific optimizations/settings for gcc
+     case "${host_cpu}"
+     in
+        i486*) OPTIMIZE_FLAG="${OPTIMIZE_FLAG} -m486";;
+        i586*) OPTIMIZE_FLAG="${OPTIMIZE_FLAG} -mcpu=pentium -mpentium";;
+        i686*) OPTIMIZE_FLAG="${OPTIMIZE_FLAG} -mcpu=pentiumpro -mpentiumpro";;
+     esac
+   else
+     case "${host}" in
+        alpha*-dec-osf4.*)       OPTIMIZE_FLAG="-O2" ;;
+        hppa*-hp-hpux*)          OPTIMIZE_FLAG="-O" ;;
+        mips-sgi-irix6.[[4-9]]*) OPTIMIZE_FLAG="-O2 -OPT:Olimit=0"
+                                 CXXFLAGS="$CXXFLAGS -LANG:std"
+                                 CXXCPP="$CXXCPP -LANG:std" ;;
+        mips-sgi-irix*)          OPTIMIZE_FLAG="-O2 -Olimit 3500" ;;
+        rs6000-ibm-aix*)         OPTIMIZE_FLAG="-O2" ;;
+        *)                       OPTIMIZE_FLAG="-O" ;;
+     esac
+   fi
+else
+   OPTIMIZE_FLAG=""
+   if test "x${GCC}" != "xyes"
+   then
+      case "${host}" in
+        mips-sgi-irix6.[[4-9]]*) CXXFLAGS="$CXXFLAGS -LANG:std"
+                                 CXXCPP="$CXXCPP -LANG:std" ;;
+      esac
+   fi
+fi
+
+if test "${compiler_debug}" = "true"
+then
+   if test "x${GCC}" = "xyes"
+   then
+     DEBUG_FLAG="-ggdb3"
+   else
+     case "${host}" in
+        alpha*-dec-osf4.*)       DEBUG_FLAG="-g3" ;;
+        hppa*-hp-hpux*)          DEBUG_FLAG="-g" ;;
+        mips-sgi-irix6.[[4-9]]*) DEBUG_FLAG="-g3" ;;
+        mips-sgi-irix*)          DEBUG_FLAG="-g" ;;
+        rs6000-ibm-aix*)         DEBUG_FLAG="-g" ;;
+        *)                       DEBUG_FLAG="-g" ;;
+     esac
+   fi
+else
+   DEBUG_FLAG=""
+fi
+
+if test "${compiler_optimizations}" = "true" || test "${compiler_debug}" = "true"
+then
+   CFLAGS="$DEBUG_FLAG $OPTIMIZE_FLAG $OS_FLAG"
+else
+   CFLAGS="$CFLAGS $OS_FLAG"
+fi
+if test "${compiler_warn}" = "true"
+then
+   VL_PROG_CC_WARNINGS
+fi
+
+dnl Some programs with suid
+if test "$ac_cv_setuid_progs" = yes
+then
+   AC_DEFINE([WITH_SETUID], [], [Some programs with setuid])
+fi
+
+dnl Large file support
+if test "$ac_cv_largefile" = yes
+then
+   AC_SYS_LARGEFILE
+fi
+
+dnl EXTRA_SOCKET_LIBS=""
+dnl AC_CHECK_LIB(socket, socket, EXTRA_SOCKET_LIBS="-lsocket ")
+dnl AC_CHECK_LIB(nsl, gethostbyname, EXTRA_SOCKET_LIBS="$EXTRA_SOCKET_LIBS -lnsl ")
+dnl AC_SUBST(EXTRA_SOCKET_LIBS)
+ETR_SOCKET_NSL
+
+if test "x${with_ssl}" = "xyes"
+then
+   AC_MSG_CHECKING(for TLS/SSL)
+   if test "x$ssl_include_dir" = "x" || test "x$ssl_lib_dir" = "x"
+   then
+      ssl_dir=""
+
+      dnl
+      dnl Updated RedHat 8 + 9 need the extra pkg-config check!
+      dnl
+      AC_PATH_PROG(PKGCONFIG, pkg-config)dnl
+      if test -n "$PKGCONFIG"
+      then
+         $PKGCONFIG openssl
+         ret=$?
+      else
+         ret=1
+      fi
+      if test $ret -eq 0
+      then
+         AFD_SSL_INCLUDES="`$PKGCONFIG --cflags-only-I openssl`"
+         AFD_SSL_LIBS="`$PKGCONFIG --libs openssl`"
+      else
+         for dir in $ssl_all_roots
+         do
+            if test -f "$dir/include/openssl/ssl.h" || test -f "$dir/include/ssl.h"
+            then
+               ssl_dir="$dir"
+               break
+            fi
+         done
+         if test "x$ssl_include_dir" = "x"
+         then
+            AFD_SSL_INCLUDES="-I$ssl_dir/include"
+         else
+            AFD_SSL_INCLUDES="-I$ssl_include_dir"
+         fi
+         if test "x$ssl_lib_dir" = "x"
+         then
+            AFD_SSL_LIBS="-L$ssl_dir -lssl -lcrypto"
+         else
+            AFD_SSL_LIBS="-L$ssl_lib_dir -lssl -lcrypto"
+         fi
+      fi
+   else
+      AFD_SSL_INCLUDES="-I$ssl_include_dir"
+      AFD_SSL_LIBS="-L$ssl_lib_dir -lssl -lcrypto"
+   fi
+   if test "x$AFD_SSL_INCLUDES" != "x"
+   then
+      AC_MSG_RESULT(yes)
+      AC_SUBST(AFD_SSL_INCLUDES)
+      AC_SUBST(AFD_SSL_LIBS)
+      AC_DEFINE([WITH_SSL], [], [with TLS/SSL support])
+
+      dnl Version check taken from openssh package and modified it.
+      savedLIBS="$LIBS"
+      savedCPPFLAGS="$CPPFLAGS"
+      LIBS="$LIBS $AFD_SSL_LIBS"
+      CPPFLAGS="$CPPFLAGS $AFD_SSL_INCLUDES"
+      AC_MSG_CHECKING([correct OpenSSL version])
+      AC_TRY_RUN([
+                    #include <stdio.h>
+                    #include <string.h>
+                    #include <openssl/opensslv.h>
+                    #include <openssl/crypto.h>
+                    #include <openssl/ssl.h>
+                    #define DATA "conftest.ssllibver"
+                    int main(void)
+                    {
+                       FILE *fd;
+
+                       if ((fd = fopen(DATA,"w")) != NULL)
+                       {
+                          if (fprintf(fd ,"%x (%s)\n", SSLeay(), SSLeay_version(SSLEAY_VERSION)) >= 0)
+                          {
+                             SSL_CTX *ssl_ctx;
+
+                             SSLeay_add_ssl_algorithms();
+                             ssl_ctx=(SSL_CTX *)SSL_CTX_new(SSLv23_method());
+                             SSL_CTX_set_options(ssl_ctx, SSL_OP_ALL);
+                             SSL_CTX_set_mode(ssl_ctx, SSL_MODE_AUTO_RETRY);
+                             exit(0);
+                          }
+                       }
+                       exit(1);
+                    }],
+                 [ssl_library_ver=`cat conftest.ssllibver`
+                  AC_MSG_RESULT(yes $ssl_library_ver)],
+                 [AC_MSG_RESULT(incorrect not found)
+                  AC_MSG_ERROR(incorect OpenSSL library or not found.)])
+      LIBS="$savedLIBS"
+      CPPFLAGS="$savedCPPFLAGS"
+      if test "$REQUIRES" = ""
+      then
+         REQUIRES="openssl"
+      else
+         REQUIRES="`echo $REQUIRES`, openssl"
+      fi
+      if test "$BUILD_REQUIRES" = ""
+      then
+         BUILD_REQUIRES="openssl-devel"
+      else
+         BUILD_REQUIRES="`echo $BUILD_REQUIRES`, openssl-devel"
+      fi
+   else
+      AC_MSG_RESULT(no)
+   fi
+fi
+
+no_x=""
+AC_PATH_XTRA
+AC_MSG_CHECKING(whether Motif support is requested)
+if test "x$afd_gui" = "xmotif"
+then
+   compile_with_motif=true
+   AC_MSG_RESULT(yes)
+   if test "$no_x" = "yes"
+   then
+      echo
+      echo "X11 libraries or header files could not be found.  Please make"
+      echo "sure the X11 development package is installed on your system."
+      echo "If it is installed, try setting the include and library"
+      echo "paths with the --x-include and --x-libraries options of configure."
+      echo "Else you can compile AFD without any GUI by setting"
+      echo "--with-gui=none"
+      echo
+      echo "Aborting."
+      echo
+      exit 1
+   fi
+   AC_FIND_MOTIF
+   if test "$with_motif" = "no"
+   then
+      echo "Unable to find Motif."
+      exit 1
+   fi
+   AC_CHECK_MOTIF_VERSION
+   AC_MSG_CHECKING(whether Motif requires XPM)
+   case ${motif_library_ver}
+   in
+      2.*)
+         AC_MSG_RESULT(yes)
+         AC_FIND_XPM
+         if test x$no_xpm = xyes
+         then
+            echo "Unable to locate XPM, trying to continue."
+         fi
+         AFD_MOTIF_INCLUDES="$include_motif $X_CFLAGS $XPM_CFLAGS"
+         AFD_MOTIF_LIBS="$link_motif $X_LIBS -lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS $XPM_LIBS"
+         ;;
+      *)
+         AC_MSG_RESULT(no)
+         AFD_MOTIF_INCLUDES="$include_motif $X_CFLAGS"
+         AFD_MOTIF_LIBS="$link_motif $X_LIBS -lXt $X_PRE_LIBS -lX11 $X_EXTRA_LIBS"
+         ;;
+   esac
+   case "${host_os}"
+   in
+      aix*) 
+         AFD_XAW_LIBS="-lXaw -lXmu"
+         AFD_XAW_INCLUDES=""
+         ;;
+      linux*)
+         AFD_XAW_LIBS="-lXaw -lXmu"
+         AFD_XAW_INCLUDES=""
+         ;;
+      hpux*)
+         AFD_XAW_LIBS="-L/usr/contrib/X11R6/lib -lXaw -lXmu"
+         AFD_XAW_INCLUDES="-I/usr/contrib/X11R6/include"
+         ;;
+      *)
+         AFD_XAW_LIBS="-lXaw -lXmu"
+         AFD_XAW_INCLUDES=""
+         ;;
+   esac
+   GUIS_STRING="Motif"
+   if test "$REQUIRES" = ""
+   then
+      REQUIRES="openmotif"
+   else
+      REQUIRES="`echo $REQUIRES`, openmotif"
+   fi
+   if test "$BUILD_REQUIRES" = ""
+   then
+      BUILD_REQUIRES="openmotif-devel"
+   else
+      BUILD_REQUIRES="`echo $BUILD_REQUIRES`, openmotif-devel"
+   fi
+   AC_SUBST(AFD_MOTIF_INCLUDES)
+   AC_SUBST(AFD_MOTIF_LIBS)
+   AC_SUBST(AFD_XAW_INCLUDES)
+   AC_SUBST(AFD_XAW_LIBS)
+   AC_CHECK_LIB(m, sin, [AFD_MATH_LIB="-lm"], [AFD_MATH_LIB=""],)
+   AC_SUBST(AFD_MATH_LIB)
+else
+   GUIS_STRING="none"
+   compile_with_motif=false
+   AC_MSG_RESULT(no)
+fi
+AM_CONDITIONAL(HAVE_MOTIF, $compile_with_motif)
+
+if test "x$afd_gui" = "xgtk"
+then
+   compile_with_gtk=true
+   AFD_GTK_INCLUDES="$GTK_CFLAGS"
+   AFD_GTK_LIBS="$GTK_LIBS"
+   GUIS_STRING="$GUIS_STRING Gtk+"
+   AC_SUBST(AFD_GTK_INCLUDES)
+   AC_SUBST(AFD_GTK_LIBS)
+else
+   compile_with_gtk=false
+fi
+AM_CONDITIONAL(WITH_GTK, $compile_with_gtk)
+
+dnl Check if we want to build with Electric Fence
+if test "$ac_cv_efence" = yes
+then
+   AC_CHECK_LIB(efence, malloc)
+fi
+
+dnl Check if we want to install some binaries with setuid flag
+if test "$ac_cv_setuid_progs" = yes
+then
+   AM_CONDITIONAL(WITH_SETUID_PROGS, true)
+else
+   AM_CONDITIONAL(WITH_SETUID_PROGS, false)
+fi
+
+dnl Taken from heartbeat
+AC_PATH_PROGS(RPM, rpmbuild)
+if test x"${RPM}" = x""
+then
+    AC_PATH_PROGS(RPM, rpm)
+fi
+
+AC_PATH_PROGS(PING_CMD, ping)
+AC_PATH_PROGS(TRACEROUTE_CMD, traceroute)
+
+dnl The following are needed for generating the spec file.
+AC_SUBST(ac_configure_args)
+AC_SUBST(REQUIRES)
+AC_SUBST(BUILD_REQUIRES)
+
+
+AC_HEADER_DIRENT
+AC_HEADER_STDC
+AC_HEADER_SYS_WAIT
+AC_CHECK_HEADERS(fcntl.h limits.h sys/file.h sys/time.h unistd.h errno.h \
+                 sys/socket.h netdb.h arpa/inet.h arpa/telnet.h)
+
+dnl
+dnl FreeBSD and Darwin requires sys/param.h and in.h to compile test
+dnl netinet headers. This check was taken from the hearteat package.
+dnl
+AC_CHECK_HEADERS(sys/param.h)
+AC_CHECK_HEADERS(netinet/in.h)
+if test "$ac_cv_header_sys_param_h" -a "$ac_cv_header_netinet_in_h" = no
+then
+   AC_CHECK_HEADERS(netinet/ip.h)
+   AC_CHECK_HEADERS(netinet/in_systm.h)
+else
+   AC_CHECK_HEADERS(netinet/in_systm.h,[],[],
+                    [#include <sys/param.h>
+                     #include <netinet/in.h>])
+   if test "$ac_cv_header_in_systm_h" = no
+   then
+      AC_CHECK_HEADERS(netinet/ip.h,[],[],
+                       [#include <sys/param.h>
+                        #include <netinet/in.h>])
+   else
+      AC_CHECK_HEADERS(netinet/ip.h,[],[],
+                       [#include <sys/param.h>
+                        #include <netinet/in_systm.h>
+                        #include <netinet/in.h>])
+   fi
+fi
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_UID_T
+AC_TYPE_MODE_T
+AC_TYPE_OFF_T
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+AC_HEADER_TIME
+AC_STRUCT_TM
+AC_CHECK_SIZEOF(off_t)
+AC_CHECK_SIZEOF(pid_t)
+AC_CHECK_SIZEOF(time_t)
+AC_CHECK_SIZEOF(ssize_t)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+TYPE_SOCKLEN_T
+
+dnl On irix some arguments which are usually socklen_t are int.
+case "${host_os}"
+in
+   irix*)    AC_DEFINE([my_socklen_t], [int], [Set argument of getsockname and other functions]) ;;
+   *)        AC_DEFINE([my_socklen_t], [socklen_t], [Set argument of getsockname and other functions]) ;;
+esac
+
+dnl Checks for library functions.
+AC_FUNC_MEMCMP
+AC_FUNC_SETVBUF_REVERSED
+AC_TYPE_SIGNAL
+AC_FUNC_STRFTIME
+AC_FUNC_UTIME_NULL
+AC_FUNC_VPRINTF
+AC_CHECK_FUNC([eaccess],
+              [AM_CONDITIONAL(HAVE_EACCESS, true)
+               AC_DEFINE([HAVE_EACCESS], [], [With eaccess support])],
+              [AM_CONDITIONAL(HAVE_EACCESS, false)])
+AC_CHECK_FUNC([mmap],
+              [AM_CONDITIONAL(WITHOUT_MMAP, false)
+               AC_DEFINE([HAVE_MMAP], [], [With mmap support])],
+              [AM_CONDITIONAL(WITHOUT_MMAP, true)])
+AC_CHECK_FUNCS(gethostname memcpy mkdir mkfifo mktime rmdir select\
+               seteuid setreuid socket strerror strtod strtol strtoul)
+
+AC_CONFIG_FILES([Makefile
+src/Makefile
+src/common/Makefile
+src/misc/Makefile
+src/protocols/Makefile
+src/init_afd/Makefile
+src/amg/Makefile
+src/fd/Makefile
+src/log/Makefile
+src/archive_watch/Makefile
+src/statistics/Makefile
+src/tools/Makefile
+src/afd_mon/Makefile
+src/afdd/Makefile
+src/cmdline/Makefile
+src/test/Makefile
+src/test/filter/Makefile
+src/UI/Makefile
+src/UI/Gtk+/Makefile
+src/UI/Motif/Makefile
+src/UI/Motif/common/Makefile
+src/UI/Motif/afd_ctrl/Makefile
+src/UI/Motif/dir_ctrl/Makefile
+src/UI/Motif/afd_info/Makefile
+src/UI/Motif/dir_info/Makefile
+src/UI/Motif/afd_load/Makefile
+src/UI/Motif/edit_hc/Makefile
+src/UI/Motif/show_cmd/Makefile
+src/UI/Motif/show_log/Makefile
+src/UI/Motif/show_olog/Makefile
+src/UI/Motif/show_ilog/Makefile
+src/UI/Motif/show_dlog/Makefile
+src/UI/Motif/show_queue/Makefile
+src/UI/Motif/mon_ctrl/Makefile
+src/UI/Motif/mon_info/Makefile
+src/UI/Motif/view_dc/Makefile
+src/UI/Motif/xsend_file/Makefile
+src/UI/Motif/xshow_stat/Makefile
+scripts/Makefile
+scripts/afd
+scripts/afd_auto_config
+scripts/afdalarm
+scripts/rafdd_cmd
+scripts/rafdd_cmd_ssh
+scripts/rmon_ctrl
+scripts/rmon_ctrl_ssh
+etc/Makefile
+etc/AFD_CONFIG.sample
+etc/afd.users.sample
+afd.spec])
+AC_OUTPUT
+
+
+echo ""
+echo "                          Configuration"
+echo ""
+echo "      Source code location           : ${srcdir}"
+echo "      Install path                   : ${prefix}/bin ${prefix}/sbin"
+echo "      AFD Version                    : ${VERSION}"
+echo "      Compiler                       : ${CC}"
+echo "      Compiler flags                 : ${CFLAGS}"
+echo "      GUI                            : ${GUIS_STRING}"
+if test "x${with_ssl}" = "xyes"
+then
+   echo "      With TLS/SSL support           : yes"
+else
+   echo "      With TLS/SSL support           : no"
+fi
+echo "      Logs                           : ${ac_cv_input_log}${ac_cv_output_log}${ac_cv_delete_log}${ac_cv_production_log}"
+echo "      With AFD monitor               : ${ac_cv_afd_mon}"
+echo "      With duplicate check support   : ${ac_cv_dupcheck_support}"
+echo "      With WMO socket support        : ${ac_cv_wmo_support}"
+echo "      With largefile support         : ${ac_cv_largefile}"
+echo "      Some binaries with setuid flag : ${ac_cv_setuid_progs}"
+echo "      Automatically create configs   : ${ac_cv_auto_create_config}"
+echo ""
+echo "------------- type make to compile -------------"

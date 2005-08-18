@@ -25,11 +25,6 @@ E: Herbert.Lepper@dwd.de
 D: Numerous bug fixes.
 S: Germany
 
-N: Frederic Olivie
-E: alf@makkinanews.co
-D: Made scp code work with SSH1 and SSH2 and other improvements.
-S:
-
 
 Many thanks also to the Deutscher Wetterdienst (German Weather Service) at
 Offenbach, who have permitted me to make this work available under the

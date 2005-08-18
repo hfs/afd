@@ -1,0 +1,46 @@
+dnl
+dnl
+dnl AC_CHECK_MOTIF_VERSION : determine if we have the correct Motif Version
+dnl
+AC_DEFUN([AC_CHECK_MOTIF_VERSION],
+[
+AC_MSG_CHECKING([for Motif version])
+savedLIBS="$LIBS"
+savedCPPFLAGS="$CPPFLAGS"
+LIBS="$LIBS $AFD_MOTIF_LIBS"
+CPPFLAGS="$CPPFLAGS $AFD_MOTIF_INCLUDES"
+AC_TRY_RUN([
+              #include <stdio.h>
+              #include <string.h>
+              #include "Xm/Xm.h"
+              #define DATA "conftest.motifver"
+              int main(void)
+              {
+                 FILE *fd;
+
+                 if ((fd = fopen(DATA, "w")) != NULL)
+                 {
+                    if (fprintf(fd , "%d.%d\n", XmVERSION, XmREVISION) >= 0)
+                    {
+                       return(0);
+                    }
+                 }
+                 return(1);
+              }],
+           [motif_library_ver=`cat conftest.motifver`],
+           [motif_library_ver=0.0])
+LIBS="$savedLIBS"
+CPPFLAGS="$savedCPPFLAGS"
+case "${motif_library_ver}"
+in
+   0.0)
+      AC_MSG_RESULT([Unable to determine version])
+      ;;
+   0.* | 1.0* | 1.1*)
+      AC_MSG_ERROR(Motif Version to old)
+      ;;
+   *)
+      AC_MSG_RESULT([${motif_library_ver}])
+      ;;
+esac
+])

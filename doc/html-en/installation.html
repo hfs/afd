@@ -1,0 +1,81 @@
+<html>
+<head>
+<title>AFD (installation.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center>Installing AFD</h1>
+<hr size=3 noshade>
+<p>
+Run ./configure to generate config.h and the various Makefiles.
+./configure --help gives a list of possible options with slightly
+longer descriptions in README.configure. Read this since here you
+can decide what parts of AFD you want to compile and how and where
+you want it to install the binaries.
+</p>
+<p>
+Here you need to decide where you want to install AFD and if you want other
+users to have access to your AFD. There are three different security
+models, the default is "single user" where only the user that has started
+the AFD may have access and may control it. "Group access" is where all
+members of the same group may see and control the AFD. To activate this
+configure must be called with --enable-group_can_write. The third model
+is "any user", where any user may see things and have access and
+can be activated with the --enable-setuid_progs. The access can be
+controlled on a much finer level when using the <a href="afd_users.html">
+afd.users</a> configuration file. The "any user" model together with
+afd.users will give you the best controll over who may do what, but be
+aware that some binaries will have the setuid bit flag set. So you should
+not use this when the binaries belong to root.
+</p>
+<p>
+Some systems require unusual options for compilation or linking that
+the `configure' script does not know about.  You can give `configure'
+initial values for variables by setting them in the environment.
+You can do that on the command line like this:
+</p>
+<pre>
+            ./configure CC=c89 CFLAGS=-O2 LIBS=-lposix
+</pre>
+<p>
+Before compiling you might want set some other preferences in src/afdsetup.h
+and/or src/init_afd/afddefs.h. But note, changing some values here might
+make this incompatible with a previous AFD version and AFD will no longer
+work when it is started. So best to leave these values as they are. If
+you do change them it's best to run the following command before starting
+AFD again:
+</p>
+<pre>
+            afd -i
+</pre>
+<p>
+This will initialize the internal database of AFD. After this it will be
+possible to run AFD with the new values.
+</p>
+<p>
+Now everything is setup for compiling, run the following command:
+</p>
+<pre>
+            make
+</pre>
+<p>
+This will take a while depending of what you included and how fast
+your system is. If this is succesful do a:
+</p>
+<pre>
+            make install
+</pre>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 2005 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 06.08.2005
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

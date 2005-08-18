@@ -1,0 +1,181 @@
+#
+# Configuration file for parameters that AFD reads when it is started.
+# The default values are, when the option is not set.
+# Note: The parameters must always start as the first character of
+#       a new line.
+#                                                                    
+ 
+##########################################################################
+# The port at which the TCP daemon of the AFD will listen.               #
+# Default: Disabled                                                      #
+##########################################################################
+#AFD_TCP_PORT                     4444
+
+##########################################################################
+# With the following entry it is possible to specify who may connect to  #
+# the above port. Multiple TRUSTED_REMOTE_IP entries are also possible.  #
+# Default: None                                                          #
+##########################################################################
+#TRUSTED_REMOTE_IP                *.dwd.de
+
+##########################################################################
+# The configuration file from where AFD will read it's configuration.    #
+# This option may be used more then once, making it possible to have     #
+# multiple DIR_CONFIGS.                                                  #
+# Default: $AFD_WORK_DIR/etc/DIR_CONFIG  	                         #
+##########################################################################
+#DIR_CONFIG_NAME                  /home/afd/AFD_DIR_CONFIG
+
+##########################################################################
+# Maximum number of times that the process inst_job may fork itself.     #
+# Default: 20                                                            #
+##########################################################################
+MAX_NO_OF_DIR_CHECKS             12
+
+##########################################################################
+# The maximum number of process that may be forked for one directory.    #
+# Default: 10                                                            #
+##########################################################################
+#MAX_PROCESS_PER_DIR              10
+
+##########################################################################
+# The rescan time of the user directories in the DIR_CONFIG file. Don't  #
+# pick a small value here if your system shows high system load when     #
+# working with files or directories (eg. fault tolerant systems).        #
+# This is also the interval time that the AMG checks if the DIR_CONFIG   #
+# or HOST_CONFIG file have been changed. The unit is second.             #
+# Default: 5                                                             #
+##########################################################################
+AMG_DIR_RESCAN_TIME              5
+
+##########################################################################
+# What to do with files that a certain age but cannot be transmited      #
+# because either there is no rule (Unknown), they are being queued by    #
+# AFD (Queued) or they are old locked files (Locked). By specifying      #
+# one of the above those files will be automatically removed by AFD      #
+# when DEFAULT_OLD_FILE_TIME value has been reached.                     #
+# Default: None                                                          #
+##########################################################################
+#DEFAULT_DELETE_FILES_FLAG        "Unknown Queued Locked"
+
+##########################################################################
+# When to delete Unknown, Queued or Locked files from one of AFD's input #
+# directories. The value is in hours.                                    #
+# Default: 24                                                            #
+##########################################################################
+#DEFAULT_OLD_FILE_TIME            24
+
+##########################################################################
+# The maximum number of simultaneous connections/transfers that the AFD  #
+# allows.                                                                #
+# Default: 50                                                            #
+##########################################################################
+MAX_CONNECTIONS                  80
+
+##########################################################################
+# The interval in second that the FD rescans remote directories for      #
+# files. Do not set this value to low.                                   #
+# Default: 60                                                            #
+##########################################################################
+#REMOTE_FILE_CHECK_INTERVAL       60
+
+##########################################################################
+# If this is set to YES and the target directory does not exist it will  #
+# be created automatically, unless the option do not create target dir   #
+# is set If it is set to NO it will not create the target directory.     #
+# With the option create target dir  this can be overriden.              #
+# Default: NO                                                            #
+##########################################################################
+#CREATE_TARGET_DIR                NO
+
+##########################################################################
+# Files older then the given seconds will be deleted by default, unless  #
+# the age-limit is specified under options, then this value will be      #
+# taken. A value of 0 will disable this, it is however still possible to #
+# set this value with the age-limit option in DIR_CONFIG.                #
+# Default: 0 (disabled)                                                  #
+##########################################################################
+#DEFAULT_AGE_LIMIT                0
+
+##########################################################################
+# The maximum number of files that are copied before they are send to    #
+# the FD.                                                                #
+# Default: 100                                                           #
+##########################################################################
+#MAX_COPIED_FILES                 100
+
+##########################################################################
+# The maximum size in Kilobytes that are copied before they are send     #
+# to the FD.                                                             #
+# Default: 102400                                                        #
+##########################################################################
+#MAX_COPIED_FILE_SIZE             102400
+
+##########################################################################
+# When AMG has collected MAX_COPIED_FILES, it will try to continue to    #
+# copy from this directory until it reaches ONE_DIR_COPY_TIMEOUT timeout.#
+# If you want to disable this option comment it out (NOT by setting it   #
+# to 0)                                                                  #
+# Default: 10                                                            #
+##########################################################################
+ONE_DIR_COPY_TIMEOUT             10
+
+##########################################################################
+# The permission of the source directories that found in the DIR_CONFIG  #
+# and created by AMG if they are not there.                              #
+# Default: 775                                                           #
+##########################################################################
+#CREATE_SOURCE_DIR_MODE           775
+
+##########################################################################
+# The number of old logfiles that AFD keeps before they are deleted.     #
+# Default SYSTEM_LOG        : 4                                          #
+# Default RECEIVE_LOG       : 7                                          #
+# Default TRANSFER_LOG      : 7                                          #
+# Default TRANS_DB_LOG      : 3                                          #
+# Default MON_SYS_LOG       : 4                                          #
+# Default MON_LOG           : 14                                         #
+# Default INPUT_LOG         : 7                                          #
+# Default PRODUCTION_LOG_LOG: 7                                          #
+# Default OUTPUT_LOG        : 7                                          #
+# Default ELETE_LOG         : 7                                          #
+##########################################################################
+#MAX_SYSTEM_LOG_FILES             4
+#MAX_RECEIVE_LOG_FILES            7
+#MAX_TRANSFER_LOG_FILES           7
+#MAX_TRANS_DB_LOG_FILES           3
+#MAX_MON_SYS_LOG_FILES            4
+#MAX_MON_LOG_FILES                14
+#MAX_INPUT_LOG_FILES              7
+#MAX_PRODUCTION_LOG_FILES         7
+#MAX_OUTPUT_LOG_FILES             7
+#MAX_DELETE_LOG_FILES             7
+
+##########################################################################
+# Default printer command to print.                                      #
+##########################################################################
+DEFAULT_PRINTER_CMD              "lpr -P"
+
+##########################################################################
+# Default printer name.                                                  #
+##########################################################################
+#DEFAULT_PRINTER_NAME             a4_text
+
+##########################################################################
+# Default ping command.                                                  #
+##########################################################################
+PING_CMD                         "@PING_CMD@ -c 10"
+
+##########################################################################
+# Default traceroute command.                                            #
+##########################################################################
+TRACEROUTE_CMD                   @TRACEROUTE_CMD@
+
+##########################################################################
+# The FAKE_USER option allows the administrator to allow certain users   #
+# to take up another identity, even if they do not exist on the system.  #
+# This user will then be used to look up the permissions in the afd.users#
+# file. See documentation for more details.                              #
+# Default: None                                                          #
+##########################################################################
+#FAKE_USER                        afd->operator

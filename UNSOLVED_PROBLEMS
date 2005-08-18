@@ -1,7 +1,0 @@
-(in no particular order)
-
-- When updating the DIR_CONFIG database file and we have error messages
-  these messages are NOT updated!
-
-- If the LOCKFILE option is set and two or more process have finished
-  transfering their files, which process will remove the LOCKFILE?

@@ -1,0 +1,244 @@
+<html>
+<head>
+<title>HOST_CONFIG (host_config.html)</title>
+</head>
+<body bgcolor="#F0ECD6">
+<h1 align=center><a name="host_config">The HOST_CONFIG file</a></h1>
+<hr size=3 noshade>
+<p>
+The second configuration file for the AFD is used to do a configuration
+by host name. There can be as many entries as you want and it must
+not always have a corresponding host name in the DIR_CONFIG file or
+visa versa. This file consists of a table with 17 entries for each
+host. See below for a description of each entry.
+</p>
+<pre>
+  AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL
+  |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   |
+  |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +--&gt; TTL
+  |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +------&gt; Transfer rate limit
+  |   |   |   |  |  |  |  |  |  |   |  |  |  |  +----------&gt; Special flag
+  |   |   |   |  |  |  |  |  |  |   |  |  |  +-------------&gt; Host status
+  |   |   |   |  |  |  |  |  |  |   |  |  +----------------&gt; Number of no bursts
+  |   |   |   |  |  |  |  |  |  |   |  +-------------------&gt; Transfer timeout
+  |   |   |   |  |  |  |  |  |  |   +----------------------&gt; File size offset
+  |   |   |   |  |  |  |  |  |  +--------------------------&gt; Successful retries
+  |   |   |   |  |  |  |  |  +-----------------------------&gt; Transfer blocksize
+  |   |   |   |  |  |  |  +--------------------------------&gt; Retry interval
+  |   |   |   |  |  |  +-----------------------------------&gt; Max. errors
+  |   |   |   |  |  +--------------------------------------&gt; Allowed transfers
+  |   |   |   |  +-----------------------------------------&gt; Proxy name
+  |   |   |   +--------------------------------------------&gt; Host toggle
+  |   |   +------------------------------------------------&gt; Real hostname 2
+  |   +----------------------------------------------------&gt; Real hostname 1
+  +--------------------------------------------------------&gt; Alias hostname
+</pre>
+<table border>
+<tr>
+   <th valign=top><a name="alias_hostname">Alias hostname</a></th>
+   <td>The alias host name. This is the host name that is being displayed
+       in the afd_ctrl window and is used in the log files. If a secondary
+       host can be specified, ignore the toggling characters, ie. when
+       the host name in the DIR_CONFIG file is specified as 'host{12}'
+       only state 'host' as host name. The host name may only be 8
+       (MAX_HOSTNAME_LENGTH) characters long. If this is to small
+       change MAX_HOSTNAME_LENGTH to a larger value and recompile AFD.
+       Before you startup AFD with the new values you need to run 'afd -i'
+       to initialize internale AFD structures.</td>
+</tr>
+<tr>
+   <th valign=top><a name="real_hostname_1">Real hostname 1</a></th>
+   <td>The real host name or IP number of this host. If there is a
+       secondary host this will be the primary host, ie. if auto toggle
+       is set it will always try to switch back to this address.</td>
+</tr>
+<tr>
+   <th valign=top><a name="real_hostname_2">Real hostname 2</a></th>
+   <td>The real host name or IP number of the secondary host. If there
+       is no secondary host just don't enter anything.</td>
+</tr>
+<tr>
+   <th valign=top><a name="host_toggle">Host toggle</a></th>
+   <td>Host switching information. This string holds the toggling
+       character to be displayed for the primary and secondary host.
+       The two characters must be put in either curly brackets {} for
+       automatic host switching or square brackets [] host switching
+       by the user.</td>
+</tr>
+<tr>
+   <th valign=top><a name="proxy_name">Proxy name</a></th>
+   <td>If remote server is a proxy, enter the rule on how to
+       enter this proxy here. Currently you can only specify the
+       order of the user name and the password. To enter the
+       user name just enter $U&lt;user name&gt; and the password
+       is entered with $P&lt;password&gt;. You may specify as
+       many user and password elments as you want, each one must
+       however be separated by a ;. If you only put a $U followed
+       directly by a ; it will take the user name from the recipient
+       entry. The same goes for the password. If the remote server
+       requires the ACCT (account) directive instead of the USER
+       to enter the login name you may also use $A instead of $U.</td>
+</tr>
+<tr>
+   <th valign=top><a name="allowed_transfers">Allowed Transfers</a></th>
+   <td>The maximum number of parallel transfers for this host. On very
+       slow connection it is best to allow just one. The default here is
+       two.</td>
+</tr>
+<tr>
+   <th valign=top><a name="max_errors">Max. Errors</a></th>
+   <td>If max. errors is reached the destination identifier turns 'red'
+       and the queue of this host will be paused.</td>
+</tr>
+<tr>
+   <th valign=top><a name="retry_interval">Retry Interval</a></th>
+   <td>If an error occurs, this is the delay (in seconds) before another
+       transfer is initiated.</td>
+</tr>
+<tr>
+   <th valign=top><a name="transfer_block_size">Transfer Block Size</a></th>
+   <td>The size of the blocks being used to send files to the remote host
+       (in Bytes). Maximum value is 65536 and minimum is 256. Default
+       value is 4096 (DEFAULT_TRANSFER_BLOCKSIZE).</td>
+</tr>
+<tr>
+   <th valign=top><a name="sucessful_retries">Successful Retries</a></th>
+   <td>This is the number of sucessful retries to the secondary host
+       before it will try to send to the original host to see if it
+       has become available again. If a value of less then one is specified
+       it will NOT try to go back to the original host. It will from
+       then on always send to the secondary host.</td>
+</tr>
+<tr>
+   <th valign=top><a name="file_size_offset">File Size Offset</a></th>
+   <td>When transmitting large files and the transfer gets interrupted, the
+       AFD can append a file on the remote site. For this it needs to know
+       the file size on the remote site. And to get the size it does a dir
+       'filename' at the remote site. Due to different replies of the FTP
+       servers, the position of the file size is needed. You can easily
+       determine this value simply doing an FTP to the remote site and a
+       dir and count the spaces to the file size. For example:
+       <pre>
+     -rw-r--r--   1 afd      mts-soft   14971 Jan  3 17:16
+               ^^^ ^   ^^^^^^        ^^^
+                |  |     |            |
+                |  |     |            |
+                1  2     3            4
+       </pre>
+       i.e. the file size offset is 4. Or if the remote site supports
+       the SIZE command you can select -2. Then the remote site will
+       tell AFD what the current size is. This seems to be also much
+       more reliable.</td>
+</tr>
+<tr>
+   <th valign=top><a name="transfer_timeout">Transfer Timeout</a></th>
+   <td>The time (in seconds) how long the AFD should wait for a reply from
+       the remote site (default 120).</td>
+</tr>
+<tr>
+   <th valign=top><a name="number_of_no_burst">Number of no bursts</a></th>
+   <td>This option applies only to FTP transfers. A burst is when a new job
+       is appended to a transferring job. It can happen that jobs get
+       constantly appended while other jobs with a higher priority have
+       to wait. Therefore it is possible to state the number of connections
+       that may NOT burst.</td>
+</tr>
+<tr>
+   <th valign=top><a name="host_status">Host status</a></th>
+   <td>This indicates the status of the host, currently only bits number
+       1, 2, 6 and 7 can be set. The meaning is as follows:
+       <table border>
+       <tr>
+          <th>Bit number</th>
+          <th>Integer value</th>
+          <th>What it does</th>
+       </tr>
+       <tr>
+          <td align=center>1</td>
+          <td align=center>1</td>
+          <td>If set transfer is stopped for this host.</td>
+       </tr>
+       <tr>
+          <td align=center>2</td>
+          <td align=center>2</td>
+          <td>If set transfer is stopped for this host.</td>
+       </tr>
+       <tr>
+          <td align=center>6</td>
+          <td align=center>32</td>
+          <td>If set transfer is stopped for this host.</td>
+       </tr>
+       <tr>
+          <td align=center>7</td>
+          <td align=center>64</td>
+          <td>If set and host switching is used this tells that
+              host two is active.</td>
+       </tr>
+       </table>
+       The default is zero.</td>
+</tr>
+<tr>
+   <th valign=top><a name="special_flag">Special flag</a></th>
+   <td>To set some protocol (currently only for FTP) specific features for
+       this host. The following bits can be set:
+       <table border>
+       <tr>
+          <th>Bit number</th>
+          <th>Integer value</th>
+          <th>What it does</th>
+       </tr>
+       <tr>
+          <td align=center>11</td>
+          <td align=center>1024</td>
+          <td>Sets FTP passive mode.</td>
+       </tr>
+       <tr>
+          <td align=center>12</td>
+          <td align=center>2048</td>
+          <td>Set FTP idle time to <a href="#transfer_timeout">
+              transfer timeout</a>.</td>
+       </tr>
+       <tr>
+          <td align=center>13</td>
+          <td align=center>4096</td>
+          <td>Send STAT command to keep control connection alive.</td>
+       </tr>
+       <tr>
+          <td align=center>14</td>
+          <td align=center>8192</td>
+          <td>Combine RNFR and RNTO to one command.</td>
+       </tr>
+       <tr>
+          <td align=center>15</td>
+          <td align=center>16384</td>
+          <td>Do not do a cd, always use absolute path.</td>
+       </tr>
+       </table>
+       The default is zero.</td>
+</tr>
+<tr>
+   <th valign=top><a name="transfer_rate_limit">Transfer rate limit</a></th>
+   <td>The maximum number of kilobytes that may be transfered per second.
+       This option does nothing for the scheme file.</td>
+</tr>
+<tr>
+   <th valign=top><a name="ttl">TTL</a></th>
+   <td>The time-to-live for outgoing multicasts. Currently this is not
+       used.</td>
+</tr>
+</table>
+<hr size=3 noshade>
+<table width=100%>
+<tr>
+   <td width=90%><small><address>
+   Copyright &copy; 1997 - 2005 by H.Kiehl<br>
+   <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
+   Last updated: 04.04.2005
+   </address></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
+   <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
+   <!-- Insert site specific logo -->
+</tr>
+</table>
+</body>
+</html>

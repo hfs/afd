@@ -1,10 +1,4 @@
 
 
-Bug   : When switching automatically back to the original host
-        this is sometimes done twice.
-Reason: Unknown
-
-Bug   : The file counter (fc) an and the file size (fs) are not set
-        correctly during a burst.
-Reason: Unknown
-
+Problem: If the LOCKFILE option is set and two or more process have finished
+         transfering their files, which process will remove the LOCKFILE?
