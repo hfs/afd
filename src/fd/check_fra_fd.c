@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,8 @@ DESCR__S_M3
  ** HISTORY
  **   23.08.2000 H.Kiehl Created
  **   22.07.2002 H.Kiehl Consider the case when only dir_alias changes.
+ **   21.09.2005 H.Kiehl Update qb_pos in struct rql when we remove a
+ **                      message from queue.
  **
  */
 DESCR__E_M3
@@ -58,6 +60,7 @@ DESCR__E_M3
 #include <unistd.h>                      /* unlink()                     */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>                    /* waitpid()                    */
 #include <signal.h>                      /* kill()                       */
 #ifdef HAVE_MMAP
 #include <sys/mman.h>                    /* munmap()                     */
@@ -67,6 +70,7 @@ DESCR__E_M3
 
 /* Global variables */
 extern int                        fra_id,
+                                  max_connections,
                                   *no_msg_queued,
                                   no_of_retrieves,
                                   no_of_dirs,
@@ -75,8 +79,11 @@ extern int                        fra_id,
 extern off_t                      fra_size;
 #endif
 extern char                       *p_work_dir;
+extern struct connection          *connection;
 extern struct fileretrieve_status *fra;
+extern struct filetransfer_status *fsa;
 extern struct queue_buf           *qb;
+extern struct afd_status          *p_afd_status;
 
 /* Local function prototypes. */
 static int                        get_url_pos(char *, char *, int *);
@@ -130,7 +137,8 @@ check_fra_fd(void)
                      exit(INCORRECT);
                   }
                }
-               (void)strcpy(rql[no_remote_queued].dir_alias, fra[qb[i].pos].dir_alias);
+               (void)strcpy(rql[no_remote_queued].dir_alias,
+                            fra[qb[i].pos].dir_alias);
                rql[no_remote_queued].qb_pos = i;
                no_remote_queued++;
             }
@@ -242,6 +250,8 @@ check_fra_fd(void)
                   {
                      if (CHECK_STRCMP(ord[i].dir_alias, rql[j].dir_alias) == 0)
                      {
+                        int k;
+
                         if (qb[rql[j].qb_pos].pid > 0)
                         {
                            if (kill(qb[rql[j].qb_pos].pid, SIGKILL) < 0)
@@ -254,11 +264,88 @@ check_fra_fd(void)
                                             strerror(errno));
                               }
                            }
+                           else
+                           {
+                              int ret,
+                                  status;
+
+                              /* Catch the zombie! */
+                              if ((ret = waitpid(qb[rql[j].qb_pos].pid, &status,
+                                                 0)) == qb[rql[j].qb_pos].pid)
+                              {
+                                 int m;
+
+                                 for (m = 0; m < max_connections; m++)
+                                 {
+                                    if (connection[m].pid == qb[rql[j].qb_pos].pid)
+                                    {
+                                       fsa[connection[m].fsa_pos].active_transfers -= 1;
+                                       if (fsa[connection[m].fsa_pos].active_transfers < 0)
+                                       {
+                                          fsa[connection[m].fsa_pos].active_transfers = 0;
+                                          fsa[connection[m].fsa_pos].trl_per_process = fsa[connection[m].fsa_pos].transfer_rate_limit;
+                                          fsa[connection[m].fsa_pos].mc_ctrl_per_process = fsa[connection[m].fsa_pos].mc_ct_rate_limit;
+                                       }
+                                       else
+                                       {
+                                          if (fsa[connection[m].fsa_pos].active_transfers > 1)
+                                          {
+                                             fsa[connection[m].fsa_pos].trl_per_process = fsa[connection[m].fsa_pos].transfer_rate_limit /
+                                                                                          fsa[connection[m].fsa_pos].active_transfers;
+                                             fsa[connection[m].fsa_pos].mc_ctrl_per_process = fsa[connection[m].fsa_pos].mc_ct_rate_limit /
+                                                                                              fsa[connection[m].fsa_pos].active_transfers;
+                                          }
+                                          else
+                                          {
+                                             fsa[connection[m].fsa_pos].trl_per_process = fsa[connection[m].fsa_pos].transfer_rate_limit;
+                                             fsa[connection[m].fsa_pos].mc_ctrl_per_process = fsa[connection[m].fsa_pos].mc_ct_rate_limit;
+                                          }
+                                       }
+                                       fsa[connection[m].fsa_pos].job_status[connection[m].job_no].proc_id = -1;
+                                       fsa[connection[m].fsa_pos].job_status[connection[m].job_no].connect_status = DISCONNECT;
+#ifdef _WITH_BURST_2
+                                       fsa[connection[m].fsa_pos].job_status[connection[m].job_no].unique_name[0] = '\0';
+                                       fsa[connection[m].fsa_pos].job_status[connection[m].job_no].job_id = NO_ID;
+#endif
+                                       connection[m].pid = 0;
+                                       connection[m].hostname[0] = '\0';
+                                       connection[m].job_no = -1;
+                                       connection[m].fsa_pos = -1;
+                                       connection[m].fra_pos = -1;
+                                       connection[m].msg_name[0] = '\0';
+                                       break;
+                                    }
+                                 }
+                                 if (p_afd_status->no_of_transfers > 0)
+                                 {
+                                    p_afd_status->no_of_transfers--;
+                                 }
+                              }
+                              else if (ret == -1)
+                                   {
+                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                 "waitpid() error [%d] : %s",
+                                                 qb[rql[j].qb_pos].pid,
+                                                 strerror(errno));
+                                   }
+                           }
                         }
                         remove_msg(rql[j].qb_pos);
                         system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                    "Removed message for retrieving directory %s from queue.",
                                    rql[j].dir_alias);
+
+                        /*
+                         * If we remove a message from queue, we must update
+                         * qb_pos in struct rql!
+                         */
+                        for (k = 0; k < no_remote_queued; k++)
+                        {
+                           if (rql[k].qb_pos > rql[j].qb_pos)
+                           {
+                              rql[k].qb_pos -= 1;
+                           }
+                        }
                      }
                   }
                }

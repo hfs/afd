@@ -1,6 +1,6 @@
 /*
  *  draw_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@ extern struct line                *connect_data;
 extern struct filetransfer_status *fsa;
 
 #ifdef _DEBUG
-static unsigned int  counter = 0;
+static unsigned int               counter = 0;
 #endif
 
 
@@ -283,9 +283,12 @@ draw_label_line(void)
 void
 draw_line_status(int pos, signed char delta)
 {
+   int x, y;
+   GC  tmp_gc;
+
    if (connect_data[pos].long_pos > -1)
    {
-      int column, i, x, y;
+      int column, i;
 
       /* First locate position of x and y */
       locate_xy_column(connect_data[pos].long_pos, &x, &y, &column);
@@ -299,20 +302,19 @@ draw_line_status(int pos, signed char delta)
       {
          if (connect_data[pos].inverse == ON)
          {
-            XFillRectangle(display, line_window, normal_bg_gc, x, y,
-                           line_length[column], line_height);
+            tmp_gc = normal_bg_gc;
          }
          else
          {
-            XFillRectangle(display, line_window, locked_bg_gc, x, y,
-                           line_length[column], line_height);
+            tmp_gc = locked_bg_gc;
          }
       }
       else
       {
-         XFillRectangle(display, line_window, default_bg_gc, x, y,
-                        line_length[column], line_height);
+         tmp_gc = default_bg_gc;
       }
+      XFillRectangle(display, line_window, tmp_gc, x, y,
+                     line_length[column], line_height);
 
       /* Write destination identifier to screen */
       draw_dest_identifier(line_window, pos, x, y);
@@ -359,34 +361,25 @@ draw_line_status(int pos, signed char delta)
          /* Show beginning and end of bars */
          if (connect_data[pos].inverse > OFF)
          {
-            XDrawLine(display, line_window, white_line_gc,
-                      x + x_offset_bars - (max_line_length - line_length[column]) - 1,
-                      y + SPACE_ABOVE_LINE,
-                      x + x_offset_bars - (max_line_length - line_length[column]) - 1,
-                      y + glyph_height);
-            XDrawLine(display, line_window, white_line_gc,
-                      x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length,
-                      y + SPACE_ABOVE_LINE,
-                      x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length, y + glyph_height);
+            tmp_gc = white_line_gc;
          }
          else
          {
-            XDrawLine(display, line_window, black_line_gc,
-                      x + x_offset_bars - (max_line_length - line_length[column]) - 1,
-                      y + SPACE_ABOVE_LINE,
-                      x + x_offset_bars - (max_line_length - line_length[column]) - 1,
-                      y + glyph_height);
-            XDrawLine(display, line_window, black_line_gc,
-                      x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length,
-                      y + SPACE_ABOVE_LINE,
-                      x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length, y + glyph_height);
+            tmp_gc = black_line_gc;
          }
+         XDrawLine(display, line_window, black_line_gc,
+                   x + x_offset_bars - (max_line_length - line_length[column]) - 1,
+                   y + SPACE_ABOVE_LINE,
+                   x + x_offset_bars - (max_line_length - line_length[column]) - 1,
+                   y + glyph_height);
+         XDrawLine(display, line_window, black_line_gc,
+                   x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length,
+                   y + SPACE_ABOVE_LINE,
+                   x + x_offset_bars - (max_line_length - line_length[column]) + (int)max_bar_length, y + glyph_height);
       }
    }
    else
    {
-      int x, y;
-
       /* First locate position of x and y */
       locate_xy_short(connect_data[pos].short_pos, &x, &y);
 
@@ -399,20 +392,19 @@ draw_line_status(int pos, signed char delta)
       {
          if (connect_data[pos].inverse == ON)
          {
-            XFillRectangle(display, short_line_window, normal_bg_gc, x, y,
-                           short_line_length, line_height);
+            tmp_gc = normal_bg_gc;
          }
          else
          {
-            XFillRectangle(display, short_line_window, locked_bg_gc, x, y,
-                           short_line_length, line_height);
+            tmp_gc = locked_bg_gc;
          }
       }
       else
       {
-         XFillRectangle(display, short_line_window, default_bg_gc, x, y,
-                        short_line_length, line_height);
+         tmp_gc = default_bg_gc;
       }
+      XFillRectangle(display, short_line_window, tmp_gc, x, y,
+                     short_line_length, line_height);
 
       /* Write destination identifier to screen */
       draw_dest_identifier(short_line_window, pos, x, y);
@@ -973,6 +965,7 @@ draw_proc_stat(int pos, int job_no, int x, int y)
 #ifdef _WITH_SCP_SUPPORT
        (connect_data[pos].connect_status[job_no] == SCP_ACTIVE) ||
 #endif
+       (connect_data[pos].connect_status[job_no] == HTTP_RETRIEVE_ACTIVE) ||
        (connect_data[pos].connect_status[job_no] == CONNECTING))
    {
       gc_values.foreground = color_pool[WHITE];
@@ -1127,36 +1120,31 @@ draw_bar(int         pos,
    x_offset = x + x_offset_bars - (max_line_length - line_length[column]);
    y_offset = y + SPACE_ABOVE_LINE;
 
-   if (bar_no == TR_BAR_NO)  /* TRANSFER RATE */
+   if (connect_data[pos].bar_length[(int)bar_no] > 0)
    {
-      XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
-                     connect_data[pos].bar_length[(int)bar_no],
-                     bar_thickness_2);
+      if (bar_no == TR_BAR_NO)  /* TRANSFER RATE */
+      {
+         XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
+                        connect_data[pos].bar_length[(int)bar_no],
+                        bar_thickness_2);
+      }
+      else if (bar_no == ERROR_BAR_NO) /* ERROR */
+           {
+              XColor    color;
+              XGCValues gc_values;
+
+              color.blue = 0;
+              color.green = connect_data[pos].green_color_offset;
+              color.red = connect_data[pos].red_color_offset;
+              lookup_color(&color);
+              gc_values.foreground = color.pixel;
+              XChangeGC(display, color_gc, GCForeground, &gc_values);
+              XFillRectangle(display, line_window, color_gc,
+                             x_offset, y_offset,
+                             connect_data[pos].bar_length[(int)bar_no],
+                             bar_thickness_2);
+           }
    }
-   else if (bar_no == ERROR_BAR_NO) /* ERROR */
-        {
-           unsigned long pix;
-           XColor        color;
-           XGCValues     gc_values;
-
-           color.blue = 0;
-           color.green = connect_data[pos].green_color_offset;
-           color.red = connect_data[pos].red_color_offset;
-           if (XAllocColor(display, default_cmap, &color) == 0)
-           {
-              pix = color_pool[BLACK];
-           }
-           else
-           {
-              pix = color.pixel;
-           }
-
-           gc_values.foreground = pix;
-           XChangeGC(display, color_gc, GCForeground, &gc_values);
-           XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
-                          connect_data[pos].bar_length[(int)bar_no],
-                          bar_thickness_2);
-        }
 
 
    /* Remove color behind shrunken bar */

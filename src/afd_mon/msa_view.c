@@ -139,7 +139,27 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "Remote work dir    : %s\n", msa[position].r_work_dir);
    (void)fprintf(stdout, "Remote AFD version : %s\n", msa[position].afd_version);
    (void)fprintf(stdout, "Remote command     : %s\n", msa[position].rcmd);
-   (void)fprintf(stdout, "Remote options     : %d\n", msa[position].options);
+   (void)fprintf(stdout, "Remote options     : %d =>", msa[position].options);
+   if (msa[position].options == 0)
+   {
+      (void)fprintf(stdout, " None");
+   }
+   else
+   {
+      if (msa[position].options & COMPRESS_FLAG)
+      {
+         (void)fprintf(stdout, " COMPRESS");
+      }
+      if (msa[position].options & MINUS_Y_FLAG)
+      {
+         (void)fprintf(stdout, " MINUS_Y");
+      }
+      if (msa[position].options & DONT_USE_FULL_PATH_FLAG)
+      {
+         (void)fprintf(stdout, " DONT_USE_FULL_PATH");
+      }
+   }
+   (void)fprintf(stdout, "\n");
    if (msa[position].afd_switching != NO_SWITCHING)
    {
       (void)fprintf(stdout, "Real hostname 0    : %s\n", msa[position].hostname[0]);

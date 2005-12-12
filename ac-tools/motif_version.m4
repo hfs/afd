@@ -7,8 +7,10 @@ AC_DEFUN([AC_CHECK_MOTIF_VERSION],
 AC_MSG_CHECKING([for Motif version])
 savedLIBS="$LIBS"
 savedCPPFLAGS="$CPPFLAGS"
-LIBS="$LIBS $AFD_MOTIF_LIBS"
-CPPFLAGS="$CPPFLAGS $AFD_MOTIF_INCLUDES"
+savedINCLUDES="$INCLUDES"
+LIBS="$LIBS $link_motif $X_LIBS -lXt $X_PRE_LIBS $AFD_XP_LIB -lX11 $X_EXTRA_LIBS"
+CPPFLAGS="$CPPFLAGS $include_motif $X_CFLAGS"
+INCLUDES="$INCLUDES $include_motif $X_CFLAGS"
 AC_TRY_RUN([
               #include <stdio.h>
               #include <string.h>
@@ -31,6 +33,7 @@ AC_TRY_RUN([
            [motif_library_ver=0.0])
 LIBS="$savedLIBS"
 CPPFLAGS="$savedCPPFLAGS"
+INCLUDES="$savedINCLUDES"
 case "${motif_library_ver}"
 in
    0.0)

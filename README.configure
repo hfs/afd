@@ -119,6 +119,8 @@
                                   32 and 64 bit applications. On 64 bit only
                                   systems it is not necessary to set this.
                                   [Default: disabled]
+--enable-with_ctrl_accelerator  - Use Ctrl key as accelerator key for X
+                                  application.
 --with-gui=motif|none           - Compile AFD with a certain graphical user
                                   interface.
                                   [Default: motif]

@@ -275,8 +275,29 @@ fra_attach(void)
          return(INCORRECT);
       }
 
-      /* Read number of current FRA */
+      /* Read number of current FRA. */
       no_of_dirs = *(int *)ptr;
+
+      /* Check FRA version number. */
+      if ((no_of_dirs > 0) &&
+          (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FRA_VERSION))
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "This code is compiled for of FRA version %d, but the FRA we try to attach is %d.\n",
+                    CURRENT_FRA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
+#ifdef HAVE_MMAP
+         if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+         if (munmap_emu(ptr) == -1)
+#endif
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() FRA : %s", strerror(errno));
+         }
+         (void)close(fra_fd);
+         fra_fd = -1;
+         return(INCORRECT_VERSION);
+      }
    } while (no_of_dirs <= 0);
 
    ptr += AFD_WORD_OFFSET;
@@ -376,6 +397,26 @@ fra_attach_passive(void)
       (void)close(fra_fd);
       fra_fd = -1;
       return(INCORRECT);
+   }
+
+   /* Check FRA version number. */
+   if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FRA_VERSION)
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "This code is compiled for of FRA version %d, but the FRA we try to attach is %d.\n",
+                 CURRENT_FRA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
+#ifdef HAVE_MMAP
+      if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+      if (munmap_emu(ptr) == -1)
+#endif
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() FRA : %s", strerror(errno));
+      }
+      (void)close(fra_fd);
+      fra_fd = -1;
+      return(INCORRECT_VERSION);
    }
 
    /* Read number of current FRA */

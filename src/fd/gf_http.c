@@ -29,6 +29,7 @@ DESCR__S_M1
  **
  **   options
  **      --version        Version Number
+ **      -o <retries>     Old/Error message and number of retries.
  **      -t               Temp toggle.
  **
  ** DESCRIPTION
@@ -357,7 +358,7 @@ main(int argc, char *argv[])
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "Failed to check connection (%d)", status);
-                    exit(CONNECT_ERROR);
+                    exit(eval_timeout(CONNECT_ERROR));
                  }
          }
          if ((status = http_get(db.hostname, db.target_dir, p_file_name,
@@ -367,7 +368,7 @@ main(int argc, char *argv[])
                       "Failed to open remote file %s (%d).",
                       p_file_name, status);
             (void)http_quit();
-            exit(OPEN_REMOTE_ERROR);
+            exit(eval_timeout(OPEN_REMOTE_ERROR));
          }
          if (fsa->debug > NORMAL_MODE)
          {
@@ -476,7 +477,7 @@ main(int argc, char *argv[])
                   reset_values(files_retrieved, file_size_retrieved,
                                files_to_retrieve, file_size_to_retrieve);
                   http_quit();
-                  exit(READ_REMOTE_ERROR);
+                  exit(eval_timeout(READ_REMOTE_ERROR));
                }
                if (fsa->transfer_rate_limit > 0)
                {
@@ -533,7 +534,7 @@ main(int argc, char *argv[])
                   free(chunkbuffer);
                   http_quit();
                   (void)unlink(local_tmp_file);
-                  exit(READ_REMOTE_ERROR);
+                  exit(eval_timeout(READ_REMOTE_ERROR));
                }
                if (fsa->transfer_rate_limit > 0)
                {
@@ -610,7 +611,7 @@ main(int argc, char *argv[])
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "Failed to check connection (%d)", status);
-                    exit(CONNECT_ERROR);
+                    exit(eval_timeout(CONNECT_ERROR));
                  }
 
             if ((status = http_del(db.hostname, db.target_dir,

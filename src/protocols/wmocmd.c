@@ -331,6 +331,10 @@ wmo_check_reply(void)
    }
    else if (n == -1) /* Read error */
         {
+           if (errno == ECONNRESET)
+           {
+              timeout_flag = CON_RESET;
+           }
            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                      "read() error : %s", strerror(errno));
         }
@@ -359,7 +363,7 @@ wmo_quit(void)
 {
    if (sock_fd != -1)
    {
-      if (timeout_flag != ON)
+      if ((timeout_flag != ON) && (timeout_flag != CON_RESET))
       {
          if (shutdown(sock_fd, 1) < 0)
          {

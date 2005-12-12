@@ -287,8 +287,29 @@ fsa_attach(void)
          return(INCORRECT);
       }
 
-      /* Read number of current FSA */
+      /* Read number of current FSA. */
       no_of_hosts = *(int *)ptr;
+
+      /* Check FSA version number. */
+      if ((no_of_hosts > 0) &&
+          (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FSA_VERSION))
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.\n",
+                    CURRENT_FSA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
+#ifdef HAVE_MMAP
+         if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+         if (munmap_emu(ptr) == -1)
+#endif
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() FSA : %s", strerror(errno));
+         }
+         (void)close(fsa_fd);
+         fsa_fd = -1;
+         return(INCORRECT_VERSION);
+      }
 
       ptr += AFD_WORD_OFFSET;
       fsa = (struct filetransfer_status *)ptr;
@@ -388,6 +409,27 @@ fsa_attach_passive(void)
       (void)close(fsa_fd);
       fsa_fd = -1;
       return(INCORRECT);
+   }
+
+   /* Check FSA version number. */
+   if ((no_of_hosts > 0) &&
+       (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FSA_VERSION))
+   {
+      system_log(WARN_SIGN, __FILE__, __LINE__,
+                 "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.\n",
+                 CURRENT_FSA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
+#ifdef HAVE_MMAP
+      if (munmap(ptr, stat_buf.st_size) == -1)
+#else
+      if (munmap_emu(ptr) == -1)
+#endif
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() FSA : %s", strerror(errno));
+      }
+      (void)close(fsa_fd);
+      fsa_fd = -1;
+      return(INCORRECT_VERSION);
    }
 
    /* Read number of current FSA. */

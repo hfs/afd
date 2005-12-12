@@ -1315,18 +1315,13 @@ ftp_exec(char *cmd, char *filename)
 int
 ftp_list(int mode, int type, ...)
 {
-   int                sock_fd,
-                      new_sock_fd,
-                      on = 1,
-                      reply;
-   my_socklen_t       length;
-   register char      *h,
-                      *p;
-   char               **buffer,
-                      *filename,
-                      *msg;
-   va_list            ap;
-   struct sockaddr_in from;
+   int     new_sock_fd,
+           on = 1,
+           reply;
+   char    **buffer,
+           *filename,
+           *msg;
+   va_list ap;
 
    va_start(ap, type);
    if (type & BUFFERED_LIST)
@@ -1467,6 +1462,12 @@ ftp_list(int mode, int type, ...)
    }
    else /* mode == ACTIVE_MODE */
    {
+      int                sock_fd;
+      my_socklen_t       length;
+      register char      *h,
+                         *p;
+      struct sockaddr_in from;
+
       if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
@@ -1474,7 +1475,8 @@ ftp_list(int mode, int type, ...)
          return(INCORRECT);
       }
 
-      if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof (on)) < 0)
+      if (setsockopt(sock_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&on,
+                     sizeof(on)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                    "ftp_list(): setsockopt() error : %s", strerror(errno));
@@ -1664,7 +1666,6 @@ ftp_data(char *filename, off_t seek, int mode, int type)
    int           new_sock_fd,
                  on = 1,
                  reply;
-   my_socklen_t  length;
 #if defined (_WITH_TOS) && defined (IP_TOS)
    int           tos;
 #endif
@@ -1906,6 +1907,7 @@ ftp_data(char *filename, off_t seek, int mode, int type)
       int                retries = 0,
                          ret,
                          sock_fd;
+      my_socklen_t       length;
 #ifdef FTP_REUSE_DATA_PORT
       unsigned int       loop_counter = 0;
       static u_short     data_port = 0;
@@ -2660,6 +2662,10 @@ ftp_read(char *block, int blocksize)
 #endif
               if ((bytes_read = read(data_fd, block, blocksize)) == -1)
               {
+                 if (errno == ECONNRESET)
+                 {
+                    timeout_flag = CON_RESET;
+                 }
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                            "ftp_read(): read() error : %s", strerror(errno));
                  return(INCORRECT);
@@ -2674,6 +2680,10 @@ ftp_read(char *block, int blocksize)
                  if ((status = SSL_get_error(ssl_data,
                                              bytes_read)) == SSL_ERROR_SYSCALL)
                  {
+                    if (errno == ECONNRESET)
+                    {
+                       timeout_flag = CON_RESET;
+                    }
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "ftp_read(): SSL_read() error : %s",
                               strerror(errno));
@@ -2715,13 +2725,6 @@ ftp_quit(void)
    int reply;
 
    (void)command(control_fd, "QUIT");
-#ifdef _WITH_SHUTDOWN
-   if (shutdown(control_fd, 1) < 0)
-   {
-      trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                "ftp_quit(): shutdown() error : %s", strerror(errno));
-   }
-#endif /* _WITH_SHUTDOWN */
    if (data_fd != -1)
    {
 #ifdef WITH_SSL
@@ -2766,6 +2769,13 @@ ftp_quit(void)
          (void)close(control_fd);
          return(reply);
       }
+#ifdef _WITH_SHUTDOWN
+      if (shutdown(control_fd, 1) < 0)
+      {
+         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                   "ftp_quit(): shutdown() error : %s", strerror(errno));
+      }
+#endif /* _WITH_SHUTDOWN */
    }
 #ifdef WITH_SSL
    if (ssl_con != NULL)
@@ -2895,6 +2905,10 @@ read_data_line(int read_fd, char *line)
                        }
                        else
                        {
+                          if (errno == ECONNRESET)
+                          {
+                             timeout_flag = CON_RESET;
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "read_data_line(): read() error (after reading %d Bytes) : %s",
                                     bytes_buffered, strerror(errno));
@@ -2922,6 +2936,10 @@ read_data_line(int read_fd, char *line)
                           if ((status = SSL_get_error(ssl,
                                                       bytes_read)) == SSL_ERROR_SYSCALL)
                           {
+                             if (errno == ECONNRESET)
+                             {
+                                timeout_flag = CON_RESET;
+                             }
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                        "read_data_line(): SSL_read() error (after reading %d Bytes) : %s",
                                        bytes_buffered, strerror(errno));
@@ -3015,6 +3033,10 @@ read_data_to_buffer(int read_fd, char ***buffer)
                  {
                     if (bytes_read == -1)
                     {
+                       if (errno == ECONNRESET)
+                       {
+                          timeout_flag = CON_RESET;
+                       }
                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                  "read_data_to_buffer(): read() error (after reading %d Bytes) : %s",
                                  bytes_buffered, strerror(errno));
@@ -3041,6 +3063,10 @@ read_data_to_buffer(int read_fd, char ***buffer)
                        if ((status = SSL_get_error(ssl,
                                                    bytes_read)) == SSL_ERROR_SYSCALL)
                        {
+                          if (errno == ECONNRESET)
+                          {
+                             timeout_flag = CON_RESET;
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "read_data_to_buffer(): SSL_read() error (after reading %d Bytes) : %s",
                                     bytes_buffered, strerror(errno));
@@ -3153,6 +3179,10 @@ read_stat_data(void)
                     }
                     else
                     {
+                       if (errno == ECONNRESET)
+                       {
+                          timeout_flag = CON_RESET;
+                       }
                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                  "read_stat_data(): read() error (after reading %d Bytes) : %s",
                                  bytes_buffered, strerror(errno));
@@ -3180,6 +3210,10 @@ read_stat_data(void)
                        if ((status = SSL_get_error(ssl_con,
                                                    bytes_read)) == SSL_ERROR_SYSCALL)
                        {
+                          if (errno == ECONNRESET)
+                          {
+                             timeout_flag = CON_RESET;
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "read_stat_data(): SSL_read() error (after reading %d Bytes) : %s",
                                     bytes_buffered, strerror(errno));
@@ -3296,13 +3330,17 @@ read_msg(void)
                        if (bytes_read == 0)
                        {
                           trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                                    "Remote hang up.");
+                                    "read_msg(): Remote hang up.");
                           timeout_flag = NEITHER;
                        }
                        else
                        {
+                          if (errno == ECONNRESET)
+                          {
+                             timeout_flag = CON_RESET;
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                    "read() error (after reading %d Bytes) : %s",
+                                    "read_msg(): read() error (after reading %d Bytes) : %s",
                                     bytes_buffered, strerror(errno));
                           bytes_read = 0;
                        }
@@ -3319,7 +3357,7 @@ read_msg(void)
                        if (bytes_read == 0)
                        {
                           trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                                    "Remote hang up.");
+                                    "read_msg(): Remote hang up.");
                           timeout_flag = NEITHER;
                        }
                        else
@@ -3327,14 +3365,18 @@ read_msg(void)
                           if ((status = SSL_get_error(ssl_con,
                                                       bytes_read)) == SSL_ERROR_SYSCALL)
                           {
+                             if (errno == ECONNRESET)
+                             {
+                                timeout_flag = CON_RESET;
+                             }
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "SSL_read() error (after reading %d Bytes) : %s",
+                                       "read_msg(): SSL_read() error (after reading %d Bytes) : %s",
                                        bytes_buffered, strerror(errno));
                           }
                           else
                           {
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "SSL_read() error (after reading %d Bytes) (%d)",
+                                       "read_msg(): SSL_read() error (after reading %d Bytes) (%d)",
                                        bytes_buffered, status);
                           }
                           bytes_read = 0;
@@ -3353,13 +3395,13 @@ read_msg(void)
          else if (status < 0)
               {
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "select() error : %s", strerror(errno));
+                           "read_msg(): select() error : %s", strerror(errno));
                  return(INCORRECT);
               }
               else
               {
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Unknown condition.");
+                           "read_msg(): Unknown condition.");
                  return(INCORRECT);
               }
       }

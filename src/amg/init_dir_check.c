@@ -70,10 +70,12 @@ DESCR__E_M1
 
 
 /* global variables */
-extern int                    max_process,
+extern int                    afd_status_fd,
+                              max_process,
 #ifndef _WITH_PTHREAD
                               dir_check_timeout,
 #endif
+                              full_scan_timeout,
                               one_dir_copy_timeout,
                               no_of_dirs,
                               no_of_jobs,
@@ -216,7 +218,7 @@ init_dir_check(int    argc,
     * up running. If not we will very quickly fill up the
     * message fifo to the FD.
     */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(&afd_status_fd) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to attach to AFD status area.");
@@ -461,6 +463,19 @@ get_afd_config_value(void)
       else
       {
          one_dir_copy_timeout = ONE_DIR_COPY_TIMEOUT;
+      }
+      if (get_definition(buffer, FULL_SCAN_TIMEOUT_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         full_scan_timeout = atoi(value);
+         if ((full_scan_timeout < 2) || (full_scan_timeout > 3600))
+         {
+            full_scan_timeout = FULL_SCAN_TIMEOUT;
+         }
+      }
+      else
+      {
+         full_scan_timeout = FULL_SCAN_TIMEOUT;
       }
 #ifndef _WITH_PTHREAD
       if (get_definition(buffer, DIR_CHECK_TIMEOUT_DEF,

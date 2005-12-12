@@ -93,6 +93,8 @@ extern int              file_name_toggle_set,
                         file_name_length,
                         max_delete_log_files,
                         no_of_log_files,
+                        no_of_search_dirs,
+                        no_of_search_dirids,
                         no_of_search_hosts;
 extern XT_PTR_TYPE      toggles_set;
 extern size_t           search_file_size;
@@ -100,7 +102,8 @@ extern time_t           start_time_val,
                         end_time_val;
 extern char             *p_work_dir,
                         search_file_name[],
-                        search_directory_name[],
+                        **search_dir,
+                        **search_dirid,
                         **search_recipient,
                         summary_str[],
                         total_summary_str[];
@@ -201,9 +204,11 @@ static void   display_data(int, time_t, time_t),
            ptr++;                                          \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);\
                                                            \
-           if (search_directory_name[0] != '\0')           \
+           if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))\
            {                                               \
-              int  count = 0;                              \
+              int  count = 0,                              \
+                   gotcha = NO,                            \
+                   kk;                                     \
               char job_id_str[15];                         \
                                                            \
               while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))\
@@ -220,7 +225,26 @@ static void   display_data(int, time_t, time_t),
               id.dir[count] = SEPARATOR_CHAR;              \
               id.dir[count + 1] = '\0';                    \
                                                            \
-              if (sfilter(search_directory_name, id.dir, SEPARATOR_CHAR) != 0)\
+              for (kk = 0; kk < no_of_search_dirids; kk++) \
+              {                                            \
+                 if (sfilter(search_dirid[kk], id.dir_id_str, 0) == 0)\
+                 {                                         \
+                    gotcha = YES;                          \
+                    break;                                 \
+                 }                                         \
+              }                                            \
+              if (gotcha == NO)                            \
+              {                                            \
+                 for (kk = 0; kk < no_of_search_dirs; kk++)\
+                 {                                         \
+                    if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                    {                                      \
+                       gotcha = YES;                       \
+                       break;                              \
+                    }                                      \
+                 }                                         \
+              }                                            \
+              if (gotcha == NO)                            \
               {                                            \
                  IGNORE_ENTRY();                           \
               }                                            \
@@ -1100,68 +1124,7 @@ no_criteria(register char *ptr,
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
-#ifndef _MACRO_DEBUG
          COMMON_BLOCK();
-#else
-         ptr++;
-         il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file);
-
-         if (search_directory_name[0] != '\0')
-         {
-            int  count = 0;
-            char job_id_str[15];
-
-            /* Get the job ID */
-            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))
-            {
-               job_id_str[count] = *ptr;
-               count++; ptr++;
-            }
-            job_id_str[count] = '\0';
-            id.job_no = (unsigned int)strtoul(job_id_str, NULL, 16);
-
-            id.dir[0] = '\0';
-            get_info(GOT_JOB_ID_DIR_ONLY, il[file_no].input_id[item_counter]);
-            count = strlen(id.dir);
-            id.dir[count] = SEPARATOR_CHAR;
-            id.dir[count + 1] = '\0';
-
-            if (sfilter(search_directory_name, id.dir, SEPARATOR_CHAR) != 0)
-            {
-               IGNORE_ENTRY();
-            }
-         }
-         else
-         {
-            /* Ignore the ID */
-            while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
-            {
-               ptr++;
-            }
-         }
-
-         /* Save the process/user */
-         ptr++;
-         j = 0;
-         while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&
-                (j < MAX_PROC_USER_LENGTH))
-         {
-            *(p_proc_user + j) = *ptr;
-            ptr++; j++;
-         }
-
-         /* Ignore the rest */
-         while (*ptr != '\n')
-         {
-            ptr++;
-         }
-
-         item_counter++;
-
-         str_list[i] = XmStringCreateLocalized(line);
-
-         ptr++;
-#endif
          file_size += tmp_file_size;
       }
 

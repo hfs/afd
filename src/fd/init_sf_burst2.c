@@ -82,6 +82,7 @@ init_sf_burst2(struct job   *p_new_db,
       db.archive_time = p_new_db->archive_time;
       db.port         = p_new_db->port;
       db.age_limit    = p_new_db->age_limit;
+      db.retries      = p_new_db->retries;
       db.chmod        = p_new_db->chmod;
       db.chmod_str[0] = p_new_db->chmod_str[0];
       if (db.chmod_str[0] != '\0')

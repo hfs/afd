@@ -84,6 +84,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        $(AFD_EACCESS)\
                        error_action.c\
                        eval_host_config.c\
+                       eval_timeout.c\
                        exec_cmd.c\
                        fra_attach.c\
                        fra_detach.c\

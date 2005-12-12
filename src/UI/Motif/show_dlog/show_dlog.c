@@ -109,6 +109,8 @@ int                        char_width,
                            no_of_dirs = 0,
                            no_of_log_files,
                            no_of_search_hosts,
+                           no_of_search_dirs,
+                           no_of_search_dirids,
                            special_button_flag,
                            sys_log_fd = STDERR_FILENO;
 XT_PTR_TYPE                toggles_set;
@@ -122,7 +124,8 @@ size_t                     search_file_size;
 char                       *p_work_dir,
                            font_name[256],
                            search_file_name[MAX_PATH_LENGTH],
-                           search_directory_name[MAX_PATH_LENGTH],
+                           **search_dir = NULL,
+                           **search_dirid = NULL,
                            **search_recipient;
 struct item_list           *il;
 struct sol_perm            perm;
@@ -1001,6 +1004,32 @@ main(int argc, char *argv[])
            XmTextSetString(headingbox_w, HEADING_LINE_LONG);
         }
 
+   if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+   {
+      size_t length;
+      char   *str;
+
+      length = (no_of_search_dirs * MAX_PATH_LENGTH) +
+               (no_of_search_dirids * (MAX_DIR_ALIAS_LENGTH + 1)) +
+               ((no_of_search_dirs + no_of_search_dirids) * 2) + 1;
+      if ((str = malloc(length)) != NULL)
+      {
+         int i;
+
+         length = 0;
+         for (i = 0; i < no_of_search_dirs; i++)
+         {
+            length += sprintf(&str[length], "%s, ", search_dir[i]);
+         }
+         for (i = 0; i < no_of_search_dirids; i++)
+         {
+            length += sprintf(&str[length], "#%s, ", search_dirid[i]);
+         }
+         str[length - 2] = '\0';
+         XtVaSetValues(directory_w, XmNvalue, str, NULL);
+         free(str);
+      }
+   }
    if (no_of_search_hosts > 0)
    {
       char *str;
@@ -1055,6 +1084,16 @@ init_show_dlog(int *argc, char *argv[])
    {
       (void)strcpy(font_name, "fixed");
    }
+   if (get_arg_array(argc, argv, "-d", &search_dirid,
+                     &no_of_search_dirids) == INCORRECT)
+   {
+      no_of_search_dirids = 0;
+   }
+   if (get_arg_array(argc, argv, "-D", &search_dir,
+                     &no_of_search_dirs) == INCORRECT)
+   {
+      no_of_search_dirs = 0;
+   }
 
    /* Now lets see if user may use this program */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
@@ -1106,7 +1145,6 @@ init_show_dlog(int *argc, char *argv[])
    end_time_val = -1;
    search_file_size = -1;
    search_file_name[0] = '\0';
-   search_directory_name[0] = '\0';
    special_button_flag = SEARCH_BUTTON;
    no_of_log_files = 0;
 
@@ -1122,9 +1160,21 @@ init_show_dlog(int *argc, char *argv[])
 static void
 usage(char *progname)
 {
+   (void)fprintf(stderr, "Usage : %s [options] [host name 1..n]\n", progname);
    (void)fprintf(stderr,
-                 "Usage : %s [-w <working directory>] [-u[ <user>]] [-f <font name>] [host name 1..n]\n",
-                 progname);
+                 "        Options:\n");
+   (void)fprintf(stderr,
+                 "           -d <dir identifier 1> ... <dir identifier n>\n");
+   (void)fprintf(stderr,
+                 "           -D <directory 1> ... <directory n>\n");
+   (void)fprintf(stderr,
+                 "           -f <font name>\n");
+   (void)fprintf(stderr,
+                 "           -u [<fake user>]\n");
+   (void)fprintf(stderr,
+                 "           -w <working directory>\n");
+   (void)fprintf(stderr,
+                 "           --version\n");
    return;
 }
 

@@ -1,6 +1,6 @@
 /*
  *  get_arg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,6 +27,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int get_arg(int *argc, char *argv[], char *arg,
  **               char *buffer, int buf_length)
+ **   int get_arg_array(int  *argc, char *argv[], char *arg,
+ **                     char ***buffer, int  *no_of_elements)
  **
  ** DESCRIPTION
  **   The function get_arg() gets the argument 'arg' from the command
@@ -34,6 +36,10 @@ DESCR__S_M3
  **   'buffer'. This next argument may NOT start with a '-', otherwise
  **   INCORRECT will be returned. The arguments will be removed from
  **   the argument list.
+ **
+ **   Function get_arg_array() collects all elements of an argument
+ **   into a two dimensional array that it allocates. The caller
+ **   is responsible to free this free this memory with FREE_RT_ARRAY().
  **
  ** RETURN VALUES
  **   SUCCESS when the argument was found. Otherwise INCORRECT is
@@ -44,12 +50,15 @@ DESCR__S_M3
  **
  ** HISTORY
  **   23.01.2000 H.Kiehl Created
+ **   20.10.2005 H.Kiehl Added function get_arg_array().
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>             /* fprintf(), NULL                        */
 #include <string.h>            /* strcmp(), strcpy()                     */
+#include <stdlib.h>            /* malloc() in RT_ARRAY() macro           */
+#include <errno.h>
 
 
 /*############################# get_arg() ###############################*/
@@ -79,7 +88,7 @@ get_arg(int *argc, char *argv[], char *arg, char *buffer, int buf_length)
                {
                   register int j;
 
-                  for (j = i; j < *argc; j++)
+                  for (j = i; j < (*argc - 2); j++)
                   {
                      argv[j] = argv[j + 2];
                   }
@@ -115,6 +124,90 @@ get_arg(int *argc, char *argv[], char *arg, char *buffer, int buf_length)
             argv[i] = NULL;
          }
          *argc -= 1;
+
+         return(SUCCESS);
+      }
+   }
+
+   /* Argument NOT found */
+   return(INCORRECT);
+}
+
+
+/*########################### get_arg_array() ############################*/
+int
+get_arg_array(int  *argc,
+              char *argv[],
+              char *arg,
+              char ***buffer,
+              int  *no_of_elements)
+{
+   register int i;
+
+   for (i = 1; i < *argc; i++)
+   {
+      if (CHECK_STRCMP(argv[i], arg) == 0)
+      {
+         register int j;
+         int          max_length = 0,
+                      tmp_i = i;
+
+         *no_of_elements = 0;
+         max_length = 0;
+         while (((i + 1) < *argc) && (argv[i + 1][0] != '-'))
+         {
+            j = 0;
+            while (argv[i + 1][j] != '\0')
+            {
+               j++;
+            }
+            if (j > max_length)
+            {
+               max_length = j;
+            }
+            (*no_of_elements)++;
+            i++;
+         }
+         if (*no_of_elements > 0)
+         {
+            i = tmp_i;
+            max_length++;
+            RT_ARRAY(*buffer, *no_of_elements, max_length, char);
+            for (j = 0; j < *no_of_elements; j++)
+            {
+               (void)strcpy((*buffer)[j], argv[i + j + 1]);
+            }
+            if ((i + *no_of_elements + 1) < *argc)
+            {
+               for (j = i; j < (*argc - *no_of_elements - 1); j++)
+               {
+                  argv[j] = argv[j + *no_of_elements + 1];
+               }
+               argv[j] = NULL;
+            }
+            else
+            {
+               argv[i] = NULL;
+            }
+            *argc -= (*no_of_elements + 1);
+         }
+         else
+         {
+            *buffer = NULL;
+            if ((i + 1) < *argc)
+            {
+               for (j = i; j < *argc; j++)
+               {
+                  argv[j] = argv[j + 1];
+               }
+               argv[j] = NULL;
+            }
+            else
+            {
+               argv[i] = NULL;
+            }
+            *argc -= 1;
+         }
 
          return(SUCCESS);
       }

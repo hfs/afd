@@ -1,7 +1,7 @@
 /*
  *  setup_dir_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2005 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -131,12 +131,16 @@ setup_dir_window(char *font_name)
    {
       /* Set the font for the directory pulldown */
       XtVaSetValues(mw[DIR_W], XmNfontList, fontlist, NULL);
-      if ((dcp.disable != NO_PERMISSION) ||
+      if ((dcp.disable != NO_PERMISSION) || (dcp.rescan != NO_PERMISSION) ||
           (dcp.afd_load != NO_PERMISSION))
       {
          if (dcp.disable != NO_PERMISSION)
          {
             XtVaSetValues(dw[DIR_DISABLE_W], XmNfontList, fontlist, NULL);
+         }
+         if (dcp.rescan != NO_PERMISSION)
+         {
+            XtVaSetValues(dw[DIR_RESCAN_W], XmNfontList, fontlist, NULL);
          }
          if (dcp.afd_load != NO_PERMISSION)
          {
@@ -147,6 +151,7 @@ setup_dir_window(char *font_name)
             XtVaSetValues(lw[TRANSFER_LOAD_W], XmNfontList, fontlist, NULL);
          }
       }
+      XtVaSetValues(dw[DIR_SELECT_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(dw[DIR_EXIT_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the View pulldown */

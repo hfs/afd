@@ -1,6 +1,6 @@
 /*
  *  check_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,7 +66,7 @@ check_dir(char *directory, int access_mode)
       if (mkdir(directory, DIR_MODE) == -1)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Failed to create directory <%s> : %s",
+                    "Failed to create directory `%s' : %s",
                     directory, strerror(errno));
          return(INCORRECT);
       }
@@ -74,7 +74,7 @@ check_dir(char *directory, int access_mode)
    else if (!S_ISDIR(stat_buf.st_mode))
         {
            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                      "There already exists a file <%s>, thus unable to create the directory.",
+                      "There already exists a file `%s', thus unable to create the directory.",
                       directory);
            return(INCORRECT);
         }
@@ -83,7 +83,7 @@ check_dir(char *directory, int access_mode)
            if (eaccess(directory, access_mode) == -1)
            {
               system_log(ERROR_SIGN, __FILE__, __LINE__,
-                         "Incorrect permission for directory <%s>", directory);
+                         "Incorrect permission for directory `%s'", directory);
               return(INCORRECT);
            }
         }

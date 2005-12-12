@@ -45,7 +45,8 @@ am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
 	$(top_srcdir)/ac-tools/vl_prog_cc_warnings.m4 \
-	$(top_srcdir)/ac-tools/xpm.m4 $(top_srcdir)/configure.in
+	$(top_srcdir)/ac-tools/xp.m4 $(top_srcdir)/ac-tools/xpm.m4 \
+	$(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -63,7 +64,7 @@ HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = common misc protocols init_afd amg fd log archive_watch \
-	statistics tools afd_mon afdd cmdline test UI
+	statistics tools afd_mon afdd servers cmdline test UI
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AFD_GTK_INCLUDES = @AFD_GTK_INCLUDES@
@@ -76,6 +77,7 @@ AFD_SSL_INCLUDES = @AFD_SSL_INCLUDES@
 AFD_SSL_LIBS = @AFD_SSL_LIBS@
 AFD_XAW_INCLUDES = @AFD_XAW_INCLUDES@
 AFD_XAW_LIBS = @AFD_XAW_LIBS@
+AFD_XP_LIB = @AFD_XP_LIB@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
@@ -104,6 +106,8 @@ HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
 HAVE_MOTIF_TRUE = @HAVE_MOTIF_TRUE@
+Have_Libxp_FALSE = @Have_Libxp_FALSE@
+Have_Libxp_TRUE = @Have_Libxp_TRUE@
 INITDIR = @INITDIR@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -155,6 +159,8 @@ WITH_OUTPUT_LOG_FALSE = @WITH_OUTPUT_LOG_FALSE@
 WITH_OUTPUT_LOG_TRUE = @WITH_OUTPUT_LOG_TRUE@
 WITH_PRODUCTION_LOG_FALSE = @WITH_PRODUCTION_LOG_FALSE@
 WITH_PRODUCTION_LOG_TRUE = @WITH_PRODUCTION_LOG_TRUE@
+WITH_SERVER_SUPPORT_FALSE = @WITH_SERVER_SUPPORT_FALSE@
+WITH_SERVER_SUPPORT_TRUE = @WITH_SERVER_SUPPORT_TRUE@
 WITH_SETUID_FALSE = @WITH_SETUID_FALSE@
 WITH_SETUID_PROGS_FALSE = @WITH_SETUID_PROGS_FALSE@
 WITH_SETUID_PROGS_TRUE = @WITH_SETUID_PROGS_TRUE@
@@ -208,8 +214,11 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 @WITH_AFD_MON_FALSE@AFD_MON_DIR = 
 @WITH_AFD_MON_TRUE@AFD_MON_DIR = afd_mon
+@WITH_SERVER_SUPPORT_FALSE@AFD_SERVER_DIR = 
+@WITH_SERVER_SUPPORT_TRUE@AFD_SERVER_DIR = servers
 @WITH_AFD_MON_ONLY_FALSE@OTHER_DIRS = common misc protocols init_afd amg fd log archive_watch\
-@WITH_AFD_MON_ONLY_FALSE@                statistics tools $(AFD_MON_DIR) afdd cmdline test UI
+@WITH_AFD_MON_ONLY_FALSE@                statistics tools $(AFD_MON_DIR) afdd $(AFD_SERVER_DIR)\
+@WITH_AFD_MON_ONLY_FALSE@                cmdline test UI
 
 @WITH_AFD_MON_ONLY_TRUE@OTHER_DIRS = common log afd_mon UI
 noinst_HEADERS = afdsetup.h version.h

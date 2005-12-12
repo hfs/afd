@@ -428,6 +428,9 @@ smtp_write(char *block, char *buffer, int size)
               return(INCORRECT);
            }
 #endif
+#ifdef WITH_TRACE
+           trace_log(NULL, 0, BIN_W_TRACE, ptr, size, NULL);
+#endif
         }
    else if (status < 0)
         {
@@ -554,6 +557,9 @@ smtp_write_iso8859(char *block, char *buffer, int size)
               return(INCORRECT);
            }
 #endif
+#ifdef WITH_TRACE
+           trace_log(NULL, 0, BIN_W_TRACE, (char *)ptr, size, NULL);
+#endif
         }
         else if (status < 0)
              {
@@ -577,6 +583,7 @@ int
 smtp_close(void)
 {
    int reply;
+
 #ifdef WITH_TRACE
    trace_log(NULL, 0, W_TRACE, NULL, 0, "<0D><0A>.<0D><0A>");
 #endif
@@ -610,6 +617,9 @@ smtp_quit(void)
 {
    int reply;
 
+#ifdef WITH_TRACE
+   trace_log(NULL, 0, W_TRACE, NULL, 0, "QUIT<0D><0A>");
+#endif
    (void)fprintf(smtp_fp, "QUIT\r\n");
    if (fflush(smtp_fp) == EOF)
    {
@@ -618,7 +628,7 @@ smtp_quit(void)
                 strerror(errno));
    }
 
-   if (timeout_flag == OFF)
+   if ((timeout_flag != ON) && (timeout_flag != CON_RESET))
    {
       if ((reply = get_reply(smtp_fp)) < 0)
       {
@@ -874,9 +884,14 @@ read_msg(void)
                     {
                        trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
                                  "Remote hang up.");
+                       timeout_flag = NEITHER;
                     }
                     else
                     {
+                       if (errno == ECONNRESET)
+                       {
+                          timeout_flag = CON_RESET;
+                       }
                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                  "read() error (after reading %d Bytes) : %s",
                                  bytes_buffered, strerror(errno));

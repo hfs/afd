@@ -1352,7 +1352,10 @@ start_remote_prog(Widget    w,
 
             if ((item_no == AFD_CTRL_SEL) || (item_no == DIR_CTRL_SEL))
             {
-               int j;
+               int    j;
+#ifdef WHEN_WE_KNOW
+               Window window_id;
+#endif
 
                for (j = 0; j < no_of_active_process; j++)
                {
@@ -1393,20 +1396,34 @@ start_remote_prog(Widget    w,
                args[arg_count + display_offset + 4] = msa[i].r_work_dir;
                if (args[0][0] == 's')
                {
-                  (void)sprintf(progname, "%s/bin/rafdd_cmd_ssh",
-                                msa[i].r_work_dir);
+                  if (msa[i].options & DONT_USE_FULL_PATH_FLAG)
+                  {
+                     (void)strcpy(progname, "rafdd_cmd_ssh");
+                  }
+                  else
+                  {
+                     (void)sprintf(progname, "%s/bin/rafdd_cmd_ssh",
+                                   msa[i].r_work_dir);
+                  }
                }
                else
                {
-                  (void)sprintf(progname, "%s/sbin/rafdd_cmd",
-                                msa[i].r_work_dir);
+                  if (msa[i].options & DONT_USE_FULL_PATH_FLAG)
+                  {
+                     (void)strcpy(progname, "rafdd_cmd");
+                  }
+                  else
+                  {
+                     (void)sprintf(progname, "%s/bin/rafdd_cmd",
+                                   msa[i].r_work_dir);
+                  }
                }
                make_xprocess(args[0], args[arg_count + display_offset + 5], args, i);
 #ifdef TEST_OUTPUT
                {
                   int j;
 
-                  for (j = 0; j < (arg_count + display_offset + 5); j++)
+                  for (j = 0; args[j] != NULL; j++)
                   {
                      printf("%s ", args[j]);
                   }

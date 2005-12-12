@@ -116,6 +116,7 @@ int                        dnb_fd,
                            fra_id,
                            fsa_fd = -1,
                            fsa_id,
+                           remove_unused_hosts = NO,
                            sys_log_fd = STDERR_FILENO,
                            stop_flag = 0,
                            amg_flag = YES;
@@ -146,7 +147,7 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 static void                amg_exit(void),
                            get_afd_config_value(int *, int *, int *, mode_t *,
                                                 unsigned int *, off_t *,
-                                                int *, int *),
+                                                int *, int *, int *),
                            notify_dir_check(void),
                            sig_segv(int),
                            sig_bus(int),
@@ -287,7 +288,7 @@ main(int argc, char *argv[])
       (void)strcat(afd_active_file, AFD_ACTIVE_FILE);
       (void)strcat(amg_cmd_fifo, AMG_CMD_FIFO);
 
-      if (attach_afd_status() < 0)
+      if (attach_afd_status(NULL) < 0)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "Failed to attach to AFD status shared area.");
@@ -437,7 +438,7 @@ main(int argc, char *argv[])
       get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir,
                            &create_source_dir_mode, &max_copied_files,
                            &max_copied_file_size, &default_delete_files_flag,
-                           &default_old_file_time);
+                           &default_old_file_time, &remove_unused_hosts);
 
       /* Find largest file descriptor. */
       if (amg_cmd_fd > db_update_fd)
@@ -683,6 +684,9 @@ main(int argc, char *argv[])
               "AMG Configuration: Def max copied file size  %lld (Bytes)",
 #endif
               max_copied_file_size);
+   system_log(DEBUG_SIGN, NULL, 0,
+              "AMG Configuration: Remove unused hosts       %s",
+              (remove_unused_hosts == NO) ? "No" : "Yes");
 
    /* Check if the database has been changed */
    FD_ZERO(&rset);
@@ -1028,7 +1032,8 @@ get_afd_config_value(int          *rescan_time,
                      unsigned int *max_copied_files,
                      off_t        *max_copied_file_size,
                      int          *default_delete_files_flag,
-                     int          *default_old_file_time)
+                     int          *default_old_file_time,
+                     int          *remove_unused_hosts)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
@@ -1103,6 +1108,10 @@ get_afd_config_value(int          *rescan_time,
                        DIR_MODE);
             *create_source_dir_mode = DIR_MODE;
          }
+      }
+      if (get_definition(buffer, REMOVE_UNUSED_HOSTS_DEF, NULL, 0) != NULL)
+      {
+         *remove_unused_hosts = YES;
       }
       if (get_definition(buffer, MAX_COPIED_FILE_SIZE_DEF,
                          value, MAX_INT_LENGTH) != NULL)  

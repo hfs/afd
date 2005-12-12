@@ -884,7 +884,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
                     }
                     else
                     {
-                       trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
+                       trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
+                                 __FILE__, __LINE__, msg_str,
                                  "Failed to get date of file %s.", file);
                        if (timeout_flag == ON)
                        {
@@ -925,7 +926,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
                     }
                     else
                     {
-                       trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
+                       trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
+                                 __FILE__, __LINE__, msg_str,
                                  "Failed to get size of file %s.", file);
                        if (timeout_flag == ON)
                        {
@@ -1038,7 +1040,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
               }
               else
               {
-                 trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
+                 trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
+                           __FILE__, __LINE__, msg_str,
                            "Failed to get date of file %s.", file);
                  if (timeout_flag == ON)
                  {
@@ -1083,7 +1086,8 @@ check_list(char *file, off_t *file_size_to_retrieve)
            }
            else
            {
-              trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
+              trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
+                        __FILE__, __LINE__, msg_str,
                         "Failed to get size of file %s.", file);
               if (timeout_flag == ON)
               {

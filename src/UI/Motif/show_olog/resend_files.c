@@ -71,6 +71,8 @@ DESCR__E_M3
 #include "show_olog.h"
 #include "fddefs.h"
 
+/* #define WITH_RESEND_DEBUG 1 */
+
 /* External global variables */
 extern Display          *display;
 extern Widget           appshell,
@@ -219,6 +221,12 @@ resend_files(int no_selected, int *select_list)
       /* Get the job ID and file name. */
       if (rl[i].pos > -1)
       {
+#ifdef WITH_RESEND_DEBUG
+         (void)fprintf(stdout, "select=%d no_selected=%d archived=%d job_id=%x file_no=%d pos=%d status=%d (%s %d)\n",
+                       i, no_selected, il[rl[i].file_no].archived[rl[i].pos],
+                       rl[i].job_id, rl[i].file_no, rl[i].pos, (int)rl[i].status,
+                       __FILE__, __LINE__);
+#endif
          if (il[rl[i].file_no].archived[rl[i].pos] == 1)
          {
             /*
@@ -639,14 +647,9 @@ send_new_message(char           *p_msg_name,
                  off_t          file_size_to_send)
 {
    unsigned short dir_no;
-   int            fd;
-   size_t         msg_fifo_buf_size = sizeof(time_t) + sizeof(int) +
-                                      sizeof(int) + sizeof(int) +
-                                      sizeof(off_t) + sizeof(unsigned short) +
-                                      sizeof(unsigned short) + sizeof(char) +
-                                      sizeof(char);
-   char           *fifo_buffer,
-                  msg_fifo[MAX_PATH_LENGTH],
+   int            fd,
+                  ret;
+   char           msg_fifo[MAX_PATH_LENGTH],
                   *ptr;
 
    ptr = p_msg_name;
@@ -669,63 +672,62 @@ send_new_message(char           *p_msg_name,
    (void)strcat(msg_fifo, FIFO_DIR);
    (void)strcat(msg_fifo, MSG_FIFO);
 
-   /* Allocate memory for the fifo_buffer. */
-   if ((fifo_buffer = malloc(msg_fifo_buf_size + 1)) == NULL)
-   {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
-                 strerror(errno), __FILE__, __LINE__);
-      return(INCORRECT);
-   }
-
-   /* Open and create message file */
+   /* Open and create message file. */
    if ((fd = open(msg_fifo, O_RDWR)) == -1)
    {
       (void)xrec(appshell, ERROR_DIALOG, "Could not open %s : %s (%s %d)",
                  msg_fifo, strerror(errno), __FILE__, __LINE__);
-      free(fifo_buffer);
-      return(INCORRECT);
+      ret = INCORRECT;
    }
-
-   /* Fill fifo buffer with data. */
-   *(time_t *)(fifo_buffer) = creation_time;
-   *(unsigned int *)(fifo_buffer + sizeof(time_t)) = job_id;
-   *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int)) = split_job_counter;
-   *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
-                     sizeof(unsigned int)) = files_to_send;
-   *(off_t *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
-              sizeof(unsigned int) +
-              sizeof(unsigned int)) = file_size_to_send;
-   *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
-                       sizeof(unsigned int) + sizeof(unsigned int) +
-                       sizeof(off_t)) = dir_no;
-   *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
-                       sizeof(unsigned int) + sizeof(unsigned int) +
-                       sizeof(off_t) + sizeof(unsigned short)) = unique_number;
-   *(char *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
-             sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) +
-             sizeof(unsigned short) + sizeof(unsigned short)) = priority;
-   *(char *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
-             sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) +
-             sizeof(unsigned short) + sizeof(unsigned short) +
-             sizeof(char)) = SHOW_OLOG_NO;
-
-   /* Send the message */
-   if (write(fd, fifo_buffer, msg_fifo_buf_size) != msg_fifo_buf_size)
+   else
    {
-      (void)xrec(appshell, ERROR_DIALOG, "Could not write to %s : %s (%s %d)",
-                 msg_fifo, strerror(errno), __FILE__, __LINE__);
-      free(fifo_buffer);
-      return(INCORRECT);
+      char fifo_buffer[MAX_BIN_MSG_LENGTH];
+
+      /* Fill fifo buffer with data. */
+      *(time_t *)(fifo_buffer) = creation_time;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t)) = job_id;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int)) = split_job_counter;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
+                        sizeof(unsigned int)) = files_to_send;
+      *(off_t *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
+                 sizeof(unsigned int) +
+                 sizeof(unsigned int)) = file_size_to_send;
+      *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
+                          sizeof(unsigned int) + sizeof(unsigned int) +
+                          sizeof(off_t)) = dir_no;
+      *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
+                          sizeof(unsigned int) + sizeof(unsigned int) +
+                          sizeof(off_t) +
+                          sizeof(unsigned short)) = unique_number;
+      *(char *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
+                sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) +
+                sizeof(unsigned short) + sizeof(unsigned short)) = priority;
+      *(char *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
+                sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) +
+                sizeof(unsigned short) + sizeof(unsigned short) +
+                sizeof(char)) = SHOW_OLOG_NO;
+
+      /* Send the message. */
+      if (write(fd, fifo_buffer, MAX_BIN_MSG_LENGTH) != MAX_BIN_MSG_LENGTH)
+      {
+         (void)xrec(appshell, ERROR_DIALOG,
+                    "Could not write to %s : %s (%s %d)",
+                    msg_fifo, strerror(errno), __FILE__, __LINE__);
+         ret = INCORRECT;
+      }
+      else
+      {
+         ret = SUCCESS;
+      }
+
+      if (close(fd) == -1)
+      {
+         (void)xrec(appshell, WARN_DIALOG, "Failed to close() %s : %s (%s %d)",
+                    msg_fifo, strerror(errno), __FILE__, __LINE__);
+      }
    }
 
-   if (close(fd) == -1)
-   {
-      (void)xrec(appshell, WARN_DIALOG, "Failed to close() %s : %s (%s %d)",
-                 msg_fifo, strerror(errno), __FILE__, __LINE__);
-   }
-   free(fifo_buffer);
-
-   return(SUCCESS);
+   return(ret);
 }
 
 
@@ -760,8 +762,6 @@ get_file(char *dest_dir, char *p_dest_dir_end, off_t *file_size)
                              return(INCORRECT);
                           }
                           break;
-            case ENOENT : /* File is not in archive dir. */
-                          return(INCORRECT);
             default:      /* All other errors go here. */
                           (void)fprintf(stdout,
                                         "Failed to link() %s to %s : %s (%s %d)\n",
@@ -774,10 +774,9 @@ get_file(char *dest_dir, char *p_dest_dir_end, off_t *file_size)
            /* set the files will be deleted by process sf_xxx before */
            /* being send.                                            */
       {
-         struct utimbuf ut;
+         struct stat stat_buf;
 
-         ut.actime = ut.modtime = time(NULL);
-         if (utime(dest_dir, &ut) == -1)
+         if (utime(dest_dir, NULL) == -1)
          {
             /*
              * Do NOT use xrec() here to report any errors. If you try
@@ -786,12 +785,132 @@ get_file(char *dest_dir, char *p_dest_dir_end, off_t *file_size)
              */
             (void)fprintf(stdout, "Failed to set utime() of %s : %s (%s %d)\n",
                           dest_dir, strerror(errno), __FILE__, __LINE__);
+         }
+
+         if (stat(dest_dir, &stat_buf) == -1)
+         {
+            (void)fprintf(stdout, "Failed to stat() `%s' : %s (%s %d)\n",
+                          dest_dir, strerror(errno), __FILE__, __LINE__);
+            return(INCORRECT);
+         }
+         else
+         {
+            *file_size = stat_buf.st_size;
+         }
+      }
+   }
+   else
+   {
+      if (eaccess(archive_dir, R_OK) == 0)
+      {
+         /*
+          * If we do not have write permission to the file we must copy
+          * the file so the date of the file is that time when we copied it.
+          */
+         int from_fd;
+
+         if ((from_fd = open(archive_dir, O_RDONLY)) == -1)
+         {
+            /* File is not in archive dir. */
+            (void)fprintf(stdout, "Failed to open() `%s' : %s (%s %d)\n",
+                          archive_dir, strerror(errno), __FILE__, __LINE__);
             return(INCORRECT);
          }
          else
          {
             struct stat stat_buf;
 
+            if (fstat(from_fd, &stat_buf) == -1)
+            {
+               (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
+                             archive_dir, strerror(errno), __FILE__, __LINE__);
+               (void)close(from_fd);
+               return(INCORRECT);
+            }
+            else
+            {
+               int to_fd;
+
+               (void)unlink(dest_dir);
+               if ((to_fd = open(dest_dir, O_WRONLY | O_CREAT | O_TRUNC,
+                                 stat_buf.st_mode)) == -1)
+               {
+                  (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                                dest_dir, strerror(errno), __FILE__, __LINE__);
+                  (void)close(from_fd);
+                  return(INCORRECT);
+               }
+               else
+               {
+                  if (stat_buf.st_size > 0)
+                  {
+                     int  bytes_buffered;
+                     char *buffer;
+
+                     if ((buffer = malloc(stat_buf.st_blksize)) == NULL)
+                     {
+                        (void)fprintf(stderr,
+                                      "malloc() error : %s (%s %d)\n",
+                                      strerror(errno), __FILE__, __LINE__);
+                        (void)close(from_fd); (void)close(to_fd);
+                        return(INCORRECT);
+                     }
+
+                     do
+                     {
+                        if ((bytes_buffered = read(from_fd, buffer,
+                                                   stat_buf.st_blksize)) == -1)
+                        {
+                           (void)fprintf(stderr,
+                                         "Failed to read() from %s : %s (%s %d)\n",
+                                         archive_dir, strerror(errno),
+                                         __FILE__, __LINE__);
+                           free(buffer);
+                           (void)close(from_fd); (void)close(to_fd);
+                           return(INCORRECT);
+                        }
+                        if (bytes_buffered > 0)
+                        {
+                           if (write(to_fd, buffer, bytes_buffered) != bytes_buffered)
+                           {
+                              (void)fprintf(stderr,
+                                            "Failed to write() to %s : %s (%s %d)\n",
+                                            dest_dir, strerror(errno),
+                                            __FILE__, __LINE__);
+                              free(buffer);
+                              (void)close(from_fd); (void)close(to_fd);
+                              return(INCORRECT);
+                           }
+                        }
+                     } while (bytes_buffered == stat_buf.st_blksize);
+                     free(buffer);
+                  }
+                  (void)close(to_fd);
+                  *file_size = stat_buf.st_size;
+               }
+            }
+            (void)close(from_fd);
+         }
+      }
+      else
+      {
+         if (link(archive_dir, dest_dir) < 0)
+         {
+            (void)fprintf(stdout, "Failed to link() %s to %s : %s (%s %d)\n",
+                          archive_dir, dest_dir, strerror(errno),
+                          __FILE__, __LINE__);
+            return(INCORRECT);
+         }
+         else
+         {
+            struct stat stat_buf;
+
+            /*
+             * Since we do not have write permission we cannot update
+             * the access and modification time. So if age limit is set,
+             * it can happen that the files are deleted immediatly by
+             * sf_xxx.
+             */
             if (stat(dest_dir, &stat_buf) == -1)
             {
                (void)fprintf(stdout, "Failed to stat() `%s' : %s (%s %d)\n",
@@ -803,99 +922,6 @@ get_file(char *dest_dir, char *p_dest_dir_end, off_t *file_size)
                *file_size = stat_buf.st_size;
             }
          }
-      }
-   }
-   else
-   {
-      /*
-       * If we do not have write permission to the file we must copy
-       * the file so the date of the file is that time when we copied it.
-       */
-      int from_fd;
-
-      if ((from_fd = open(archive_dir, O_RDONLY)) == -1)
-      {
-         /* File is not in archive dir. */
-         return(INCORRECT);
-      }
-      else
-      {
-         struct stat stat_buf;
-
-         if (fstat(from_fd, &stat_buf) == -1)
-         {
-            (void)fprintf(stderr,
-                          "Failed to fstat() %s : %s (%s %d)\n",
-                          archive_dir, strerror(errno),
-                          __FILE__, __LINE__);
-            (void)close(from_fd);
-            return(INCORRECT);
-         }
-         else
-         {
-            int to_fd;
-
-            (void)unlink(dest_dir);
-            if ((to_fd = open(dest_dir, O_WRONLY | O_CREAT | O_TRUNC,
-                              stat_buf.st_mode)) == -1)
-            {
-               (void)fprintf(stderr,
-                             "Failed to open() %s : %s (%s %d)\n",
-                             dest_dir, strerror(errno),
-                             __FILE__, __LINE__);
-               (void)close(from_fd);
-               return(INCORRECT);
-            }
-            else
-            {
-               if (stat_buf.st_size > 0)
-               {
-                  int  bytes_buffered;
-                  char *buffer;
-
-                  if ((buffer = malloc(stat_buf.st_blksize)) == NULL)
-                  {
-                     (void)fprintf(stderr,
-                                   "malloc() error : %s (%s %d)\n",
-                                   strerror(errno), __FILE__, __LINE__);
-                     (void)close(from_fd); (void)close(to_fd);
-                     return(INCORRECT);
-                  }
-
-                  do
-                  {
-                     if ((bytes_buffered = read(from_fd, buffer,
-                                                stat_buf.st_blksize)) == -1)
-                     {
-                        (void)fprintf(stderr,
-                                      "Failed to read() from %s : %s (%s %d)\n",
-                                      archive_dir, strerror(errno),
-                                      __FILE__, __LINE__);
-                        free(buffer);
-                        (void)close(from_fd); (void)close(to_fd);
-                        return(INCORRECT);
-                     }
-                     if (bytes_buffered > 0)
-                     {
-                        if (write(to_fd, buffer, bytes_buffered) != bytes_buffered)
-                        {
-                           (void)fprintf(stderr,
-                                         "Failed to write() to %s : %s (%s %d)\n",
-                                         dest_dir, strerror(errno),
-                                         __FILE__, __LINE__);
-                           free(buffer);
-                           (void)close(from_fd); (void)close(to_fd);
-                           return(INCORRECT);
-                        }
-                     }
-                  } while (bytes_buffered == stat_buf.st_blksize);
-                  free(buffer);
-               }
-               (void)close(to_fd);
-               *file_size = stat_buf.st_size;
-            }
-         }
-         (void)close(from_fd);
       }
    }
 

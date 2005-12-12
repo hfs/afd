@@ -141,9 +141,10 @@ extern int                    dnb_fd,
                               data_length,/* The size of data for one job.  */
                               *no_of_dir_names,
                               no_of_dir_configs,
-                              no_of_hosts;/* The number of remote hosts to  */
+                              no_of_hosts,/* The number of remote hosts to  */
                                           /* which files have to be         */
                                           /* transfered.                    */
+                              remove_unused_hosts;
 extern mode_t                 create_source_dir_mode;
 extern struct host_list       *hl;        /* Structure that holds all the   */
                                           /* hosts.                         */
@@ -1773,6 +1774,8 @@ check_dummy_line:
 
                dd[no_of_local_dirs].dir_pos = lookup_dir_id(dir->location,
                                                             dir->orig_dir_name);
+               dd[no_of_local_dirs].dir_id = dnb[dd[no_of_local_dirs].dir_pos].dir_id;
+               dd[no_of_local_dirs].in_dc_flag = 0;
                if (dir->alias[0] == '\0')
                {
                   (void)sprintf(dir->alias, "%x",
@@ -1780,6 +1783,8 @@ check_dummy_line:
                }
                else
                {
+                  int gotcha = NO;
+
                   /* Check if the directory alias was not already specified. */
                   for (j = 0; j < no_of_local_dirs; j++)
                   {
@@ -1787,12 +1792,17 @@ check_dummy_line:
                      {
                         (void)sprintf(dir->alias, "%x",
                                       dnb[dd[no_of_local_dirs].dir_pos].dir_id);
+                        gotcha = YES;
                         system_log(WARN_SIGN, __FILE__, __LINE__,
                                    "Duplicate directory alias `%s' in `%s', giving it another alias: `%s'",
                                    dd[j].dir_alias, dcl[dcd].dir_config_file,
                                    dir->alias);
                         break;
                      }
+                  }
+                  if (gotcha == NO)
+                  {
+                     dd[no_of_local_dirs].in_dc_flag |= DIR_ALIAS_IDC;
                   }
                }
 
@@ -1919,6 +1929,45 @@ check_dummy_line:
       database = NULL;
       dcd++;
    } while (dcd < no_of_dir_configs);
+
+   /* Remove any unused hosts. */
+   if (remove_unused_hosts == YES)
+   {
+      for (i = 0; i < no_of_hosts; i++)
+      {
+         if (hl[i].in_dir_config != YES)
+         {
+            system_log(DEBUG_SIGN, NULL, 0,
+                       "Removing unused host %s.", hl[i].host_alias);
+            if ((no_of_hosts > 1) && ((i + 1) < no_of_hosts))
+            {
+               size_t move_size = (no_of_hosts - (i + 1)) * sizeof(struct host_list);
+
+               (void)memmove(&hl[i], &hl[i + 1], move_size);
+            }
+            no_of_hosts--;
+            i--;
+         }
+      }
+
+      /*
+       * Correct fsa_pos in structure dir_data.
+       */
+      for (i = 0; i < no_of_local_dirs; i++)
+      {
+         if (dd[i].host_alias != '\0')
+         {
+            for (j = 0; j < no_of_hosts; j++)
+            {
+               if (CHECK_STRCMP(dd[i].host_alias, hl[j].host_alias) == 0)
+               {
+                  dd[i].fsa_pos = j;
+                  j = no_of_hosts;
+               }
+            }
+         }
+      }
+   }
 
    /* See if there are any valid directory entries. */
    if (no_of_local_dirs == 0)
@@ -2056,7 +2105,6 @@ check_hostname_list(char *recipient, unsigned int flag)
         {
            protocol = LOC_FLAG;
         }
-#ifdef WHEN_WE_HAVE_HTTP_SEND
 #ifdef WITH_SSL
    else if (memcmp(recipient, HTTPS_SHEME, HTTPS_SHEME_LENGTH) == 0)
         {
@@ -2067,7 +2115,6 @@ check_hostname_list(char *recipient, unsigned int flag)
         {
            protocol = HTTP_FLAG;
         }
-#endif
 #ifdef WITH_SSL
    else if (memcmp(recipient, SMTPS_SHEME, SMTPS_SHEME_LENGTH) == 0)
         {

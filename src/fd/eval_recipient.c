@@ -65,6 +65,7 @@ DESCR__S_M3
  **   09.04.2004 H.Kiehl Support for TLS/SSL.
  **   28.01.2005 H.Kiehl Don't keep the error time indefinite long, for
  **                      retrieving remote files.
+ **   21.11.2005 H.Kiehl Added time modifier when evaluating the directory.
  **
  */
 DESCR__E_M3
@@ -108,6 +109,8 @@ eval_recipient(char       *recipient,
 #endif
    if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
    {
+      time_t       time_modifier = 0;
+      char         time_mod_sign = '+';
       register int i;
 
       ptr += 3; /* Away with '://' */
@@ -369,6 +372,28 @@ eval_recipient(char       *recipient,
                   {
                      time_buf = time(NULL);
                   }
+                  if (time_modifier > 0)
+                  {
+                     switch (time_mod_sign)
+                     {
+                        case '-' :
+                           time_buf = time_buf - time_modifier;
+                           break;
+                        case '*' :
+                           time_buf = time_buf * time_modifier;
+                           break;
+                        case '/' :
+                           time_buf = time_buf / time_modifier;
+                           break;
+                        case '%' :
+                           time_buf = time_buf % time_modifier;
+                           break;
+                        case '+' :
+                        default :
+                           time_buf = time_buf + time_modifier;
+                           break;
+                     }
+                  }
                   switch(*(ptr + 2))
                   {
                      case 'a': /* short day of the week 'Tue' */
@@ -448,11 +473,85 @@ eval_recipient(char       *recipient,
                   i += number;
                   ptr += 3;
                }
-               else
-               {
-                  p_db->target_dir[i] = *ptr;
-                  i++; ptr++;
-               }
+               else if ((*ptr == '%') && (*(ptr + 1) == 'T'))
+                    {
+                       int  j,
+                            time_unit;
+                       char string[MAX_INT_LENGTH + 1];
+
+                       ptr += 2;
+                       switch (*ptr)
+                       {
+                          case '+' :
+                          case '-' :
+                          case '*' :
+                          case '/' :
+                          case '%' :
+                             time_mod_sign = *ptr;
+                             ptr++;
+                             break;
+                          default  :
+                             time_mod_sign = '+';
+                             break;
+                       }
+                       j = 0;
+                       while ((isdigit(*ptr)) && (j < MAX_INT_LENGTH))
+                       {
+                          string[j++] = *ptr++;
+                       }
+                       if ((j > 0) && (j < MAX_INT_LENGTH))
+                       {
+                          string[j] = '\0';
+                          time_modifier = atoi(string);
+                       }
+                       else
+                       {
+                          if (i == MAX_INT_LENGTH)
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "The time modifier specified in the recipient of message %s for host %s is to large.",
+                                        full_msg_path, p_db->host_alias);
+                          }
+                          else
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "There is no time modifier specified in the recipient of message %s for host %s.",
+                                        full_msg_path, p_db->host_alias);
+                          }
+                          time_modifier = 0;
+                       }
+                       switch (*ptr)
+                       {
+                          case 'S' : /* Second */
+                             time_unit = 1;
+                             ptr++;
+                             break;
+                          case 'M' : /* Minute */
+                             time_unit = 60;
+                             ptr++;
+                             break;
+                          case 'H' : /* Hour */
+                             time_unit = 3600;
+                             ptr++;
+                             break;
+                          case 'd' : /* Day */
+                             time_unit = 86400;
+                             ptr++;
+                             break;
+                          default :
+                             time_unit = 1;
+                             break;
+                       }
+                       if (time_modifier > 0)
+                       {
+                          time_modifier = time_modifier * time_unit;
+                       }
+                    }
+                    else
+                    {
+                       p_db->target_dir[i] = *ptr;
+                       i++; ptr++;
+                    }
             }
          }
          if (i >= MAX_RECIPIENT_LENGTH)
@@ -574,7 +673,10 @@ eval_recipient(char       *recipient,
                        p_db->smtp_server[i] = *ptr;
                        i++; ptr++;
                     }
-                    p_db->smtp_server[i] = '\0';
+                    if (i != 0)
+                    {
+                       p_db->smtp_server[i] = '\0';
+                    }
                  }
          }
          /*
@@ -585,7 +687,8 @@ eval_recipient(char       *recipient,
       /*
        * Find position of this hostname in FSA.
        */
-      if (p_db->smtp_server[0] == '\0')
+      if ((p_db->smtp_server[0] == '\0') ||
+          (p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG))
       {
          t_hostname(p_db->hostname, p_db->host_alias);
       }
@@ -595,7 +698,8 @@ eval_recipient(char       *recipient,
       }
       if (CHECK_STRCMP(p_db->host_alias, fsa->host_alias) == 0)
       {
-         if (p_db->smtp_server[0] != '\0')
+         if ((p_db->smtp_server[0] != '\0') &&
+             ( (p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG) == 0))
          {
             (void)strcpy(p_db->smtp_server,
                          fsa->real_hostname[(int)(fsa->host_toggle - 1)]);

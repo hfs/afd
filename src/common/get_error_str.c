@@ -1,6 +1,6 @@
 /*
  *  get_error_str.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004, 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,6 +74,7 @@ get_error_str(int error_code)
       case MOVE_ERROR : return(MOVE_ERROR_STR);
       case RENAME_ERROR : return(RENAME_ERROR_STR);
       case TIMEOUT_ERROR : return(TIMEOUT_ERROR_STR);
+      case CONNECTION_RESET_ERROR : return(CONNECTION_RESET_ERROR_STR);
 #ifdef _WITH_WMO_SUPPORT
       case CHECK_REPLY_ERROR : return(CHECK_REPLY_ERROR_STR);
 #endif

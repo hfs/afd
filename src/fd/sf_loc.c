@@ -32,7 +32,7 @@ DESCR__S_M1
  **       --version        Version Number
  **       -a <age limit>   The age limit for the files being send.
  **       -A               Disable archiving of files.
- **       -f               Error message.
+ **       -o <retries>     Old/Error message and number of retries.
  **       -r               Resend from archive (job from show_olog).
  **       -t               Temp toggle.
  **

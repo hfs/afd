@@ -47,6 +47,7 @@ DESCR__S_M1
  **   17.08.2003 H.Kiehl wait_for_filename, accumulate and accumulate_size.
  **   09.02.2005 H.Kiehl Added additional time entry structure.
  **   07.06.2005 H.Kiehl Added dupcheck entries.
+ **   05.10.2005 H.Kiehl Added in_dc_flag entry.
  **
  */
 DESCR__E_M1
@@ -158,7 +159,7 @@ main(int argc, char *argv[])
       (void)fprintf(stdout, "=============================> %s <=============================\n",
                     fra[i].dir_alias);
       (void)fprintf(stdout, "Directory alias      : %s\n", fra[i].dir_alias);
-      (void)fprintf(stdout, "Directory position   : %d\n", fra[i].dir_pos);
+      (void)fprintf(stdout, "Directory ID         : %x\n", fra[i].dir_id);
       (void)fprintf(stdout, "URL                  : %s\n", fra[i].url);
       (void)fprintf(stdout, "Host alias           : %s\n", fra[i].host_alias);
       (void)fprintf(stdout, "Wait for             : %s\n", fra[i].wait_for_filename);
@@ -288,7 +289,7 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "Directory flag(  0)  : None\n");
       }
-      else                                                                 
+      else
       {
          (void)fprintf(stdout, "Directory flag(%3d)  : ", fra[i].dir_flag);
          if (fra[i].dir_flag & MAX_COPIED)
@@ -306,6 +307,47 @@ main(int argc, char *argv[])
          if (fra[i].dir_flag & LINK_NO_EXEC)
          {
             (void)fprintf(stdout, "LINK_NO_EXEC");
+         }
+         (void)fprintf(stdout, "\n");
+      }
+      if (fra[i].in_dc_flag == 0)
+      {
+         (void)fprintf(stdout, "In DIR_CONFIG flag   : None\n");
+      }
+      else
+      {
+         (void)fprintf(stdout, "In DIR_CONFIG flag   : ");
+         if (fra[i].in_dc_flag & DIR_ALIAS_IDC)
+         {
+            (void)fprintf(stdout, "DIR_ALIAS ");
+         }
+         if (fra[i].in_dc_flag & UNKNOWN_FILES_IDC)
+         {
+            (void)fprintf(stdout, "UNKNOWN_FILES ");
+         }
+         if (fra[i].in_dc_flag & QUEUED_FILES_IDC)
+         {
+            (void)fprintf(stdout, "QUEUED_FILES ");
+         }
+         if (fra[i].in_dc_flag & OLD_LOCKED_FILES_IDC)
+         {
+            (void)fprintf(stdout, "OLD_LOCKED_FILES ");
+         }
+         if (fra[i].in_dc_flag & REPUKW_FILES_IDC)
+         {
+            (void)fprintf(stdout, "REPORT_UNKNOWN_FILES ");
+         }
+         if (fra[i].in_dc_flag & DONT_REPUKW_FILES_IDC)
+         {
+            (void)fprintf(stdout, "DONT_REPORT_UNKNOWN_FILES ");
+         }
+         if (fra[i].in_dc_flag & MAX_CP_FILES_IDC)
+         {
+            (void)fprintf(stdout, "MAX_COPIED_FILES ");
+         }
+         if (fra[i].in_dc_flag & MAX_CP_FILE_SIZE_IDC)
+         {
+            (void)fprintf(stdout, "MAX_COPIED_FILE_SIZE");
          }
          (void)fprintf(stdout, "\n");
       }

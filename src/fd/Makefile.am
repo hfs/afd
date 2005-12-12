@@ -65,8 +65,8 @@ sf_ftp_SOURCES        = append.c\
                         archive_file.c\
                         check_burst_2.c\
                         eval_input_sf.c\
-                        eval_recipient.c\
                         eval_message.c\
+                        eval_recipient.c\
                         fsa_attach_pos.c\
                         get_file_names.c\
                         get_group_list.c\
@@ -114,8 +114,8 @@ sf_scp_SOURCES        = append.c\
                         archive_file.c\
                         check_burst_2.c\
                         eval_input_sf.c\
-                        eval_recipient.c\
                         eval_message.c\
+                        eval_recipient.c\
                         fsa_attach_pos.c\
                         get_file_names.c\
                         get_group_list.c\

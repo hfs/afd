@@ -84,31 +84,41 @@ get_definition(char *buffer,
    {
       ptr++;
    }
-   if (*ptr == '"')
+   if ((definition == NULL) || (max_definition_length == 0))
    {
-      ptr++;
-      while ((*ptr != '\n') && (*ptr != '\0') && (*ptr != '"') &&
-             (i < max_definition_length))
+      while ((*ptr != '\n') && (*ptr != '\0'))
       {
-         definition[i] = *ptr;
-         ptr++; i++;
+         ptr++;
       }
    }
    else
    {
-      while ((*ptr != '\n') && (*ptr != '\0') &&
-             (*ptr != ' ') && (*ptr != '\t') &&
-             (i < max_definition_length))
+      if (*ptr == '"')
       {
-         definition[i] = *ptr;
-         ptr++; i++;
+         ptr++;
+         while ((*ptr != '\n') && (*ptr != '\0') && (*ptr != '"') &&
+                (i < max_definition_length))
+         {
+            definition[i] = *ptr;
+            ptr++; i++;
+         }
       }
+      else
+      {
+         while ((*ptr != '\n') && (*ptr != '\0') &&
+                (*ptr != ' ') && (*ptr != '\t') &&
+                (i < max_definition_length))
+         {
+            definition[i] = *ptr;
+            ptr++; i++;
+         }
+      }
+      if (i >= max_definition_length)
+      {
+         return(NULL);
+      }
+      definition[i] = '\0';
    }
-   if (i >= max_definition_length)
-   {
-      return(NULL);
-   }
-   definition[i] = '\0';
 
    return(ptr);
 }

@@ -24,11 +24,37 @@
 
 #define MAXARGS                  20
 #define MAX_INFO_STRING_LENGTH   60
-#define NO_OF_DIR_ROWS           6
 #define DIR_INFO_TEXT_WIDTH_L    15
 #define DIR_INFO_TEXT_WIDTH_R    18
 #define DIR_INFO_LENGTH_L        20
 #define DIR_INFO_LENGTH_R        20
+
+/* Definitions for the left labels. */
+#define ALIAS_DIR_NAME_POS       0
+#define STUPID_MODE_POS          1
+#define FORCE_REREAD_POS         2
+#define ACCUMULATE_POS           3
+#define DELETE_UNKNOWN_POS       4
+#define DELETE_QUEUED_POS        5
+#define IGNORE_FILE_TIME_POS     6
+#define END_CHARACTER_POS        7
+#define BYTES_RECEIVED_POS       8
+#define LAST_RETRIEVAL_POS       9
+
+/* Definitions for the right labels. */
+#define DIRECTORY_ID_POS         0
+#define REMOVE_FILES_POS         1
+#define WAIT_FOR_FILENAME_POS    2
+#define ACCUMULATE_SIZE_POS      3
+#define REPORT_UNKNOWN_FILES_POS 4
+#define DELETE_LOCKED_FILES_POS  5
+#define IGNORE_SIZE_POS          6
+#define MAX_COPIED_FILES_POS     7
+#define FILES_RECEIVED_POS       8
+#define NEXT_CHECK_TIME_POS      9
+
+#define NO_OF_LABELS_PER_ROW     10
+
 
 #define UPDATE_INTERVAL          1000
 #define FILE_UPDATE_INTERVAL     4
@@ -37,23 +63,36 @@ struct prev_values
        {
           char          real_dir_name[MAX_PATH_LENGTH];
           char          host_alias[MAX_HOSTNAME_LENGTH + 1];
-          int           dir_pos;
           char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char          display_url[MAX_RECIPIENT_LENGTH];
           char          url[MAX_RECIPIENT_LENGTH];
-          char          priority;
+          char          wait_for_filename[MAX_WAIT_FOR_LENGTH];
+          u_off_t       bytes_received;
+          off_t         ignore_size;
+          off_t         accumulate_size;
+          time_t        last_retrieval;
+          time_t        next_check_time;
+#ifdef WITH_DUP_CHECK
+          time_t        dup_check_timeout;
+          unsigned int  dup_check_flag;
+#endif
+          unsigned int  dir_id;
+          unsigned int  accumulate;
+          unsigned int  ignore_file_time;
+          unsigned int  gt_lt_sign;
+          unsigned int  files_received;
+          unsigned int  max_copied_files;
+          int           dir_pos;
+          int           unknown_file_time;
+          int           queued_file_time;
+          int           locked_file_time;
+          int           end_character;
+          unsigned char time_option;
+          unsigned char delete_files_flag;
           unsigned char stupid_mode;
           unsigned char remove;
           char          force_reread;
           unsigned char report_unknown_files;
-          int           unknown_file_time;
-          int           queued_file_time;
-          unsigned char delete_files_flag;
-          u_off_t       bytes_received;
-          unsigned int  files_received;
-          time_t        last_retrieval;
-          time_t        next_check_time;
-          unsigned char time_option;
        };
 
 /* Function prototypes */

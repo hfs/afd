@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -94,17 +94,16 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
             {
                (void)fprintf(stderr,
                              "WARNING : Could not open fifo %s : %s (%s %d)\n",
-                             SYSTEM_LOG_FIFO, strerror(errno),
-                             __FILE__, __LINE__);
+                             sys_log_fifo, strerror(errno), __FILE__, __LINE__);
             }
          }
          else
          {
             (void)fprintf(stderr,
                           "WARNING : Could not open fifo %s : %s (%s %d)\n",
-                          SYSTEM_LOG_FIFO, strerror(errno),
-                          __FILE__, __LINE__);
+                          sys_log_fifo, strerror(errno), __FILE__, __LINE__);
          }
+         sys_log_fd = STDERR_FILENO;
       }
    }
 
@@ -142,7 +141,12 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
       length += sprintf(&buf[length], " (%s %d)\n", file, line);
    }
 
-   (void)write(sys_log_fd, buf, length);
+   if (write(sys_log_fd, buf, length) == -1)
+   {
+      (void)fprintf(stderr,
+                    "ERROR   : Failed to write() %d bytes : %s (%s %d)\n",
+                    length, strerror(errno), __FILE__, __LINE__);
+   }
 
    return;
 }

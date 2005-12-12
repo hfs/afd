@@ -206,14 +206,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                 "FTP connection to %s at port %d failed (%d).",
                 db.hostname, db.port, status);
-      if (timeout_flag == OFF)
-      {
-         exit(CONNECT_ERROR);
-      }
-      else
-      {
-         exit(TIMEOUT_ERROR);
-      }
+      exit(eval_timeout(CONNECT_ERROR));
    }
    else
    {
@@ -261,7 +254,7 @@ main(int argc, char *argv[])
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                    "Failed to send user <%s> (%d).", db.user, status);
          (void)ftp_quit();
-         exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
+         exit(eval_timeout(USER_ERROR));
       }
       else
       {
@@ -281,7 +274,7 @@ main(int argc, char *argv[])
                       "Failed to send password for user <%s> (%d).",
                       db.user, status);
             (void)ftp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : PASSWORD_ERROR);
+            exit(eval_timeout(PASSWORD_ERROR));
          }
          else
          {
@@ -322,7 +315,7 @@ main(int argc, char *argv[])
                 "Failed to set transfer mode to %c (%d).",
                 db.transfer_mode, status);
       (void)ftp_quit();
-      exit((timeout_flag == ON) ? TIMEOUT_ERROR : TYPE_ERROR);
+      exit(eval_timeout(TYPE_ERROR));
    }
    else
    {
@@ -351,7 +344,7 @@ main(int argc, char *argv[])
                       db.remote_dir, status);
          }
          (void)ftp_quit();
-         exit((timeout_flag == ON) ? TIMEOUT_ERROR : CHDIR_ERROR);
+         exit(eval_timeout(CHDIR_ERROR));
       }
       else
       {
@@ -427,7 +420,7 @@ main(int argc, char *argv[])
                          "Failed to open remote file %s (%d).",
                          rl[i].file_name, status);
                (void)ftp_quit();
-               exit(OPEN_REMOTE_ERROR);
+               exit(eval_timeout(OPEN_REMOTE_ERROR));
             }
             if (status == -550) /* ie. file has been deleted or is NOT a file. */
             {
@@ -454,7 +447,7 @@ main(int argc, char *argv[])
                                "TSL/SSL data connection to server `%s' failed.",
                                db.hostname);
                      (void)ftp_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : AUTH_ERROR);
+                     exit(eval_timeout(AUTH_ERROR));
                   }
                   else
                   {
@@ -513,7 +506,7 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_quit();
                      }
-                     exit(READ_REMOTE_ERROR);
+                     exit(eval_timeout(READ_REMOTE_ERROR));
                   }
                   else if (status > 0)
                        {
@@ -535,7 +528,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                             "Failed to close data connection (%d).", status);
                   (void)ftp_quit();
-                  exit(CLOSE_REMOTE_ERROR);
+                  exit(eval_timeout(CLOSE_REMOTE_ERROR));
                }
                else
                {
@@ -906,7 +899,7 @@ main(int argc, char *argv[])
                       "Failed to open remote file %s (%d).",
                       initial_filename, status);
             (void)ftp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
+            exit(eval_timeout(OPEN_REMOTE_ERROR));
          }
          else
          {
@@ -925,7 +918,7 @@ main(int argc, char *argv[])
                          "TSL/SSL data connection to server `%s' failed.",
                          db.hostname);
                (void)ftp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : AUTH_ERROR);
+               exit(eval_timeout(AUTH_ERROR));
             }
             else
             {
@@ -1005,7 +998,7 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_quit();
                      }
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
 
                   file_size_done += db.blocksize;
@@ -1086,7 +1079,7 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_quit();
                      }
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
 
                   file_size_done += rest;
@@ -1178,7 +1171,7 @@ main(int argc, char *argv[])
                   {
                      (void)ftp_quit();
                   }
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
 
                file_size_done += db.blocksize;
@@ -1213,7 +1206,7 @@ main(int argc, char *argv[])
                   {
                      (void)ftp_quit();
                   }
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
 
                file_size_done += rest;
@@ -1237,7 +1230,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                          "Failed to close remote file %s", initial_filename);
                (void)ftp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
+               exit(eval_timeout(CLOSE_REMOTE_ERROR));
             }
             else
             {
@@ -1311,7 +1304,7 @@ main(int argc, char *argv[])
                          "Failed to move remote file %s to %s (%d)",
                          initial_filename, final_filename, status);
                (void)ftp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : MOVE_REMOTE_ERROR);
+               exit(eval_timeout(MOVE_REMOTE_ERROR));
             }
             else
             {
@@ -1344,7 +1337,7 @@ main(int argc, char *argv[])
                          "Failed to open remote ready file %s (%d).",
                          ready_file_name, status);
                (void)ftp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
+               exit(eval_timeout(OPEN_REMOTE_ERROR));
             }
             else
             {
@@ -1363,7 +1356,7 @@ main(int argc, char *argv[])
                             "TSL/SSL data connection to server `%s' failed.",
                             db.hostname);
                   (void)ftp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : AUTH_ERROR);
+                  exit(eval_timeout(AUTH_ERROR));
                }
                else
                {
@@ -1418,7 +1411,7 @@ main(int argc, char *argv[])
                {
                   (void)ftp_quit();
                }
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
 
             /* Close remote ready file */
@@ -1429,7 +1422,7 @@ main(int argc, char *argv[])
                          "Failed to close remote ready file %s (%d).",
                          ready_file_name, status);
                (void)ftp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
+               exit(eval_timeout(CLOSE_REMOTE_ERROR));
             }
             else
             {
@@ -1449,7 +1442,7 @@ main(int argc, char *argv[])
                          "Failed to move remote ready file %s to %s (%d)",
                          ready_file_name, &ready_file_name[1], status);
                (void)ftp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : MOVE_REMOTE_ERROR);
+               exit(eval_timeout(MOVE_REMOTE_ERROR));
             }
             else
             {

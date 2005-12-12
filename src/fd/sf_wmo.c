@@ -32,7 +32,7 @@ DESCR__S_M1
  **       --version        Version
  **       -a <age limit>   The age limit for the files being send.
  **       -A               Disable archiving of files.
- **       -f               Error message.
+ **       -o <retries>     Old/Error message and number of retries.
  **       -r               Resend from archive (job from show_olog).
  **       -t               Temp toggle.
  **
@@ -289,7 +289,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "WMO connection to <%s> at port %d failed (%d).",
                 db.hostname, db.port, status);
-      exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
+      exit(eval_timeout(CONNECT_ERROR));
    }
    else
    {
@@ -546,7 +546,7 @@ main(int argc, char *argv[])
                                "Failed to write block from file `%s' to remote port %d [%d].",
                                p_file_name_buffer, db.port, status);
                      wmo_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
                   if (fsa->transfer_rate_limit > 0)
                   {
@@ -595,7 +595,7 @@ main(int argc, char *argv[])
                                "Failed to write rest of file to remote port %d [%d].",
                                p_file_name_buffer, db.port, status);
                      wmo_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
                   if (fsa->transfer_rate_limit > 0)
                   {
@@ -663,7 +663,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to receive reply from port %d.", db.port);
                   wmo_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : CHECK_REPLY_ERROR);
+                  exit(eval_timeout(CHECK_REPLY_ERROR));
                }
                else if (ret == NEGATIV_ACKNOWLEDGE)
                     {

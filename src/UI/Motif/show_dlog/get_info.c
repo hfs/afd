@@ -202,6 +202,8 @@ get_info(int item, char input_id)
             if (item == GOT_JOB_ID_DIR_ONLY)
             {
                (void)strcpy(id.dir, dnb[i].dir_name);
+               id.dir_id = dnb[i].dir_id;
+               (void)sprintf(id.dir_id_str, "%x", id.dir_id);
             }
             else
             {
@@ -221,6 +223,8 @@ get_info(int item, char input_id)
             if (item == GOT_JOB_ID_DIR_ONLY)
             {
                (void)strcpy(id.dir, dnb[jd[i].dir_id_pos].dir_name);
+               id.dir_id = jd[i].dir_id;
+               (void)sprintf(id.dir_id_str, "%x", id.dir_id);
             }
             else
             {
@@ -503,6 +507,8 @@ get_job_data(struct job_id_data *p_jd)
    }
 
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
+   id.dir_id = p_jd->dir_id;
+   (void)sprintf(id.dir_id_str, "%x", id.dir_id);
    get_dir_options(p_jd->dir_id_pos, &id.d_o);
    id.dbe[0].priority = p_jd->priority;
    get_file_mask_list(p_jd->file_mask_id, &id.dbe[0].no_of_files,
@@ -565,6 +571,8 @@ get_dir_data(int dir_pos)
                   no_of_file_masks;
 
    (void)strcpy(id.dir, dnb[dir_pos].dir_name);
+   id.dir_id = dnb[dir_pos].dir_id;
+   (void)sprintf(id.dir_id_str, "%x", id.dir_id);
    get_dir_options(dir_pos, &id.d_o);
 
    id.count = 0;

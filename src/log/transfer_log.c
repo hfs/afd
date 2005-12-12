@@ -173,7 +173,7 @@ main(int argc, char *argv[])
                       MAX_TRANSFER_LOG_FILES);
 
    /* Attach to the AFD Status Area and position pointers. */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to attach to AFD status area.");

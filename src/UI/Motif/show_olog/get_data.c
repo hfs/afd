@@ -77,6 +77,8 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "show_olog.h"
 
+/* #define _MACRO_DEBUG */
+
 /* External global variables */
 extern Display          *display;
 extern Window           main_window;
@@ -92,6 +94,8 @@ extern int              continues_toggle_set,
                         radio_set,
                         gt_lt_sign,
                         max_output_log_files,
+                        no_of_search_dirs,
+                        no_of_search_dirids,
                         no_of_search_hosts,
                         special_button_flag,
                         file_name_length,
@@ -102,7 +106,8 @@ extern time_t           start_time_val,
                         end_time_val;
 extern char             *p_work_dir,
                         search_file_name[],
-                        search_directory_name[],
+                        **search_dir,
+                        **search_dirid,
                         **search_recipient,
                         **search_user,
                         summary_str[],
@@ -281,7 +286,7 @@ static void   check_log_updates(Widget),
            ptr++;                   \
            il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file + offset);\
                                     \
-           if ((search_directory_name[0] != '\0') ||\
+           if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0) ||\
                ((current_search_host != -1) &&\
                 (search_user[current_search_host][0] != '\0')))\
            {                        \
@@ -325,15 +330,37 @@ static void   check_log_updates(Widget),
                     }               \
                  }                  \
               }                     \
-              if (search_directory_name[0] != '\0')\
+              if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))\
               {                     \
+                 int gotcha = NO,   \
+                     kk;            \
+                                    \
                  id.dir[0] = '\0';  \
                  get_info(GOT_JOB_ID_DIR_ONLY);\
                  count = strlen(id.dir);\
                  id.dir[count] = SEPARATOR_CHAR;\
                  id.dir[count + 1] = '\0';\
                                     \
-                 if (sfilter(search_directory_name, id.dir, SEPARATOR_CHAR) != 0)\
+                 for (kk = 0; kk < no_of_search_dirids; kk++)\
+                 {                  \
+                    if (sfilter(search_dirid[kk], id.dir_id_str, 0) == 0)\
+                    {               \
+                       gotcha = YES;\
+                       break;       \
+                    }               \
+                 }                  \
+                 if (gotcha == NO)  \
+                 {                  \
+                    for (kk = 0; kk < no_of_search_dirs; kk++)\
+                    {               \
+                       if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)\
+                       {            \
+                          gotcha = YES;\
+                          break;    \
+                       }            \
+                    }               \
+                 }                  \
+                 if (gotcha == NO)  \
                  {                  \
                     IGNORE_ENTRY(); \
                  }                  \
@@ -646,7 +673,6 @@ static void   check_log_updates(Widget),
                 }                                          \
         }
 
-#define _MACRO_DEBUG
 
 /*############################### get_data() ############################*/
 void
@@ -1617,7 +1643,204 @@ no_criteria(register char *ptr,
 
          /* Write transfer duration, job ID and archive directory. */
          /* Also check if we have to check for directory name.     */
+#ifndef _MACRO_DEBUG
          COMMON_BLOCK();
+#else
+         ptr++;
+         while (*ptr != SEPARATOR_CHAR)
+         {
+            ptr++;
+         }
+         tmp_ptr = ptr - 1;
+         j = 0;
+         while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_TRANSFER_TIME))
+         {
+            *(p_tt - j) = *tmp_ptr;
+            tmp_ptr--; j++;
+         }
+         if (j == MAX_DISPLAYED_TRANSFER_TIME)
+         {
+            tmp_ptr = ptr - 4;
+            j = 0;
+            while ((*tmp_ptr != SEPARATOR_CHAR) && (j < MAX_DISPLAYED_TRANSFER_TIME))
+            {
+               *(p_tt - j) = *tmp_ptr;
+               tmp_ptr--; j++;
+            }
+            if ((j == MAX_DISPLAYED_TRANSFER_TIME) && (*tmp_ptr != SEPARATOR_CHAR))
+            {
+               *(p_tt - j) = '>';
+               while (*tmp_ptr != SEPARATOR_CHAR)
+               {
+                  tmp_ptr--;
+               }
+            }
+            else
+            {
+               while (j < MAX_DISPLAYED_TRANSFER_TIME)
+               {
+                *(p_tt - j) = ' ';
+                  j++;
+               }
+            }
+         }
+         tmp_ptr++;
+
+         ptr++;
+         il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file + offset);
+
+         if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0) ||
+             ((current_search_host != -1) &&
+              (search_user[current_search_host][0] != '\0')))
+         {
+            int  count = 0;
+            char job_id_str[15];
+
+            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR) && (count < 15))
+            {
+               job_id_str[count] = *ptr;
+               count++; ptr++;
+            }
+            job_id_str[count] = '\0';
+            id.job_no = (unsigned int)strtoul(job_id_str, NULL, 16);
+
+            if ((current_search_host != -1) &&
+                (search_user[current_search_host][0] != '\0'))
+            {
+               char *at_ptr = search_user[current_search_host];
+
+               id.user[0] = '\0';
+               id.mail_destination[0] = '\0';
+               get_info(GOT_JOB_ID_USER_ONLY);
+
+               while ((*at_ptr != ' ') && (*at_ptr != '@') && (*at_ptr != '\0'))
+               {
+                  at_ptr++;
+               }
+               if ((*at_ptr == '@') && (id.mail_destination[0] != '\0'))
+               {
+                  if (sfilter(search_user[current_search_host],
+                              id.mail_destination, ' ') != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+               else
+               {
+                  if (sfilter(search_user[current_search_host], id.user, ' ') != 0)
+                  {
+                     IGNORE_ENTRY();
+                  }
+               }
+            }
+            if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+            {
+               int gotcha = NO,
+                   kk;
+
+               id.dir[0] = '\0';
+               get_info(GOT_JOB_ID_DIR_ONLY);
+               count = strlen(id.dir);
+               id.dir[count] = SEPARATOR_CHAR;
+               id.dir[count + 1] = '\0';
+
+               for (kk = 0; kk < no_of_search_dirids; kk++)
+               {
+                  if (sfilter(search_dirid[kk], id.dir_id_str, 0) == 0)
+                  {
+                     gotcha = YES;
+                     break;
+                  }
+               }
+               if (gotcha == NO)
+               {
+                  for (kk = 0; kk < no_of_search_dirs; kk++)
+                  {
+                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+               }
+               if (gotcha == NO)
+               {
+                  IGNORE_ENTRY();
+               }
+            }
+         }
+         else
+         {
+            while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+            {
+               ptr++;
+            }
+         }
+         trans_time += strtod(tmp_ptr, NULL);
+         ptr++;
+         while ((*ptr != '\n') && (*ptr != SEPARATOR_CHAR))
+         {
+            ptr++;
+         }
+
+         if (*ptr == SEPARATOR_CHAR)
+         {
+            int  sub_dir_counter = 0;
+            char archive_status = 'Y';
+
+            ptr++;
+            while (*ptr != '\n')
+            {
+               if ((*ptr == '/') && (*(ptr - 1) != '\\'))
+               {
+                  sub_dir_counter++;
+                  if (sub_dir_counter == 3)
+                  {
+                     int  cc = 0;
+                     char long_no[MAX_INT_LENGTH];
+
+                     ptr += 1;
+                     while ((*ptr != '_') && (*ptr != '\n') && (cc < MAX_INT_LENGTH))
+                     {
+                        long_no[cc] = *ptr;
+                        cc++; ptr++;
+                     }
+                     if ((*ptr != '\n') && (cc > 0) && (cc < MAX_INT_LENGTH))
+                     {
+                        time_t delete_time;
+
+                        long_no[cc] = '\0';
+                        delete_time = (time_t)strtol(long_no, (char **)NULL, 16);
+                        if (now > (delete_time + ARCHIVE_STEP_TIME))
+                        {
+                           archive_status = 'D';
+                        }
+                        else if (now > (delete_time - 5))
+                             {
+                                archive_status = '?';
+                             }
+                     }
+                  }
+               }
+               ptr++;
+            }
+            while (*ptr != '\n')
+            {
+               ptr++;
+            }
+            *p_archive_flag = archive_status;
+            il[file_no].archived[item_counter] = 1;
+         }
+         else
+         {
+            *p_archive_flag = 'N';
+         }
+         item_counter++;
+
+         str_list[i] = XmStringCreateLocalized(line);
+
+         ptr++;
+#endif /* _MACRO_DEBUG */
          file_size += tmp_file_size;
       }
 
@@ -3243,7 +3466,7 @@ recipient_only(register char *ptr,
          ptr++;
          il[file_no].offset[item_counter] = (int)(ptr - p_start_log_file + offset);
 
-         if ((search_directory_name[0] != '\0') ||
+         if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0) ||
              ((current_search_host != -1) &&
               (search_user[current_search_host][0] != '\0')))
          {
@@ -3287,15 +3510,37 @@ recipient_only(register char *ptr,
                   }
                }
             }
-            if (search_directory_name[0] != '\0')\
+            if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
             {
+               int gotcha = NO,
+                   kk;
+
                id.dir[0] = '\0';
                get_info(GOT_JOB_ID_DIR_ONLY);
                count = strlen(id.dir);
                id.dir[count] = SEPARATOR_CHAR;
                id.dir[count + 1] = '\0';
 
-               if (sfilter(search_directory_name, id.dir, SEPARATOR_CHAR) != 0)
+               for (kk = 0; kk < no_of_search_dirids; kk++)
+               {
+                  if (sfilter(search_dirid[kk], id.dir_id_str, 0) == 0)
+                  {
+                     gotcha = YES;
+                     break;
+                  }
+               }
+               if (gotcha == NO)
+               {
+                  for (kk = 0; kk < no_of_search_dirs; kk++)
+                  {
+                     if (sfilter(search_dir[kk], id.dir, SEPARATOR_CHAR) == 0)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+               }
+               if (gotcha == NO)
                {
                   IGNORE_ENTRY();
                }

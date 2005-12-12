@@ -553,7 +553,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                     return;
                  }
             search_file_size = (size_t)atol(value + extra_sign);
-            (void)strcpy(search_file_size_str, value + extra_sign);
+            (void)strcpy(search_file_size_str, value);
          }
          reset_message(statusbox_w);
          if (type == FILE_LENGTH)

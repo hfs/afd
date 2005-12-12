@@ -55,7 +55,7 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <sys/stat.h>        /* S_ISDIR(), stat()                        */
 #include <dirent.h>          /* opendir(), readdir()                     */
-#include <unistd.h>
+#include <unistd.h>          /* rmdir()                                  */
 #include <fcntl.h>
 #include <errno.h>
 #include "fddefs.h"
@@ -247,17 +247,73 @@ check_jobs(int force_check)
                                                 }
                                                 if (gotcha == NO)
                                                 {
-                                                   /*
-                                                    * Message is NOT in queue. Add message to queue.
-                                                    */
-                                                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                              "Message `%s' not in queue, adding message.",
-                                                              ptr);
-                                                   add_message_to_queue(ptr);
+                                                   DIR           *file_dp;
+                                                   struct dirent *file_dirp;
+
+                                                   if ((file_dp = opendir(file_dir)) == NULL)
+                                                   {
+                                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                                 "Failed to opendir() `%s' : %s",
+                                                                 file_dir, strerror(errno));
+                                                   }
+                                                   else
+                                                   {
+                                                      while ((file_dirp = readdir(file_dp)) != NULL)
+                                                      {
+                                                         if (file_dirp->d_name[0] != '.')
+                                                         {
+                                                            gotcha = YES;
+                                                            break;
+                                                         }
+                                                         errno = 0;
+                                                      }
+                                                      if ((errno) && (errno != ENOENT))
+                                                      {
+                                                         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                                    "Failed to readdir() `%s' : %s",
+                                                                    file_dir, strerror(errno));
+                                                      }
+                                                      if (closedir(file_dp) == -1)
+                                                      {
+                                                         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                                    "Failed to closedir() `%s' : %s",
+                                                                    file_dir, strerror(errno));
+                                                      }
+                                                   }
+
+                                                   if (gotcha == YES)
+                                                   {
+                                                      /*
+                                                       * Message is NOT in queue. Add message to queue.
+                                                       */
+                                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                                 "Message `%s' not in queue, adding message.",
+                                                                 ptr);
+                                                      add_message_to_queue(ptr);
+                                                   }
+                                                   else
+                                                   {
+                                                      /*
+                                                       * This is just an empty directory, delete it.
+                                                       */
+                                                      if (rmdir(file_dir) == -1)
+                                                      {
+                                                         system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                                    "Failed to rmdir() `%s' : %s",
+                                                                    file_dir, strerror(errno));
+                                                      }
+                                                      else
+                                                      {
+                                                         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                                    "Deleted empty directory `%s'.",
+                                                                    file_dir);
+                                                      }
+                                                   }
                                                 }
                                              }
                                           }
                                        }
+                                       errno = 0;
                                     }
 
                                     if ((errno) && (errno != ENOENT))
@@ -284,6 +340,7 @@ check_jobs(int force_check)
                            }
                         }
                      }
+                     errno = 0;
                   }
 
                   if ((errno) && (errno != ENOENT))

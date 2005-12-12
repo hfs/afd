@@ -47,8 +47,10 @@ DESCR__S_M3
  **   Essen   es.dwd.de 4545 10 0  0   1 ssh
  **
  **   Currently the following options are possible:
+ **                0 - no option
  **                1 - SSH compression
  **                2 - SSH, use -Y instead of -X when starting X applications
+ **                4 - do not use full path to rafdd_cmd/rafdd_cmd_ssh script
  **
  ** RETURN VALUES
  **   None.
@@ -64,6 +66,8 @@ DESCR__S_M3
  **   10.07.2003 H.Kiehl Added options part.
  **   03.12.2003 H.Kiehl Added connection and disconnection time.
  **   27.02.2005 H.Kiehl Option to switch between two AFD's.
+ **   08.12.2005 H.Kiehl Option not to use full path to
+ **                      rafdd_cmd/rafdd_cmd_ssh script.
  **
  */
 DESCR__E_M3

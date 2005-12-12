@@ -36,8 +36,10 @@ DESCR__S_M3
  **
  **          -a <age limit>   The age limit for the files being send.
  **          -A               Disable archiving of files.
- **          -o               Old/Error message.
+ **          -f <SMTP from>   Default from identifier to send.
+ **          -o <retries>     Old/Error message and number of retries.
  **          -r               Resend from archive (job from show_olog).
+ **          -s <SMTP server> Server where to send the mails.
  **          -t               Temp toggle.
  **
  ** RETURN VALUES
@@ -55,14 +57,16 @@ DESCR__S_M3
  **   12.11.2002 H.Kiehl Option -a to supply the default age-limit.
  **   19.03.2003 H.Kiehl Added -A to disable archiving.
  **   21.03.2003 H.Kiehl Rewrite to accomodate to new syntax.
+ **   30.08.2005 H.Kiehl Added -s to specify mail server name.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>                 /* stderr, fprintf()                  */
-#include <stdlib.h>                /* exit(), strtoul()                  */
+#include <stdlib.h>                /* exit(), strtoul(), malloc()        */
 #include <string.h>                /* strerror()                         */
 #include <ctype.h>                 /* isdigit()                          */
+#include <errno.h>
 #include "fddefs.h"
 
 /* Global variables */
@@ -218,11 +222,115 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                  case 'A' : /* Archiving is disabled. */
                                     p_db->archive_time = -1;
                                     break;
+                                 case 'f' : /* Default SMTP from. */
+                                    if (((i + 1) < argc) &&
+                                        (argv[i + 1][0] != '-'))
+                                    {
+                                       size_t length;
+
+                                       i++;
+                                       length = strlen(argv[i]) + 1;
+                                       if ((p_db->from = malloc(length)) == NULL)
+                                       {
+                                          (void)fprintf(stderr,
+                                                        "ERROR   : Failed to malloc() %d bytes : %s",
+                                                        length, strerror(errno));
+                                          ret = ALLOC_ERROR;
+                                       }
+                                       else
+                                       {
+                                          (void)strcpy(p_db->from, argv[i]);
+                                       }
+                                    }
+                                    else
+                                    {
+                                       (void)fprintf(stderr,
+                                                     "ERROR   : No default SMTP from specified for -f option.\n");
+                                       usage(argv[0]);
+                                       ret = SYNTAX_ERROR;
+                                    }
+                                    break;
                                  case 'r' : /* This is a resend from archive. */
                                     p_db->resend = YES;
                                     break;
                                  case 'o' : /* This is an old/erro job. */
                                     p_db->special_flag |= OLD_ERROR_JOB;
+                                    if (((i + 1) < argc) &&
+                                        (argv[i + 1][0] != '-'))
+                                    {
+                                       int k = 0;
+
+                                       i++;
+                                       do
+                                       {
+                                          if (isdigit(argv[i][k]) == 0)
+                                          {
+                                             k = MAX_INT_LENGTH;
+                                          }
+                                          k++;
+                                       } while ((argv[i][k] != '\0') &&
+                                                (k < MAX_INT_LENGTH));
+                                       if ((k > 0) && (k < MAX_INT_LENGTH))
+                                       {
+                                          p_db->retries = (unsigned int)strtoul(argv[i], (char **)NULL, 10);
+                                       }
+                                       else
+                                       {
+                                          (void)fprintf(stderr,
+                                                        "ERROR   : Hmm, could not find the retries for -o option.\n");
+                                       }
+                                    }
+                                    else
+                                    {
+                                       (void)fprintf(stderr,
+                                                     "ERROR   : No retries specified for -o option.\n");
+                                       usage(argv[0]);
+                                       ret = SYNTAX_ERROR;
+                                    }
+                                    break;
+                                 case 's' : /* Default SMTP server. */
+                                    if (((i + 1) < argc) &&
+                                        (argv[i + 1][0] != '-'))
+                                    {
+                                       int k = 0;
+
+                                       i++;
+                                       while ((argv[i][k] != '\0') &&
+                                              (k < MAX_REAL_HOSTNAME_LENGTH))
+                                       {
+                                          p_db->smtp_server[k] = argv[i][k];
+                                          k++;
+                                       }
+                                       if ((k > 0) &&
+                                           (k < MAX_REAL_HOSTNAME_LENGTH))
+                                       {
+                                          p_db->smtp_server[k] = '\0';
+                                          p_db->special_flag |= SMTP_SERVER_NAME_IN_AFD_CONFIG;
+                                       }
+                                       else
+                                       {
+                                          if (k == 0)
+                                          {
+                                             (void)fprintf(stderr,
+                                                           "ERROR   : No default SMTP server specified for -s option.\n");
+                                          }
+                                          else
+                                          {
+                                             (void)fprintf(stderr,
+                                                           "ERROR   : Default SMTP server specified for -s option is to long, may only be %d bytes long.\n",
+                                                           MAX_REAL_HOSTNAME_LENGTH);
+                                          }
+                                          usage(argv[0]);
+                                          ret = SYNTAX_ERROR;
+                                       }
+                                    }
+                                    else
+                                    {
+                                       (void)fprintf(stderr,
+                                                     "ERROR   : No default SMTP server specified for -s option.\n");
+                                       usage(argv[0]);
+                                       ret = SYNTAX_ERROR;
+                                    }
                                     break;
                                  case 't' : /* Toggle host */
                                     p_db->toggle_host = YES;
@@ -307,12 +415,14 @@ usage(char *name)
                  "SYNTAX: %s <work dir> <job no.> <FSA id> <FSA pos> <msg name> [options]\n\n",
                  name);
    (void)fprintf(stderr, "OPTIONS                 DESCRIPTION\n");
-   (void)fprintf(stderr, "  --version           - Show current version\n");
-   (void)fprintf(stderr, "  -a <age limit>      - set the default age limit in seconds.\n");
+   (void)fprintf(stderr, "  --version           - Show current version.\n");
+   (void)fprintf(stderr, "  -a <age limit>      - Set the default age limit in seconds.\n");
    (void)fprintf(stderr, "  -A                  - Archiving is disabled.\n");
-   (void)fprintf(stderr, "  -o                  - old/error message\n");
+   (void)fprintf(stderr, "  -f <SMTP from>      - Default from identifier to send.\n");
+   (void)fprintf(stderr, "  -o <retries>        - Old/error message and number of retries.\n");
    (void)fprintf(stderr, "  -r                  - Resend from archive.\n");
-   (void)fprintf(stderr, "  -t                  - use other host\n");
+   (void)fprintf(stderr, "  -s <SMTP server>    - Server where to send the mails.\n");
+   (void)fprintf(stderr, "  -t                  - Use other host (toggle).\n");
 
    return;
 }

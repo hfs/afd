@@ -839,7 +839,7 @@ show_dir_data(int dir_pos)
    }
    for (i = 0; i < no_of_dirs; i++)
    {
-      if (fra[i].dir_pos == dir_pos)
+      if (fra[i].dir_id == dnb[dir_pos].dir_id)
       {
          fra_pos = i;
          break;
@@ -853,9 +853,17 @@ show_dir_data(int dir_pos)
    }
 
    /* Directory entry. */
-   (void)fprintf(stdout, "%s %s\n%s\n\n",
-                 DIR_IDENTIFIER, fra[fra_pos].dir_alias,
-                 dnb[dir_pos].orig_dir_name);
+   if (fra[fra_pos].in_dc_flag & DIR_ALIAS_IDC)
+   {
+      (void)fprintf(stdout, "%s %s\n%s\n\n",
+                    DIR_IDENTIFIER, fra[fra_pos].dir_alias,
+                    dnb[dir_pos].orig_dir_name);
+   }
+   else
+   {
+      (void)fprintf(stdout, "%s\n%s\n\n",
+                    DIR_IDENTIFIER, dnb[dir_pos].orig_dir_name);
+   }
 
    /* If necessary add directory options. */
    check_dir_options(fra_pos);
@@ -1202,7 +1210,7 @@ check_dir_options(int fra_pos)
 {
    struct dir_options d_o;
 
-   get_dir_options(fra[fra_pos].dir_pos, &d_o);
+   get_dir_options(fra[fra_pos].dir_id, &d_o);
    if (d_o.no_of_dir_options > 0)
    {
       int i;

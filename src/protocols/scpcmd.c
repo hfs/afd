@@ -650,13 +650,13 @@ ssh_cmd(char  *host,
                                /* Replace '\n's by spaces for logging. */
                                while (*ptr++)
                                {
-                                  if (*ptr == '\n')
+                                  if ((*ptr == '\n') || (*ptr == '\r'))
                                   {
                                      *ptr = ' ';
                                   }
                                }
                                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                                         "Protocol error. ssh is complaining.");
+                                         "Protocol error. ssh is complaining, see next message.");
                                status = INCORRECT;
                             }
                     }
@@ -845,6 +845,10 @@ get_reply(int fd, int check_reply)
         {
            if ((status = read(fd, msg_str, MAX_RET_MSG_LENGTH)) < 0)
            {
+              if (errno == ECONNRESET)
+              {
+                 timeout_flag = CON_RESET;
+              }
               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                         "read() error : %s", strerror(errno));
               status = INCORRECT;

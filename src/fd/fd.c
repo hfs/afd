@@ -86,6 +86,7 @@ DESCR__E_M1
 #include <fcntl.h>            /* O_RDWR, O_CREAT, O_WRONLY, etc          */
 #include <errno.h>
 #include "fddefs.h"
+#include "smtpdefs.h"         /* For SMTP_HOST_NAME.                     */
 #include "logdefs.h"
 #include "version.h"
 
@@ -137,7 +138,9 @@ char                       stop_flag = 0,
                            *p_msg_dir,
                            str_fsa_id[MAX_INT_LENGTH],
                            file_dir[MAX_PATH_LENGTH],
-                           msg_dir[MAX_PATH_LENGTH];
+                           msg_dir[MAX_PATH_LENGTH],
+                           *default_smtp_from,
+                           default_smtp_server[MAX_REAL_HOSTNAME_LENGTH];
 struct filetransfer_status *fsa;
 struct fileretrieve_status *fra;
 struct afd_status          *p_afd_status;
@@ -152,6 +155,7 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 /* Local global variables */
 static time_t              now,
                            next_dir_check_time;
+static double              max_threshold;
 
 #define START_PROCESS()                                       \
         {                                                     \
@@ -206,7 +210,8 @@ static pid_t make_process(struct connection *, unsigned int),
 int
 main(int argc, char *argv[])
 {
-   int              fifo_full_counter = 0,
+   int              afd_status_fd,
+                    fifo_full_counter = 0,
                     force_check = YES,
                     host_config_counter,
                     i,
@@ -358,7 +363,7 @@ main(int argc, char *argv[])
    (void)sprintf(str_fsa_id, "%d", fsa_id);
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(&afd_status_fd) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                 "Failed to map to AFD status area.");
@@ -538,6 +543,15 @@ main(int argc, char *argv[])
    system_log(DEBUG_SIGN, NULL, 0,
               "FD configuration: Create target dir by default  %s",
               (*(unsigned char *)((char *)fsa - AFD_FSA_FEATURE_FLAG_OFFSET) & ENABLE_CREATE_TARGET_DIR) ? "YES" : "NO");
+   system_log(DEBUG_SIGN, NULL, 0,
+              "FD configuration: Default SMTP server           %s",
+              (default_smtp_server[0] == '\0') ? SMTP_HOST_NAME : default_smtp_server);
+   if (default_smtp_from != NULL)
+   {
+      system_log(DEBUG_SIGN, NULL, 0,
+                 "FD configuration: Default SMTP from             %s",
+                 default_smtp_from);
+   }
    abnormal_term_check_time = (time(&now) / 45) * 45 + 45;
    next_dir_check_time = 0L;
    remote_file_check_time = ((now / remote_file_check_interval) *
@@ -548,6 +562,7 @@ main(int argc, char *argv[])
                           PRIORITY_INTERRUPT_CHECK_TIME) +
                           PRIORITY_INTERRUPT_CHECK_TIME;
 #endif
+   max_threshold = (double)now * 10000.0 * 20.0;
    FD_ZERO(&rset);
 
    /* Now watch and start transfer jobs */
@@ -560,6 +575,7 @@ main(int argc, char *argv[])
       FD_SET(fd_wake_up_fd, &rset);
       FD_SET(retry_fd, &rset);
       FD_SET(delete_jobs_fd, &rset);
+      now = time(NULL);
       if ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) ||
           (force_check == YES))
       {
@@ -569,7 +585,8 @@ main(int argc, char *argv[])
       else
       {
          timeout.tv_usec = 0L;
-         timeout.tv_sec = FD_RESCAN_TIME;
+         timeout.tv_sec = ((now / FD_RESCAN_TIME) * FD_RESCAN_TIME) +
+                          FD_RESCAN_TIME - now;
       }
 
       if (*no_msg_queued > p_afd_status->max_queue_length)
@@ -584,7 +601,7 @@ main(int argc, char *argv[])
        * a kill -9). Also check if the content of any message has
        * changed since the last check.
        */
-      if (time(&now) > abnormal_term_check_time)
+      if (now > abnormal_term_check_time)
       {
          if (p_afd_status->no_of_transfers > 0)
          {
@@ -771,125 +788,147 @@ system_log(DEBUG_SIGN, NULL, 0,
       /*
        * Check if we must check for files on any remote system.
        */
-      if (((*(unsigned char *)((char *)fsa - AFD_FSA_FEATURE_FLAG_OFFSET) & DISABLE_RETRIEVE) == 0) &&
-          (p_afd_status->no_of_transfers < max_connections) &&
-          (no_of_retrieves > 0) && (now > remote_file_check_time))
+      if ((p_afd_status->no_of_transfers < max_connections) &&
+          (no_of_retrieves > 0))
       {
-         for (i = 0; i < no_of_retrieves; i++)
+         if ((*(unsigned char *)((char *)fsa - AFD_FSA_FEATURE_FLAG_OFFSET) & DISABLE_RETRIEVE) == 0)
          {
-            if ((fra[retrieve_list[i]].queued == NO) &&
-                (fra[retrieve_list[i]].dir_status != DISABLED) &&
-                ((fsa[fra[retrieve_list[i]].fsa_pos].special_flag & HOST_DISABLED) == 0) &&
-                ((fsa[fra[retrieve_list[i]].fsa_pos].host_status & STOP_TRANSFER_STAT) == 0) &&
-                ((fra[retrieve_list[i]].time_option == NO) ||
-                 (fra[retrieve_list[i]].next_check_time <= now)))
+            if (now >= remote_file_check_time)
             {
-               int    qb_pos;
-               double msg_number = ((double)fra[retrieve_list[i]].priority - 47.0) *
-                                   ((double)now * 10000.0);
-
-               check_queue_space();
-               if (*no_msg_queued > 0)
+               for (i = 0; i < no_of_retrieves; i++)
                {
-                  if (*no_msg_queued == 1)
+                  if ((fra[retrieve_list[i]].queued == NO) &&
+                      (fra[retrieve_list[i]].dir_status != DISABLED) &&
+                      ((fsa[fra[retrieve_list[i]].fsa_pos].special_flag & HOST_DISABLED) == 0) &&
+                      ((fsa[fra[retrieve_list[i]].fsa_pos].host_status & STOP_TRANSFER_STAT) == 0) &&
+                      ((fra[retrieve_list[i]].time_option == NO) ||
+                       (fra[retrieve_list[i]].next_check_time <= now)))
                   {
-                     if (qb[0].msg_number < msg_number)
-                     {
-                        qb_pos = 1;
-                     }
-                     else
-                     {
-                        size_t move_size;
+                     int    qb_pos;
+                     double msg_number = ((double)fra[retrieve_list[i]].priority - 47.0) *
+                                         ((double)now * 10000.0);
 
-                        move_size = *no_msg_queued * sizeof(struct queue_buf);
-                        (void)memmove(&qb[1], &qb[0], move_size);
-                        qb_pos = 0;
-                     }
-                  }
-                  else
-                  {
-                     if (msg_number < qb[0].msg_number)
+                     check_queue_space();
+                     if (*no_msg_queued > 0)
                      {
-                        size_t move_size;
+                        if (*no_msg_queued == 1)
+                        {
+                           if (qb[0].msg_number < msg_number)
+                           {
+                              qb_pos = 1;
+                           }
+                           else
+                           {
+                              size_t move_size;
 
-                        move_size = *no_msg_queued * sizeof(struct queue_buf);
-                        (void)memmove(&qb[1], &qb[0], move_size);
-                        qb_pos = 0;
-                     }
-                     else if (msg_number > qb[*no_msg_queued - 1].msg_number)
-                          {
-                             qb_pos = *no_msg_queued;
-                          }
-                          else
-                          {
-                             int center,
-                                 end = *no_msg_queued - 1,
-                                 start = 0;
+                              move_size = *no_msg_queued * sizeof(struct queue_buf);
+                              (void)memmove(&qb[1], &qb[0], move_size);
+                              qb_pos = 0;
+                           }
+                        }
+                        else
+                        {
+                           if (msg_number < qb[0].msg_number)
+                           {
+                              size_t move_size;
 
-                             for (;;)
-                             {
-                                center = (end - start) / 2;
-                                if (center == 0)
+                              move_size = *no_msg_queued * sizeof(struct queue_buf);
+                              (void)memmove(&qb[1], &qb[0], move_size);
+                              qb_pos = 0;
+                           }
+                           else if (msg_number > qb[*no_msg_queued - 1].msg_number)
                                 {
-                                   size_t move_size;
-
-                                   move_size = (*no_msg_queued - (start + 1)) *
-                                               sizeof(struct queue_buf);
-                                   (void)memmove(&qb[start + 2], &qb[start + 1],
-                                                 move_size);
-                                   qb_pos = start + 1;
-                                   break;
-                                }
-                                if (msg_number < qb[start + center].msg_number)
-                                {
-                                   end = start + center;
+                                   qb_pos = *no_msg_queued;
                                 }
                                 else
                                 {
-                                   start = start + center;
+                                   int center,
+                                       end = *no_msg_queued - 1,
+                                       start = 0;
+
+                                   for (;;)
+                                   {
+                                      center = (end - start) / 2;
+                                      if (center == 0)
+                                      {
+                                         size_t move_size;
+
+                                         move_size = (*no_msg_queued - (start + 1)) *
+                                                     sizeof(struct queue_buf);
+                                         (void)memmove(&qb[start + 2], &qb[start + 1],
+                                                       move_size);
+                                         qb_pos = start + 1;
+                                         break;
+                                      }
+                                      if (msg_number < qb[start + center].msg_number)
+                                      {
+                                         end = start + center;
+                                      }
+                                      else
+                                      {
+                                         start = start + center;
+                                      }
+                                   }
                                 }
-                             }
-                          }
+                        }
+                     }
+                     else
+                     {
+                        qb_pos = 0;
+                     }
+
+                     /* Put data in queue. */
+                     qb[qb_pos].msg_name[0] = '\0';
+                     qb[qb_pos].msg_number = msg_number;
+                     qb[qb_pos].creation_time = now;
+                     qb[qb_pos].pos = retrieve_list[i];
+                     qb[qb_pos].connect_pos = -1;
+                     qb[qb_pos].special_flag &= ~RESEND_JOB;
+                     (*no_msg_queued)++;
+                     fsa[fra[retrieve_list[i]].fsa_pos].jobs_queued++;
+                     fra[retrieve_list[i]].queued = YES;
+
+                     if ((fsa[fra[retrieve_list[i]].fsa_pos].error_counter == 0) &&
+                         (stop_flag == 0))
+                     {
+                        qb[qb_pos].pid = start_process(fra[retrieve_list[i]].fsa_pos,
+                                                       qb_pos, now, NO);
+                     }
+                     else
+                     {
+                        qb[qb_pos].pid = PENDING;
+                     }
                   }
+                  else if (((fra[retrieve_list[i]].dir_status == DISABLED) ||
+                            (fsa[fra[retrieve_list[i]].fsa_pos].special_flag & HOST_DISABLED) ||
+                            (fsa[fra[retrieve_list[i]].fsa_pos].host_status & STOP_TRANSFER_STAT)) &&
+                           (fra[retrieve_list[i]].time_option == YES) &&
+                           (fra[retrieve_list[i]].next_check_time <= now))
+                       {
+                          fra[retrieve_list[i]].next_check_time = calc_next_time(&fra[retrieve_list[i]].te, now);
+                       }
                }
-               else
+               remote_file_check_time = ((now / remote_file_check_interval) *
+                                         remote_file_check_interval) +
+                                        remote_file_check_interval;
+            }
+         }
+         else
+         {
+            /*
+             * We must always recalculate the next check time. If we
+             * do not do it and suddenly enable retrieving it will start
+             * retrieving immediatly for the old (not updated) times.
+             */
+            for (i = 0; i < no_of_retrieves; i++)
+            {
+               if ((fra[retrieve_list[i]].time_option == YES) &&
+                   (fra[retrieve_list[i]].next_check_time <= now))
                {
-                  qb_pos = 0;
-               }
-
-               /* Put data in queue. */
-               qb[qb_pos].msg_name[0] = '\0';
-               qb[qb_pos].msg_number = msg_number;
-               qb[qb_pos].creation_time = now;
-               qb[qb_pos].pos = retrieve_list[i];
-               qb[qb_pos].connect_pos = -1;
-               qb[qb_pos].special_flag &= ~RESEND_JOB;
-               (*no_msg_queued)++;
-               fsa[fra[retrieve_list[i]].fsa_pos].jobs_queued++;
-               fra[retrieve_list[i]].queued = YES;
-
-               if ((fsa[fra[retrieve_list[i]].fsa_pos].error_counter == 0) &&
-                   (stop_flag == 0))
-               {
-                  qb[qb_pos].pid = start_process(fra[retrieve_list[i]].fsa_pos,
-                                                 qb_pos, now, NO);
-               }
-               else
-               {
-                  qb[qb_pos].pid = PENDING;
+                  fra[retrieve_list[i]].next_check_time = calc_next_time(&fra[retrieve_list[i]].te, now);
                }
             }
-            else if (((fsa[fra[retrieve_list[i]].fsa_pos].special_flag & HOST_DISABLED) ||
-                      (fsa[fra[retrieve_list[i]].fsa_pos].host_status & STOP_TRANSFER_STAT)) &&
-                     (fra[retrieve_list[i]].time_option == YES) &&
-                     (fra[retrieve_list[i]].next_check_time <= now))
-                 {
-                    fra[retrieve_list[i]].next_check_time = calc_next_time(&fra[retrieve_list[i]].te, now);
-                 }
          }
-         remote_file_check_time = ((now / remote_file_check_interval) *
-                                   remote_file_check_interval) +
-                                  remote_file_check_interval;
       }
 
       /* Check if we have to stop and we have */
@@ -921,10 +960,20 @@ system_log(DEBUG_SIGN, NULL, 0,
           * We then have to wait for all jobs of the AMG to stop
           * creating new jobs.
           */
+#ifdef LOCK_DEBUG
+         lock_region_w(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE, __FILE__, __LINE__);
+#else
+         lock_region_w(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE);
+#endif
          if ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0)
          {
             p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
          }
+#ifdef LOCK_DEBUG
+         unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE, __FILE__, __LINE__);
+#else
+         unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE);
+#endif
          do
          {
             if ((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0)
@@ -1066,6 +1115,10 @@ system_log(DEBUG_SIGN, NULL, 0,
                   }
                   break;
 
+               case FORCE_REMOTE_DIR_CHECK :
+                  remote_file_check_time = 0L;
+                  break;
+
                case SAVE_STOP :
                   /* Here all running transfers are */
                   /* completed and no new jobs will */
@@ -1107,212 +1160,227 @@ system_log(DEBUG_SIGN, NULL, 0,
          }
       }
 
-           /*
-            * sf_xxx or gf_xxx PROCESS TERMINATED
-            * ===================================
-            *
-            * Everytime any child terminates it sends its PID via a well
-            * known FIFO to this process. If the PID is negative the child
-            * asks the parent fo more data to process.
-            *
-            * This communication could be down more effectifly by catching
-            * the SIGCHLD signal everytime a child terminates. This was
-            * implemented in version 1.2.12-pre4. It just turned out that
-            * this was not very portable since the behaviour differed
-            * in combination with the select() system call. When using
-            * SA_RESTART both Linux and Solaris would cause select() to
-            * EINTR, which is very usfull, but FTX and Irix did not
-            * do this. Then it could take up to 10 seconds before FD
-            * caught its children. For this reason this was dropped. :-(
-            */
-      else if ((status > 0) && (FD_ISSET(read_fin_fd, &rset)))
-           {
-              int n;
+      /*
+       * sf_xxx or gf_xxx PROCESS TERMINATED
+       * ===================================
+       *
+       * Everytime any child terminates it sends its PID via a well
+       * known FIFO to this process. If the PID is negative the child
+       * asks the parent fo more data to process.
+       *
+       * This communication could be down more effectifly by catching
+       * the SIGCHLD signal everytime a child terminates. This was
+       * implemented in version 1.2.12-pre4. It just turned out that
+       * this was not very portable since the behaviour differed
+       * in combination with the select() system call. When using
+       * SA_RESTART both Linux and Solaris would cause select() to
+       * EINTR, which is very usfull, but FTX and Irix did not
+       * do this. Then it could take up to 10 seconds before FD
+       * caught its children. For this reason this was dropped. :-(
+       */
+      if ((status > 0) && (FD_ISSET(read_fin_fd, &rset)))
+      {
+         int n;
 
-              if ((n = read(read_fin_fd, fifo_buffer, fifo_size)) >= sizeof(pid_t))
-              {
-                 int   bytes_done = 0,
-                       faulty = NO,
-                       qb_pos;
-                 pid_t pid;
+         if ((n = read(read_fin_fd, fifo_buffer, fifo_size)) >= sizeof(pid_t))
+         {
+            int   bytes_done = 0,
+                  faulty = NO,
+                  qb_pos;
+            pid_t pid;
 #ifdef _WITH_BURST_2
-                 int   start_new_process;
+            int   start_new_process;
 #endif
 
-                 now = time(NULL);
-                 do
-                 {
+            now = time(NULL);
+            do
+            {
 #ifdef WITH_MULTI_FSA_CHECKS
-                    if (fd_check_fsa() == YES)
-                    {
-                       if (check_fra_fd() == YES)
-                       {
-                          init_fra_data();
-                       }
-                       get_new_positions();
-                       init_msg_buffer();
-                    }
+               if (fd_check_fsa() == YES)
+               {
+                  if (check_fra_fd() == YES)
+                  {
+                     init_fra_data();
+                  }
+                  get_new_positions();
+                  init_msg_buffer();
+               }
 #endif /* WITH_MULTI_FSA_CHECKS */
-                    pid = *(pid_t *)&fifo_buffer[bytes_done];
+               pid = *(pid_t *)&fifo_buffer[bytes_done];
 #ifdef _WITH_BURST_2
-                    if (pid < 0)
-                    {
-                       pid = -pid;
-                       qb_pos_pid(pid, &qb_pos);
-                       if (qb_pos == -1)
-                       {
-                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                     "Hmmm, qb_pos is -1!");
-                       }
-                       else
-                       {
-                          /*
-                           * Check third byte in unique_name. If this is
-                           * NOT set to zero the process sf_xxx has given up
-                           * waiting for FD to give it a new job, ie. the
-                           * process no longer exists and we need to start
-                           * a new one.
-                           */
-                          if (fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[2] == 4)
-                          {
-                             start_new_process = NO;
-                          }
-                          else
-                          {
-                             start_new_process = YES;
-                          }
-                       }
-                    }
-                    else
-                    {
-                       qb_pos_pid(pid, &qb_pos);
-                       start_new_process = YES;
-                    }
+               if (pid < 0)
+               {
+                  pid = -pid;
+                  qb_pos_pid(pid, &qb_pos);
+                  if (qb_pos == -1)
+                  {
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "Hmmm, qb_pos is -1!");
+                  }
+                  else
+                  {
+                     /*
+                      * Check third byte in unique_name. If this is
+                      * NOT set to zero the process sf_xxx has given up
+                      * waiting for FD to give it a new job, ie. the
+                      * process no longer exists and we need to start
+                      * a new one.
+                      */
+                     if (fsa[mdb[qb[qb_pos].pos].fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[2] == 4)
+                     {
+                        start_new_process = NO;
+                     }
+                     else
+                     {
+                        start_new_process = YES;
+                     }
+                  }
+               }
+               else
+               {
+                  qb_pos_pid(pid, &qb_pos);
+                  start_new_process = YES;
+               }
 #else
-                    qb_pos_pid(pid, &qb_pos);
+               qb_pos_pid(pid, &qb_pos);
 #endif /* _WITH_BURST_2 */
-                    if (qb_pos != -1)
-                    {
+               if (qb_pos != -1)
+               {
 #ifdef _WITH_BURST_2
-                       /*
-                        * This process is ready to process more data.
-                        * Have a look in the queue if there is another
-                        * job pending for this host.
-                        */
-                       if (start_new_process == NO)
-                       {
-                          int fsa_pos,
-                              gotcha = NO;
+                  /*
+                   * This process is ready to process more data.
+                   * Have a look in the queue if there is another
+                   * job pending for this host.
+                   */
+                  if (start_new_process == NO)
+                  {
+                     int fsa_pos,
+                         gotcha = NO;
 
-                          /*
-                           * NOTE: It's not necessary to check here if
-                           *       qb[qb_pos].msg_name[0] equals '\0'
-                           *       because if start_new_process is set
-                           *       to NO it cannot be a retrieve
-                           *       process. To check if this is really
-                           *       true there is this debug output
-                           *       a few lines down. Remove this
-                           *       check if we never see this line.
-                           */
-                          if (qb[qb_pos].msg_name[0] != '\0')
-                          {
-                             fsa_pos = mdb[qb[qb_pos].pos].fsa_pos;
-                          }
-                          else
-                          {
-                             fsa_pos = fra[qb[qb_pos].pos].fsa_pos;
-                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                        "Oooops! This does really happen! So we may not remove this code!");
-                          }
-                          if (fsa[fsa_pos].jobs_queued > 0)
-                          {
-                             for (i = 0; i < *no_msg_queued; i++)
-                             {
-                                if ((qb[i].pid == PENDING) &&
-                                    (qb[i].msg_name[0] != '\0') &&
-                                    (mdb[qb[i].pos].fsa_pos == fsa_pos) &&
-                                    (mdb[qb[i].pos].type == mdb[qb[qb_pos].pos].type) &&
-                                    (mdb[qb[i].pos].port == mdb[qb[qb_pos].pos].port))
-                                {
-                                   /* Yep, there is another job pending! */
-                                   gotcha = YES;
-                                   break;
-                                }
-                             }
-                          }
-                          if (gotcha == YES)
-                          {
+                     /*
+                      * NOTE: It's not necessary to check here if
+                      *       qb[qb_pos].msg_name[0] equals '\0'
+                      *       because if start_new_process is set
+                      *       to NO it cannot be a retrieve
+                      *       process. To check if this is really
+                      *       true there is this debug output
+                      *       a few lines down. Remove this
+                      *       check if we never see this line.
+                      */
+                     if (qb[qb_pos].msg_name[0] != '\0')
+                     {
+                        fsa_pos = mdb[qb[qb_pos].pos].fsa_pos;
+                     }
+                     else
+                     {
+                        fsa_pos = fra[qb[qb_pos].pos].fsa_pos;
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Oooops! This does really happen! So we may not remove this code!");
+                     }
+                     if (fsa[fsa_pos].jobs_queued > 0)
+                     {
+                        for (i = 0; i < *no_msg_queued; i++)
+                        {
+                           if ((qb[i].pid == PENDING) &&
+                               (qb[i].msg_name[0] != '\0') &&
+                               (mdb[qb[i].pos].fsa_pos == fsa_pos) &&
+                               (mdb[qb[i].pos].type == mdb[qb[qb_pos].pos].type) &&
+                               (mdb[qb[i].pos].port == mdb[qb[qb_pos].pos].port))
+                           {
+                              /* Yep, there is another job pending! */
+                              gotcha = YES;
+                              break;
+                           }
+                        }
+                     }
+                     if (gotcha == YES)
+                     {
 #ifdef _WITH_INTERRUPT_JOB
-                             int interrupt = NO;
+                        int interrupt = NO;
 
-                             if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[3] == 4)
-                             {
-                                interrupt = YES;
-                                if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag & INTERRUPT_JOB)
-                                {
-                                   fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag ^= INTERRUPT_JOB;
-                                }
-                             }
+                        if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[3] == 4)
+                        {
+                           interrupt = YES;
+                           if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag & INTERRUPT_JOB)
+                           {
+                              fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag ^= INTERRUPT_JOB;
+                           }
+                        }
 #endif
-                             fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].job_id = mdb[qb[i].pos].job_id;
-                             (void)memcpy(fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name,
-                                          qb[i].msg_name, MAX_MSG_NAME_LENGTH);
-                             qb[i].pid = pid;
-                             qb[i].connect_pos = qb[qb_pos].connect_pos;
+                        fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].job_id = mdb[qb[i].pos].job_id;
+                        (void)memcpy(fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name,
+                                     qb[i].msg_name, MAX_MSG_NAME_LENGTH);
+                        qb[i].pid = pid;
+                        qb[i].connect_pos = qb[qb_pos].connect_pos;
 #ifdef _WITH_INTERRUPT_JOB
-                             if (interrupt == NO)
-                             {
+                        if (interrupt == NO)
+                        {
 #endif
-                                ABS_REDUCE(fsa_pos);
-                                remove_msg(qb_pos);
+                           ABS_REDUCE(fsa_pos);
+                           remove_msg(qb_pos);
 #ifdef _WITH_INTERRUPT_JOB
-                             }
+                        }
 #endif
-                             p_afd_status->burst2_counter++;
-                          }
-                          else
-                          {
-                             fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[0] = '\0';
-                             fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[1] = 1;
+                        p_afd_status->burst2_counter++;
+                     }
+                     else
+                     {
+                        fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[0] = '\0';
+                        fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].unique_name[1] = 1;
 #ifdef _WITH_INTERRUPT_JOB
-                             if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag & INTERRUPT_JOB)
-                             {
-                                fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag ^= INTERRUPT_JOB;
-                             }
+                        if (fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag & INTERRUPT_JOB)
+                        {
+                           fsa[fsa_pos].job_status[connection[qb[qb_pos].connect_pos].job_no].special_flag ^= INTERRUPT_JOB;
+                        }
 #endif
-                          }
+                     }
 #ifdef WITH_SIGNAL_WAKEUP
-                          if (pid > 0)
-                          {
-                             if (kill(pid, SIGUSR1) == -1)
-                             {
-                                system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                     if (pid > 0)
+                     {
+                        if (kill(pid, SIGUSR1) == -1)
+                        {
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                                           "Failed to send SIGUSR1 to %d : %s",
+                                      "Failed to send SIGUSR1 to %d : %s",
 #else
-                                           "Failed to send SIGUSR1 to %lld : %s",
+                                      "Failed to send SIGUSR1 to %lld : %s",
 #endif
-                                           pid, strerror(errno));
-                             }
-                          }
-                          else
-                          {
-                             system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      pid, strerror(errno));
+                        }
+                     }
+                     else
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
 # if SIZEOF_PID_T == 4
-                                        "Hmmm, pid = %d!!!", pid);
+                                   "Hmmm, pid = %d!!!", pid);
 # else
-                                        "Hmmm, pid = %lld!!!", pid);
+                                   "Hmmm, pid = %lld!!!", pid);
 # endif
-                          }
+                     }
 #endif
-                       }
-                       else
-                       {
+                  }
+                  else
+                  {
 #endif /* _WITH_BURST_2 */
-                          if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
-                                                     now, &qb_pos, 0)) == YES)
+                     if ((faulty = zombie_check(&connection[qb[qb_pos].connect_pos],
+                                                now, &qb_pos, 0)) == YES)
+                     {
+                        qb[qb_pos].pid = PENDING;
+                        if (qb[qb_pos].msg_name[0] != '\0')
+                        {
+                           fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
+                        }
+                        else
+                        {
+                           fsa[fra[qb[qb_pos].pos].fsa_pos].jobs_queued++;
+                        }
+                     }
+                     else if (faulty == NO)
                           {
-                             qb[qb_pos].pid = PENDING;
+                             remove_msg(qb_pos);
+                          }
+                     else if (faulty == NONE)
+                          {
                              if (qb[qb_pos].msg_name[0] != '\0')
                              {
                                 fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
@@ -1321,71 +1389,56 @@ system_log(DEBUG_SIGN, NULL, 0,
                              {
                                 fsa[fra[qb[qb_pos].pos].fsa_pos].jobs_queued++;
                              }
+                             qb[qb_pos].pid = PENDING;
                           }
-                          else if (faulty == NO)
-                               {
-                                  remove_msg(qb_pos);
-                               }
-                          else if (faulty == NONE)
-                               {
-                                  if (qb[qb_pos].msg_name[0] != '\0')
-                                  {
-                                     fsa[mdb[qb[qb_pos].pos].fsa_pos].jobs_queued++;
-                                  }
-                                  else
-                                  {
-                                     fsa[fra[qb[qb_pos].pos].fsa_pos].jobs_queued++;
-                                  }
-                                  qb[qb_pos].pid = PENDING;
-                               }
 #ifdef _WITH_BURST_2
-                       }
-#endif /* _WITH_BURST_2 */
-                    }
-                    bytes_done += sizeof(pid_t);
-                 } while ((n > bytes_done) &&
-                          ((n - bytes_done) >= sizeof(pid_t)));
-                 if ((n - bytes_done) > 0)
-                 {
-                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                               "Reading garbage from fifo [%d]",
-                               (n - bytes_done));
-                 }
+                  }
+#endif
+               }
+               bytes_done += sizeof(pid_t);
+            } while ((n > bytes_done) &&
+                     ((n - bytes_done) >= sizeof(pid_t)));
+            if ((n - bytes_done) > 0)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Reading garbage from fifo [%d]",
+                          (n - bytes_done));
+            }
 
-                 if ((stop_flag == 0) && (faulty != NEITHER) &&
-                     (*no_msg_queued > 0))
-                 {
-                    /*
-                     * If the number of messages queued is very large
-                     * and most messages belong to a host that is very
-                     * slow, new messages will only be processed very
-                     * slowly when we always scan the whole queue.
-                     */
-                    if (*no_msg_queued < MAX_QUEUED_BEFORE_CECKED)
-                    {
-                       START_PROCESS();
-                    }
-                    else
-                    {
-                       if (loop_counter > ELAPSED_LOOPS_BEFORE_CHECK)
-                       {
-                          START_PROCESS();
-                          loop_counter = 0;
-                       }
-                       else
-                       {
-                          loop_counter++;
-                       }
-                    }
-                 }
-              }
-              else
-              {
-                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                            "read() error or reading garbage from fifo %s",
-                            SF_FIN_FIFO);
-              }
-           } /* sf_xxx or gf_xxx PROCESS TERMINATED */
+            if ((stop_flag == 0) && (faulty != NEITHER) &&
+                (*no_msg_queued > 0))
+            {
+               /*
+                * If the number of messages queued is very large
+                * and most messages belong to a host that is very
+                * slow, new messages will only be processed very
+                * slowly when we always scan the whole queue.
+                */
+               if (*no_msg_queued < MAX_QUEUED_BEFORE_CECKED)
+               {
+                  START_PROCESS();
+               }
+               else
+               {
+                  if (loop_counter > ELAPSED_LOOPS_BEFORE_CHECK)
+                  {
+                     START_PROCESS();
+                     loop_counter = 0;
+                  }
+                  else
+                  {
+                     loop_counter++;
+                  }
+               }
+            }
+         }
+         else
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "read() error or reading garbage from fifo %s",
+                       SF_FIN_FIFO);
+         }
+      } /* sf_xxx or gf_xxx PROCESS TERMINATED */
 
            /*
             * RETRY
@@ -1804,6 +1857,17 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
             }
             else
             {
+#ifdef _WITH_SERVER_SUPPORT
+# ifdef LOCK_DEBUG
+               lock_region_w(fsa_fd, (AFD_WORD_OFFSET +
+                                      (fsa_pos * sizeof(struct filetransfer_status)) +
+                                      LOCK_CON), __FILE__, __LINE__);
+# else
+               lock_region_w(fsa_fd, (AFD_WORD_OFFSET +
+                                      (fsa_pos * sizeof(struct filetransfer_status)) +
+                                      LOCK_CON));
+# endif
+#endif
                if ((connection[pos].job_no = get_free_disp_pos(fsa_pos)) != INCORRECT)
                {
                   if (qb[qb_pos].msg_name[0] == '\0')
@@ -1932,6 +1996,17 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                      connection[pos].pid = 0;
                   }
                }
+#ifdef _WITH_SERVER_SUPPORT
+# ifdef LOCK_DEBUG
+               unlock_region(fsa_fd, (AFD_WORD_OFFSET +
+                                      (fsa_pos * sizeof(struct filetransfer_status)) +
+                                      LOCK_CON), __FILE__, __LINE__);
+# else
+               unlock_region(fsa_fd, (AFD_WORD_OFFSET +
+                                      (fsa_pos * sizeof(struct filetransfer_status)) +
+                                      LOCK_CON));
+# endif
+#endif
             }
          }
       }
@@ -1946,7 +2021,7 @@ make_process(struct connection *con, unsigned int retries)
 {
    int   argcount;
    pid_t pid;
-   char  *args[13],
+   char  *args[14],
 #ifdef USE_SPRINTF
          str_job_no[MAX_INT_LENGTH],
          str_fsa_pos[MAX_INT_LENGTH],
@@ -1954,7 +2029,8 @@ make_process(struct connection *con, unsigned int retries)
          str_job_no[3],
          str_fsa_pos[6],
 #endif
-         str_age_limit[MAX_INT_LENGTH];
+         str_age_limit[MAX_INT_LENGTH],
+         str_retries[MAX_INT_LENGTH];
 
 #ifdef USE_SPRINTF
    (void)sprintf(str_job_no, "%d", con->job_no);
@@ -2171,10 +2247,27 @@ make_process(struct connection *con, unsigned int retries)
       argcount++;
       args[argcount] = str_age_limit;
    }
+   if ((con->protocol == SMTP) && (default_smtp_from != NULL))
+   {
+      argcount++;
+      args[argcount] = "-f";
+      argcount++;
+      args[argcount] = default_smtp_from;
+   }
+   if ((con->protocol == SMTP) && (default_smtp_server[0] != '\0'))
+   {
+      argcount++;
+      args[argcount] = "-s";
+      argcount++;
+      args[argcount] = default_smtp_server;
+   }
    if (retries > 0)
    {
       argcount++;
       args[argcount] = "-o";
+      (void)sprintf(str_retries, "%u", retries);
+      argcount++;
+      args[argcount] = str_retries;
    }
    args[argcount + 1] = NULL;
 
@@ -2355,6 +2448,7 @@ zombie_check(struct connection *p_con,
                break;
 
             case TIMEOUT_ERROR         : /* Timeout arrived */
+            case CONNECTION_RESET_ERROR: /* Connection reset by peer. */
             case CONNECT_ERROR         : /* Failed to connect to remote host */
 #ifdef WITH_SSL
             case AUTH_ERROR            : /* SSL/TLS authentification error */
@@ -2400,7 +2494,7 @@ zombie_check(struct connection *p_con,
             case MOVE_REMOTE_ERROR     : /* */
             case OPEN_REMOTE_ERROR     : /* Failed to open remote file. */
                if ((qb[*qb_pos].msg_name[0] != '\0') &&
-                   (qb[*qb_pos].msg_number < 199999999999999.0) &&
+                   (qb[*qb_pos].msg_number < max_threshold) &&
                    ((*qb_pos + 1) < *no_msg_queued))
                {
                   register int i = *qb_pos + 1;
@@ -2408,10 +2502,16 @@ zombie_check(struct connection *p_con,
                   /*
                    * Increase the message number, so that this job
                    * will decrease in priority and resort the queue.
-                   * The number is actually increased by 600 seconds
-                   * (10 minutes).
                    */
-                  qb[*qb_pos].msg_number += 60000000.0;
+                  if (qb[*qb_pos].retries < RETRY_THRESHOLD)
+                  {
+                     qb[*qb_pos].msg_number += 60000000.0;
+                  }
+                  else
+                  {
+                     qb[*qb_pos].msg_number += ((double)qb[*qb_pos].creation_time * 10000.0 *
+                                               (double)(qb[*qb_pos].retries - RETRY_THRESHOLD - 1));
+                  }
                   while ((i < *no_msg_queued) &&
                          (qb[*qb_pos].msg_number > qb[i].msg_number))
                   {
@@ -2693,7 +2793,7 @@ get_afd_config_value(void)
    if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
-      char value[MAX_INT_LENGTH];
+      char value[MAX_REAL_HOSTNAME_LENGTH];
 
       if (get_definition(buffer, MAX_CONNECTIONS_DEF,
                          value, MAX_INT_LENGTH) != NULL)
@@ -2754,6 +2854,34 @@ get_afd_config_value(void)
          {
             *(unsigned char *)((char *)fsa - AFD_FSA_FEATURE_FLAG_OFFSET) ^= ENABLE_CREATE_TARGET_DIR;
          }
+      }
+      if (get_definition(buffer, DEFAULT_SMTP_SERVER_DEF,
+                         value, MAX_REAL_HOSTNAME_LENGTH) != NULL)
+      {
+         (void)strcpy(default_smtp_server, value);
+      }
+      else
+      {
+          default_smtp_server[0] = '\0';
+      }
+      if (get_definition(buffer, DEFAULT_SMTP_FROM_DEF,
+                         value, MAX_RECIPIENT_LENGTH) != NULL)
+      {
+         size_t length;
+
+         length = strlen(value) + 1;
+         if ((default_smtp_from = malloc(length)) == NULL)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to malloc() %d bytes : %s",
+                       length, strerror(errno));
+            exit(INCORRECT);
+         }
+         (void)strcpy(default_smtp_from, value);
+      }
+      else
+      {
+          default_smtp_from = NULL;
       }
       free(buffer);
    }

@@ -8,7 +8,7 @@
 /* #undef FTP_REUSE_DATA_PORT */
 
 /* Allow group write access */
-/* #undef GROUP_CAN_WRITE */
+#define GROUP_CAN_WRITE 
 
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #define HAVE_ARPA_INET_H 1
@@ -40,6 +40,9 @@
 
 /* Define to 1 if you have the `efence' library (-lefence). */
 /* #undef HAVE_LIBEFENCE */
+
+/* With -lXp support */
+#define HAVE_LIB_XP 
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
@@ -173,13 +176,13 @@
 #define PACKAGE_NAME "afd"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "afd 1.3.0"
+#define PACKAGE_STRING "afd 1.3.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "afd"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "1.3.0"
+#define PACKAGE_VERSION "1.3.1"
 
 /* Define to 1 if the C compiler supports function prototypes. */
 #define PROTOTYPES 1
@@ -220,10 +223,13 @@
 /* #undef TM_IN_SYS_TIME */
 
 /* Version number of package */
-#define VERSION "1.3.0"
+#define VERSION "1.3.1"
 
 /* With automatic creation of configuration */
 #define WITH_AUTO_CONFIG 
+
+/* Use ctrl key as accelerator */
+/* #undef WITH_CTRL_ACCELERATOR */
 
 /* With duplicate check support */
 #define WITH_DUP_CHECK 
@@ -278,6 +284,9 @@
 
 /* With MAP support */
 /* #undef _WITH_MAP_SUPPORT */
+
+/* With server support */
+/* #undef _WITH_SERVER_SUPPORT */
 
 /* With WMO socket support */
 #define _WITH_WMO_SUPPORT 

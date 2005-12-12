@@ -58,10 +58,10 @@
 #define SHOW_EXEC_STAT_PERM  "show_exec_stat"    /* Show and reset exec  */
                                                  /* stats for dir_check  */
 #define RETRY_PERM           "retry"
-#define VIEW_JOBS_PERM       "view_jobs"         /* Detailed transfer    */
+#define VIEW_JOBS_PERM       "view_jobs"         /* Detailed transfer.   */
 #define AFD_LOAD_PERM        "afd_load"
-#define RR_DC_PERM           "reread_dir_config" /* Reread DIR_CONFIG    */
-#define RR_HC_PERM           "reread_host_config"/* Reread HOST_CONFIG   */
+#define RR_DC_PERM           "reread_dir_config" /* Reread DIR_CONFIG.   */
+#define RR_HC_PERM           "reread_host_config"/* Reread HOST_CONFIG.  */
 #define AFD_CMD_PERM         "afdcmd"            /* Send commands to AFD.*/
 #define AFD_CFG_PERM         "afdcfg"            /* Configure AFD.       */
 #define VIEW_DIR_CONFIG_PERM "view_dir_config"   /* Info on DIR_CONFIG   */
@@ -69,15 +69,16 @@
 #define DELETE_QUEUE_PERM    "delete_queue"      /* Delete queue.        */
 #define XSHOW_STAT_PERM      "xshow_stat"        /* Show statistics.     */
 
-#define MON_CTRL_PERM        "mon_ctrl"          /* mon_ctrl dialog      */
-#define MON_STARTUP_PERM     "mon_startup"       /* Startup AFD_MON      */
-#define MON_SHUTDOWN_PERM    "mon_shutdown"      /* Shutdown AFD_MON     */
+#define MON_CTRL_PERM        "mon_ctrl"          /* mon_ctrl dialog.     */
+#define MON_STARTUP_PERM     "mon_startup"       /* Startup AFD_MON.     */
+#define MON_SHUTDOWN_PERM    "mon_shutdown"      /* Shutdown AFD_MON.    */
 #define MAFD_CMD_PERM        "mafd_cmd"          /* Send commands to AFD */
                                                  /* monitor.             */
 
-#define DIR_CTRL_PERM        "dir_ctrl"          /* dir_ctrl dialog      */
-#define DIR_INFO_PERM        "dir_info"          /* dir_info dialog      */
-#define DISABLE_DIR_PERM     "disable_dir"       /* Disable directory    */
+#define DIR_CTRL_PERM        "dir_ctrl"          /* dir_ctrl dialog.     */
+#define DIR_INFO_PERM        "dir_info"          /* dir_info dialog.     */
+#define DISABLE_DIR_PERM     "disable_dir"       /* Disable directory.   */
+#define RESCAN_PERM          "rescan"            /* Rescan directory.    */
 
 #define PERMISSION_DENIED_STR "You are not permitted to use this program."
 

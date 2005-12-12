@@ -70,6 +70,7 @@
 # define TIMEOUT_ERROR              20
 # define READ_REMOTE_ERROR          22
 # define SIZE_ERROR                 23
+# define CONNECTION_RESET_ERROR     28
 # define OPEN_LOCAL_ERROR           30
 # define READ_LOCAL_ERROR           31
 # define ALLOC_ERROR                35

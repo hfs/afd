@@ -78,7 +78,7 @@ lock_file(char *file, int block_flag)
       else
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "Could not open() <%s> : %s", file, strerror(errno));
+                    "Could not open() `%s' : %s", file, strerror(errno));
          fd = INCORRECT;
       }
    }

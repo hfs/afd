@@ -28,6 +28,7 @@ DESCR__S_M3
  **   void print_data(void)
  **   int  prepare_printer(int *)
  **   int  prepare_file(int *)
+ **   void prepare_tmp_name(void)
  **   void send_mail_cmd(char *)
  **
  ** DESCRIPTION
@@ -475,6 +476,20 @@ prepare_printer(int *fd)
    *fd = fileno(fp);
 
    return(SUCCESS);
+}
+
+
+/*######################### prepare_tmp_name() ##########################*/
+void
+prepare_tmp_name(void)
+{
+#if SIZEOF_PID_T == 4
+   (void)sprintf(file_name, "/tmp/mail_log_file_%d", getpid());
+#else
+   (void)sprintf(file_name, "/tmp/mail_log_file_%lld", getpid());
+#endif
+
+   return;
 }
 
 

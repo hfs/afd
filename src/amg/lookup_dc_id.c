@@ -25,7 +25,7 @@ DESCR__S_M3
  **   lookup_dc_id - searches for a DIR_CONFIG ID
  **
  ** SYNOPSIS
- **   void lookup_dir_id(struct dir_config_buf **dcl, int dcl_counter)
+ **   void lookup_dc_id(struct dir_config_buf **dcl, int dcl_counter)
  **
  ** DESCRIPTION
  **   This function searches in the DIR_CONFIG database for the

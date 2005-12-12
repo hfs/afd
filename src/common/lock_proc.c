@@ -61,9 +61,6 @@ extern char *p_work_dir;
 /* Local global variables */
 static int  fd;
 
-/* Local definitions */
-#define LOCK_PROC_FILE  "/LOCK_FILE"
-
 
 /*############################ lock_proc() ##############################*/
 char *

@@ -125,7 +125,7 @@ xexec_cmd(char *cmd)
                                       channels[READ],
                                       (XtPointer)XtInputReadMask,
                                       (XtInputCallbackProc)read_data,
-                                      (XtPointer)cmd_pid);
+                                      (XtPointer)NULL);
    }
 
    return;

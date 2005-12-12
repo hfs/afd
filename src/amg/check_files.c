@@ -511,6 +511,7 @@ check_files(struct directory_entry *p_de,
       {
          if (p_dir->d_name[0] == '.')
          {
+            errno = 0;
             continue;
          }
 
@@ -843,6 +844,7 @@ check_files(struct directory_entry *p_de,
                }
             }
          } /* if (S_ISREG(stat_buf.st_mode)) */
+         errno = 0;
       } /* while ((p_dir = readdir(dp)) != NULL) */
    }
    else
@@ -853,6 +855,7 @@ check_files(struct directory_entry *p_de,
       {
          if (p_dir->d_name[0] == '.')
          {
+            errno = 0;
             continue;
          }
 
@@ -1274,6 +1277,7 @@ check_files(struct directory_entry *p_de,
                }
             }
          } /* if (S_ISREG(stat_buf.st_mode)) */
+         errno = 0;
       } /* while ((p_dir = readdir(dp)) != NULL) */
    }
 

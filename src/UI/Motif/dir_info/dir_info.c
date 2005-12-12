@@ -38,6 +38,7 @@ DESCR__S_M1
  **   05.08.2000 H.Kiehl Created
  **   20.07.2001 H.Kiehl Show if queued and/or unknown files are deleted.
  **   22.05.2002 H.Kiehl Separate old file times for unknown and queued files.
+ **   27.09.2005 H.Kiehl Updated info to 1.3.x.
  **
  */
 DESCR__E_M1
@@ -82,12 +83,15 @@ XtAppContext               app;
 XtIntervalId               interval_id_dir;
 Widget                     appshell,
                            dirname_text_w,
-                           text_wl[NO_OF_DIR_ROWS],
-                           text_wr[NO_OF_DIR_ROWS],
-                           label_l_widget[NO_OF_DIR_ROWS],
-                           label_r_widget[NO_OF_DIR_ROWS],
+#ifdef WITH_DUP_CHECK
+                           dup_check_w,
+#endif
+                           text_wl[NO_OF_LABELS_PER_ROW],
+                           text_wr[NO_OF_LABELS_PER_ROW],
+                           label_l_widget[NO_OF_LABELS_PER_ROW],
+                           label_r_widget[NO_OF_LABELS_PER_ROW],
                            url_text_w;
-int                        dir_position = -1,
+int                        fra_pos = -1,
                            fra_id,
                            fra_fd = -1,
                            no_of_dirs,
@@ -95,23 +99,34 @@ int                        dir_position = -1,
                            view_passwd;
 off_t                      fra_size;
 char                       dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
+#ifdef WITH_DUP_CHECK
+                           dupcheck_label_str[72 + MAX_INT_LENGTH],
+#endif
                            font_name[40],
                            *p_work_dir,
-                           label_l[NO_OF_DIR_ROWS][22] =
+                           label_l[NO_OF_LABELS_PER_ROW][22] =
                            {
                               "Alias directory name:",
                               "Stupid mode         :",
                               "Force reread        :",
+                              "Accumulate          :",
                               "Delete unknown files:",
+                              "Delete queued files :",
+                              "Ignore file time    :",
+                              "End character       :",
                               "Bytes received      :",
                               "Last retrieval      :"
                            },
-                           label_r[NO_OF_DIR_ROWS][22] =
+                           label_r[NO_OF_LABELS_PER_ROW][22] =
                            {
-                              "Priority            :",
+                              "Directory ID        :",
                               "Remove files (input):",
+                              "Wait for filename   :",
+                              "Accumulate size     :",
                               "Report unknown files:",
-                              "Delete queued files :",
+                              "Delete locked files :",
+                              "Ignore size         :",
+                              "Max copied files    :",
                               "Files received      :",
                               "Next check time     :"
                            };
@@ -129,11 +144,13 @@ int
 main(int argc, char *argv[])
 {
    int             i;
+#ifdef WITH_DUP_CHECK
+   size_t          length;
+#endif
    char            window_title[100],
                    work_dir[MAX_PATH_LENGTH],
                    str_line[MAX_INFO_STRING_LENGTH + 1],
-                   tmp_str_line[MAX_INFO_STRING_LENGTH + 1],
-                   yesno[4];
+                   tmp_str_line[MAX_INFO_STRING_LENGTH + 1];
    static String   fallback_res[] =
                    {
                       "*mwmDecorations : 42",
@@ -338,7 +355,7 @@ main(int argc, char *argv[])
 
    rowcol1_w = XtVaCreateWidget("rowcol1", xmRowColumnWidgetClass,
                                  dir_box1_w, NULL);
-   for (i = 0; i < NO_OF_DIR_ROWS; i++)
+   for (i = 0; i < NO_OF_LABELS_PER_ROW; i++)
    {
       dir_text_w = XtVaCreateWidget("dir_text", xmFormWidgetClass,
                                      rowcol1_w,
@@ -369,10 +386,6 @@ main(int argc, char *argv[])
                               XmNrightAttachment,       XmATTACH_FORM,
                               XmNleftAttachment,        XmATTACH_WIDGET,
                               XmNleftWidget,            label_l_widget[i],
-/*
-                              XmNleftAttachment,        XmATTACH_POSITION,
-                              XmNleftPosition,          21,
-*/
                               NULL);
       XtManageChild(dir_text_w);
    }
@@ -380,39 +393,98 @@ main(int argc, char *argv[])
 
    /* Fill up the text widget with some values */
    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, prev.dir_alias);
-   XmTextSetString(text_wl[0], str_line);
+   XmTextSetString(text_wl[ALIAS_DIR_NAME_POS], str_line);
    if (prev.stupid_mode == YES)
    {
-      yesno[0] = 'Y'; yesno[1] = 'e'; yesno[2] = 's'; yesno[3] = '\0';
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Yes");
    }
    else
    {
-      yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
    }
-   (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, yesno);
-   XmTextSetString(text_wl[1], str_line);
+   XmTextSetString(text_wl[STUPID_MODE_POS], str_line);
    if (prev.force_reread == YES)
    {
-      yesno[0] = 'Y'; yesno[1] = 'e'; yesno[2] = 's'; yesno[3] = '\0';
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Yes");
    }
    else
    {
-      yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
    }
-   (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, yesno);
-   XmTextSetString(text_wl[2], str_line);
-   (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_L, prev.unknown_file_time / 3600);
-   XmTextSetString(text_wl[3], str_line);
+   XmTextSetString(text_wl[FORCE_REREAD_POS], str_line);
+   if (prev.accumulate == 0)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Not set");
+   }
+   else
+   {
+      (void)sprintf(str_line, "%*u", DIR_INFO_LENGTH_L, prev.accumulate);
+   }
+   XmTextSetString(text_wl[ACCUMULATE_POS], str_line);
+   if ((prev.delete_files_flag & UNKNOWN_FILES) == 0)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Not set");
+   }
+   else
+   {
+      (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_L,
+                    prev.unknown_file_time / 3600);
+   }
+   XmTextSetString(text_wl[DELETE_UNKNOWN_POS], str_line);
+   if ((prev.delete_files_flag & QUEUED_FILES) == 0)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Not set");
+   }
+   else
+   {
+      (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_L,
+                    prev.queued_file_time / 3600);
+   }
+   XmTextSetString(text_wl[DELETE_QUEUED_POS], str_line);
+   if (prev.ignore_file_time == 0)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Not set");
+   }
+   else
+   {
+      char sign_char,
+           str_value[MAX_INT_LENGTH + 1];
+
+      if (prev.gt_lt_sign & IFTIME_LESS_THEN)
+      {
+         sign_char = '<';
+      }
+      else if (prev.gt_lt_sign & IFTIME_GREATER_THEN)
+           {
+              sign_char = '>';
+           }
+           else
+           {
+              sign_char = ' ';
+           }
+      (void)sprintf(str_value, "%c%u", sign_char, prev.ignore_file_time);
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_value);
+   }
+   XmTextSetString(text_wl[IGNORE_FILE_TIME_POS], str_line);
+   if (prev.end_character == -1)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Not set");
+   }
+   else
+   {
+      (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_L, prev.end_character);
+   }
+   XmTextSetString(text_wl[END_CHARACTER_POS], str_line);
 #if SIZEOF_OFF_T == 4
    (void)sprintf(str_line, "%*lu", DIR_INFO_LENGTH_L, prev.bytes_received);
 #else
    (void)sprintf(str_line, "%*llu", DIR_INFO_LENGTH_L, prev.bytes_received);
 #endif
-   XmTextSetString(text_wl[4], str_line);
+   XmTextSetString(text_wl[BYTES_RECEIVED_POS], str_line);
    (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                   localtime(&prev.last_retrieval));
    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, tmp_str_line);
-   XmTextSetString(text_wl[5], str_line);
+   XmTextSetString(text_wl[LAST_RETRIEVAL_POS], str_line);
 
    /* Create the horizontal separator */
    argcount = 0;
@@ -456,7 +528,7 @@ main(int argc, char *argv[])
 
    rowcol2_w = XtVaCreateWidget("rowcol2", xmRowColumnWidgetClass,
                                 dir_box2_w, NULL);
-   for (i = 0; i < NO_OF_DIR_ROWS; i++)
+   for (i = 0; i < NO_OF_LABELS_PER_ROW; i++)
    {
       dir_text_w = XtVaCreateWidget("dir_text", xmFormWidgetClass,
                                     rowcol2_w,
@@ -492,89 +564,92 @@ main(int argc, char *argv[])
    }
    XtManageChild(rowcol2_w);
 
-   /* Fill up the text widget with some values */
-   (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_R, prev.priority - '0');
-   XmTextSetString(text_wr[0], str_line);
+   /* Fill up the text widget with some values. */
+   (void)sprintf(str_line, "%*x", DIR_INFO_LENGTH_R, prev.dir_id);
+   XmTextSetString(text_wr[DIRECTORY_ID_POS], str_line);
    if (prev.remove == YES)
    {
-      yesno[0] = 'Y'; yesno[1] = 'e'; yesno[2] = 's'; yesno[3] = '\0';
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Yes");
    }
    else
    {
-      yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No");
    }
-   (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, yesno);
-   XmTextSetString(text_wr[1], str_line);
+   XmTextSetString(text_wr[REMOVE_FILES_POS], str_line);
+   if (prev.wait_for_filename[0] == '\0')
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Not set");
+   }
+   else
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, prev.wait_for_filename);
+   }
+   XmTextSetString(text_wr[WAIT_FOR_FILENAME_POS], str_line);
+   if (prev.accumulate_size == 0)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Not set");
+   }
+   else
+   {
+#if SIZEOF_OFF_T == 4
+      (void)sprintf(str_line, "%*ld", DIR_INFO_LENGTH_R, prev.accumulate_size);
+#else
+      (void)sprintf(str_line, "%*lld", DIR_INFO_LENGTH_R, prev.accumulate_size);
+#endif
+   }
+   XmTextSetString(text_wr[ACCUMULATE_SIZE_POS], str_line);
    if (prev.report_unknown_files == YES)
    {
-      yesno[0] = 'Y'; yesno[1] = 'e'; yesno[2] = 's'; yesno[3] = '\0';
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Yes");
    }
    else
    {
-      yesno[0] = 'N'; yesno[1] = 'o'; yesno[2] = '\0';
-   }
-   (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, yesno);
-   XmTextSetString(text_wr[2], str_line);
-   if (prev.delete_files_flag == 0)
-   {
-      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
-      XmTextSetString(text_wl[3], str_line);
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No");
-      XmTextSetString(text_wr[3], str_line);
+   }
+   XmTextSetString(text_wr[REPORT_UNKNOWN_FILES_POS], str_line);
+   if ((prev.delete_files_flag & OLD_LOCKED_FILES) == 0)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Not set");
    }
    else
    {
-      if ((prev.delete_files_flag & UNKNOWN_FILES) &&
-          (prev.delete_files_flag & QUEUED_FILES))
-      {
-         char str_num[MAX_INT_LENGTH + 1 + 12];
-
-         (void)sprintf(str_num, "Yes (%d hours)",
-                       prev.unknown_file_time / 3600);
-         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_num);
-         XmTextSetString(text_wl[3], str_line);
-
-         (void)sprintf(str_num, "Yes (%d hours)",
-                       prev.queued_file_time / 3600);
-         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_num);
-         XmTextSetString(text_wr[3], str_line);
-      }
-      else
-      {
-         if (prev.delete_files_flag & UNKNOWN_FILES)
-         {
-            char str_num[MAX_INT_LENGTH + 1 + 12];
-
-            (void)sprintf(str_num, "Yes (%d hours)",
-                          prev.unknown_file_time / 3600);
-            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, str_num);
-            XmTextSetString(text_wl[3], str_line);
-
-            (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No");
-            XmTextSetString(text_wr[3], str_line);
-         }
-         else if (prev.delete_files_flag & QUEUED_FILES)
-              {
-                 char str_num[MAX_INT_LENGTH + 1 + 12];
-
-                 (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
-                 XmTextSetString(text_wl[3], str_line);
-
-                 (void)sprintf(str_num, "Yes (%d hours)",
-                               prev.queued_file_time / 3600);
-                 (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_num);
-                 XmTextSetString(text_wr[3], str_line);
-              }
-              else
-              {
-                 (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "?");
-                 XmTextSetString(text_wl[3], str_line);
-                 XmTextSetString(text_wr[3], str_line);
-              }
-      }
+      (void)sprintf(str_line, "%*d", DIR_INFO_LENGTH_R,
+                    prev.locked_file_time / 3600);
    }
+   XmTextSetString(text_wr[DELETE_LOCKED_FILES_POS], str_line);
+   if (prev.ignore_size == 0)
+   {
+      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "Not set");
+   }
+   else
+   {
+      char sign_char,
+           str_value[MAX_INT_LENGTH + MAX_INT_LENGTH + 1];
+
+      if (prev.gt_lt_sign & ISIZE_LESS_THEN)
+      {
+         sign_char = '<';
+      }
+      else if (prev.gt_lt_sign & ISIZE_GREATER_THEN)
+           {
+              sign_char = '>';
+           }
+           else
+           {
+              sign_char = ' ';
+           }
+#if SIZEOF_OFF_T == 4
+       (void)sprintf(str_value, "%c%ld", sign_char, prev.ignore_size);
+#else
+       (void)sprintf(str_value, "%c%lld", sign_char, prev.ignore_size);
+#endif
+       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_value);
+   }
+   XmTextSetString(text_wr[IGNORE_SIZE_POS], str_line);
+   (void)sprintf(str_line, "%*u", DIR_INFO_LENGTH_R, prev.max_copied_files);
+   XmTextSetString(text_wr[MAX_COPIED_FILES_POS], str_line);
    (void)sprintf(str_line, "%*u", DIR_INFO_LENGTH_R, prev.files_received);
-   XmTextSetString(text_wr[4], str_line);
+   XmTextSetString(text_wr[FILES_RECEIVED_POS], str_line);
    if (prev.time_option == YES)
    {
       (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
@@ -585,7 +660,97 @@ main(int argc, char *argv[])
    {
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, "No time entry.");
    }
-   XmTextSetString(text_wr[5], str_line);
+   XmTextSetString(text_wr[NEXT_CHECK_TIME_POS], str_line);
+
+#ifdef WITH_DUP_CHECK
+   if (prev.dup_check_flag == 0)
+   {
+      length = sprintf(dupcheck_label_str, "Duplicate check : Not set.");
+   }
+   else
+   {
+      length = sprintf(dupcheck_label_str, "Duplicate check : ");
+      if (prev.dup_check_flag & DC_FILENAME_ONLY)
+      {
+         length += sprintf(&dupcheck_label_str[length], "Filename");
+      }
+      else if (prev.dup_check_flag & DC_FILE_CONTENT)
+           {
+              length += sprintf(&dupcheck_label_str[length], "File content");
+           }
+      else if (prev.dup_check_flag & DC_FILE_CONT_NAME)
+           {
+              length += sprintf(&dupcheck_label_str[length],
+                                "File content and name");
+           }
+           else
+           {
+              length += sprintf(&dupcheck_label_str[length], "Unknown");
+           }
+      if (prev.dup_check_flag & DC_CRC32)
+      {
+         length += sprintf(&dupcheck_label_str[length], ", CRC32");
+      }
+      else
+      {
+         length += sprintf(&dupcheck_label_str[length], "Unknown");
+      }
+      if ((prev.dup_check_flag & DC_DELETE) || (prev.dup_check_flag & DC_STORE))
+      {
+         if (prev.dup_check_flag & DC_DELETE)
+         {
+            length += sprintf(&dupcheck_label_str[length], ", Delete");
+         }
+         else
+         {
+            length += sprintf(&dupcheck_label_str[length], ", Store");
+         }
+         if (prev.dup_check_flag & DC_WARN)
+         {
+            length += sprintf(&dupcheck_label_str[length], " + Warn");
+         }
+      }
+      else
+      {
+         if (prev.dup_check_flag & DC_WARN)
+         {
+            length += sprintf(&dupcheck_label_str[length], ", Warn");
+         }
+      }
+      if (prev.dup_check_timeout != 0)
+      {
+#if SIZEOF_TIME_T == 4
+         length += sprintf(&dupcheck_label_str[length], ", timeout=%ld",
+#else
+         length += sprintf(&dupcheck_label_str[length], ", timeout=%lld",
+#endif
+                           prev.dup_check_timeout);
+      }
+   }
+   dup_check_w = XtVaCreateManagedWidget(dupcheck_label_str,
+                                         xmLabelGadgetClass, form_w,
+                                         XmNfontList,        fontlist,
+                                         XmNtopAttachment,   XmATTACH_WIDGET,
+                                         XmNtopWidget,       h_separator1_w,
+                                         XmNleftAttachment,  XmATTACH_FORM,
+                                         XmNrightAttachment, XmATTACH_FORM,
+                                         NULL);
+
+   /* Create the horizontal separator */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,       dup_check_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,  XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
+   argcount++;
+   h_separator1_w = XmCreateSeparator(form_w, "h_separator1_w", args, argcount);
+   XtManageChild(h_separator1_w);
+#endif /* WITH_DUP_CHECK */
 
    argcount = 0;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
@@ -652,7 +817,8 @@ init_dir_info(int *argc, char *argv[])
 {
    int                 count = 0,
                        dnb_fd,
-                       i;
+                       i,
+                       no_of_dir_names;
    char                dir_name_file[MAX_PATH_LENGTH],
                        fake_user[MAX_FULL_USER_ID_LENGTH],
                        *perm_buffer,
@@ -713,8 +879,7 @@ init_dir_info(int *argc, char *argv[])
              */
             if (posi(perm_buffer, DIR_INFO_PERM) == NULL)
             {
-               (void)fprintf(stderr, "%s\n",
-                             PERMISSION_DENIED_STR);
+               (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                free(perm_buffer);
                exit(INCORRECT);
             }
@@ -756,11 +921,11 @@ init_dir_info(int *argc, char *argv[])
    {
       if (strcmp(fra[i].dir_alias, dir_alias) == 0)
       {
-         dir_position = i;
+         fra_pos = i;
          break;
       }
    }
-   if (dir_position < 0)
+   if (fra_pos < 0)
    {
       (void)fprintf(stderr,
                     "WARNING : Could not find directory %s in FRA. (%s %d)\n",
@@ -781,7 +946,6 @@ init_dir_info(int *argc, char *argv[])
    {
       (void)fprintf(stderr, "Failed to fstat() %s : %s (%s %d)\n",
                     dir_name_file, strerror(errno), __FILE__, __LINE__);
-      (void)close(dnb_fd);
       exit(INCORRECT);
    }
    if (stat_buf.st_size > 0)
@@ -791,9 +955,9 @@ init_dir_info(int *argc, char *argv[])
       {
          (void)fprintf(stderr, "Failed to mmap() to %s : %s (%s %d)\n",
                        dir_name_file, strerror(errno), __FILE__, __LINE__);
-         (void)close(dnb_fd);
          exit(INCORRECT);
       }
+      no_of_dir_names = *(int *)ptr;
       ptr += AFD_WORD_OFFSET;
       dnb = (struct dir_name_buf *)ptr;
    }
@@ -801,34 +965,60 @@ init_dir_info(int *argc, char *argv[])
    {
       (void)fprintf(stderr, "Job ID database file is empty. (%s %d)\n",
                     __FILE__, __LINE__);
-      (void)close(dnb_fd);
+      exit(INCORRECT);
+   }
+   prev.dir_pos = -1;
+   for (i = 0; i < no_of_dir_names; i++)
+   {
+      if (fra[fra_pos].dir_id == dnb[i].dir_id)
+      {
+         prev.dir_pos = i;
+         break;
+      }
+   }
+   if (prev.dir_pos == -1)
+   {
+      (void)fprintf(stderr, "Failed to locate dir_id %x in %s. (%s %d)\n",
+                    fra[fra_pos].dir_id, dir_name_file,
+                    __FILE__, __LINE__);
       exit(INCORRECT);
    }
 
    /* Initialize values in FRA structure */
-   prev.dir_pos              = fra[dir_position].dir_pos;
    (void)strcpy(prev.real_dir_name, dnb[prev.dir_pos].dir_name);
-   (void)strcpy(prev.host_alias, fra[dir_position].host_alias);
-   (void)strcpy(prev.dir_alias, fra[dir_position].dir_alias);
-   (void)strcpy(prev.url, fra[dir_position].url);
+   (void)strcpy(prev.host_alias, fra[fra_pos].host_alias);
+   (void)strcpy(prev.dir_alias, fra[fra_pos].dir_alias);
+   (void)strcpy(prev.url, fra[fra_pos].url);
    (void)strcpy(prev.display_url, prev.url);
    if (view_passwd == YES)
    {
       insert_passwd(prev.display_url);
    }
-   prev.priority             = fra[dir_position].priority;
-   prev.stupid_mode          = fra[dir_position].stupid_mode;
-   prev.remove               = fra[dir_position].remove;
-   prev.force_reread         = fra[dir_position].force_reread;
-   prev.report_unknown_files = fra[dir_position].report_unknown_files;
-   prev.unknown_file_time    = fra[dir_position].unknown_file_time;
-   prev.queued_file_time     = fra[dir_position].queued_file_time;
-   prev.delete_files_flag    = fra[dir_position].delete_files_flag;
-   prev.bytes_received       = fra[dir_position].bytes_received;
-   prev.files_received       = fra[dir_position].files_received;
-   prev.last_retrieval       = fra[dir_position].last_retrieval;
-   prev.next_check_time      = fra[dir_position].next_check_time;
-   prev.time_option          = fra[dir_position].time_option;
+   prev.bytes_received       = fra[fra_pos].bytes_received;
+   prev.ignore_size          = fra[fra_pos].ignore_size;
+   prev.accumulate_size      = fra[fra_pos].accumulate_size;
+   prev.last_retrieval       = fra[fra_pos].last_retrieval;
+   prev.next_check_time      = fra[fra_pos].next_check_time;
+   prev.dir_id               = fra[fra_pos].dir_id;
+   prev.accumulate           = fra[fra_pos].accumulate;
+   prev.ignore_file_time     = fra[fra_pos].ignore_file_time;
+   prev.gt_lt_sign           = fra[fra_pos].gt_lt_sign;
+   prev.files_received       = fra[fra_pos].files_received;
+   prev.max_copied_files     = fra[fra_pos].max_copied_files;
+   prev.unknown_file_time    = fra[fra_pos].unknown_file_time;
+   prev.queued_file_time     = fra[fra_pos].queued_file_time;
+   prev.locked_file_time     = fra[fra_pos].locked_file_time;
+   prev.end_character        = fra[fra_pos].end_character;
+   prev.time_option          = fra[fra_pos].time_option;
+   prev.delete_files_flag    = fra[fra_pos].delete_files_flag;
+   prev.stupid_mode          = fra[fra_pos].stupid_mode;
+   prev.remove               = fra[fra_pos].remove;
+   prev.force_reread         = fra[fra_pos].force_reread;
+   prev.report_unknown_files = fra[fra_pos].report_unknown_files;
+#ifdef WITH_DUP_CHECK
+   prev.dup_check_flag       = fra[fra_pos].dup_check_flag;
+   prev.dup_check_timeout    = fra[fra_pos].dup_check_timeout;
+#endif
 
    if (close(dnb_fd) == -1)
    {

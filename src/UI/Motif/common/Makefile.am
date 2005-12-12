@@ -34,6 +34,7 @@ libxafd_a_SOURCES    = check_host_permissions.c\
                        init_color.c\
                        insert_passwd.c\
                        locate_xy.c\
+                       lookup_color.c\
                        make_xprocess.c\
                        print_file_size.c\
                        sfilter.c\

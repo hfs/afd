@@ -144,6 +144,7 @@ struct item_list
 struct info_data
        {
           unsigned int       job_no;
+          unsigned int       dir_id;
           int                no_of_files;
           time_t             date_send;
           char               *files;
@@ -158,6 +159,7 @@ struct info_data
           char               *soptions;
           char               loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
 #endif
+          char               dir_id_str[MAX_DIR_ALIAS_LENGTH + 1];
           char               recipient[MAX_RECIPIENT_LENGTH];
           char               user[MAX_RECIPIENT_LENGTH];
           char               mail_destination[MAX_RECIPIENT_LENGTH];

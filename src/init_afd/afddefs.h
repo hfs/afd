@@ -29,8 +29,12 @@
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
+# include "ports.h"
 #endif
 #include "afdsetup.h"
+#if MAX_DIR_ALIAS_LENGTH < 10
+# define MAX_DIR_ALIAS_LENGTH 10
+#endif
 #include <stdio.h>
 #ifdef STDC_HEADERS
 # include <string.h>
@@ -46,7 +50,7 @@
 
 #ifndef HAVE_STRERROR
 extern char *sys_errlist[];
-extern int sys_nerr;
+extern int  sys_nerr;
 
 # define strerror(e) sys_errlist[((unsigned)(e) < sys_nerr) ? (e) : 0]
 #endif
@@ -150,6 +154,9 @@ typedef unsigned long long  u_off_t;
 #define AFD_LOAD                   "afd_load"
 #define AFD_CTRL                   "afd_ctrl"
 #define AFDD                       "afdd"
+#ifdef _WITH_SERVER_SUPPORT
+# define WMOD                      "wmod"
+#endif
 #define AFD_MON                    "afd_mon"
 #define MON_CTRL                   "mon_ctrl"
 #define MON_INFO                   "mon_info"
@@ -411,6 +418,7 @@ typedef unsigned long long  u_off_t;
 #define INCORRECT                  -1
 #define SUCCESS                    0
 #define STALE                      -1
+#define CON_RESET                  2
 #define ON                         1
 #define OFF                        0
 #define ALL                        0
@@ -437,6 +445,7 @@ typedef unsigned long long  u_off_t;
                                               /* with priority, which is */
                                               /* used by the function    */
                                               /* check_files().          */
+#define INCORRECT_VERSION          -2
 #define EQUAL_SIGN                 1
 #define LESS_THEN_SIGN             2
 #define GREATER_THEN_SIGN          3
@@ -639,6 +648,7 @@ typedef unsigned long long  u_off_t;
 #define MAX_COPIED_FILES_DEF             "MAX_COPIED_FILES"
 #define MAX_COPIED_FILE_SIZE_DEF         "MAX_COPIED_FILE_SIZE"
 #define ONE_DIR_COPY_TIMEOUT_DEF         "ONE_DIR_COPY_TIMEOUT"
+#define FULL_SCAN_TIMEOUT_DEF            "FULL_SCAN_TIMEOUT"
 #define REMOTE_FILE_CHECK_INTERVAL_DEF   "REMOTE_FILE_CHECK_INTERVAL"
 #ifndef _WITH_PTHREAD
 # define DIR_CHECK_TIMEOUT_DEF           "DIR_CHECK_TIMEOUT"
@@ -652,6 +662,9 @@ typedef unsigned long long  u_off_t;
 #define EXEC_TIMEOUT_DEF                 "EXEC_TIMEOUT"
 #define DEFAULT_OLD_FILE_TIME_DEF        "DEFAULT_OLD_FILE_TIME"
 #define DEFAULT_DELETE_FILES_FLAG_DEF    "DEFAULT_DELETE_FILES_FLAG"
+#define DEFAULT_SMTP_SERVER_DEF          "DEFAULT_SMTP_SERVER"
+#define DEFAULT_SMTP_FROM_DEF            "DEFAULT_SMTP_FROM"
+#define REMOVE_UNUSED_HOSTS_DEF          "REMOVE_UNUSED_HOSTS"
 
 /* Heading identifiers for the DIR_CONFIG file and messages. */
 #define DIR_IDENTIFIER                   "[directory]"
@@ -932,6 +945,7 @@ typedef unsigned long long  u_off_t;
 #define CURRENT_MSG_LIST_FILE      "/current_job_id_list"
 #define AMG_DATA_FILE              "/amg_data"
 #define ALTERNATE_FILE             "/alternate."
+#define LOCK_PROC_FILE             "/LOCK_FILE"
 
 #define MSG_CACHE_BUF_SIZE         10000
 
@@ -963,6 +977,7 @@ typedef unsigned long long  u_off_t;
 #define FULL_TRACE                 25
 #define SR_EXEC_STAT               26 /* Show + reset exec stat in dir_check. */
 #define SWITCH_MON                 27
+#define FORCE_REMOTE_DIR_CHECK     28
 
 #define DELETE_ALL_JOBS_FROM_HOST  1
 #define DELETE_MESSAGE             2
@@ -973,6 +988,7 @@ typedef unsigned long long  u_off_t;
 #define FILES_IN_QUEUE             2
 #define ADD_TIME_ENTRY             4
 #define LINK_NO_EXEC               8
+#define DIR_DISABLED               16
 
 #ifdef WITH_DUP_CHECK
 /* Definitions for duplicate check. */
@@ -993,6 +1009,16 @@ typedef unsigned long long  u_off_t;
 # define DC_DELETE_WARN_BIT        33
 # define DC_STORE_WARN_BIT         34
 #endif
+
+/* Bitmap definitions for in_dc_flag in struct fileretrieve_status. */
+#define DIR_ALIAS_IDC              1
+#define UNKNOWN_FILES_IDC          2
+#define QUEUED_FILES_IDC           4
+#define OLD_LOCKED_FILES_IDC       8
+#define REPUKW_FILES_IDC           16
+#define DONT_REPUKW_FILES_IDC      32
+#define MAX_CP_FILES_IDC           64
+#define MAX_CP_FILE_SIZE_IDC       128
 
 /* In process AFD we have various stop flags */
 #define STARTUP_ID                 -1
@@ -1218,6 +1244,18 @@ struct filetransfer_status
                                             /* this switch.              */
           int            host_status;       /* What is the status for    */
                                             /* this host?                */
+                                            /*+----+---------------------------+*/
+                                            /*| Bit|      Meaning              |*/
+                                            /*+----+---------------------------+*/
+                                            /*|8-32| Not used.                 |*/
+                                            /*|   7| HOST_TWO_FLAG             |*/
+                                            /*|   6| HOST_CONFIG_HOST_DISABLED |*/
+                                            /*|   5| AUTO_PAUSE_QUEUE_LOCK_STAT|*/
+                                            /*|   4| DANGER_PAUSE_QUEUE_STAT   |*/
+                                            /*|   3| HOST_NOT_IN_DIR_CONFIG    |*/
+                                            /*|   2| PAUSE_QUEUE_STAT          |*/
+                                            /*|   1| STOP_TRANSFER_STAT        |*/
+                                            /*+----+---------------------------+*/
           int            error_counter;     /* Errors that have so far   */
                                             /* occurred. With the next   */
                                             /* successful transfer this  */
@@ -1325,7 +1363,7 @@ struct bd_time_entry
        };
 
 /* Structure holding all neccessary data for retrieving files */
-#define CURRENT_FRA_VERSION 2
+#define CURRENT_FRA_VERSION 3
 #define MAX_WAIT_FOR_LENGTH 64
 struct fileretrieve_status
        {
@@ -1405,11 +1443,31 @@ struct fileretrieve_status
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
                                             /*| 6-32 | Not used.        |*/
+                                            /*|    5 | DIR_DISABLED     |*/
                                             /*|    4 | LINK_NO_EXEC     |*/
                                             /*|    3 | ADD_TIME_ENTRY   |*/
                                             /*|    2 | FILES_IN_QUEUE   |*/
                                             /*|    1 | MAX_COPIED       |*/
                                             /*+------+------------------+*/
+          unsigned int  in_dc_flag;         /* Flag to indicate which of */
+                                            /* the options have been     */
+                                            /* stored in DIR_CONFIG. This*/
+                                            /* is usefull for restoring  */
+                                            /* the DIR_CONFIG from       */
+                                            /* scratch. The following    */
+                                            /* flags are possible:       */
+                                            /*+---+---------------------+*/
+                                            /*|Bit|        Meaning      |*/
+                                            /*+---+---------------------+*/
+                                            /*| 8 |MAX_CP_FILE_SIZE_IDC |*/
+                                            /*| 7 |MAX_CP_FILES_IDC     |*/
+                                            /*| 6 |DONT_REPUKW_FILES_IDC|*/
+                                            /*| 5 |REPUKW_FILES_IDC     |*/
+                                            /*| 4 |OLD_LOCKED_FILES_IDC |*/
+                                            /*| 3 |QUEUED_FILES_IDC     |*/
+                                            /*| 2 |UNKNOWN_FILES_IDC    |*/
+                                            /*| 1 |DIR_ALIAS_IDC        |*/
+                                            /*+---+---------------------+*/
           unsigned int  files_in_dir;       /* The number of files       */
                                             /* currently in this         */
                                             /* directory.                */
@@ -1497,9 +1555,9 @@ struct fileretrieve_status
                                             /* this character. A -1      */
                                             /* means not to check the    */
                                             /* last character.           */
-          int           dir_pos;            /* Position of the directory */
-                                            /* name in the structure     */
-                                            /* dir_name_buf.             */
+          unsigned int  dir_id;             /* Unique number to identify */
+                                            /* directory faster and      */
+                                            /* easier.                   */
           int           fsa_pos;            /* Position of this host in  */
                                             /* FSA, to get the data that */
                                             /* are in the HOST_CONFIG.   */
@@ -1517,6 +1575,9 @@ struct fileretrieve_status
 #define FD_WAITING           4
 #define WRITTING_JID_STRUCT  64
 #define FD_DIR_CHECK_ACTIVE  128
+
+/* Definitions for the different lock positions in the FSA. */
+#define LOCK_FD_DIR_CHECK_ACTIVE 1
 
 /* Structure that holds status of all process */
 struct afd_status
@@ -1816,8 +1877,8 @@ struct dir_options
            if (fra[(fra_pos)].files_queued > tmp_files)      \
            {                                                 \
               system_log(DEBUG_SIGN, __FILE__, __LINE__,     \
-                         "Files queued overflowed from %u for FRA pos %d.", \
-                         tmp_files, (fra_pos));              \
+                         "Files queued overflowed (%u - %u) for FRA pos %d.", \
+                         tmp_files, (files), (fra_pos));     \
               fra[(fra_pos)].files_queued = 0;               \
            }                                                 \
            if ((fra[(fra_pos)].files_queued == 0) &&         \
@@ -1848,8 +1909,8 @@ struct dir_options
            if (fra[(fra_pos)].files_queued > tmp_files)      \
            {                                                 \
               system_log(DEBUG_SIGN, __FILE__, __LINE__,     \
-                         "Files queued overflowed from %u for FRA pos %d.", \
-                         tmp_files, (fra_pos));              \
+                         "Files queued overflowed (%u - %u) for FRA pos %d.", \
+                         tmp_files, (files), (fra_pos));     \
               fra[(fra_pos)].files_queued = 0;               \
            }                                                 \
            if ((fra[(fra_pos)].files_queued == 0) &&         \
@@ -1883,7 +1944,7 @@ extern char         *get_definition(char *, char *, char *, int),
                     *posi(char *, char *);
 extern unsigned int get_checksum(char *, int);
 extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
-                    attach_afd_status(void),
+                    attach_afd_status(int *),
                     afw2wmo(char *, int *, char **, char *),
 #ifdef _PRODUCTION_LOG
                     bin_file_chopper(char *, int *, off_t *, char,
@@ -1913,6 +1974,7 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
                     eaccess(char *, int),
 #endif
                     eval_host_config(int *, char *, struct host_list **, int),
+                    eval_timeout(int),
                     exec_cmd(char *, char *, int, char *, int, time_t),
                     extract(char *, char *,
 #ifdef _PRODUCTION_LOG
@@ -1928,6 +1990,7 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
                     get_afd_name(char *),
                     get_afd_path(int *, char **, char *),
                     get_arg(int *, char **, char *, char *, int),
+                    get_arg_array(int *, char **, char *, char ***, int *),
                     get_dir_number(char *, unsigned int, long *),
                     get_dir_position(struct fileretrieve_status *, char *, int),
                     get_file_checksum(int, char *, int, int, unsigned int *),
@@ -1982,7 +2045,7 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
                     daemon_init(char *),
                     delete_log_ptrs(struct delete_log *),
                     error_action(char *, char *),
-                    get_dir_options(int, struct dir_options *),
+                    get_dir_options(unsigned int, struct dir_options *),
                     get_log_number(int *, int, char *, int),
                     get_max_log_number(int *, char *, int),
                     get_rename_rules(char *, int),
@@ -2014,7 +2077,6 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
                     set_fl(int, int),
                     shutdown_afd(char *),
                     system_log(char *, char *, int, char *, ...),
-                    trans_log(char *, char *, int, char *, char *, ...),
 #ifdef LOCK_DEBUG
                     unlock_region(int, off_t, char *, int),
 #else

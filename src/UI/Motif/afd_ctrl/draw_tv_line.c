@@ -348,6 +348,10 @@ draw_tv_job_number(int pos, int x, int y)
 
    /* Change color of letters when background color is to dark */
    if ((jd[pos].connect_status == FTP_ACTIVE) ||
+#ifdef _WITH_SCP_SUPPORT
+       (jd[pos].connect_status == SCP_ACTIVE) ||
+#endif
+       (jd[pos].connect_status == HTTP_RETRIEVE_ACTIVE) ||
        (jd[pos].connect_status == CONNECTING))
    {
       gc_values.foreground = color_pool[WHITE];

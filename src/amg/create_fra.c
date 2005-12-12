@@ -389,7 +389,7 @@ create_fra(int no_of_dirs)
          fra[i].stupid_mode            = dd[i].stupid_mode;
          fra[i].force_reread           = dd[i].force_reread;
          fra[i].max_process            = dd[i].max_process;
-         fra[i].dir_pos                = dd[i].dir_pos;
+         fra[i].dir_id                 = dd[i].dir_id;
          fra[i].ignore_size            = dd[i].ignore_size;
          fra[i].ignore_file_time       = dd[i].ignore_file_time;
          fra[i].gt_lt_sign             = dd[i].gt_lt_sign;
@@ -401,6 +401,7 @@ create_fra(int no_of_dirs)
          fra[i].dup_check_timeout      = dd[i].dup_check_timeout;
          fra[i].dup_check_flag         = dd[i].dup_check_flag;
 #endif
+         fra[i].in_dc_flag             = dd[i].in_dc_flag;
          fra[i].last_retrieval         = 0L;
          fra[i].bytes_received         = 0;
          fra[i].files_in_dir           = 0;
@@ -444,7 +445,7 @@ create_fra(int no_of_dirs)
          fra[i].stupid_mode            = dd[i].stupid_mode;
          fra[i].force_reread           = dd[i].force_reread;
          fra[i].max_process            = dd[i].max_process;
-         fra[i].dir_pos                = dd[i].dir_pos;
+         fra[i].dir_id                 = dd[i].dir_id;
          fra[i].ignore_size            = dd[i].ignore_size;
          fra[i].ignore_file_time       = dd[i].ignore_file_time;
          fra[i].gt_lt_sign             = dd[i].gt_lt_sign;
@@ -456,6 +457,7 @@ create_fra(int no_of_dirs)
          fra[i].dup_check_timeout      = dd[i].dup_check_timeout;
          fra[i].dup_check_flag         = dd[i].dup_check_flag;
 #endif
+         fra[i].in_dc_flag             = dd[i].in_dc_flag;
          fra[i].no_of_process          = 0;
          fra[i].dir_status             = NORMAL_STATUS;
          if (fra[i].time_option == YES)
@@ -474,7 +476,10 @@ create_fra(int no_of_dirs)
          gotcha = NO;
          for (k = 0; k < old_no_of_dirs; k++)
          {
-            if (old_fra[k].dir_pos == fra[i].dir_pos)
+            if (((old_fra[k].dir_id != 0) &&
+                 (old_fra[k].dir_id == fra[i].dir_id)) ||
+                ((old_fra[k].dir_id == 0) &&
+                 (CHECK_STRCMP(old_fra[k].url, fra[i].url) == 0)))
             {
                gotcha = YES;
                break;

@@ -46,7 +46,8 @@ am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
 	$(top_srcdir)/ac-tools/vl_prog_cc_warnings.m4 \
-	$(top_srcdir)/ac-tools/xpm.m4 $(top_srcdir)/configure.in
+	$(top_srcdir)/ac-tools/xp.m4 $(top_srcdir)/ac-tools/xpm.m4 \
+	$(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -71,25 +72,25 @@ am__libafd_a_SOURCES_DIST = attach_afd_status.c attach_buf.c \
 	check_create_path.c check_dir.c check_fake_user.c check_fra.c \
 	check_fsa.c check_msa.c clr_fl.c copy_file.c create_name.c \
 	daemon_init.c delete_log_ptrs.c detach_afd_status.c eaccess.c \
-	error_action.c eval_host_config.c exec_cmd.c fra_attach.c \
-	fra_detach.c fsa_attach.c fsa_detach.c get_afd_name.c \
-	get_afd_path.c get_arg.c get_checksum.c get_definition.c \
-	get_dir_number.c get_dir_options.c get_error_str.c \
-	get_hostname.c get_log_number.c get_max_log_number.c \
-	get_mon_path.c get_permissions.c get_position.c get_pw.c \
-	get_rename_rules.c get_rule.c get_user.c \
-	inform_fd_about_fsa_change.c isdup.c eval_dupcheck_options.c \
-	is_msgname.c lock_file.c lock_proc.c lock_region.c \
-	lock_region_w.c make_fifo.c map_file.c mmap_emu.c msync_emu.c \
-	munmap_emu.c mmap_resize.c msa_attach.c msa_detach.c \
-	attach_afd_mon_status.c detach_afd_mon_status.c move_file.c \
-	my_strncpy.c my_usleep.c next_counter.c open_counter_file.c \
-	posi.c pmatch.c production_log.c read_file.c readn.c rec.c \
-	rec_rmdir.c remove_dir.c reshuffel_log_files.c rlock_region.c \
-	send_cmd.c set_afd_euid.c set_fl.c show_fifo_data.c \
-	system_log.c t_hostname.c unlock_region.c unmap_data.c \
-	write_host_config.c ../init_afd/afddefs.h ../afdsetup.h \
-	../../config.h
+	error_action.c eval_host_config.c eval_timeout.c exec_cmd.c \
+	fra_attach.c fra_detach.c fsa_attach.c fsa_detach.c \
+	get_afd_name.c get_afd_path.c get_arg.c get_checksum.c \
+	get_definition.c get_dir_number.c get_dir_options.c \
+	get_error_str.c get_hostname.c get_log_number.c \
+	get_max_log_number.c get_mon_path.c get_permissions.c \
+	get_position.c get_pw.c get_rename_rules.c get_rule.c \
+	get_user.c inform_fd_about_fsa_change.c isdup.c \
+	eval_dupcheck_options.c is_msgname.c lock_file.c lock_proc.c \
+	lock_region.c lock_region_w.c make_fifo.c map_file.c \
+	mmap_emu.c msync_emu.c munmap_emu.c mmap_resize.c msa_attach.c \
+	msa_detach.c attach_afd_mon_status.c detach_afd_mon_status.c \
+	move_file.c my_strncpy.c my_usleep.c next_counter.c \
+	open_counter_file.c posi.c pmatch.c production_log.c \
+	read_file.c readn.c rec.c rec_rmdir.c remove_dir.c \
+	reshuffel_log_files.c rlock_region.c send_cmd.c set_afd_euid.c \
+	set_fl.c show_fifo_data.c system_log.c t_hostname.c \
+	unlock_region.c unmap_data.c write_host_config.c \
+	../init_afd/afddefs.h ../afdsetup.h ../../config.h
 @HAVE_EACCESS_FALSE@am__objects_1 = eaccess.$(OBJEXT)
 @WITHOUT_DUPCHECK_FALSE@am__objects_2 = isdup.$(OBJEXT) \
 @WITHOUT_DUPCHECK_FALSE@	eval_dupcheck_options.$(OBJEXT)
@@ -112,8 +113,8 @@ am_libafd_a_OBJECTS = attach_afd_status.$(OBJEXT) attach_buf.$(OBJEXT) \
 	daemon_init.$(OBJEXT) delete_log_ptrs.$(OBJEXT) \
 	detach_afd_status.$(OBJEXT) $(am__objects_1) \
 	error_action.$(OBJEXT) eval_host_config.$(OBJEXT) \
-	exec_cmd.$(OBJEXT) fra_attach.$(OBJEXT) fra_detach.$(OBJEXT) \
-	fsa_attach.$(OBJEXT) fsa_detach.$(OBJEXT) \
+	eval_timeout.$(OBJEXT) exec_cmd.$(OBJEXT) fra_attach.$(OBJEXT) \
+	fra_detach.$(OBJEXT) fsa_attach.$(OBJEXT) fsa_detach.$(OBJEXT) \
 	get_afd_name.$(OBJEXT) get_afd_path.$(OBJEXT) \
 	get_arg.$(OBJEXT) get_checksum.$(OBJEXT) \
 	get_definition.$(OBJEXT) get_dir_number.$(OBJEXT) \
@@ -161,6 +162,7 @@ AFD_SSL_INCLUDES = @AFD_SSL_INCLUDES@
 AFD_SSL_LIBS = @AFD_SSL_LIBS@
 AFD_XAW_INCLUDES = @AFD_XAW_INCLUDES@
 AFD_XAW_LIBS = @AFD_XAW_LIBS@
+AFD_XP_LIB = @AFD_XP_LIB@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
@@ -189,6 +191,8 @@ HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
 HAVE_MOTIF_TRUE = @HAVE_MOTIF_TRUE@
+Have_Libxp_FALSE = @Have_Libxp_FALSE@
+Have_Libxp_TRUE = @Have_Libxp_TRUE@
 INITDIR = @INITDIR@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -240,6 +244,8 @@ WITH_OUTPUT_LOG_FALSE = @WITH_OUTPUT_LOG_FALSE@
 WITH_OUTPUT_LOG_TRUE = @WITH_OUTPUT_LOG_TRUE@
 WITH_PRODUCTION_LOG_FALSE = @WITH_PRODUCTION_LOG_FALSE@
 WITH_PRODUCTION_LOG_TRUE = @WITH_PRODUCTION_LOG_TRUE@
+WITH_SERVER_SUPPORT_FALSE = @WITH_SERVER_SUPPORT_FALSE@
+WITH_SERVER_SUPPORT_TRUE = @WITH_SERVER_SUPPORT_TRUE@
 WITH_SETUID_FALSE = @WITH_SETUID_FALSE@
 WITH_SETUID_PROGS_FALSE = @WITH_SETUID_PROGS_FALSE@
 WITH_SETUID_PROGS_TRUE = @WITH_SETUID_PROGS_TRUE@
@@ -344,6 +350,7 @@ libafd_a_SOURCES = attach_afd_status.c\
                        $(AFD_EACCESS)\
                        error_action.c\
                        eval_host_config.c\
+                       eval_timeout.c\
                        exec_cmd.c\
                        fra_attach.c\
                        fra_detach.c\
@@ -508,6 +515,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/error_action.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_dupcheck_options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_host_config.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_timeout.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exec_cmd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fra_attach.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fra_detach.Po@am__quote@

@@ -77,6 +77,7 @@ DESCR__S_M3
  **   28.08.2004 H.Kiehl Added options "create target dir" and "do no
  **                      create target dir"
  **   14.06.2005 H.Kiehl Added "dupcheck" option.
+ **   21.09.2005 H.Kiehl Added "sequence locking" option.
  **
  */
 DESCR__E_M3
@@ -139,6 +140,7 @@ extern char *p_work_dir;
 #ifdef WITH_DUP_CHECK
 # define DUPCHECK_FLAG              1073741824
 #endif
+#define SEQUENCE_LOCKING_FLAG       2147483648U
 
 
 #define MAX_HUNK                    4096
@@ -148,14 +150,14 @@ extern char *p_work_dir;
 int
 eval_message(char *message_name, struct job *p_db)
 {
-   int  bytes_buffered,
-        fd,
-        n,
-        used = 0; /* Used to see whether option has already been set. */
-   char *ptr,
-        *end_ptr,
-        *msg_buf,
-        byte_buf;
+   int          bytes_buffered,
+                fd,
+                n;
+   unsigned int used = 0; /* Used to see whether option has already been set. */
+   char         *ptr,
+                *end_ptr,
+                *msg_buf,
+                byte_buf;
 
    /* Store message to buffer. */
    if ((fd = open(message_name, O_RDONLY)) == -1)
@@ -991,6 +993,20 @@ eval_message(char *message_name, struct job *p_db)
                        ptr++;
                     }
                  }
+            else if (((used & SEQUENCE_LOCKING_FLAG) == 0) &&
+                     (strncmp(ptr, SEQUENCE_LOCKING_ID, SEQUENCE_LOCKING_ID_LENGTH) == 0))
+                 {
+                    used |= SEQUENCE_LOCKING_FLAG;
+                    p_db->special_flag |= SEQUENCE_LOCKING;
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
             else if (((used & SUBJECT_FLAG) == 0) &&
                      (strncmp(ptr, SUBJECT_ID, SUBJECT_ID_LENGTH) == 0))
                  {
@@ -1347,6 +1363,14 @@ eval_message(char *message_name, struct job *p_db)
                        {
                          end_ptr++;
                          length++;
+                       }
+
+                       /* Discard global DEFAULT_SMTP_FROM from AFD_CONFIG */
+                       /* when set.                                        */
+                       if (p_db->from != NULL)
+                       {
+                          free(p_db->from);
+                          p_db->from = NULL;
                        }
                        if ((p_db->from = malloc(length + 1)) == NULL)
                        {

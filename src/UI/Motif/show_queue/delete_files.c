@@ -223,7 +223,7 @@ delete_files(int no_selected, int *select_list)
          exit(INCORRECT);
       }
 
-      if (attach_afd_status() < 0)
+      if (attach_afd_status(NULL) < 0)
       {
          (void)fprintf(stderr,
                        "Failed to map to AFD status area. (%s %d)\n",
@@ -312,7 +312,7 @@ delete_files(int no_selected, int *select_list)
 
                     for (k = 0; k < no_of_dirs; k++)
                     {
-                       if (qfl[select_list[i] - 1].dir_id_pos == fra[k].dir_pos)
+                       if (qfl[select_list[i] - 1].dir_id== fra[k].dir_id)
                        {
                           ABS_REDUCE_QUEUE(k, 1, qfl[select_list[i] - 1].size);
                           break;

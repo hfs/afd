@@ -348,9 +348,9 @@ get_dc_data(void)
                {
                   if (jd[k].job_id == current_jid_list[j])
                   {
-                     if (jd[k].dir_id_pos == fra[i].dir_pos)
+                     if (jd[k].dir_id == fra[i].dir_id)
                      {
-                        get_dir_options(jd[k].dir_id_pos, &d_o);
+                        get_dir_options(jd[k].dir_id, &d_o);
                         show_data(&jd[k], dnb[jd[k].dir_id_pos].dir_name, &d_o);
                      }
                      break;

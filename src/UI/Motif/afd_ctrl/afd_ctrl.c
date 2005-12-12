@@ -745,7 +745,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    /*
     * Attach to the AFD Status Area
     */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to attach to AFD status area. (%s %d)\n",
@@ -1160,7 +1160,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[HOST_W] = XtVaCreateManagedWidget("Host",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
-                           XmNmnemonic,                'o',
+                           XmNmnemonic,                't',
                            XmNsubMenuId,               pull_down_w,
                            NULL);
 
@@ -1214,11 +1214,19 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       }
       if (acp.retry != NO_PERMISSION)
       {
-         ow[RETRY_W] = XtVaCreateManagedWidget("Retry",
+#ifdef WITH_CTRL_ACCELERATOR
+         ow[RETRY_W] = XtVaCreateManagedWidget("Retry                (Ctrl+r)",
+#else
+         ow[RETRY_W] = XtVaCreateManagedWidget("Retry                (Alt+r)",
+#endif
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  XmNmnemonic,             'R',
+#ifdef WITH_CTRL_ACCELERATOR
+                                 XmNaccelerator,          "Ctrl<Key>R",
+#else
                                  XmNaccelerator,          "Alt<Key>R",
+#endif
                                  NULL);
          XtAddCallback(ow[RETRY_W], XmNactivateCallback, popup_cb,
                        (XtPointer)RETRY_SEL);
@@ -1239,19 +1247,35 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  NULL);
          create_pullright_debug(pullright_debug);
       }
-      ow[SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select",
+#ifdef WITH_CTRL_ACCELERATOR
+      ow[SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select  (Ctrl+s)",
+#else
+      ow[SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select  (Alt+s)",
+#endif
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  XmNmnemonic,             'S',
+#ifdef WITH_CTRL_ACCELERATOR
+                                 XmNaccelerator,          "Ctrl<Key>S",
+#else
                                  XmNaccelerator,          "Alt<Key>S",
+#endif
                                  NULL);
       XtAddCallback(ow[SELECT_W], XmNactivateCallback, select_host_dialog,
                     (XtPointer)0);
-      ow[LONG_SHORT_W] = XtVaCreateManagedWidget("Long/Short line",
+#ifdef WITH_CTRL_ACCELERATOR
+      ow[LONG_SHORT_W] = XtVaCreateManagedWidget("Long/Short line      (Ctrl+l)",
+#else
+      ow[LONG_SHORT_W] = XtVaCreateManagedWidget("Long/Short line      (Alt+l)",
+#endif
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  XmNmnemonic,             'L',
+#ifdef WITH_CTRL_ACCELERATOR
+                                 XmNaccelerator,          "Ctrl<Key>L",
+#else
                                  XmNaccelerator,          "Alt<Key>L",
+#endif
                                  NULL);
       XtAddCallback(ow[LONG_SHORT_W], XmNactivateCallback, popup_cb,
                     (XtPointer)LONG_SHORT_SEL);
@@ -1287,11 +1311,19 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               XmNseparatorType,       XmDOUBLE_LINE,
                               NULL);
    }
-   ow[EXIT_W] = XtVaCreateManagedWidget("Exit",
+#ifdef WITH_CTRL_ACCELERATOR
+   ow[EXIT_W] = XtVaCreateManagedWidget("Exit                 (Ctrl+x)",
+#else
+   ow[EXIT_W] = XtVaCreateManagedWidget("Exit                 (Alt+x)",
+#endif
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            XmNmnemonic,             'x',
+#ifdef WITH_CTRL_ACCELERATOR
+                           XmNaccelerator,          "Ctrl<Key>x",
+#else
                            XmNaccelerator,          "Alt<Key>x",
+#endif
                            NULL);
    XtAddCallback(ow[EXIT_W], XmNactivateCallback, popup_cb,
                  (XtPointer)EXIT_SEL);
@@ -1571,7 +1603,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
-                           XmNmnemonic,                'S',
+                           XmNmnemonic,                'p',
                            XmNsubMenuId,               pull_down_w,
                            NULL);
    sw[FONT_W] = XtVaCreateManagedWidget("Font size",
@@ -1599,7 +1631,11 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            XmNmnemonic,             'a',
+#ifdef WITH_CTRL_ACCELERATOR
+                           XmNaccelerator,          "Ctrl<Key>a",
+#else
                            XmNaccelerator,          "Alt<Key>a",
+#endif
                            NULL);
    XtAddCallback(sw[SAVE_W], XmNactivateCallback, save_setup_cb, (XtPointer)0);
 
@@ -1713,9 +1749,17 @@ init_popup_menu(Widget w)
       if (acp.retry != NO_PERMISSION)
       {
          argcount = 0;
-         x_string = XmStringCreateLocalized("Retry");
+#ifdef WITH_CTRL_ACCELERATOR
+         x_string = XmStringCreateLocalized("Retry (Ctrl+r)");
+#else
+         x_string = XmStringCreateLocalized("Retry (Alt+r)");
+#endif
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
+         XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>R"); argcount++;
+#else
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>R"); argcount++;
+#endif
          XtSetArg(args[argcount], XmNmnemonic, 'R'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[4] = XmCreatePushButton(popupmenu, "Retry", args, argcount);
@@ -1743,7 +1787,11 @@ init_popup_menu(Widget w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Info");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
          XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>I"); argcount++;
+#else
+         XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>I"); argcount++;
+#endif
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[6] = XmCreatePushButton(popupmenu, "Info", args, argcount);
@@ -2045,7 +2093,11 @@ create_pullright_debug(Widget pullright_debug)
       XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
       XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
       XtSetArg(args[argcount], XmNmnemonic, 'D'); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
+      XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>D"); argcount++;
+#else
       XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>D"); argcount++;
+#endif
       dprw[DEBUG_STYLE_W] = XmCreatePushButton(pullright_debug, "debug_0",
                                                args, argcount);
       XtAddCallback(dprw[DEBUG_STYLE_W], XmNactivateCallback,

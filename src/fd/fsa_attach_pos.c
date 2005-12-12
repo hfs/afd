@@ -85,7 +85,7 @@ fsa_attach_pos(int pos)
    int  ret = SUCCESS;
    char fsa_stat_file[MAX_PATH_LENGTH];
 
-   /* Get absolute path of FSA_ID_FILE */
+   /* Get absolute path of FSA_ID_FILE. */
    (void)sprintf(fsa_stat_file, "%s%s%s.%d",
                  p_work_dir, FIFO_DIR, FSA_STAT_FILE, fsa_id);
    if ((fsa_fd = open(fsa_stat_file, O_RDWR)) == -1)
@@ -184,72 +184,85 @@ fsa_attach_pos(int pos)
       else
       {
          p_no_of_hosts = (int *)ptr;
-         if (*p_no_of_hosts <= 0)
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FSA_VERSION)
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Hmmm, number of hosts is %d. How can this be?",
-                       *p_no_of_hosts);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.\n",
+                       CURRENT_FSA_VERSION,
+                       (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
             ret = WRONG_FSA_FILE;
          }
          else
          {
-            if (pos < *p_no_of_hosts)
+            if (*p_no_of_hosts <= 0)
             {
-               int pagesize;
-
-               pagesize = *(int *)(ptr + SIZEOF_INT + 4);
-               if (pagesize < 0)
-               {
-                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Hmmm, pagesize is %d", pagesize);
-                  if ((pagesize = (int)sysconf(_SC_PAGESIZE)) == -1)
-                  {
-                     system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "Failed to determine the pagesize with sysconf() : %s",
-                                strerror(errno));
-                     ret = INCORRECT;
-                  }
-                  else
-                  {
-                     *(int *)(ptr + SIZEOF_INT + 4) = pagesize;
-                  }
-               }
-
-               if (pagesize > 0)
-               {
-                  int page_offset,
-                      start;
-
-                  start = AFD_WORD_OFFSET + (pos * sizeof(struct filetransfer_status));
-                  page_offset = (start / pagesize) * pagesize;
-                  map_offset = start - page_offset;
-#ifdef HAVE_MMAP
-                  fsa_size = sizeof(struct filetransfer_status) + map_offset;
-                  if ((ptr = mmap(0, fsa_size, (PROT_READ | PROT_WRITE),
-                                  MAP_SHARED, fsa_fd, page_offset)) == (caddr_t) -1)
-#else
-                  if ((ptr = mmap_emu(0, sizeof(struct filetransfer_status) + map_offset,
-                                      (PROT_READ | PROT_WRITE),
-                                      MAP_SHARED, fsa_stat_file, page_offset)) == (caddr_t) -1)
-#endif
-                  {
-                     system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "mmap() error : %s", strerror(errno));
-                     ret = INCORRECT;
-                  }
-                  else
-                  {
-                     fsa = (struct filetransfer_status *)(ptr + map_offset);
-                     ret = SUCCESS;
-                  }
-               }
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Hmmm, number of hosts is %d. How can this be?",
+                          *p_no_of_hosts);
+               ret = WRONG_FSA_FILE;
             }
             else
             {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Hmm, pos %d is equal or beyond no_of_hosts %d. Assume we are in wrong FSA.",
-                          pos, *p_no_of_hosts);
-               ret = WRONG_FSA_FILE;
+               if (pos < *p_no_of_hosts)
+               {
+                  int pagesize;
+
+                  pagesize = *(int *)(ptr + SIZEOF_INT + 4);
+                  if (pagesize < 0)
+                  {
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "Hmmm, pagesize is %d", pagesize);
+                     if ((pagesize = (int)sysconf(_SC_PAGESIZE)) == -1)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "Failed to determine the pagesize with sysconf() : %s",
+                                   strerror(errno));
+                        ret = INCORRECT;
+                     }
+                     else
+                     {
+                        *(int *)(ptr + SIZEOF_INT + 4) = pagesize;
+                     }
+                  }
+
+                  if (pagesize > 0)
+                  {
+                     int page_offset,
+                         start;
+
+                     start = AFD_WORD_OFFSET + (pos * sizeof(struct filetransfer_status));
+                     page_offset = (start / pagesize) * pagesize;
+                     map_offset = start - page_offset;
+#ifdef HAVE_MMAP
+                     fsa_size = sizeof(struct filetransfer_status) + map_offset;
+                     if ((ptr = mmap(0, fsa_size, (PROT_READ | PROT_WRITE),
+                                     MAP_SHARED, fsa_fd,
+                                     page_offset)) == (caddr_t) -1)
+#else
+                     if ((ptr = mmap_emu(0, sizeof(struct filetransfer_status) + map_offset,
+                                         (PROT_READ | PROT_WRITE),
+                                         MAP_SHARED, fsa_stat_file,
+                                         page_offset)) == (caddr_t) -1)
+#endif
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "mmap() error : %s", strerror(errno));
+                        ret = INCORRECT;
+                     }
+                     else
+                     {
+                        fsa = (struct filetransfer_status *)(ptr + map_offset);
+                        ret = SUCCESS;
+                     }
+                  }
+               }
+               else
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Hmm, pos %d is equal or beyond no_of_hosts %d. Assume we are in wrong FSA.",
+                             pos, *p_no_of_hosts);
+                  ret = WRONG_FSA_FILE;
+               }
             }
          }
       }

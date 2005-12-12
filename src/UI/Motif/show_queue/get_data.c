@@ -117,7 +117,7 @@ static void                    get_all_input_files(void),
                                get_output_files(void),
                                insert_file(char *, char *, char *, char *,
                                            char, char, unsigned int, int,
-                                           unsigned int),
+                                           unsigned int, unsigned int),
                                searching(char *),
 #ifdef _WITH_HEAPSORT
                                sort_data(int);
@@ -462,7 +462,7 @@ get_output_files(void)
                                           qb[i].msg_name, jd[pos].host_alias,
                                           queue_typ, jd[pos].priority,
                                           job_id, jd[pos].dir_id_pos,
-                                          qb[i].files_to_send);
+                                          jd[i].dir_id, qb[i].files_to_send);
                            }
                         }
                      }
@@ -547,7 +547,7 @@ get_input_files(void)
                      if (gotcha == YES)
                      {
                         insert_file(queue_dir, p_file, "\0", &p_dir->d_name[1],
-                                    SHOW_INPUT, 0, -1, i, 0);
+                                    SHOW_INPUT, 0, -1, i, dnb[i].dir_id, 0);
                      }
                   }
                }
@@ -615,7 +615,7 @@ get_all_input_files(void)
             ptr_file = input_dir + sprintf(input_dir, "%s/",
                        dnb[i].dir_name);
             insert_file(input_dir, ptr_file, "\0", "\0",
-                        SHOW_UNSENT_INPUT, 0, -1, i, 0);
+                        SHOW_UNSENT_INPUT, 0, -1, i, dnb[i].dir_id, 0);
          }
       }
       searching("Unsent");
@@ -777,6 +777,7 @@ insert_file(char         *queue_dir,
             char         priority,
             unsigned int job_id,
             int          dir_id_pos,
+            unsigned int dir_id,
             unsigned int files_to_send)
 {
    DIR         *dpfile;
@@ -851,6 +852,7 @@ insert_file(char         *queue_dir,
                            return;
                         }
                         qfl[total_no_files].job_id = job_id;
+                        qfl[total_no_files].dir_id = dir_id;
                         qfl[total_no_files].size = stat_buf.st_size;
                         qfl[total_no_files].mtime = stat_buf.st_mtime;
                         qfl[total_no_files].dir_id_pos = dir_id_pos;

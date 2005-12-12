@@ -54,7 +54,8 @@ am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
 	$(top_srcdir)/ac-tools/vl_prog_cc_warnings.m4 \
-	$(top_srcdir)/ac-tools/xpm.m4 $(top_srcdir)/configure.in
+	$(top_srcdir)/ac-tools/xp.m4 $(top_srcdir)/ac-tools/xpm.m4 \
+	$(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -119,7 +120,7 @@ gf_http_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
 	../common/libafd.a
 am_sf_ftp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
-	eval_recipient.$(OBJEXT) eval_message.$(OBJEXT) \
+	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	handle_proxy.$(OBJEXT) init_sf.$(OBJEXT) \
@@ -133,7 +134,7 @@ sf_ftp_DEPENDENCIES = $(am__DEPENDENCIES_1) \
 	../protocols/libprotocols.a ../common/libafd.a
 am__objects_3 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
-	eval_recipient.$(OBJEXT) eval_message.$(OBJEXT) \
+	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	handle_proxy.$(OBJEXT) init_sf.$(OBJEXT) \
@@ -167,7 +168,7 @@ sf_map_OBJECTS = $(am_sf_map_OBJECTS)
 sf_map_DEPENDENCIES = ../common/libafd.a
 am_sf_scp_OBJECTS = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
-	eval_recipient.$(OBJEXT) eval_message.$(OBJEXT) \
+	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
@@ -178,7 +179,7 @@ sf_scp_OBJECTS = $(am_sf_scp_OBJECTS)
 sf_scp_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
 am__objects_4 = append.$(OBJEXT) archive_file.$(OBJEXT) \
 	check_burst_2.$(OBJEXT) eval_input_sf.$(OBJEXT) \
-	eval_recipient.$(OBJEXT) eval_message.$(OBJEXT) \
+	eval_message.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_file_names.$(OBJEXT) \
 	get_group_list.$(OBJEXT) gsf_check_fsa.$(OBJEXT) \
 	init_sf.$(OBJEXT) init_sf_burst2.$(OBJEXT) \
@@ -271,6 +272,7 @@ AFD_SSL_INCLUDES = @AFD_SSL_INCLUDES@
 AFD_SSL_LIBS = @AFD_SSL_LIBS@
 AFD_XAW_INCLUDES = @AFD_XAW_INCLUDES@
 AFD_XAW_LIBS = @AFD_XAW_LIBS@
+AFD_XP_LIB = @AFD_XP_LIB@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
@@ -299,6 +301,8 @@ HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
 HAVE_MOTIF_TRUE = @HAVE_MOTIF_TRUE@
+Have_Libxp_FALSE = @Have_Libxp_FALSE@
+Have_Libxp_TRUE = @Have_Libxp_TRUE@
 INITDIR = @INITDIR@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -350,6 +354,8 @@ WITH_OUTPUT_LOG_FALSE = @WITH_OUTPUT_LOG_FALSE@
 WITH_OUTPUT_LOG_TRUE = @WITH_OUTPUT_LOG_TRUE@
 WITH_PRODUCTION_LOG_FALSE = @WITH_PRODUCTION_LOG_FALSE@
 WITH_PRODUCTION_LOG_TRUE = @WITH_PRODUCTION_LOG_TRUE@
+WITH_SERVER_SUPPORT_FALSE = @WITH_SERVER_SUPPORT_FALSE@
+WITH_SERVER_SUPPORT_TRUE = @WITH_SERVER_SUPPORT_TRUE@
 WITH_SETUID_FALSE = @WITH_SETUID_FALSE@
 WITH_SETUID_PROGS_FALSE = @WITH_SETUID_PROGS_FALSE@
 WITH_SETUID_PROGS_TRUE = @WITH_SETUID_PROGS_TRUE@
@@ -440,8 +446,8 @@ sf_ftp_SOURCES = append.c\
                         archive_file.c\
                         check_burst_2.c\
                         eval_input_sf.c\
-                        eval_recipient.c\
                         eval_message.c\
+                        eval_recipient.c\
                         fsa_attach_pos.c\
                         get_file_names.c\
                         get_group_list.c\
@@ -495,8 +501,8 @@ sf_scp_SOURCES = append.c\
                         archive_file.c\
                         check_burst_2.c\
                         eval_input_sf.c\
-                        eval_recipient.c\
                         eval_message.c\
+                        eval_recipient.c\
                         fsa_attach_pos.c\
                         get_file_names.c\
                         get_group_list.c\

@@ -29,6 +29,7 @@ DESCR__S_M1
  **
  **   options
  **      --version        Version Number
+ **      -o <retries>     Old/Error message and number of retries.
  **      -t               Temp toggle.
  **
  ** DESCRIPTION
@@ -218,7 +219,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                 "FTP connection to %s at port %d failed (%d).",
                 db.hostname, db.port, status);
-      exit(CONNECT_ERROR);
+      exit(eval_timeout(CONNECT_ERROR));
    }
    else
    {
@@ -267,7 +268,7 @@ main(int argc, char *argv[])
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                       "Failed to send user <%s> (%d).", db.user, status);
             (void)ftp_quit();
-            exit(USER_ERROR);
+            exit(eval_timeout(USER_ERROR));
          }
          else
          {
@@ -296,7 +297,7 @@ main(int argc, char *argv[])
                          "Failed to send password for user <%s> (%d).",
                          db.user, status);
                (void)ftp_quit();
-               exit(PASSWORD_ERROR);
+               exit(eval_timeout(PASSWORD_ERROR));
             }
             else
             {
@@ -342,7 +343,7 @@ main(int argc, char *argv[])
                 "Failed to set transfer mode to %c (%d).",
                 db.transfer_mode, status);
       (void)ftp_quit();
-      exit(TYPE_ERROR);
+      exit(eval_timeout(TYPE_ERROR));
    }
    else
    {
@@ -362,7 +363,7 @@ main(int argc, char *argv[])
                    "Failed to change directory to %s (%d).",
                    db.target_dir, status);
          (void)ftp_quit();
-         exit(CHDIR_ERROR);
+         exit(eval_timeout(CHDIR_ERROR));
       }
       else
       {
@@ -494,7 +495,7 @@ main(int argc, char *argv[])
                (void)ftp_quit();
                reset_values(files_retrieved, file_size_retrieved,
                             files_to_retrieve, file_size_to_retrieve);
-               exit(OPEN_REMOTE_ERROR);
+               exit(eval_timeout(OPEN_REMOTE_ERROR));
             }
             if (status == -550) /* ie. file has been deleted or is NOT a file. */
             {
@@ -525,7 +526,7 @@ main(int argc, char *argv[])
                                "TSL/SSL data connection to server `%s' failed.",
                                db.hostname);
                      (void)ftp_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : AUTH_ERROR);
+                     exit(eval_timeout(AUTH_ERROR));
                   }
                   else
                   {
@@ -618,7 +619,7 @@ main(int argc, char *argv[])
                      {
                         (void)ftp_quit();
                      }
-                     exit(READ_REMOTE_ERROR);
+                     exit(eval_timeout(READ_REMOTE_ERROR));
                   }
 
                   if (fsa->transfer_rate_limit > 0)
@@ -635,7 +636,7 @@ main(int argc, char *argv[])
                         (void)ftp_quit();
                         reset_values(files_retrieved, file_size_retrieved,
                                      files_to_retrieve, file_size_to_retrieve);
-                        exit(WRITE_LOCAL_ERROR);
+                        exit(eval_timeout(WRITE_LOCAL_ERROR));
                      }
                      bytes_done += status;
                   }
@@ -657,7 +658,7 @@ main(int argc, char *argv[])
                   (void)ftp_quit();
                   reset_values(files_retrieved, file_size_retrieved,
                                files_to_retrieve, file_size_to_retrieve);
-                  exit(CLOSE_REMOTE_ERROR);
+                  exit(eval_timeout(CLOSE_REMOTE_ERROR));
                }
                else
                {

@@ -69,6 +69,7 @@ DESCR__E_M3
 
 #include <stdio.h>                 /* sprintf()                          */
 #include <stdlib.h>                /* calloc(), free()                   */
+#include <time.h>                  /* ctime()                            */
 #include <errno.h>
 #include "show_ilog.h"
 

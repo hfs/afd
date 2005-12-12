@@ -64,13 +64,16 @@ extern Widget      listbox_w,
                    statusbox_w,
                    summarybox_w;
 extern char        file_name[],
+                   **search_dir,
+                   **search_dirid,
                    search_file_name[],
-                   search_directory_name[],
                    **search_recipient,
                    search_file_size_str[],
                    summary_str[],
                    total_summary_str[];
 extern int         file_name_length,
+                   no_of_search_dirs,
+                   no_of_search_dirids,
                    no_of_search_hosts;
 extern XT_PTR_TYPE device_type,
                    range_type,
@@ -119,6 +122,11 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
          else
          {
             prepare_status = prepare_file(&fd);
+            if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
+            {
+               prepare_tmp_name();
+               prepare_status = prepare_file(&fd);
+            }
          }
          if (prepare_status == SUCCESS)
          {
@@ -212,6 +220,11 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       else
       {
          prepare_status = prepare_file(&fd);
+         if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
+         {
+            prepare_tmp_name();
+            prepare_status = prepare_file(&fd);
+         }
       }
       if (prepare_status == SUCCESS)
       {
@@ -295,57 +308,78 @@ write_header(int fd)
         tmp_length;
    char buffer[1024];
 
+   length = sprintf(buffer,
+                    "                                AFD DELETE LOG\n\n");
    if ((start_time_val < 0) && (end_time_val < 0))
    {
-      length = sprintf(buffer, "                                AFD DELETE LOG\n\n\
-                Time Interval : earliest entry - latest entry\n\
-                File name     : %s\n\
-                File size     : %s\n\
-                Directory     : %s\n",
-                       search_file_name, search_file_size_str,
-                       search_directory_name);
+      length += sprintf(&buffer[length],
+                        "\tTime Interval : earliest entry - latest entry\n\tFile name     : %s\n\tFile size     : %s\n",
+                        search_file_name, search_file_size_str);
    }
    else if ((start_time_val > 0) && (end_time_val < 0))
         {
-           length = strftime(buffer, 1024, "                                AFD DELETE LOG\n\n\tTime Interval : %m.%d. %H:%M",
-                             localtime(&start_time_val));
-           length += sprintf(&buffer[length], " - latest entry\n\
-                File name     : %s\n\
-                File size     : %s\n\
-                Directory     : %s\n",
-                             search_file_name, search_file_size_str,
-                             search_directory_name);
+           length += strftime(&buffer[length], 1024 - length,
+                              "\tTime Interval : %m.%d. %H:%M",
+                              localtime(&start_time_val));
+           length += sprintf(&buffer[length],
+                             " - latest entry\n\tFile name     : %s\n\tFile size     : %s\n",
+                             search_file_name, search_file_size_str);
         }
         else if ((start_time_val < 0) && (end_time_val > 0))
              {
-                length = strftime(buffer, 1024, "                                AFD DELETE LOG\n\n\tTime Interval : earliest entry - %m.%d. %H:%M",
-                                  localtime(&end_time_val));
-                length += sprintf(&buffer[length], "\n\
-                File name     : %s\n\
-                File size     : %s\n\
-                Directory     : %s\n",
-                                  search_file_name, search_file_size_str,
-                                  search_directory_name);
+                length += strftime(&buffer[length], 1024 - length,
+                                   "\tTime Interval : earliest entry - %m.%d. %H:%M",
+                                   localtime(&end_time_val));
+                length += sprintf(&buffer[length],
+                                  "\n\tFile name     : %s\n\tFile size     : %s\n",
+                                  search_file_name, search_file_size_str);
              }
              else
              {
-                length = strftime(buffer, 1024, "                                AFD DELETE LOG\n\n\tTime Interval : %m.%d. %H:%M",
-                                  localtime(&start_time_val));
-                length += strftime(&buffer[length], 1024 - length, " - %m.%d. %H:%M",
-                                   localtime(&end_time_val));
-                length += sprintf(&buffer[length], "\n\
-                File name     : %s\n\
-                File size     : %s\n\
-                Directory     : %s\n",
-                                 search_file_name, search_file_size_str,
-                                 search_directory_name);
+                length += strftime(&buffer[length], 1024 - length,
+                                   "\tTime Interval : %m.%d. %H:%M",
+                                   localtime(&start_time_val));
+                length += strftime(&buffer[length], 1024 - length,
+                                   " - %m.%d. %H:%M", localtime(&end_time_val));
+                length += sprintf(&buffer[length],
+                                  "\n\tFile name     : %s\n\tFile size     : %s\n",
+                                 search_file_name, search_file_size_str);
              }
 
+   if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+   {
+      int i;
+
+      if (no_of_search_dirs > 0)
+      {
+         length += sprintf(&buffer[length], "\tDirectory     : %s\n",
+                           search_dir[0]);
+         for (i = 1; i < no_of_search_dirs; i++)
+         {
+            length += sprintf(&buffer[length], "\t                %s\n",
+                              search_dir[i]);
+         }
+      }
+      if (no_of_search_dirids > 0)
+      {
+         length += sprintf(&buffer[length], "\tDiralias      : %s",
+                           search_dirid[0]);
+         for (i = 1; i < no_of_search_dirids; i++)
+         {
+            length += sprintf(&buffer[length], ", %s", search_dirid[i]);
+         }
+         length += sprintf(&buffer[length], "\n");
+      }
+   }
+   else
+   {
+      length += sprintf(&buffer[length], "\tDirectory     :\n");
+   }
    if (no_of_search_hosts > 0)
    {
       int i;
 
-      length += sprintf(&buffer[length], "                Host name     : %s",
+      length += sprintf(&buffer[length], "\tHost name     : %s",
                         search_recipient[0]);
       for (i = 1; i < no_of_search_hosts; i++)
       {
@@ -355,41 +389,83 @@ write_header(int fd)
    }
    else
    {
-      length += sprintf(&buffer[length], "                Host name     : \n");
+      length += sprintf(&buffer[length], "\tHost name     :\n");
    }
 
    tmp_length = length;
    if (toggles_set & SHOW_AGE_OUTPUT)
    {
-      length += sprintf(&buffer[length], "                Delete type   : %s", AGE_OUTPUT_ID_STR);
+      length += sprintf(&buffer[length], "\tDelete type   : %s",
+                        AGE_OUTPUT_ID_STR);
    }
    if (toggles_set & SHOW_AGE_INPUT)
    {
       if (length == tmp_length)
       {
-         length += sprintf(&buffer[length], "                Delete type   : %s", AGE_INPUT_ID_STR);
+         length += sprintf(&buffer[length], "\tDelete type   : %s",
+                           AGE_INPUT_ID_STR);
       }
       else
       {
          length += sprintf(&buffer[length], ", %s", AGE_INPUT_ID_STR);
       }
    }
+#ifdef WITH_DUP_CHECK
+   if (toggles_set & SHOW_DUP_INPUT)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tDelete type   : %s",
+                           DUP_INPUT_ID_STR);
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", %s", DUP_INPUT_ID_STR);
+      }
+   }
+   if (toggles_set & SHOW_DUP_OUTPUT)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tDelete type   : %s",
+                           DUP_OUTPUT_ID_STR);
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", %s", DUP_OUTPUT_ID_STR);
+      }
+   }
+#endif /* WITH_DUP_CHECK */
    if (toggles_set & SHOW_USER_DEL)
    {
       if (length == tmp_length)
       {
-         length += sprintf(&buffer[length], "                Delete type   : %s", USER_DEL_ID_STR);
+         length += sprintf(&buffer[length], "\tDelete type   : %s",
+                           USER_DEL_ID_STR);
       }
       else
       {
          length += sprintf(&buffer[length], ", %s", USER_DEL_ID_STR);
       }
    }
+   if (toggles_set & SHOW_EXEC_FAILED_DEL)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tDelete type   : %s",
+                           EXEC_FAILED_DEL_ID_STR);
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", %s", EXEC_FAILED_DEL_ID_STR);
+      }
+   }
    if (toggles_set & SHOW_OTHER_DEL)
    {
       if (length == tmp_length)
       {
-         length += sprintf(&buffer[length], "                Delete type   : %s", OTHER_DEL_ID_STR);
+         length += sprintf(&buffer[length], "\tDelete type   : %s",
+                           OTHER_DEL_ID_STR);
       }
       else
       {

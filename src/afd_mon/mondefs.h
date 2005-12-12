@@ -65,6 +65,7 @@
 /* Flags for the options field in struct mon_status_area. */
 #define COMPRESS_FLAG            1
 #define MINUS_Y_FLAG             2
+#define DONT_USE_FULL_PATH_FLAG  4
 
 /* Different toggling status for switching AFD's. */
 #define NO_SWITCHING             0
@@ -111,7 +112,9 @@ struct mon_list
                                                  /*+------+-------------+*/
                                                  /*|Bit(s)|   Meaning   |*/
                                                  /*+------+-------------+*/
-                                                 /*| 3-32 | Not used.   |*/
+                                                 /*| 4-32 | Not used.   |*/
+                                                 /*| 3    | Don't use   |*/
+                                                 /*|      | full path.  |*/
                                                  /*| 2    | Use -Y      |*/
                                                  /*|      | instead of  |*/
                                                  /*|      | -X (ssh).   |*/

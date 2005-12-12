@@ -92,6 +92,14 @@ the new value:
    <td valign=top>AMG</td>
 </tr>
 <tr>
+   <td valign=top>REMOVE_UNUSED_HOSTS</td>
+   <td>By default AFD will never delete a host from HOST_CONFIG if the
+       host is not found in DIR_CONFIG. With this option set, those hosts
+       will be deleted.</td>
+   <td valign=top>Not set</td>
+   <td valign=top>AMG</td>
+</tr>
+<tr>
    <td valign=top>MAX_CONNECTIONS</td>
    <td>The maximum number of simultaneous connections/transfers that the
        AFD allows. Don't set this value to high since some environments
@@ -130,6 +138,21 @@ the new value:
    <td valign=top>FD</td>
 </tr>
 <tr>
+   <td valign=top>DEFAULT_SMTP_SERVER</td>
+   <td>The default SMTP server where mails are to be send to. This can
+       be an IP number or a hostname.</td>
+   <td valign=top>localhost</td>
+   <td valign=top>FD</td>
+</tr>
+<tr>
+   <td valign=top><a name="default_smtp_from">DEFAULT_SMTP_FROM</a></td>
+   <td>The default what will be put into the from line, if the from option
+       is not set under [options]. If not set it will take the user- and
+       hostname from the current system where AFD is running.</td>
+   <td valign=top>&lt;current user&gt;@&lt;hostname&gt;</td>
+   <td valign=top>FD</td>
+</tr>
+<tr>
    <td valign=top>MAX_COPIED_FILES</td>
    <td>The maximum number of files that are copied before they are
        send to the FD. This value is set so that the AFD starts sending
@@ -151,9 +174,20 @@ the new value:
    <td valign=top>ONE_DIR_COPY_TIMEOUT</td>
    <td>When AMG has collected MAX_COPIED_FILES, it will try to continue to
        copy from this directory until it reaches the timeout set by this
-       option in seconds. To disable this feature, just comment out this
-       line.</td>
+       option in seconds.</td>
    <td valign=top>10</td>
+   <td valign=top>AMG</td>
+</tr>
+<tr>
+   <td valign=top>FULL_SCAN_TIMEOUT</td>
+   <td>The timeout for scanning all directories. If set to 0 this is
+       diasbled. When this is set it will only take effect if during a
+       scan there are directories which still have files to be
+       distributed but could not because of MAX_COPIED_FILES or some
+       other limits. If FULL_SCAN_TIMEOUT has not been reached, it
+       will try to continue with the full directories until
+       FULL_SCAN_TIMEOUT is reached.</td>
+   <td valign=top>0</td>
    <td valign=top>AMG</td>
 </tr>
 <tr>
@@ -300,7 +334,7 @@ restarted.
    <td width=90%><small><address>
    Copyright &copy; 1999 - 2005 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 16.07.2005
+   Last updated: 20.11.2005
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

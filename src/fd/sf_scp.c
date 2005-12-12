@@ -31,7 +31,7 @@ DESCR__S_M1
  **       --version        Version
  **       -a <age limit>   The age limit for the files being send.
  **       -A               Disable archiving of files.
- **       -f               Error message.
+ **       -o <retries>     Old/Error message and number of retries.
  **       -r               Resend from archive (job from show_olog).
  **       -t               Temp toggle.
  **
@@ -298,7 +298,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "SCP connection to %s at port %d failed (%d).",
                 db.hostname, db.port, status);
-      exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
+      exit(eval_timeout(CONNECT_ERROR));
    }
    else
    {
@@ -404,7 +404,7 @@ main(int argc, char *argv[])
                       fsa->job_status[(int)db.job_no].file_size_done,
                       fsa->job_status[(int)db.job_no].no_of_files_done);
             scp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : OPEN_REMOTE_ERROR);
+            exit(eval_timeout(OPEN_REMOTE_ERROR));
          }
          else
          {
@@ -493,7 +493,7 @@ main(int argc, char *argv[])
                             fsa->job_status[(int)db.job_no].file_size_done,
                             fsa->job_status[(int)db.job_no].no_of_files_done);
                   scp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
                (void)gsf_check_fsa();
                if (db.fsa_pos != INCORRECT)
@@ -546,7 +546,7 @@ main(int argc, char *argv[])
                                fsa->job_status[(int)db.job_no].file_size_done,
                                fsa->job_status[(int)db.job_no].no_of_files_done);
                      scp_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
                   if (fsa->transfer_rate_limit > 0)
                   {
@@ -615,7 +615,7 @@ main(int argc, char *argv[])
                             fsa->job_status[(int)db.job_no].file_size_done,
                             fsa->job_status[(int)db.job_no].no_of_files_done);
                   scp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
 
                (void)gsf_check_fsa();
@@ -641,7 +641,7 @@ main(int argc, char *argv[])
                       fsa->job_status[(int)db.job_no].file_size_done,
                       fsa->job_status[(int)db.job_no].no_of_files_done);
             scp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
+            exit(eval_timeout(CLOSE_REMOTE_ERROR));
          }
          else
          {

@@ -200,6 +200,8 @@ get_info(int item)
          if (item == GOT_JOB_ID_DIR_ONLY)
          {
             (void)strcpy(id.dir, dnb[jd[i].dir_id_pos].dir_name);
+            id.dir_id = jd[i].dir_id;
+            (void)sprintf(id.dir_id_str, "%x", id.dir_id);
          }
          else if (item == GOT_JOB_ID_USER_ONLY)
               {
@@ -609,6 +611,8 @@ get_job_data(struct job_id_data *p_jd)
    register char *p_tmp;
 
    (void)strcpy(id.dir, dnb[p_jd->dir_id_pos].dir_name);
+   id.dir_id = p_jd->dir_id;
+   (void)sprintf(id.dir_id_str, "%x", id.dir_id);
    get_dir_options(p_jd->dir_id_pos, &id.d_o);
 
    id.priority = p_jd->priority;

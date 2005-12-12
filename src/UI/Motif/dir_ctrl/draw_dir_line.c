@@ -550,17 +550,20 @@ draw_dir_bar(int         pos,
 
    x_offset = x + x_offset_bars;
    y_offset = y + SPACE_ABOVE_LINE;
-   if (bar_no == BYTE_RATE_BAR_NO)
+   if (connect_data[pos].bar_length[(int)bar_no] > 0)
    {
-      XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
-                     connect_data[pos].bar_length[(int)bar_no],
-                     bar_thickness_2);
-   }
-   else
-   {
-      XFillRectangle(display, line_window, fr_bar_gc, x_offset, y_offset,
-                     connect_data[pos].bar_length[(int)bar_no],
-                     bar_thickness_2);
+      if (bar_no == BYTE_RATE_BAR_NO)
+      {
+         XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
+                        connect_data[pos].bar_length[(int)bar_no],
+                        bar_thickness_2);
+      }
+      else
+      {
+         XFillRectangle(display, line_window, fr_bar_gc, x_offset, y_offset,
+                        connect_data[pos].bar_length[(int)bar_no],
+                        bar_thickness_2);
+      }
    }
 
    /* Remove color behind shrunken bar */

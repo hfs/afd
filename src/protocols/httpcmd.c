@@ -337,7 +337,7 @@ http_get(char *host, char *path, char *filename, off_t *content_length)
 
 retry_get:
    if ((reply = command(http_fd,
-                        "GET %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%s\r\nHost: %s\r\nAccept: *\r\n",
+                        "GET %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%sHost: %s\r\nAccept: *\r\n",
                         (*path != '/') ? "/" : "", path, filename,
                         PACKAGE_VERSION,
                         (hmr.authorization == NULL) ? "" : hmr.authorization,
@@ -382,9 +382,9 @@ http_put(char *host, char *path, char *filename, off_t length)
 retry_put:
    if ((reply = command(http_fd,
 #if SIZEOF_OFF_T == 4
-                        "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %ld\r\n%s\r\nHost: %s\r\nControl: overwrite=1\r\n",
+                        "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %ld\r\n%sHost: %s\r\nControl: overwrite=1\r\n",
 #else
-                        "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %lld\r\n%s\r\nHost: %s\r\nControl: overwrite=1\r\n",
+                        "PUT %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\nContent-length: %lld\r\n%sHost: %s\r\nControl: overwrite=1\r\n",
 #endif
                         (*path != '/') ? "/" : "", path, filename,
                         PACKAGE_VERSION,
@@ -429,7 +429,7 @@ http_del(char *host, char *path, char *filename)
 
 retry_del:
    if ((reply = command(http_fd,
-                        "DELETE %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%s\r\nHost: %s\r\n",
+                        "DELETE %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%sHost: %s\r\n",
                         (*path != '/') ? "/" : "", path, filename,
                         PACKAGE_VERSION,
                         (hmr.authorization == NULL) ? "" : hmr.authorization,
@@ -484,7 +484,7 @@ basic_authentication(void)
    {
       free(hmr.authorization);
    }
-   if ((hmr.authorization = malloc(21 + length + (length / 3) + 1)) == NULL)
+   if ((hmr.authorization = malloc(21 + length + (length / 3) + 2 + 1)) == NULL)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "http_basic_authentication(): malloc() error : %s",
@@ -527,7 +527,9 @@ basic_authentication(void)
            *(dst_ptr + 3) = '=';
            dst_ptr += 4;
         }
-   *dst_ptr = '\0';
+   *dst_ptr = '\r';
+   *(dst_ptr + 1) = '\n';
+   *(dst_ptr + 2) = '\0';
 
    return(SUCCESS);
 }
@@ -695,6 +697,10 @@ http_read(char *block, int blocksize)
               if ((bytes_read = read(http_fd, &block[offset],
                                      blocksize - offset)) == -1)
               {
+                 if (errno == ECONNRESET)
+                 {
+                    timeout_flag = CON_RESET;
+                 }
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                            "http_read(): read() error : %s", strerror(errno));
                  return(INCORRECT);
@@ -709,6 +715,10 @@ http_read(char *block, int blocksize)
                  if ((status = SSL_get_error(ssl_con,
                                              bytes_read)) == SSL_ERROR_SYSCALL)
                  {
+                    if (errno == ECONNRESET)
+                    {
+                       timeout_flag = CON_RESET;
+                    }
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "http_read(): SSL_read() error : %s",
                               strerror(errno));
@@ -823,6 +833,10 @@ http_chunk_read(char **chunk, int *chunksize)
                     if ((bytes_read = read(http_fd, (*chunk + bytes_buffered),
                                            tmp_chunksize - bytes_buffered)) == -1)
                     {
+                       if (errno == ECONNRESET)
+                       {
+                          timeout_flag = CON_RESET;
+                       }
                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                  "http_chunk_read(): read() error : %s",
                                  strerror(errno));
@@ -838,6 +852,10 @@ http_chunk_read(char **chunk, int *chunksize)
                        if ((status = SSL_get_error(ssl_con,
                                                    bytes_read)) == SSL_ERROR_SYSCALL)
                        {
+                          if (errno == ECONNRESET)
+                          {
+                             timeout_flag = CON_RESET;
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "http_chunk_read(): SSL_read() error : %s",
                                     strerror(errno));
@@ -894,10 +912,13 @@ http_quit(void)
    }
    if (http_fd != -1)
    {
-      if (shutdown(http_fd, 1) < 0)
+      if ((timeout_flag != ON) && (timeout_flag != CON_RESET))
       {
-         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                   "http_close(): shutdown() error : %s", strerror(errno));
+         if (shutdown(http_fd, 1) < 0)
+         {
+            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                      "http_close(): shutdown() error : %s", strerror(errno));
+         }
       }
 #ifdef WITH_SSL
       if (ssl_con != NULL)
@@ -1262,6 +1283,10 @@ read_msg(int *read_length)
                        }
                           else
                        {
+                          if (errno == ECONNRESET)
+                          {
+                             timeout_flag = CON_RESET;
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "read() error (after reading %d Bytes) : %s",
                                     bytes_buffered, strerror(errno));
@@ -1288,6 +1313,10 @@ read_msg(int *read_length)
                           if ((status = SSL_get_error(ssl_con,
                                                       hmr.bytes_read)) == SSL_ERROR_SYSCALL)
                           {
+                             if (errno == ECONNRESET)
+                             {
+                                timeout_flag = CON_RESET;
+                             }
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                        "SSL_read() error (after reading %d Bytes) : %s",
                                        bytes_buffered, strerror(errno));

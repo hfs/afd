@@ -31,8 +31,9 @@ DESCR__S_M1
  **       --version        Version
  **       -a <age limit>   The age limit for the files being send.
  **       -A               Disable archiving of files.
- **       -f               Error message.
+ **       -o <retries>     Old/Error message and number of retries.
  **       -r               Resend from archive (job from show_olog).
+ **       -s <SMTP server> Server where to send the mails.
  **       -t               Temp toggle.
  **
  ** DESCRIPTION
@@ -308,7 +309,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                 "SMTP connection to <%s> at port %d failed (%d).",
                 db.smtp_server, db.port, status);
-      exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
+      exit(eval_timeout(CONNECT_ERROR));
    }
    else
    {
@@ -330,7 +331,7 @@ main(int argc, char *argv[])
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                 "Failed to send HELO to <%s> (%d).", db.smtp_server, status);
       (void)smtp_quit();
-      exit((timeout_flag == ON) ? TIMEOUT_ERROR : CONNECT_ERROR);
+      exit(eval_timeout(CONNECT_ERROR));
    }
    else
    {
@@ -552,7 +553,7 @@ main(int argc, char *argv[])
                       "Failed to send local user <%s> (%d).",
                       local_user, status);
             (void)smtp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : USER_ERROR);
+            exit(eval_timeout(USER_ERROR));
          }
          else
          {
@@ -598,7 +599,7 @@ main(int argc, char *argv[])
                          "Failed to send remote user <%s> (%d).",
                          remote_user, status);
                (void)smtp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : REMOTE_USER_ERROR);
+               exit(eval_timeout(REMOTE_USER_ERROR));
             }
             else
             {
@@ -622,7 +623,7 @@ main(int argc, char *argv[])
                             "Failed to send remote user <%s> (%d).",
                             db.group_list[k], status);
                   (void)smtp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : REMOTE_USER_ERROR);
+                  exit(eval_timeout(REMOTE_USER_ERROR));
                }
                else
                {
@@ -642,7 +643,7 @@ main(int argc, char *argv[])
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                       "Failed to set DATA mode (%d).", status);
             (void)smtp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : DATA_ERROR);
+            exit(eval_timeout(DATA_ERROR));
          }
          else
          {
@@ -714,7 +715,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "Failed to write From to SMTP-server.");
                (void)smtp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
             no_of_bytes = length;
          }
@@ -727,7 +728,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "Failed to write Reply-To to SMTP-server.");
                (void)smtp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
             no_of_bytes += length;
          }
@@ -741,7 +742,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "Failed to write subject to SMTP-server.");
                (void)smtp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
             no_of_bytes += length;
          }
@@ -753,7 +754,7 @@ main(int argc, char *argv[])
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "Failed to write the filename as subject to SMTP-server.");
                     (void)smtp_quit();
-                    exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                    exit(eval_timeout(WRITE_REMOTE_ERROR));
                  }
                  no_of_bytes += length;
               } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
@@ -773,16 +774,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "Failed to write To header to SMTP-server.");
                (void)smtp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
-            }
-            else
-            {
-               if (fsa->debug > NORMAL_MODE)
-               {
-                  trans_db_log(INFO_SIGN, __FILE__, __LINE__,
-                               "To: <%s> accepted by SMTP-server.",
-                               (db.group_list == NULL) ? remote_user : p_db->user);
-               }
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
             no_of_bytes += length;
          }
@@ -814,7 +806,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "Failed to write start of multipart boundary to SMTP-server.");
                (void)smtp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
             no_of_bytes += length;
          } /* if (db.special_flag & ATTACH_FILE) */
@@ -829,7 +821,7 @@ main(int argc, char *argv[])
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "Failed to write MIME header with charset to SMTP-server.");
                     (void)smtp_quit();
-                    exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                    exit(eval_timeout(WRITE_REMOTE_ERROR));
                  }
                  no_of_bytes += length;
               }
@@ -860,7 +852,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to write the Content-Type (TEXT/PLAIN) to SMTP-server.");
                   (void)smtp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
                no_of_bytes += length;
             } /* if (db.special_flag & ATTACH_FILE) */
@@ -876,7 +868,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to write the mail header content to SMTP-server.");
                   (void)smtp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
             }
             else
@@ -887,7 +879,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to write the mail header content to SMTP-server.");
                   (void)smtp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
             }
             no_of_bytes += length;
@@ -940,7 +932,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to write the Content-Type to SMTP-server.");
                   (void)smtp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
                no_of_bytes += length;
             }
@@ -955,7 +947,7 @@ main(int argc, char *argv[])
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "Failed to write second CRLF to indicate end of header.");
             (void)smtp_quit();
-            exit(WRITE_REMOTE_ERROR);
+            exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
       } /* if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0)) */
 
@@ -1028,7 +1020,7 @@ main(int argc, char *argv[])
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "Failed to write the Content-Type to SMTP-server.");
             (void)smtp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+            exit(eval_timeout(WRITE_REMOTE_ERROR));
          }
 
          no_of_bytes += length;
@@ -1064,7 +1056,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to write data from the source file to the SMTP-server.");
                   (void)smtp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
             }
             else
@@ -1076,7 +1068,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                "Failed to write data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
                }
                else
@@ -1086,7 +1078,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                "Failed to write data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
                }
                write_size = blocksize;
@@ -1126,7 +1118,7 @@ main(int argc, char *argv[])
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to write the rest data from the source file to the SMTP-server.");
                   (void)smtp_quit();
-                  exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                  exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
             }
             else
@@ -1138,7 +1130,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                "Failed to write the rest data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
                }
                else
@@ -1148,7 +1140,7 @@ main(int argc, char *argv[])
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                "Failed to write the rest data from the source file to the SMTP-server.");
                      (void)smtp_quit();
-                     exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
                }
                write_size = rest;
@@ -1223,7 +1215,7 @@ main(int argc, char *argv[])
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "Failed to write end of multipart boundary to SMTP-server.");
                (void)smtp_quit();
-               exit((timeout_flag == ON) ? TIMEOUT_ERROR : WRITE_REMOTE_ERROR);
+               exit(eval_timeout(WRITE_REMOTE_ERROR));
             }
 
             no_of_bytes += length;
@@ -1260,7 +1252,7 @@ main(int argc, char *argv[])
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                       "Failed to close data mode (%d).", status);
             (void)smtp_quit();
-            exit((timeout_flag == ON) ? TIMEOUT_ERROR : CLOSE_REMOTE_ERROR);
+            exit(eval_timeout(CLOSE_REMOTE_ERROR));
          }
          else
          {

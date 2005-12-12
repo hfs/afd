@@ -206,6 +206,8 @@ popup_error_history(int x_root, int y_root, int afd_no)
                                   NULL);
       XtManageChild(error_label);
       XmStringFree(x_string);
+      XtAddEventHandler(error_label, ButtonPressMask|LeaveWindowMask, False,
+                        (XtEventHandler)destroy_error_history, NULL);
       XtPopup(error_shell, XtGrabNone);
       XRaiseWindow(display, XtWindow(error_shell));
    }
@@ -219,7 +221,7 @@ popup_error_history(int x_root, int y_root, int afd_no)
 }
 
 
-/*######################## popup_error_history() ########################*/
+/*####################### destroy_error_history() #######################*/
 void
 destroy_error_history(void)
 {

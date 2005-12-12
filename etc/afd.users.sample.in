@@ -56,6 +56,7 @@
 #   resend [host1 .. hostn]           : Resend files.
 #   view_passwd                       : Enable viewing of passwords.
 #   disable_dir                       : Allow to disable certain directories.
+#   rescan                            : Allow to rescan certain directories.
 #
 #
 

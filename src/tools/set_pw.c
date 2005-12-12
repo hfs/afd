@@ -155,13 +155,16 @@ main(int argc, char *argv[])
    else if (get_arg(&argc, argv, "-i", uh_name,
                     MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 2) == SUCCESS)
         {
-           if ((job_id = (unsigned int)strtoul(uh_name, NULL, 16)) == ULONG_MAX)
+           unsigned long ulong_val;
+
+           if ((ulong_val = strtoul(uh_name, NULL, 16)) == ULONG_MAX)
            {
               (void)fprintf(stderr,
                             "Unable to convert %s, must be a hex number not longer then 32 bits.\n",
                             uh_name);
               exit(INCORRECT);
            }
+           job_id = (unsigned int)ulong_val;
            hostname[0] = '\0';
         }
         else
@@ -381,21 +384,22 @@ main(int argc, char *argv[])
    i = 0;
    if (read_from_stdin == YES)
    {
-      unsigned char tmp_passwd[MAX_USER_NAME_LENGTH + 1];
+      unsigned char tmp_passwd[MAX_USER_NAME_LENGTH + 1],
+                    *uptr;
 
       scanf("%s", tmp_passwd);
-      ptr = tmp_passwd;
-      while ((*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+      uptr = tmp_passwd;
+      while ((*uptr != '\0') && (i < MAX_USER_NAME_LENGTH))
       {
          if ((i % 2) == 0)
          {
-            passwd[i] = *ptr - 24 + i;
+            passwd[i] = *uptr - 24 + i;
          }
          else
          {
-            passwd[i] = *ptr - 11 + i;
+            passwd[i] = *uptr - 11 + i;
          }
-         ptr++; i++;
+         uptr++; i++;
       }
    }
    else

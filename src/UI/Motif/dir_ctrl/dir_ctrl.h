@@ -40,10 +40,11 @@
 
 /* Definitions for Monitor pulldown. */
 #define DIR_DISABLE_W                  0
-#define DIR_SELECT_W                   1
-#define DIR_VIEW_LOAD_W                2
-#define DIR_EXIT_W                     3
-#define NO_DIR_MENU                    4
+#define DIR_RESCAN_W                   1
+#define DIR_SELECT_W                   2
+#define DIR_VIEW_LOAD_W                3
+#define DIR_EXIT_W                     4
+#define NO_DIR_MENU                    5
 
 /* Definitions for View pulldown. */
 #define DIR_SYSTEM_W                   0
@@ -59,6 +60,7 @@
 /* Definitions of popup selections. */
 #define DIR_INFO_SEL                   70
 #define DIR_DISABLE_SEL                71
+#define DIR_RESCAN_SEL                 72
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
 /*         afd_ctrl.h        0 - 39                    */
@@ -121,6 +123,7 @@ struct dir_control_perm
           char        **dir_ctrl_list;
           char        **info_list;
           char        **disable_list;
+          char        **rescan_list;
           char        **show_slog_list;
           char        **show_rlog_list;
           char        **show_tlog_list;
@@ -131,6 +134,7 @@ struct dir_control_perm
           char        **afd_load_list;
           signed char info;                  /* Info about AFD           */
           signed char disable;               /* Enable/Disable AFD       */
+          signed char rescan;                /* Rescan Directory         */
           signed char show_slog;             /* Show System Log          */
           signed char show_rlog;             /* Show Receive Log         */
           signed char show_tlog;             /* Show Transfer Log        */

@@ -117,6 +117,11 @@ main(int argc, char *argv[])
            exit(INCORRECT);
         }
 
+#ifdef HAVE_SETEUID
+printf("HAVE_SETEUID is set!\n");
+#else
+printf("HAVE_SETEUID is NOT set!\n");
+#endif
    if (fsa_attach_passive() < 0)
    {
       (void)fprintf(stderr, "ERROR   : Failed to attach to FSA. (%s %d)\n",
@@ -490,6 +495,10 @@ main(int argc, char *argv[])
 
             case HTTP_ACTIVE :
                (void)fprintf(stdout, "|    HTTP   ");
+               break;
+
+            case HTTP_RETRIEVE_ACTIVE :
+               (void)fprintf(stdout, "| HTTP RETR ");
                break;
 
             case EMAIL_ACTIVE :

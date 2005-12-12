@@ -25,7 +25,7 @@ DESCR__S_M3
  **   attach_afd_status - attaches to the AFD status area
  **
  ** SYNOPSIS
- **   int attach_afd_status(void)
+ **   int attach_afd_status(int *fd)
  **
  ** DESCRIPTION
  **   The function attach_afd_status() reads the shared memory ID
@@ -67,19 +67,29 @@ extern struct afd_status *p_afd_status;
 
 /*######################### attach_afd_status() #########################*/
 int
-attach_afd_status(void)
+attach_afd_status(int *fd)
 {
-   int         fd,
-               loop_counter;
+   int         local_fd,
+               loop_counter,
+               *ptr_fd;
    char        *ptr,
                afd_status_file[MAX_PATH_LENGTH];
    struct stat stat_buf;
+
+   if (fd == NULL)
+   {
+      ptr_fd = &local_fd;
+   }
+   else
+   {
+      ptr_fd = fd;
+   }
 
    (void)strcpy(afd_status_file, p_work_dir);
    (void)strcat(afd_status_file, FIFO_DIR);
    (void)strcat(afd_status_file, STATUS_SHMID_FILE);
    loop_counter = 0;
-   while ((fd = coe_open(afd_status_file, O_RDWR)) < 0)
+   while ((*ptr_fd = coe_open(afd_status_file, O_RDWR)) < 0)
    {
       my_usleep(80000L);
       loop_counter++;
@@ -91,17 +101,17 @@ attach_afd_status(void)
          return(INCORRECT);
       }
    }
-   if (fstat(fd, &stat_buf) == -1)
+   if (fstat(*ptr_fd, &stat_buf) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to fstat() <%s> : %s",
                  afd_status_file, strerror(errno));
-      (void)close(fd);
+      (void)close(*ptr_fd);
       return(INCORRECT);
    }
 #ifdef HAVE_MMAP
    if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
-                   fd, 0)) == (caddr_t) -1)
+                   *ptr_fd, 0)) == (caddr_t) -1)
 #else
    if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                        afd_status_file, 0)) == (caddr_t) -1)
@@ -109,13 +119,16 @@ attach_afd_status(void)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "mmap() error : %s", strerror(errno));
-      (void)close(fd);
+      (void)close(*ptr_fd);
       return(INCORRECT);
    }
-   if (close(fd) == -1)
+   if (fd == NULL)
    {
-      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "close() error : %s", strerror(errno));
+      if (close(*ptr_fd) == -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
+      }
    }
    p_afd_status = (struct afd_status *)ptr;
 

@@ -53,9 +53,11 @@ DESCR__E_M3
 #include <string.h>            /* strcpy(), strlen()                     */
 #include <stdlib.h>            /* atoi(), exit()                         */
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>          /* waitpid()                              */
 #include <fcntl.h>
 #include <unistd.h>            /* fork()                                 */
+#include <time.h>              /* time()                                 */
 #include <errno.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
@@ -357,7 +359,8 @@ dir_popup_cb(Widget    w,
 #ifdef _DEBUG
                j,
 #endif
-               k;
+               k,
+               send_msg = NO;
    char        host_err_no[1025],
                progname[MAX_PROCNAME_LENGTH + 1],
                **args = NULL,
@@ -366,17 +369,19 @@ dir_popup_cb(Widget    w,
                log_typ[30],
                display_error,
        	       err_msg[1025 + 100];
-   size_t      new_size = (no_of_dirs + 8) * sizeof(char *);
+   size_t      new_size = (no_of_dirs + 9) * sizeof(char *);
+   time_t      current_time;
    XT_PTR_TYPE sel_typ = (XT_PTR_TYPE)client_data;
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
-       ((sel_typ == DIR_DISABLE_SEL) || (sel_typ == DIR_INFO_SEL)))
+       ((sel_typ == DIR_DISABLE_SEL) || (sel_typ == DIR_INFO_SEL) ||
+        (sel_typ == DIR_RESCAN_SEL)))
    {
       (void)xrec(appshell, INFO_DIALOG,
                  "You must first select a directory!\nUse mouse button 1 together with the SHIFT or CTRL key.");
       return;
    }
-   RT_ARRAY(dirs, no_of_dirs, (MAX_DIR_ALIAS_LENGTH + 1), char);
+   RT_ARRAY(dirs, no_of_dirs, 21, char);
    RT_ARRAY(hosts, no_of_dirs, (MAX_HOSTNAME_LENGTH + 1), char);
    if ((args = malloc(new_size)) == NULL)
    {
@@ -388,6 +393,7 @@ dir_popup_cb(Widget    w,
    switch(sel_typ)
    {
       case DIR_DISABLE_SEL:
+      case DIR_RESCAN_SEL:
          break;
 
       case DIR_INFO_SEL : /* Information */
@@ -567,6 +573,10 @@ dir_popup_cb(Widget    w,
          {
             FREE_RT_ARRAY(dcp.disable_list);
          }
+         if (dcp.rescan_list != NULL)
+         {
+            FREE_RT_ARRAY(dcp.rescan_list);
+         }
          if (dcp.show_slog_list != NULL)
          {
             FREE_RT_ARRAY(dcp.show_slog_list);
@@ -604,31 +614,31 @@ dir_popup_cb(Widget    w,
          FREE_RT_ARRAY(dirs)
          FREE_RT_ARRAY(hosts);
          return;
-    }
+   }
 #ifdef _DEBUG
-    (void)fprintf(stderr, "Selected %d directories (", no_selected);
-    for (i = j = 0; i < no_of_dirs; i++)
-    {
-       if (connect_data[i].inverse > OFF)
-       {
-	  if (j++ < (no_selected - 1))
-	  {
-             (void)fprintf(stderr, "%d, ", i);
-          }
-	  else
-	  {
-             j = i;
-          }
-       }
-    }
-    if (no_selected > 0)
-    {
-       (void)fprintf(stderr, "%d)\n", j);
-    }
-    else
-    {
-       (void)fprintf(stderr, "none)\n");
-    }
+   (void)fprintf(stderr, "Selected %d directories (", no_selected);
+   for (i = j = 0; i < no_of_dirs; i++)
+   {
+      if (connect_data[i].inverse > OFF)
+      {
+         if (j++ < (no_selected - 1))
+         {
+            (void)fprintf(stderr, "%d, ", i);
+         }
+         else
+         {
+            j = i;
+         }
+      }
+   }
+   if (no_selected > 0)
+   {
+      (void)fprintf(stderr, "%d)\n", j);
+   }
+   else
+   {
+      (void)fprintf(stderr, "none)\n");
+   }
 #endif
 
    if (sel_typ == T_LOG_SEL)
@@ -640,6 +650,14 @@ dir_popup_cb(Widget    w,
          return;
       }
    }
+   else if (((sel_typ == I_LOG_SEL) || (sel_typ == O_LOG_SEL) ||
+             (sel_typ == E_LOG_SEL)) &&
+            ((no_selected > 0) || (no_selected_static > 0)))
+        {
+           args[5] = "-d";
+        }
+
+   current_time = time(NULL);
 
    /* Set each directory. */
    k = display_error = 0;
@@ -650,8 +668,9 @@ dir_popup_cb(Widget    w,
          switch(sel_typ)
          {
             case DIR_DISABLE_SEL : /* Enable/Disable Directory. */
-               if (fra[i].dir_status == DISABLED)
+               if (fra[i].dir_flag & DIR_DISABLED)
                {
+                  fra[i].dir_flag ^= HOST_DISABLED;
                   fra[i].dir_status = NORMAL_STATUS;
                   config_log("ENABLED directory %s", fra[i].dir_alias);
                }
@@ -661,8 +680,21 @@ dir_popup_cb(Widget    w,
                       "Are you shure that you want to disable %s\nThis directory will then not be monitored.",
                       fra[i].dir_alias) == YES)
                   {
+                     fra[i].dir_flag ^= DIR_DISABLED;
                      fra[i].dir_status = DISABLED;
                      config_log("DISABLED directory %s", fra[i].dir_alias);
+                  }
+               }
+               break;
+
+            case DIR_RESCAN_SEL : /* Rescan Directory. */
+               if ((fra[i].time_option != NO) &&
+                   (fra[i].next_check_time > current_time))
+               {
+                  fra[i].next_check_time = current_time;
+                  if (fra[i].host_alias[0] != '\0')
+                  {
+                     send_msg = YES;
                   }
                }
                break;
@@ -695,11 +727,11 @@ dir_popup_cb(Widget    w,
                }
                break;
 
-            case I_LOG_SEL : /* View Input Log. */
             case O_LOG_SEL : /* View Output Log. */
             case E_LOG_SEL : /* View Delete Log. */
-               (void)strcpy(dirs[k], fra[i].dir_alias);
-               args[k + 5] = dirs[k];
+            case I_LOG_SEL : /* View Input Log. */
+               (void)sprintf(dirs[k], "%x", fra[i].dir_id);
+               args[k + 6] = dirs[k];
                k++;
                break;
 
@@ -743,6 +775,33 @@ dir_popup_cb(Widget    w,
       }
    } /* for (i = 0; i < no_of_dirs; i++) */
 
+   if (send_msg == YES)
+   {
+      int  fd_cmd_fd;
+      char fd_cmd_fifo[MAX_PATH_LENGTH];
+
+      (void)sprintf(fd_cmd_fifo, "%s%s%s",
+                    p_work_dir, FIFO_DIR, FD_CMD_FIFO);
+      if ((fd_cmd_fd = open(fd_cmd_fifo, O_RDWR)) == -1)
+      {
+         (void)xrec(appshell, WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
+                    fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      }
+      else
+      {
+         if (send_cmd(FORCE_REMOTE_DIR_CHECK, fd_cmd_fd) != SUCCESS)
+         {
+            (void)xrec(appshell, WARN_DIALOG, "write() error : %s (%s %d)",
+                       strerror(errno), __FILE__, __LINE__);
+         }
+         if (close(fd_cmd_fd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+      }
+   }
+
    if (sel_typ == T_LOG_SEL)
    {
       (void)fsa_detach(NO);
@@ -753,10 +812,15 @@ dir_popup_cb(Widget    w,
       args[k + 7] = NULL;
       make_xprocess(progname, progname, args, -1);
    }
-   else if ((sel_typ == O_LOG_SEL) || (sel_typ == E_LOG_SEL) ||
-            (sel_typ == I_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
+   else if (sel_typ == SHOW_QUEUE_SEL)
         {
            args[k + 5] = NULL;
+           make_xprocess(progname, progname, args, -1);
+        }
+   else if ((sel_typ == I_LOG_SEL) || (sel_typ == O_LOG_SEL) ||
+            (sel_typ == E_LOG_SEL))
+        {
+           args[k + 6] = NULL;
            make_xprocess(progname, progname, args, -1);
         }
 

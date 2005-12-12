@@ -1,6 +1,6 @@
 Summary: A file distribution system
 Name: afd
-Version: 1.3.0
+Version: 1.3.1
 Release: 1
 License: GPL
 Group: Applications/Communications
@@ -23,7 +23,7 @@ URL conventions).
 %setup -n %{name}-%{version}
 
 %build
-./configure '--prefix=/usr' '--enable-ssl' '--enable-afd_mon'
+./configure '--prefix=/usr' '--enable-ssl' '--enable-afd_mon' '--enable-group_can_write'
 make
 
 %install
@@ -61,7 +61,7 @@ else
       mkdir -p $RPM_BUILD_ROOT//etc/sysconfig
    fi
 fi
-make DESTDIR=$RPM_BUILD_ROOT install
+make DESTDIR=$RPM_BUILD_ROOT install-strip
 install -p -m755 scripts/afd $RPM_BUILD_ROOT//etc/init.d
 install -p -m644 scripts/afd.sysconfig $RPM_BUILD_ROOT//etc/sysconfig/afd
 install -p -m644 etc/AFD_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
@@ -129,6 +129,9 @@ exit 0
 /etc/init.d/afd
 
 %changelog
+*Thu Sep  8 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+- When installing use use strip by default.
+
 *Thu Jul 21 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
 - Do not overwrite /etc/sysconfig/afd.
 

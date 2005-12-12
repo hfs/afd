@@ -40,6 +40,9 @@
 /* Define to 1 if you have the `efence' library (-lefence). */
 #undef HAVE_LIBEFENCE
 
+/* With -lXp support */
+#undef HAVE_LIB_XP
+
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
@@ -224,6 +227,9 @@
 /* With automatic creation of configuration */
 #undef WITH_AUTO_CONFIG
 
+/* Use ctrl key as accelerator */
+#undef WITH_CTRL_ACCELERATOR
+
 /* With duplicate check support */
 #undef WITH_DUP_CHECK
 
@@ -277,6 +283,9 @@
 
 /* With MAP support */
 #undef _WITH_MAP_SUPPORT
+
+/* With server support */
+#undef _WITH_SERVER_SUPPORT
 
 /* With WMO socket support */
 #undef _WITH_WMO_SUPPORT

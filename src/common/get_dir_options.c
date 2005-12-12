@@ -25,7 +25,7 @@ DESCR__S_M3
  **   get_dir_options - gets directory options and store them in a structure
  **
  ** SYNOPSIS
- **   void get_dir_options(int dir_no, struct dir_options *d_o)
+ **   void get_dir_options(unsigned int dir_id, struct dir_options *d_o)
  **
  ** DESCRIPTION
  **
@@ -60,9 +60,10 @@ extern struct fileretrieve_status *fra;
 
 /*+++++++++++++++++++++++++++ get_dir_options() +++++++++++++++++++++++++*/
 void                                                                
-get_dir_options(int dir_pos, struct dir_options *d_o)
+get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 {
    register int i;
+   int          attached = NO;
 
    if (fra_fd == -1)
    {
@@ -73,32 +74,36 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
                     "Failed to attach to FRA.");
          return;
       }
+      attached = YES;
    }
 
    d_o->url[0] = '\0';
    d_o->no_of_dir_options = 0;
    for (i = 0; i < no_of_dirs; i++)
    {
-      if (dir_pos == fra[i].dir_pos)
+      if (dir_id == fra[i].dir_id)
       {
          (void)strcpy(d_o->dir_alias, fra[i].dir_alias);
          if (fra[i].delete_files_flag != 0)
          {
-            if (fra[i].delete_files_flag & UNKNOWN_FILES)
+            if ((fra[i].delete_files_flag & UNKNOWN_FILES) &&
+                (fra[i].in_dc_flag & UNKNOWN_FILES_IDC))
             {
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                              DEL_UNKNOWN_FILES_ID,
                              fra[i].unknown_file_time / 3600);
                d_o->no_of_dir_options++;
             }
-            if (fra[i].delete_files_flag & QUEUED_FILES)
+            if ((fra[i].delete_files_flag & QUEUED_FILES) &&
+                (fra[i].in_dc_flag & QUEUED_FILES_IDC))
             {
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                              DEL_QUEUED_FILES_ID,
                              fra[i].queued_file_time / 3600);
                d_o->no_of_dir_options++;
             }
-            if (fra[i].delete_files_flag & OLD_LOCKED_FILES)
+            if ((fra[i].delete_files_flag & OLD_LOCKED_FILES) &&
+                (fra[i].in_dc_flag & OLD_LOCKED_FILES_IDC))
             {
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                              DEL_OLD_LOCKED_FILES_ID,
@@ -106,10 +111,18 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
                d_o->no_of_dir_options++;
             }
          }
-         if (fra[i].report_unknown_files == NO)
+         if ((fra[i].report_unknown_files == NO) &&
+             (fra[i].in_dc_flag & DONT_REPUKW_FILES_IDC))
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
                          DONT_REP_UNKNOWN_FILES_ID);
+            d_o->no_of_dir_options++;
+         }
+         if ((fra[i].report_unknown_files == YES) &&
+             (fra[i].in_dc_flag & REPUKW_FILES_IDC))
+         {
+            (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                         REP_UNKNOWN_FILES_ID);
             d_o->no_of_dir_options++;
          }
 #ifndef _WITH_PTHREAD
@@ -126,13 +139,15 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
                           MAX_PROCESS_ID, fra[i].max_process);
             d_o->no_of_dir_options++;
          }
-         if (fra[i].max_copied_files != MAX_COPIED_FILES)
+         if ((fra[i].max_copied_files != MAX_COPIED_FILES) &&
+             (fra[i].in_dc_flag & MAX_CP_FILES_IDC))
          {
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                           MAX_FILES_ID, fra[i].max_copied_files);
             d_o->no_of_dir_options++;
          }
-         if (fra[i].max_copied_file_size != (MAX_COPIED_FILE_SIZE * 1024))
+         if ((fra[i].max_copied_file_size != (MAX_COPIED_FILE_SIZE * 1024)) &&
+             (fra[i].in_dc_flag & MAX_CP_FILE_SIZE_IDC))
          {
 #if SIZEOF_OFF_T == 4
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %ld",
@@ -262,7 +277,7 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
          {
             int           length,
                           ii;
-            unsigned char full_minute[8];
+            unsigned char full_minute[8] = {0,0,0,0,0,0,0,0};
 
             length = sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s ",
                              TIME_ID);
@@ -505,6 +520,11 @@ get_dir_options(int dir_pos, struct dir_options *d_o)
          }
          break;
       }
+   }
+
+   if (attached == YES)
+   {
+      fra_detach();
    }
 
    return;

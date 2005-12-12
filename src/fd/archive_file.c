@@ -274,6 +274,9 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
    ptr = newname + strlen(newname);
    *ptr = '/';
    ptr++;
+#ifdef DO_NOT_ARCHIVE_UNIQUE_PART
+   (void)strcpy(ptr, filename);
+#else
    tmp_ptr = p_db->msg_name;
    while ((*tmp_ptr != '/') && (*tmp_ptr != '\0'))
    {
@@ -320,6 +323,7 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
                     p_db->creation_time, p_db->unique_number,
                     p_db->split_job_counter, filename);
    }
+#endif
    (void)strcpy(oldname, file_path);
    (void)strcat(oldname, "/");
    (void)strcat(oldname, filename);

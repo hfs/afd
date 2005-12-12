@@ -24,7 +24,6 @@ else
    EXTRA_DUPCHECK =
 endif
 
-MAINTAINERCLEANFILES         = Makefile.in
 INCLUDES                     = -I.. -I../init_afd -I../amg -I../fd\
                                -I../statistics
 bin_PROGRAMS                 = afdcmd afdcfg afd_status fsa_view fra_view\
@@ -35,12 +34,12 @@ sbin_PROGRAMS                = cache_spy convert_fsa convert_stat\
                                fsa_edit gen_file queue_spy job_list_spy\
                                reset_fsa set_counter rm_job show_exec_stat\
                                view_ls_data
-EXTRA_PROGRAMS               = bfc binfc byte_order check_fra_dir_pos\
-                               convert_jid count_burst del_cache\
-                               $(EXTRA_DUPCHECK) get_counter\
+EXTRA_PROGRAMS               = bfc binfc byte_order convert_jid count_burst\
+                               del_cache $(EXTRA_DUPCHECK) get_counter\
                                force_archive_check get_full_date\
                                get_file_size gts2tiff linger rdu sysconf\
-                               tiff_sniffer watch_dir
+                               tiff_sniffer watch_dir fra_version
+MAINTAINERCLEANFILES         = Makefile.in $(EXTRA_PROGRAMS)
 afdcmd_SOURCES               = afdcmd.c
 afdcmd_LDADD                 = ../common/libafd.a
 afdcfg_SOURCES               = afdcfg.c
@@ -54,8 +53,6 @@ binfc_LDADD                  = ../common/libafd.a ../misc/libmisc.a
 byte_order_SOURCES           = byte_order.c
 cache_spy_SOURCES            = cache_spy.c
 cache_spy_LDADD              = ../common/libafd.a
-check_fra_dir_pos_SOURCES    = check_fra_dir_pos.c
-check_fra_dir_pos_LDADD      = ../common/libafd.a
 convert_fsa_SOURCES          = convert_fsa.c
 convert_fsa_LDADD            = ../common/libafd.a
 convert_jid_SOURCES          = convert_jid.c
@@ -81,6 +78,8 @@ force_archive_check_SOURCES  = force_archive_check.c
 force_archive_check_LDADD    = ../common/libafd.a
 fsa_view_SOURCES             = fsa_view.c
 fsa_view_LDADD               = ../common/libafd.a
+fra_version_SOURCES          = fra_version.c
+fra_version_LDADD            = ../common/libafd.a
 fra_view_SOURCES             = fra_view.c
 fra_view_LDADD               = ../common/libafd.a
 fsa_edit_SOURCES             = fsa_edit.c
@@ -130,6 +129,7 @@ install-exec-local:
 	@if [ "`find $(DESTDIR)$(bindir) -user 0 -name afdcmd -print`" = "" ] ; \
 	then \
 		chmod 4755 $(DESTDIR)$(bindir)/afdcmd ; \
+		chmod 4755 $(DESTDIR)$(bindir)/udc ; \
 	fi
 	cd $(DESTDIR)$(bindir) && rm -f uhc
 	cd $(DESTDIR)$(bindir) && ln -s udc uhc
@@ -138,3 +138,6 @@ install-exec-local:
 	cd $(DESTDIR)$(bindir) && rm -f uhc
 	cd $(DESTDIR)$(bindir) && ln -s udc uhc
 endif
+
+uninstall-local:
+	cd $(DESTDIR)$(bindir) && rm -f uhc

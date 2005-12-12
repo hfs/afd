@@ -147,9 +147,11 @@ struct db_entry
 struct info_data
        {
           unsigned int       job_no;
+          unsigned int       dir_id;
           int                count;   /* Counts number of dbe entries. */
           char               input_id;
           char               dir[MAX_PATH_LENGTH];
+          char               dir_id_str[MAX_DIR_ALIAS_LENGTH + 1];
           char               file_name[MAX_FILENAME_LENGTH];
           char               file_size[MAX_INT_LENGTH + MAX_INT_LENGTH];
           char               proc_user[MAX_PROC_USER_LENGTH + 1];

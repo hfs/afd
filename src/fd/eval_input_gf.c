@@ -33,7 +33,7 @@ DESCR__S_M3
  **
  **    gf_xxx <work dir> <job no.> <FSA id> <FSA pos> <dir alias> [options]
  **        OPTIONS
- **          -o               Old/Error message.
+ **          -o <retries>     Old/Error message and number of retries.
  **          -t               Temp toggle.
  **
  ** RETURN VALUES
@@ -136,6 +136,38 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
                            {
                               case 'o' : /* This is an old/erro job. */
                                  p_db->special_flag |= OLD_ERROR_JOB;
+                                 if (((i + 1) < argc) &&
+                                     (argv[i + 1][0] != '-'))
+                                 {
+                                    int k = 0;
+
+                                    i++;
+                                    do
+                                    {
+                                       if (isdigit(argv[i][k]) == 0)
+                                       {
+                                          k = MAX_INT_LENGTH;
+                                       }
+                                       k++;
+                                    } while ((argv[i][k] != '\0') &&
+                                             (k < MAX_INT_LENGTH));
+                                    if ((k > 0) && (k < MAX_INT_LENGTH))
+                                    {
+                                       p_db->retries = (unsigned int)strtoul(argv[i], (char **)NULL, 10);
+                                    }
+                                    else
+                                    {
+                                       (void)fprintf(stderr,
+                                                     "ERROR   : Hmm, could not find the retries for -o option.\n");
+                                    }
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stderr,
+                                                  "ERROR   : No retries specified for -o option.\n");
+                                    usage(argv[0]);
+                                    ret = SYNTAX_ERROR;
+                                 }
                                  break;
                               case 't' : /* Toggle host */
                                  p_db->toggle_host = YES;

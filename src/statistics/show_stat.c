@@ -337,7 +337,7 @@ main(int argc, char *argv[])
                   else
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-12s",
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
                                    afd_stat[position].hostname);
                      for (j = 0; j < DAYS_PER_YEAR; j++)
                      {
@@ -358,7 +358,8 @@ main(int argc, char *argv[])
                for (i = 0; i < no_of_hosts; i++)
                {
                   nfs = nbs = nc = ne = 0.0;
-                  (void)fprintf(stdout, "%-12s", afd_stat[i].hostname);
+                  (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
+                                afd_stat[i].hostname);
                   for (j = 0; j < DAYS_PER_YEAR; j++)
                   {
                      nfs += (double)afd_stat[i].year[j].nfs;
@@ -392,7 +393,8 @@ main(int argc, char *argv[])
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-8s", afd_stat[i].hostname);
+                     (void)fprintf(stdout, "%-*s",
+                                   MAX_HOSTNAME_LENGTH, afd_stat[i].hostname);
                      if (show_day == 0) /* Show all days */
                      {
                         for (j = 0; j < DAYS_PER_YEAR; j++)
@@ -403,7 +405,8 @@ main(int argc, char *argv[])
                            }
                            else
                            {
-                              (void)fprintf(stdout, "%12d:", j);
+                              (void)fprintf(stdout, "%*d:",
+                                            MAX_HOSTNAME_LENGTH + 4, j);
                            }
                            nfs += (double)afd_stat[i].year[j].nfs;
                            nbs +=         afd_stat[i].year[j].nbs;
@@ -417,7 +420,8 @@ main(int argc, char *argv[])
                      }
                      else /* Show a specific day */
                      {
-                        (void)fprintf(stdout, "     ");
+                        (void)fprintf(stdout, "%*s",
+                                      MAX_HOSTNAME_LENGTH - 3, " ");
                         nfs += (double)afd_stat[i].year[show_day].nfs;
                         nbs +=         afd_stat[i].year[show_day].nbs;
                         nc  += (double)afd_stat[i].year[show_day].nc;
@@ -445,7 +449,7 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-8s",
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
                                       afd_stat[position].hostname);
                         if (show_day == 0) /* Show all days */
                         {
@@ -457,7 +461,8 @@ main(int argc, char *argv[])
                               }
                               else
                               {
-                                 (void)fprintf(stdout, "%12d:", j);
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
                               }
                               nfs += (double)afd_stat[position].year[j].nfs;
                               nbs +=         afd_stat[position].year[j].nbs;
@@ -471,7 +476,8 @@ main(int argc, char *argv[])
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "     ");
+                           (void)fprintf(stdout, "%*s",
+                                         MAX_HOSTNAME_LENGTH - 3, " ");
                            nfs += (double)afd_stat[position].year[show_day].nfs;
                            nbs +=         afd_stat[position].year[show_day].nbs;
                            nc  += (double)afd_stat[position].year[show_day].nc;
@@ -551,7 +557,7 @@ main(int argc, char *argv[])
                (void)fprintf(stdout, "                     ==========================\n");
                for (j = 0; j < DAYS_PER_YEAR; j++)
                {
-                  (void)fprintf(stdout, "%12d:", j);
+                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -713,7 +719,8 @@ main(int argc, char *argv[])
                         ne  += (double)afd_stat[i].hour[j].ne;
                      }
                   }
-                  (void)fprintf(stdout, "%-12s", afd_stat[i].hostname);
+                  (void)fprintf(stdout, "%-*s",
+                                MAX_HOSTNAME_LENGTH + 4, afd_stat[i].hostname);
                   display_data(nfs, nbs, nc, ne);
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc  += nc; tmp_ne  += ne;
@@ -761,7 +768,7 @@ main(int argc, char *argv[])
                            ne  += (double)afd_stat[position].hour[j].ne;
                         }
                      }
-                     (void)fprintf(stdout, "%-12s",
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
                                    afd_stat[position].hostname);
                      display_data(nfs, nbs, nc, ne);
                      tmp_nfs += nfs; tmp_nbs += nbs;
@@ -823,7 +830,7 @@ main(int argc, char *argv[])
                   else
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-12s",
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
                                    afd_stat[position].hostname);
                      for (j = 0; j < afd_stat[position].sec_counter; j++)
                      {
@@ -858,7 +865,8 @@ main(int argc, char *argv[])
                for (i = 0; i < no_of_hosts; i++)
                {
                   nfs = nbs = nc = ne = 0.0;
-                  (void)fprintf(stdout, "%-12s", afd_stat[i].hostname);
+                  (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
+                                afd_stat[i].hostname);
                   for (j = 0; j < afd_stat[i].sec_counter; j++)
                   {
                      nfs += (double)afd_stat[i].hour[j].nfs;
@@ -907,7 +915,8 @@ main(int argc, char *argv[])
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-8s", afd_stat[i].hostname);
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                   afd_stat[i].hostname);
                      if (show_day == 0) /* Show all days */
                      {
                         for (j = 0; j < afd_stat[i].day_counter; j++)
@@ -918,7 +927,8 @@ main(int argc, char *argv[])
                            }
                            else
                            {
-                              (void)fprintf(stdout, "%12d:", j);
+                              (void)fprintf(stdout, "%*d:",
+                                            MAX_HOSTNAME_LENGTH + 4, j);
                            }
                            nfs += (double)afd_stat[i].year[j].nfs;
                            nbs +=         afd_stat[i].year[j].nbs;
@@ -937,7 +947,8 @@ main(int argc, char *argv[])
                      }
                      else /* Show a specific day */
                      {
-                        (void)fprintf(stdout, "     ");
+                        (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
+                                      " ");
                         if (show_day < DAYS_PER_YEAR)
                         {
                            if (afd_stat[i].day_counter < show_day)
@@ -981,7 +992,7 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-8s",
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
                                       afd_stat[position].hostname);
                         if (show_day == 0) /* Show all days */
                         {
@@ -993,7 +1004,8 @@ main(int argc, char *argv[])
                               }
                               else
                               {
-                                 (void)fprintf(stdout, "%12d:", j);
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
                               }
                               nfs += (double)afd_stat[position].year[j].nfs;
                               nbs +=         afd_stat[position].year[j].nbs;
@@ -1007,7 +1019,8 @@ main(int argc, char *argv[])
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "     ");
+                           (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
+                                         " ");
                            if (show_day < DAYS_PER_YEAR)
                            {
                               if (afd_stat[position].day_counter < show_day)
@@ -1067,7 +1080,7 @@ main(int argc, char *argv[])
                (void)fprintf(stdout, "                     ==========================\n");
                for (j = 0; j < p_ts->tm_yday; j++)
                {
-                  (void)fprintf(stdout, "%12d:", j);
+                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -1114,7 +1127,8 @@ main(int argc, char *argv[])
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-8s", afd_stat[i].hostname);
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                   afd_stat[i].hostname);
                      if (show_hour == 0) /* Show all hours of the day */
                      {
                         for (j = 0; j < afd_stat[i].hour_counter; j++)
@@ -1125,7 +1139,8 @@ main(int argc, char *argv[])
                            }
                            else
                            {
-                              (void)fprintf(stdout, "%12d:", j);
+                              (void)fprintf(stdout, "%*d:",
+                                            MAX_HOSTNAME_LENGTH + 4, j);
                            }
                            nfs += (double)afd_stat[i].day[j].nfs;
                            nbs +=         afd_stat[i].day[j].nbs;
@@ -1143,7 +1158,8 @@ main(int argc, char *argv[])
                         }
                         else
                         {
-                           (void)fprintf(stdout, "        * %2d:",
+                           (void)fprintf(stdout, "%*s* %2d:",
+                                         MAX_HOSTNAME_LENGTH, " ",
                                          afd_stat[i].hour_counter);
                         }
                         sec_nfs = sec_nbs = sec_nc = sec_ne = 0.0;
@@ -1160,7 +1176,8 @@ main(int argc, char *argv[])
                         for (j = (afd_stat[i].hour_counter + 1);
                              j < HOURS_PER_DAY; j++)
                         {
-                           (void)fprintf(stdout, "%12d:", j);
+                           (void)fprintf(stdout, "%*d:",
+                                         MAX_HOSTNAME_LENGTH + 4, j);
                            nfs += (double)afd_stat[i].day[j].nfs;
                            nbs +=         afd_stat[i].day[j].nbs;
                            nc  += (double)afd_stat[i].day[j].nc;
@@ -1173,7 +1190,8 @@ main(int argc, char *argv[])
                      }
                      else /* Show a specific hour */
                      {
-                        (void)fprintf(stdout, "     ");
+                        (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
+                                      " ");
                         if (show_hour < HOURS_PER_DAY)
                         {
                            if (afd_stat[i].hour_counter < show_hour)
@@ -1217,7 +1235,7 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-8s",
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
                                       afd_stat[position].hostname);
                         if (show_hour == 0) /* Show all hours of the day */
                         {
@@ -1229,7 +1247,8 @@ main(int argc, char *argv[])
                               }
                               else
                               {
-                                 (void)fprintf(stdout, "%12d:", j);
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
                               }
                               nfs += (double)afd_stat[position].day[j].nfs;
                               nbs +=         afd_stat[position].day[j].nbs;
@@ -1264,7 +1283,8 @@ main(int argc, char *argv[])
                            for (j = (afd_stat[position].hour_counter + 1);
                                 j < HOURS_PER_DAY; j++)
                            {
-                              (void)fprintf(stdout, "%12d:", j);
+                              (void)fprintf(stdout, "%*d:",
+                                            MAX_HOSTNAME_LENGTH + 4, j);
                               nfs += (double)afd_stat[position].day[j].nfs;
                               nbs +=         afd_stat[position].day[j].nbs;
                               nc  += (double)afd_stat[position].day[j].nc;
@@ -1277,7 +1297,8 @@ main(int argc, char *argv[])
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "     ");
+                           (void)fprintf(stdout, "%*s",
+                                         MAX_HOSTNAME_LENGTH - 3, " ");
                            if (show_hour < HOURS_PER_DAY)
                            {
                               if (afd_stat[position].hour_counter < show_hour)
@@ -1334,7 +1355,7 @@ main(int argc, char *argv[])
                (void)fprintf(stdout, "                     ===========================\n");
                for (j = 0; j < afd_stat[0].hour_counter; j++)
                {
-                  (void)fprintf(stdout, "%12d:", j);
+                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -1353,7 +1374,8 @@ main(int argc, char *argv[])
                }
                else
                {
-                  (void)fprintf(stdout, "        * %2d:",
+                  (void)fprintf(stdout, "%*s* %2d:",
+                                MAX_HOSTNAME_LENGTH, " ",
                                 afd_stat[0].hour_counter);
                }
                nfs = nbs = nc = ne = 0.0;
@@ -1372,7 +1394,7 @@ main(int argc, char *argv[])
                tmp_nc  += nc; tmp_ne  += ne;
                for (j = (afd_stat[0].hour_counter + 1); j < HOURS_PER_DAY; j++)
                {
-                  (void)fprintf(stdout, "%12d:", j);
+                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -1416,7 +1438,8 @@ main(int argc, char *argv[])
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-8s", afd_stat[i].hostname);
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                   afd_stat[i].hostname);
                      if (show_min == 0) /* Show all minutes of the hour */
                      {
                         for (j = 0; j < afd_stat[i].sec_counter; j++)
@@ -1424,11 +1447,14 @@ main(int argc, char *argv[])
                            tmp = j * STAT_RESCAN_TIME;
                            if ((tmp % 60) == 0)
                            {
-                              (void)fprintf(stdout, "%7d %4d:", tmp / 60, j);
+                              (void)fprintf(stdout, "%*d %4d:",
+                                            MAX_HOSTNAME_LENGTH - 1,
+                                            tmp / 60, j);
                            }
                            else
                            {
-                              (void)fprintf(stdout, "%12d:", j);
+                              (void)fprintf(stdout, "%*d:",
+                                            MAX_HOSTNAME_LENGTH + 4, j);
                            }
                            nfs += (double)afd_stat[i].hour[j].nfs;
                            nbs +=         afd_stat[i].hour[j].nbs;
@@ -1442,12 +1468,14 @@ main(int argc, char *argv[])
                         tmp = afd_stat[0].sec_counter * STAT_RESCAN_TIME;
                         if ((tmp % 60) == 0)
                         {
-                           (void)fprintf(stdout, "%7d*%4d:",
+                           (void)fprintf(stdout, "%*d*%4d:",
+                                         MAX_HOSTNAME_LENGTH - 1,
                                          tmp / 60, afd_stat[i].sec_counter);
                         }
                         else
                         {
-                           (void)fprintf(stdout, "        *%3d:",
+                           (void)fprintf(stdout, "%*s*%3d:",
+                                         MAX_HOSTNAME_LENGTH, " ",
                                          afd_stat[i].sec_counter);
                         }
                         display_data(0, 0.0, 0, 0);
@@ -1456,11 +1484,14 @@ main(int argc, char *argv[])
                            tmp = j * STAT_RESCAN_TIME;
                            if ((tmp % 60) == 0)
                            {
-                              (void)fprintf(stdout, "%7d %4d:", tmp / 60, j);
+                              (void)fprintf(stdout, "%*d %4d:",
+                                            MAX_HOSTNAME_LENGTH - 1,
+                                            tmp / 60, j);
                            }
                            else
                            {
-                              (void)fprintf(stdout, "%12d:", j);
+                              (void)fprintf(stdout, "%*d:",
+                                            MAX_HOSTNAME_LENGTH + 4, j);
                            }
                            nfs += (double)afd_stat[i].hour[j].nfs;
                            nbs +=         afd_stat[i].hour[j].nbs;
@@ -1484,7 +1515,8 @@ main(int argc, char *argv[])
                         {
                            j = afd_stat[i].sec_counter - sec;
                         }
-                        (void)fprintf(stdout, "     ");
+                        (void)fprintf(stdout, "%*s",
+                                      MAX_HOSTNAME_LENGTH - 3, " ");
                         nfs += (double)afd_stat[i].hour[j].nfs;
                         nbs +=         afd_stat[i].hour[j].nbs;
                         nc  += (double)afd_stat[i].hour[j].nc;
@@ -1512,7 +1544,7 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-8s",
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
                                       afd_stat[position].hostname);
                         if (show_min == 0) /* Show all minutes of the hour */
                         {
@@ -1521,11 +1553,14 @@ main(int argc, char *argv[])
                               tmp = j * STAT_RESCAN_TIME;
                               if ((tmp % 60) == 0)
                               {
-                                 (void)fprintf(stdout, "%7d %4d:", tmp / 60, j);
+                                 (void)fprintf(stdout, "%*d %4d:",
+                                               MAX_HOSTNAME_LENGTH - 1,
+                                               tmp / 60, j);
                               }
                               else
                               {
-                                 (void)fprintf(stdout, "%12d:", j);
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
                               }
                               nfs += (double)afd_stat[position].hour[j].nfs;
                               nbs +=         afd_stat[position].hour[j].nbs;
@@ -1539,13 +1574,14 @@ main(int argc, char *argv[])
                            tmp = afd_stat[position].sec_counter * STAT_RESCAN_TIME;
                            if ((tmp % 60) == 0)
                            {
-                              (void)fprintf(stdout, "%7d*%4d:",
-                                            tmp / 60,
+                              (void)fprintf(stdout, "%*d*%4d:",
+                                            MAX_HOSTNAME_LENGTH - 1, tmp / 60,
                                             afd_stat[position].sec_counter);
                            }
                            else
                            {
-                              (void)fprintf(stdout, "        *%3d:",
+                              (void)fprintf(stdout, "%*s*%3d:",
+                                            MAX_HOSTNAME_LENGTH, " ",
                                             afd_stat[position].sec_counter);
                            }
                            display_data(0, 0.0, 0, 0);
@@ -1555,11 +1591,14 @@ main(int argc, char *argv[])
                               tmp = j * STAT_RESCAN_TIME;
                               if ((tmp % 60) == 0)
                               {
-                                 (void)fprintf(stdout, "%7d %4d:", tmp / 60, j);
+                                 (void)fprintf(stdout, "%*d %4d:",
+                                               MAX_HOSTNAME_LENGTH - 1,
+                                               tmp / 60, j);
                               }
                               else
                               {
-                                 (void)fprintf(stdout, "%12d:", j);
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
                               }
                               nfs += (double)afd_stat[position].hour[j].nfs;
                               nbs +=         afd_stat[position].hour[j].nbs;
@@ -1573,7 +1612,8 @@ main(int argc, char *argv[])
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "     ");
+                           (void)fprintf(stdout, "%*s",
+                                         MAX_HOSTNAME_LENGTH - 3, " ");
                            if (show_min < 60)
                            {
                               int sec = (show_min * 60) / STAT_RESCAN_TIME;
@@ -1607,7 +1647,7 @@ main(int argc, char *argv[])
                   }
                }
 
-               if ((show_year > -1) || (show_day > -1) || (show_hour) ||
+               if ((show_year > -1) || (show_day > -1) || (show_hour > -1) ||
                    (show_day_summary > -1) || (show_hour_summary > -1))
                {
                   (void)fprintf(stdout, "Total        ");
@@ -1640,11 +1680,13 @@ main(int argc, char *argv[])
                   tmp = j * STAT_RESCAN_TIME;
                   if ((tmp % 60) == 0)
                   {
-                     (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                     (void)fprintf(stdout, "%*d %3d:",
+                                   MAX_HOSTNAME_LENGTH, tmp / 60, j);
                   }
                   else
                   {
-                     (void)fprintf(stdout, "%12d:", j);
+                     (void)fprintf(stdout, "%*d:",
+                                   MAX_HOSTNAME_LENGTH + 4, j);
                   }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
@@ -1664,12 +1706,12 @@ main(int argc, char *argv[])
                tmp = afd_stat[0].sec_counter * STAT_RESCAN_TIME;
                if ((tmp % 60) == 0)
                {
-                  (void)fprintf(stdout, "%8d*%3d:",
+                  (void)fprintf(stdout, "%*d*%3d:", MAX_HOSTNAME_LENGTH,
                                 tmp / 60, afd_stat[0].sec_counter);
                }
                else
                {
-                  (void)fprintf(stdout, "        *%3d:",
+                  (void)fprintf(stdout, "%*s*%3d:", MAX_HOSTNAME_LENGTH, " ",
                                 afd_stat[0].sec_counter);
                }
                display_data(0, 0.0, 0, 0);
@@ -1678,11 +1720,13 @@ main(int argc, char *argv[])
                   tmp = j * STAT_RESCAN_TIME;
                   if ((tmp % 60) == 0)
                   {
-                     (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                     (void)fprintf(stdout, "%*d %3d:",
+                                   MAX_HOSTNAME_LENGTH, tmp / 60, j);
                   }
                   else
                   {
-                     (void)fprintf(stdout, "%12d:", j);
+                     (void)fprintf(stdout, "%*d:",
+                                   MAX_HOSTNAME_LENGTH + 4, j);
                   }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
@@ -1711,11 +1755,13 @@ main(int argc, char *argv[])
                           tmp = j * STAT_RESCAN_TIME;
                           if ((tmp % 60) == 0)
                           {
-                             (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                             (void)fprintf(stdout, "%*d %3d:",
+                                           MAX_HOSTNAME_LENGTH, tmp / 60, j);
                           }
                           else
                           {
-                             (void)fprintf(stdout, "%12d:", j);
+                             (void)fprintf(stdout, "%*d:",
+                                           MAX_HOSTNAME_LENGTH + 4, j);
                           }
                           nfs = nbs = nc = ne = 0.0;
                           for (i = 0; i < no_of_hosts; i++)
@@ -1734,11 +1780,13 @@ main(int argc, char *argv[])
                           tmp = j * STAT_RESCAN_TIME;
                           if ((tmp % 60) == 0)
                           {
-                             (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                             (void)fprintf(stdout, "%*d %3d:",
+                                           MAX_HOSTNAME_LENGTH, tmp / 60, j);
                           }
                           else
                           {
-                             (void)fprintf(stdout, "%12d:", j);
+                             (void)fprintf(stdout, "%*d:",
+                                           MAX_HOSTNAME_LENGTH + 4, j);
                           }
                           nfs = nbs = nc = ne = 0.0;
                           for (i = 0; i < no_of_hosts; i++)
@@ -1760,11 +1808,13 @@ main(int argc, char *argv[])
                           tmp = j * STAT_RESCAN_TIME;
                           if ((tmp % 60) == 0)
                           {
-                             (void)fprintf(stdout, "%8d %3d:", tmp / 60, j);
+                             (void)fprintf(stdout, "%*d %3d:",
+                                           MAX_HOSTNAME_LENGTH, tmp / 60, j);
                           }
                           else
                           {
-                             (void)fprintf(stdout, "%12d:", j);
+                             (void)fprintf(stdout, "%*d:",
+                                           MAX_HOSTNAME_LENGTH + 4, j);
                           }
                           nfs = nbs = nc = ne = 0.0;
                           for (i = 0; i < no_of_hosts; i++)

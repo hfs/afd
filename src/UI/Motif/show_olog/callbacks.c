@@ -129,6 +129,8 @@ extern Window           main_window;
 extern int              continues_toggle_set,
                         file_name_toggle_set,
                         items_selected,
+                        no_of_search_dirs,
+                        no_of_search_dirids,
                         no_of_search_hosts,
                         file_name_length,
                         special_button_flag,
@@ -139,7 +141,8 @@ extern time_t           start_time_val,
                         end_time_val;
 extern size_t           search_file_size;
 extern char             search_file_name[],
-                        search_directory_name[],
+                        **search_dir,
+                        **search_dirid,
                         **search_recipient,
                         **search_user;
 extern struct item_list *il;
@@ -767,7 +770,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
               }
          reset_message(statusbox_w);
          break;
-         
+
       case START_TIME :
          if (eval_time(value, w, &start_time_val) < 0)
          {
@@ -793,7 +796,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
               }
          reset_message(statusbox_w);
          break;
-         
+
       case END_TIME :
          if (eval_time(value, w, &end_time_val) < 0)
          {
@@ -805,26 +808,168 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          }
          break;
-         
+
       case FILE_NAME_NO_ENTER :
          (void)strcpy(search_file_name, value);
          break;
-         
+
       case FILE_NAME :
          (void)strcpy(search_file_name, value);
          reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
-         
-      case DIRECTORY_NAME_NO_ENTER :
-         (void)strcpy(search_directory_name, value);
-         reset_message(statusbox_w);
-         break;
 
+      case DIRECTORY_NAME_NO_ENTER :
       case DIRECTORY_NAME :
-         (void)strcpy(search_directory_name, value);
+         {
+            int i = 0,
+                is_dir_id,
+                length,
+                max_dir_length = 0,
+                max_dirid_length = 0;
+
+            if (no_of_search_dirs != 0)
+            {
+               FREE_RT_ARRAY(search_dir);
+               no_of_search_dirs = 0;
+            }
+            if (no_of_search_dirids != 0)
+            {
+               FREE_RT_ARRAY(search_dirid);
+               no_of_search_dirids = 0;
+            }
+            ptr = value;
+            for (;;)
+            {
+               while (*ptr == ' ')
+               {
+                  if (*ptr == '\\')
+                  {
+                     ptr++;
+                  }
+                  ptr++;
+               }
+               if (*ptr == '\0')
+               {
+                  if (ptr == value)
+                  {
+                     no_of_search_dirs = 0;
+                     no_of_search_dirids = 0;
+                  }
+                  break;
+               }
+               if (*ptr == '#')
+               {
+                  is_dir_id = YES;
+                  ptr++;
+               }
+               else
+               {
+                  is_dir_id = NO;
+               }
+               length = 0;
+               while ((*ptr != '\0') && (*ptr != ','))
+               {
+                  if (*ptr == '\\')
+                  {
+                     ptr++;
+                  }
+                  ptr++; length++;
+               }
+               if (is_dir_id == YES)
+               {
+                  no_of_search_dirids++;
+                  if (length > max_dirid_length)
+                  {
+                     max_dirid_length = length;
+                  }
+               }
+               else
+               {
+                  no_of_search_dirs++;
+                  if (length > max_dir_length)
+                  {
+                     max_dir_length = length;
+                  }
+               }
+               if (*ptr == '\0')
+               {
+                  if (ptr == value)
+                  {
+                     no_of_search_dirs = 0;
+                     no_of_search_dirids = 0;
+                  }
+                  break;
+               }
+               ptr++;
+            }
+            if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+            {
+               int  ii_dirs = 0,
+                    ii_dirids = 0,
+                    *p_ii;
+               char *p_dir;
+
+               if (no_of_search_dirs > 0)
+               {
+                  RT_ARRAY(search_dir, no_of_search_dirs,
+                           (max_dir_length + 2), char);
+               }
+               if (no_of_search_dirids > 0)
+               {
+                  RT_ARRAY(search_dirid, no_of_search_dirids,
+                           (max_dirid_length + 1), char);
+               }
+
+               ptr = value;
+               for (;;)
+               {
+                  while ((*ptr == ' ') || (*ptr == '\t'))
+                  {
+                     if (*ptr == '\\')
+                     {
+                        ptr++;
+                     }
+                     ptr++;
+                  }
+                  if (*ptr == '#')
+                  {
+                     p_ii =  &ii_dirids;
+                     p_dir = search_dirid[ii_dirids];
+                     ptr++;
+                  }
+                  else
+                  {
+                     p_ii =  &ii_dirs;
+                     p_dir = search_dir[ii_dirs];
+                  }
+                  while ((*ptr != '\0') && (*ptr != ','))
+                  {
+                     if (*ptr == '\\')
+                     {
+                        ptr++;
+                     }
+                     *p_dir = *ptr;
+                     ptr++; p_dir++;
+                  }
+                  *p_dir = '\0';
+                  if (*ptr == ',')
+                  {
+                     ptr++;
+                     (*p_ii)++;
+                  }
+                  else
+                  {
+                     break;
+                  }
+               } /* for (;;) */
+            }
+         }
          reset_message(statusbox_w);
-         XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         if (type == DIRECTORY_NAME)
+         {
+            XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         }
          break;
 
       case FILE_LENGTH_NO_ENTER :
@@ -861,7 +1006,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                     return;
                  }
             search_file_size = (size_t)atol(value + extra_sign);
-            (void)strcpy(search_file_size_str, value + extra_sign);
+            (void)strcpy(search_file_size_str, value);
          }
          reset_message(statusbox_w);
          if (type == FILE_LENGTH)
@@ -871,6 +1016,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
          break;
 
       case RECIPIENT_NAME_NO_ENTER : /* Read the recipient */
+      case RECIPIENT_NAME : /* Read the recipient */
          {
             int  i = 0,
                  ii = 0;
@@ -885,8 +1031,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             ptr = value;
             for (;;)
             {
-               while ((*ptr != '\0') &&
-                      (*ptr != ','))
+               while ((*ptr != '\0') && (*ptr != ','))
                {
                   if (*ptr == '\\')
                   {
@@ -984,105 +1129,10 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             } /* if (no_of_search_hosts > 0) */
          }
          reset_message(statusbox_w);
-         break;
-
-      case RECIPIENT_NAME : /* Read the recipient */
+         if (type == RECIPIENT_NAME)
          {
-            int  i = 0,
-                 ii = 0;
-            char *ptr_start;
-
-            if (no_of_search_hosts != 0)
-            {
-               FREE_RT_ARRAY(search_recipient);
-               FREE_RT_ARRAY(search_user);
-               no_of_search_hosts = 0;
-            }
-            ptr = value;
-            for (;;)
-            {
-               while ((*ptr != '\0') &&
-                      (*ptr != ','))
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  ptr++;
-               }
-               no_of_search_hosts++;
-               if (*ptr == '\0')
-               {
-                  if (ptr == value)
-                  {
-                     no_of_search_hosts = 0;
-                  }
-                  break;
-               }
-               ptr++;
-            }
-            if (no_of_search_hosts > 0)
-            {
-               RT_ARRAY(search_recipient, no_of_search_hosts,
-                        (MAX_RECIPIENT_LENGTH + 1), char);
-               RT_ARRAY(search_user, no_of_search_hosts,
-                        (MAX_RECIPIENT_LENGTH + 1), char);
-
-               ptr = value;
-               for (;;)
-               {
-                  ptr_start = ptr;
-                  i = 0;
-                  while ((*ptr != '\0') &&
-                         (*ptr != ',') &&
-                         (*ptr != '@'))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     search_user[ii][i] = *ptr;
-                     ptr++; i++;
-                  }
-                  if (*ptr == '@')
-                  {
-                     ptr++;
-                     search_user[ii][i] = '\0';
-                     ptr_start = ptr;;
-                     while ((*ptr != '\0') &&
-                            (*ptr != ','))
-                     {
-                        if (*ptr == '\\')
-                        {
-                           ptr++;
-                        }
-                        ptr++;
-                     }
-                  }
-                  else
-                  {
-                     search_user[ii][0] = '\0';
-                  }
-                  if (*ptr == ',')
-                  {
-                     *ptr = '\0';
-                     (void)strcpy(search_recipient[ii], ptr_start);
-                     ii++; ptr++;
-                     while ((*ptr == ' ') || (*ptr == '\t'))
-                     {
-                        ptr++;
-                     }
-                  }
-                  else
-                  {
-                     (void)strcpy(search_recipient[ii], ptr_start);
-                     break;
-                  }
-               } /* for (;;) */
-            } /* if (no_of_search_hosts > 0) */
+            XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          }
-         reset_message(statusbox_w);
-         XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;
 
       default :

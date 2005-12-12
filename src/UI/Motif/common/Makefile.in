@@ -48,7 +48,8 @@ am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
 	$(top_srcdir)/ac-tools/vl_prog_cc_warnings.m4 \
-	$(top_srcdir)/ac-tools/xpm.m4 $(top_srcdir)/configure.in
+	$(top_srcdir)/ac-tools/xp.m4 $(top_srcdir)/ac-tools/xpm.m4 \
+	$(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -74,8 +75,9 @@ am_libxafd_a_OBJECTS = check_host_permissions.$(OBJEXT) \
 	get_ip_no.$(OBJEXT) get_printer_cmd.$(OBJEXT) \
 	handle_setup_file.$(OBJEXT) init_color.$(OBJEXT) \
 	insert_passwd.$(OBJEXT) locate_xy.$(OBJEXT) \
-	make_xprocess.$(OBJEXT) print_file_size.$(OBJEXT) \
-	sfilter.$(OBJEXT) show_info.$(OBJEXT) show_message.$(OBJEXT) \
+	lookup_color.$(OBJEXT) make_xprocess.$(OBJEXT) \
+	print_file_size.$(OBJEXT) sfilter.$(OBJEXT) \
+	show_info.$(OBJEXT) show_message.$(OBJEXT) \
 	store_host_names.$(OBJEXT) update_time.$(OBJEXT) \
 	wait_visible.$(OBJEXT) window_id.$(OBJEXT) xrec.$(OBJEXT)
 libxafd_a_OBJECTS = $(am_libxafd_a_OBJECTS)
@@ -103,6 +105,7 @@ AFD_SSL_INCLUDES = @AFD_SSL_INCLUDES@
 AFD_SSL_LIBS = @AFD_SSL_LIBS@
 AFD_XAW_INCLUDES = @AFD_XAW_INCLUDES@
 AFD_XAW_LIBS = @AFD_XAW_LIBS@
+AFD_XP_LIB = @AFD_XP_LIB@
 AMDEP_FALSE = @AMDEP_FALSE@
 AMDEP_TRUE = @AMDEP_TRUE@
 AMTAR = @AMTAR@
@@ -131,6 +134,8 @@ HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
 HAVE_EACCESS_TRUE = @HAVE_EACCESS_TRUE@
 HAVE_MOTIF_FALSE = @HAVE_MOTIF_FALSE@
 HAVE_MOTIF_TRUE = @HAVE_MOTIF_TRUE@
+Have_Libxp_FALSE = @Have_Libxp_FALSE@
+Have_Libxp_TRUE = @Have_Libxp_TRUE@
 INITDIR = @INITDIR@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -182,6 +187,8 @@ WITH_OUTPUT_LOG_FALSE = @WITH_OUTPUT_LOG_FALSE@
 WITH_OUTPUT_LOG_TRUE = @WITH_OUTPUT_LOG_TRUE@
 WITH_PRODUCTION_LOG_FALSE = @WITH_PRODUCTION_LOG_FALSE@
 WITH_PRODUCTION_LOG_TRUE = @WITH_PRODUCTION_LOG_TRUE@
+WITH_SERVER_SUPPORT_FALSE = @WITH_SERVER_SUPPORT_FALSE@
+WITH_SERVER_SUPPORT_TRUE = @WITH_SERVER_SUPPORT_TRUE@
 WITH_SETUID_FALSE = @WITH_SETUID_FALSE@
 WITH_SETUID_PROGS_FALSE = @WITH_SETUID_PROGS_FALSE@
 WITH_SETUID_PROGS_TRUE = @WITH_SETUID_PROGS_TRUE@
@@ -252,6 +259,7 @@ libxafd_a_SOURCES = check_host_permissions.c\
                        init_color.c\
                        insert_passwd.c\
                        locate_xy.c\
+                       lookup_color.c\
                        make_xprocess.c\
                        print_file_size.c\
                        sfilter.c\
@@ -349,6 +357,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_color.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/insert_passwd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/locate_xy.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/lookup_color.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/make_xprocess.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/print_file_size.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sfilter.Po@am__quote@

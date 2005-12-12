@@ -224,8 +224,15 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #ifdef WITH_DUP_CHECK
          int is_duplicate = NO;
 
-         if (((db.age_limit > 0) &&
-              ((diff_time = (now - stat_buf.st_mtime)) > db.age_limit)) ||
+         if (now < stat_buf.st_mtime)
+         {
+            diff_time = 0L;
+         }
+         else
+         {
+            diff_time = now - stat_buf.st_mtime;
+         }
+         if (((db.age_limit > 0) && (diff_time > db.age_limit)) ||
              ((db.dup_check_timeout > 0) &&
               ((db.special_flag & OLD_ERROR_JOB) == 0) &&
               (((is_duplicate = isdup(fullname, db.job_id,
@@ -234,8 +241,15 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                ((db.dup_check_flag & DC_DELETE) ||
                 (db.dup_check_flag & DC_STORE)))))
 #else
-         if ((db.age_limit > 0) &&
-             ((diff_time = (now - stat_buf.st_mtime)) > db.age_limit))
+         if (now < stat_buf.st_mtime)
+         {
+            diff_time = 0L;
+         }
+         else
+         {
+            diff_time = now - stat_buf.st_mtime;
+         }
+         if ((db.age_limit > 0) && (diff_time > db.age_limit))
 #endif
          {
             char file_to_remove[MAX_FILENAME_LENGTH];

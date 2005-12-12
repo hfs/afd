@@ -140,7 +140,7 @@ create_tv_window(void)
    XtManageChild(detailed_window_w);
 
    /* Disallow user to change window width and height. */
-   XtVaSetValues(appshell,
+   XtVaSetValues(transviewshell,
                  XmNminWidth, tv_window_width,
                  XmNmaxWidth, tv_window_width,
                  XmNminHeight, tv_window_height + line_height,

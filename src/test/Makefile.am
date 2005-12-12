@@ -16,11 +16,11 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  
 ##                                                          
                       
-MAINTAINERCLEANFILES = Makefile.in
 SUBDIRS              = filter
 INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd
 EXTRA_PROGRAMS       = arg ahttp ascp bt change_name copy_file create_files\
                        encode64 testlock
+MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS) core core.*
 encode64_SOURCES     = encode64.c\
                        encode_base64.c
 encode64_LDADD       = ../common/libafd.a

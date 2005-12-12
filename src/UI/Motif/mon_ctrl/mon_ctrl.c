@@ -239,6 +239,12 @@ main(int argc, char *argv[])
    char          window_title[100];
    static String fallback_res[] =
                  {
+                    "*mwmDecorations : 42",
+                    "*mwmFunctions : 12",
+                    ".mon_ctrl.Search AFD.main_form.buttonbox*background : PaleVioletRed2",
+                    ".mon_ctrl.Search AFD.main_form.buttonbox*foreground : Black",
+                    ".mon_ctrl.Search AFD.main_form.buttonbox*highlightColor : Black",
+                    ".mon_ctrl.Search AFD*background : NavajoWhite2",
                     ".mon_ctrl*background : NavajoWhite2",
                     NULL
                  };
@@ -1016,30 +1022,56 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       XtAddCallback(ow[MON_LOG_W], XmNactivateCallback, mon_popup_cb,
                     (XtPointer)MON_LOG_SEL);
    }
-   ow[MON_SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select",
+#ifdef WITH_CTRL_ACCELERATOR
+   ow[MON_SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select (Ctrl+s)",
+#else
+   ow[MON_SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select (Alt+s)",
+#endif
                          xmPushButtonWidgetClass, pull_down_w,
                          XmNfontList,             fontlist,
                          XmNmnemonic,             'S',
+#ifdef WITH_CTRL_ACCELERATOR
+                         XmNaccelerator,          "Ctrl<Key>S",
+#else
                          XmNaccelerator,          "Alt<Key>S",
+#endif
                          NULL);
    XtAddCallback(ow[MON_SELECT_W], XmNactivateCallback, select_afd_dialog,
                  (XtPointer)0);
    if (mcp.retry != NO_PERMISSION)
    {
-      ow[MON_RETRY_W] = XtVaCreateManagedWidget("Retry",
+#ifdef WITH_CTRL_ACCELERATOR
+      ow[MON_RETRY_W] = XtVaCreateManagedWidget("Retry               (Ctrl+r)",
+#else
+      ow[MON_RETRY_W] = XtVaCreateManagedWidget("Retry               (Alt+r)",
+#endif
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            XmNmnemonic,             'R',
+#ifdef WITH_CTRL_ACCELERATOR
+                           XmNaccelerator,          "Ctrl<Key>R",
+#else
                            XmNaccelerator,          "Alt<Key>R",
+#endif
                            NULL);
       XtAddCallback(ow[MON_RETRY_W], XmNactivateCallback, mon_popup_cb,
                     (XtPointer)MON_RETRY_SEL);
    }
    if (mcp.switch_afd != NO_PERMISSION)
    {
-      ow[MON_SWITCH_W] = XtVaCreateManagedWidget("Switch AFD",
+#ifdef WITH_CTRL_ACCELERATOR
+      ow[MON_SWITCH_W] = XtVaCreateManagedWidget("Switch AFD          (Ctrl+w)",
+#else
+      ow[MON_SWITCH_W] = XtVaCreateManagedWidget("Switch AFD          (Alt+w)",
+#endif
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
+                           XmNmnemonic,             'w',
+#ifdef WITH_CTRL_ACCELERATOR
+                           XmNaccelerator,          "Ctrl<Key>w",
+#else
+                           XmNaccelerator,          "Alt<Key>w",
+#endif
                            NULL);
       XtAddCallback(ow[MON_SWITCH_W], XmNactivateCallback, mon_popup_cb,
                     (XtPointer)MON_SWITCH_SEL);
@@ -1084,11 +1116,19 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               XmNseparatorType,       XmDOUBLE_LINE,
                               NULL);
    }
-   ow[MON_EXIT_W] = XtVaCreateManagedWidget("Exit",
+#ifdef WITH_CTRL_ACCELERATOR
+   ow[MON_EXIT_W] = XtVaCreateManagedWidget("Exit                (Ctrl+x)",
+#else
+   ow[MON_EXIT_W] = XtVaCreateManagedWidget("Exit                (Alt+x)",
+#endif
                               xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               XmNmnemonic,             'x',
+#ifdef WITH_CTRL_ACCELERATOR
+                              XmNaccelerator,          "Ctrl<Key>x",
+#else
                               XmNaccelerator,          "Alt<Key>x",
+#endif
                               NULL);
    XtAddCallback(ow[MON_EXIT_W], XmNactivateCallback, mon_popup_cb,
                  (XtPointer)EXIT_SEL);
@@ -1111,7 +1151,12 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       mw[LOG_W] = XtVaCreateManagedWidget("RView",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
-                              XmNmnemonic,                'R',
+                              XmNmnemonic,                'V',
+#ifdef WITH_CTRL_ACCELERATOR
+                              XmNaccelerator,             "Ctrl<Key>v",
+#else
+                              XmNaccelerator,             "Alt<Key>v",
+#endif
                               XmNsubMenuId,               pull_down_w,
                               NULL);
       if (mcp.afd_ctrl != NO_PERMISSION)
@@ -1120,7 +1165,11 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               XmNmnemonic,             'A',
+#ifdef WITH_CTRL_ACCELERATOR
+                              XmNaccelerator,          "Ctrl<Key>A",
+#else
                               XmNaccelerator,          "Alt<Key>A",
+#endif
                               NULL);
          XtAddCallback(vw[MON_AFD_CTRL_W], XmNactivateCallback,
                        start_remote_prog, (XtPointer)AFD_CTRL_SEL);
@@ -1137,8 +1186,6 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             vw[MON_SYSTEM_W] = XtVaCreateManagedWidget("System Log",
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
-                                 XmNmnemonic,             'S',
-                                 XmNaccelerator,          "Alt<Key>S",
                                  NULL);
             XtAddCallback(vw[MON_SYSTEM_W], XmNactivateCallback,
                           start_remote_prog, (XtPointer)S_LOG_SEL);
@@ -1148,8 +1195,6 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             vw[MON_RECEIVE_W] = XtVaCreateManagedWidget("Receive Log",
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
-                                 XmNmnemonic,             'R',
-                                 XmNaccelerator,          "Alt<Key>R",
                                  NULL);
             XtAddCallback(vw[MON_RECEIVE_W], XmNactivateCallback,
                           start_remote_prog, (XtPointer)R_LOG_SEL);
@@ -1159,8 +1204,6 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             vw[MON_TRANS_W] = XtVaCreateManagedWidget("Transfer Log",
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
-                                 XmNmnemonic,             'T',
-                                 XmNaccelerator,          "Alt<Key>T",
                                  NULL);
             XtAddCallback(vw[MON_TRANS_W], XmNactivateCallback,
                           start_remote_prog, (XtPointer)T_LOG_SEL);
@@ -1403,7 +1446,11 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            xmPushButtonWidgetClass, pull_down_w,
                            XmNfontList,             fontlist,
                            XmNmnemonic,             'a',
+#ifdef WITH_CTRL_ACCELERATOR
+                           XmNaccelerator,          "Ctrl<Key>a",
+#else
                            XmNaccelerator,          "Alt<Key>a",
+#endif
                            NULL);
    XtAddCallback(sw[SAVE_W], XmNactivateCallback, save_mon_setup_cb,
                  (XtPointer)0);
@@ -1490,7 +1537,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Retry");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
+         XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>R"); argcount++;
+#else
          XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>R"); argcount++;
+#endif
          XtSetArg(args[argcount], XmNmnemonic, 'R'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[2] = XmCreatePushButton(popupmenu, "Retry", args, argcount);
@@ -1504,7 +1555,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Switch AFD");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
-         XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>S"); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
+         XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>w"); argcount++;
+#else
+         XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>w"); argcount++;
+#endif
          XtSetArg(args[argcount], XmNmnemonic, 'S'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[3] = XmCreatePushButton(popupmenu, "Switch", args, argcount);
@@ -1518,7 +1573,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Info");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
          XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>I"); argcount++;
+#else
+         XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>I"); argcount++;
+#endif
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[4] = XmCreatePushButton(popupmenu, "Info", args, argcount);
@@ -1532,7 +1591,11 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Enable/Disable");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
          XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>D"); argcount++;
+#else
+         XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>D"); argcount++;
+#endif
          XtSetArg(args[argcount], XmNmnemonic, 'D'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pw[5] = XmCreatePushButton(popupmenu, "Disable", args, argcount);

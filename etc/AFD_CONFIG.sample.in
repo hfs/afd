@@ -114,11 +114,20 @@ MAX_CONNECTIONS                  80
 ##########################################################################
 # When AMG has collected MAX_COPIED_FILES, it will try to continue to    #
 # copy from this directory until it reaches ONE_DIR_COPY_TIMEOUT timeout.#
-# If you want to disable this option comment it out (NOT by setting it   #
-# to 0)                                                                  #
 # Default: 10                                                            #
 ##########################################################################
 ONE_DIR_COPY_TIMEOUT             10
+
+##########################################################################
+# The timeout for scanning all directories. If set to 0 this is diasbled.#
+# When this is set it will only take effect if during a scan there are   #
+# directories which still have files to be distributed but could not     #
+# because of MAX_COPIED_FILES or some other limits. If FULL_SCAN_TIMEOUT #
+# has not been reached, it will try to continue with the full directories#
+# until FULL_SCAN_TIMEOUT is reached.                                    #
+# Default: 0                                                             #
+##########################################################################
+#FULL_SCAN_TIMEOUT                0
 
 ##########################################################################
 # The permission of the source directories that found in the DIR_CONFIG  #

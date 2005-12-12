@@ -93,6 +93,8 @@ struct db_entry
           char         loptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
           char         recipient[MAX_RECIPIENT_LENGTH];
           char         user[MAX_RECIPIENT_LENGTH];
+          char         dir_url_hostname[MAX_HOSTNAME_LENGTH + 2];
+          char         dir_url_user[MAX_USER_NAME_LENGTH + 2];
           char         priority;
        };
 

@@ -184,7 +184,7 @@ send_file(void)
                                       channels[READ],
                                       (XtPointer)XtInputReadMask,
                                       (XtInputCallbackProc)read_data,
-                                      (XtPointer)cmd_pid);
+                                      (XtPointer)NULL);
    }
 
    return;

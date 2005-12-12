@@ -62,6 +62,12 @@
  *                            This requires a local ssh client.
  * _WITH_TRANS_EXEC         - With option to execute a command after each
  *                            file was send.
+ * DO_NOT_ARCHIVE_UNIQUE_PART-This will not store the unique part of the
+ *                            file name in the archive. Do NOT activate
+ *                            this! Only activate this in benchmarking
+ *                            to have comparible results to AFD releases
+ *                            prior to 1.3.0. Otherwise the results are
+ *                            just not comparible.
  *-----------------------------------------------------------------------*/
 #define _WITH_BURST_2
 /* #define _LOG_REMOVE_INFO */
@@ -75,6 +81,7 @@
 #define _WITH_SCP_SUPPORT
 #define _WITH_TRANS_EXEC
 #define FTP_CTRL_KEEP_ALIVE_INTERVAL 1200L
+/* #define DO_NOT_ARCHIVE_UNIQUE_PART */
 
 /*-----------------------------------------------------------------------*
  * These following options are only for the dialogs of the AFD.
@@ -188,7 +195,7 @@
 
 /*-----------------------------------------------------------------------*
  * The maximum directory alias name length that is displayed by
- * 'dir_ctrl'.
+ * 'dir_ctrl'. Note: this value may NOT be less then 10!
  * DEFAULT: 10
  *-----------------------------------------------------------------------*/
 #define MAX_DIR_ALIAS_LENGTH 10
@@ -283,9 +290,16 @@
  * ONE_DIR_COPY_TIMEOUT - When AMG has collected MAX_COPIED_FILES, it
  *                        will try to continue to copy from this directory
  *                        until it reaches ONE_DIR_COPY_TIMEOUT timeout.
- *                        If you want to disable this option comment it
- *                        out (NOT by setting it to 0).
  *                        DEFAULT: 10 (seconds)
+ * FULL_SCAN_TIMEOUT    - The timeout for scanning all directories. If
+ *                        set to 0 this is diasbled. When this is set
+ *                        it will only take effect if during a scan there
+ *                        are directories which still have files to be
+ *                        distributed but could not because of
+ *                        MAX_COPIED_FILES or some other limits. If
+ *                        FULL_SCAN_TIMEOUT has not been reached, it
+ *                        will try to continue with the full directories
+ *                        until FULL_SCAN_TIMEOUT is reached.
  * DIR_CHECK_TIMEOUT    - Sometimes it can take very long for dir_check
  *                        to go once through all directories and it will
  *                        take too long until important files get send.
@@ -297,6 +311,7 @@
  *                              solution is found.
  *-----------------------------------------------------------------------*/
 #define ONE_DIR_COPY_TIMEOUT 10
+#define FULL_SCAN_TIMEOUT    0
 #ifndef _WITH_PTHREAD
 #define DIR_CHECK_TIMEOUT    60
 #endif

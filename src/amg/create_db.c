@@ -330,7 +330,7 @@ create_db(void)
                  de[0].alias, de[0].dir);
       exit(INCORRECT);
    }
-   de[0].dir_id      = dnb[fra[de[0].fra_pos].dir_pos].dir_id;
+   de[0].dir_id      = fra[de[0].fra_pos].dir_id;
    de[0].mod_time    = -1;
    de[0].search_time = 0;
    if (fra[de[0].fra_pos].fsa_pos != -1)
@@ -445,7 +445,7 @@ create_db(void)
                        de[dir_counter].alias, de[dir_counter].dir);
             exit(INCORRECT);
          }
-         de[dir_counter].dir_id        = dnb[fra[de[dir_counter].fra_pos].dir_pos].dir_id;
+         de[dir_counter].dir_id        = fra[de[dir_counter].fra_pos].dir_id;
          de[dir_counter].nfg           = 0;
          de[dir_counter].fme           = NULL;
          de[dir_counter].flag          = 0;

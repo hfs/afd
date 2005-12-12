@@ -86,6 +86,7 @@ struct queued_file_list
           int          dir_id_pos;
           int          queue_tmp_buf_pos;
           unsigned int job_id;
+          unsigned int dir_id;
           char         *file_name;
           char         msg_name[MAX_MSG_NAME_LENGTH]; /* NOT used anymore. */
           char         hostname[MAX_HOSTNAME_LENGTH + 1];

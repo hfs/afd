@@ -90,10 +90,10 @@ static int        in_child = NO,
                   new_sockfd,
                   sockfd,
                   no_of_connections;
+static pid_t      pid[MAX_AFDD_CONNECTIONS];
 
 /* Local function prototypes. */
 static int        get_free_connection(void);
-static pid_t      pid[MAX_AFDD_CONNECTIONS];
 static void       afdd_exit(void),
                   get_afd_config_value(char *),
                   sig_bus(int),
@@ -240,7 +240,7 @@ main(int argc, char *argv[])
    }
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Failed to map to AFD status area.");
@@ -593,10 +593,10 @@ get_afd_config_value(char *port_no)
 static void
 afdd_exit(void)
 {
-   int i;
-
    if (in_child == NO)
    {
+      int i;
+
       /* Kill all child process */
       for (i = 0; i < MAX_AFDD_CONNECTIONS; i++)
       {

@@ -1,7 +1,7 @@
 /*
  *  eaccess.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2005 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   23.01.2002 H.Kiehl Created
+ **   05.09.2005 H.Kiehl We did not check the case when a group has
+ **                      multiple users.
  **
  */
 DESCR__E_M3
@@ -51,8 +53,14 @@ DESCR__E_M3
 #ifdef HAVE_FCNTL_H
 # include <fcntl.h>
 #endif
+#include <pwd.h>
+#include <grp.h>
 #include <unistd.h>            /* geteuid(), getegid()                   */
 #include <errno.h>
+
+
+/* Local function prototypes. */
+static int check_group(uid_t, gid_t, struct group **, struct passwd **);
 
 
 #ifndef HAVE_EACCESS
@@ -62,8 +70,10 @@ eaccess(char *pathname, int access_mode)
 {
    if ((access_mode & R_OK) || (access_mode & W_OK) || (access_mode & X_OK))
    {
-      int         access_ctrl = 0;
-      struct stat stat_buf;
+      int           access_ctrl = 0;
+      struct stat   stat_buf;
+      struct group  *group = NULL;
+      struct passwd *passwd = NULL;
 
       if (stat(pathname, &stat_buf) == -1)
       {
@@ -79,8 +89,9 @@ eaccess(char *pathname, int access_mode)
          if (access_mode & R_OK)
          {
             if ((stat_buf.st_mode & S_IROTH) ||
-                ((euid == stat_buf.st_uid) && (stat_buf.st_mode & S_IRUSR)) |
-                ((egid == stat_buf.st_gid) && (stat_buf.st_mode & S_IRGRP)))
+                ((euid == stat_buf.st_uid) && (stat_buf.st_mode & S_IRUSR)) ||
+                ((egid == stat_buf.st_gid) && (stat_buf.st_mode & S_IRGRP)) ||
+                (check_group(euid, stat_buf.st_gid, &group, &passwd) == YES))
             {
                access_ctrl = 0;
             }
@@ -92,8 +103,9 @@ eaccess(char *pathname, int access_mode)
          if ((access_ctrl == 0) && (access_mode & W_OK))
          {
             if ((stat_buf.st_mode & S_IWOTH) ||
-                ((euid == stat_buf.st_uid) && (stat_buf.st_mode & S_IWUSR)) |
-                ((egid == stat_buf.st_gid) && (stat_buf.st_mode & S_IWGRP)))
+                ((euid == stat_buf.st_uid) && (stat_buf.st_mode & S_IWUSR)) ||
+                ((egid == stat_buf.st_gid) && (stat_buf.st_mode & S_IWGRP)) ||
+                (check_group(euid, stat_buf.st_gid, &group, &passwd) == YES))
             {
                if (access_ctrl != -1)
                {
@@ -108,8 +120,9 @@ eaccess(char *pathname, int access_mode)
          if ((access_ctrl == 0) && (access_mode & X_OK))
          {
             if ((stat_buf.st_mode & S_IXOTH) ||
-                ((euid == stat_buf.st_uid) && (stat_buf.st_mode & S_IXUSR)) |
-                ((egid == stat_buf.st_gid) && (stat_buf.st_mode & S_IXGRP)))
+                ((euid == stat_buf.st_uid) && (stat_buf.st_mode & S_IXUSR)) ||
+                ((egid == stat_buf.st_gid) && (stat_buf.st_mode & S_IXGRP)) ||
+                (check_group(euid, stat_buf.st_gid, &group, &passwd) == YES))
             {
                if (access_ctrl != -1)
                {
@@ -143,5 +156,44 @@ eaccess(char *pathname, int access_mode)
            errno = EINVAL;
            return(-1);
         }
+}
+
+
+/*############################# check_group() ###########################*/
+static int
+check_group(uid_t euid, gid_t guid, struct group **p_group, struct passwd **passwd)
+{
+   int i;
+
+   if (*p_group == NULL)
+   {
+      if ((*p_group = getgrgid(guid)) == NULL)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to getgrid() : %s", strerror(errno));
+         return(NO);
+      }
+   }
+   if (*passwd == NULL)
+   {
+      if ((*passwd = getpwuid(euid)) == NULL)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to getpwuid() : %s", strerror(errno));
+         return(NO);
+      }
+   }
+   i = 0;
+   do
+   {
+      if (strcmp((*p_group)->gr_mem[i], (*passwd)->pw_name) == 0)
+      {
+         return(YES);
+      }
+      i++;
+      
+   } while ((*p_group)->gr_mem[i] != NULL);
+
+   return(NO);
 }
 #endif /* !HAVE_EACCESS */

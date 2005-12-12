@@ -33,3 +33,10 @@ asmtp_SOURCES        = asmtp.c\
                        trans_log.c
 asmtp_LDADD          = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
                        ../common/libafd.a
+
+install-exec-local:
+	cd $(DESTDIR)$(bindir) && rm -f raftp
+	cd $(DESTDIR)$(bindir) && ln -s aftp raftp
+
+uninstall-local:
+	cd $(DESTDIR)$(bindir) && rm -f raftp

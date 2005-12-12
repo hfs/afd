@@ -173,12 +173,13 @@ show_info(char *text)
       buttonbox_w = XmCreateForm(form_w, "buttonbox", args, argcount);
 
       /* Create close button. */
-      button_w = XtVaCreateManagedWidget("Close", xmPushButtonWidgetClass, buttonbox_w,
-                        XmNfontList,         i_fontlist,
-                        XmNtopAttachment,    XmATTACH_FORM,
-                        XmNleftAttachment,   XmATTACH_FORM,
-                        XmNrightAttachment,  XmATTACH_FORM,
-                        XmNbottomAttachment, XmATTACH_FORM,
+      button_w = XtVaCreateManagedWidget("Close",
+                        xmPushButtonWidgetClass, buttonbox_w,
+                        XmNfontList,             i_fontlist,
+                        XmNtopAttachment,        XmATTACH_FORM,
+                        XmNleftAttachment,       XmATTACH_FORM,
+                        XmNrightAttachment,      XmATTACH_FORM,
+                        XmNbottomAttachment,     XmATTACH_FORM,
                         NULL);
       XtAddCallback(button_w, XmNactivateCallback,
                     (XtCallbackProc)close_info_button, 0);
@@ -186,7 +187,8 @@ show_info(char *text)
       XtManageChild(form_w);
 
 #ifdef WITH_EDITRES
-      XtAddEventHandler(infoshell, (EventMask)0, True, _XEditResCheckMessages, NULL);
+      XtAddEventHandler(infoshell, (EventMask)0, True,
+                        _XEditResCheckMessages, NULL);
 #endif
    }
    XtPopup(infoshell, XtGrabNone);

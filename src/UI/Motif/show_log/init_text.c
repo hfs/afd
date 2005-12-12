@@ -148,7 +148,7 @@ init_text(void)
 
 
 /*############################## read_text() ############################*/
-void
+static void
 read_text(void)
 {
    int                  i,

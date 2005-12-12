@@ -61,7 +61,7 @@ else
       mkdir -p $RPM_BUILD_ROOT/@SYSCONFIGDIR@
    fi
 fi
-make DESTDIR=$RPM_BUILD_ROOT install
+make DESTDIR=$RPM_BUILD_ROOT install-strip
 install -p -m755 scripts/afd $RPM_BUILD_ROOT/@INITDIR@
 install -p -m644 scripts/afd.sysconfig $RPM_BUILD_ROOT/@SYSCONFIGDIR@/afd
 install -p -m644 etc/AFD_CONFIG.sample $RPM_BUILD_ROOT/%{prefix}/etc
@@ -129,6 +129,9 @@ exit 0
 @INITDIR@/afd
 
 %changelog
+*Thu Sep  8 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+- When installing use use strip by default.
+
 *Thu Jul 21 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
 - Do not overwrite @SYSCONFIGDIR@/afd.
 

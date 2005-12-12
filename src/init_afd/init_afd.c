@@ -119,7 +119,7 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 static pid_t               make_process(char *, char *, sigset_t *);
 static void                afd_exit(void),
                            check_dirs(char *),
-                           get_afd_config_value(int *, int *, unsigned int *),
+                           get_afd_config_value(int *, int *, unsigned int *, int *),
                            init_afd_check_fsa(void),
                            log_pid(pid_t, int),
                            sig_exit(int),
@@ -133,6 +133,7 @@ int
 main(int argc, char *argv[])
 {
    int            afdd_port,
+                  amg_rescan_time,
                   danger_no_of_files,
                   current_month,
                   status,
@@ -466,7 +467,8 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
             exit(INCORRECT);
       }
    }
-   get_afd_config_value(&afdd_port, &danger_no_of_files, &default_age_limit);
+   get_afd_config_value(&afdd_port, &danger_no_of_files, &default_age_limit,
+                        &amg_rescan_time);
 
    /* Do some cleanups when we exit */
    if (atexit(afd_exit) != 0)
@@ -487,6 +489,11 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
                     strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+
+   /*
+    * Check all file permission if they are correct.
+    */
+   check_permissions();
 
    /*
     * Determine current month.
@@ -583,9 +590,12 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
     * for this process.
     */
    p_afd_status->no_of_transfers = 0;
-   if (fsa_attach() < 0)
+   if ((i = fsa_attach()) < 0)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
+      if (i != INCORRECT_VERSION)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
+      }
    }
    else
    {
@@ -679,10 +689,17 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
          {
             for (i = 0; i < no_of_dirs; i++)
             {
-               if ((fra[i].fsa_pos == -1) && (fra[i].dir_flag & MAX_COPIED))
+               if ((fra[i].fsa_pos == -1) && (fra[i].dir_flag & MAX_COPIED) &&
+                   ((now - fra[i].last_retrieval) < (2 * amg_rescan_time)))
                {
                   count_files(fra[i].url, &fra[i].files_in_dir,
                               &fra[i].bytes_in_dir);
+
+                  /* Bail out if the scans take to long. */
+                  if ((time(NULL) - now) > 30)
+                  {
+                     i = no_of_dirs;
+                  }
                }
                (*heartbeat)++;
             }
@@ -1201,7 +1218,8 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
 static void
 get_afd_config_value(int          *afdd_port,
                      int          *danger_no_of_files,
-                     unsigned int *default_age_limit)
+                     unsigned int *default_age_limit,
+                     int          *amg_rescan_time)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
@@ -1253,6 +1271,15 @@ get_afd_config_value(int          *afdd_port,
       {
          *default_age_limit = DEFAULT_AGE_LIMIT;
       }
+      if (get_definition(buffer, AMG_DIR_RESCAN_TIME_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *amg_rescan_time = atoi(value);
+      }
+      else
+      {
+         *amg_rescan_time = DEFAULT_RESCAN_TIME;
+      }
       free(buffer);
    }
    else
@@ -1260,6 +1287,7 @@ get_afd_config_value(int          *afdd_port,
       *afdd_port = -1;
       *danger_no_of_files = MAX_COPIED_FILES + MAX_COPIED_FILES;
       *default_age_limit = DEFAULT_AGE_LIMIT;
+      *amg_rescan_time = DEFAULT_RESCAN_TIME;
    }
 
    return;

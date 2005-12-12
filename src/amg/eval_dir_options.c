@@ -228,6 +228,7 @@ eval_dir_options(int  dir_pos,
               if ((dd[dir_pos].delete_files_flag & UNKNOWN_FILES) == 0)
               {
                  dd[dir_pos].delete_files_flag |= UNKNOWN_FILES;
+                 dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
               }
               break;
 
@@ -239,11 +240,13 @@ eval_dir_options(int  dir_pos,
            case 'r' :
            case 'R' : /* Report unknown files. */
               dd[dir_pos].report_unknown_files = YES;
+              dd[dir_pos].in_dc_flag |= REPUKW_FILES_IDC;
               break;
 
            case 's' :
            case 'S' : /* Do NOT report unknown files. */
               dd[dir_pos].report_unknown_files = NO;
+              dd[dir_pos].in_dc_flag |= DONT_REPUKW_FILES_IDC;
               break;
 
            case 'E' : /* Check end character of file. */
@@ -328,6 +331,7 @@ eval_dir_options(int  dir_pos,
          if ((dd[dir_pos].delete_files_flag & UNKNOWN_FILES) == 0)
          {
             dd[dir_pos].delete_files_flag |= UNKNOWN_FILES;
+            dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
          }
       }
       else if (((used & OLD_FILE_TIME_FLAG) == 0) &&
@@ -389,6 +393,7 @@ eval_dir_options(int  dir_pos,
                  ptr++;
               }
               dd[dir_pos].report_unknown_files = NO;
+              dd[dir_pos].in_dc_flag |= DONT_REPUKW_FILES_IDC;
            }
       else if (((used & END_CHARACTER_FLAG) == 0) &&
                (strncmp(ptr, END_CHARACTER_ID, END_CHARACTER_ID_LENGTH) == 0))
@@ -540,6 +545,7 @@ eval_dir_options(int  dir_pos,
               if ((dd[dir_pos].delete_files_flag & QUEUED_FILES) == 0)
               {
                  dd[dir_pos].delete_files_flag |= QUEUED_FILES;
+                 dd[dir_pos].in_dc_flag |= QUEUED_FILES_IDC;
               }
            }
       else if (((used & DEL_OLD_LOCKED_FILES_FLAG) == 0) &&
@@ -569,6 +575,7 @@ eval_dir_options(int  dir_pos,
                  if ((dd[dir_pos].delete_files_flag & OLD_LOCKED_FILES) == 0)
                  {
                     dd[dir_pos].delete_files_flag |= OLD_LOCKED_FILES;
+                    dd[dir_pos].in_dc_flag |= OLD_LOCKED_FILES_IDC;
                  }
               }
               else
@@ -605,6 +612,7 @@ eval_dir_options(int  dir_pos,
                  ptr++;
               }
               dd[dir_pos].report_unknown_files = YES;
+              dd[dir_pos].in_dc_flag |= REPUKW_FILES_IDC;
            }
 #ifdef WITH_DUP_CHECK
       else if (((used & DUPCHECK_FLAG) == 0) &&
@@ -864,6 +872,7 @@ eval_dir_options(int  dir_pos,
               {
                  number[length] = '\0';
                  dd[dir_pos].max_copied_files = (unsigned int)strtoul(number, NULL, 10);
+                 dd[dir_pos].in_dc_flag |= MAX_CP_FILES_IDC;
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
@@ -895,6 +904,7 @@ eval_dir_options(int  dir_pos,
               {
                  number[length] = '\0';
                  dd[dir_pos].max_copied_file_size = (off_t)strtoul(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
+                 dd[dir_pos].in_dc_flag |= MAX_CP_FILE_SIZE_IDC;
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;

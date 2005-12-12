@@ -396,7 +396,7 @@ search_again:
                                           {
                                              p_end = changed_name + strlen(changed_name);
                                           }
-                                          (void)sprintf(p_end, ";%d", dup_count);
+                                          (void)sprintf(p_end, "-%d", dup_count);
                                           dup_count++;
                                           goto search_again;
                                        }

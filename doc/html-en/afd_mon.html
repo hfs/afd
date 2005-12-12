@@ -72,10 +72,37 @@ information for an AFD to be monitored:
 </tr>
 <tr>
    <td>Options</td>
-   <td>Here it is possible to set some additional options. Currently
-       only 0, 1 and 2 are supported. 0 meaning no option set, 1 for
-       compression and 2 for using -Y instead of -X when starting
-       X applications when using ssh as remote cmd.</td>
+   <td>Here it is possible to set some additional options. This option
+       is a 32 bitmask where the following bits are used:
+       <table border>
+       <tr>
+          <th>Bit</th>
+          <th>Decimal</th>
+          <th>Meaning</th>
+       </tr>
+       <tr>
+          <td>1</td>
+          <td>1</rd>
+          <td>Compression. For ssh compression is being used for the
+              communication with the remote system. Compression is
+              desirable on modem lines and other slow connections,
+              but will only slow down things on fast networks.</td>
+       <tr>
+          <td>2</td>
+          <td>2</rd>
+          <td>Instead of just enabling X11 forwarding (-X), enable
+              trusted X11 forwarding (-Y).</td>
+       </tr>
+       <tr>
+          <td>3</td>
+          <td>4</rd>
+          <td>Do not specify full path to rafdd_cmd and rafd_cmd_ssh
+              script.</td>
+       </tr>
+       </table>
+       The options can be combined by adding the decimal values.
+       To set, for example, both compression and trusted X11 forwarding
+       3 must be specified.</td>
    <td>0</td>
 </tr>
 <tr>
@@ -134,7 +161,7 @@ mafd -a and mafd -s to shut it down again.
    <td width=90%><small><address>
    Copyright &copy; 2000 - 2005 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 03.04.2005
+   Last updated: 08.12.2005
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

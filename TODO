@@ -381,6 +381,10 @@ o       Switching AFD's in afd_mon, mon_ctrl.     *    [DONE]
 
 ------------------------>>>>> Version 2.0.x <<<<<--------------------------
 o       Dialog to view statistics.                *    [UNDER CONSTRUCTION]
+o       Create WMO server.                        *    [UNDER CONSTRUCTION]
+o       Follow directories. Add a dir option that
+        tells AFD to search all subsequent
+        directories.                             **    [TODO]
 o       Rename option for send in show_olog.      *    [TODO]
 o       SFTP support.                           ***    [TODO]
 o       Dialog to edit DIR_CONFIG.             ****    [TODO]
@@ -392,4 +396,4 @@ o       Implement context sensitive help for
         the 'afd_ctrl' dialog.                    *    [TODO]
 o       Create process that can do multi-casting.**    [TODO]
 o       Support for sending files via HTTP
-        protocol.
+        protocol.                                 *    [TODO]

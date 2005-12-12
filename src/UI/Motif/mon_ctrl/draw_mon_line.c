@@ -118,7 +118,7 @@ extern struct mon_line        *connect_data;
 extern struct mon_status_area *msa;
 
 #ifdef _DEBUG
-static unsigned int  counter = 0;
+static unsigned int           counter = 0;
 #endif
 
 
@@ -223,6 +223,7 @@ draw_line_status(int pos, signed char delta)
 {
    int x = 0,
        y = 0;
+   GC  tmp_gc;
 
    /* First locate position of x and y */
    locate_xy(pos, &x, &y);
@@ -236,17 +237,18 @@ draw_line_status(int pos, signed char delta)
    {
       if (connect_data[pos].inverse == ON)
       {
-         XFillRectangle(display, line_window, normal_bg_gc, x, y, line_length, line_height);
+         tmp_gc = normal_bg_gc;
       }
       else
       {
-         XFillRectangle(display, line_window, locked_bg_gc, x, y, line_length, line_height);
+         tmp_gc = locked_bg_gc;
       }
    }
    else
    {
-      XFillRectangle(display, line_window, default_bg_gc, x, y, line_length, line_height);
+      tmp_gc = default_bg_gc;
    }
+   XFillRectangle(display, line_window, tmp_gc, x, y, line_length, line_height);
 
    /* Write destination identifier to screen */
    draw_afd_identifier(pos, x, y);
@@ -294,28 +296,21 @@ draw_line_status(int pos, signed char delta)
       /* Show beginning and end of bars */
       if (connect_data[pos].inverse > OFF)
       {
-         XDrawLine(display, line_window, white_line_gc,
-                   x + x_offset_bars - 1,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars - 1,
-                   y + glyph_height);
-         XDrawLine(display, line_window, white_line_gc,
-                   x + x_offset_bars + (int)max_bar_length,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+         tmp_gc = white_line_gc;
       }
       else
       {
-         XDrawLine(display, line_window, black_line_gc,
-                   x + x_offset_bars - 1,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars - 1,
-                   y + glyph_height);
-         XDrawLine(display, line_window, black_line_gc,
-                   x + x_offset_bars + (int)max_bar_length,
-                   y + SPACE_ABOVE_LINE,
-                   x + x_offset_bars + (int)max_bar_length, y + glyph_height);
+         tmp_gc = black_line_gc;
       }
+      XDrawLine(display, line_window, black_line_gc,
+                x + x_offset_bars - 1,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars - 1,
+                y + glyph_height);
+      XDrawLine(display, line_window, black_line_gc,
+                x + x_offset_bars + (int)max_bar_length,
+                y + SPACE_ABOVE_LINE,
+                x + x_offset_bars + (int)max_bar_length, y + glyph_height);
    }
 
    return;
@@ -733,50 +728,60 @@ draw_mon_bar(int         pos,
 
    x_offset = x + x_offset_bars;
 
-   if (bar_no == MON_TR_BAR_NO)  /* TRANSFER RATE */
+   if (connect_data[pos].bar_length[(int)bar_no] > 0)
    {
-      y_offset = y + SPACE_ABOVE_LINE;
-      XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
-                     connect_data[pos].bar_length[(int)bar_no],
-                     bar_thickness_3);
-   }
-   else if (bar_no == HOST_ERROR_BAR_NO) /* ERROR HOSTS */
-        {
-           XGCValues gc_values;
-
-           y_offset = y + SPACE_ABOVE_LINE + bar_thickness_3 + bar_thickness_3;
-           gc_values.foreground = color_pool[ERROR_ID];
-           XChangeGC(display, color_gc, GCForeground, &gc_values);
-           XFillRectangle(display, line_window, color_gc,
-                          x_offset, y_offset,
-                          connect_data[pos].bar_length[(int)bar_no],
-                          bar_thickness_3);
-        }
-        else
-        {
-           unsigned long pix;
-           XColor        color;
-           XGCValues     gc_values;
-
-           y_offset = y + SPACE_ABOVE_LINE + bar_thickness_3;
-           color.red = 0;
-           color.green = connect_data[pos].green_color_offset;
-           color.blue = connect_data[pos].blue_color_offset;
-           if (XAllocColor(display, default_cmap, &color) == 0)
+      if (bar_no == MON_TR_BAR_NO)  /* TRANSFER RATE */
+      {
+         y_offset = y + SPACE_ABOVE_LINE;
+         XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
+                        connect_data[pos].bar_length[(int)bar_no],
+                        bar_thickness_3);
+      }
+      else if (bar_no == HOST_ERROR_BAR_NO) /* ERROR HOSTS */
            {
-              pix = color_pool[BLACK];
+              XGCValues gc_values;
+
+              y_offset = y + SPACE_ABOVE_LINE + bar_thickness_3 + bar_thickness_3;
+              gc_values.foreground = color_pool[ERROR_ID];
+              XChangeGC(display, color_gc, GCForeground, &gc_values);
+              XFillRectangle(display, line_window, color_gc,
+                             x_offset, y_offset,
+                             connect_data[pos].bar_length[(int)bar_no],
+                             bar_thickness_3);
            }
            else
            {
-              pix = color.pixel;
-           }
+              XColor    color;
+              XGCValues gc_values;
 
-           gc_values.foreground = pix;
-           XChangeGC(display, color_gc, GCForeground, &gc_values);
-           XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
-                          connect_data[pos].bar_length[(int)bar_no],
-                          bar_thickness_3);
-        }
+              y_offset = y + SPACE_ABOVE_LINE + bar_thickness_3;
+              color.red = 0;
+              color.green = connect_data[pos].green_color_offset;
+              color.blue = connect_data[pos].blue_color_offset;
+              lookup_color(&color);
+              gc_values.foreground = color.pixel;
+              XChangeGC(display, color_gc, GCForeground, &gc_values);
+              XFillRectangle(display, line_window, color_gc,
+                             x_offset, y_offset,
+                             connect_data[pos].bar_length[(int)bar_no],
+                             bar_thickness_3);
+           }
+   }
+   else
+   {
+      if (bar_no == MON_TR_BAR_NO)  /* TRANSFER RATE */
+      {
+         y_offset = y + SPACE_ABOVE_LINE;
+      }
+      else if (bar_no == HOST_ERROR_BAR_NO) /* ERROR HOSTS */
+           {
+              y_offset = y + SPACE_ABOVE_LINE + bar_thickness_3 + bar_thickness_3;
+           }
+           else
+           {
+              y_offset = y + SPACE_ABOVE_LINE + bar_thickness_3;
+           }
+   }
 
    /* Remove color behind shrunken bar */
    if (delta < 0)

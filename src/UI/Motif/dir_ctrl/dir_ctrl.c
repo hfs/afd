@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -197,6 +197,13 @@ main(int argc, char *argv[])
    char          window_title[100];
    static String fallback_res[] =
                  {
+                    "*mwmDecorations : 42",
+                    "*mwmFunctions : 12",
+                    ".dir_ctrl.Search Directory.main_form.buttonbox*background : PaleVioletRed2",
+                    ".dir_ctrl.Search Directory.main_form.buttonbox*foreground : Black",
+                    ".dir_ctrl.Search Directory.main_form.buttonbox*highlightColor : Black",
+                    ".dir_ctrl.Search Directory*background : NavajoWhite2",
+                    ".dir_ctrl.Search Directory*XmText.background : NavajoWhite1",
                     ".dir_ctrl*background : NavajoWhite2",
                     NULL
                  };
@@ -512,6 +519,8 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
          dcp.info_list          = NULL;
          dcp.disable            = YES;
          dcp.disable_list       = NULL;
+         dcp.rescan             = YES;
+         dcp.rescan_list        = NULL;
          dcp.show_slog          = YES; /* View the system log    */
          dcp.show_slog_list     = NULL;
          dcp.show_rlog          = YES; /* View the receive log   */
@@ -694,6 +703,11 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
                               XmNmnemonic,                'D',
+#ifdef WITH_CTRL_ACCELERATOR
+                              XmNaccelerator,             "Ctrl<Key>d",
+#else
+                              XmNaccelerator,             "Alt<Key>d",
+#endif
                               XmNsubMenuId,               dir_pull_down_w,
                               NULL);
 
@@ -706,11 +720,38 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       XtAddCallback(dw[DIR_DISABLE_W], XmNactivateCallback, dir_popup_cb,
                     (XtPointer)DIR_DISABLE_SEL);
    }
-   dw[DIR_SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select",
+   if (dcp.rescan != NO_PERMISSION)
+   {
+#ifdef WITH_CTRL_ACCELERATOR
+      dw[DIR_RESCAN_W] = XtVaCreateManagedWidget("Rescan              (Ctrl+r)",
+#else
+      dw[DIR_RESCAN_W] = XtVaCreateManagedWidget("Rescan              (Alt+r)",
+#endif
+                           xmPushButtonWidgetClass, dir_pull_down_w,
+                           XmNfontList,             fontlist,
+                           XmNmnemonic,             'R',
+#ifdef WITH_CTRL_ACCELERATOR
+                           XmNaccelerator,          "Ctrl<Key>R",
+#else
+                           XmNaccelerator,          "Alt<Key>R",
+#endif
+                           NULL);
+      XtAddCallback(dw[DIR_RESCAN_W], XmNactivateCallback, dir_popup_cb,
+                    (XtPointer)DIR_RESCAN_SEL);
+   }
+#ifdef WITH_CTRL_ACCELERATOR
+   dw[DIR_SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select (Ctrl+s)",
+#else
+   dw[DIR_SELECT_W] = XtVaCreateManagedWidget("Search + (De)Select (Alt+s)",
+#endif
                          xmPushButtonWidgetClass, dir_pull_down_w,
                          XmNfontList,             fontlist,
                          XmNmnemonic,             'S',
+#ifdef WITH_CTRL_ACCELERATOR
+                         XmNaccelerator,          "Ctrl<Key>S",
+#else
                          XmNaccelerator,          "Alt<Key>S",
+#endif
                          NULL);
    XtAddCallback(dw[DIR_SELECT_W], XmNactivateCallback, select_dir_dialog,
                  (XtPointer)0);
@@ -733,12 +774,20 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            xmSeparatorWidgetClass, dir_pull_down_w,
                            XmNseparatorType,       XmDOUBLE_LINE,
                            NULL);
-   dw[DIR_EXIT_W] = XtVaCreateManagedWidget("Exit",
-                              xmPushButtonWidgetClass, dir_pull_down_w,
-                              XmNfontList,             fontlist,
-                              XmNmnemonic,             'x',
-                              XmNaccelerator,          "Alt<Key>x",
-                              NULL);
+#ifdef WITH_CTRL_ACCELERATOR
+   dw[DIR_EXIT_W] = XtVaCreateManagedWidget("Exit                (Ctrl+x)",
+#else
+   dw[DIR_EXIT_W] = XtVaCreateManagedWidget("Exit                (Alt+x)",
+#endif
+                         xmPushButtonWidgetClass, dir_pull_down_w,
+                         XmNfontList,             fontlist,
+                         XmNmnemonic,             'x',
+#ifdef WITH_CTRL_ACCELERATOR
+                         XmNaccelerator,          "Ctrl<Key>x",
+#else
+                         XmNaccelerator,          "Alt<Key>x",
+#endif
+                         NULL);
    XtAddCallback(dw[DIR_EXIT_W], XmNactivateCallback, dir_popup_cb,
                  (XtPointer)EXIT_SEL);
 
@@ -762,7 +811,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       mw[LOG_W] = XtVaCreateManagedWidget("View",
                               xmCascadeButtonWidgetClass, *menu_w,
                               XmNfontList,                fontlist,
-                              XmNmnemonic,                'R',
+                              XmNmnemonic,                'V',
                               XmNsubMenuId,               view_pull_down_w,
                               NULL);
       if ((dcp.show_slog != NO_PERMISSION) ||
@@ -777,8 +826,6 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             vw[DIR_SYSTEM_W] = XtVaCreateManagedWidget("System Log",
                                  xmPushButtonWidgetClass, view_pull_down_w,
                                  XmNfontList,             fontlist,
-                                 XmNmnemonic,             'S',
-                                 XmNaccelerator,          "Alt<Key>S",
                                  NULL);
             XtAddCallback(vw[DIR_SYSTEM_W], XmNactivateCallback, dir_popup_cb,
                           (XtPointer)S_LOG_SEL);
@@ -788,8 +835,6 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             vw[DIR_RECEIVE_W] = XtVaCreateManagedWidget("Receive Log",
                                  xmPushButtonWidgetClass, view_pull_down_w,
                                  XmNfontList,             fontlist,
-                                 XmNmnemonic,             'R',
-                                 XmNaccelerator,          "Alt<Key>R",
                                  NULL);
             XtAddCallback(vw[DIR_RECEIVE_W], XmNactivateCallback, dir_popup_cb,
                           (XtPointer)R_LOG_SEL);
@@ -799,8 +844,6 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             vw[DIR_TRANS_W] = XtVaCreateManagedWidget("Transfer Log",
                                  xmPushButtonWidgetClass, view_pull_down_w,
                                  XmNfontList,             fontlist,
-                                 XmNmnemonic,             'T',
-                                 XmNaccelerator,          "Alt<Key>T",
                                  NULL);
             XtAddCallback(vw[DIR_TRANS_W], XmNactivateCallback, dir_popup_cb,
                           (XtPointer)T_LOG_SEL);
@@ -881,7 +924,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[CONFIG_W] = XtVaCreateManagedWidget("Setup",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
-                           XmNmnemonic,                'S',
+                           XmNmnemonic,                'p',
                            XmNsubMenuId,               setup_pull_down_w,
                            NULL);
    sw[FONT_W] = XtVaCreateManagedWidget("Font size",
@@ -909,7 +952,11 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                            xmPushButtonWidgetClass, setup_pull_down_w,
                            XmNfontList,             fontlist,
                            XmNmnemonic,             'a',
+#ifdef WITH_CTRL_ACCELERATOR
+                           XmNaccelerator,          "Ctrl<Key>a",
+#else
                            XmNaccelerator,          "Alt<Key>a",
+#endif
                            NULL);
    XtAddCallback(sw[SAVE_W], XmNactivateCallback, save_dir_setup_cb, (XtPointer)0);
 
@@ -986,12 +1033,27 @@ init_popup_menu(Widget line_window_w)
          XtManageChild(pushbutton);
          XmStringFree(x_string);
       }
+      if (dcp.rescan != NO_PERMISSION)
+      {
+         argcount = 0;
+         x_string = XmStringCreateLocalized("Rescan");
+         XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         pushbutton = XmCreatePushButton(popupmenu, "Disable", args, argcount);
+         XtAddCallback(pushbutton, XmNactivateCallback,
+                       dir_popup_cb, (XtPointer)DIR_RESCAN_SEL);
+         XtManageChild(pushbutton);
+         XmStringFree(x_string);
+      }
       if (dcp.info != NO_PERMISSION)
       {
          argcount = 0;
          x_string = XmStringCreateLocalized("Info");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+#ifdef WITH_CTRL_ACCELERATOR
          XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>I"); argcount++;
+#else
+         XtSetArg(args[argcount], XmNaccelerator, "Alt<Key>I"); argcount++;
+#endif
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
          pushbutton = XmCreatePushButton(popupmenu, "Info", args, argcount);
          XtAddCallback(pushbutton, XmNactivateCallback,
@@ -1234,6 +1296,8 @@ eval_permissions(char *perm_buffer)
       dcp.info_list          = NULL;
       dcp.disable            = YES;
       dcp.disable_list       = NULL;
+      dcp.rescan             = YES;
+      dcp.rescan_list        = NULL;
       dcp.show_slog          = YES;   /* View the system log   */
       dcp.show_slog_list     = NULL;
       dcp.show_rlog          = YES;   /* View the receive log  */
@@ -1312,6 +1376,26 @@ eval_permissions(char *perm_buffer)
          {
             dcp.disable = NO_LIMIT;
             dcp.disable_list = NULL;
+         }
+      }
+
+      /* May the user use the rescan button for a particular directory? */
+      if ((ptr = posi(perm_buffer, RESCAN_PERM)) == NULL)
+      {
+         /* The user may NOT use the disable button. */
+         dcp.rescan = NO_PERMISSION;
+      }
+      else
+      {
+         ptr--;
+         if ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            dcp.rescan = store_host_names(&dcp.rescan_list, ptr + 1);
+         }
+         else
+         {
+            dcp.rescan = NO_LIMIT;
+            dcp.rescan_list = NULL;
          }
       }
 

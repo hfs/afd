@@ -1433,7 +1433,7 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                        *no_of_job_ids, sizeof(struct job_id_data),
                        move_size, rjl[i], &jd[rjl[i]],
                        rjl[end_pos - 1] + 1, &jd[rjl[end_pos - 1] + 1]);
-#endif /* _DEBUG */
+#endif
             (void)memmove(&jd[rjl[i]], &jd[rjl[end_pos - 1] + 1], move_size);
          }
          jobs_deleted = end_pos - i;

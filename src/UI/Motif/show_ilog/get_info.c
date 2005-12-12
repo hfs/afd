@@ -760,6 +760,82 @@ get_recipient_only(int dir_pos)
                {
                   id.dbe[id.count].recipient[0] = '\0';
                }
+
+               /*
+                * Next lets check if the directory is a remote one.
+                * If thats the case lets store this as well so it is
+                * searchable as well.
+                */
+               ptr = dnb[jd[i].dir_id_pos].orig_dir_name;
+               if ((*ptr != '/') && (*ptr != '~'))
+               {
+                  while ((*ptr != '/') && (*ptr != '\0'))
+                  {
+                     if (*ptr == '\\')
+                     {
+                        ptr++;
+                     }
+                     ptr++;
+                  }
+                  if ((*ptr == '/') && (*(ptr + 1) == '/'))
+                  {
+                     int count = 0;
+
+                     ptr += 2;
+                     while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
+                            (count < (MAX_USER_NAME_LENGTH + 1)))
+                     {
+                        if (*ptr == '\\')
+                        {
+                           ptr++;
+                        }
+                        id.dbe[id.count].dir_url_user[count] = *ptr;
+                        ptr++; count++;
+                     }
+                     id.dbe[id.count].dir_url_user[count] = ' ';
+                     id.dbe[id.count].dir_url_user[count + 1] = '\0';
+                  }
+                  else
+                  {
+                     id.dbe[id.count].dir_url_user[0] = '\0';
+                  }
+                  while ((*ptr != '@') && (*ptr != '\0'))
+                  {
+                     if (*ptr == '\\')
+                     {
+                        ptr++;
+                     }
+                     ptr++;
+                  }
+                  if (*ptr == '@')
+                  {
+                     int j = 0;
+
+                     ptr++;
+                     while ((*ptr != '\0') && (*ptr != '/') &&
+                            (*ptr != ':') && (*ptr != '.') &&
+                            (j < (MAX_HOSTNAME_LENGTH + 1)))
+                     {
+                        if (*ptr == '\\')
+                        {
+                           ptr++;
+                        }
+                        id.dbe[id.count].dir_url_hostname[j] = *ptr;
+                        j++; ptr++;
+                     }
+                     id.dbe[id.count].dir_url_hostname[j] = ' ';
+                     id.dbe[id.count].dir_url_hostname[j + 1] = '\0';
+                  }
+                  else
+                  {
+                     id.dbe[id.count].dir_url_hostname[0] = '\0';
+                  }
+               }
+               else
+               {
+                  id.dbe[id.count].dir_url_hostname[0] = '\0';
+                  id.dbe[id.count].dir_url_user[0] = '\0';
+               }
                id.count++;
             } /* if (gotcha == YES) */
             free(file_mask_buf);

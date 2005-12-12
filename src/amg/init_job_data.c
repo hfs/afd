@@ -45,6 +45,7 @@ DESCR__E_M3
 #include <string.h>       /* strcpy(), strcat(), strlen(), strerror()    */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdlib.h>       /* exit()                                      */
 #include <unistd.h>       /* read()                                      */
 #include <dirent.h>       /* opendir(), closedir(), readdir(), DIR       */
 #ifdef HAVE_FCNTL_H

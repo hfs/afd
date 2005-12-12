@@ -1496,7 +1496,7 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
       (void)strcat(window_title, hostname);
    }
 
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to attach to AFD status area. (%s %d)\n",

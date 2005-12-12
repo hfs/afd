@@ -1112,6 +1112,24 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
+   <td>sequence locking</td>
+   <td>When transmitting file "xxxx.yyyy" it adds the number of retries
+       to the end of the file name "xxxx.yyyy-&lt;retries&gt;" during
+       tranmission. After the file was transmitted successful it is
+       renamed to the original name "xxxx.yyyy". Note, when set appending
+       will NOT be possible. This option is usefull when the remote side
+       has problems with still having this file open, since with every
+       try it will open a new file. It will try to delete the previous
+       before it opens a new one. This option can be combined with the
+       other locking options.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
    <td>archive x</td>
    <td>Tells the AFD to archive files to this user for x days (default 0).</td>
    <td><pre>&nbsp;</pre></td>
@@ -1237,6 +1255,18 @@ section. Valid options can be taken from the following table:
             U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
        </pre>
        </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="from">from &lt;mail address&gt;</a></td>
+   <td>This allows to change the From: line of a mail. This can also be
+       set in AFD_CONFIG with <a href="afd_config.html#default_smtp_from">
+       DEFAULT_SMTP_FROM</a> globaly.</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
@@ -1686,7 +1716,7 @@ to 30 minutes, it needs to be done asfollows:
    <td width=90%><small><address>
    Copyright &copy; 1997 - 2005 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 16.08.2005
+   Last updated: 21.09.2005
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

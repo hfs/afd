@@ -53,9 +53,14 @@ insert_passwd(char *url)
    char *ptr = url,
         uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
 
-   while (*ptr != ':')
+   while ((*ptr != ':') && (*ptr != '\0'))
    {
       ptr++;
+   }
+   if (ptr == '\0')
+   {
+      /* This is not in URL format, just return. */
+      return;
    }
    ptr += 3; /* Away with '://' */
    i = 0;

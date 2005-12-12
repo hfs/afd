@@ -51,7 +51,7 @@ DESCR__E_M3
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
 #ifdef TM_IN_SYS_TIME
-#include <sys/time.h>                 /* struct tm                       */
+# include <sys/time.h>                /* struct tm                       */
 #endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
@@ -132,7 +132,7 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
          buf[length] = '\n';
          length += 1;
       }
-      else if (fsa->protocol & SEND_FLAG)
+      else if (db.msg_name[0] != '\0')
            {
               if (buf[length - 1] == '.')
               {
@@ -160,7 +160,7 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
          buf[length] = '\n';
          length += 1;
       }
-      else if (fsa->protocol & SEND_FLAG)
+      else if (db.msg_name[0] != '\0')
            {
               length += sprintf(&buf[length], " #%x (%s %d)\n",
                                 db.job_id, file, line);
@@ -170,7 +170,7 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
               length += sprintf(&buf[length], " (%s %d)\n", file, line);
            }
 
-      if ((msg_str != NULL) && (msg_str[0] != '\0'))
+      if ((msg_str != NULL) && (msg_str[0] != '\0') && (timeout_flag == OFF))
       {
          char tmp_char;
 

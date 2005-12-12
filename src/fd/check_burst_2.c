@@ -285,6 +285,7 @@ retry:
                      p_new_db->special_flag         = 0;
                      p_new_db->mode_flag            = 0;
                      p_new_db->archive_time         = DEFAULT_ARCHIVE_TIME;
+                     p_new_db->retries              = 0;
                      p_new_db->age_limit            = DEFAULT_AGE_LIMIT;
 #ifdef _OUTPUT_LOG
                      p_new_db->output_log           = YES;

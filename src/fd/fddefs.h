@@ -57,6 +57,9 @@
                                        /* check in file directory for    */
                                        /* jobs without the corresponding */
                                        /* message.                       */
+#define RETRY_THRESHOLD          4     /* Threshold when to increase     */
+                                       /* aging factor for error jobs in */
+                                       /* queue.                         */
 
 /* Definitions of different exit status */
 #define NO_MESSAGE               -2    /* When there are no more jobs to */
@@ -125,6 +128,8 @@
 #define MKDIR_ERROR_STR          "Failed to create directory"
 /* NOTE: CHOWN_ERROR             27 is defined in afddefs.h! */
 #define CHOWN_ERROR_STR          "Failed to change owner of file"
+#define CONNECTION_RESET_ERROR   28
+#define CONNECTION_RESET_ERROR_STR "Connection reset by peer"
 #define OPEN_LOCAL_ERROR         30
 #define OPEN_LOCAL_ERROR_STR     "Failed to open local file"
 #define READ_LOCAL_ERROR         31
@@ -272,6 +277,8 @@
 #define CREATE_TARGET_DIR_ID_LENGTH    (sizeof(CREATE_TARGET_DIR_ID) - 1)
 #define DONT_CREATE_TARGET_DIR         "do not create target dir"
 #define DONT_CREATE_TARGET_DIR_LENGTH  (sizeof(DONT_CREATE_TARGET_DIR) - 1)
+#define SEQUENCE_LOCKING_ID            "sequence locking"
+#define SEQUENCE_LOCKING_ID_LENGTH     (sizeof(SEQUENCE_LOCKING_ID) - 1)
 
 /* Definition for special_flag in structure job */
 #define FILE_NAME_IS_HEADER            1
@@ -300,6 +307,8 @@
 #endif /* _WITH_TRANS_EXEC */
 #define CREATE_TARGET_DIR              2048
 #define OLD_ERROR_JOB                  4096
+#define SMTP_SERVER_NAME_IN_AFD_CONFIG 8192
+#define SEQUENCE_LOCKING               16384
 
 #ifdef _WITH_BURST_2
 # define MORE_DATA_FIFO                "/more_data_"
@@ -387,6 +396,8 @@ struct job
           unsigned int   age_limit;      /* If date of file is older     */
                                          /* then age limit, file gets    */
                                          /* removed.                     */
+          unsigned int   retries;        /* The number times we tried to */
+                                         /* send this job.               */
 #ifdef _OUTPUT_LOG
           int            archive_offset; /* When writting the archive    */
                                          /* directory to the output log, */
@@ -542,6 +553,9 @@ struct job
                                          /*|11 | Create target dir.     |*/
                                          /*|12 | This is an old/error   |*/
                                          /*|   | job.                   |*/
+                                         /*|13 | The SMTP server name   |*/
+                                         /*|   | comes from AFD_CONFIG. |*/
+                                         /*|14 | FTP: Sequence locking. |*/
                                          /*+---+------------------------+*/
 #ifdef WITH_DUP_CHECK
           unsigned int   dup_check_flag; /* Flag storing the type of     */
@@ -666,8 +680,8 @@ extern int   append_compare(char *, char *),
              check_fra_fd(void),
              eval_input_gf(int, char **, struct job *),
              eval_input_sf(int, char **, struct job *),
-             eval_recipient(char *, struct job *, char *, time_t),
              eval_message(char *, struct job *),
+             eval_recipient(char *, struct job *, char *, time_t),
              fd_check_fsa(void),
              fsa_attach_pos(int),
              get_file_names(char *, off_t *),
@@ -718,5 +732,6 @@ extern void  check_fsa_entries(void),
              system_log(char *, char *, int, char *, ...),
              trace_log(char *, int, int, char *, int, char *, ...),
              trans_db_log(char *, char *, int, char *, char *, ...),
-             trans_exec(char *, char *, char *);
+             trans_exec(char *, char *, char *),
+             trans_log(char *, char *, int, char *, char *, ...);
 #endif /* __fddefs_h */

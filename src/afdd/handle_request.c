@@ -60,7 +60,7 @@ DESCR__E_M3
 #include "version.h"
 #include "logdefs.h"
 
-/* Global variable. */
+/* Global variables. */
 int                        no_of_hosts,
                            fsa_fd = -1,
                            fsa_id,

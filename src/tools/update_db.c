@@ -86,7 +86,7 @@ main(int argc, char *argv[])
 #endif
 
    /* Attach to the AFD Status Area */
-   if (attach_afd_status() < 0)
+   if (attach_afd_status(NULL) < 0)
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to map to AFD status area. (%s %d)\n",

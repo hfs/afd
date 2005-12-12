@@ -317,6 +317,12 @@ struct dir_data
           int           locked_file_time;   /* After how many hours can  */
                                             /* a locked file be deleted. */
           int           end_character;
+          unsigned int  in_dc_flag;         /* Flag to indicate which of */
+                                            /* the options have been     */
+                                            /* stored in DIR_CONFIG. This*/
+                                            /* is usefull for restoring  */
+                                            /* the DIR_CONFIG from       */
+                                            /* scratch.                  */
           unsigned int  accumulate;         /* How many files need to    */
                                             /* accumulate before start   */
                                             /* sending from this dir.    */
@@ -360,6 +366,8 @@ struct dir_data
 #endif
           unsigned int  max_copied_files;   /* Maximum number of files   */
                                             /* that we copy in one go.   */
+          unsigned int  dir_id;             /* CRC-32 checksum of this   */
+                                            /* directory entry.          */
           int           fsa_pos;            /* FSA position, only used   */
                                             /* for retrieving files.     */
           int           dir_pos;            /* Position of this directory*/
