@@ -172,11 +172,36 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
 
       if ((msg_str != NULL) && (msg_str[0] != '\0') && (timeout_flag == OFF))
       {
-         char tmp_char;
+         char *end_ptr,
+              tmp_char;
 
          tmp_char = buf[header_length];
          buf[header_length] = '\0';
-         length += sprintf(&buf[length], "%s%s\n", buf, msg_str);
+         end_ptr = msg_str;
+         do
+         {
+            while ((*end_ptr == '\n') || (*end_ptr == '\r'))
+            {
+               end_ptr++;
+            }
+            ptr = end_ptr;
+            while ((*end_ptr != '\n') && (*end_ptr != '\r') &&
+                   (*end_ptr != '\0'))
+            {
+               /* Replace any unprintable characters with a dot. */
+               if ((*end_ptr < ' ') || (*end_ptr > '~'))
+               {
+                  *end_ptr = '.';
+               }
+               end_ptr++;
+            }
+            if ((*end_ptr == '\n') || (*end_ptr == '\r'))
+            {
+               *end_ptr = '\0';
+               end_ptr++;
+            }
+            length += sprintf(&buf[length], "%s%s\n", buf, ptr);
+         } while (*end_ptr != '\0');
          buf[header_length] = tmp_char;
       }
    }

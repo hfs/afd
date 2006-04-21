@@ -2,7 +2,7 @@
 # Sample DIR_CONFIG for AFD
 #
 
-[directory]
+[directory] Test
 ~/test
 
    [files]

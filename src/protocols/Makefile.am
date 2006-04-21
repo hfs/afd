@@ -18,7 +18,7 @@
 
 MAINTAINERCLEANFILES        = Makefile.in
 noinst_HEADERS              = commondefs.h ftpdefs.h httpdefs.h scpdefs.h\
-                              smtpdefs.h wmodefs.h
+                              sftpdefs.h smtpdefs.h ssh_commondefs.h wmodefs.h
 INCLUDES                    = -I.. -I../init_afd -I../fd @AFD_SSL_INCLUDES@
 lib_LIBRARIES               = libprotocols.a libtraceprotocols.a
 libprotocols_a_SOURCES      = common.c\
@@ -26,7 +26,9 @@ libprotocols_a_SOURCES      = common.c\
                               ftpcmd.c\
                               httpcmd.c\
                               scpcmd.c\
+                              sftpcmd.c\
                               smtpcmd.c\
+                              ssh_common.c\
                               wmocmd.c
 libtraceprotocols_a_SOURCES = $(libprotocols_a_SOURCES)
 libtraceprotocols_a_CFLAGS  = -DWITH_TRACE

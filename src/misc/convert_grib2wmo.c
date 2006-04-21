@@ -1,6 +1,6 @@
 /*
  *  convert_grib2wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -144,9 +144,11 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                   int   i;
                   off_t total_length = stat_buf.st_size;
                   char  header[36],
-                        *ptr;
+                        *ptr,
+                        *ptr_end;
 
                   ptr = buffer;
+                  ptr_end = buffer + stat_buf.st_size;
                   while (total_length > 9)
                   {
                      unsigned int data_length = 0,
@@ -232,35 +234,14 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                         break;
                      }
                      *file_size += 35 + data_length + 4;
-                     if (data_length > total_length)
+                     if (data_length > (total_length + 4))
                      {
                         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                                     "Hmmm, data_length (%d) > total_length (%u)?",
-                                    data_length, total_length);
-                        total_length = 0;
+                                    data_length, (total_length + 4));
                      }
-                     else
-                     {
-                        total_length -= data_length;
-                     }
-                     if (message_length == 0)
-                     {
-                        ptr = ptr + data_length;
-                     }
-                     else
-                     {
-                        int rest;
-
-                        if ((rest = (message_length % 4)) == 0)
-                        {
-                           ptr = ptr + data_length;
-                        }
-                        else
-                        {
-                           ptr = ptr + data_length - rest;
-                           total_length += rest;
-                        }
-                     }
+                     ptr = ptr - 4 + data_length;
+                     total_length = ptr_end - ptr;
                   } /* while (total_length > 9) */
 
                   if (close(to_fd) == -1)
@@ -285,7 +266,7 @@ convert_grib2wmo(char *file, off_t *file_size, char *default_CCCC)
                               file, strerror(errno));
                }
 
-               if ((ret == SUCCESS) && (*file_size > 0))
+               if ((ret == SUCCESS) || (*file_size > 0))
                {
                   if (rename(tmp_file, file) == -1)
                   {

@@ -258,3 +258,89 @@
 08.12.2005 - When calling remote commands via mon_ctrl, make full path
              to the rafdd_cmd/rafdd_cmd_ssh script optional.
 ------------------------> Released: 08.12.2005 <---------------------------
+
+
+
+----------------------------> Version 1.3.2 <------------------------------
+                             ---------------
+15.12.2005 - When specifying a / in time option in any of the possible
+             field, except for min field, could lead to AMG going into
+             an endless loop.
+18.12.2005 - Function check_permission() may not write to system_log.fifo,
+             it may deadlock because process system_log is not running.
+22.12.2005 - Selecting one or more directories in dir_ctrl dialog will
+             now also show up in show_queue dialog.
+01.01.2006 - When storing an old year catch the case when clock goes back
+             one second (leap second).
+02.01.2006 - Made handling of pty devices more compatible with more
+             systems.
+06.01.2006 - Empty pool directories are not deleted because we failed
+             to take into account that the directory ID was written in
+             hex. Fixed.
+           - The view_dc dialog now shows the correct directory options
+             again.
+           - The tool get_dc_data can now show directory options.
+08.01.2006 - Don't check each possible return string after we entered
+             the password for a SSH connection.
+           - When enabling traceing, don't show the password for SSH
+             connections.
+           - Made trans_log more robust when we encounter unprintable
+             characters.
+           - AFD now compiles again with configure option --with-gui=none.
+10.01.2006 - Fix the error in show_ilog and show_dlog dialog when specifying
+             no directory and not showing any data.
+17.01.2006 - In mon_ctrl if we have auto switching and a switch takes
+             place, kill any open windows to this host.
+24.01.2006 - Fix a bug in function eaccess() that could lead to a crash
+             of AFD.
+26.01.2006 - Make the number of process that may connect to afdd
+             configurable in AFD_CONFIG (via MAX_AFDD_CONNECTIONS).
+29.01.2006 - Support for SFTP, sending only.
+10.02.2006 - Process sf_ftp could crash during a debug session when it
+             was deleting previous old temp/dot files. Fixed.
+12.02.2006 - Added possibility to not set type image when doing FTP
+             transfers.
+18.02.2006 - Option to set socket send and receive buffer.
+20.02.2006 - Enabling directory from dir_ctrl dialog works again.
+22.02.2006 - Enabling/disabling an AFD in mon_ctrl works again.
+23.02.2006 - Fix error in ETR_SOCKET_NSL M4-macro which used CFLAGS
+             instead of LIBS.
+           - Startup/Shutdown afd did not work when fake user was used.
+24.02.2006 - Added check for whether the compiler provides a working
+             long long.
+02.03.2006 - Fixed another error in the function that evaluates the time
+             entry, which could lead to AMG going into an endless loop.
+06.03.2006 - Do not give a user full permission if afd.users file exists
+             but user cannot read the file for whatever reason.
+09.03.2006 - Support for duplicate checks on a per host basis.
+           - In function check_files() we must remove a CRC from
+             the dupcheck list if we fail to pickup the file.
+15.03.2006 - When checking if files in the input directory have the
+             correct permissions, we failed to check for supplementary
+             groups.
+16.03.2006 - Implemented group transfer limit.
+21.03.2006 - When doing the pexec show what command we currently execute
+             int the job details window.
+28.03.2006 - For option pexec show in TRANSFER_LOG what we are doing
+             and how long it took to execute the command.
+29.03.2006 - Support for file filters with time modifiers.
+01.04.2006 - Process FD may not perform a file dir check when process
+             dir_check has queued messages.
+05.04.2006 - Dialog show_queue sometimes showed wrong data or even
+             crashed, because it was using a variable wrong. Fixed.
+06.04.2006 - Hopefully improved SSH/SCP login procedure.
+07.04.2006 - Fixed some errors in grib2wmo options.
+           - Initializing AFD or AFD_MON should only delete files
+             belonging to them.
+11.04.2006 - For protocol SCP and when we are doing a burst we must
+             also check if the target directories are the same. Since
+             SCP protocol does not support changing directories.
+19.04.2006 - Dialog dir_info, show_ilog, show_olog, show_dlog and
+             show_queue did not work when fake user was used from
+             dir_ctrl.
+           - The option tiff2gts can now handle other TIFF files with
+             WMO headers not only DWD special scanner files. Thanks
+             to Laurentiu BROJBOIU!
+           - Fix some errors in show_ilog dialog not showing any or
+             all data.
+------------------------> Released: 20.04.2006 <---------------------------

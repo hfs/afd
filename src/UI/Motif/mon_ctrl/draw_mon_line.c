@@ -606,7 +606,7 @@ draw_mon_chars(int pos, char type, int x, int y)
    XGCValues gc_values;
    GC        tmp_gc;
 
-   switch(type)
+   switch (type)
    {
       case FILES_TO_BE_SEND : 
          ptr = connect_data[pos].str_fc;

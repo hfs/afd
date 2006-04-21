@@ -1,6 +1,6 @@
 /*
  *  fra_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -88,6 +88,7 @@ main(int argc, char *argv[])
         last = 0,
         position = -1;
    char dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
+        *ptr,
         work_dir[MAX_PATH_LENGTH];
 
    CHECK_FOR_VERSION(argc, argv);
@@ -151,9 +152,11 @@ main(int argc, char *argv[])
            exit(INCORRECT);
         }
 
+   ptr =(char *)fra;
+   ptr -= AFD_WORD_OFFSET;
    (void)fprintf(stdout,
-                 "            Number of directories: %d   FRA ID: %d\n\n",
-                 no_of_dirs, fra_id);
+                 "     Number of directories: %d   FRA ID: %d  Struct Version: %d\n\n",
+                 no_of_dirs, fra_id, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
    for (i = position; i < last; i++)
    {
       (void)fprintf(stdout, "=============================> %s <=============================\n",

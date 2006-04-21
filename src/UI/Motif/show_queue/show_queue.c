@@ -102,6 +102,8 @@ int                        char_width,
                            file_name_length,
                            items_selected = NO,
                            no_of_active_process = 0,
+                           no_of_search_dirs,
+                           no_of_search_dirids,
                            no_of_search_hosts,
                            queue_tmp_buf_entries,
                            special_button_flag,
@@ -111,12 +113,13 @@ XT_PTR_TYPE                toggles_set;
 time_t                     start_time_val,
                            end_time_val;
 size_t                     search_file_size;
-unsigned int               total_no_files;
+unsigned int               *search_dirid = NULL,
+                           total_no_files;
 double                     total_file_size;
 char                       *p_work_dir,
                            font_name[256],
                            search_file_name[MAX_PATH_LENGTH],
-                           search_directory_name[MAX_PATH_LENGTH],
+                           **search_dir = NULL,
                            **search_recipient,
                            **search_user,
                            user[MAX_FULL_USER_ID_LENGTH];
@@ -1207,6 +1210,32 @@ main(int argc, char *argv[])
            XmTextSetString(headingbox_w, HEADING_LINE_LONG);
         }
 
+   if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+   {
+      size_t length;
+      char   *str;  
+
+      length = (no_of_search_dirs * MAX_PATH_LENGTH) +
+               (no_of_search_dirids * (MAX_DIR_ALIAS_LENGTH + 1)) +
+               ((no_of_search_dirs + no_of_search_dirids) * 2) + 1;
+      if ((str = malloc(length)) != NULL)                          
+      {
+         int i;
+
+         length = 0;
+         for (i = 0; i < no_of_search_dirs; i++)
+         {
+            length += sprintf(&str[length], "%s, ", search_dir[i]);
+         }
+         for (i = 0; i < no_of_search_dirids; i++)
+         {
+            length += sprintf(&str[length], "#%x, ", search_dirid[i]);
+         }
+         str[length - 2] = '\0';
+         XtVaSetValues(directory_w, XmNvalue, str, NULL);
+         free(str);
+      }
+   }
    if (no_of_search_hosts > 0)
    {
       char *str;
@@ -1247,7 +1276,8 @@ main(int argc, char *argv[])
 static void
 init_show_queue(int *argc, char *argv[])
 {
-   char fake_user[MAX_FULL_USER_ID_LENGTH],
+   char **dirid_str = NULL,
+        fake_user[MAX_FULL_USER_ID_LENGTH],
         *perm_buffer;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
@@ -1268,10 +1298,38 @@ init_show_queue(int *argc, char *argv[])
    {
       (void)strcpy(font_name, "fixed");
    }
+   if (get_arg_array(argc, argv, "-d", &dirid_str,
+                     &no_of_search_dirids) == INCORRECT)
+   {
+      no_of_search_dirids = 0;
+   }
+   else
+   {
+      int i;
+
+      if ((search_dirid = malloc((no_of_search_dirids * sizeof(unsigned int)))) == NULL)
+      {
+         (void)fprintf(stderr,
+                       "Failed to malloc() %d bytes : %s (%s %d)\n",
+                       no_of_search_dirids * sizeof(unsigned int),
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      for (i = 0; i < no_of_search_dirids; i++)
+      {
+         search_dirid[i] = (unsigned int)strtol(dirid_str[i], NULL, 16);
+      }
+      FREE_RT_ARRAY(dirid_str);
+   }
+   if (get_arg_array(argc, argv, "-D", &search_dir,
+                     &no_of_search_dirs) == INCORRECT)
+   {
+      no_of_search_dirs = 0;
+   }
 
    /* Now lets see if user may use this program */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -1328,7 +1386,6 @@ init_show_queue(int *argc, char *argv[])
    end_time_val = -1;
    search_file_size = -1;
    search_file_name[0] = '\0';
-   search_directory_name[0] = '\0';
    special_button_flag = SEARCH_BUTTON;
    qfl = NULL;
    qtb = NULL;
@@ -1351,9 +1408,21 @@ init_show_queue(int *argc, char *argv[])
 static void
 usage(char *progname)
 {
+   (void)fprintf(stderr, "Usage : %s [options] [host name 1..n]\n", progname);
    (void)fprintf(stderr,
-                 "Usage : %s [-w <working directory>] [-u[ <user]] [-f <font name>] [host name 1..n]\n",
-                 progname);
+                 "        Options:\n");
+   (void)fprintf(stderr,
+                 "           -d <dir identifier 1> ... <dir identifier n>\n");
+   (void)fprintf(stderr,
+                 "           -D <directory 1> ... <directory n>\n");
+   (void)fprintf(stderr,
+                 "           -f <font name>\n");
+   (void)fprintf(stderr,
+                 "           -u [<fake user>]\n");
+   (void)fprintf(stderr,
+                 "           -w <working directory>\n");
+   (void)fprintf(stderr,
+                 "           --version\n");
    return;
 }
 

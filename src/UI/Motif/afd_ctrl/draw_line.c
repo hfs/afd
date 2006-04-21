@@ -1047,7 +1047,7 @@ draw_chars(int pos, char type, int x, int y, int column)
    XGCValues gc_values;
    GC        tmp_gc;
 
-   switch(type)
+   switch (type)
    {
       case NO_OF_FILES : 
          ptr = connect_data[pos].str_tfc;

@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -77,7 +77,7 @@ static struct job_id_data  *jd = NULL;
 static struct dir_name_buf *dnb = NULL;
 
 /* Local function prototypes. */
-static int                 get_all(int);
+static unsigned int        get_all(int);
 static void                get_job_data(struct job_id_data *);
 
 
@@ -400,7 +400,11 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
       if (*ptr == SEPARATOR_CHAR)
       {
          str_hex_number[i] = '\0';
-         *file_size = strtod(str_hex_number, NULL);
+#ifdef HAVE_STRTOULL
+         *file_size = (double)strtoull(str_hex_number, NULL, 16);
+#else
+         *file_size = (double)strtoul(str_hex_number, NULL, 16);
+#endif
          ptr++;
       }
       else if (i >= 23)
@@ -429,7 +433,7 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
 /*              it exists), job number and if available the archive      */
 /*              directory out of the log file.                           */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
-static int
+static unsigned int
 get_all(int item)
 {
    int  file_no,
@@ -462,7 +466,7 @@ get_all(int item)
          (void)xrec(appshell, FATAL_DIALOG,
                     "fseek() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
-         return(0);
+         return(0U);
       }
 
       if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
@@ -470,7 +474,7 @@ get_all(int item)
          (void)xrec(appshell, WARN_DIALOG,
                     "fgets() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
-         return(0);
+         return(0U);
       }
 
       /* Store the date. */
@@ -523,7 +527,11 @@ get_all(int item)
 #else
          (void)sprintf(id.file_size, "%lld",
 #endif
-                       (off_t)strtod(str_hex_number, NULL));
+#ifdef HAVE_STRTOULL
+                       (off_t)strtoull(str_hex_number, NULL, 16));
+#else
+                       (off_t)strtoul(str_hex_number, NULL, 16));
+#endif
          ptr++;
       }
       else if (i >= 23)
@@ -593,7 +601,7 @@ get_all(int item)
    }
    else
    {
-      return(0);
+      return(0U);
    }
 }
 

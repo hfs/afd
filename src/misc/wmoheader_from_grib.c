@@ -1,7 +1,7 @@
 /*
  *  wmoheader_from_grib.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002, 2003 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2006 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,7 +89,7 @@ wmoheader_from_grib(char *grib_buffer,
        */
       TT[0] = 'Y';
    }
-   switch((unsigned char)(*(ptr + 12))) /* PDS Octet 9 */
+   switch ((unsigned char)(*(ptr + 12))) /* PDS Octet 9 */
    {
       case  1 : /* Pressure */
       case  2 : /* Pressure reduced to MSL */
@@ -164,7 +164,7 @@ wmoheader_from_grib(char *grib_buffer,
    }
    TT[2] = '\0';
 
-   switch((unsigned char)(*(ptr + 10))) /* PDS Octet 7 */
+   switch ((unsigned char)(*(ptr + 10))) /* PDS Octet 7 */
    {
       case 201: /* (AWIPS) */
       case 21 :
@@ -412,7 +412,7 @@ wmoheader_from_grib(char *grib_buffer,
                  }
 
 #ifdef _WHEN_KNOWN
-            switch((unsigned char)(*(ptr + pds_length + 9))) /* GDS Octet 6 */
+            switch ((unsigned char)(*(ptr + pds_length + 9))) /* GDS Octet 6 */
             {
                case 0  : /* Latitude/Longitude Grid */
                case 10 : /* Rotated Latitude/Longitude Grid */
@@ -465,14 +465,14 @@ wmoheader_from_grib(char *grib_buffer,
          AA[0] = 'X';
          break;
    }
-   switch((unsigned char)(*(ptr + 24))) /* PDS Octet 21 */
+   switch ((unsigned char)(*(ptr + 24))) /* PDS Octet 21 */
    {
       case 0  :
          if ((unsigned char)(*(ptr + 22)) > 0)
          {
             int tr;
 
-            switch((unsigned char)(*(ptr + 21))) /* PDS Octet 18 */
+            switch ((unsigned char)(*(ptr + 21))) /* PDS Octet 18 */
             {
                case 254: /* Second */
                case 0  : /* Minute */
@@ -502,7 +502,7 @@ wmoheader_from_grib(char *grib_buffer,
             }
             if (TT[0] == 'H')
             {
-               switch(tr)
+               switch (tr)
                {
                   case 0 : /* hour analysis */
                   case 1 : /* (?) */
@@ -629,7 +629,7 @@ wmoheader_from_grib(char *grib_buffer,
             }
             else
             {
-               switch(tr)
+               switch (tr)
                {
                   case 0 : /* hour analysis */
                      AA[1] = 'A';
@@ -732,7 +732,7 @@ wmoheader_from_grib(char *grib_buffer,
    AA[2] = '\0';
 
    /* Level designators ii */
-   switch((unsigned char)(*(ptr + 13))) /* PDS Octet 10 */
+   switch ((unsigned char)(*(ptr + 13))) /* PDS Octet 10 */
    {
       case 1 : /* surface (of the Earth, which includes sea surface) */
          ii[0] = '9'; ii[1] = '8';
@@ -802,15 +802,17 @@ wmoheader_from_grib(char *grib_buffer,
    /* Get Originator CCCC. */
    if (default_CCCC == NULL)
    {
-      switch((unsigned char)(*(ptr + 8))) /* PDS Octet 5 */
+      switch ((unsigned char)(*(ptr + 8))) /* PDS Octet 5 */
       {
          case 1  :
-         case 2  : /* Melbourne */
+         case 2  :
+         case 3  : /* Melbourne */
             CCCC[0] = 'A'; CCCC[1] = 'M'; CCCC[2] = 'M'; CCCC[3] = 'C';
             break;
          case 76 :
          case 4  :
-         case 5  : /* Moscow */
+         case 5  :
+         case 6  : /* Moscow */
             CCCC[0] = 'R'; CCCC[1] = 'U'; CCCC[2] = 'M'; CCCC[3] = 'S';
             break;
          case 7  : /* US Weather Service - National Met. Center */
@@ -818,16 +820,20 @@ wmoheader_from_grib(char *grib_buffer,
          case 8  : /* US National Weather Service Telecommunications Gateway */
             CCCC[0] = 'K'; CCCC[1] = 'W'; CCCC[2] = 'B'; CCCC[3] = 'C';
             break;
-         case 10 : /* Cairo (RSMC/RAFC) */
+         case 10 :
+         case 11 : /* Cairo (RSMC/RAFC) */
             CCCC[0] = 'H'; CCCC[1] = 'E'; CCCC[2] = 'C'; CCCC[3] = 'A';
             break;
-         case 12 : /* Dakar (RSMC/RAFC) */
+         case 12 :
+         case 13 : /* Dakar (RSMC/RAFC) */
             CCCC[0] = 'G'; CCCC[1] = 'O'; CCCC[2] = 'O'; CCCC[3] = 'O';
             break;
-         case 14 : /* Nairobi (RSMC/RAFC) */
+         case 14 :
+         case 15 : /* Nairobi (RSMC/RAFC) */
             CCCC[0] = 'H'; CCCC[1] = 'K'; CCCC[2] = 'N'; CCCC[3] = 'C';
             break;
-         case 18 : /* Tunis-Casablanca (RSMC) */
+         case 18 :
+         case 19 : /* Tunis-Casablanca (RSMC) */
             CCCC[0] = 'D'; CCCC[1] = 'T'; CCCC[2] = 'T'; CCCC[3] = 'A';
             break;
          case 22 : /* Lagos */
@@ -836,10 +842,12 @@ wmoheader_from_grib(char *grib_buffer,
          case 24 : /* Pretoria (RSMC) */
             CCCC[0] = 'F'; CCCC[1] = 'A'; CCCC[2] = 'P'; CCCC[3] = 'R';
             break;
-         case 28 : /* New Delhi (RSMC/RAFC) */
+         case 28 :
+         case 29 : /* New Delhi (RSMC/RAFC) */
             CCCC[0] = 'D'; CCCC[1] = 'E'; CCCC[2] = 'M'; CCCC[3] = 'S';
             break;
-         case 30 : /* Novosibirsk (RSMC) */
+         case 30 :
+         case 31 : /* Novosibirsk (RSMC) */
             CCCC[0] = 'U'; CCCC[1] = 'N'; CCCC[2] = 'N'; CCCC[3] = 'N';
             break;
          case 32 : /* Tashkent (RSMC) */
@@ -848,19 +856,23 @@ wmoheader_from_grib(char *grib_buffer,
          case 33 : /* Jeddah (RSMC) */
             CCCC[0] = 'O'; CCCC[1] = 'E'; CCCC[2] = 'J'; CCCC[3] = 'D';
             break;
-         case 34 : /* Japanese Meteorological Agency - Tokyo */
+         case 34 :
+         case 35 : /* Japanese Meteorological Agency - Tokyo */
             CCCC[0] = 'R'; CCCC[1] = 'J'; CCCC[2] = 'T'; CCCC[3] = 'D';
             break;
-         case 38 : /* Beijing (RSMC) */
+         case 38 :
+         case 39 : /* Beijing (RSMC) */
             CCCC[0] = 'B'; CCCC[1] = 'A'; CCCC[2] = 'B'; CCCC[3] = 'J';
             break;
          case 40 : /* Seoul */
             CCCC[0] = 'R'; CCCC[1] = 'K'; CCCC[2] = 'S'; CCCC[3] = 'L';
             break;
-         case 41 : /* Buenos Aires (RSMC/RAFC) */
+         case 41 :
+         case 42 : /* Buenos Aires (RSMC/RAFC) */
             CCCC[0] = 'S'; CCCC[1] = 'A'; CCCC[2] = 'B'; CCCC[3] = 'M';
             break;
-         case 43 : /* Brasilia (RSMC/RAFC) */
+         case 43 :
+         case 44 : /* Brasilia (RSMC/RAFC) */
                CCCC[0] = 'S'; CCCC[1] = 'B'; CCCC[2] = 'B'; CCCC[3] = 'R';
             break;
          case 45 : /* Santiago */
@@ -870,7 +882,8 @@ wmoheader_from_grib(char *grib_buffer,
          case 52 : /* Miami */
             CCCC[0] = 'K'; CCCC[1] = 'N'; CCCC[2] = 'H'; CCCC[3] = 'C';
             break;
-         case 53 : /* Canadian Meteorological Service - Montreal */
+         case 53 :
+         case 54 : /* Canadian Meteorological Service - Montreal */
             CCCC[0] = 'C'; CCCC[1] = 'Y'; CCCC[2] = 'U'; CCCC[3] = 'L';
             break;
          case 55 : /* San Francisco */
@@ -885,25 +898,31 @@ wmoheader_from_grib(char *grib_buffer,
          case 60 : /* Honolulu */
             CCCC[0] = 'P'; CCCC[1] = 'H'; CCCC[2] = 'Z'; CCCC[3] = 'H';
             break;
-         case 65 : /* Darwin (RSMC) */
+         case 65 :
+         case 66 : /* Darwin (RSMC) */
             CCCC[0] = 'Y'; CCCC[1] = 'D'; CCCC[2] = 'D'; CCCC[3] = 'N';
             break;
          case 67 : /* Melbourne (RSMC) */
             CCCC[0] = 'Y'; CCCC[1] = 'M'; CCCC[2] = 'E'; CCCC[3] = 'N';
             break;
-         case 69 : /* Wellington (RSMC/RAFC) */
+         case 69 :
+         case 70 : /* Wellington (RSMC/RAFC) */
             CCCC[0] = 'N'; CCCC[1] = 'Z'; CCCC[2] = 'K'; CCCC[3] = 'L';
             break;
-         case 74 : /* U.K. Met Office - Bracknell */
+         case 74 :
+         case 75 : /* U.K. Met Office - Bracknell */
             CCCC[0] = 'E'; CCCC[1] = 'G'; CCCC[2] = 'R'; CCCC[3] = 'R';
             break;
-         case 78 : /* Offenbach (RSMC) */
+         case 78 :
+         case 79 : /* Offenbach (RSMC) */
             CCCC[0] = 'E'; CCCC[1] = 'D'; CCCC[2] = 'Z'; CCCC[3] = 'W';
             break;
-         case 80 : /* Rome (RSMC) */
+         case 80 :
+         case 81 : /* Rome (RSMC) */
             CCCC[0] = 'L'; CCCC[1] = 'I'; CCCC[2] = 'I'; CCCC[3] = 'B';
             break;
-         case 82 : /* Norrkoeping */
+         case 82 :
+         case 83 : /* Norrkoeping */
             CCCC[0] = 'E'; CCCC[1] = 'S'; CCCC[2] = 'W'; CCCC[3] = 'I';
             break;
          case 216:

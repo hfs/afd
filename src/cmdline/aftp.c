@@ -1,6 +1,6 @@
 /*
  *  aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -46,6 +46,8 @@ DESCR__S_M1
  **     -m <A | I>                      - FTP transfer mode, ASCII, binary or
  **                                       dos. Default is binary.
  **     -p <port number>                - Remote port number of FTP-server.
+ **     -P <proxy>                      - Use the given proxy procedure
+ **                                       to login.
  **     -u <user> <password>            - Remote user name and password.
  **     -r                              - Remove transmitted file.
  **     -s <file size>                  - File size of file to be transfered.
@@ -79,6 +81,7 @@ DESCR__S_M1
  **   11.04.2004 H.Kiehl Added TLS/SSL support.
  **   07.02.2005 H.Kiehl Added DOT_VMS and DOS mode.
  **                      Do not exit when we fail to open local file.
+ **   19.03.2006 H.Kiehl Added proxy support.
  **
  */
 DESCR__E_M1
@@ -248,43 +251,238 @@ main(int argc, char *argv[])
    /* Login */
    if (status != 230)
    {
-      /* Send user name */
-      if ((status = ftp_user(db.user)) != SUCCESS)
+      if (db.proxy_name[0] == '\0')
       {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to send user <%s> (%d).", db.user, status);
-         (void)ftp_quit();
-         exit(eval_timeout(USER_ERROR));
-      }
-      else
-      {
-         if (db.verbose == YES)
-         {
-            trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                      "Entered user name %s", db.user);
-         }
-      }
-
-      /* Send password (if required) */
-      if (status != 230)
-      {
-         if ((status = ftp_pass(db.password)) != SUCCESS)
+         /* Send user name */
+         if ((status = ftp_user(db.user)) != SUCCESS)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                      "Failed to send password for user <%s> (%d).",
-                      db.user, status);
+                      "Failed to send user <%s> (%d).", db.user, status);
             (void)ftp_quit();
-            exit(eval_timeout(PASSWORD_ERROR));
+            exit(eval_timeout(USER_ERROR));
          }
          else
          {
             if (db.verbose == YES)
             {
                trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                         "Logged in as %s", db.user);
+                         "Entered user name %s", db.user);
             }
          }
-      } /* if (status != 230) */
+
+         /* Send password (if required) */
+         if (status != 230)
+         {
+            if ((status = ftp_pass(db.password)) != SUCCESS)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                         "Failed to send password for user <%s> (%d).",
+                         db.user, status);
+               (void)ftp_quit();
+               exit(eval_timeout(PASSWORD_ERROR));
+            }
+            else
+            {
+               if (db.verbose == YES)
+               {
+                  trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                            "Logged in as %s", db.user);
+               }
+            }
+         } /* if (status != 230) */
+      }
+      else
+      {
+         int  i,
+              status = 0;
+         char buffer[MAX_USER_NAME_LENGTH],
+              *proxy_ptr = db.proxy_name,
+              *ptr;
+
+         do
+         {
+            if (*proxy_ptr == '$')
+            {
+               ptr = proxy_ptr + 2;
+               switch (*(proxy_ptr + 1))
+               {
+                  case 'a' :
+                  case 'A' :
+                  case 'u' :
+                  case 'U' : /* Enter user name. */
+                     i = 0;
+                     while ((*ptr != ';') && (*ptr != '$') && (*ptr != '\0') &&
+                            (i < MAX_USER_NAME_LENGTH))
+                     {
+                        if (*ptr == '\\')
+                        {
+                           ptr++;
+                        }
+                        buffer[i] = *ptr;
+                        ptr++; i++;
+                     }
+                     if (i == MAX_USER_NAME_LENGTH)
+                     {
+                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                  "User name in proxy definition is to long (> %d).",
+                                  MAX_USER_NAME_LENGTH - 1);
+                        (void)ftp_quit();
+                        exit(USER_ERROR);
+                     }
+                     buffer[i] = '\0';
+                     if (buffer[0] == '\0')
+                     {
+                        (void)strcpy(buffer, db.user);
+                     }
+
+                     if ((*(proxy_ptr + 1) == 'U') || (*(proxy_ptr + 1) == 'u'))
+                     {
+                        /* Send user name. */
+                        if (((status = ftp_user(buffer)) != SUCCESS) && (status != 230))
+                        {
+                           trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                                     "Failed to send user <%s> (%d) [Proxy].",
+                                     buffer, status);
+                           (void)ftp_quit();
+                           exit(USER_ERROR);
+                        }
+                        else
+                        {
+                           if (db.verbose == YES)
+                           {
+                              if (status != 230)
+                              {
+                                 trans_log(INFO_SIGN, NULL, 0, msg_str,
+                                           "Entered user name <%s> [Proxy].",
+                                           buffer);
+                              }
+                              else
+                              {
+                                 trans_log(INFO_SIGN, NULL, 0, msg_str,
+                                           "Entered user name <%s> [Proxy]. No password required, logged in.",
+                                           buffer);
+                              }
+                           }
+                        }
+                     }
+                     else
+                     {
+                        /* Send account name. */
+                        if (((status = ftp_account(buffer)) != SUCCESS) && (status != 230))
+                        {
+                           trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                                     "Failed to send account <%s> (%d) [Proxy].",
+                                     buffer, status);
+                           (void)ftp_quit();
+                           exit(USER_ERROR);
+                        }
+                        else
+                        {
+                           if (db.verbose == YES)
+                           {
+                              if (status != 230)
+                              {
+                                 trans_log(INFO_SIGN, NULL, 0, msg_str,
+                                           "Entered account name <%s> [Proxy].",
+                                           buffer);
+                              }
+                              else
+                              {
+                                 trans_log(INFO_SIGN, NULL, 0, msg_str,
+                                           "Entered account name <%s> [Proxy]. No password required, logged in.",
+                                           buffer);
+                              }
+                           }
+                        }
+                     }
+
+                     /* Don't forget to position the proxy pointer. */
+                     if (*ptr == ';')
+                     {
+                        proxy_ptr = ptr + 1;
+                     }
+                     else
+                     {
+                        proxy_ptr = ptr;
+                     }
+                     break;
+
+                  case 'p' :
+                  case 'P' : /* Enter passwd. */
+                     i = 0;
+                     while ((*ptr != ';') && (*ptr != '$') && (*ptr != '\0') &&
+                            (i < MAX_USER_NAME_LENGTH))
+                     {
+                        if (*ptr == '\\')
+                        {
+                           ptr++;
+                        }
+                        buffer[i] = *ptr;
+                        ptr++; i++;
+                     }
+                     if (i == MAX_USER_NAME_LENGTH)
+                     {
+                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                  "Password in proxy definition is to long (> %d).",
+                                  MAX_USER_NAME_LENGTH - 1);
+                        (void)ftp_quit();
+                        exit(USER_ERROR);
+                     }
+                     buffer[i] = '\0';
+                     if (buffer[0] == '\0')
+                     {
+                        (void)strcpy(buffer, db.password);
+                     }
+
+                     /* Maybe the passwd is not required, so make sure! */
+                     if (status != 230)
+                     {
+                        if ((status = ftp_pass(buffer)) != SUCCESS)
+                        {
+                           trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                                     "Failed to send password (%d).", status);
+                           (void)ftp_quit();
+                           exit(PASSWORD_ERROR);
+                        }
+                        else
+                        {
+                           if (db.verbose == YES)
+                           {
+                              trans_log(INFO_SIGN, NULL, 0, msg_str,
+                                        "Entered password.");
+                           }
+                        }
+                     }
+
+                     /* Don't forget to position the proxy pointer. */
+                     if (*ptr == ';')
+                     {
+                        proxy_ptr = ptr + 1;
+                     }
+                     else
+                     {
+                        proxy_ptr = ptr;
+                     }
+                     break;
+
+                  default : /* Syntax error in proxy format. */
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               "Syntax error in proxy string <%s>.",
+                               db.proxy_name);
+                     (void)ftp_quit();
+                     exit(USER_ERROR);
+               }
+            }
+            else
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                         "Syntax error in proxy string <%s>.",
+                         db.proxy_name);
+               (void)ftp_quit();
+               exit(USER_ERROR);
+            }
+         } while (*proxy_ptr != '\0');
+      }
    } /* if (status != 230) */
 
 #ifdef WITH_SSL
@@ -413,7 +611,7 @@ main(int argc, char *argv[])
                }
             }
             if (((status = ftp_data(rl[i].file_name, offset, db.ftp_mode,
-                                    DATA_READ)) != SUCCESS) &&
+                                    DATA_READ, db.rcvbuf_size)) != SUCCESS) &&
                 (status != -550))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -892,7 +1090,7 @@ main(int argc, char *argv[])
 
          /* Open file on remote site */
          if ((status = ftp_data(initial_filename, append_offset,
-                                db.ftp_mode, DATA_WRITE)) != SUCCESS)
+                                db.ftp_mode, DATA_WRITE, db.sndbuf_size)) != SUCCESS)
          {
             WHAT_DONE(file_size_done, no_of_files_done);
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -1330,7 +1528,7 @@ main(int argc, char *argv[])
 
             /* Open ready file on remote site */
             if ((status = ftp_data(ready_file_name, append_offset,
-                                   db.ftp_mode, DATA_WRITE)) != SUCCESS)
+                                   db.ftp_mode, DATA_WRITE, db.sndbuf_size)) != SUCCESS)
             {
                WHAT_DONE(file_size_done, no_of_files_done);
                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,

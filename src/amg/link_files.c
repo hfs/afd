@@ -1,6 +1,6 @@
 /*
  *  link_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -115,6 +115,7 @@ link_files(char                   *src_file_path,
                 retstat;
    register int i,
                 j;
+   time_t       pmatch_time;
    char         *p_src,
                 *p_dest = NULL,
                 *p_dest_end = NULL;
@@ -126,8 +127,16 @@ link_files(char                   *src_file_path,
    {
       for (j = 0; j < p_de->fme[pos_in_fm].nfm; j++)
       {
+         if (p_de->paused_dir == NULL)
+         {
+            pmatch_time = current_time;
+         }
+         else
+         {
+            pmatch_time = file_mtime_pool[i];
+         }
          if ((retstat = pmatch(p_de->fme[pos_in_fm].file_mask[j],
-                               file_name_pool[i])) == 0)
+                               file_name_pool[i], &pmatch_time)) == 0)
          {
             time_t diff_time = current_time - file_mtime_pool[i];
 

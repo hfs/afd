@@ -1,6 +1,6 @@
 /*
  *  xsend_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,9 +73,7 @@ DESCR__E_M1
 #include "xsend_file.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
-#ifdef _WITH_SCP_SUPPORT
-# include "scpdefs.h"
-#endif
+#include "ssh_commondefs.h"
 #ifdef _WITH_WMO_SUPPORT
 # include "wmodefs.h"
 #endif
@@ -101,6 +99,8 @@ Widget           active_passive_w,
                  port_label_w,
                  port_w,
                  prefix_w,
+                 proxy_label_w,
+                 proxy_w,
                  recipientbox_w,
                  special_button_w,
                  statusbox_w,
@@ -500,6 +500,40 @@ main(int argc, char *argv[])
       XtSetSensitive(hostname_label_w, False);
       XtSetSensitive(hostname_w, False);
    }
+
+   /* Proxy */
+   proxy_label_w = XtVaCreateManagedWidget("Proxy:",
+                        xmLabelGadgetClass,  recipientbox_w,
+                        XmNfontList,         fontlist,
+                        XmNtopAttachment,    XmATTACH_FORM,
+                        XmNbottomAttachment, XmATTACH_FORM,
+                        XmNleftAttachment,   XmATTACH_WIDGET,
+                        XmNleftWidget,       hostname_w,
+                        XmNalignment,        XmALIGNMENT_END,
+                        NULL);
+   proxy_w = XtVaCreateManagedWidget("",
+                        xmTextWidgetClass,   recipientbox_w,
+                        XmNfontList,         fontlist,
+                        XmNmarginHeight,     1,
+                        XmNmarginWidth,      1,
+                        XmNshadowThickness,  1,
+                        XmNrows,             1,
+                        XmNcolumns,          20,
+                        XmNmaxLength,        MAX_FILENAME_LENGTH - 1,
+                        XmNtopAttachment,    XmATTACH_FORM,
+                        XmNtopOffset,        6,
+                        XmNleftAttachment,   XmATTACH_WIDGET,
+                        XmNleftWidget,       proxy_label_w,
+                        NULL);
+   XtAddCallback(proxy_w, XmNlosingFocusCallback, send_save_input,
+                 (XtPointer)PROXY_NO_ENTER);
+   XtAddCallback(proxy_w, XmNactivateCallback, send_save_input,
+                 (XtPointer)PROXY_ENTER);
+   if (db->protocol != FTP)
+   {
+      XtSetSensitive(proxy_label_w, False);
+      XtSetSensitive(proxy_w, False);
+   }
    XtManageChild(recipientbox_w);
 
    /*---------------------------------------------------------------*/
@@ -547,7 +581,7 @@ main(int argc, char *argv[])
                         XmNmarginWidth,      1,
                         XmNshadowThickness,  1,
                         XmNrows,             1,
-                        XmNcolumns,          30,
+                        XmNcolumns,          50,
                         XmNmaxLength,        MAX_PATH_LENGTH - 1,
                         XmNtopAttachment,    XmATTACH_FORM,
                         XmNtopOffset,        6,
@@ -1163,6 +1197,7 @@ init_xsend_file(int  *argc,
    db->timeout        = DEFAULT_TRANSFER_TIMEOUT;
    db->hostname[0]    = '\0';
    db->user[0]        = '\0';
+   db->proxy_name[0]  = '\0';
    db->target_dir[0]  = '\0';
    db->prefix[0]      = '\0';
    db->subject[0]     = '\0';

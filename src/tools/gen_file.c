@@ -113,7 +113,7 @@ main(int argc, char *argv[])
    {
       p_block = (time_t *)block;
       current_time = time(NULL);
-      while (p_block < (time_t *)&block[DEFAULT_BLOCKSIZE])
+      while (p_block < (time_t *)&block[DEFAULT_BLOCKSIZE - sizeof(time_t)])
       {
          *p_block = current_time;
          p_block++;

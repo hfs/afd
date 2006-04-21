@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -598,7 +598,7 @@ stat_again:
                                    "Hmm. Host `%s' is no longer in the FSA. Removed it from cache.",
                                    mdb[i].host_name);
                      }
-                     mdb[i].fsa_pos = -1; /* So remove_files() does NOT write to FSA! */
+                     mdb[i].fsa_pos = -1; /* So remove_job_files() does NOT write to FSA! */
                      remove_flag = YES;
                   }
                   else
@@ -625,7 +625,7 @@ stat_again:
                                 "Hmm. Host `%s' is no longer in the FSA. Removed it from cache.",
                                 mdb[i].host_name);
                   }
-                  mdb[i].fsa_pos = -1; /* So remove_files() does NOT write to FSA! */
+                  mdb[i].fsa_pos = -1; /* So remove_job_files() does NOT write to FSA! */
                   remove_flag = YES;
                }
                else
@@ -811,16 +811,8 @@ list_job_to_remove(int                cache_pos,
                                       connection[qb[j].connect_pos].fsa_pos,
                                       fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers);
                            fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers = 0;
-                           fsa[connection[qb[j].connect_pos].fsa_pos].trl_per_process = fsa[connection[qb[j].connect_pos].fsa_pos].transfer_rate_limit;
-                           fsa[connection[qb[j].connect_pos].fsa_pos].mc_ctrl_per_process = fsa[connection[qb[j].connect_pos].fsa_pos].mc_ct_rate_limit;
                         }
-                        else
-                        {
-                           fsa[connection[qb[j].connect_pos].fsa_pos].trl_per_process = fsa[connection[qb[j].connect_pos].fsa_pos].transfer_rate_limit /
-                                                                                        fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers;
-                           fsa[connection[qb[j].connect_pos].fsa_pos].mc_ctrl_per_process = fsa[connection[qb[j].connect_pos].fsa_pos].mc_ct_rate_limit /
-                                                                                            fsa[connection[qb[j].connect_pos].fsa_pos].active_transfers;
-                        }
+                        calc_trl_per_process(connection[qb[j].connect_pos].fsa_pos);
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].proc_id = -1;
 #ifdef _WITH_BURST_2
                         fsa[connection[qb[j].connect_pos].fsa_pos].job_status[connection[qb[j].connect_pos].job_no].unique_name[0] = '\0';
@@ -846,10 +838,10 @@ list_job_to_remove(int                cache_pos,
          {
             (void)strcpy(p_file_dir, qb[j].msg_name);
 #ifdef _DELETE_LOG
-            remove_files(file_dir, mdb[qb[j].pos].fsa_pos,
-                         mdb[qb[j].pos].job_id, USER_DEL);
+            remove_job_files(file_dir, mdb[qb[j].pos].fsa_pos,
+                             mdb[qb[j].pos].job_id, USER_DEL);
 #else
-            remove_files(file_dir, -1);
+            remove_job_files(file_dir, -1);
 #endif
             *p_file_dir = '\0';
          }

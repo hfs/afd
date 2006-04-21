@@ -27,7 +27,7 @@
 /* Function prototypes */
 extern int  next_wmo_counter(int),
             wmo_check_reply(void),
-            wmo_connect(char *, int),
+            wmo_connect(char *, int, int),
             wmo_write(char *, int);
 extern void wmo_quit(void);
 

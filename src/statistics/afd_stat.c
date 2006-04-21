@@ -1,6 +1,6 @@
 /*
  *  afd_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__S_M1
  **   27.04.1996 H.Kiehl Created
  **   18.10.1997 H.Kiehl Initialize day, hour and second counter.
  **   23.02.2003 H.Kiehl Added input statistics.
+ **   01.01.2006 H.Kiehl Catch leap seconds when we store an old year.
  **
  */
 DESCR__E_M1
@@ -105,6 +106,7 @@ main(int argc, char *argv[])
                   j;
    int            current_year,
                   hour,
+                  new_year,
                   status,
                   test_sec_counter,
                   test_hour_counter;
@@ -555,14 +557,15 @@ main(int argc, char *argv[])
          } /* if (stat_db[i].sec_counter == SECS_PER_HOUR) */
 
          /* Did we reach another year? */
-         if (current_year != (p_ts->tm_year + 1900))
+         new_year = p_ts->tm_year + 1900;
+         if (current_year != new_year)
          {
             if (other_file == NO)
             {
-               save_old_input_year((p_ts->tm_year + 1900));
-               save_old_output_year((p_ts->tm_year + 1900));
+               save_old_input_year(new_year);
+               save_old_output_year(new_year);
             }
-            current_year = p_ts->tm_year + 1900;
+            current_year = new_year;
 
             /*
              * Reset all values in current memory mapped file.

@@ -96,7 +96,11 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                *src_ptr;
    struct stat stat_buf;
 
+#ifdef HAVE_SNPRINTF
    (void)snprintf(fullname, MAX_PATH_LENGTH, "%s/%s", file_path, file_name);
+#else
+   (void)sprintf(fullname, "%s/%s", file_path, file_name);
+#endif
    if ((from_fd = open(fullname, O_RDONLY)) < 0)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
@@ -141,7 +145,11 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
       return(INCORRECT);
    }
 
+#ifdef HAVE_SNPRINTF
    (void)snprintf(new_name, MAX_PATH_LENGTH, "%s.tmpnewname", fullname);
+#else
+   (void)sprintf(new_name, "%s.tmpnewname", fullname);
+#endif
    if ((to_fd = open(new_name, (O_RDWR | O_CREAT | O_TRUNC),
                      stat_buf.st_mode)) == -1)
    {

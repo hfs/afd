@@ -109,6 +109,18 @@ attach_afd_status(int *fd)
       (void)close(*ptr_fd);
       return(INCORRECT);
    }
+   if (stat_buf.st_size != sizeof(struct afd_status))
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+#if SIZEOF_OFF_T == 4
+                 "Incorrect size, `%s' is %ld bytes and not %u bytes.",
+#else
+                 "Incorrect size, `%s' is %lld bytes and not %u bytes.",
+#endif
+                 afd_status_file, stat_buf.st_size, sizeof(struct afd_status));
+      (void)close(*ptr_fd);
+      return(INCORRECT);
+   }
 #ifdef HAVE_MMAP
    if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED,
                    *ptr_fd, 0)) == (caddr_t) -1)

@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -95,6 +95,8 @@
 #define TOUPPER_ID_LENGTH          (sizeof(TOUPPER_ID) - 1)
 #define TOLOWER_ID                 "tolower"
 #define TOLOWER_ID_LENGTH          (sizeof(TOLOWER_ID) - 1)
+#define FAX2GTS_ID                 "fax2gts"
+#define FAX2GTS_ID_LENGTH          (sizeof(FAX2GTS_ID) - 1)
 #define TIFF2GTS_ID                "tiff2gts"
 #define TIFF2GTS_ID_LENGTH         (sizeof(TIFF2GTS_ID) - 1)
 #define GTS2TIFF_ID                "gts2tiff"
@@ -114,9 +116,9 @@
 #ifdef _WITH_AFW2WMO
 #define AFW2WMO_ID                 "afw2wmo"
 #define AFW2WMO_ID_LENGTH          (sizeof(AFW2WMO_ID) - 1)
-#define LOCAL_OPTION_POOL_SIZE     19
+#define LOCAL_OPTION_POOL_SIZE     20
 #else
-#define LOCAL_OPTION_POOL_SIZE     18
+#define LOCAL_OPTION_POOL_SIZE     19
 #endif
 
 /* Definitions for types of time options. */

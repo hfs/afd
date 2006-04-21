@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -304,6 +304,13 @@ reread_host_config(time_t           *hc_old_time,
                fsa[host_pos].protocol = hl[i].protocol;
                fsa[host_pos].protocol_options = hl[i].protocol_options;
                fsa[host_pos].ttl = hl[i].ttl;
+               fsa[host_pos].socksnd_bufsize = hl[i].socksnd_bufsize;
+               fsa[host_pos].sockrcv_bufsize = hl[i].sockrcv_bufsize;
+               fsa[host_pos].keep_connected = hl[i].keep_connected;
+#ifdef WITH_DUP_CHECK
+               fsa[host_pos].dup_check_flag = hl[i].dup_check_flag;
+               fsa[host_pos].dup_check_timeout = hl[i].dup_check_timeout;
+#endif
                fsa[host_pos].special_flag = (fsa[host_pos].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
                if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
                {

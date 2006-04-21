@@ -1,6 +1,6 @@
 /*
  *  select_host_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -439,7 +439,7 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
    {
       if (hostname_type == ALIAS_NAME)
       {
-         match = pmatch(text, connect_data[i].hostname);
+         match = pmatch(text, connect_data[i].hostname, NULL);
       }
       else
       {
@@ -447,16 +447,16 @@ search_select_host(Widget w, XtPointer client_data, XtPointer call_data)
          {
             if (fsa[i].host_toggle == HOST_ONE)
             {
-               match = pmatch(text, fsa[i].real_hostname[HOST_ONE - 1]);
+               match = pmatch(text, fsa[i].real_hostname[HOST_ONE - 1], NULL);
             }
             else
             {
-               match = pmatch(text, fsa[i].real_hostname[HOST_TWO - 1]);
+               match = pmatch(text, fsa[i].real_hostname[HOST_TWO - 1], NULL);
             }
          }
          else
          {
-            match = pmatch(text, fsa[i].real_hostname[HOST_ONE - 1]);
+            match = pmatch(text, fsa[i].real_hostname[HOST_ONE - 1], NULL);
          }
       }
       if (match == 0)

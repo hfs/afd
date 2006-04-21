@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -78,6 +78,8 @@ DESCR__S_M3
  **                      create target dir"
  **   14.06.2005 H.Kiehl Added "dupcheck" option.
  **   21.09.2005 H.Kiehl Added "sequence locking" option.
+ **   12.01.2006 H.Kiehl Added "login site" option.
+ **   16.02.2006 H.Kiehl Added "socket send/receive buffer" option.
  **
  */
 DESCR__E_M3
@@ -141,6 +143,9 @@ extern char *p_work_dir;
 # define DUPCHECK_FLAG              1073741824
 #endif
 #define SEQUENCE_LOCKING_FLAG       2147483648U
+#define LOGIN_SITE_FLAG             1
+#define SOCK_SND_BUF_SIZE_FLAG      2
+#define SOCK_RCV_BUF_SIZE_FLAG      4
 
 
 #define MAX_HUNK                    4096
@@ -153,7 +158,8 @@ eval_message(char *message_name, struct job *p_db)
    int          bytes_buffered,
                 fd,
                 n;
-   unsigned int used = 0; /* Used to see whether option has already been set. */
+   unsigned int used = 0, /* Used to see whether option has already been set. */
+                used2 = 0;
    char         *ptr,
                 *end_ptr,
                 *msg_buf,
@@ -545,13 +551,17 @@ eval_message(char *message_name, struct job *p_db)
                  {
                     used |= CHMOD_FLAG;
                     ptr += CHMOD_ID_LENGTH;
-                    if (p_db->protocol & LOC_FLAG)
+                    if ((p_db->protocol & LOC_FLAG) ||
+                        (p_db->protocol & SCP_FLAG) ||
+                        (p_db->protocol & SFTP_FLAG))
                     {
+                       char *start_ptr;
+
                        while ((*ptr == ' ') || (*ptr == '\t'))
                        {
                           ptr++;
                        }
-                       end_ptr = ptr;
+                       start_ptr = end_ptr = ptr;
                        while ((*end_ptr != '\n') && (*end_ptr != '\0') &&
                               (*end_ptr != ' ') && (*end_ptr != '\t'))
                        {
@@ -565,166 +575,165 @@ eval_message(char *message_name, struct job *p_db)
                           p_db->chmod = 0;
                           if (n == 4)
                           {
-                             if (*ptr == '7')
+                             switch (*ptr)
                              {
-                                p_db->chmod |= S_ISUID | S_ISGID | S_ISVTX;
+                                case '7' :
+                                   p_db->chmod |= S_ISUID | S_ISGID | S_ISVTX;
+                                   break;
+                                case '6' :
+                                   p_db->chmod |= S_ISUID | S_ISGID;
+                                   break;
+                                case '5' :
+                                   p_db->chmod |= S_ISUID | S_ISVTX;
+                                   break;
+                                case '4' :
+                                   p_db->chmod |= S_ISUID;
+                                   break;
+                                case '3' :
+                                   p_db->chmod |= S_ISGID | S_ISVTX;
+                                   break;
+                                case '2' :
+                                   p_db->chmod |= S_ISGID;
+                                   break;
+                                case '1' :
+                                   p_db->chmod |= S_ISVTX;
+                                   break;
+                                case '0' : /* Nothing to be done here. */
+                                   break;
+                                default :
+                                   error_flag = YES;
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Incorrect parameter for chmod option %c%c%c%c",
+                                              ptr, ptr + 1, ptr + 2, ptr + 3);
+                                   break;
                              }
-                             else if (*ptr == '6')
-                                  {
-                                     p_db->chmod |= S_ISUID | S_ISGID;
-                                  }
-                             else if (*ptr == '5')
-                                  {
-                                     p_db->chmod |= S_ISUID | S_ISVTX;
-                                  }
-                             else if (*ptr == '4')
-                                  {
-                                     p_db->chmod |= S_ISUID;
-                                  }
-                             else if (*ptr == '3')
-                                  {
-                                     p_db->chmod |= S_ISGID | S_ISVTX;
-                                  }
-                             else if (*ptr == '2')
-                                  {
-                                     p_db->chmod |= S_ISGID;
-                                  }
-                             else if (*ptr == '1')
-                                  {
-                                     p_db->chmod |= S_ISVTX;
-                                  }
-                             else if (*ptr == '0')
-                                  {
-                                     /* Nothing to be done here. */;
-                                  }
-                                  else
-                                  {
-                                     error_flag = YES;
-                                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                "Incorrect parameter for chmod option %c%c%c%c",
-                                                ptr, ptr + 1, ptr + 2, ptr + 3);
-                                  }
                              ptr++;
                           }
-                          if (*ptr == '7')
+                          switch (*ptr)
                           {
-                             p_db->chmod |= S_IRUSR | S_IWUSR | S_IXUSR;
+                             case '7' :
+                                p_db->chmod |= S_IRUSR | S_IWUSR | S_IXUSR;
+                                break;
+                             case '6' :
+                                p_db->chmod |= S_IRUSR | S_IWUSR;
+                                break;
+                             case '5' :
+                                p_db->chmod |= S_IRUSR | S_IXUSR;
+                                break;
+                             case '4' :
+                                p_db->chmod |= S_IRUSR;
+                                break;
+                             case '3' :
+                                p_db->chmod |= S_IWUSR | S_IXUSR;
+                                break;
+                             case '2' :
+                                p_db->chmod |= S_IWUSR;
+                                break;
+                             case '1' :
+                                p_db->chmod |= S_IXUSR;
+                                break;
+                             case '0' : /* Nothing to be done here. */
+                                break;
+                             default :
+                                error_flag = YES;
+                                if (n == 4)
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Incorrect parameter for chmod option %c%c%c%c",
+                                              ptr - 1, ptr, ptr + 1, ptr + 2);
+                                }
+                                else
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Incorrect parameter for chmod option %c%c%c",
+                                              ptr, ptr + 1, ptr + 2);
+                                }
+                                break;
                           }
-                          else if (*ptr == '6')
-                               {
-                                  p_db->chmod |= S_IRUSR | S_IWUSR;
-                               }
-                          else if (*ptr == '5')
-                               {
-                                  p_db->chmod |= S_IRUSR | S_IXUSR;
-                               }
-                          else if (*ptr == '4')
-                               {
-                                  p_db->chmod |= S_IRUSR;
-                               }
-                          else if (*ptr == '3')
-                               {
-                                  p_db->chmod |= S_IWUSR | S_IXUSR;
-                               }
-                          else if (*ptr == '2')
-                               {
-                                  p_db->chmod |= S_IWUSR;
-                               }
-                          else if (*ptr == '1')
-                               {
-                                  p_db->chmod |= S_IXUSR;
-                               }
-                          else if (*ptr == '0')
-                               {
-                                  /* Nothing to be done here. */;
-                               }
-                               else
-                               {
-                                  error_flag = YES;
-                                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                                             "Incorrect parameter for chmod option %c%c%c",
-                                             ptr, ptr + 1, ptr + 2);
-                               }
                           ptr++;
-                          if (*ptr == '7')
+                          switch (*ptr)
                           {
-                             p_db->chmod |= S_IRGRP | S_IWGRP | S_IXGRP;
+                             case '7' :
+                                p_db->chmod |= S_IRGRP | S_IWGRP | S_IXGRP;
+                                break;
+                             case '6' :
+                                p_db->chmod |= S_IRGRP | S_IWGRP;
+                                break;
+                             case '5' :
+                                p_db->chmod |= S_IRGRP | S_IXGRP;
+                                break;
+                             case '4' :
+                                p_db->chmod |= S_IRGRP;
+                                break;
+                             case '3' :
+                                p_db->chmod |= S_IWGRP | S_IXGRP;
+                                break;
+                             case '2' :
+                                p_db->chmod |= S_IWGRP;
+                                break;
+                             case '1' :
+                                p_db->chmod |= S_IXGRP;
+                                break;
+                             case '0' : /* Nothing to be done here. */
+                                break;
+                             default :
+                                error_flag = YES;
+                                if (n == 4)
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Incorrect parameter for chmod option %c%c%c%c",
+                                              ptr - 2, ptr - 1, ptr, ptr + 1);
+                                }
+                                else
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Incorrect parameter for chmod option %c%c%c",
+                                              ptr - 1, ptr, ptr + 1);
+                                }
+                                break;
                           }
-                          else if (*ptr == '6')
-                               {
-                                  p_db->chmod |= S_IRGRP | S_IWGRP;
-                               }
-                          else if (*ptr == '5')
-                               {
-                                  p_db->chmod |= S_IRGRP | S_IXGRP;
-                               }
-                          else if (*ptr == '4')
-                               {
-                                  p_db->chmod |= S_IRGRP;
-                               }
-                          else if (*ptr == '3')
-                               {
-                                  p_db->chmod |= S_IWGRP | S_IXGRP;
-                               }
-                          else if (*ptr == '2')
-                               {
-                                  p_db->chmod |= S_IWGRP;
-                               }
-                          else if (*ptr == '1')
-                               {
-                                  p_db->chmod |= S_IXGRP;
-                               }
-                          else if (*ptr == '0')
-                               {
-                                  /* Nothing to be done here. */;
-                               }
-                               else
-                               {
-                                  error_flag = YES;
-                                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                                             "Incorrect parameter for chmod option %c%c%c",
-                                             ptr, ptr + 1, ptr + 2);
-                               }
                           ptr++;
-                          if (*ptr == '7')
+                          switch (*ptr)
                           {
-                             p_db->chmod |= S_IROTH | S_IWOTH | S_IXOTH;
+                             case '7' :
+                                p_db->chmod |= S_IROTH | S_IWOTH | S_IXOTH;
+                                break;
+                             case '6' :
+                                p_db->chmod |= S_IROTH | S_IWOTH;
+                                break;
+                             case '5' :
+                                p_db->chmod |= S_IROTH | S_IXOTH;
+                                break;
+                             case '4' :
+                                p_db->chmod |= S_IROTH;
+                                break;
+                             case '3' :
+                                p_db->chmod |= S_IWOTH | S_IXOTH;
+                                break;
+                             case '2' :
+                                p_db->chmod |= S_IWOTH;
+                                break;
+                             case '1' :
+                                p_db->chmod |= S_IXOTH;
+                                break;
+                             case '0' : /* Nothing to be done here. */
+                                break;
+                             default :
+                                error_flag = YES;
+                                if (n == 4)
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Incorrect parameter for chmod option %c%c%c%c",
+                                              ptr - 3, ptr - 2, ptr - 1, ptr);
+                                }
+                                else
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Incorrect parameter for chmod option %c%c%c",
+                                              ptr - 2, ptr - 1, ptr);
+                                }
+                                break;
                           }
-                          else if (*ptr == '6')
-                               {
-                                  p_db->chmod |= S_IROTH | S_IWOTH;
-                               }
-                          else if (*ptr == '5')
-                               {
-                                  p_db->chmod |= S_IROTH | S_IXOTH;
-                               }
-                          else if (*ptr == '4')
-                               {
-                                  p_db->chmod |= S_IROTH;
-                               }
-                          else if (*ptr == '3')
-                               {
-                                  p_db->chmod |= S_IWOTH | S_IXOTH;
-                               }
-                          else if (*ptr == '2')
-                               {
-                                  p_db->chmod |= S_IWOTH;
-                               }
-                          else if (*ptr == '1')
-                               {
-                                  p_db->chmod |= S_IXOTH;
-                               }
-                          else if (*ptr == '0')
-                               {
-                                  /* Nothing to be done here. */;
-                               }
-                               else
-                               {
-                                  error_flag = YES;
-                                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                                             "Incorrect parameter for chmod option %c%c%c",
-                                             ptr, ptr + 1, ptr + 2);
-                               }
                           if (error_flag == NO)
                           {
                              p_db->special_flag |= CHANGE_PERMISSION;
@@ -973,6 +982,7 @@ eval_message(char *message_name, struct job *p_db)
                     used |= DUPCHECK_FLAG;
                     ptr = eval_dupcheck_options(ptr, &p_db->dup_check_timeout,
                                                 &p_db->dup_check_flag);
+                    p_db->crc_id = p_db->job_id;
                     while (*ptr == '\n')
                     {
                        ptr++;
@@ -1594,6 +1604,53 @@ eval_message(char *message_name, struct job *p_db)
                        ptr++;
                     }
                  }
+            else if (((used2 & LOGIN_SITE_FLAG) == 0) &&
+                     (strncmp(ptr, LOGIN_SITE_CMD, LOGIN_SITE_CMD_LENGTH) == 0))
+                 {
+                    used2 |= LOGIN_SITE_FLAG;
+                    if (p_db->protocol & FTP_FLAG)
+                    {
+                       int length = 0;
+
+                       ptr += LOGIN_SITE_CMD_LENGTH;
+                       while ((*ptr == ' ') || (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       end_ptr = ptr;
+                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                       {
+                         end_ptr++;
+                         length++;
+                       }
+                       if (length > 0)
+                       {
+                          p_db->special_flag |= LOGIN_EXEC_FTP;
+                          byte_buf = *end_ptr;
+                          *end_ptr = '\0';
+                          if ((p_db->special_ptr = malloc(length + 1)) == NULL)
+                          {
+                             system_log(WARN_SIGN, __FILE__, __LINE__,
+                                        "Failed to malloc() memory, will ignore %s option : %s",
+                                        LOGIN_SITE_CMD, strerror(errno));
+                          }
+                          else
+                          {
+                             (void)strcpy(p_db->special_ptr, ptr);
+                          }
+                          *end_ptr = byte_buf;
+                       }
+                       ptr = end_ptr;
+                    }
+                    while ((*ptr != '\n') && (*ptr != '\0'))
+                    {
+                       ptr++;
+                    }
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
             else if (((used & CHARSET_FLAG) == 0) &&
                      (strncmp(ptr, CHARSET_ID, CHARSET_ID_LENGTH) == 0))
                  {
@@ -1952,6 +2009,54 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
 #endif /* _WITH_TRANS_EXEC */
+            else if (((used2 & SOCK_SND_BUF_SIZE_FLAG) == 0) &&
+                     (strncmp(ptr, SOCKET_SEND_BUFFER_ID, SOCKET_SEND_BUFFER_ID_LENGTH) == 0))
+                 {
+                    used2 |= SOCK_SND_BUF_SIZE_FLAG;
+                    ptr += SOCKET_SEND_BUFFER_ID_LENGTH;
+                    while ((*ptr == ' ') || (*ptr == '\t'))
+                    {
+                       ptr++;
+                    }
+                    end_ptr = ptr;
+                    while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                    {
+                      end_ptr++;
+                    }
+                    byte_buf = *end_ptr;
+                    *end_ptr = '\0';
+                    p_db->sndbuf_size = atoi(ptr);
+                    *end_ptr = byte_buf;
+                    ptr = end_ptr;
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
+            else if (((used2 & SOCK_RCV_BUF_SIZE_FLAG) == 0) &&
+                     (strncmp(ptr, SOCKET_RECEIVE_BUFFER_ID, SOCKET_RECEIVE_BUFFER_ID_LENGTH) == 0))
+                 {
+                    used2 |= SOCK_RCV_BUF_SIZE_FLAG;
+                    ptr += SOCKET_RECEIVE_BUFFER_ID_LENGTH;
+                    while ((*ptr == ' ') || (*ptr == '\t'))
+                    {
+                       ptr++;
+                    }
+                    end_ptr = ptr;
+                    while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                    {
+                      end_ptr++;
+                    }
+                    byte_buf = *end_ptr;
+                    *end_ptr = '\0';
+                    p_db->rcvbuf_size = atoi(ptr);
+                    *end_ptr = byte_buf;
+                    ptr = end_ptr;
+                    while (*ptr == '\n')
+                    {
+                       ptr++;
+                    }
+                 }
                  else
                  {
                     /* Ignore this option */

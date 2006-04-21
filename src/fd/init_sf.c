@@ -1,6 +1,6 @@
 /*
  *  init_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,9 +53,7 @@ DESCR__E_M3
 #include "fddefs.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
-#ifdef _WITH_SCP_SUPPORT
-#include "scpdefs.h"
-#endif
+#include "ssh_commondefs.h"
 #ifdef _WITH_WMO_SUPPORT
 #include "wmodefs.h"
 #endif
@@ -104,6 +102,10 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
            db.from = NULL;
            db.charset = NULL;
         }
+   else if (protocol & SFTP_FLAG)
+        {
+           db.port = DEFAULT_SSH_PORT;
+        }
 #ifdef _WITH_SCP_SUPPORT
    else if (protocol & SCP_FLAG)
         {
@@ -122,7 +124,6 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
            db.port = -1;
         }
    db.fsa_pos = INCORRECT;
-   db.transfer_mode = DEFAULT_TRANSFER_MODE;
    db.toggle_host = NO;
    db.resend = NO;
    db.protocol = protocol;
@@ -150,14 +151,12 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.restart_file = NULL;
    db.user_id = -1;
    db.group_id = -1;
-#ifdef WITH_DUP_CHECK
-   db.dup_check_flag = 0;
-   db.dup_check_timeout = 0L;
-#endif
 #ifdef WITH_SSL
    db.auth = NO;
 #endif
    (void)strcpy(db.lock_notation, DOT_NOTATION);
+   db.sndbuf_size = 0;
+   db.rcvbuf_size = 0;
 #ifdef _DELETE_LOG
    dl.fd = -1;
 #endif
@@ -177,6 +176,27 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       {
          db.mode_flag = ACTIVE_MODE;
       }
+   }
+   if (fsa->protocol_options & FTP_IGNORE_BIN)
+   {
+      db.transfer_mode = 'N';
+   }
+   else
+   {
+      db.transfer_mode = DEFAULT_TRANSFER_MODE;
+   }
+#ifdef WITH_DUP_CHECK
+   db.dup_check_flag = fsa->dup_check_flag;
+   db.dup_check_timeout = fsa->dup_check_timeout;
+   db.crc_id = fsa->host_id;
+#endif
+   if (db.sndbuf_size <= 0)
+   {
+      db.sndbuf_size = fsa->socksnd_bufsize;
+   }
+   if (db.rcvbuf_size <= 0)
+   {
+      db.rcvbuf_size = fsa->sockrcv_bufsize;
    }
 
    /* Open/create log fifos */

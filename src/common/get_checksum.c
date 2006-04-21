@@ -1,6 +1,6 @@
 /*
  *  get_checksum.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   unsigned int get_checksum(char *mem, int size)
+ **   unsigned int get_str_checksum(char *str)
  **   int          get_file_checksum(int          fd,
  **                                  char         *buffer,
  **                                  int          buf_size,
@@ -48,6 +49,7 @@ DESCR__S_M3
  ** HISTORY
  **   22.08.2003 H.Kiehl Created
  **   11.06.2005 H.Kiehl Added get_file_checksum().
+ **   08.03.2006 H.Kiehl Added get_str_checksum().
  **
  */
 DESCR__E_M3
@@ -158,6 +160,21 @@ get_checksum(char *mem, int size)
    return(crc);
 }
 
+
+/*######################## get_str_checksum() ###########################*/
+unsigned int
+get_str_checksum(char *str)
+{
+   unsigned int crc = ~0;
+
+   while (*str != '\0')
+   {
+      crc = table[(crc ^ *(str++)) & 0xff] ^ (crc >> 8);
+   }
+   crc = table[(crc ^ *(str)) & 0xff] ^ (crc >> 8);
+
+   return(crc);
+}
 
 
 /*####################### get_file_checksum() ###########################*/

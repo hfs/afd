@@ -1,6 +1,6 @@
 /*
  *  show_olog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,19 +28,20 @@
 #define SHOW_HTTP                4
 #define SHOW_SMTP                8
 #ifdef _WITH_SCP_SUPPORT
-#define SHOW_SCP                 16
+# define SHOW_SCP                16
 #endif
 #ifdef _WITH_WMO_SUPPORT
-#define SHOW_WMO                 32
+# define SHOW_WMO                32
 #endif
 #ifdef _WITH_MAP_SUPPORT
-#define SHOW_MAP                 64
+# define SHOW_MAP                64
 #endif
 #ifdef WITH_SSL
-#define SHOW_FTPS                128
-#define SHOW_HTTPS               256
-#define SHOW_SMTPS               512
+# define SHOW_FTPS               128
+# define SHOW_HTTPS              256
+# define SHOW_SMTPS              512
 #endif
+#define SHOW_SFTP                1024
 
 #define LOCAL_FILENAME           8
 #define REMOTE_FILENAME          9
@@ -60,19 +61,20 @@
 #define SMTP_ID_STR              "SMTP "
 #define HTTP_ID_STR              "HTTP "
 #ifdef _WITH_SCP_SUPPORT
-#define SCP_ID_STR               "SCP  "
+# define SCP_ID_STR              "SCP  "
 #endif
 #ifdef _WITH_WMO_SUPPORT
-#define WMO_ID_STR               "WMO  "
+# define WMO_ID_STR              "WMO  "
 #endif
 #ifdef _WITH_MAP_SUPPORT
-#define MAP_ID_STR               "MAP  "
+# define MAP_ID_STR              "MAP  "
 #endif
 #ifdef WITH_SSL
-#define FTPS_ID_STR              "FTPS "
-#define HTTPS_ID_STR             "HTTPS"
-#define SMTPS_ID_STR             "SMTPS"
+# define FTPS_ID_STR             "FTPS "
+# define HTTPS_ID_STR            "HTTPS"
+# define SMTPS_ID_STR            "SMTPS"
 #endif
+#define SFTP_ID_STR              "SFTP "
 #define UNKNOWN_ID_STR           "?    "
 
 #define SEARCH_BUTTON            1
@@ -102,7 +104,7 @@
 #define RECIPIENT_NAME_NO_ENTER  11
 #define RECIPIENT_NAME           12
 
-#define NO_OF_VISIBLE_LINES      18
+#define NO_OF_VISIBLE_LINES      20
 #define MAXARGS                  20
 
 #define LINES_BUFFERED           1000

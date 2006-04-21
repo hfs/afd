@@ -1,6 +1,6 @@
 /*
  *  check_burst_2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,6 +52,9 @@ DESCR__S_M3
  **   27.05.2001 H.Kiehl Created
  **   22.01.2005 H.Kiehl Check that ports are the some, otherwise don't
  **                      burst.
+ **   11.04.2006 H.Kiehl For protocol SCP we must also check if the
+ **                      target directories are the same before we do
+ **                      a burst.
  **
  */
 DESCR__E_M3
@@ -69,9 +72,7 @@ DESCR__E_M3
 #include "fddefs.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
-#ifdef _WITH_SCP_SUPPORT
-#include "scpdefs.h"
-#endif
+#include "ssh_commondefs.h"
 #ifdef _WITH_WMO_SUPPORT
 #include "wmodefs.h"
 #endif
@@ -275,7 +276,14 @@ retry:
                   {
                      char msg_name[MAX_PATH_LENGTH];
 
-                     p_new_db->transfer_mode        = DEFAULT_TRANSFER_MODE;
+                     if (fsa->protocol_options & FTP_IGNORE_BIN)
+                     {
+                        p_new_db->transfer_mode     = 'N';
+                     }
+                     else
+                     {
+                        p_new_db->transfer_mode     = DEFAULT_TRANSFER_MODE;
+                     }
                      p_new_db->special_ptr          = NULL;
                      p_new_db->subject              = NULL;
 #ifdef _WITH_TRANS_EXEC
@@ -301,8 +309,9 @@ retry:
                      p_new_db->user_id              = -1;
                      p_new_db->group_id             = -1;
 #ifdef WITH_DUP_CHECK
-                     p_new_db->dup_check_flag       = 0;
-                     p_new_db->dup_check_timeout    = 0L;
+                     p_new_db->dup_check_flag       = fsa->dup_check_flag;
+                     p_new_db->dup_check_timeout    = fsa->dup_check_timeout;
+                     p_new_db->crc_id               = fsa->host_id;
 #endif
 #ifdef WITH_SSL
                      p_new_db->auth                 = NO;
@@ -311,6 +320,10 @@ retry:
                      {
                         p_new_db->port = DEFAULT_FTP_PORT;
                      }
+                     else if (db.protocol & SFTP_FLAG)
+                          {
+                             p_new_db->port = DEFAULT_SSH_PORT;
+                          }
 #ifdef _WITH_SCP_SUPPORT
                      else if (db.protocol & SCP_FLAG)
                           {
@@ -357,10 +370,20 @@ retry:
                          */
 #ifdef WITH_SSL
                         if ((p_new_db->port != db.port) ||
+# ifdef _WITH_SCP_SUPPORT
+                            ((db.protocol & SCP_FLAG) &&
+                             (strcmp(p_new_db->target_dir, db.target_dir) != 0)) ||
+# endif
                             ((db.auth == NO) && (p_new_db->auth != NO)) ||
                             ((db.auth != NO) && (p_new_db->auth == NO)))
 #else
+# ifdef _WITH_SCP_SUPPORT
+                        if ((p_new_db->port != db.port) ||
+                            ((db.protocol & SCP_FLAG) &&
+                             (strcmp(p_new_db->target_dir, db.target_dir) != 0)))
+# else
                         if (p_new_db->port != db.port)
+# endif
 #endif
                         {
                            free(p_new_db);

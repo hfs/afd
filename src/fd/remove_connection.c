@@ -1,6 +1,6 @@
 /*
  *  remove_connection.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,7 +51,8 @@ DESCR__E_M3
 /* #define WITH_MULTI_FSA_CHECKS */
 
 /* External global variables */
-extern int                        fsa_fd;
+extern int                        fsa_fd,
+                                  no_of_trl_groups;
 extern struct filetransfer_status *fsa;
 extern struct afd_status          *p_afd_status;
 
@@ -173,10 +174,6 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
                     fsa[p_con->fsa_pos].allowed_transfers,
                     fsa[p_con->fsa_pos].active_transfers);
          fsa[p_con->fsa_pos].active_transfers = fsa[p_con->fsa_pos].allowed_transfers;
-         fsa[p_con->fsa_pos].trl_per_process = fsa[p_con->fsa_pos].transfer_rate_limit /
-                                               fsa[p_con->fsa_pos].allowed_transfers;
-         fsa[p_con->fsa_pos].mc_ctrl_per_process = fsa[p_con->fsa_pos].mc_ct_rate_limit /
-                                                   fsa[p_con->fsa_pos].allowed_transfers;
       }
       fsa[p_con->fsa_pos].active_transfers -= 1;
       if (fsa[p_con->fsa_pos].active_transfers < 0)
@@ -185,23 +182,11 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
                     "Active transfers for FSA position %d < 0!? [%d]",
                     p_con->fsa_pos, fsa[p_con->fsa_pos].active_transfers);
          fsa[p_con->fsa_pos].active_transfers = 0;
-         fsa[p_con->fsa_pos].trl_per_process = fsa[p_con->fsa_pos].transfer_rate_limit;
-         fsa[p_con->fsa_pos].mc_ctrl_per_process = fsa[p_con->fsa_pos].mc_ct_rate_limit;
       }
-      else
+      if ((fsa[p_con->fsa_pos].transfer_rate_limit > 0) ||
+          (no_of_trl_groups > 0))
       {
-         if (fsa[p_con->fsa_pos].active_transfers > 1)
-         {
-            fsa[p_con->fsa_pos].trl_per_process = fsa[p_con->fsa_pos].transfer_rate_limit /
-                                                  fsa[p_con->fsa_pos].active_transfers;
-            fsa[p_con->fsa_pos].mc_ctrl_per_process = fsa[p_con->fsa_pos].mc_ct_rate_limit /
-                                                      fsa[p_con->fsa_pos].active_transfers;
-         }
-         else
-         {
-            fsa[p_con->fsa_pos].trl_per_process = fsa[p_con->fsa_pos].transfer_rate_limit;
-            fsa[p_con->fsa_pos].mc_ctrl_per_process = fsa[p_con->fsa_pos].mc_ct_rate_limit;
-         }
+         calc_trl_per_process(p_con->fsa_pos);
       }
       fsa[p_con->fsa_pos].job_status[p_con->job_no].proc_id = -1;
 #ifdef _WITH_BURST_2

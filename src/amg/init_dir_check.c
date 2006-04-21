@@ -1,6 +1,6 @@
 /*
  *  init_dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -99,8 +99,10 @@ extern time_t                 *file_mtime_pool;
 extern off_t                  *file_size_pool;
 #endif
 #ifdef _POSIX_SAVED_IDS
+extern int                    no_of_sgids;
 extern uid_t                  afd_uid;
-extern gid_t                  afd_gid;
+extern gid_t                  afd_gid,
+                              *afd_sgids;
 #endif
 extern char                   *p_work_dir,
                               time_dir[],
@@ -162,6 +164,33 @@ init_dir_check(int    argc,
    /* User and group ID */
    afd_uid = geteuid();
    afd_gid = getegid();
+   no_of_sgids = getgroups(0, NULL);
+   if (no_of_sgids > 0)
+   {
+      if ((afd_sgids = malloc((no_of_sgids * sizeof(gid_t)))) == NULL)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to malloc() %d bytes : %s",
+                    (no_of_sgids * sizeof(gid_t)), strerror(errno));
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Unable to check supplementary groups!");
+         no_of_sgids = 0;
+      }
+      else
+      {
+         if (getgroups(no_of_sgids, afd_sgids) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "getgroups() error : %s", strerror(errno));
+            no_of_sgids = 0;
+         }
+      }
+   }
+   else
+   {
+      no_of_sgids = 0;
+      afd_sgids = NULL;
+   }
 #endif
 
    /* Allocate memory for the array containing all file names to  */

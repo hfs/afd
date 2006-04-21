@@ -1,6 +1,6 @@
 /*
  *  cmdline.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004, 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@
 /* Definitions for maximum values. */
 # define MAX_HOSTNAME_LENGTH        8
 # define MAX_USER_NAME_LENGTH       80
+# define MAX_PROXY_NAME_LENGTH      80
 # define MAX_FILENAME_LENGTH        256
 # define MAX_PATH_LENGTH            1024
 # define MAX_LINE_LENGTH            2048
@@ -174,6 +175,8 @@ struct data
           int          no_of_files;      /* The number of files to be send.*/
           int          dummy_size;       /* File size of files to be       */
                                          /* transfered in test mode.       */
+          int          sndbuf_size;      /* Socket send buffer size.       */
+          int          rcvbuf_size;      /* Socket receive buffer size.    */
           long         transfer_timeout; /* When to timeout the            */
                                          /* transmitting job.              */
           char         *subject;         /* Subject of the mail.           */
@@ -187,6 +190,7 @@ struct data
           char         hostname[MAX_FILENAME_LENGTH];
           char         user[MAX_USER_NAME_LENGTH];
           char         password[MAX_USER_NAME_LENGTH];
+          char         proxy_name[MAX_PROXY_NAME_LENGTH + 1];
           char         remote_dir[MAX_PATH_LENGTH];
           char         smtp_server[MAX_USER_NAME_LENGTH];
                                          /* Target directory on the remote */

@@ -362,7 +362,7 @@ ftp_connect(char *hostname, int port)
       return(INCORRECT);
    }
 
-#if defined (_WITH_TOS) && defined (IP_TOS)
+#if defined (_WITH_TOS) && defined (IP_TOS) && defined (IPTOS_LOWDELAY)
    reply = IPTOS_LOWDELAY;
    if (setsockopt(control_fd, IPPROTO_IP, IP_TOS, (char *)&reply,
                   sizeof(reply)) < 0)
@@ -1661,12 +1661,12 @@ ftp_list(int mode, int type, ...)
 
 /*############################## ftp_data() #############################*/
 int
-ftp_data(char *filename, off_t seek, int mode, int type)
+ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
 {
    int           new_sock_fd,
                  on = 1,
                  reply;
-#if defined (_WITH_TOS) && defined (IP_TOS)
+#if defined (_WITH_TOS) && defined (IP_TOS) && defined (IPTOS_THROUGHPUT)
    int           tos;
 #endif
    char          cmd[5];
@@ -1783,8 +1783,33 @@ ftp_data(char *filename, off_t seek, int mode, int type)
             (void)close(new_sock_fd);
             return(INCORRECT);
          }
+         if (sockbuf_size > 0)
+         {
+            int optname;
+
+            if (type == DATA_WRITE)
+            {
+               optname = SO_SNDBUF;
+            }
+            else
+            {
+               optname = SO_RCVBUF;
+            }
+            if (setsockopt(new_sock_fd, SOL_SOCKET, optname,
+                           (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+            {
+               trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                         "ftp_data(): setsockopt() error : %s", strerror(errno));
+            }
+         }
          if (connect(new_sock_fd, (struct sockaddr *) &data, sizeof(data)) < 0)
          {
+#ifdef ETIMEDOUT
+            if (errno == ETIMEDOUT)
+            {
+               timeout_flag = ON;
+            }
+#endif
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "ftp_data(): connect() error : %s", strerror(errno));
             (void)close(new_sock_fd);
@@ -1984,6 +2009,25 @@ try_again:
 #ifdef FTP_REUSE_DATA_PORT
          }
 #endif
+         if (sockbuf_size > 0)
+         {
+            int optname;
+
+            if (type == DATA_WRITE)
+            {
+               optname = SO_SNDBUF;
+            }
+            else
+            {
+               optname = SO_RCVBUF;
+            }
+            if (setsockopt(sock_fd, SOL_SOCKET, optname,
+                           (char *)&sockbuf_size, sizeof(sockbuf_size)) < 0)
+            {
+               trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                         "ftp_data(): setsockopt() error : %s", strerror(errno));
+            }
+         }
 
          if (listen(sock_fd, 1) < 0)
          {
@@ -2154,7 +2198,7 @@ try_again:
    }
 #endif
 
-#if defined (_WITH_TOS) && defined (IP_TOS)
+#if defined (_WITH_TOS) && defined (IP_TOS) && defined (IPTOS_THROUGHPUT)
    tos = IPTOS_THROUGHPUT;
    if (setsockopt(new_sock_fd, IPPROTO_IP, IP_TOS, (char *)&tos,
                   sizeof(tos)) < 0)

@@ -462,7 +462,7 @@ handle_request(int sd, int pos)
                                   if (k > 0)
                                   {
                                      numeric_str[k] = '\0';
-                                     switch(cmd[i + 1])
+                                     switch (cmd[i + 1])
                                      {
                                         case '#' : /* File number */
                                            file_no = atoi(numeric_str);
@@ -560,7 +560,7 @@ handle_request(int sd, int pos)
                                              if (m > 0)
                                              {
                                                 numeric_str[m] = '\0';
-                                                switch(cmd[i + k + 1])
+                                                switch (cmd[i + k + 1])
                                                 {
                                                    case '#' : /* File number */
                                                       file_no = atoi(numeric_str);

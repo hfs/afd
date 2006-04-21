@@ -1,6 +1,6 @@
 /*
  *  handle_delete_fifo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,7 +61,8 @@ DESCR__E_M3
 /* External global variables. */
 extern int                        fsa_fd,
                                   *no_msg_queued,
-                                  no_of_hosts;
+                                  no_of_hosts,
+                                  no_of_trl_groups;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
 extern struct connection          *connection;
@@ -196,10 +197,10 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                         ptr = file_dir + strlen(file_dir);
                         (void)strcpy(ptr, qb[i].msg_name);
 #ifdef _DELETE_LOG
-                        remove_files(file_dir, mdb[qb[i].pos].fsa_pos,
-                                     mdb[qb[i].pos].job_id, USER_DEL);
+                        remove_job_files(file_dir, mdb[qb[i].pos].fsa_pos,
+                                         mdb[qb[i].pos].job_id, USER_DEL);
 #else
-                        remove_files(file_dir, -1);
+                        remove_job_files(file_dir, -1);
 #endif
                         *ptr = '\0';
                         fsa_pos = mdb[qb[i].pos].fsa_pos;
@@ -232,9 +233,12 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                   fsa[fsa_pos].total_file_counter = 0;
                   fsa[fsa_pos].total_file_size = 0;
                   fsa[fsa_pos].active_transfers = 0;
-                  fsa[fsa_pos].trl_per_process = fsa[fsa_pos].transfer_rate_limit;
                   fsa[fsa_pos].mc_nack_counter = 0;
-                  fsa[fsa_pos].mc_ctrl_per_process = fsa[fsa_pos].mc_ct_rate_limit = fsa[fsa_pos].transfer_rate_limit;
+                  if ((fsa[fsa_pos].transfer_rate_limit > 0) ||
+                      (no_of_trl_groups > 0))
+                  {
+                     calc_trl_per_process(fsa_pos);
+                  }
                   fsa[fsa_pos].error_counter = 0;
                   fsa[fsa_pos].jobs_queued = 0;
                   for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
@@ -286,10 +290,10 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                           ptr = file_dir + strlen(file_dir);
                           (void)strcpy(ptr, qb[i].msg_name);
 #ifdef _DELETE_LOG
-                          remove_files(file_dir, mdb[qb[i].pos].fsa_pos,
-                                       mdb[qb[i].pos].job_id, USER_DEL);
+                          remove_job_files(file_dir, mdb[qb[i].pos].fsa_pos,
+                                           mdb[qb[i].pos].job_id, USER_DEL);
 #else
-                          remove_files(file_dir, -1);
+                          remove_job_files(file_dir, -1);
 #endif
                           *ptr = '\0';
 

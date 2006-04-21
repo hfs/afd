@@ -433,9 +433,9 @@
  * The maximum block size that may be specified in the edit_hc dialog.
  * Experiment with these values to see if they have any big impact
  * on your system.
- * DEFAULT: 65536
+ * DEFAULT: 262144
  *-----------------------------------------------------------------------*/
-#define MAX_TRANSFER_BLOCKSIZE 65536
+#define MAX_TRANSFER_BLOCKSIZE 262144
 
 /*-----------------------------------------------------------------------*
  * If a transfer of a big file gets interrupted, it is annoying to

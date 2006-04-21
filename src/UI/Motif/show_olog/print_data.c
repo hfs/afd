@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ DESCR__S_M3
  **   18.05.1997 H.Kiehl Created
  **   18.03.2000 H.Kiehl Modified to make it more generic.
  **   10.04.2004 H.Kiehl Added TLS/SSL support.
+ **   31.01.2006 H.Kiehl Added SFTP support.
  **
  */
 DESCR__E_M3
@@ -367,7 +368,7 @@ write_header(int fd)
       }
       if (no_of_search_dirids > 0)
       {
-         length += sprintf(&buffer[length], "\tDiralias      : %s",
+         length += sprintf(&buffer[length], "\tDir Identifier: %s",
                            search_dirid[0]);
          for (i = 1; i < no_of_search_dirids; i++)
          {
@@ -422,6 +423,17 @@ write_header(int fd)
       else
       {
          length += sprintf(&buffer[length], ", %s", FILE_ID_STR);
+      }
+   }
+   if (toggles_set & SHOW_SFTP)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tProtocol      : SFTP");
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", SFTP");
       }
    }
 #ifdef _WITH_SCP_SUPPORT

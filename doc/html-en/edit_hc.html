@@ -75,17 +75,97 @@ only possible to have one of this dialog open at the same time.
               to switch back to the main host to see if it is alive
               again.</td>
        </tr>
+       <tr>
+          <td>Keep connected</td>
+          <td>Not yet implemented.</td>
+       </tr>
        </table>
    </td>
 </tr>
 <tr>
-   <td>&nbsp<b>5</b>&nbsp</td>
+   <td><a name="transfer_rate_limit">&nbsp<b>5</b>&nbsp</a></td>
    <td>Transfer rate limit</td>
    <td>With this option the transfer rate to the given host can be
-       limited. The Value is in Kilobytes per second.</td>
+       limited. The Value is in Kilobytes per second. See also
+       <a href="group_transfer_limit.html">group.transfer_rate_limit</a>
+       file, if you want to group several hosts to one limit.</td>
 </tr>
 <tr>
    <td>&nbsp<b>6</b>&nbsp</td>
+   <td>Socket send buffer size</td>
+   <td>Changes the socket send buffer size. This can improve throughput
+       on high bandwith connections or when the RTT (round-trip time)
+       gets large. Ensure that you understand how to determine this
+       value otherwise you will be wasting memory and can increase
+       latency with small files.</td>
+</tr>
+<tr>
+   <td>&nbsp<b>7</b>&nbsp</td>
+   <td>Socket receive buffer size</td>
+   <td>Changes the socket receive buffer size. See description above.</td>
+</tr>
+<tr>
+   <td>&nbsp<b>8</b>&nbsp</td>
+   <td>Check for duplicates</td>
+   <td>Performs a duplicate on files that are send to this host. The
+       options have the following meaning:
+       <table border>
+       <tr>
+          <th>Option</th>
+          <th>Description</th>
+       </tr>
+       <tr>
+          <td>Check Type</td>
+          <td>What type of check is to be performed, the following values
+              are possible:
+              <table border align=center>
+              <tr>
+                 <td>Filename</td>
+                 <td>Perform check only on the filename.</td>
+              </tr>
+              <tr>
+                 <td>File content</td>
+                 <td>Creates the checksum on the file content only.</td>
+              </tr>
+              <tr>
+                 <td>File name + content</td>
+                 <td>Creates checksum from file name and content.</td>
+              </tr>
+              </table>
+          </td>
+       </tr>
+       <tr>
+          <td>Action</td>
+          <td>What action is to be taken when we find a duplicate. The
+              following values are possible:
+              <table border align=center>
+              <tr>
+                 <td>Delete</td>
+                 <td>Delete the file.</td>
+              </tr>
+              <tr>
+                 <td>Store</td>
+                 <td>Store the duplicate file in the following directory:
+                     $AFD_WORK_DIR/files/store/&lt;id&gt;. Where &lt;id&gt;
+                     is the directoy id.</td>
+              </tr>
+              <tr>
+                 <td>Warn</td>
+                 <td>Only warn in SYSTEM_LOG.</td>
+              </tr>
+              </table>
+          </td>
+       </tr>
+       <tr>
+          <td>Timeout</td>
+          <td>Time in seconds when this CRC value is to be discarded
+              from the database.</td>
+       </tr>
+       </table>
+   </td>
+</tr>
+<tr>
+   <td>&nbsp<b>9</b>&nbsp</td>
    <td>Options</td>
    <td><table border>
        <tr>
@@ -130,9 +210,10 @@ only possible to have one of this dialog open at the same time.
    </td>
 </tr>
 <tr>
-   <td>&nbsp<b>7</b>&nbsp</td>
+   <td>&nbsp<b>10</b>&nbsp</td>
    <td>Protocol specific</td>
-   <td>Protocol specific options. Currently these are only for FTP and FTPS.
+   <td>Protocol specific options. Currently these are only for FTP and FTPS,
+       except for Fast cd which can also be used for SFTP.
        <table border>
        <tr>
           <td>FTP Mode</td>
@@ -163,15 +244,24 @@ only possible to have one of this dialog open at the same time.
               support this, especially those from M$soft.</td>
        </tr>
        <tr>
-          <td>Fast cd</td>
+          <td><a name="fast_cd">Fast cd</a></td>
           <td>If set no CWD (change working directory) command is sent. This
               reduces latency, but does not always work (eg. VAX systems).</td>
+       </tr>
+       <tr>
+          <td><a name="ignore_type_i">Ignore type I</a></td>
+          <td>By default AFD will always send a type I command for
+              binary mode during connection initialization. Since most
+              FTP-servers have this set by default, it is not required
+              to send this. Note that this option is very <b>dangerous</b>
+              and only works with few FTP-servers (vsftpd), since it
+              can easily corrupt data.</td>
        </tr>
        </table>
    </td>
 </tr>
 <tr>
-   <td>&nbsp<b>8</b>&nbsp</td>
+   <td>&nbsp<b>11</b>&nbsp</td>
    <td>Proxy</td>
    <td>If the remote server is a proxy, enter the sequence on how to
        enter the proxy here. Currently you can only specify the order of
@@ -185,12 +275,12 @@ only possible to have one of this dialog open at the same time.
        to enter the login name you may also use $A instead of $U.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>9</b>&nbsp</td>
+   <td>&nbsp<b>12</b>&nbsp</td>
    <td>Status Line</td>
    <td>Reports what edit_hc did when the user presses the update button.</td>
 </tr>
 <tr>
-   <td>&nbsp<b>10</b>&nbsp</td>
+   <td>&nbsp<b>13</b>&nbsp</td>
    <td>Button Line</td>
    <td>Pressing the update button will activate all changes made. You
        may change several hosts befor pressing the update button, the
@@ -203,9 +293,9 @@ only possible to have one of this dialog open at the same time.
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 1997 - 2005 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 04.07.2005
+   Last updated: 09.04.2006
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

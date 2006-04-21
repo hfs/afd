@@ -1,6 +1,6 @@
 /*
  *  httpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   httpcmd - commands to send and retrieve files via HTTP
  **
  ** SYNOPSIS
- **   int  http_connect(char *hostname, int port)
+ **   int  http_connect(char *hostname, int port, int sndbuf_size, int rcvbuf_size)
  **   int  http_ssl_auth(void)
  **   int  http_check_connection(void)
  **   int  http_del(char *host, char *path, char *filename)
@@ -132,9 +132,9 @@ static int                       basic_authentication(void),
 /*########################## http_connect() #############################*/
 int
 #ifdef WITH_SSL
-http_connect(char *hostname, int port, char *user, char *passwd, int ssl)
+http_connect(char *hostname, int port, char *user, char *passwd, int ssl, int sndbuf_size, int rcvbuf_size)
 #else
-http_connect(char *hostname, int port, char *user, char *passwd)
+http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size, int rcvbuf_size)
 #endif
 {
    struct sockaddr_in sin;
@@ -197,6 +197,35 @@ http_connect(char *hostname, int port, char *user, char *passwd)
    }
 
    sin.sin_port = htons((u_short)port);
+
+   if (sndbuf_size > 0)
+   {
+      if (setsockopt(http_fd, SOL_SOCKET, SO_SNDBUF,
+                     (char *)&sndbuf_size, sizeof(sndbuf_size)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                   "http_connect(): setsockopt() error : %s", strerror(errno));
+      }
+      hmr.sndbuf_size = sndbuf_size;
+   }
+   else
+   {
+      hmr.sndbuf_size = 0;
+   }
+   if (rcvbuf_size > 0)
+   {
+      if (setsockopt(http_fd, SOL_SOCKET, SO_RCVBUF,
+                     (char *)&rcvbuf_size, sizeof(rcvbuf_size)) < 0)
+      {
+         trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                   "http_connect(): setsockopt() error : %s", strerror(errno));
+      }
+      hmr.rcvbuf_size = rcvbuf_size;
+   }
+   else
+   {
+      hmr.rcvbuf_size = 0;
+   }
 
    if (connect(http_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
@@ -964,9 +993,9 @@ http_check_connection(void)
 
       if ((status = http_connect(hmr.hostname, hmr.port,
 #ifdef WITH_SSL
-                                 NULL, NULL, hmr.ssl)) != SUCCESS)
+                                 NULL, NULL, hmr.ssl, hmr.sndbuf_size, hmr.rcvbuf_size)) != SUCCESS)
 #else
-                                 NULL, NULL)) != SUCCESS)
+                                 NULL, NULL, hmr.sndbuf_size, hmr.rcvbuf_size)) != SUCCESS)
 #endif
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,

@@ -1,5 +1,5 @@
 /*
- *  tiff-sniffer.c - Part of AFD, an automatic file distribution program.
+ *  tiff_sniffer.c - Part of AFD, an automatic file distribution program.
  *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
  *                     Holger Kiehl <Holger.Kiehl@dwd.de>
  *
@@ -23,9 +23,10 @@
 DESCR__S_M1
 /*
  ** NAME
- **   tiff-sniffer - 
+ **   tiff_sniffer - program to show the TIFF header
  **
  ** SYNOPSIS
+ **   tiff_sniffer <file name>
  **
  ** DESCRIPTION
  **
@@ -215,7 +216,7 @@ main(int argc, char *argv[])
             byte_swap_short(&buf[ifd_offset + offset]);
          }
          (void)memcpy(&tmp_short, &buf[ifd_offset + offset], 2);
-         switch(tmp_short)
+         switch (tmp_short)
          {
             case  1: (void)fprintf(stdout, "   BYTE    |");
                      length = 1;

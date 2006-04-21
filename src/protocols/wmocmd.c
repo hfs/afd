@@ -1,6 +1,6 @@
 /*
  *  wmocmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   wmocmd - commands to send files via TCP according WMO regulations
  **
  ** SYNOPSIS
- **   int  wmo_connect(char *hostname, int port)
+ **   int  wmo_connect(char *hostname, int port, int sndbuf_size)
  **   int  wmo_write(char *block, char *buffer, int size)
  **   int  wmo_check_reply(char *expect_string)
  **   int  wmo_quit(void)
@@ -94,7 +94,7 @@ static struct timeval     timeout;
 
 /*########################## wmo_connect() ##############################*/
 int
-wmo_connect(char *hostname, int port)
+wmo_connect(char *hostname, int port, int sndbuf_size)
 {
 #ifdef _WITH_WMO_SUPPORT
    int                     loop_counter = 0;

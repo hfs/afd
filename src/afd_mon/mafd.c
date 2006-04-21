@@ -1,6 +1,6 @@
 /*
  *  mafd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,6 +57,8 @@ DESCR__S_M1
  ** HISTORY
  **   30.08.1998 H.Kiehl Created
  **   27.02.2005 H.Kiehl Added options to initialize AFD_MON.
+ **   07.04.2006 H.Kiehl When doing initialization only delete AFD_MON
+ **                      files, not AFD files.
  **
  */
 DESCR__E_M1
@@ -74,6 +76,7 @@ DESCR__E_M1
 #include <unistd.h>           /* execlp(), chdir(), R_OK, X_OK           */
 #include <errno.h>
 #include "mondefs.h"
+#include "logdefs.h"
 #include "version.h"
 #include "permission.h"
 
@@ -97,7 +100,9 @@ char        *p_work_dir,
 const char  *sys_log_name = MON_SYS_LOG_FIFO;
 
 /* Local functions */
-static void usage(char *);
+static void delete_fifodir_files(char *, int),
+            delete_log_files(char *, int),
+            usage(char *);
 static int  check_database(void);
 
 
@@ -136,7 +141,7 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
 
    check_fake_user(&argc, argv, MON_CONFIG_FILE, fake_user);
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -455,7 +460,7 @@ main(int argc, char *argv[])
            get_user(user, fake_user);
            (void)rec(sys_log_fd, WARN_SIGN,
                      "AFD_MON startup initiated by %s\n", user);
-           switch(fork())
+           switch (fork())
            {
               case -1 :
 
@@ -508,7 +513,7 @@ main(int argc, char *argv[])
                    (void)rec(sys_log_fd, WARN_SIGN,
                              "Hmm. AFD_MON is NOT running! Startup initiated by %s\n",
                              user);
-                   switch(fork())
+                   switch (fork())
                    {
                       case -1 : /* Could not generate process */
                          (void)rec(sys_log_fd, FATAL_SIGN,
@@ -550,24 +555,15 @@ main(int argc, char *argv[])
            }
            else
            {
+              int  offset;
               char dirs[MAX_PATH_LENGTH];
 
-              (void)sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
-              if (rec_rmdir(dirs) == INCORRECT)
-              {
-                 (void)fprintf(stderr,
-                               "WARNING : Failed to delete everything in %s.\n",
-                               dirs);
-              }
+              offset = sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
+              delete_fifodir_files(dirs, offset);
               if (start_up == AFD_MON_FULL_INITIALIZE)
               {
-                 (void)sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
-                 if (rec_rmdir(dirs) == INCORRECT)
-                 {
-                    (void)fprintf(stderr,
-                                  "WARNING : Failed to delete everything in %s.\n",
-                                  dirs);
-                 }
+                 offset = sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
+                 delete_log_files(dirs, offset);
               }
               exit(SUCCESS);
            }
@@ -641,7 +637,7 @@ main(int argc, char *argv[])
       get_user(user, fake_user);
       (void)rec(sys_log_fd, WARN_SIGN,
                 "AFD_MON automatic startup initiated by %s\n", user);
-      switch(fork())
+      switch (fork())
       {
          case -1 : /* Could not generate process */
             (void)rec(sys_log_fd, FATAL_SIGN,
@@ -751,6 +747,97 @@ check_database(void)
                  p_work_dir, ETC_DIR, AFD_MON_CONFIG_FILE);
 
    return(eaccess(db_file, R_OK));
+}
+
+
+/*+++++++++++++++++++++++++ delete_fifodir_files() ++++++++++++++++++++++*/
+static void
+delete_fifodir_files(char *fifodir, int offset)
+{
+   int  i,
+        tmp_sys_log_fd;
+   char *file_ptr,
+        *filelist[] =
+         {
+            MON_ACTIVE_FILE,
+            AFD_MON_STATUS_FILE,
+            MSA_ID_FILE,
+            MON_CMD_FIFO,
+            MON_RESP_FIFO,
+            MON_PROBE_ONLY_FIFO,
+            MON_SYS_LOG_FIFO
+         },
+        *mfilelist[] =
+        {
+           MON_STATUS_FILE_ALL,
+           RETRY_MON_FIFO_ALL,
+           AHL_FILE_NAME_ALL
+        };
+
+   file_ptr = fifodir + offset;
+
+   /* Delete single files. */
+   for (i = 0; i < (sizeof(filelist) / sizeof(*filelist)); i++)
+   {
+      (void)strcpy(file_ptr, filelist[i]);
+      (void)unlink(fifodir);
+   }
+   *file_ptr = '\0';
+
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDOUT_FILENO;
+
+   /* Delete multiple files. */
+   for (i = 0; i < (sizeof(mfilelist) / sizeof(*mfilelist)); i++)
+   {
+      (void)remove_files(fifodir, &mfilelist[i][1]);
+   }
+
+   sys_log_fd = tmp_sys_log_fd;
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++++++ delete_log_files() +++++++++++++++++++++++*/
+static void
+delete_log_files(char *logdir, int offset)
+{
+   int  i,
+        tmp_sys_log_fd;
+   char *log_ptr,
+        *loglist[] =
+        {
+           "/DAEMON_LOG.afd_mon"
+        },
+        *mloglist[] =
+        {
+           MON_SYS_LOG_NAME_ALL,
+           MON_LOG_NAME_ALL
+        };
+
+   log_ptr = logdir + offset;
+
+   /* Delete single files. */
+   for (i = 0; i < (sizeof(loglist) / sizeof(*loglist)); i++)
+   {
+      (void)strcpy(log_ptr, loglist[i]);
+      (void)unlink(logdir);
+   }
+   *log_ptr = '\0';
+
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDOUT_FILENO;
+
+   /* Delete multiple files. */
+   for (i = 0; i < (sizeof(mloglist)/sizeof(*mloglist)); i++)
+   {
+      (void)remove_files(logdir, mloglist[i]);
+   }
+
+   sys_log_fd = tmp_sys_log_fd;
+
+   return;
 }
 
 

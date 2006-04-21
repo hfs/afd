@@ -221,7 +221,7 @@ eval_dir_options(int  dir_pos,
       }
       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
       {
-        switch(*end_ptr)
+        switch (*end_ptr)
         {
            case 'd' :
            case 'D' : /* Delete unknown files. */

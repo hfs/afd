@@ -61,21 +61,37 @@ case "$1" in
 	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/afd
 	;;
   restart)
-	$0 stop
-	sleep 2
+	if [ -f /var/lock/subsys/afd ]
+	then
+	   $0 stop
+	   sleep 2
+	fi
 	$0 start
 	RETVAL=$?
+	rm -f /var/lock/subsys/afd.restart
 	;;
   condrestart)
 	if [ -f /var/lock/subsys/afd ]
 	then
 	   $0 restart
 	else
-	   RETVAL=0
+	   if [ -f /var/lock/subsys/afd.restart ]
+	   then
+	      $0 restart
+	   else
+	      $0 status
+	      if [ "$?" = 0 ]
+	      then
+	         $0 restart
+	      else
+	         RETVAL=0
+	      fi
+	   fi
 	fi
 	;;
   status)
 	NOT_RUNNING=""
+	IS_RUNNING=""
 	for afduser in $AFD_USERS
 	do
 	   su - $afduser -c "afd -c"
@@ -83,11 +99,13 @@ case "$1" in
 	   if [ $RETVAL -ne 5 ]
 	   then
 	      NOT_RUNNING="`echo $NOT_RUNNING` $afduser"
+	   else
+	      IS_RUNNING="`echo $IS_RUNNING` $afduser"
 	   fi
 	done
 	if [ "$NOT_RUNNING" = "" ]
 	then
-	   echo "AFD for $AFD_USERS is running."
+	   echo "AFD for $IS_RUNNING is running."
 	   RETVAL=0
 	else
 	   echo "AFD for $NOT_RUNNING is NOT active."

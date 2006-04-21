@@ -1,6 +1,6 @@
 /*
  *  send_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -335,6 +335,10 @@ store_msg(char *msg)
    }
    (void)memcpy(&mb[*no_msg_buffered], msg, MAX_BIN_MSG_LENGTH);
    (*no_msg_buffered)++;
+   if ((p_afd_status->amg_jobs & DIR_CHECK_MSG_QUEUED) == 0)
+   {
+      p_afd_status->amg_jobs |= DIR_CHECK_MSG_QUEUED;
+   }
 #ifdef LOCK_DEBUG
    unlock_region(mb_fd, 0, __FILE__, __LINE__);
 #else

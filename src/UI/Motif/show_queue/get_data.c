@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -83,11 +83,14 @@ extern Widget                  appshell,
                                summarybox_w;
 extern int                     radio_set,
                                gt_lt_sign,
+                               no_of_search_dirs,
+                               no_of_search_dirids,
                                no_of_search_hosts,
                                queue_tmp_buf_entries,
                                special_button_flag,
                                file_name_length;
-extern unsigned int            total_no_files;
+extern unsigned int            *search_dirid,
+                               total_no_files;
 extern XT_PTR_TYPE             toggles_set;
 extern size_t                  search_file_size;
 extern time_t                  start_time_val,
@@ -95,7 +98,7 @@ extern time_t                  start_time_val,
 extern double                  total_file_size;
 extern char                    *p_work_dir,
                                search_file_name[],
-                               search_directory_name[],
+                               **search_dir,
                                **search_recipient,
                                **search_user,
                                summary_str[],
@@ -428,7 +431,7 @@ get_output_files(void)
                            for (j = 0; j < no_of_search_hosts; j++)
                            {
                               if (pmatch(search_recipient[j],
-                                         jd[pos].host_alias) == 0)
+                                         jd[pos].host_alias, NULL) == 0)
                               {
                                  gotcha = YES;
                                  break;
@@ -438,14 +441,38 @@ get_output_files(void)
 
                         if (gotcha == YES)
                         {
-                           char *ptr_file;
-
-                           /* Check if an input directory was specified. */
-                           if ((search_directory_name[0] == '\0') ||
-                               ((search_directory_name[0] != '\0') &&
-                                (pmatch(search_directory_name, dnb[jd[pos].dir_id_pos].dir_name) == 0)))
+                           if ((no_of_search_dirs > 0) ||
+                               (no_of_search_dirids > 0))
                            {
-                              char queue_typ;
+                              int  kk;
+                              char *ptr_file;
+
+                              /* Check if an input directory was specified. */
+                              gotcha = NO;
+                              for (kk = 0; kk < no_of_search_dirids; kk++)
+                              {
+                                 if (search_dirid[kk] == dnb[jd[pos].dir_id_pos].dir_id)
+                                 {
+                                    gotcha = YES;
+                                    break;
+                                 }
+                              }
+                              if (gotcha == NO)
+                              {
+                                 for (kk = 0; kk < no_of_search_dirs; kk++)
+                                 {
+                                    if (sfilter(search_dir[kk], dnb[jd[pos].dir_id_pos].dir_name, SEPARATOR_CHAR) == 0)
+                                    {
+                                       gotcha = YES;
+                                       break;
+                                    }
+                                 }
+                              }
+                           }
+                           if (gotcha == YES)
+                           {
+                              char *ptr_file,
+                                   queue_typ;
 
                               ptr_file = p_queue_msg +
                                          sprintf(p_queue_msg, "%s/",
@@ -462,7 +489,7 @@ get_output_files(void)
                                           qb[i].msg_name, jd[pos].host_alias,
                                           queue_typ, jd[pos].priority,
                                           job_id, jd[pos].dir_id_pos,
-                                          jd[i].dir_id, qb[i].files_to_send);
+                                          jd[pos].dir_id, qb[i].files_to_send);
                            }
                         }
                      }
@@ -495,16 +522,42 @@ get_output_files(void)
 static void
 get_input_files(void)
 {
-   register int  i;
+   register int  i, kk;
+   int           gotcha;
    DIR           *dp;
    struct dirent *p_dir;
    struct stat   stat_buf;
 
    for (i = 0; ((i < no_of_dirs) && (limit_reached == NO)); i++)
    {
-      if ((search_directory_name[0] == '\0') ||
-          ((search_directory_name[0] != '\0') &&
-           (pmatch(search_directory_name, dnb[i].dir_name) == 0)))
+      if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+      {
+         gotcha = NO;
+         for (kk = 0; kk < no_of_search_dirids; kk++)
+         {
+            if (search_dirid[kk] == dnb[i].dir_id)
+            {
+               gotcha = YES;
+               break;
+            }
+         }
+         if (gotcha == NO)
+         {
+            for (kk = 0; kk < no_of_search_dirs; kk++)
+            {
+               if (sfilter(search_dir[kk], dnb[i].dir_name, SEPARATOR_CHAR) == 0)
+               {
+                  gotcha = YES;
+                  break;
+               }
+            }
+         }
+      }
+      else
+      {
+         gotcha = YES;
+      }
+      if (gotcha == YES)
       {
          if ((dp = opendir(dnb[i].dir_name)) != NULL)
          {
@@ -536,7 +589,7 @@ get_input_files(void)
                         for (j = 0; j < no_of_search_hosts; j++)
                         {
                            if (pmatch(search_recipient[j],
-                                      &p_dir->d_name[1]) == 0)
+                                      &p_dir->d_name[1], NULL) == 0)
                            {
                               gotcha = YES;
                               break;
@@ -572,13 +625,39 @@ get_input_files(void)
 static void
 get_all_input_files(void)
 {
-   register int i;
+   register int i, kk;
+   int          gotcha;
 
    for (i = 0; ((i < no_of_dirs) && (limit_reached == NO)); i++)
    {
-      if ((search_directory_name[0] == '\0') ||
-          ((search_directory_name[0] != '\0') &&
-           (pmatch(search_directory_name, dnb[i].dir_name) == 0)))
+      if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+      {
+         gotcha = NO;
+         for (kk = 0; kk < no_of_search_dirids; kk++)
+         {
+            if (search_dirid[kk] == dnb[i].dir_id)
+            {
+               gotcha = YES;
+               break;
+            }
+         }
+         if (gotcha == NO)
+         {
+            for (kk = 0; kk < no_of_search_dirs; kk++)
+            {
+               if (sfilter(search_dir[kk], dnb[i].dir_name, SEPARATOR_CHAR) == 0)
+               {
+                  gotcha = YES;
+                  break;
+               }
+            }
+         }
+      }
+      else
+      {
+         gotcha = YES;
+      }
+      if (gotcha == YES)
       {
          int gotcha = NO;
 
@@ -598,7 +677,7 @@ get_all_input_files(void)
                   for (k = 0; k < no_of_search_hosts; k++)
                   {
                      if (pmatch(search_recipient[k],
-                                jd[j].host_alias) == 0)
+                                jd[j].host_alias, NULL) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -795,7 +874,7 @@ insert_file(char         *queue_dir,
             /* Check if we need to search for a specific file. */
             if ((search_file_name[0] == '\0') ||
                 ((search_file_name[0] != '\0') &&
-                 (pmatch(search_file_name, dirp->d_name) == 0)))
+                 (pmatch(search_file_name, dirp->d_name, NULL) == 0)))
             {
                (void)strcpy(ptr_file, dirp->d_name);
                if ((stat(queue_dir, &stat_buf) != -1) &&

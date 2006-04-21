@@ -243,7 +243,6 @@ main(int argc, char *argv[])
    *shared_shutdown = 0;
    *heartbeat = 0;
 
-open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
    /* Open and create all fifos */
    init_fifos_afd();
 
@@ -378,7 +377,7 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
    for (i = 0; i < NO_OF_PROCESS; i++)
    {
       proc_table[i].pid = 0;
-      switch(i)
+      switch (i)
       {
          case AMG_NO :
             proc_table[i].status = &p_afd_status->amg;
@@ -595,6 +594,11 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
       if (i != INCORRECT_VERSION)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
+      }
+      else
+      {
+         system_log(INFO_SIGN, __FILE__, __LINE__,
+                    "You can ignore the last warning about incorrect version.");
       }
    }
    else
@@ -862,7 +866,7 @@ open("/home/atest/aaaa", O_RDWR | O_CREAT , S_IRUSR | S_IWUSR | S_IRGRP | S_IWGR
                  while (count < n)
                  {
                     (*heartbeat)++;
-                    switch(buffer[count])
+                    switch (buffer[count])
                     {
                        case SHUTDOWN  : /* Shutdown AFD */
 
@@ -1427,7 +1431,7 @@ make_process(char *progname, char *directory, sigset_t *oldmask)
 {
    pid_t pid;
 
-   switch(pid = fork())
+   switch (pid = fork())
    {
       case -1: /* Could not generate process */
 
@@ -1480,7 +1484,7 @@ zombie_check(void)
       {
          if (WIFEXITED(status))
          {
-            switch(WEXITSTATUS(status))
+            switch (WEXITSTATUS(status))
             {
                case 0 : /* Ordinary end of process. */
                   system_log(INFO_SIGN, __FILE__, __LINE__,

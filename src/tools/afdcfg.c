@@ -167,7 +167,7 @@ main(int argc, char *argv[])
    /*
     * Ensure that the user may use this program.
     */
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -219,7 +219,7 @@ main(int argc, char *argv[])
    }
    ptr = (char *)fsa - AFD_FSA_FEATURE_FLAG_OFFSET;
 
-   switch(action)
+   switch (action)
    {
       case ENABLE_ARCHIVE_SEL :
          if (*ptr & DISABLE_ARCHIVE)

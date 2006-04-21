@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -42,6 +42,10 @@ DESCR__S_M3
  **   16.07.2000 H.Kiehl Disable any input fields when they are not
  **                      available.
  **   10.06.2004 H.Kiehl Added transfer rate limit.
+ **   17.02.2006 H.Kiehl Added option to change socket send and/or receive
+ **                      buffer.
+ **   28.02.2006 H.Kiehl Added option for setting the keep connected
+ **                      parameter.
  **
  */
 DESCR__E_M3
@@ -64,10 +68,27 @@ DESCR__E_M3
 extern Display                    *display;
 extern Widget                     active_mode_w,
                                   auto_toggle_w,
+#ifdef WITH_DUP_CHECK
+                                  dc_delete_w,
+                                  dc_disable_w,
+                                  dc_enable_w,
+                                  dc_filecontent_w,
+                                  dc_filenamecontent_w,
+                                  dc_filename_w,
+                                  dc_store_w,
+                                  dc_timeout_label_w,
+                                  dc_timeout_w,
+                                  dc_type_w,
+                                  dc_warn_w,
+#endif
                                   first_label_w,
-                                  ftp_idle_time_w,
                                   ftp_fast_cd_w,
                                   ftp_fast_rename_w,
+                                  ftp_idle_time_w,
+                                  ftp_ignore_bin_w,
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                                  ftp_keepalive_w,
+#endif
                                   ftp_mode_w,
                                   host_1_w,
                                   host_2_w,
@@ -75,9 +96,7 @@ extern Widget                     active_mode_w,
                                   host_2_label_w,
                                   host_list_w,
                                   host_switch_toggle_w,
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
-                                  ftp_keepalive_w,
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+                                  keep_connected_w,
                                   max_errors_w,
                                   mode_label_w,
                                   no_source_icon_w,
@@ -89,6 +108,10 @@ extern Widget                     active_mode_w,
                                   retry_interval_w,
                                   rm_button_w,
                                   second_label_w,
+                                  socket_send_buffer_size_label_w,
+                                  socket_send_buffer_size_w,
+                                  socket_receive_buffer_size_label_w,
+                                  socket_receive_buffer_size_w,
                                   source_icon_w,
                                   start_drag_w,
                                   statusbox_w,
@@ -321,7 +344,9 @@ host_switch_toggle(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(auto_toggle_w, False);
          XtSetSensitive(successful_retries_label_w, False);
          XtSetSensitive(successful_retries_w, False);
-         if (strncmp(fsa[cur_pos].real_hostname[0], fsa[cur_pos].host_alias, strlen(fsa[cur_pos].host_alias)) == 0)
+         if (strncmp(fsa[cur_pos].real_hostname[0],
+                     fsa[cur_pos].host_alias,
+                     strlen(fsa[cur_pos].host_alias)) == 0)
          {
             char real_hostname[MAX_REAL_HOSTNAME_LENGTH];
 
@@ -459,9 +484,9 @@ nob_option_changed(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 
-/*########################### radio_button() ############################*/
+/*####################### ftp_mode_radio_button() #######################*/
 void
-radio_button(Widget w, XtPointer client_data, XtPointer call_data)
+ftp_mode_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    ce[cur_pos].value_changed |= FTP_MODE_CHANGED;
    ce[cur_pos].ftp_mode = (XT_PTR_TYPE)client_data;
@@ -470,11 +495,163 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 
+#ifdef WITH_DUP_CHECK
+/*########################## edc_radio_button() #########################*/
+void
+edc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   char numeric_str[MAX_LONG_LENGTH];
+
+   if ((XT_PTR_TYPE)client_data == ENABLE_DUPCHECK_SEL)
+   {
+      ce[cur_pos].dup_check_timeout = DEFAULT_DUPCHECK_TIMEOUT;
+      ce[cur_pos].dup_check_flag = (DC_FILENAME_ONLY | DC_CRC32 | DC_DELETE);
+      XtSetSensitive(dc_type_w, True);
+      XtVaSetValues(dc_filename_w, XmNset, True, NULL);
+      XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
+      XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
+      XtSetSensitive(dc_delete_w, True);
+      XtVaSetValues(dc_delete_w, XmNset, True, NULL);
+      XtVaSetValues(dc_store_w, XmNset, False, NULL);
+      XtSetSensitive(dc_store_w, False);
+      XtSetSensitive(dc_warn_w, True);
+      XtSetSensitive(dc_timeout_w, True);
+      XtSetSensitive(dc_timeout_label_w, True);
+      (void)sprintf(numeric_str, "%ld", ce[cur_pos].dup_check_timeout);
+      XtVaSetValues(dc_timeout_w, XmNvalue, numeric_str, NULL);
+   }
+   else
+   {
+      ce[cur_pos].dup_check_timeout = 0L;
+      ce[cur_pos].dup_check_flag = 0;
+      XtSetSensitive(dc_type_w, False);
+      XtSetSensitive(dc_delete_w, False);
+      XtSetSensitive(dc_store_w, False);
+      XtSetSensitive(dc_warn_w, False);
+      XtSetSensitive(dc_timeout_w, False);
+      XtSetSensitive(dc_timeout_label_w, False);
+   }
+   ce[cur_pos].value_changed |= DC_TYPE_CHANGED;
+   ce[cur_pos].value_changed |= DC_DELETE_CHANGED;
+   ce[cur_pos].value_changed |= DC_STORE_CHANGED;
+   ce[cur_pos].value_changed |= DC_WARN_CHANGED;
+   ce[cur_pos].value_changed |= DC_TIMEOUT_CHANGED;
+
+   return;
+}
+
+
+/*######################## dc_type_radio_button() #######################*/
+void
+dc_type_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   ce[cur_pos].value_changed |= DC_TYPE_CHANGED;
+   if ((XT_PTR_TYPE)client_data == FILE_CONTENT_SEL)
+   {
+      if (ce[cur_pos].dup_check_flag & DC_FILENAME_ONLY)
+      {
+         ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
+      }
+      if (ce[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
+      {
+         ce[cur_pos].dup_check_flag ^= DC_FILE_CONT_NAME;
+      }
+      ce[cur_pos].dup_check_flag |= DC_FILE_CONTENT;
+   }
+   else if ((XT_PTR_TYPE)client_data == FILE_NAME_CONTENT_SEL)
+        {
+           if (ce[cur_pos].dup_check_flag & DC_FILENAME_ONLY)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
+           }
+           if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
+           }
+           ce[cur_pos].dup_check_flag |= DC_FILE_CONT_NAME;
+        }
+        else
+        {
+           if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
+           }
+           if (ce[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_FILE_CONT_NAME;
+           }
+           ce[cur_pos].dup_check_flag |= DC_FILENAME_ONLY;
+        }
+
+   return;
+}
+#endif /* WITH_DUP_CHECK */
+
+
 /*########################### toggle_button() ###########################*/
 void
 toggle_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    ce[cur_pos].value_changed |= (XT_PTR_TYPE)client_data;
+#ifdef WITH_DUP_CHECK
+   if ((XT_PTR_TYPE)client_data == DC_DELETE_CHANGED)
+   {
+      if (XmToggleButtonGetState(w) == True)
+      {
+         XtVaSetValues(dc_store_w, XmNset, False, NULL);
+         XtSetSensitive(dc_store_w, False);
+         if ((ce[cur_pos].dup_check_flag & DC_DELETE) == 0)
+         {
+            ce[cur_pos].dup_check_flag |= DC_DELETE;
+         }
+      }
+      else
+      {
+         XtSetSensitive(dc_store_w, True);
+         if (ce[cur_pos].dup_check_flag & DC_DELETE)
+         {
+            ce[cur_pos].dup_check_flag ^= DC_DELETE;
+         }
+      }
+   }
+   else if ((XT_PTR_TYPE)client_data == DC_STORE_CHANGED)
+        {
+           if (XmToggleButtonGetState(w) == True)
+           {
+              XtVaSetValues(dc_delete_w, XmNset, False, NULL);
+              XtSetSensitive(dc_delete_w, False);
+              if ((ce[cur_pos].dup_check_flag & DC_STORE) == 0)
+              {
+                 ce[cur_pos].dup_check_flag |= DC_STORE;
+              }
+           }
+           else
+           {
+              XtSetSensitive(dc_delete_w, True);
+              if (ce[cur_pos].dup_check_flag & DC_STORE)
+              {
+                 ce[cur_pos].dup_check_flag ^= DC_STORE;
+              }
+           }
+        }
+   else if ((XT_PTR_TYPE)client_data == DC_WARN_CHANGED)
+        {
+           if (XmToggleButtonGetState(w) == True)
+           {
+              if ((ce[cur_pos].dup_check_flag & DC_WARN) == 0)
+              {
+                 ce[cur_pos].dup_check_flag |= DC_WARN;
+              }
+           }
+           else
+           {
+              if (ce[cur_pos].dup_check_flag & DC_WARN)
+              {
+                 ce[cur_pos].dup_check_flag ^= DC_WARN;
+              }
+           }
+        }
+#endif
 
    return;
 }
@@ -500,7 +677,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
       char        *input_data = XmTextGetString(w);
 
       value_changed = NO;
-      switch(choice)
+      switch (choice)
       {
          case REAL_HOST_NAME_1 :
             if (input_data[0] != '\0')
@@ -633,10 +810,60 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             }
             else
             {
-               ce[cur_pos].transfer_rate_limit = atoi(input_data) * 1024;
+               ce[cur_pos].transfer_rate_limit = (off_t)strtoul(input_data, NULL, 0) * 1024;
             }
             ce[cur_pos].value_changed |= TRANSFER_RATE_LIMIT_CHANGED;
             break;
+
+         case SOCKET_SEND_BUFFER :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].sndbuf_size = 0;
+            }
+            else
+            {
+               ce[cur_pos].sndbuf_size = (unsigned int)strtoul(input_data, NULL, 10) * 1024;
+            }
+            ce[cur_pos].value_changed |= SOCKET_SEND_BUFFER_CHANGED;
+            break;
+
+         case SOCKET_RECEIVE_BUFFER :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].rcvbuf_size = 0;
+            }
+            else
+            {
+               ce[cur_pos].rcvbuf_size = (unsigned int)strtoul(input_data, NULL, 10) * 1024;
+            }
+            ce[cur_pos].value_changed |= SOCKET_RECEIVE_BUFFER_CHANGED;
+            break;
+
+         case KEEP_CONNECTED :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].keep_connected = 0;
+            }
+            else
+            {
+               ce[cur_pos].keep_connected = (unsigned int)strtoul(input_data, NULL, 10);
+            }
+            ce[cur_pos].value_changed |= KEEP_CONNECTED_CHANGED;
+            break;
+
+#ifdef WITH_DUP_CHECK
+         case DC_TIMEOUT :
+            if (input_data[0] == '\0')
+            {
+               ce[cur_pos].dup_check_timeout = 0L;
+            }
+            else
+            {
+               ce[cur_pos].dup_check_timeout = atol(input_data);
+            }
+            ce[cur_pos].value_changed |= DC_TIMEOUT_CHANGED;
+            break;
+#endif
 
          default :
             (void)rec(sys_log_fd, DEBUG_SIGN,
@@ -682,12 +909,13 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
    {
       int      choice;
       char     *tmp_ptr,
-               numeric_str[MAX_INT_LENGTH];
+               numeric_str[MAX_LONG_LENGTH];
       XmString xstr;
 
       last_select = cur_pos;
 
       if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+          (fsa[cur_pos].protocol & SFTP_FLAG) ||
           (fsa[cur_pos].protocol & HTTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
           (fsa[cur_pos].protocol & SCP_FLAG) ||
@@ -850,6 +1078,66 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
             }
          }
          XtVaSetValues(transfer_rate_limit_w, XmNvalue, numeric_str, NULL);
+
+         XtSetSensitive(socket_send_buffer_size_label_w, True);
+         XtSetSensitive(socket_send_buffer_size_w, True);
+         if (ce[cur_pos].value_changed & SOCKET_SEND_BUFFER_CHANGED)
+         {
+            if (ce[cur_pos].sndbuf_size < 1024)
+            {
+               numeric_str[0] = '0';
+               numeric_str[1] = '\0';
+            }
+            else
+            {
+               (void)sprintf(numeric_str, "%u",
+                             ce[cur_pos].sndbuf_size / 1024U);
+            }
+         }
+         else
+         {
+            if (fsa[cur_pos].socksnd_bufsize < 1024)
+            {
+               numeric_str[0] = '0';
+               numeric_str[1] = '\0';
+            }
+            else
+            {
+               (void)sprintf(numeric_str, "%u",
+                             fsa[cur_pos].socksnd_bufsize / 1024U);
+            }
+         }
+         XtVaSetValues(socket_send_buffer_size_w, XmNvalue, numeric_str, NULL);
+
+         XtSetSensitive(socket_receive_buffer_size_label_w, True);
+         XtSetSensitive(socket_receive_buffer_size_w, True);
+         if (ce[cur_pos].value_changed & SOCKET_SEND_BUFFER_CHANGED)
+         {
+            if (ce[cur_pos].rcvbuf_size < 1024)
+            {
+               numeric_str[0] = '0';
+               numeric_str[1] = '\0';
+            }
+            else
+            {
+               (void)sprintf(numeric_str, "%u",
+                             ce[cur_pos].rcvbuf_size / 1024U);
+            }
+         }
+         else
+         {
+            if (fsa[cur_pos].sockrcv_bufsize < 1024)
+            {
+               numeric_str[0] = '0';
+               numeric_str[1] = '\0';
+            }
+            else
+            {
+               (void)sprintf(numeric_str, "%u",
+                             fsa[cur_pos].sockrcv_bufsize / 1024U);
+            }
+         }
+         XtVaSetValues(socket_receive_buffer_size_w, XmNvalue, numeric_str, NULL);
       }
       else
       {
@@ -866,6 +1154,10 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(successful_retries_w, False);
          XtSetSensitive(transfer_rate_limit_label_w, False);
          XtSetSensitive(transfer_rate_limit_w, False);
+         XtSetSensitive(socket_send_buffer_size_label_w, False);
+         XtSetSensitive(socket_send_buffer_size_w, False);
+         XtSetSensitive(socket_receive_buffer_size_label_w, False);
+         XtSetSensitive(socket_receive_buffer_size_w, False);
       }
 
       if (fsa[cur_pos].protocol & FTP_FLAG)
@@ -930,6 +1222,15 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          {
             XtVaSetValues(ftp_fast_cd_w, XmNset, False, NULL);
          }
+         XtSetSensitive(ftp_ignore_bin_w, True);
+         if (fsa[cur_pos].protocol_options & FTP_IGNORE_BIN)
+         {
+            XtVaSetValues(ftp_ignore_bin_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(ftp_ignore_bin_w, XmNset, False, NULL);
+         }
       }
       else
       {
@@ -941,7 +1242,23 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(ftp_keepalive_w, False);
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
          XtSetSensitive(ftp_fast_rename_w, False);
-         XtSetSensitive(ftp_fast_cd_w, False);
+         if (fsa[cur_pos].protocol & SFTP_FLAG)
+         {
+            XtSetSensitive(ftp_fast_cd_w, True);
+            if (fsa[cur_pos].protocol_options & FTP_FAST_CD)
+            {
+               XtVaSetValues(ftp_fast_cd_w, XmNset, True, NULL);
+            }
+            else
+            {
+               XtVaSetValues(ftp_fast_cd_w, XmNset, False, NULL);
+            }
+         }
+         else
+         {
+            XtSetSensitive(ftp_fast_cd_w, False);
+         }
+         XtSetSensitive(ftp_ignore_bin_w, False);
       }
 
       if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
@@ -963,6 +1280,122 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          (void)sprintf(numeric_str, "%d", fsa[cur_pos].max_errors);
       }
       XtVaSetValues(max_errors_w, XmNvalue, numeric_str, NULL);
+
+      if (ce[cur_pos].value_changed & KEEP_CONNECTED_CHANGED)
+      {
+         (void)sprintf(numeric_str, "%u", ce[cur_pos].keep_connected);
+      }
+      else
+      {
+         (void)sprintf(numeric_str, "%u", fsa[cur_pos].keep_connected);
+      }
+      XtVaSetValues(keep_connected_w, XmNvalue, numeric_str, NULL);
+
+#ifdef WITH_DUP_CHECK
+      if (((ce[cur_pos].value_changed & DC_TYPE_CHANGED) == 0) &&
+          ((ce[cur_pos].value_changed & DC_DELETE_CHANGED) == 0) &&
+          ((ce[cur_pos].value_changed & DC_STORE_CHANGED) == 0) &&
+          ((ce[cur_pos].value_changed & DC_WARN_CHANGED) == 0) &&
+          ((ce[cur_pos].value_changed & DC_TIMEOUT_CHANGED) == 0))
+      {
+         if (fsa[cur_pos].dup_check_timeout == 0L)
+         {
+            ce[cur_pos].dup_check_timeout = 0L;
+            ce[cur_pos].dup_check_flag = 0;
+            XtSetSensitive(dc_type_w, False);
+            XtSetSensitive(dc_delete_w, False);
+            XtSetSensitive(dc_store_w, False);
+            XtSetSensitive(dc_warn_w, False);
+            XtSetSensitive(dc_timeout_w, False);
+            XtSetSensitive(dc_timeout_label_w, False);
+            XmToggleButtonSetState(dc_disable_w, True, True);
+         }
+         else
+         {
+            ce[cur_pos].dup_check_timeout = fsa[cur_pos].dup_check_timeout;
+            ce[cur_pos].dup_check_flag = fsa[cur_pos].dup_check_flag;
+            XtSetSensitive(dc_type_w, True);
+            XtSetSensitive(dc_delete_w, True);
+            XtSetSensitive(dc_store_w, True);
+            XtSetSensitive(dc_warn_w, True);
+            XtSetSensitive(dc_timeout_w, True);
+            XtSetSensitive(dc_timeout_label_w, True);
+            XmToggleButtonSetState(dc_enable_w, True, True);
+         }
+      }
+
+      if ((ce[cur_pos].value_changed & DC_TYPE_CHANGED) == 0)
+      {
+         if (fsa[cur_pos].dup_check_flag & DC_FILE_CONTENT)
+         {
+            XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+            XtVaSetValues(dc_filecontent_w, XmNset, True, NULL);
+            XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
+         }
+         else if (fsa[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
+              {
+                 XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_filenamecontent_w, XmNset, True, NULL);
+              }
+              else
+              {
+                 XtVaSetValues(dc_filename_w, XmNset, True, NULL);
+                 XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
+              }
+      }
+
+      if ((ce[cur_pos].value_changed & DC_DELETE_CHANGED) == 0)
+      {
+         if (fsa[cur_pos].dup_check_flag & DC_DELETE)
+         {
+            XtVaSetValues(dc_delete_w, XmNset, True, NULL);
+            XtVaSetValues(dc_store_w, XmNset, False, NULL);
+            XtSetSensitive(dc_store_w, False);
+         }
+         else
+         {
+            XtVaSetValues(dc_delete_w, XmNset, False, NULL);
+         }
+      }
+
+      if ((ce[cur_pos].value_changed & DC_STORE_CHANGED) == 0)
+      {
+         if (fsa[cur_pos].dup_check_flag & DC_STORE)
+         {
+            XtVaSetValues(dc_store_w, XmNset, True, NULL);
+            XtVaSetValues(dc_delete_w, XmNset, False, NULL);
+            XtSetSensitive(dc_delete_w, False);
+         }
+         else
+         {
+            XtVaSetValues(dc_store_w, XmNset, False, NULL);
+         }
+      }
+
+      if ((ce[cur_pos].value_changed & DC_WARN_CHANGED) == 0)
+      {
+         if (fsa[cur_pos].dup_check_flag & DC_WARN)
+         {
+            XtVaSetValues(dc_warn_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(dc_warn_w, XmNset, False, NULL);
+         }
+      }
+
+      if (ce[cur_pos].value_changed & DC_TIMEOUT_CHANGED)
+      {
+         (void)sprintf(numeric_str, "%ld", ce[cur_pos].dup_check_timeout);
+      }
+      else
+      {
+         (void)sprintf(numeric_str, "%ld", fsa[cur_pos].dup_check_timeout);
+      }
+      XtVaSetValues(dc_timeout_w, XmNvalue, numeric_str, NULL);
+#endif /* WITH_DUP_CHECK */
 
       /* Set option menu for Parallel Transfers */
       if (ce[cur_pos].value_changed & ALLOWED_TRANSFERS_CHANGED)
@@ -1013,6 +1446,14 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
               {
                  choice = 7;
               }
+         else if (ce[cur_pos].block_size == tb.value[8])
+              {
+                 choice = 8;
+              }
+         else if (ce[cur_pos].block_size == tb.value[9])
+              {
+                 choice = 9;
+              }
               else
               {
                  choice = 2;
@@ -1048,6 +1489,14 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
               {
                  choice = 7;
               }
+         else if (fsa[cur_pos].block_size == tb.value[8])
+              {
+                 choice = 8;
+              }
+         else if (fsa[cur_pos].block_size == tb.value[9])
+              {
+                 choice = 9;
+              }
               else
               {
                  choice = 2;
@@ -1058,14 +1507,35 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
                     NULL);
       XmUpdateDisplay(tb.option_menu_w);
 
-      /* Set option menu for Filesize Offset */
-      if (fsa[cur_pos].protocol & FTP_FLAG)
+      /* Set option menu for Filesize Offset. */
+      if ((fsa[cur_pos].protocol & FTP_FLAG) ||
+          (fsa[cur_pos].protocol & SFTP_FLAG))
       {
+         int     i,
+                 max_fso_buttons;
+         Boolean sensitive;
+
+         XtSetSensitive(fso.button_w[0], True);
+         XtSetSensitive(fso.button_w[1], True);
+         if (fsa[cur_pos].protocol & FTP_FLAG)
+         {
+            max_fso_buttons = MAX_FSO_BUTTONS;
+            sensitive = True;
+         }
+         else
+         {
+            max_fso_buttons = MAX_FSO_SFTP_BUTTONS;
+            sensitive = False;
+         }
+         for (i = 2; i < MAX_FSO_BUTTONS; i++)
+         {
+            XtSetSensitive(fso.button_w[i], sensitive);
+         }
          XtSetSensitive(fso.option_menu_w, True);
          if (ce[cur_pos].value_changed & FILE_SIZE_OFFSET_CHANGED)
          {
             if ((ce[cur_pos].file_size_offset == -1) ||
-                (ce[cur_pos].file_size_offset > (MAX_FSO_BUTTONS - 1)))
+                (ce[cur_pos].file_size_offset > (max_fso_buttons - 1)))
             {
                choice = 0;
             }
@@ -1081,7 +1551,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          else
          {
             if ((fsa[cur_pos].file_size_offset == -1) ||
-                (fsa[cur_pos].file_size_offset > (MAX_FSO_BUTTONS - 1)))
+                (fsa[cur_pos].file_size_offset > (max_fso_buttons - 1)))
             {
                choice = 0;
             }
@@ -1106,6 +1576,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
 
       /* Set option menu for number of no bursts */
       if ((fsa[cur_pos].protocol & FTP_FLAG)
+          || (fsa[cur_pos].protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
           || (fsa[cur_pos].protocol & WMO_FLAG)
 #endif
@@ -1363,12 +1834,165 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             ce[i].max_successful_retries = -1;
             changes++;
          }
+         if (ce[i].value_changed & KEEP_CONNECTED_CHANGED)
+         {
+            fsa[i].keep_connected = ce[i].keep_connected;
+            ce[i].keep_connected = 0;
+            changes++;
+         }
          if (ce[i].value_changed & TRANSFER_RATE_LIMIT_CHANGED)
          {
             fsa[i].transfer_rate_limit = ce[i].transfer_rate_limit;
             ce[i].transfer_rate_limit = -1;
             changes++;
          }
+         if (ce[i].value_changed & SOCKET_SEND_BUFFER_CHANGED)
+         {
+            fsa[i].socksnd_bufsize = ce[i].sndbuf_size;
+            ce[i].sndbuf_size = 0;
+            changes++;
+         }
+         if (ce[i].value_changed & SOCKET_RECEIVE_BUFFER_CHANGED)
+         {
+            fsa[i].sockrcv_bufsize = ce[i].rcvbuf_size;
+            ce[i].rcvbuf_size = 0;
+            changes++;
+         }
+
+#ifdef WITH_DUP_CHECK
+         if (ce[i].value_changed & DC_TYPE_CHANGED)
+         {
+            if (ce[i].dup_check_flag & DC_FILE_CONTENT)
+            {
+               if ((fsa[i].dup_check_flag & DC_FILE_CONTENT) == 0)
+               {
+                  fsa[i].dup_check_flag |= DC_FILE_CONTENT;
+               }
+               if (fsa[i].dup_check_flag & DC_FILENAME_ONLY)
+               {
+                  fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
+               }
+               if (fsa[i].dup_check_flag & DC_FILE_CONT_NAME)
+               {
+                  fsa[i].dup_check_flag ^= DC_FILE_CONT_NAME;
+               }
+            }
+            else if (ce[i].dup_check_flag & DC_FILE_CONT_NAME)
+                 {
+                    if ((fsa[i].dup_check_flag & DC_FILE_CONT_NAME) == 0)
+                    {
+                       fsa[i].dup_check_flag |= DC_FILE_CONT_NAME;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILENAME_ONLY)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILE_CONTENT;
+                    }
+                 }
+                 else
+                 {
+                    if ((fsa[i].dup_check_flag & DC_FILENAME_ONLY) == 0)
+                    {
+                       fsa[i].dup_check_flag |= DC_FILENAME_ONLY;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILE_CONTENT;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILE_CONT_NAME)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILE_CONT_NAME;
+                    }
+                 }
+            changes++;
+         }
+         if (ce[i].value_changed & DC_DELETE_CHANGED)
+         {
+            if (ce[i].dup_check_flag & DC_DELETE)
+            {
+               if ((fsa[i].dup_check_flag & DC_DELETE) == 0)
+               {
+                  fsa[i].dup_check_flag |= DC_DELETE;
+               }
+               if (fsa[i].dup_check_flag & DC_STORE)
+               {
+                  fsa[i].dup_check_flag ^= DC_STORE;
+               }
+            }
+            else
+            {
+               if (fsa[i].dup_check_flag & DC_DELETE)
+               {
+                  fsa[i].dup_check_flag ^= DC_DELETE;
+               }
+            }
+            changes++;
+         }
+         if (ce[i].value_changed & DC_STORE_CHANGED)
+         {
+            if (ce[i].dup_check_flag & DC_STORE)
+            {
+               if ((fsa[i].dup_check_flag & DC_STORE) == 0)
+               {
+                  fsa[i].dup_check_flag |= DC_STORE;
+               }
+               if (fsa[i].dup_check_flag & DC_DELETE)
+               {
+                  fsa[i].dup_check_flag ^= DC_DELETE;
+               }
+            }
+            else
+            {
+               if (fsa[i].dup_check_flag & DC_STORE)
+               {
+                  fsa[i].dup_check_flag ^= DC_STORE;
+               }
+            }
+            changes++;
+         }
+         if (ce[i].value_changed & DC_WARN_CHANGED)
+         {
+            if (ce[i].dup_check_flag & DC_WARN)
+            {
+               if ((fsa[i].dup_check_flag & DC_WARN) == 0)
+               {
+                  fsa[i].dup_check_flag |= DC_WARN;
+               }
+            }
+            else
+            {
+               if (fsa[i].dup_check_flag & DC_WARN)
+               {
+                  fsa[i].dup_check_flag ^= DC_WARN;
+               }
+            }
+            changes++;
+         }
+         if ((ce[i].value_changed & DC_TYPE_CHANGED) ||
+             (ce[i].value_changed & DC_DELETE_CHANGED) ||
+             (ce[i].value_changed & DC_STORE_CHANGED) ||
+             (ce[i].value_changed & DC_WARN_CHANGED))
+         {
+            ce[i].dup_check_flag = 0;
+         }
+         if (ce[i].value_changed & DC_TIMEOUT_CHANGED)
+         {
+            fsa[i].dup_check_timeout = ce[i].dup_check_timeout;
+            ce[i].dup_check_timeout = 0;
+            changes++;
+         }
+         if (fsa[i].dup_check_timeout > 0L)
+         {
+            if ((fsa[i].dup_check_flag & DC_CRC32) == 0)
+            {
+               fsa[i].dup_check_flag |= DC_CRC32;
+            }
+         }
+#endif /* WITH_DUP_CHECK */
+
          if (ce[i].value_changed & ALLOWED_TRANSFERS_CHANGED)
          {
             /*
@@ -1444,6 +2068,11 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          if (ce[i].value_changed & FTP_FAST_CD_CHANGED)
          {
             fsa[i].protocol_options ^= FTP_FAST_CD;
+            changes++;
+         }
+         if (ce[i].value_changed & FTP_IGNORE_BIN_CHANGED)
+         {
+            fsa[i].protocol_options ^= FTP_IGNORE_BIN;
             changes++;
          }
 

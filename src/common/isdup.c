@@ -1,6 +1,6 @@
 /*
  *  isdup.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,8 @@ DESCR__S_M3
  **   isdup - checks for duplicates
  **
  ** SYNOPSIS
- **   int isdup(char *fullname, unsigned int id, time_t timeout, int flag)
+ **   int isdup(char *fullname, unsigned int id, time_t timeout,
+ **             int flag, int rm_flag)
  **
  ** DESCRIPTION
  **   The function isdup() checks if this file is a duplicate.
@@ -39,6 +40,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   11.06.2005 H.Kiehl Created
+ **   09.03.2006 H.Kiehl Added parameter to remove a CRC.
  **
  */
 DESCR__E_M3
@@ -57,7 +59,7 @@ extern char *p_work_dir;
 
 /*############################### isdup() ###############################*/
 int
-isdup(char *fullname, unsigned int id, time_t timeout, int flag)
+isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
 {
    int            dup,
                   fd,
@@ -191,76 +193,97 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag)
    cdb = (struct crc_buf *)ptr;
    dup = NO;
 
-   /*
-    * At certain intervalls always check if the crc values we have
-    * stored have not timed out. If so remove them from the list.
-    */
-   if (current_time > *(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4))
+   if (rm_flag != YES)
+   {
+      /*
+       * At certain intervalls always check if the crc values we have
+       * stored have not timed out. If so remove them from the list.
+       */
+      if (current_time > *(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4))
+      {
+         for (i = 0; i < *no_of_crcs; i++)
+         {
+            if (cdb[i].timeout <= current_time)
+            {
+               int end_pos = i;
+
+               while ((++end_pos <= *no_of_crcs) &&
+                      (cdb[end_pos - 1].timeout <= current_time))
+               {
+                  /* Nothing to be done. */;
+               }
+               if (end_pos <= *no_of_crcs)
+               {
+                  size_t move_size = (*no_of_crcs - (end_pos - 1)) *
+                                     sizeof(struct crc_buf);
+
+                  (void)memmove(&cdb[i], &cdb[end_pos - 1], move_size);
+               }
+               (*no_of_crcs) -= (end_pos - 1 - i);
+            }
+         }
+         *(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4) =
+                                             ((time(NULL) / DUPCHECK_CHECK_TIME) *
+                                              DUPCHECK_CHECK_TIME) +
+                                             DUPCHECK_CHECK_TIME;
+      }
+
+      for (i = 0; i < *no_of_crcs; i++)
+      {
+         if ((crc == cdb[i].crc) && (flag == cdb[i].flag) && (timeout > 0L))
+         {
+            if ((timeout + current_time) != cdb[i].timeout)
+            {
+               cdb[i].timeout = current_time + timeout;
+            }
+            dup = YES;
+            break;
+         }
+      }
+
+      if (dup == NO)
+      {
+         if ((*no_of_crcs != 0) &&
+             ((*no_of_crcs % CRC_STEP_SIZE) == 0))
+         {
+            new_size = (((*no_of_crcs / CRC_STEP_SIZE) + 1) *
+                       CRC_STEP_SIZE * sizeof(struct crc_buf)) +
+                       AFD_WORD_OFFSET;
+            ptr = (char *)cdb - AFD_WORD_OFFSET;
+            if ((ptr = mmap_resize(fd, ptr, new_size)) == (caddr_t) -1)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "mmap_resize() error : %s", strerror(errno));
+               (void)close(fd);
+               return(NO);
+            }
+            no_of_crcs = (int *)ptr;
+            ptr += AFD_WORD_OFFSET;
+            cdb = (struct crc_buf *)ptr;
+         }
+         cdb[*no_of_crcs].crc = crc;
+         cdb[*no_of_crcs].flag = flag;
+         cdb[*no_of_crcs].timeout = current_time + timeout;
+         (*no_of_crcs)++;
+      }
+   }
+   else
    {
       for (i = 0; i < *no_of_crcs; i++)
       {
-         if (cdb[i].timeout <= current_time)
+         if ((crc == cdb[i].crc) && (flag == cdb[i].flag) && (timeout > 0L))
          {
-            int end_pos = i;
-
-            while ((++end_pos <= *no_of_crcs) &&
-                   (cdb[end_pos - 1].timeout <= current_time))
+            if (i <= *no_of_crcs)
             {
-               /* Nothing to be done. */;
-            }
-            if (end_pos <= *no_of_crcs)
-            {
-               size_t move_size = (*no_of_crcs - (end_pos - 1)) *
+               size_t move_size = (*no_of_crcs - (i - 1)) *
                                   sizeof(struct crc_buf);
 
-               (void)memmove(&cdb[i], &cdb[end_pos - 1], move_size);
+               (void)memmove(&cdb[i], &cdb[i - 1], move_size);
             }
-            (*no_of_crcs) -= (end_pos - 1 - i);
+            (*no_of_crcs) -= 1;
+            break;
          }
       }
-      *(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4) =
-                                          ((time(NULL) / DUPCHECK_CHECK_TIME) *
-                                           DUPCHECK_CHECK_TIME) +
-                                          DUPCHECK_CHECK_TIME;
-   }
-
-   for (i = 0; i < *no_of_crcs; i++)
-   {
-      if ((crc == cdb[i].crc) && (flag == cdb[i].flag) && (timeout > 0L))
-      {
-         if ((timeout + current_time) != cdb[i].timeout)
-         {
-            cdb[i].timeout = current_time + timeout;
-         }
-         dup = YES;
-         break;
-      }
-   }
-
-   if (dup == NO)
-   {
-      if ((*no_of_crcs != 0) &&
-          ((*no_of_crcs % CRC_STEP_SIZE) == 0))
-      {
-         new_size = (((*no_of_crcs / CRC_STEP_SIZE) + 1) *
-                    CRC_STEP_SIZE * sizeof(struct crc_buf)) +
-                    AFD_WORD_OFFSET;
-         ptr = (char *)cdb - AFD_WORD_OFFSET;
-         if ((ptr = mmap_resize(fd, ptr, new_size)) == (caddr_t) -1)
-         {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "mmap_resize() error : %s", strerror(errno));
-            (void)close(fd);
-            return(NO);
-         }
-         no_of_crcs = (int *)ptr;
-         ptr += AFD_WORD_OFFSET;
-         cdb = (struct crc_buf *)ptr;
-      }
-      cdb[*no_of_crcs].crc = crc;
-      cdb[*no_of_crcs].flag = flag;
-      cdb[*no_of_crcs].timeout = current_time + timeout;
-      (*no_of_crcs)++;
    }
 
    unmap_data(fd, (void *)&cdb);

@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -162,6 +162,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            *p_work_dir,
                            afd_active_file[MAX_PATH_LENGTH],
                            line_style,
+                           fake_user[MAX_FULL_USER_ID_LENGTH],
                            font_name[20],
                            blink_flag,
                            *profile,
@@ -431,8 +432,7 @@ static void
 init_dir_ctrl(int *argc, char *argv[], char *window_title)
 {
    int           i;
-   char          fake_user[MAX_FULL_USER_ID_LENGTH],
-                 *perm_buffer,
+   char          *perm_buffer,
                  hostname[MAX_AFD_NAME_LENGTH];
    struct passwd *pwd;
 
@@ -485,7 +485,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
 
    /* Now lets see if user may use this program */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE : /* User is not allowed to use this program */
          {

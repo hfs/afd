@@ -484,12 +484,12 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                if (fra[i].dup_check_flag & DC_WARN)
                {
                   length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                    " %d %d", DC_DELETE_WARN_BIT);
+                                    " %d %d", DC_DELETE_WARN_BIT, DC_CRC32_BIT);
                }
                else
                {
                   length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                    " %d %d", DC_DELETE_BIT);
+                                    " %d %d", DC_DELETE_BIT, DC_CRC32_BIT);
                }
             }
             else if (fra[i].dup_check_flag & DC_STORE)
@@ -497,18 +497,21 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
                     if (fra[i].dup_check_flag & DC_WARN)
                     {
                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                         " %d %d", DC_STORE_WARN_BIT);
+                                         " %d %d",
+                                         DC_STORE_WARN_BIT, DC_CRC32_BIT);
                     }
                     else
                     {
                        length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                         " %d %d", DC_STORE_BIT);
+                                         " %d %d",
+                                         DC_STORE_BIT, DC_CRC32_BIT);
                     }
                  }
                  else
                  {
                     length += sprintf(&d_o->aoptions[d_o->no_of_dir_options][length],
-                                      " %d %d", DC_WARN_BIT);
+                                      " %d %d",
+                                      DC_WARN_BIT, DC_CRC32_BIT);
                  }
             d_o->aoptions[d_o->no_of_dir_options][length] = '\0';
             d_o->no_of_dir_options++;

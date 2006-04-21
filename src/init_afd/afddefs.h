@@ -1,6 +1,6 @@
 /*
  *  afddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -59,6 +59,11 @@ extern int  sys_nerr;
 typedef unsigned long       u_off_t;
 #else
 typedef unsigned long long  u_off_t;
+#endif
+#ifdef HAVE_LONG_LONG
+typedef unsigned long long  u_long_64;
+#else
+typedef unsigned long       u_long_64;
 #endif
 
 /* Define the language to use */
@@ -121,6 +126,10 @@ typedef unsigned long long  u_off_t;
 #ifdef _WITH_MAP_SUPPORT
 # define SEND_FILE_MAP             "sf_map"
 #endif
+#define SEND_FILE_SFTP             "sf_sftp"
+#define SEND_FILE_SFTP_TRACE       "sf_sftp_trace"
+#define GET_FILE_SFTP              "gf_sftp"
+#define GET_FILE_SFTP_TRACE        "gf_sftp_trace"
 #define SLOG                       "system_log"
 #define RLOG                       "receive_log"
 #define TLOG                       "transfer_log"
@@ -172,7 +181,6 @@ typedef unsigned long long  u_off_t;
 # define AFD_AUTO_CONFIG           "afd_auto_config"
 #endif
 #define AFD_USER_NAME              "afd"
-#define AFD_ACTIVE_FILE            "/AFD_ACTIVE"
 
 #ifdef _DELETE_LOG
 /* Reasons for deleting files. */
@@ -518,6 +526,8 @@ typedef unsigned long long  u_off_t;
 # define HTTPS                     8
 # define SMTPS                     9
 #endif
+#define SFTP                       10
+#define SFTP_FLAG                  128
 #define SEND_FLAG                  1073741824
 #define RETRIEVE_FLAG              2147483648U
 #define FTP_PASSIVE_MODE           1
@@ -527,6 +537,7 @@ typedef unsigned long long  u_off_t;
 #endif
 #define FTP_FAST_MOVE              8
 #define FTP_FAST_CD                16
+#define FTP_IGNORE_BIN             32
 #define GET_FTP_FLAG               32768
 #define GET_HTTP_FLAG              65536
 
@@ -562,6 +573,8 @@ typedef unsigned long long  u_off_t;
 # define HTTPS_SHEME               "https"
 # define HTTPS_SHEME_LENGTH        (sizeof(HTTPS_SHEME) - 1)
 #endif
+#define SFTP_SHEME                 "sftp"
+#define SFTP_SHEME_LENGTH          (sizeof(SFTP_SHEME) - 1)
 
 
 /* Definitions for [dir options] */
@@ -693,14 +706,14 @@ typedef unsigned long long  u_off_t;
                                           /* or its IP number may be.     */
 #define MAX_PROXY_NAME_LENGTH      80     /* The maximum length of the    */
                                           /* remote proxy name.           */
-#define MAX_ADD_FNL                30     /* Maximum additional file name */
+#define MAX_ADD_FNL                35     /* Maximum additional file name */
                                           /* length:                      */
                                           /* <creation_time>_<unique_no>_<split_job_counter>_ */
-                                          /* 9 + 1 + 9 + 1 + 9 + 1        */
-#define MAX_MSG_NAME_LENGTH        (MAX_ADD_FNL + 11) /* Maximum length   */
+                                          /* 16 + 1 + 8 + 1 + 8 + 1        */
+#define MAX_MSG_NAME_LENGTH        (MAX_ADD_FNL + 19) /* Maximum length   */
                                           /* of message name.             */
-                                          /* <job_id>/<creation_time>_<unique_no>_<split_job_counter>_ */
-                                          /* 9 + 1 + 9 + 1 + 9 + 1 + 9 + 1 + 1 */
+                                          /* <job_id>/<counter>/<creation_time>_<unique_no>_<split_job_counter>_ */
+                                          /* 8 + 1 + 8 + 1 + 16 + 1 + 8 + 1 + 8 + 1 + 1 */
 #define MAX_INT_LENGTH             11     /* When storing integer values  */
                                           /* as string this is the no.    */
                                           /* characters needed to store   */
@@ -811,6 +824,7 @@ typedef unsigned long long  u_off_t;
 #ifdef _WITH_MAP_SUPPORT
 # define MAP_ACTIVE                8
 #endif
+#define SFTP_ACTIVE                8
 /*############################ SteelBlue1 ###############################*/
 #define BUTTON_BACKGROUND          9  /* Background for button line in   */
                                       /* afd_ctrl dialog.                */
@@ -824,7 +838,6 @@ typedef unsigned long long  u_off_t;
 #define NORMAL_STATUS              12
 #define INFO_ID                    12
 #define FTP_RETRIEVE_ACTIVE        12 /* When gf_ftp retrieves files.    */
-#define FTP_BURST_TRANSFER_ACTIVE  12
 /*############################# SeaGreen ################################*/
 #define CONFIG_ID                  13
 #define TRANSFER_ACTIVE            13 /* Creating remote lockfile and    */
@@ -851,12 +864,14 @@ typedef unsigned long long  u_off_t;
 #define BLACK                      17
 #define FG                         17 /* Foreground                      */
 #define FAULTY_ID                  17
+/*########################## BlanchedAlmond #############################*/
+#define SFTP_BURST_TRANSFER_ACTIVE 18
 /*############################## yellow #################################*/
 #ifdef _WITH_WMO_SUPPORT
-#define WMO_BURST_TRANSFER_ACTIVE  18
-# define COLOR_POOL_SIZE           19
+#define WMO_BURST_TRANSFER_ACTIVE  19
+# define COLOR_POOL_SIZE           20
 #else
-# define COLOR_POOL_SIZE           18
+# define COLOR_POOL_SIZE           19
 #endif
 
 /* History types. */
@@ -865,7 +880,7 @@ typedef unsigned long long  u_off_t;
 #define TRANSFER_HISTORY           2
 #define NO_OF_LOG_HISTORY          3
 
-/* Directory definitions */
+/* Directory definitions. */
 #define AFD_MSG_DIR                "/messages"
 #define AFD_FILE_DIR               "/files"
 #define AFD_TMP_DIR                "/pool"
@@ -884,10 +899,17 @@ typedef unsigned long long  u_off_t;
 #endif
 #define FILE_MASK_DIR              "/file_mask"
 #define LS_DATA_DIR                "/ls_data"
+
+/*-----------------------------------------------------------------------*/
+/* If definitions are added or removed, update init_afd/afd.c!           */
+/*-----------------------------------------------------------------------*/
+/* Data file definitions. */
 #define FSA_ID_FILE                "/fsa.id"
 #define FSA_STAT_FILE              "/fsa_status"
+#define FSA_STAT_FILE_ALL          "/fsa_status.*"
 #define FRA_ID_FILE                "/fra.id"
 #define FRA_STAT_FILE              "/fra_status"
+#define FRA_STAT_FILE_ALL          "/fra_status.*"
 #define STATUS_SHMID_FILE          "/afd.status"
 #define BLOCK_FILE                 "/NO_AUTO_RESTART"
 #define AMG_COUNTER_FILE           "/amg_counter"
@@ -897,17 +919,23 @@ typedef unsigned long long  u_off_t;
 #define MSG_QUEUE_FILE             "/fd_msg_queue"
 #define FILE_MASK_FILE             "/file_masks"
 #define DC_LIST_FILE               "/dc_name_data"
+#define DIR_NAME_FILE              "/directory_names"
+#define JOB_ID_DATA_FILE           "/job_id_data"
+#define PWB_DATA_FILE              "/pwb_data"
+#define CURRENT_MSG_LIST_FILE      "/current_job_id_list"
+#define AMG_DATA_FILE              "/amg_data"
+#define AMG_DATA_FILE_TMP          "/amg_data.tmp"
+#define ALTERNATE_FILE             "/alternate."
+#define ALTERNATE_FILE_ALL         "/alternate.*"
+#define LOCK_PROC_FILE             "/LOCK_FILE"
+#define AFD_ACTIVE_FILE            "/AFD_ACTIVE"
+#define WINDOW_ID_FILE             "/window_ids"
 
-/* Definitions for the AFD name */
-#define AFD_NAME                   "afd.name"
-#define MAX_AFD_NAME_LENGTH        30
-
-/* Definitions of fifo names */
+/* Definitions of fifo names. */
 #define SYSTEM_LOG_FIFO            "/system_log.fifo"
 #define RECEIVE_LOG_FIFO           "/receive_log.fifo"
 #define TRANSFER_LOG_FIFO          "/transfer_log.fifo"
 #define TRANS_DEBUG_LOG_FIFO       "/trans_db_log.fifo"
-#define MON_SYS_LOG_FIFO           "/mon_sys_log.fifo"
 #define MON_LOG_FIFO               "/monitor_log.fifo"
 #define AFD_CMD_FIFO               "/afd_cmd.fifo"
 #define AFD_RESP_FIFO              "/afd_resp.fifo"
@@ -937,15 +965,12 @@ typedef unsigned long long  u_off_t;
 #define RETRY_MON_FIFO             "/retry_mon.fifo."
 #define DEL_TIME_JOB_FIFO          "/del_time_job.fifo"
 #define FD_READY_FIFO              "/fd_ready.fifo"
-
-#define DIR_NAME_FILE              "/directory_names"
-#define JOB_ID_DATA_FILE           "/job_id_data"
-#define PWB_DATA_FILE              "/pwb_data"
 #define MSG_FIFO                   "/msg.fifo"
-#define CURRENT_MSG_LIST_FILE      "/current_job_id_list"
-#define AMG_DATA_FILE              "/amg_data"
-#define ALTERNATE_FILE             "/alternate."
-#define LOCK_PROC_FILE             "/LOCK_FILE"
+/*-----------------------------------------------------------------------*/
+
+/* Definitions for the AFD name */
+#define AFD_NAME                   "afd.name"
+#define MAX_AFD_NAME_LENGTH        30
 
 #define MSG_CACHE_BUF_SIZE         10000
 
@@ -1100,7 +1125,7 @@ typedef unsigned long long  u_off_t;
 #define AFD_FSA_FEATURE_FLAG_OFFSET 11 /* From end   */
 
 /* Structure that holds status of the file transfer for each host */
-#define CURRENT_FSA_VERSION 1
+#define CURRENT_FSA_VERSION 2
 struct status
        {
           pid_t         proc_id;                /* Process ID of trans-  */
@@ -1213,7 +1238,8 @@ struct filetransfer_status
                                             /*| 18-30| Not used.        |*/
                                             /*| 17   | GET_HTTP  [SSL]  |*/
                                             /*| 16   | GET_FTP   [SSL]  |*/
-                                            /*| 8-15 | Not used.        |*/
+                                            /*| 9-15 | Not used.        |*/
+                                            /*| 8    | SFTP             |*/
                                             /*| 7    | HTTP      [SSL]  |*/
                                             /*| 6    | WMO              |*/
                                             /*| 5    | SCP              |*/
@@ -1227,13 +1253,46 @@ struct filetransfer_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*| 6-32 | Not used.        |*/
+                                            /*| 7-32 | Not used.        |*/
+                                            /*| 6    | FTP_IGNORE_BIN   |*/
                                             /*| 5    | FTP_FAST_CD      |*/
                                             /*| 4    | FTP_FAST_MOVE    |*/
                                             /*| 3    | STAT_KEEPALIVE   |*/
                                             /*| 2    | SET_IDLE_TIME    |*/
                                             /*| 1    | FTP_PASSIVE_MODE |*/
                                             /*+------+------------------+*/
+          unsigned int   socksnd_bufsize;   /* Socket buffer size for    */
+                                            /* sending data. 0 is default*/
+                                            /* which is the socket buffer*/
+                                            /* is left to system default.*/
+          unsigned int   sockrcv_bufsize;   /* Socket buffer size for    */
+                                            /* receiving data.           */
+          unsigned int   keep_connected;    /* Keep connection open for  */
+                                            /* the given number of       */
+                                            /* seconds, after all files  */
+                                            /* have been transmitted.    */
+#ifdef WITH_DUP_CHECK                                                      
+          unsigned int   dup_check_flag;    /* Flag storing the type of  */
+                                            /* check that is to be done  */
+                                            /* and what type of CRC to   */
+                                            /* use:                      */
+                                            /*+------+------------------+*/
+                                            /*|Bit(s)|     Meaning      |*/
+                                            /*+------+------------------+*/
+                                            /*|27-32 | Not used.        |*/
+                                            /*|   26 | DC_WARN          |*/
+                                            /*|   25 | DC_STORE         |*/
+                                            /*|   24 | DC_DELETE        |*/
+                                            /*|17-23 | Not used.        |*/
+                                            /*|   16 | DC_CRC32         |*/
+                                            /*| 4-15 | Not used.        |*/
+                                            /*|    3 | DC_FILE_CONT_NAME|*/
+                                            /*|    2 | DC_FILE_CONTENT  |*/
+                                            /*|    1 | DC_FILENAME_ONLY |*/
+                                            /*+------+------------------+*/
+#endif
+          unsigned int   host_id;           /* CRC-32 checksum of        */
+                                            /* host_alias above.         */
           char           debug;             /* When this flag is set all */
                                             /* transfer information is   */
                                             /* logged.                   */
@@ -1272,6 +1331,12 @@ struct filetransfer_status
                                             /* files get transfered.     */
           int            ttl;               /* Time-to-live for outgoing */
                                             /* multicasts.               */
+#ifdef WITH_DUP_CHECK                                                      
+          time_t         dup_check_timeout; /* When the stored CRC for   */
+                                            /* duplicate checks are no   */
+                                            /* longer valid. Value is in */
+                                            /* seconds.                  */
+#endif
           time_t         last_retry_time;   /* When was the last time we */
                                             /* tried to send a file for  */
                                             /* this host?                */
@@ -1338,12 +1403,48 @@ struct host_list
                                             /* indicate for example:     */
                                             /* active-, passive-mode,    */
                                             /* send IDLE command, etc.   */
-          signed char   file_size_offset;
+          unsigned int   socksnd_bufsize;   /* Socket buffer size for    */
+                                            /* sending data. 0 is default*/
+                                            /* which is the socket buffer*/
+                                            /* is left to system default.*/
+          unsigned int   sockrcv_bufsize;   /* Socket buffer size for    */
+                                            /* receiving data.           */
+          unsigned int   keep_connected;    /* Keep connection open for  */
+                                            /* the given number of       */
+                                            /* seconds, after all files  */
+                                            /* have been transmitted.    */
+#ifdef WITH_DUP_CHECK                                                      
+          unsigned int   dup_check_flag;    /* Flag storing the type of  */
+                                            /* check that is to be done  */
+                                            /* and what type of CRC to   */
+                                            /* use:                      */
+                                            /*+------+------------------+*/
+                                            /*|Bit(s)|     Meaning      |*/
+                                            /*+------+------------------+*/
+                                            /*|27-32 | Not used.        |*/
+                                            /*|   26 | DC_WARN          |*/
+                                            /*|   25 | DC_STORE         |*/
+                                            /*|   24 | DC_DELETE        |*/
+                                            /*|17-23 | Not used.        |*/
+                                            /*|   16 | DC_CRC32         |*/
+                                            /*| 4-15 | Not used.        |*/
+                                            /*|    3 | DC_FILE_CONT_NAME|*/
+                                            /*|    2 | DC_FILE_CONTENT  |*/
+                                            /*|    1 | DC_FILENAME_ONLY |*/
+                                            /*+------+------------------+*/
+#endif
+          unsigned int  protocol;
           long          transfer_timeout;
+#ifdef WITH_DUP_CHECK                                                      
+          time_t        dup_check_timeout;  /* When the stored CRC for   */
+                                            /* duplicate checks are no   */
+                                            /* longer valid. Value is in */
+                                            /* seconds.                  */
+#endif
+          signed char   file_size_offset;
           unsigned char number_of_no_bursts;
           unsigned char host_status;
           signed char   in_dir_config;
-          unsigned int  protocol;
        };
 
 /* Structure to hold all possible bits for a time entry. */
@@ -1573,6 +1674,7 @@ struct fileretrieve_status
 #define DIR_CHECK_ACTIVE     1
 #define REREADING_DIR_CONFIG 2
 #define FD_WAITING           4
+#define DIR_CHECK_MSG_QUEUED 32
 #define WRITTING_JID_STRUCT  64
 #define FD_DIR_CHECK_ACTIVE  128
 
@@ -1593,7 +1695,9 @@ struct afd_status
                                          /*| 2    | Rereading DIR_CONFIG|*/
                                          /*| 3    | FD waiting for AMG  |*/
                                          /*|      | to finish DIR_CONFIG|*/
-                                         /*| 4 - 6| Not used.           |*/
+                                         /*| 4 - 5| Not used.           |*/
+                                         /*| 6    | dir_check() has msg |*/
+                                         /*|      | queued.             |*/
                                          /*| 7    | AMG writting to     |*/
                                          /*|      | JID structure.      |*/
                                          /*| 8    | FD searching dirs.  |*/
@@ -1942,7 +2046,8 @@ extern char         *get_definition(char *, char *, char *, int),
 #endif
                     *lock_proc(int, int),
                     *posi(char *, char *);
-extern unsigned int get_checksum(char *, int);
+extern unsigned int get_checksum(char *, int),
+                    get_str_checksum(char *);
 extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
                     attach_afd_status(int *),
                     afw2wmo(char *, int *, char **, char *),
@@ -2002,7 +2107,7 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
                     get_pw(char *, char *),
                     get_rule(char *, int),
 #ifdef WITH_DUP_CHECK
-                    isdup(char *, unsigned int, time_t, int),
+                    isdup(char *, unsigned int, time_t, int, int),
 #endif
                     is_msgname(char *),
                     lock_file(char *, int),
@@ -2018,13 +2123,15 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
                     my_strncpy(char *, char *, size_t),
                     next_counter(int, int *),
                     open_counter_file(char *),
-                    pmatch(char *, char *),
+                    pmatch(char *, char *, time_t *),
                     rec(int, char *, char *, ...),
                     rec_rmdir(char *),
                     remove_dir(char *),
+                    remove_files(char *, char *),
                     send_cmd(char, int),
                     wmo2ascii(char *, char *, off_t *);
-extern off_t        gts2tiff(char *, char *),
+extern off_t        dwdtiff2gts(char *, char *),
+                    gts2tiff(char *, char *),
                     read_file(char *, char **),
                     tiff2gts(char *, char *);
 #if defined (_INPUT_LOG) || defined (_OUTPUT_LOG)

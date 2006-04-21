@@ -27,6 +27,7 @@ libmisc_a_SOURCES            = afw2wmo.c\
                                convert_grib2wmo.c\
                                create_eumetsat_header.c\
                                extract.c\
+                               fax2gts.c\
                                gts2tiff.c\
                                tiff2gts.c\
                                wmo2ascii.c\

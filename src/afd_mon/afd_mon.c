@@ -1,6 +1,6 @@
 /*
  *  afd_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -402,7 +402,7 @@ main(int argc, char *argv[])
             /* Now evaluate all data read from fifo, byte after byte */
             while (count < n)
             {
-               switch(buffer[count])
+               switch (buffer[count])
                {
                   case SHUTDOWN  : /* Shutdown AFDMON */
 
@@ -430,21 +430,22 @@ main(int argc, char *argv[])
                      count++;
                      if (buffer[count] == ' ')
                      {
-                        int  n = 0;
+                        int  bytes_handled = 0;
                         char str_num[MAX_INT_LENGTH];
 
                         count++;
                         while ((isdigit((int)(buffer[count]))) &&
-                               (n < MAX_INT_LENGTH))
+                               (count < n) &&
+                               (bytes_handled < MAX_INT_LENGTH))
                         {
-                           str_num[n] = buffer[count];
-                           count++; n++;
+                           str_num[bytes_handled] = buffer[count];
+                           count++; bytes_handled++;
                         }
-                        if (n > 0)
+                        if (bytes_handled > 0)
                         {
                            int pos;
 
-                           str_num[n] = '\0';
+                           str_num[bytes_handled] = '\0';
                            pos = atoi(str_num);
 
                            if ((pos < no_of_afds) && (pl[pos].pid > 0))
@@ -461,21 +462,22 @@ main(int argc, char *argv[])
                      count++;
                      if (buffer[count] == ' ')
                      {
-                        int  n = 0;
+                        int  bytes_handled = 0;
                         char str_num[MAX_INT_LENGTH];
 
                         count++;
                         while ((isdigit((int)(buffer[count]))) &&
-                               (n < MAX_INT_LENGTH))
+                               (count < n) &&
+                               (bytes_handled < MAX_INT_LENGTH))
                         {
-                           str_num[n] = buffer[count];
-                           count++; n++;
+                           str_num[bytes_handled] = buffer[count];
+                           count++; bytes_handled++;
                         }
-                        if (n > 0)
+                        if (bytes_handled > 0)
                         {
                            int pos;
 
-                           str_num[n] = '\0';
+                           str_num[bytes_handled] = '\0';
                            pos = atoi(str_num);
 
                            if ((pos < no_of_afds) && (pl[pos].pid == 0))
@@ -663,7 +665,7 @@ zombie_check(void)
          {
             if (WIFEXITED(status))
             {
-               switch(WEXITSTATUS(status))
+               switch (WEXITSTATUS(status))
                {
                   case SUCCESS :
                      faulty = NO;

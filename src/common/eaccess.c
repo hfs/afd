@@ -184,7 +184,7 @@ check_group(uid_t euid, gid_t guid, struct group **p_group, struct passwd **pass
       }
    }
    i = 0;
-   do
+   while ((*p_group)->gr_mem[i] != NULL)
    {
       if (strcmp((*p_group)->gr_mem[i], (*passwd)->pw_name) == 0)
       {
@@ -192,7 +192,7 @@ check_group(uid_t euid, gid_t guid, struct group **p_group, struct passwd **pass
       }
       i++;
       
-   } while ((*p_group)->gr_mem[i] != NULL);
+   }
 
    return(NO);
 }

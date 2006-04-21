@@ -1,6 +1,6 @@
 /*
  *  search_old_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2004 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -56,6 +56,8 @@ DESCR__S_M3
  **   04.02.2004 H.Kiehl Don't delete files that are to be distributed!
  **   28.11.2004 H.Kiehl Report old files with a leading dot.
  **                      Optionaly delete old locked files.
+ **   12.02.2006 H.Kiehl Change meaning of "delete old locked files" to
+ **                      all locked files, not only those to be distributed.
  **
  */
 DESCR__E_M3
@@ -86,11 +88,10 @@ extern struct delete_log          dl;
 void
 search_old_files(time_t current_time)
 {
-   int           i, j, k,
+   int           i,
                  delete_file,
                  junk_files,
-                 file_counter,
-                 ret;
+                 file_counter;
    time_t        diff_time;
    char          *ptr,
                  *work_ptr,
@@ -159,47 +160,23 @@ search_old_files(time_t current_time)
                       (diff_time > fra[de[i].fra_pos].unknown_file_time))
                   {
                      if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) ||
-                         (p_dir->d_name[0] == '.') || (stat_buf.st_size == 0))
+                         (p_dir->d_name[0] == '.'))
                      {
-                        if ((stat_buf.st_size == 0) ||
-                            ((fra[de[i].fra_pos].delete_files_flag & OLD_LOCKED_FILES) &&
-                             (diff_time > fra[de[i].fra_pos].locked_file_time)))
+                        if (p_dir->d_name[0] == '.')
                         {
-                           delete_file = YES;
-                        }
-                        else
-                        {
-                           if (de[i].flag & ALL_FILES)
+                           if ((fra[de[i].fra_pos].delete_files_flag & OLD_LOCKED_FILES) &&
+                                (diff_time > fra[de[i].fra_pos].locked_file_time))
                            {
-                              delete_file = NO;
+                              delete_file = YES;
                            }
                            else
                            {
-                              delete_file = YES;
-                              if (p_dir->d_name[0] == '.')
-                              {
-                                 ptr = &p_dir->d_name[1];
-                              }
-                              else
-                              {
-                                 ptr = p_dir->d_name;
-                              }
-                              for (j = 0; j < de[i].nfg; j++)
-                              {
-                                 for (k = 0; ((k < de[i].fme[j].nfm) && (j < de[i].nfg)); k++)
-                                 {
-                                    if ((ret = pmatch(de[i].fme[j].file_mask[k], ptr)) == 0)
-                                    {
-                                       delete_file = NO;
-                                       j = de[i].nfg;
-                                    }
-                                    else if (ret == 1)
-                                         {
-                                            break;
-                                         }
-                                 }
-                              }
+                              delete_file = NO;
                            }
+                        }
+                        else
+                        {
+                           delete_file = YES;
                         }
                         if (delete_file == YES)
                         {

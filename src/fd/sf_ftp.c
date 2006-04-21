@@ -1,6 +1,6 @@
 /*
  *  sf_ftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -248,8 +248,7 @@ main(int argc, char *argv[])
    files_to_send = init_sf(argc, argv, file_path, FTP_FLAG);
    p_db = &db;
    msg_str[0] = '\0';
-   if ((fsa->transfer_rate_limit > 0) &&
-       (fsa->trl_per_process < fsa->block_size))
+   if ((fsa->trl_per_process > 0) && (fsa->trl_per_process < fsa->block_size))
    {
       blocksize = fsa->trl_per_process;
    }
@@ -293,7 +292,14 @@ main(int argc, char *argv[])
    {
       if (db.transfer_mode == 'D')
       {
-         db.transfer_mode = 'I';
+         if (fsa->protocol_options & FTP_IGNORE_BIN)
+         {
+            db.transfer_mode = 'N';
+         }
+         else
+         {
+            db.transfer_mode = 'I';
+         }
       }
       if ((ascii_buffer = malloc(((blocksize * 2) + 1))) == NULL)
       {
@@ -400,6 +406,15 @@ main(int argc, char *argv[])
          else
          {
             status = 230;
+         }
+         if (fsa->debug > NORMAL_MODE)
+         {
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+# ifdef WITH_SSL
+                         "%s Bursting.", (db.auth == NO) ? "FTP" : "FTPS");
+# else
+                         "FTP Bursting.");
+# endif
          }
 # ifdef _OUTPUT_LOG
          if ((db.output_log == YES) && (ol_data == NULL))
@@ -641,6 +656,25 @@ main(int argc, char *argv[])
       }
 #endif
 
+      if (db.special_flag & LOGIN_EXEC_FTP)
+      {
+         if ((status = ftp_exec(db.special_ptr, NULL)) != SUCCESS)
+         {
+            trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
+                      "Failed to send SITE %s (%d).",
+                      db.special_ptr, status);
+            if (timeout_flag == ON)
+            {
+               timeout_flag = OFF;
+            }
+         }
+         else if (fsa->debug > NORMAL_MODE)
+              {
+                 trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                              "Send SITE %s", db.special_ptr);
+              }
+      }
+
       /* Check if we need to set the idle time for remote FTP-server. */
 #ifdef _WITH_BURST_2
       if ((fsa->protocol_options & SET_IDLE_TIME) &&
@@ -652,7 +686,7 @@ main(int argc, char *argv[])
          if ((status = ftp_idle(transfer_timeout)) != SUCCESS)
          {
             trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                      "Failed to set IDLE time to <%d> (%d).",
+                      "Failed to set IDLE time to <%ld> (%d).",
                       transfer_timeout, status);
          }
          else
@@ -660,7 +694,7 @@ main(int argc, char *argv[])
             if (fsa->debug > NORMAL_MODE)
             {
                trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                            "Changed IDLE time to %d.", transfer_timeout);
+                            "Changed IDLE time to %ld.", transfer_timeout);
             }
          }
       }
@@ -684,7 +718,14 @@ main(int argc, char *argv[])
          {
             if (db.transfer_mode == 'D')
             {
-               db.transfer_mode = 'I';
+               if ((fsa->protocol_options & FTP_IGNORE_BIN) == 0)
+               {
+                  db.transfer_mode = 'I';
+               }
+               else
+               {
+                  db.transfer_mode = 'N';
+               }
             }
             if (ascii_buffer == NULL)
             {
@@ -697,21 +738,25 @@ main(int argc, char *argv[])
             }
          }
 
-         /* Set transfer mode. */
-         if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
+         if (db.transfer_mode != 'N')
          {
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                      "Failed to set transfer mode to `%c' (%d).",
-                      db.transfer_mode, status);
-            (void)ftp_quit();
-            exit(eval_timeout(TYPE_ERROR));
-         }
-         else
-         {
-            if (fsa->debug > NORMAL_MODE)
+            /* Set transfer mode. */
+            if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
             {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                            "Changed transfer mode to `%c'.", db.transfer_mode);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                         "Failed to set transfer mode to `%c' (%d).",
+                         db.transfer_mode, status);
+               (void)ftp_quit();
+               exit(eval_timeout(TYPE_ERROR));
+            }
+            else
+            {
+               if (fsa->debug > NORMAL_MODE)
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                               "Changed transfer mode to `%c'.",
+                               db.transfer_mode);
+               }
             }
          }
 #ifdef _WITH_BURST_2
@@ -854,7 +899,7 @@ main(int argc, char *argv[])
       {
          /* Create lock file on remote host */
          if ((status = ftp_data(db.lock_file_name, 0, db.mode_flag,
-                                DATA_WRITE)) != SUCCESS)
+                                DATA_WRITE, 0)) != SUCCESS)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                       "Failed to send lock file `%s' (%d).",
@@ -945,7 +990,7 @@ main(int argc, char *argv[])
             }
             else
             {
-               if (fsa[db.fsa_pos].debug == YES)
+               if (fsa->debug == YES)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__,
                                "Deleted `%s'.", p_del_file_name);
@@ -1127,8 +1172,7 @@ main(int argc, char *argv[])
 
          if (db.special_flag & SEQUENCE_LOCKING)
          {
-            char *p_end,
-                 str_number[MAX_INT_LENGTH];
+            char *p_end;
 
             p_end = p_initial_filename + strlen(p_initial_filename);
 
@@ -1201,7 +1245,11 @@ main(int argc, char *argv[])
                      if (fsa->debug > NORMAL_MODE)
                      {
                         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                     "Remote size of `%s' is %d.",
+#if SIZEOF_OFF_T == 4
+                                     "Remote size of `%s' is %ld.",
+#else
+                                     "Remote size of `%s' is %lld.",
+#endif
                                      initial_filename, remote_size);
                      }
                   }
@@ -1286,11 +1334,23 @@ main(int argc, char *argv[])
                                 p_end++;
                              }
                              *p_end = '\0';
-                             append_offset = atoi(ptr);
+#ifdef HAVE_STRTOLL
+# if SIZEOF_OFF_T == 4
+                             append_offset = (off_t)strtol(ptr, NULL, 10);
+# else
+                             append_offset = (off_t)strtoll(ptr, NULL, 10);
+# endif
+#else
+                             append_offset = (off_t)strtol(ptr, NULL, 10);
+#endif
                              if (fsa->debug > NORMAL_MODE)
                              {
                                 trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                             "Remote size of `%s' is %d.",
+#if SIZEOF_OFF_T == 4
+                                             "Remote size of `%s' is %ld.",
+#else
+                                             "Remote size of `%s' is %lld.",
+#endif
                                              initial_filename, append_offset);
                              }
                           }
@@ -1321,7 +1381,8 @@ main(int argc, char *argv[])
 
             /* Open file on remote site. */
             if ((status = ftp_data(initial_filename, append_offset,
-                                   db.mode_flag, DATA_WRITE)) != SUCCESS)
+                                   db.mode_flag, DATA_WRITE,
+                                   db.sndbuf_size)) != SUCCESS)
             {
                if ((db.rename_file_busy != '\0') && (timeout_flag != ON) &&
                    (posi(msg_str, "Cannot open or remove a file containing a running program.") != NULL))
@@ -1331,7 +1392,8 @@ main(int argc, char *argv[])
                   p_initial_filename[length] = db.rename_file_busy;
                   p_initial_filename[length + 1] = '\0';
                   if ((status = ftp_data(initial_filename, 0,
-                                         db.mode_flag, DATA_WRITE)) != SUCCESS)
+                                         db.mode_flag, DATA_WRITE,
+                                         db.sndbuf_size)) != SUCCESS)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                                "Failed to open remote file `%s' (%d).",
@@ -1434,7 +1496,11 @@ main(int argc, char *argv[])
                      if (fsa->debug > NORMAL_MODE)
                      {
                         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                                     "Appending file `%s' at %d.",
+#if SIZEOF_OFF_T == 4
+                                     "Appending file `%s' at %ld.",
+#else
+                                     "Appending file `%s' at %lld.",
+#endif
                                      fullname, append_offset);
                      }
                   }
@@ -1616,7 +1682,7 @@ main(int argc, char *argv[])
                }
             }
 
-            if (fsa->transfer_rate_limit > 0)
+            if (fsa->trl_per_process > 0)
             {
                init_limit_transfer_rate();
             }
@@ -1682,7 +1748,7 @@ main(int argc, char *argv[])
                      exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
 
-                  if (fsa->transfer_rate_limit > 0)
+                  if (fsa->trl_per_process > 0)
                   {
                      limit_transfer_rate(bytes_buffered, fsa->trl_per_process,
                                          clktck);
@@ -1747,9 +1813,19 @@ main(int argc, char *argv[])
                 * can be taken against the originator.
                 */
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "File `%s' for host %s was DEFINITELY NOT send in dot notation. Size changed from %d to %d.",
+#if SIZEOF_OFF_T == 4
+                          "File `%s' for host %s was DEFINITELY NOT send in dot notation. Size changed from %ld to %ld.",
+#else
+                          "File `%s' for host %s was DEFINITELY NOT send in dot notation. Size changed from %lld to %lld.",
+#endif
                           p_final_filename, fsa->host_dsp_name,
                           *p_file_size_buffer, no_of_bytes + append_offset);
+#ifdef LOCK_DEBUG
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
+#else
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
+#endif
+
             }
 
             /* Close local file */
@@ -1914,7 +1990,11 @@ main(int argc, char *argv[])
                {
                   trans_db_log(INFO_SIGN, NULL, 0, NULL, "%s", line_buffer);
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
-                               "Local file size of `%s' is %d",
+#if SIZEOF_OFF_T == 4
+                               "Local file size of `%s' is %ld",
+#else
+                               "Local file size of `%s' is %lld",
+#endif
                                p_final_filename, no_of_bytes + append_offset);
                }
             }
@@ -1937,7 +2017,7 @@ main(int argc, char *argv[])
                for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
                {
                   if (pmatch(rule[trans_rule_pos].filter[k],
-                             p_final_filename) == 0)
+                             p_final_filename, NULL) == 0)
                   {
                      change_name(p_final_filename,
                                  rule[trans_rule_pos].filter[k],
@@ -1992,7 +2072,7 @@ main(int argc, char *argv[])
 
             /* Open ready file on remote site */
             if ((status = ftp_data(ready_file_name, append_offset,
-                                   db.mode_flag, DATA_WRITE)) != SUCCESS)
+                                   db.mode_flag, DATA_WRITE, db.sndbuf_size)) != SUCCESS)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                          "Failed to open remote ready file `%s' (%d).",
@@ -2093,7 +2173,8 @@ main(int argc, char *argv[])
                if (fsa->debug > NORMAL_MODE)
                {
                   trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                               "Closed remote ready file `%s'", ready_file_name);
+                               "Closed remote ready file `%s'",
+                               ready_file_name);
                }
             }
          }
@@ -2170,7 +2251,11 @@ main(int argc, char *argv[])
                }
 
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file size for host %s overflowed. Correcting to %lu.",
+# if SIZEOF_OFF_T == 4
+                          "Total file size for host %s overflowed. Correcting to %ld.",
+# else
+                          "Total file size for host %s overflowed. Correcting to %lld.",
+# endif
                           fsa->host_dsp_name, fsa->total_file_size);
             }
             else if ((fsa->total_file_counter == 0) &&

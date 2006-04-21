@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -151,7 +151,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
          *p_end = '\0';
          for (i = 0; i < db.no_of_files; i++)
          {
-            if ((pmatch(db.filename[i], p_list) == 0) &&
+            if ((pmatch(db.filename[i], p_list, NULL) == 0) &&
                 (check_list(p_list, file_size_to_retrieve) == 0))
             {
                files_to_retrieve++;

@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1080,13 +1080,24 @@ no_criteria(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1099,7 +1110,11 @@ no_criteria(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          /* Write transfer duration, job ID and archive directory. */
@@ -1277,13 +1292,24 @@ file_name_only(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1296,7 +1322,11 @@ file_name_only(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          /* Write transfer duration, job ID and archive directory. */
@@ -1401,13 +1431,24 @@ file_size_only(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1420,7 +1461,11 @@ file_size_only(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size == search_file_size))
          {
@@ -1588,13 +1633,24 @@ file_name_and_size(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1607,7 +1663,11 @@ file_name_and_size(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size != search_file_size))
          {
@@ -1764,13 +1824,24 @@ recipient_only(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1783,7 +1854,11 @@ recipient_only(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          ptr++;
@@ -2016,13 +2091,24 @@ file_name_and_recipient(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -2035,7 +2121,11 @@ file_name_and_recipient(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          ptr++;
@@ -2058,7 +2148,8 @@ file_name_and_recipient(register char *ptr,
             {
                for (j = 0; j < id.count; j++)
                {
-                  if (sfilter(search_recipient[ii], id.dbe[j].recipient, ' ') == 0)
+                  if (sfilter(search_recipient[ii],
+                              id.dbe[j].recipient, ' ') == 0)
                   {
                      if (search_user[ii][0] == '\0')
                      {
@@ -2074,24 +2165,24 @@ file_name_and_recipient(register char *ptr,
                         }
                      }
                   }
-               }
-               if ((gotcha == NO) && (id.dbe[j].dir_url_hostname[0] != '\0'))
-               {
-                  if (sfilter(search_recipient[ii],
-                              id.dbe[j].dir_url_hostname, ' ') == 0)
+                  if ((gotcha == NO) && (id.dbe[j].dir_url_hostname[0] != '\0'))
                   {
-                     if (search_user[ii][0] == '\0')
+                     if (sfilter(search_recipient[ii],
+                                 id.dbe[j].dir_url_hostname, ' ') == 0)
                      {
-                        gotcha = YES;
-                           break;
-                     }
-                     else
-                     {
-                        if (sfilter(search_user[ii],
-                                    id.dbe[j].dir_url_user, ' ') == 0)
+                        if (search_user[ii][0] == '\0')
                         {
                            gotcha = YES;
-                           break;
+                              break;
+                        }
+                        else
+                        {
+                           if (sfilter(search_user[ii],
+                                       id.dbe[j].dir_url_user, ' ') == 0)
+                           {
+                              gotcha = YES;
+                              break;
+                           }
                         }
                      }
                   }
@@ -2153,7 +2244,6 @@ file_name_and_recipient(register char *ptr,
          str_list[i] = XmStringCreateLocalized(line);
          ptr++;
       }
-
       loops++;
 
       /* Display what we have in buffer. */
@@ -2236,6 +2326,16 @@ file_size_and_recipient(register char *ptr,
          ptr_start_line = ptr;
 
          ptr += 11;
+         j = 0;
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         {
+            id.file_name[j] = *ptr;
+            ptr++; j++;
+         }
+         id.file_name[j] = ' ';
+         id.file_name[j + 1] = '\0';
+
+         /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
          {
             ptr++;
@@ -2248,13 +2348,24 @@ file_size_and_recipient(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -2267,7 +2378,11 @@ file_size_and_recipient(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size == search_file_size))
          {
@@ -2346,7 +2461,8 @@ file_size_and_recipient(register char *ptr,
             {
                for (j = 0; j < id.count; j++)
                {
-                  if (sfilter(search_recipient[ii], id.dbe[j].recipient, ' ') == 0)
+                  if (sfilter(search_recipient[ii],
+                              id.dbe[j].recipient, ' ') == 0)
                   {
                      if (search_user[ii][0] == '\0')
                      {
@@ -2362,24 +2478,24 @@ file_size_and_recipient(register char *ptr,
                         }
                      }
                   }
-               }
-               if ((gotcha == NO) && (id.dbe[j].dir_url_hostname[0] != '\0'))
-               {
-                  if (sfilter(search_recipient[ii],
-                              id.dbe[j].dir_url_hostname, ' ') == 0)
+                  if ((gotcha == NO) && (id.dbe[j].dir_url_hostname[0] != '\0'))
                   {
-                     if (search_user[ii][0] == '\0')
+                     if (sfilter(search_recipient[ii],
+                                 id.dbe[j].dir_url_hostname, ' ') == 0)
                      {
-                        gotcha = YES;
-                           break;
-                     }
-                     else
-                     {
-                        if (sfilter(search_user[ii],
-                                    id.dbe[j].dir_url_user, ' ') == 0)
+                        if (search_user[ii][0] == '\0')
                         {
                            gotcha = YES;
                            break;
+                        }
+                        else
+                        {
+                           if (sfilter(search_user[ii],
+                                       id.dbe[j].dir_url_user, ' ') == 0)
+                           {
+                              gotcha = YES;
+                              break;
+                           }
                         }
                      }
                   }
@@ -2444,7 +2560,6 @@ file_size_and_recipient(register char *ptr,
 
          ptr++;
       }
-
       loops++;
 
       /* Display what we have in buffer. */
@@ -2527,7 +2642,16 @@ file_name_size_recipient(register char *ptr,
          ptr_start_line = ptr;
 
          ptr += 11;
-         if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
+         j = 0;
+         while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+         {
+            id.file_name[j] = *ptr;
+            ptr++; j++;
+         }
+         id.file_name[j] = ' ';
+         id.file_name[j + 1] = '\0';
+
+         if (sfilter(search_file_name, id.file_name, ' ') != 0)
          {
             IGNORE_ENTRY();
          }
@@ -2546,13 +2670,24 @@ file_name_size_recipient(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -2565,7 +2700,11 @@ file_name_size_recipient(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size != search_file_size))
          {
@@ -2624,7 +2763,8 @@ file_name_size_recipient(register char *ptr,
             {
                for (j = 0; j < id.count; j++)
                {
-                  if (sfilter(search_recipient[ii], id.dbe[j].recipient, ' ') == 0)
+                  if (sfilter(search_recipient[ii],
+                              id.dbe[j].recipient, ' ') == 0)
                   {
                      if (search_user[ii][0] == '\0')
                      {
@@ -2640,24 +2780,24 @@ file_name_size_recipient(register char *ptr,
                         }
                      }
                   }
-               }
-               if ((gotcha == NO) && (id.dbe[j].dir_url_hostname[0] != '\0'))
-               {
-                  if (sfilter(search_recipient[ii],
-                              id.dbe[j].dir_url_hostname, ' ') == 0)
+                  if ((gotcha == NO) && (id.dbe[j].dir_url_hostname[0] != '\0'))
                   {
-                     if (search_user[ii][0] == '\0')
+                     if (sfilter(search_recipient[ii],
+                                 id.dbe[j].dir_url_hostname, ' ') == 0)
                      {
-                        gotcha = YES;
-                           break;
-                     }
-                     else
-                     {
-                        if (sfilter(search_user[ii],
-                                    id.dbe[j].dir_url_user, ' ') == 0)
+                        if (search_user[ii][0] == '\0')
                         {
                            gotcha = YES;
-                           break;
+                              break;
+                        }
+                        else
+                        {
+                           if (sfilter(search_user[ii],
+                                       id.dbe[j].dir_url_user, ' ') == 0)
+                           {
+                              gotcha = YES;
+                              break;
+                           }
                         }
                      }
                   }

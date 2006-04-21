@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -996,7 +996,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
       return;
    }
 
-   switch(sel_typ)
+   switch (sel_typ)
    {
       case QUEUE_SEL:
       case TRANS_SEL:
@@ -1519,7 +1519,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
    {
       if (connect_data[i].inverse > OFF)
       {
-         switch(sel_typ)
+         switch (sel_typ)
          {
             case QUEUE_SEL :
                if (ehc == NO)
@@ -2159,7 +2159,7 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
 {
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
-   switch(item_no)
+   switch (item_no)
    {
       case CONTROL_AMG_SEL : /* Start/Stop AMG */
          if (p_afd_status->amg == ON)
@@ -2332,17 +2332,24 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
       case STARTUP_AFD_SEL : /* Startup AFD */
          {
             pid_t pid;
-            char  *args[5],
-                  progname[4],
-                  parameter[3];
+            char  *args[7],
+                  progname[4];
 
             args[0] = progname;
             args[1] = WORK_DIR_ID;
             args[2] = p_work_dir;
-            args[3] = parameter;
-            args[4] = NULL;
+            args[3] = "-a";
+            if (fake_user[0] != '\0')
+            {
+               args[4] = "-u";
+               args[5] = fake_user;
+               args[6] = NULL;
+            }
+            else
+            {
+               args[4] = NULL;
+            }
             (void)strcpy(progname, "afd");
-            (void)strcpy(parameter, "-a");
             switch (pid = fork())
             {
                case -1:
@@ -2372,17 +2379,24 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
          if (xrec(appshell, QUESTION_DIALOG,
                   "Are you shure that you want to do a shutdown?") == YES)
          {
-            char *args[5],
-                 progname[4],
-                 parameter[3];
+            char *args[7],
+                 progname[4];
 
             args[0] = progname;
             args[1] = WORK_DIR_ID;
             args[2] = p_work_dir;
-            args[3] = parameter;
-            args[4] = NULL;
+            args[3] = "-S";
+            if (fake_user[0] != '\0')
+            {
+               args[4] = "-u";
+               args[5] = fake_user;
+               args[6] = NULL;
+            }
+            else
+            {
+               args[4] = NULL;
+            }
             (void)strcpy(progname, "afd");
-            (void)strcpy(parameter, "-S");
 	    make_xprocess(progname, progname, args, -1);
 	 }
 	 return;
@@ -2417,7 +2431,7 @@ change_font_cb(Widget w, XtPointer client_data, XtPointer call_data)
       current_font = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          (void)strcpy(font_name, FONT_0);
@@ -2568,7 +2582,7 @@ change_rows_cb(Widget w, XtPointer client_data, XtPointer call_data)
       current_row = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          no_of_rows_set = atoi(ROW_0);
@@ -2711,7 +2725,7 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
                redraw = NO;
    XT_PTR_TYPE item_no = (XT_PTR_TYPE)client_data;
 
-   switch(item_no)
+   switch (item_no)
    {
       case LEDS_STYLE_W :
          if (line_style & SHOW_LEDS)
@@ -2776,7 +2790,7 @@ change_style_cb(Widget w, XtPointer client_data, XtPointer call_data)
    }
 
 #ifdef _DEBUG
-   switch(item_no)
+   switch (item_no)
    {
       case LEDS_STYLE_W :
          if (line_style & SHOW_LEDS)

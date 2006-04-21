@@ -1,6 +1,6 @@
 /*
- *  remove_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  remove_job_files.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,13 +22,13 @@
 DESCR__S_M3
 /*
  ** NAME
- **   remove_files - removes a complete job of the AFD
+ **   remove_job_files - removes a complete job of the AFD
  **
  ** SYNOPSIS
- **   void remove_files(char         *del_dir,
- **                     int          fsa_pos,
- **                     unsigned int job_id,
- **                     char         reason)
+ **   void remove_job_files(char         *del_dir,
+ **                         int          fsa_pos,
+ **                         unsigned int job_id,
+ **                         char         reason)
  **
  ** DESCRIPTION
  **
@@ -62,13 +62,13 @@ extern struct delete_log          dl;
 #endif
 
 
-/*############################ remove_files() ###########################*/
+/*########################## remove_job_files() #########################*/
 void
 #ifdef _DELETE_LOG
-remove_files(char         *del_dir,
-             int          fsa_pos,
-             unsigned int job_id,
-             char         reason)
+remove_job_files(char         *del_dir,
+                 int          fsa_pos,
+                 unsigned int job_id,
+                 char         reason)
 #else
 remove_files(char *del_dir, int fsa_pos)
 #endif

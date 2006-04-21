@@ -18,7 +18,7 @@
 
 MAINTAINERCLEANFILES = Makefile.in
 noinst_HEADERS       = afddefs.h bit_array.h permission.h ports.h
-INCLUDES             = -I.. -I../amg -I../log
+INCLUDES             = -I.. -I../amg -I../log -I../statistics
 bin_PROGRAMS         = init_afd afd
 init_afd_SOURCES     = init_afd.c\
                        check_afd_heartbeat.c\

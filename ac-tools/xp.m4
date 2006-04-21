@@ -42,7 +42,6 @@ if test "$lt_cv_libxp" = "yes"; then
 else
   AFD_XP_LIB=""
 fi
-AM_CONDITIONAL(Have_Libxp, test "$lt_cv_libxp" = "yes")
 AC_SUBST(AFD_XP_LIB)
 CFLAGS="$lt_save_CFLAGS"
 CPPFLAGS="$lt_save_CPPFLAGS"

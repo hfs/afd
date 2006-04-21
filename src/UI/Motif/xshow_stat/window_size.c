@@ -100,7 +100,7 @@ window_size(int *window_width,
     */
    data_length = new_window_width - x_offset_left_xaxis - x_offset_right_xaxis;
    no_of_x_data_points = data_length / x_data_spacing;
-   switch(time_type)
+   switch (time_type)
    {
       case HOUR_STAT : /* Statistic for the last hour. */
          if (no_of_x_data_points > (SECS_PER_HOUR / (60 / STAT_RESCAN_TIME)))
@@ -147,7 +147,7 @@ window_size(int *window_width,
    {
       host_to_search = host_counter;
    }
-   switch(stat_type)
+   switch (stat_type)
    {
       case SHOW_KBYTE_STAT : /* Volume that has been tansmitted. */
          if (time_type == HOUR_STAT)

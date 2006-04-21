@@ -32,7 +32,7 @@ filter(char *p_filter, char *p_file)
 
    for (;;)
    {
-      switch(*p_filter)
+      switch (*p_filter)
       {
          case '*' :
             if (*(p_filter + 1) == '\0')

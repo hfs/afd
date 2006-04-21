@@ -1,6 +1,6 @@
 /*
  *  clear_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,6 +54,7 @@ DESCR__E_M3
 extern int                mb_fd,
                           msg_fifo_fd,
                           *no_msg_buffered;
+extern struct afd_status  *p_afd_status;
 extern struct message_buf *mb;
 #ifdef _WITH_PTHREAD
 extern pthread_mutex_t    fsa_mutex;
@@ -121,6 +122,10 @@ clear_msg_buffer(void)
    }
 
    *no_msg_buffered = 0;
+   if (p_afd_status->amg_jobs & DIR_CHECK_MSG_QUEUED)
+   {
+      p_afd_status->amg_jobs ^= DIR_CHECK_MSG_QUEUED;
+   }
 #ifdef LOCK_DEBUG
    unlock_region(mb_fd, 0, __FILE__, __LINE__);
 #else

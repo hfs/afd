@@ -1,6 +1,6 @@
 /*
  *  common.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004, 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,19 +45,23 @@ DESCR__E_M3
 
 #include <stdio.h>
 #include <stdarg.h>       /* va_start(), va_arg(), va_end()              */
-#include <string.h>
+#include <string.h>       /* memcpy(), strerror()                        */
+#include <sys/types.h>    /* fd_set                                      */
+#include <sys/time.h>     /* struct timeval                              */
+#include <sys/stat.h>     /* S_ISUID, S_ISGID, etc                       */
 #ifdef WITH_SSL
 # include <openssl/ssl.h>
 # include <openssl/err.h>
 #endif
-#include <unistd.h>
+#include <unistd.h>       /* write()                                     */
 #include <errno.h>
 #include "fddefs.h"
 #include "commondefs.h"
 
+
 /* External global variables. */
 #ifdef WITH_SSL
-extern SSL *ssl_con;
+extern SSL  *ssl_con;
 #endif
 
 
@@ -165,7 +169,7 @@ ssl_write(SSL *ssl, const char *buf, size_t count)
          int ret;
 
          ret = SSL_get_error(ssl, bytes_done);
-         switch(ret)
+         switch (ret)
          {
             case SSL_ERROR_WANT_READ : /* Renegotiation takes place. */
                my_usleep(50000L);

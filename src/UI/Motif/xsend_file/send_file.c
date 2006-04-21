@@ -1,6 +1,6 @@
 /*
  *  send_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -100,6 +100,10 @@ send_file(void)
       if (db->mode_flag == PASSIVE_MODE)
       {
          length += sprintf(&cmd[length], " -x");
+      }
+      if (db->proxy_name[0] != '\0')
+      {
+         length += sprintf(&cmd[length], " -P %s", db->proxy_name);
       }
    }
    else if (db->protocol == SMTP)

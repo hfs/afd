@@ -1,6 +1,6 @@
 /*
  *  handle_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -359,7 +359,7 @@ handle_options(int           no_of_options,
                             * files.
                             */
                            if ((ret = pmatch(rule[rule_pos].filter[k],
-                                             p_file_name)) == 0)
+                                             p_file_name, NULL)) == 0)
                            {
                               /* We found a rule, what more do you want? */
                               /* Now lets get the new name.              */
@@ -1697,7 +1697,8 @@ search_again:
 #endif /* _WITH_AFW2WMO */
 
       /* Check if we want to convert TIFF files to GTS format */
-      if (CHECK_STRCMP(options, TIFF2GTS_ID) == 0)
+      if ((CHECK_STRCMP(options, TIFF2GTS_ID) == 0) ||
+          (CHECK_STRCMP(options, FAX2GTS_ID) == 0))
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;
@@ -1708,9 +1709,27 @@ search_again:
 #else
             int file_counter = *files_to_send;
 #endif
-            int recount_files = NO;
+            int fax_format,
+                recount_files = NO;
+#ifdef _PRODUCTION_LOG
+            char function_name[11];
+#endif
 
             *file_size = 0;
+            if (CHECK_STRCMP(options, TIFF2GTS_ID) == 0)
+            {
+               fax_format = NO;
+#ifdef _PRODUCTION_LOG
+               (void)strcpy(function_name, "tiff2gts()");
+#endif
+            }
+            else
+            {
+               fax_format = YES;
+#ifdef _PRODUCTION_LOG
+               (void)strcpy(function_name, "fax2gts()");
+#endif
+            }
 
             /*
              * Hopefully we have read all file names! Now it is save
@@ -1719,7 +1738,15 @@ search_again:
             for (j = 0; j < file_counter; j++)
             {
                (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
-               if ((size = tiff2gts(file_path, p_file_name)) < 0)
+               if (fax_format == NO)
+               {
+                  size = tiff2gts(file_path, p_file_name);
+               }
+               else
+               {
+                  size = fax2gts(file_path, p_file_name);
+               }
+               if (size <= 0)
                {
                   if (unlink(fullname) == -1)
                   {
@@ -1737,8 +1764,8 @@ search_again:
                      recount_files = YES;
 #ifdef _PRODUCTION_LOG
                      production_log(creation_time, unique_number,
-                                    split_job_counter, "%s||tiff2gts(): %d",
-                                    p_file_name, size);
+                                    split_job_counter, "%s||%s: %d",
+                                    p_file_name, function_name, size);
 #endif
                   }
                }
@@ -1747,8 +1774,8 @@ search_again:
                   *file_size += size;
 #ifdef _PRODUCTION_LOG
                   production_log(creation_time, unique_number,
-                                 split_job_counter, "%s|%s|tiff2gts()",
-                                 p_file_name, p_file_name);
+                                 split_job_counter, "%s|%s|%s",
+                                 p_file_name, p_file_name, function_name);
 #endif
                }
                p_file_name += MAX_FILENAME_LENGTH;

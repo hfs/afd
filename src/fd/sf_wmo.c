@@ -1,6 +1,6 @@
 /*
  *  sf_wmo.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -209,7 +209,7 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
    files_to_send = init_sf(argc, argv, file_path, WMO_FLAG);
    p_db = &db;
-   if (fsa->transfer_rate_limit > 0)
+   if (fsa->trl_per_process > 0)
    {
       if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
       {
@@ -284,7 +284,7 @@ main(int argc, char *argv[])
    }
 
    /* Connect to remote WMO-server */
-   if ((status = wmo_connect(db.hostname, db.port)) != SUCCESS)
+   if ((status = wmo_connect(db.hostname, db.port, db.sndbuf_size)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "WMO connection to <%s> at port %d failed (%d).",
@@ -347,7 +347,7 @@ main(int argc, char *argv[])
       {
          if (fsa->debug > NORMAL_MODE)
          {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL, "Bursting.");
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL, "WMO Bursting.");
          }
 # ifdef _OUTPUT_LOG
          if ((db.output_log == YES) && (ol_data == NULL))
@@ -519,7 +519,7 @@ main(int argc, char *argv[])
                     buffer[length_type_indicator - 1] = 'X';
                  }
 
-            if (fsa->transfer_rate_limit > 0)
+            if (fsa->trl_per_process > 0)
             {
                init_limit_transfer_rate();
             }
@@ -548,7 +548,7 @@ main(int argc, char *argv[])
                      wmo_quit();
                      exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
-                  if (fsa->transfer_rate_limit > 0)
+                  if (fsa->trl_per_process > 0)
                   {
                      limit_transfer_rate(blocksize, fsa->trl_per_process,
                                          clktck);
@@ -597,7 +597,7 @@ main(int argc, char *argv[])
                      wmo_quit();
                      exit(eval_timeout(WRITE_REMOTE_ERROR));
                   }
-                  if (fsa->transfer_rate_limit > 0)
+                  if (fsa->trl_per_process > 0)
                   {
                      limit_transfer_rate(rest + end_length,
                                          fsa->trl_per_process, clktck);
@@ -746,7 +746,11 @@ main(int argc, char *argv[])
                   }
 
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                             "Total file size for host %s overflowed. Correcting to %lu.",
+# if SIZEOF_OFF_T == 4
+                             "Total file size for host %s overflowed. Correcting to %ld.",
+# else
+                             "Total file size for host %s overflowed. Correcting to %lld.",
+# endif
                              fsa->host_dsp_name, fsa->total_file_size);
                }
                else if ((fsa->total_file_counter == 0) &&

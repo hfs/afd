@@ -202,51 +202,62 @@ retry:
                   if (CHECK_STRCMP(p_start, MAP_SHEME) != 0)
                   {
 #endif
-                     if ((*p_start == 'h') &&
-                         (*(p_start + 1) == 't') &&
+                     if ((*p_start == 's') &&
+                         (*(p_start + 1) == 'f') &&
                          (*(p_start + 2) == 't') &&
                          (*(p_start + 3) == 'p') &&
-#ifdef WITH_SSL
-                         ((*(p_start + 4) == '\0') ||
-                          ((*(p_start + 4) == 's') &&
-                           (*(p_start + 5) == '\0'))))
-#else
                          (*(p_start + 4) == '\0'))
-#endif
                      {
-                        sheme = HTTP;
+                        sheme = SFTP;
                      }
                      else
                      {
-                        if ((*p_start == 'm') &&
-                            (*(p_start + 1) == 'a') &&
-                            (*(p_start + 2) == 'i') &&
-                            (*(p_start + 3) == 'l') &&
-                            (*(p_start + 4) == 't') &&
-                            (*(p_start + 5) == 'o') &&
+                        if ((*p_start == 'h') &&
+                            (*(p_start + 1) == 't') &&
+                            (*(p_start + 2) == 't') &&
+                            (*(p_start + 3) == 'p') &&
 #ifdef WITH_SSL
-                            ((*(p_start + 6) == '\0') ||
-                             ((*(p_start + 6) == 's') &&
-                              (*(p_start + 7) == '\0'))))
+                            ((*(p_start + 4) == '\0') ||
+                             ((*(p_start + 4) == 's') &&
+                              (*(p_start + 5) == '\0'))))
 #else
-                            (*(p_start + 6) == '\0'))
+                            (*(p_start + 4) == '\0'))
 #endif
                         {
-                           sheme = SMTP;
+                           sheme = HTTP;
                         }
                         else
                         {
-                           system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Removing %s because of unknown sheme [%s].",
-                                      msg_dir, p_start);
-                           if (unlink(msg_dir) == -1)
+                           if ((*p_start == 'm') &&
+                               (*(p_start + 1) == 'a') &&
+                               (*(p_start + 2) == 'i') &&
+                               (*(p_start + 3) == 'l') &&
+                               (*(p_start + 4) == 't') &&
+                               (*(p_start + 5) == 'o') &&
+#ifdef WITH_SSL
+                               ((*(p_start + 6) == '\0') ||
+                                ((*(p_start + 6) == 's') &&
+                                 (*(p_start + 7) == '\0'))))
+#else
+                               (*(p_start + 6) == '\0'))
+#endif
+                           {
+                              sheme = SMTP;
+                           }
+                           else
                            {
                               system_log(WARN_SIGN, __FILE__, __LINE__,
-                                         "Failed to unlink() %s : %s",
-                                         msg_dir, strerror(errno));
+                                         "Removing %s because of unknown sheme [%s].",
+                                         msg_dir, p_start);
+                              if (unlink(msg_dir) == -1)
+                              {
+                                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                                            "Failed to unlink() %s : %s",
+                                            msg_dir, strerror(errno));
+                              }
+                              free(file_buf);
+                              return(INCORRECT);
                            }
-                           free(file_buf);
-                           return(INCORRECT);
                         }
                      }
 #ifdef _WITH_MAP_SUPPORT

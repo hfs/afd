@@ -1,6 +1,6 @@
 /*
  *  tiff2gts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -41,7 +41,8 @@ DESCR__S_M3
  **   H.Kiehl
  **
  ** HISTORY
- **   28.05.1996 H.Kiehl Created
+ **   28.05.1996 H.Kiehl    Created
+ **   18.04.2006 L.Brojboiu Handle not only DWD special TIFF files.
  **
  */
 DESCR__E_M3
@@ -120,13 +121,39 @@ tiff2gts(char *path, char* filename)
 
    (void)close(fd);
 
-   memcpy(&data_start, &buf[OFFSET_START], 4);
-   memcpy(&data_end, &buf[OFFSET_END], 4);
-   if (*(char *)&byte_order == 1)
+   /*
+    * Check if we have a DWD special scanner TIFF file or
+    * some standart TIFF. The DWD special TIFF has at OFFSET_START
+    * the offset to the start of the data, while others have
+    * here <SOH><CR><CR><LF>.
+    */
+   if ((buf[OFFSET_START] == '\001') && (buf[OFFSET_START + 1] == '\015') &&
+       (buf[OFFSET_START + 2] == '\015') && (buf[OFFSET_START + 3] == '\012'))
    {
-      byte_swap((char *)&data_start);
-      byte_swap((char *)&data_end);
+      int ifd_offset;
+
+      memcpy(&ifd_offset, &buf[4], 4);
+      if (((buf[0] == 'I') && (buf[1] == 'I') && (*(char *)&byte_order != 1)) ||
+          ((buf[0] == 'M') && (buf[1] == 'M') && (*(char *)&byte_order == 1)))
+
+      {
+         byte_swap((char *)&ifd_offset);
+      }
+      data_start = OFFSET_START;
+      data_end = ifd_offset - 1;
    }
+   else
+   {
+      memcpy(&data_start, &buf[OFFSET_START], 4);
+      memcpy(&data_end, &buf[OFFSET_END], 4);
+      if (((buf[0] == 'I') && (buf[1] == 'I') && (*(char *)&byte_order != 1)) ||
+          ((buf[0] == 'M') && (buf[1] == 'M') && (*(char *)&byte_order == 1)))
+      {
+         byte_swap((char *)&data_start);
+         byte_swap((char *)&data_end);
+      }
+   }
+
    data_size = data_end - data_start + 1;
    if (data_size > stat_buf.st_size)
    {
@@ -160,7 +187,8 @@ tiff2gts(char *path, char* filename)
    if (write(fd, &buf[data_start], data_size) != data_size)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "write() error : %s", fullname, strerror(errno));
+                  "Failed to write() to `%s' : %s",
+                  dest_file_name, strerror(errno));
       free(buf);
       (void)close(fd);
       return(INCORRECT);

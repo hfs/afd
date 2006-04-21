@@ -330,7 +330,7 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "Last TOP fr time   : %s", ctime(&msa[position].top_fr_time));
    (void)fprintf(stdout, "ec                 : %u\n", msa[position].ec);
    (void)fprintf(stdout, "Last data time     : %s", ctime(&msa[position].last_data_time));
-   switch(msa[position].connect_status)
+   switch (msa[position].connect_status)
    {
       case CONNECTION_ESTABLISHED :
          (void)fprintf(stdout, "Connect status     : CONNECTION_ESTABLISHED\n");

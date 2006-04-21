@@ -1,6 +1,6 @@
 /*
  *  eval_recipient.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -66,14 +66,18 @@ DESCR__S_M3
  **   28.01.2005 H.Kiehl Don't keep the error time indefinite long, for
  **                      retrieving remote files.
  **   21.11.2005 H.Kiehl Added time modifier when evaluating the directory.
+ **   12.02.2006 H.Kiehl Added transfer_mode N for none for FTP.
+ **   28.03.2006 H.Kiehl Added %h directory modifier for inserting local
+ **                      hostname.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>                   /* NULL                             */
 #include <string.h>                  /* strcpy()                         */
-#include <stdlib.h>                  /* atoi()                           */
+#include <stdlib.h>                  /* atoi(), getenv()                 */
 #include <time.h>                    /* time(), strftime()               */
+#include <unistd.h>                  /* gethostname()                    */
 #include "fddefs.h"
 
 /* Global variables */
@@ -394,7 +398,7 @@ eval_recipient(char       *recipient,
                            break;
                      }
                   }
-                  switch(*(ptr + 2))
+                  switch (*(ptr + 2))
                   {
                      case 'a': /* short day of the week 'Tue' */
                         number = strftime(&p_db->target_dir[i],
@@ -506,7 +510,7 @@ eval_recipient(char       *recipient,
                        }
                        else
                        {
-                          if (i == MAX_INT_LENGTH)
+                          if (j == MAX_INT_LENGTH)
                           {
                              system_log(WARN_SIGN, __FILE__, __LINE__,
                                         "The time modifier specified in the recipient of message %s for host %s is to large.",
@@ -546,6 +550,32 @@ eval_recipient(char       *recipient,
                        {
                           time_modifier = time_modifier * time_unit;
                        }
+                    }
+               else if ((*ptr == '%') && (*(ptr + 1) == 'h'))
+                    {
+                       char hostname[40];
+
+                       if (gethostname(hostname, 40) == -1)
+                       {
+                          char *p_hostname;
+
+                          if ((p_hostname = getenv("HOSTNAME")) != NULL)
+                          {
+                             i += sprintf(&p_db->target_dir[i], "%s",
+                                          p_hostname);
+                          }
+                          else
+                          {
+                             p_db->target_dir[i] = *ptr;
+                             p_db->target_dir[i + 1] = *(ptr + 1);
+                             i += 2;
+                          }
+                       }
+                       else
+                       {
+                          i += sprintf(&p_db->target_dir[i], "%s", hostname);
+                       }
+                       ptr += 2;
                     }
                     else
                     {
@@ -645,6 +675,9 @@ eval_recipient(char       *recipient,
                             break;
                   case 'i': /* Image/binary */
                   case 'I': p_db->transfer_mode = 'I';
+                            break;
+                  case 'n': /* None, for sending no type. */
+                  case 'N': p_db->transfer_mode = 'N';
                             break;
                   default : system_log(ERROR_SIGN, __FILE__, __LINE__,
                                        "Unknown ftp type (%d). Changing to I.",

@@ -56,7 +56,7 @@ start_process(char *progname, int afd)
 {
    static pid_t pid;
 
-   switch(pid = fork())
+   switch (pid = fork())
    {
       case -1 : /* Error creating process */
 

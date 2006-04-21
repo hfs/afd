@@ -1,6 +1,6 @@
 /*
  *  trans_exec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,6 +52,7 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
+extern int                        transfer_log_fd;
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
 
@@ -186,8 +187,9 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                   *insert_list[k] = tmp_char;
                }
 
-               if ((ret = exec_cmd(command_str, return_str, -1,
-                                   NULL, 0, db.trans_exec_timeout)) != 0) /* ie != SUCCESS */
+               if ((ret = exec_cmd(command_str, return_str, transfer_log_fd,
+                                   fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
+                                   db.trans_exec_timeout)) != 0) /* ie != SUCCESS */
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to execute command %s [Return code = %d]",
@@ -214,6 +216,11 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                      } while (*end_ptr != '\0');
                   }
                }
+               else
+               {
+                  (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
+                                   command_str, MAX_MSG_NAME_LENGTH);
+               }
             }
             else
             {
@@ -221,14 +228,20 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
 
                (void)sprintf(command_str, "cd %s && %s",
                              file_path, p_command);
-               if ((ret = exec_cmd(command_str, return_str, -1,
-                                   NULL, 0, db.trans_exec_timeout)) != 0)
+               if ((ret = exec_cmd(command_str, return_str, transfer_log_fd,
+                                   fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
+                                   db.trans_exec_timeout)) != 0)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to execute command %s [Return code = %d]",
                             command_str, ret);
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                             "%s", return_str);
+               }
+               else
+               {
+                  (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
+                                   p_command, MAX_MSG_NAME_LENGTH);
                }
             }
          }
@@ -240,6 +253,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
       }
       *p_tmp_dir = '\0';
    }
+   fsa->job_status[(int)db.job_no].file_name_in_use[0] = '\0';
    fsa->job_status[(int)db.job_no].connect_status = tmp_connect_status;
 #endif /* _WITH_TRANS_EXEC */
 

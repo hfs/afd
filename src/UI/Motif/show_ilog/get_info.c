@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -348,7 +348,11 @@ get_sum_data(int item, time_t *date, double *file_size)
       if (*ptr == SEPARATOR_CHAR)
       {
          str_hex_number[i] = '\0';
-         *file_size = strtod(str_hex_number, NULL);
+#ifdef HAVE_STRTOULL
+         *file_size = (double)strtoull(str_hex_number, NULL, 16);
+#else
+         *file_size = (double)strtoul(str_hex_number, NULL, 16);
+#endif
       }
       else
       {
@@ -447,7 +451,11 @@ get_all(int item)
 #else
          (void)sprintf(id.file_size, "%lld",
 #endif
-                       (off_t)strtod(str_hex_number, NULL));
+#ifdef HAVE_STRTOULL
+                       (off_t)strtoull(str_hex_number, NULL, 16));
+#else
+                       (off_t)strtoul(str_hex_number, NULL, 16));
+#endif
          ptr++;
       }
       else if (i >= 23)
@@ -571,7 +579,7 @@ get_dir_data(int dir_pos)
                   gotcha = NO;
                   for (k = 0; k < id.dbe[id.count].no_of_files; k++)
                   {
-                     if (pmatch(p_file, id.file_name) == 0)
+                     if (pmatch(p_file, id.file_name, NULL) == 0)
                      {
                         gotcha = YES;
                         break;
@@ -672,7 +680,7 @@ get_recipient_only(int dir_pos)
             p_file = file_mask_buf;
             for (j = 0; j < no_of_file_mask; j++)
             {
-               if (pmatch(p_file, id.file_name) == 0)
+               if (pmatch(p_file, id.file_name, NULL) == 0)
                {
                   gotcha = YES;
                   break;

@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -108,9 +108,10 @@ extern XT_PTR_TYPE                current_font,
                                   current_style;
 extern float                      max_bar_length;
 extern unsigned long              color_pool[];
-extern char                       *p_work_dir,
-                                  line_style,
+extern char                       fake_user[],
                                   font_name[],
+                                  line_style,
+                                  *p_work_dir,
                                   user[],
                                   username[];
 extern struct dir_line            *connect_data;
@@ -237,7 +238,7 @@ dir_input(Widget      w,
             }
             if (gotcha == NO)
             {
-               char *args[6],
+               char *args[8],
                     progname[MAX_PATH_LENGTH];
 
                args[0] = progname;
@@ -245,7 +246,16 @@ dir_input(Widget      w,
                args[2] = font_name;
                args[3] = "-d";
                args[4] = fra[select_no].dir_alias;
-               args[5] = NULL;
+               if (fake_user[0] != '\0')
+               {
+                  args[5] = "-u";
+                  args[6] = fake_user;
+                  args[7] = NULL;
+               }
+               else
+               {
+                  args[5] = NULL;
+               }
                (void)strcpy(progname, DIR_INFO);
 
                make_xprocess(progname, progname, args, select_no);
@@ -360,6 +370,7 @@ dir_popup_cb(Widget    w,
                j,
 #endif
                k,
+               offset,
                send_msg = NO;
    char        host_err_no[1025],
                progname[MAX_PROCNAME_LENGTH + 1],
@@ -369,7 +380,7 @@ dir_popup_cb(Widget    w,
                log_typ[30],
                display_error,
        	       err_msg[1025 + 100];
-   size_t      new_size = (no_of_dirs + 9) * sizeof(char *);
+   size_t      new_size = (no_of_dirs + 11) * sizeof(char *);
    time_t      current_time;
    XT_PTR_TYPE sel_typ = (XT_PTR_TYPE)client_data;
 
@@ -390,7 +401,7 @@ dir_popup_cb(Widget    w,
       return;
    }
 
-   switch(sel_typ)
+   switch (sel_typ)
    {
       case DIR_DISABLE_SEL:
       case DIR_RESCAN_SEL:
@@ -403,7 +414,16 @@ dir_popup_cb(Widget    w,
          args[3] = "-f";
          args[4] = font_name;
          args[5] = "-d";
-         args[7] = NULL;
+         if (fake_user[0] != '\0')
+         {
+            args[7] = "-u";
+            args[8] = fake_user;
+            args[9] = NULL;
+         }
+         else
+         {
+            args[7] = NULL;
+         }
          (void)strcpy(progname, DIR_INFO);
          break;
 
@@ -462,6 +482,16 @@ dir_popup_cb(Widget    w,
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_ILOG);
          break;
 
@@ -471,6 +501,16 @@ dir_popup_cb(Widget    w,
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_OLOG);
          break;
 
@@ -480,6 +520,16 @@ dir_popup_cb(Widget    w,
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_RLOG);
          break;
 
@@ -489,6 +539,16 @@ dir_popup_cb(Widget    w,
          args[2] = p_work_dir;
          args[3] = "-f";
          args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
          (void)strcpy(progname, SHOW_QUEUE);
          break;
 
@@ -651,7 +711,7 @@ dir_popup_cb(Widget    w,
       }
    }
    else if (((sel_typ == I_LOG_SEL) || (sel_typ == O_LOG_SEL) ||
-             (sel_typ == E_LOG_SEL)) &&
+             (sel_typ == E_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL)) &&
             ((no_selected > 0) || (no_selected_static > 0)))
         {
            args[5] = "-d";
@@ -665,12 +725,12 @@ dir_popup_cb(Widget    w,
    {
       if (connect_data[i].inverse > OFF)
       {
-         switch(sel_typ)
+         switch (sel_typ)
          {
             case DIR_DISABLE_SEL : /* Enable/Disable Directory. */
                if (fra[i].dir_flag & DIR_DISABLED)
                {
-                  fra[i].dir_flag ^= HOST_DISABLED;
+                  fra[i].dir_flag ^= DIR_DISABLED;
                   fra[i].dir_status = NORMAL_STATUS;
                   config_log("ENABLED directory %s", fra[i].dir_alias);
                }
@@ -730,8 +790,9 @@ dir_popup_cb(Widget    w,
             case O_LOG_SEL : /* View Output Log. */
             case E_LOG_SEL : /* View Delete Log. */
             case I_LOG_SEL : /* View Input Log. */
+            case SHOW_QUEUE_SEL : /* View Queue. */
                (void)sprintf(dirs[k], "%x", fra[i].dir_id);
-               args[k + 6] = dirs[k];
+               args[k + offset] = dirs[k];
                k++;
                break;
 
@@ -753,15 +814,6 @@ dir_popup_cb(Widget    w,
                   k++;
                }
                break;
-
-            case SHOW_QUEUE_SEL :
-               (void)xrec(appshell, WARN_DIALOG,
-                          "Not implemented. Tell this lazy programmer to do some work! (%s %d)",
-                          __FILE__, __LINE__);
-               free(args);
-               FREE_RT_ARRAY(dirs)
-               FREE_RT_ARRAY(hosts)
-               return;
 
             default :
                (void)xrec(appshell, WARN_DIALOG,
@@ -812,13 +864,8 @@ dir_popup_cb(Widget    w,
       args[k + 7] = NULL;
       make_xprocess(progname, progname, args, -1);
    }
-   else if (sel_typ == SHOW_QUEUE_SEL)
-        {
-           args[k + 5] = NULL;
-           make_xprocess(progname, progname, args, -1);
-        }
    else if ((sel_typ == I_LOG_SEL) || (sel_typ == O_LOG_SEL) ||
-            (sel_typ == E_LOG_SEL))
+            (sel_typ == E_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
         {
            args[k + 6] = NULL;
            make_xprocess(progname, progname, args, -1);
@@ -878,7 +925,7 @@ change_dir_font_cb(Widget    w,
       current_font = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          (void)strcpy(font_name, FONT_0);
@@ -1003,7 +1050,7 @@ change_dir_rows_cb(Widget    w,
       current_row = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          no_of_rows_set = atoi(ROW_0);
@@ -1134,7 +1181,7 @@ change_dir_style_cb(Widget    w,
       current_style = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          line_style = BARS_ONLY;
@@ -1159,7 +1206,7 @@ change_dir_style_cb(Widget    w,
    }
 
 #ifdef _DEBUG
-   switch(line_style)
+   switch (line_style)
    {
       case BARS_ONLY             :
          (void)fprintf(stderr, "Changing line style to bars only.\n");

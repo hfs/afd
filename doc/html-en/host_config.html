@@ -13,25 +13,31 @@ visa versa. This file consists of a table with 17 entries for each
 host. See below for a description of each entry.
 </p>
 <pre>
-  AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL
+  Keep connected          &lt;----------------------------------------------+
+  Duplicate check flag    &lt;-------------------------------------------+  |
+  Duplicate check timeout &lt;----------------------------------------+  |  |
+  Socket receive buffer   &lt;-------------------------------------+  |  |  |
+  Socket send buffer      &lt;---------------------------------+   |  |  |  |
+                                                            |   |  |  |  |
+  AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC
   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   |
-  |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +--&gt; TTL
-  |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +------&gt; Transfer rate limit
-  |   |   |   |  |  |  |  |  |  |   |  |  |  |  +----------&gt; Special flag
-  |   |   |   |  |  |  |  |  |  |   |  |  |  +-------------&gt; Host status
-  |   |   |   |  |  |  |  |  |  |   |  |  +----------------&gt; Number of no bursts
-  |   |   |   |  |  |  |  |  |  |   |  +-------------------&gt; Transfer timeout
-  |   |   |   |  |  |  |  |  |  |   +----------------------&gt; File size offset
-  |   |   |   |  |  |  |  |  |  +--------------------------&gt; Successful retries
-  |   |   |   |  |  |  |  |  +-----------------------------&gt; Transfer blocksize
-  |   |   |   |  |  |  |  +--------------------------------&gt; Retry interval
-  |   |   |   |  |  |  +-----------------------------------&gt; Max. errors
-  |   |   |   |  |  +--------------------------------------&gt; Allowed transfers
-  |   |   |   |  +-----------------------------------------&gt; Proxy name
-  |   |   |   +--------------------------------------------&gt; Host toggle
-  |   |   +------------------------------------------------&gt; Real hostname 2
-  |   +----------------------------------------------------&gt; Real hostname 1
-  +--------------------------------------------------------&gt; Alias hostname
+  |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +-&gt; TTL
+  |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +-----&gt; Transfer rate limit
+  |   |   |   |  |  |  |  |  |  |   |  |  |  |  +---------&gt; Protocol options
+  |   |   |   |  |  |  |  |  |  |   |  |  |  +------------&gt; Host status
+  |   |   |   |  |  |  |  |  |  |   |  |  +---------------&gt; Number of no bursts
+  |   |   |   |  |  |  |  |  |  |   |  +------------------&gt; Transfer timeout
+  |   |   |   |  |  |  |  |  |  |   +---------------------&gt; File size offset
+  |   |   |   |  |  |  |  |  |  +-------------------------&gt; Successful retries
+  |   |   |   |  |  |  |  |  +----------------------------&gt; Transfer block size
+  |   |   |   |  |  |  |  +-------------------------------&gt; Retry interval
+  |   |   |   |  |  |  +----------------------------------&gt; Max. errors
+  |   |   |   |  |  +-------------------------------------&gt; Allowed transfers
+  |   |   |   |  +----------------------------------------&gt; Proxy name
+  |   |   |   +-------------------------------------------&gt; Host toggle
+  |   |   +-----------------------------------------------&gt; Real hostname 2
+  |   +---------------------------------------------------&gt; Real hostname 1
+  +-------------------------------------------------------&gt; Alias hostname
 </pre>
 <table border>
 <tr>
@@ -178,9 +184,9 @@ host. See below for a description of each entry.
        The default is zero.</td>
 </tr>
 <tr>
-   <th valign=top><a name="special_flag">Special flag</a></th>
-   <td>To set some protocol (currently only for FTP) specific features for
-       this host. The following bits can be set:
+   <th valign=top><a name="protocol_options">Protocol options</a></th>
+   <td>To set some protocol (currently only for FTP, FTPS and some for SFTP)
+       specific features for this host. The following bits can be set:
        <table border>
        <tr>
           <th>Bit number</th>
@@ -188,30 +194,35 @@ host. See below for a description of each entry.
           <th>What it does</th>
        </tr>
        <tr>
-          <td align=center>11</td>
-          <td align=center>1024</td>
+          <td align=center>1</td>
+          <td align=center>1</td>
           <td>Sets FTP passive mode.</td>
        </tr>
        <tr>
-          <td align=center>12</td>
-          <td align=center>2048</td>
+          <td align=center>2</td>
+          <td align=center>2</td>
           <td>Set FTP idle time to <a href="#transfer_timeout">
               transfer timeout</a>.</td>
        </tr>
        <tr>
-          <td align=center>13</td>
-          <td align=center>4096</td>
+          <td align=center>3</td>
+          <td align=center>4</td>
           <td>Send STAT command to keep control connection alive.</td>
        </tr>
        <tr>
-          <td align=center>14</td>
-          <td align=center>8192</td>
+          <td align=center>4</td>
+          <td align=center>8</td>
           <td>Combine RNFR and RNTO to one command.</td>
        </tr>
        <tr>
-          <td align=center>15</td>
-          <td align=center>16384</td>
+          <td align=center>5</td>
+          <td align=center>16</td>
           <td>Do not do a cd, always use absolute path.</td>
+       </tr>
+       <tr>
+          <td align=center>6</td>
+          <td align=center>32</td>
+          <td>Do not send TYPE I command.</td>
        </tr>
        </table>
        The default is zero.</td>
@@ -226,14 +237,51 @@ host. See below for a description of each entry.
    <td>The time-to-live for outgoing multicasts. Currently this is not
        used.</td>
 </tr>
+<tr>
+   <th valign=top><a name="socket_send_buffer">Socket send buffer</a></th>
+   <td>How large the socket receive buffer should be in bytes.
+       If this is zero it will leave it unchanged ie. it will leave the
+       system default.</td>
+</tr>
+<tr>
+   <th valign=top><a name="socket_receive_buffer">Socket receive buffer</a></th>
+   <td>How large the socket receive buffer should be in bytes.
+       If this is zero it will leave it unchanged ie. it will leave
+       the system default.</td>
+</tr>
+<tr>
+   <th valign=top><a name="dupcheck_timeout">Duplicate check timeout</a></th>
+   <td>Check for duplicates if the value is bigger then 0. The unit is
+       seconds and is the time how long the CRC is to be stored.</td>
+</tr>
+<tr>
+   <th valign=top><a name="dupcheck_flag">Duplicate check flag</a></th>
+   <td>This flag specifies how to determine the checksum, which CRC to
+       use and what action should be taken when we find a duplicate. The
+       bits have the following meaning:
+       <pre>
+      1 (1)        - Only do CRC checksum for filename.
+      2 (2)        - Only do CRC checksum for file content.
+      3 (4)        - Cecksum for filename and content.
+      16(32768)    - Do a CRC32 checksum.
+      24(8388608)  - Delete the file.
+      25(16777216) - Store the duplicate file.
+      26(33554432) - Warn in SYSTEM_LOG.
+       </pre></td>
+</tr>
+<tr>
+   <th valign=top><a name="keep_connected">Keep connected</a></th>
+   <td>Keep connection for the given number of seconds after all files
+       have been transmitted. Note this has not been implemented.</td>
+</tr>
 </table>
 <hr size=3 noshade>
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 1997 - 2005 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 04.04.2005
+   Last updated: 09.04.2006
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -1,6 +1,6 @@
 /*
  *  logdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,26 +28,32 @@
 #endif
 #define SYSTEM_LOG_RESCAN_TIME            10
 #define SYSTEM_LOG_NAME                   "SYSTEM_LOG."
+#define SYSTEM_LOG_NAME_ALL               "SYSTEM_LOG.*"
 #define MAX_SYSTEM_LOG_FILES_DEF          "MAX_SYSTEM_LOG_FILES"
 #define MAX_RECEIVE_LOG_FILES             7            /* Must be > 1!   */
 #define RECEIVE_LOG_NAME                  "RECEIVE_LOG."
+#define RECEIVE_LOG_NAME_ALL              "RECEIVE_LOG.*"
 #define MAX_RECEIVE_LOG_FILES_DEF         "MAX_RECEIVE_LOG_FILES"
 #define MAX_TRANSFER_LOG_FILES            7            /* Must be > 1!   */
 #define TRANSFER_LOG_NAME                 "TRANSFER_LOG."
+#define TRANSFER_LOG_NAME_ALL             "TRANSFER_LOG.*"
 #define MAX_TRANSFER_LOG_FILES_DEF        "MAX_TRANSFER_LOG_FILES"
 #define MAX_TRANS_DB_LOG_FILES            3            /* Must be > 1!   */
 #define MAX_TRANS_DB_LOGFILE_SIZE         8388608
 #define MAX_TRANS_DB_LOG_FILES_DEF        "MAX_TRANS_DB_LOG_FILES"
 #define TRANS_DB_LOG_RESCAN_TIME          10
 #define TRANS_DB_LOG_NAME                 "TRANS_DB_LOG."
+#define TRANS_DB_LOG_NAME_ALL             "TRANS_DB_LOG.*"
 
 /* Definitions for the log process of afd_monitor. */
 #define MAX_MON_SYS_LOG_FILES             4            /* Must be > 1!   */
 #define MON_SYS_LOG_RESCAN_TIME           5
 #define MON_SYS_LOG_NAME                  "MON_SYS_LOG."
+#define MON_SYS_LOG_NAME_ALL              "MON_SYS_LOG.*"
 #define MAX_MON_SYS_LOG_FILES_DEF         "MAX_MON_SYS_LOG_FILES"
 #define MAX_MON_LOG_FILES                 14           /* Must be > 1!   */
 #define MON_LOG_NAME                      "MONITOR_LOG."
+#define MON_LOG_NAME_ALL                  "MONITOR_LOG.*"
 #define MAX_MON_LOG_FILES_DEF             "MAX_MON_LOG_FILES"
 
 #define BUFFERED_WRITES_BEFORE_FLUSH_FAST 5
@@ -69,23 +75,27 @@
 /* Definitions for input logging */
 #define MAX_INPUT_LOG_FILES               7
 #define INPUT_BUFFER_FILE                 "INPUT_LOG."
+#define INPUT_BUFFER_FILE_ALL             "INPUT_LOG.*"
 #define MAX_INPUT_LOG_FILES_DEF           "MAX_INPUT_LOG_FILES"
 #endif
 #ifdef _OUTPUT_LOG
 /* Definitions for output logging */
 #define MAX_OUTPUT_LOG_FILES              7
 #define OUTPUT_BUFFER_FILE                "OUTPUT_LOG."
+#define OUTPUT_BUFFER_FILE_ALL            "OUTPUT_LOG.*"
 #define MAX_OUTPUT_LOG_FILES_DEF          "MAX_OUTPUT_LOG_FILES"
 #endif
 #ifdef _DELETE_LOG
 /* Definitions for delete logging */
 #define MAX_DELETE_LOG_FILES              7
 #define DELETE_BUFFER_FILE                "DELETE_LOG."
+#define DELETE_BUFFER_FILE_ALL            "DELETE_LOG.*"
 #define MAX_DELETE_LOG_FILES_DEF          "MAX_DELETE_LOG_FILES"
 #endif
 #ifdef _PRODUCTION_LOG
 #define MAX_PRODUCTION_LOG_FILES          7
 #define PRODUCTION_BUFFER_FILE            "PRODUCTION_LOG."
+#define PRODUCTION_BUFFER_FILE_ALL        "PRODUCTION_LOG.*"
 #define MAX_PRODUCTION_LOG_FILES_DEF      "MAX_PRODUCTION_LOG_FILES"
 #endif
 

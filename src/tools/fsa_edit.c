@@ -146,7 +146,7 @@ main(int argc, char *argv[])
    {
       menu(position);
 
-      switch(get_key())
+      switch (get_key())
       {
          case 0   : break;
          case '1' : (void)fprintf(stderr, "\n\n     Enter value [1] : ");
@@ -182,7 +182,7 @@ main(int argc, char *argv[])
                     (void)fprintf(stdout, "     Start/Stop auto queue lock....(5)\n");
                     (void)fprintf(stdout, "     HOST_CONFIG host disabled.....(6)\n");
                     (void)fprintf(stderr, "     None..........................(7) ");
-                    switch(get_key())
+                    switch (get_key())
                     {
                        case '1' : fsa[position].host_status ^= PAUSE_QUEUE_STAT;
                                   break;
@@ -269,6 +269,19 @@ main(int argc, char *argv[])
                     (void)scanf("%u", &value);
                     fsa[position].transfer_rate_limit = value;
                     break;
+         case 'h' : if ((fsa[position].auto_toggle == ON) &&
+                        (fsa[position].original_toggle_pos != NONE))
+                    {
+                       if (fsa[position].original_toggle_pos == HOST_ONE)
+                       {
+                          fsa[position].original_toggle_pos = NONE;
+                       }
+                       else if (fsa[position].original_toggle_pos == HOST_TWO)
+                            {
+                               fsa[position].original_toggle_pos = NONE;
+                            }
+                    }
+                    break;
          case 'x' :
          case 'Q' :
          case 'q' : leave_flag = YES;
@@ -326,6 +339,11 @@ menu(int position)
 #else
    (void)fprintf(stdout, "        |  g  |Transferrate limit| %14lld |\n", fsa[position].transfer_rate_limit);
 #endif
+   if ((fsa[position].auto_toggle == ON) &&
+       (fsa[position].original_toggle_pos != NONE))
+   {
+      (void)fprintf(stdout, "        |  h  |Original toggle   | %14s |\n", (fsa[position].original_toggle_pos != HOST_ONE) ? "HOST_ONE" : "HOST_TWO");
+   }
    (void)fprintf(stdout, "        +-----+------------------+----------------+\n");
 
    return;

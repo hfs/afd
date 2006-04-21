@@ -1,6 +1,6 @@
 /*
  *  select_dir_dialog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -440,11 +440,11 @@ search_select_dir(Widget w, XtPointer client_data, XtPointer call_data)
    {
       if (dirname_type == ALIAS_NAME)
       {
-         match = pmatch(text, connect_data[i].dir_alias);
+         match = pmatch(text, connect_data[i].dir_alias, NULL);
       }
       else
       {
-         match = pmatch(text, fra[i].url);
+         match = pmatch(text, fra[i].url, NULL);
       }
       if (match == 0)
       {

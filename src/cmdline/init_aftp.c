@@ -1,6 +1,6 @@
 /*
  *  init_aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -142,6 +142,9 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    }
    p_db->filename          = NULL;
    p_db->realname          = NULL;
+   p_db->sndbuf_size       = 0;
+   p_db->rcvbuf_size       = 0;
+   p_db->proxy_name[0]     = '\0';
 
    /* Evaluate all arguments with '-' */
    while ((--argc > 0) && ((*++argv)[0] == '-'))
@@ -362,7 +365,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             else
             {
-               switch(*(argv + 1)[0])
+               switch (*(argv + 1)[0])
                {
                   case 'a':
                   case 'A': /* ASCII mode */
@@ -460,6 +463,24 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             }
             break;
 
+         case 'P' : /* Use the given proxy procedure to login. */
+            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            {
+#ifdef _GERMAN
+               (void)fprintf(stderr, "ERROR   : Keine Proxy Prozedur angegeben fuer Option -P.\n");
+#else
+               (void)fprintf(stderr, "ERROR   : No proxy procedure for option -P.\n");
+#endif
+               correct = NO;
+            }
+            else
+            {
+               argv++;
+               (void)strcpy(p_db->proxy_name, argv[0]);
+               argc--;
+            }
+            break;
+
          case 'u' : /* User name and password for remote login. */
             if ((argc == 1) || (*(argv + 1)[0] == '-'))
             {
@@ -501,6 +522,42 @@ init_aftp(int argc, char *argv[], struct data *p_db)
 
          case 'r' : /* Remove file that was transmitted. */
             p_db->remove = YES;
+            break;
+
+         case 'R' : /* Socket receive buffer. */
+            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            {
+#ifdef _GERMAN
+               (void)fprintf(stderr, "ERROR   : Keine Puffergroesse angegeben fuer Option -R.\n");
+#else
+               (void)fprintf(stderr, "ERROR   : No buffer size specified for option -R.\n");
+#endif
+               correct = NO;
+            }
+            else
+            {
+               p_db->rcvbuf_size = atoi(*(argv + 1));
+               argc--;
+               argv++;
+            }
+            break;
+
+         case 'S' : /* Socket send buffer. */
+            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            {
+#ifdef _GERMAN
+               (void)fprintf(stderr, "ERROR   : Keine Puffergroesse angegeben fuer Option -S.\n");
+#else
+               (void)fprintf(stderr, "ERROR   : No buffer size specified for option -S.\n");
+#endif
+               correct = NO;
+            }
+            else
+            {
+               p_db->sndbuf_size = atoi(*(argv + 1));
+               argc--;
+               argv++;
+            }
             break;
 
          case 's' : /* Dummy file size. */
@@ -593,7 +650,7 @@ init_aftp(int argc, char *argv[], struct data *p_db)
                           *(argv[0] + 1), __FILE__, __LINE__);
             correct = NO;
             break;
-      } /* switch(*(argv[0] + 1)) */
+      } /* switch (*(argv[0] + 1)) */
    }
    if ((*argv)[0] != '-')
    {
@@ -737,15 +794,21 @@ usage(void)
       (void)fprintf(stderr, "  -n <Anzahl Dateien>                - Anzahl der zu uebertragenen Dateien.\n");
    }
    (void)fprintf(stderr, "  -p <Portnummer>                    - IP Portnummer des FTP-Servers.\n");
+   (void)fprintf(stderr, "  -P <Proxy-prozedur>                - Die angegeben Proxy-prozdur wird\n");
+   (void)fprintf(stderr, "                                       fuers Einloggen verwendet. Siehe\n");
+   (void)fprintf(stderr, "                                       Dokumentation fuer mehr Informationen.\n");
    (void)fprintf(stderr, "  -u <Nutzer> <Passwort>             - Nutzername und Passwort, wenn nicht\n");
    (void)fprintf(stderr, "                                       angegeben %s.\n", DEFAULT_AFD_USER);
    if (name[0] == 'r')
    {
+      (void)fprintf(stderr, "  -R <Puffer groesse>                - Setzt die socket Puffer groesse fuer\n");
+      (void)fprintf(stderr, "                                       den Empfang (in Bytes).\n");
       (void)fprintf(stderr, "  -r                                 - Loescht die Dateien die geholt wurden.\n");
    }
    else
    {
       (void)fprintf(stderr, "  -r                                 - Loescht die uebertragenen Dateien.\n");
+      (void)fprintf(stderr, "  -S <Puffer groesse>                - Setzt die socket Puffer groesse fuer\n");
    }
    if (name[0] == 't')
    {
@@ -836,16 +899,23 @@ usage(void)
       (void)fprintf(stderr, "  -n <number of files>               - Number of files to be transfered.\n");
    }
    (void)fprintf(stderr, "  -p <port number>                   - Remote port number of FTP-server.\n");
+   (void)fprintf(stderr, "  -P <proxy procedure>               - Use the given proxy procedure to\n");
+   (void)fprintf(stderr, "                                       login. See documentation for more\n");
+   (void)fprintf(stderr, "                                       details on syntax.\n");
    (void)fprintf(stderr, "  -u <user> <password>               - Remote user name and password. If not\n");
    (void)fprintf(stderr, "                                       supplied, it will login as %s.\n", DEFAULT_AFD_USER);
    if (name[0] == 'r')
    {
+      (void)fprintf(stderr, "  -R <buffer size>                   - Socket receive buffer size\n");
+      (void)fprintf(stderr, "                                       (in bytes).\n");
       (void)fprintf(stderr, "  -r                                 - Remove remote file after it was\n");
       (void)fprintf(stderr, "                                       retrieved.\n");
    }
    else
    {
       (void)fprintf(stderr, "  -r                                 - Remove transmitted file.\n");
+      (void)fprintf(stderr, "  -S <buffer size>                   - Socket send buffer size\n");
+      (void)fprintf(stderr, "                                       (in bytes).\n");
    }
    if (name[0] == 't')
    {

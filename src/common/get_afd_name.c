@@ -1,6 +1,6 @@
 /*
  *  get_afd_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -88,7 +88,21 @@ get_afd_name(char *afd_name)
 
    if (n > 0)
    {
-      afd_name[n - 1] = '\0';
+      if (afd_name[n - 1] == '\n')
+      {
+         afd_name[n - 1] = '\0';
+      }
+      else
+      {
+         if (n < MAX_AFD_NAME_LENGTH)
+         {
+            afd_name[n] = '\0';
+         }
+         else
+         {
+            afd_name[MAX_AFD_NAME_LENGTH - 1] = '\0';
+         }
+      }
    }
    else
    {

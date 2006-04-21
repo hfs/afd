@@ -1,7 +1,7 @@
 /*
  *  save_old_output_year.c - Part of AFD, an automatic file distribution
- **                          program.
- *  Copyright (c) 1998 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *                           program.
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -182,7 +182,7 @@ save_old_output_year(int new_year)
    *(int*)ptr = no_of_hosts;
    *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_YEAR_STAT_VERSION;
    old_stat_db = (struct afd_year_stat *)(ptr + AFD_WORD_OFFSET);
-   (void)memset(old_stat_db, 0, old_year_stat_size);
+   (void)memset(old_stat_db, 0, old_year_stat_size - AFD_WORD_OFFSET);
 
    /*
     * Now copy the data from the old year.

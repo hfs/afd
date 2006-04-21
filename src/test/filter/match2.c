@@ -6,7 +6,7 @@ match(char *filter, char *file)
 {
    for (;;)
    {
-      switch(*filter)
+      switch (*filter)
       {
          case '*' :
             return(match(filter + 1, file) ||

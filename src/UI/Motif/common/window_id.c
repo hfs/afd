@@ -1,6 +1,6 @@
 /*
  *  window_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004, 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -92,7 +92,8 @@ write_window_id(Window w, pid_t pid, char *progname)
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s/window_ids", p_work_dir, FIFO_DIR);
+      (void)sprintf(window_id_file, "%s%s%s",
+                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;
@@ -150,7 +151,8 @@ get_window_id(pid_t pid, char *progname)
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s/window_ids", p_work_dir, FIFO_DIR);
+      (void)sprintf(window_id_file, "%s%s%s",
+                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;
@@ -224,7 +226,8 @@ remove_window_id(pid_t pid, char *progname)
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s/window_ids", p_work_dir, FIFO_DIR);
+      (void)sprintf(window_id_file, "%s%s%s",
+                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;
@@ -290,7 +293,8 @@ check_window_ids(char *progname)
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s/window_ids", p_work_dir, FIFO_DIR);
+      (void)sprintf(window_id_file, "%s%s%s",
+                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;

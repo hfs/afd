@@ -1,6 +1,6 @@
 /*
  *  scpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -19,9 +19,6 @@
 
 #ifndef __scpdefs_h
 #define __scpdefs_h
-
-#define DEFAULT_SSH_PORT   22
-#define SSH_COMMAND        "ssh"
 
 /* Function prototypes */
 extern int  scp_connect(char *, int, char *, char *, char *),

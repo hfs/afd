@@ -31,11 +31,11 @@ main(int argc, char *argv[])
 
       for (i = 0; i < loops; i++)
       {
-         (void)pmatch(argv[1], argv[2]);
+         (void)pmatch(argv[1], argv[2], NULL);
       }
    }
    (void)fprintf(stdout, "filter = %s\n", argv[1]);
-   if ((ret = pmatch(argv[1], argv[2])) == 0)
+   if ((ret = pmatch(argv[1], argv[2], NULL)) == 0)
    {
       (void)fprintf(stdout, "GOTHAAA!!!!\n");
    }

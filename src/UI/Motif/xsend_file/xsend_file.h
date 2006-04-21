@@ -1,6 +1,6 @@
 /*
  *  xsend_file.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,6 +44,8 @@
 #define TIMEOUT_ENTER           31
 #define PREFIX_NO_ENTER         32
 #define PREFIX_ENTER            33
+#define PROXY_NO_ENTER          34
+#define PROXY_ENTER             35
 
 #define MAX_TIMEOUT_DIGITS      4       /* Maximum number of digits for  */
                                         /* the timeout field.            */
@@ -57,6 +59,7 @@
 struct send_data
        {
           char        hostname[MAX_FILENAME_LENGTH];
+          char        proxy_name[MAX_PROXY_NAME_LENGTH + 1];
           char        smtp_server[MAX_FILENAME_LENGTH];
           char        user[MAX_USER_NAME_LENGTH + 1];
           char        target_dir[MAX_PATH_LENGTH];

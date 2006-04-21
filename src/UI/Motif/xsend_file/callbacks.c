@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,9 +56,7 @@ DESCR__E_M3
 #include "xsend_file.h"
 #include "ftpdefs.h"
 #include "smtpdefs.h"
-#ifdef _WITH_SCP_SUPPORT
-# include "scpdefs.h"
-#endif
+#include "ssh_commondefs.h"
 #ifdef _WITH_WMO_SUPPORT
 # include "wmodefs.h"
 #endif
@@ -83,6 +81,8 @@ extern Widget           active_passive_w,
                         port_label_w,
                         port_w,
                         prefix_w,
+                        proxy_label_w,
+                        proxy_w,
                         recipientbox_w,
                         statusbox_w,
                         target_dir_label_w,
@@ -357,6 +357,12 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
             XtRemoveCallback(hostname_w, XmNactivateCallback, send_save_input,
                              (XtPointer)HOSTNAME_ENTER);
             XtDestroyWidget(hostname_w);
+            XtDestroyWidget(proxy_label_w);
+            XtRemoveCallback(proxy_w, XmNmodifyVerifyCallback, send_save_input,
+                             (XtPointer)PROXY_NO_ENTER);
+            XtRemoveCallback(proxy_w, XmNactivateCallback, send_save_input,
+                             (XtPointer)PROXY_ENTER);
+            XtDestroyWidget(proxy_w);
             user_name_label_w = XtVaCreateManagedWidget("User :",
                               xmLabelGadgetClass,  recipientbox_w,
                               XmNfontList,         fontlist,
@@ -442,6 +448,35 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
                           (XtPointer)HOSTNAME_NO_ENTER);
             XtAddCallback(hostname_w, XmNactivateCallback, send_save_input,
                           (XtPointer)HOSTNAME_ENTER);
+
+            /* Proxy */
+            proxy_label_w = XtVaCreateManagedWidget("Proxy :",
+                              xmLabelGadgetClass,  recipientbox_w,
+                              XmNfontList,         fontlist,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNbottomAttachment, XmATTACH_FORM,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       hostname_w,
+                              XmNalignment,        XmALIGNMENT_END,
+                              NULL);
+            proxy_w = XtVaCreateManagedWidget("",
+                              xmTextWidgetClass,   recipientbox_w,
+                              XmNfontList,         fontlist,
+                              XmNmarginHeight,     1,
+                              XmNmarginWidth,      1,
+                              XmNshadowThickness,  1,
+                              XmNrows,             1,
+                              XmNcolumns,          12,
+                              XmNmaxLength,        MAX_FILENAME_LENGTH - 1,
+                              XmNtopAttachment,    XmATTACH_FORM,
+                              XmNtopOffset,        6,
+                              XmNleftAttachment,   XmATTACH_WIDGET,
+                              XmNleftWidget,       proxy_label_w,
+                              NULL);
+            XtAddCallback(proxy_w, XmNlosingFocusCallback, send_save_input,
+                          (XtPointer)PROXY_NO_ENTER);
+            XtAddCallback(proxy_w, XmNactivateCallback, send_save_input,
+                          (XtPointer)PROXY_ENTER);
             xstr = XmStringCreateLtoR("Directory :", XmFONTLIST_DEFAULT_TAG);
             XtVaSetValues(target_dir_label_w, XmNlabelString, xstr, NULL);
             XmStringFree(xstr);
@@ -467,6 +502,7 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
                }
             }
             XmTextSetString(hostname_w, db->hostname);
+            XmTextSetString(proxy_w, db->proxy_name);
             XmTextSetString(target_dir_w, db->target_dir);
          }
          else
@@ -478,6 +514,8 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
             XtSetSensitive(hostname_label_w, True);
          }
          XtSetSensitive(hostname_w, True);
+         XtSetSensitive(proxy_label_w, True);
+         XtSetSensitive(proxy_w, True);
          XtSetSensitive(target_dir_label_w, True);
          XtSetSensitive(target_dir_w, True);
          XtSetSensitive(create_target_dir_w, True);
@@ -587,6 +625,8 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XmTextSetString(target_dir_w, db->subject);
          XmStringFree(xstr);
          XtSetSensitive(target_dir_w, True);
+         XtSetSensitive(proxy_label_w, False);
+         XtSetSensitive(proxy_w, False);
          XtSetSensitive(create_target_dir_w, False);
          XtSetSensitive(port_label_w, True);
          XtSetSensitive(port_w, True);
@@ -614,6 +654,8 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(password_w, False);
          XtSetSensitive(hostname_label_w, False);
          XtSetSensitive(hostname_w, False);
+         XtSetSensitive(proxy_label_w, False);
+         XtSetSensitive(proxy_w, False);
          XtSetSensitive(target_dir_label_w, True);
          XtSetSensitive(target_dir_w, True);
          XtSetSensitive(create_target_dir_w, True);
@@ -636,6 +678,8 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(password_w, True);
          XtSetSensitive(hostname_label_w, True);
          XtSetSensitive(hostname_w, True);
+         XtSetSensitive(proxy_label_w, False);
+         XtSetSensitive(proxy_w, False);
          XtSetSensitive(target_dir_label_w, True);
          XtSetSensitive(target_dir_w, True);
          XtSetSensitive(create_target_dir_w, False);
@@ -667,6 +711,8 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(password_w, False);
          XtSetSensitive(hostname_label_w, True);
          XtSetSensitive(hostname_w, True);
+         XtSetSensitive(proxy_label_w, False);
+         XtSetSensitive(proxy_w, False);
          XtSetSensitive(target_dir_label_w, False);
          XtSetSensitive(target_dir_w, False);
          XtSetSensitive(create_target_dir_w, False);
@@ -698,6 +744,8 @@ protocol_toggled(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(password_w, False);
          XtSetSensitive(hostname_label_w, True);
          XtSetSensitive(hostname_w, True);
+         XtSetSensitive(proxy_label_w, False);
+         XtSetSensitive(proxy_w, False);
          XtSetSensitive(target_dir_label_w, False);
          XtSetSensitive(target_dir_w, False);
          XtSetSensitive(create_target_dir_w, False);
@@ -738,6 +786,16 @@ send_save_input(Widget w, XtPointer client_data, XtPointer call_data)
 
       case HOSTNAME_ENTER :
          (void)strcpy(db->hostname, value);
+         reset_message(statusbox_w);
+         XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
+         break;
+
+      case PROXY_NO_ENTER :
+         (void)strcpy(db->proxy_name, value);
+         break;
+
+      case PROXY_ENTER :
+         (void)strcpy(db->proxy_name, value);
          reset_message(statusbox_w);
          XmProcessTraversal(w, XmTRAVERSE_NEXT_TAB_GROUP);
          break;

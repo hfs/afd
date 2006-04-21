@@ -206,14 +206,19 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       if ((i == MAX_AFDNAME_LENGTH) && ((*ptr != ' ') || (*ptr != '\t')))
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Maximum length for AFD alias name %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                   (*nml)[no_of_afds].afd_alias, MAX_AFDNAME_LENGTH,
-                   __FILE__, __LINE__);
+         char *tmp_ptr = ptr;
+
          while ((*ptr != ' ') && (*ptr != '\t') &&
                 (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
+         }
+         if (tmp_ptr != ptr)
+         {
+            (void)rec(sys_log_fd, WARN_SIGN,
+                      "Maximum length for AFD alias name %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
+                      (*nml)[no_of_afds].afd_alias, MAX_AFDNAME_LENGTH,
+                      __FILE__, __LINE__);
          }
       }
       (*nml)[no_of_afds].afd_alias[i] = '\0';

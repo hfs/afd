@@ -857,7 +857,7 @@ init_dir_info(int *argc, char *argv[])
 
    /* Now lets see if user may use this program */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);

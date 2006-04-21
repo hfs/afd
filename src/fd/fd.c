@@ -1,6 +1,6 @@
 /*
  *  fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -67,6 +67,7 @@ DESCR__S_M1
  **                      structures.
  **   26.12.2003 H.Kiehl Added tracing.
  **   24.09.2004 H.Kiehl Added split job counter.
+ **   07.03.2006 H.Kiehl Added group transfer limits.
  **
  */
 DESCR__E_M1
@@ -117,6 +118,7 @@ int                        amg_flag = NO,
                            no_of_dirs = 0,
                            no_of_hosts = 0,
                            no_of_retrieves = 0,
+                           no_of_trl_groups = 0,
                            qb_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            read_fin_fd,
@@ -370,6 +372,9 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   /* Initialize transfer rate limit data. */
+   init_trl_data();
+
    /* Initialize all connections in case FD crashes. */
    p_afd_status->no_of_transfers = 0;
    for (i = 0; i < no_of_hosts; i++)
@@ -378,8 +383,16 @@ main(int argc, char *argv[])
 
       fsa[i].active_transfers = 0;
       fsa[i].mc_nack_counter = 0;
-      fsa[i].trl_per_process = fsa[i].transfer_rate_limit;
-      fsa[i].mc_ctrl_per_process = fsa[i].mc_ct_rate_limit = fsa[i].transfer_rate_limit;
+      if ((no_of_trl_groups > 0) ||
+          (fsa[i].transfer_rate_limit > 0))
+      {
+         calc_trl_per_process(i);
+      }
+      else
+      {
+         fsa[i].trl_per_process = 0;
+         fsa[i].mc_ctrl_per_process = 0;
+      }
       for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
       {
          fsa[i].job_status[j].no_of_files = 0;
@@ -544,6 +557,9 @@ main(int argc, char *argv[])
               "FD configuration: Create target dir by default  %s",
               (*(unsigned char *)((char *)fsa - AFD_FSA_FEATURE_FLAG_OFFSET) & ENABLE_CREATE_TARGET_DIR) ? "YES" : "NO");
    system_log(DEBUG_SIGN, NULL, 0,
+              "FD configuration: Number of TRL groups          %d",
+              no_of_trl_groups);
+   system_log(DEBUG_SIGN, NULL, 0,
               "FD configuration: Default SMTP server           %s",
               (default_smtp_server[0] == '\0') ? SMTP_HOST_NAME : default_smtp_server);
    if (default_smtp_from != NULL)
@@ -694,6 +710,8 @@ main(int argc, char *argv[])
                }
             }
          }
+
+         check_trl_file();
 
          abnormal_term_check_time = ((now / 45) * 45) + 45;
       }
@@ -948,14 +966,16 @@ system_log(DEBUG_SIGN, NULL, 0,
        *       we will duplicate messages!
        */
       if (((now > next_dir_check_time) || (force_check == YES)) &&
-          ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0))
+          ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0) &&
+          ((p_afd_status->amg_jobs & DIR_CHECK_MSG_QUEUED) == 0))
       {
          int gotcha = NO,
              loops = 0;
 
          /*
           * It only makes sense to check the file directory when
-          * the AMG is currently NOT creating new jobs. So lets
+          * the AMG is currently NOT creating new jobs AND has no
+          * jobs queued (because FD was stopped). So lets
           * indicate that by setting the FD_DIR_CHECK_ACTIVE flag.
           * We then have to wait for all jobs of the AMG to stop
           * creating new jobs.
@@ -965,33 +985,39 @@ system_log(DEBUG_SIGN, NULL, 0,
 #else
          lock_region_w(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE);
 #endif
-         if ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0)
+         if ((p_afd_status->amg_jobs & DIR_CHECK_MSG_QUEUED) == 0)
          {
-            p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
+            if ((p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE) == 0)
+            {
+               p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
+            }
          }
 #ifdef LOCK_DEBUG
          unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE, __FILE__, __LINE__);
 #else
          unlock_region(afd_status_fd, LOCK_FD_DIR_CHECK_ACTIVE);
 #endif
-         do
+         if ((p_afd_status->amg_jobs & DIR_CHECK_MSG_QUEUED) == 0)
          {
-            if ((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0)
+            do
             {
-               gotcha = YES;
-               break;
-            }
-            (void)my_usleep(100000L);
-         } while (loops++ < WAIT_LOOPS);
-         if (gotcha == NO)
-         {
-            next_dir_check_time = ((now / DIR_CHECK_TIME) * DIR_CHECK_TIME) +
-                                  DIR_CHECK_TIME;
+               if ((p_afd_status->amg_jobs & DIR_CHECK_ACTIVE) == 0)
+               {
+                  gotcha = YES;
+                  break;
+               }
+               (void)my_usleep(100000L);
+            } while (loops++ < WAIT_LOOPS);
+            if (gotcha == NO)
+            {
+               next_dir_check_time = ((now / DIR_CHECK_TIME) * DIR_CHECK_TIME) +
+                                     DIR_CHECK_TIME;
 
-            /* Deactivate directory check flag. */
-            if (p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE)
-            {
-               p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
+               /* Deactivate directory check flag. */
+               if (p_afd_status->amg_jobs & FD_DIR_CHECK_ACTIVE)
+               {
+                  p_afd_status->amg_jobs ^= FD_DIR_CHECK_ACTIVE;
+               }
             }
          }
       }
@@ -999,29 +1025,20 @@ system_log(DEBUG_SIGN, NULL, 0,
       /* Check if HOST_CONFIG has been changed. */
       if (host_config_counter != (int)*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET + SIZEOF_INT))
       {
+         init_trl_data();
+
          /* Yes, there was a change. Recalculate trl_per_process. */
          for (i = 0; i < no_of_hosts; i++)
          {
-            if ((fsa[i].active_transfers > 1) &&
+            if ((no_of_trl_groups > 0) ||
                 (fsa[i].transfer_rate_limit > 0))
             {
-               fsa[i].trl_per_process = fsa[i].transfer_rate_limit /
-                                        fsa[i].active_transfers;
-               if (fsa[i].trl_per_process == 0)
-               {
-                  fsa[i].trl_per_process = 1;
-               }
-               fsa[i].mc_ctrl_per_process = fsa[i].mc_ct_rate_limit /
-                                            fsa[i].active_transfers;
-               if (fsa[i].mc_ctrl_per_process == 0)
-               {
-                  fsa[i].mc_ctrl_per_process = 1;
-               }
+               calc_trl_per_process(i);
             }
             else
             {
-               fsa[i].trl_per_process = fsa[i].transfer_rate_limit;
-               fsa[i].mc_ctrl_per_process = fsa[i].mc_ct_rate_limit;
+               fsa[i].trl_per_process = 0;
+               fsa[i].mc_ctrl_per_process = 0;
             }
          }
          host_config_counter = (int)*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET + SIZEOF_INT);
@@ -1060,7 +1077,7 @@ system_log(DEBUG_SIGN, NULL, 0,
          /* Read the message */
          if (read(fd_cmd_fd, &buffer, 1) > 0)
          {
-            switch(buffer)
+            switch (buffer)
             {
                case CHECK_FILE_DIR :
                   next_dir_check_time = 0L;
@@ -1156,7 +1173,7 @@ system_log(DEBUG_SIGN, NULL, 0,
                              "Reading garbage (%d) on fifo %s.",
                              (int)buffer, FD_CMD_FIFO);
                   break;
-            } /* switch(buffer) */
+            } /* switch (buffer) */
          }
       }
 
@@ -1215,7 +1232,8 @@ system_log(DEBUG_SIGN, NULL, 0,
                   if (qb_pos == -1)
                   {
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                "Hmmm, qb_pos is -1!");
+                                "Hmmm, qb_pos is -1! (pid=%d bytes_done=%d n=%d no_msg_queued=%d)",
+                                pid, bytes_done, n, *no_msg_queued);
                   }
                   else
                   {
@@ -1536,9 +1554,9 @@ system_log(DEBUG_SIGN, NULL, 0,
                                         *job_id, *dir_no, *creation_time,
                                         *unique_number, *split_job_counter);
 #ifdef _DELETE_LOG
-                          remove_files(del_dir, -1, *job_id, OTHER_DEL);
+                          remove_job_files(del_dir, -1, *job_id, OTHER_DEL);
 #else
-                          remove_files(del_dir, -1);
+                          remove_job_files(del_dir, -1);
 #endif
                        }
                        else
@@ -1831,9 +1849,10 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                     p_work_dir, AFD_FILE_DIR,
                     OUTGOING_DIR, qb[qb_pos].msg_name);
 #ifdef _DELETE_LOG
-      remove_files(del_dir, fsa_pos, mdb[qb[qb_pos].pos].job_id, AGE_OUTPUT);
+      remove_job_files(del_dir, fsa_pos, mdb[qb[qb_pos].pos].job_id,
+                       AGE_OUTPUT);
 #else
-      remove_files(del_dir, fsa_pos);
+      remove_job_files(del_dir, fsa_pos);
 #endif
       ABS_REDUCE(fsa_pos);
       pid = REMOVED;
@@ -1950,26 +1969,10 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                   {
                      pid = fsa[fsa_pos].job_status[connection[pos].job_no].proc_id = connection[pos].pid;
                      fsa[fsa_pos].active_transfers += 1;
-                     if ((fsa[fsa_pos].active_transfers > 1) &&
-                         (fsa[fsa_pos].transfer_rate_limit > 0))
+                     if ((fsa[fsa_pos].transfer_rate_limit > 0) ||
+                         (no_of_trl_groups > 0))
                      {
-                        fsa[fsa_pos].trl_per_process = fsa[fsa_pos].transfer_rate_limit /
-                                                       fsa[fsa_pos].active_transfers;
-                        if (fsa[fsa_pos].trl_per_process == 0)
-                        {
-                           fsa[fsa_pos].trl_per_process = 1;
-                        }
-                        fsa[fsa_pos].mc_ctrl_per_process = fsa[fsa_pos].mc_ct_rate_limit /
-                                                           fsa[fsa_pos].active_transfers;
-                        if (fsa[fsa_pos].mc_ctrl_per_process == 0)
-                        {
-                           fsa[fsa_pos].mc_ctrl_per_process = 1;
-                        }
-                     }
-                     else
-                     {
-                        fsa[fsa_pos].trl_per_process = fsa[fsa_pos].transfer_rate_limit;
-                        fsa[fsa_pos].mc_ctrl_per_process = fsa[fsa_pos].mc_ct_rate_limit;
+                        calc_trl_per_process(fsa_pos);
                      }
                      ABS_REDUCE(fsa_pos);
                      qb[qb_pos].connect_pos = pos;
@@ -2168,6 +2171,31 @@ make_process(struct connection *con, unsigned int retries)
            args[0] = SEND_FILE_MAP;
         }
 #endif /* _WITH_MAP_SUPPORT */
+   else if (con->protocol == SFTP)
+        {
+           if (con->msg_name[0] == '\0')
+           {
+              if (fsa[con->fsa_pos].debug > YES)
+              {
+                 args[0] = GET_FILE_SFTP_TRACE;
+              }
+              else
+              {
+                 args[0] = GET_FILE_SFTP;
+              }
+           }
+           else
+           {
+              if (fsa[con->fsa_pos].debug > YES)
+              {
+                 args[0] = SEND_FILE_SFTP_TRACE;
+              }
+              else
+              {
+                 args[0] = SEND_FILE_SFTP;
+              }
+           }
+        }
    else if (con->protocol == HTTP)
         {
            if (con->msg_name[0] == '\0')
@@ -2271,7 +2299,7 @@ make_process(struct connection *con, unsigned int retries)
    }
    args[argcount + 1] = NULL;
 
-   switch(pid = fork())
+   switch (pid = fork())
    {
       case -1 :
 
@@ -2326,7 +2354,7 @@ zombie_check(struct connection *p_con,
          int exit_status;
 
          qb[*qb_pos].retries++;
-         switch(exit_status = WEXITSTATUS(status))
+         switch (exit_status = WEXITSTATUS(status))
          {
             case STILL_FILES_TO_SEND   :
             case TRANSFER_SUCCESS      : /* Ordinary end of process. */
@@ -2412,11 +2440,11 @@ zombie_check(struct connection *p_con,
                   (void)sprintf(del_dir, "%s%s%s/%s", p_work_dir,
                                 AFD_FILE_DIR, OUTGOING_DIR, p_con->msg_name);
 #ifdef _DELETE_LOG
-                  remove_files(del_dir, -1,
-                               fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                               OTHER_DEL);
+                  remove_job_files(del_dir, -1,
+                                   fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
+                                   OTHER_DEL);
 #else
-                  remove_files(del_dir, -1);
+                  remove_job_files(del_dir, -1);
 #endif
                }
                break;
@@ -2977,7 +3005,6 @@ fd_exit(void)
    register int i, j;
    int          jobs_killed = 0,
                 loop_counter;
-   time_t       now;
    struct stat  stat_buf;
 
    if ((connection == NULL) || (qb == NULL) || (mdb == NULL))
@@ -3178,8 +3205,8 @@ fd_exit(void)
    for (i = 0; i < no_of_hosts; i++)
    {
       fsa[i].active_transfers = 0;
-      fsa[i].trl_per_process = fsa[i].transfer_rate_limit;
-      fsa[i].mc_ctrl_per_process = fsa[i].mc_ct_rate_limit;
+      fsa[i].trl_per_process = 0;
+      fsa[i].mc_ctrl_per_process = 0;
       for (j = 0; j < MAX_NO_PARALLEL_JOBS; j++)
       {
          fsa[i].job_status[j].no_of_files = 0;

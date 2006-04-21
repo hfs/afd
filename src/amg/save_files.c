@@ -1,6 +1,6 @@
 /*
  *  save_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -159,7 +159,7 @@ save_files(char                   *src_path,
           * how things work.
           */
          if ((retstat = pmatch(p_de->fme[pos_in_fm].file_mask[j],
-                               file_name_pool[i])) == 0)
+                               file_name_pool[i], &file_mtime_pool[i])) == 0)
          {
             int diff_time = current_time - file_mtime_pool[i];
 

@@ -1,6 +1,6 @@
 /*
  *  init_sf_burst2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -164,7 +164,15 @@ init_sf_burst2(struct job   *p_new_db,
       }
       (void)strcpy(db.lock_notation, p_new_db->lock_notation);
       db.archive_dir[0]      = '\0';
-      db.transfer_mode       = p_new_db->transfer_mode;
+      if (((db.transfer_mode == 'A') || (db.transfer_mode == 'D')) &&
+          (p_new_db->transfer_mode == 'N'))
+      {
+         db.transfer_mode    = 'I';
+      }
+      else
+      {
+         db.transfer_mode    = p_new_db->transfer_mode;
+      }
       db.lock                = p_new_db->lock;
       if (db.subject != NULL)
       {
@@ -191,6 +199,7 @@ init_sf_burst2(struct job   *p_new_db,
 #ifdef WITH_DUP_CHECK
       db.dup_check_flag    = p_new_db->dup_check_flag;
       db.dup_check_timeout = p_new_db->dup_check_timeout;
+      db.crc_id            = p_new_db->crc_id;
 #endif
       free(p_new_db);
       p_new_db = NULL;
@@ -255,6 +264,10 @@ init_sf_burst2(struct job   *p_new_db,
          else if (db.protocol & LOC_FLAG)
               {
                  fsa->job_status[(int)db.job_no].connect_status = LOC_BURST_TRANSFER_ACTIVE;
+              }
+         else if (db.protocol & SFTP_FLAG)
+              {
+                 fsa->job_status[(int)db.job_no].connect_status = SFTP_BURST_TRANSFER_ACTIVE;
               }
          else if (db.protocol & SCP_FLAG)
               {

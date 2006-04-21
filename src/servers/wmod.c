@@ -1,6 +1,6 @@
 /*
  *  wmod.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -423,7 +423,7 @@ main(int argc, char *argv[])
             (void)strcpy(remote_ip_str, inet_ntoa(peer_address.sin_addr));
             for (i = 0; i < number_of_trusted_hosts; i++)
             {
-               if (pmatch(trusted_host[i], remote_ip_str) == 0)
+               if (pmatch(trusted_host[i], remote_ip_str, NULL) == 0)
                {
                   gotcha = YES;
                   break;
@@ -465,7 +465,7 @@ main(int argc, char *argv[])
                trans_log(INFO_SIGN, NULL, 0, pl[pos].job_pos,
                          "WMOD: Connection from %s",
                          inet_ntoa(peer_address.sin_addr));
-               switch(pl[pos].pid = fork())
+               switch (pl[pos].pid = fork())
                {
                   case -1 : /* Could not generate process */
                      system_log(ERROR_SIGN, __FILE__, __LINE__,

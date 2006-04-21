@@ -1,6 +1,6 @@
 /*
  *  check_file_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -60,6 +60,8 @@ DESCR__E_M3
 #include <errno.h>
 #include "fddefs.h"
 
+/* #define WITH_VERBOSE_LOG */
+
 /* External global variables */
 extern int                        *no_msg_queued,
                                   qb_fd;
@@ -75,7 +77,8 @@ static int                        no_of_job_ids;
 static struct job_id_data         *jd = NULL;
 
 /* Local function prototypes */
-static void                       add_message_to_queue(char *);
+static void                       add_message_to_queue(char *, int, off_t,
+                                                       unsigned int, int);
 static int                        check_jobs(int),
                                   read_job_ids(void);
 
@@ -94,6 +97,15 @@ check_file_dir(int force_check)
       return(INCORRECT);
    }
 
+#ifdef WITH_VERBOSE_LOG
+   system_log(DEBUG_SIGN, NULL, 0, "FD starting file dir check . . .");
+#endif
+
+   if (read_job_ids() == INCORRECT)
+   {
+      no_of_job_ids = 0;
+   }
+
    /* First check only the file directory. */
    if (check_jobs(force_check) == SUCCESS)
    {
@@ -103,6 +115,10 @@ check_file_dir(int force_check)
    {
       all_checked = NO;
    }
+#ifdef WITH_VERBOSE_LOG
+   system_log(DEBUG_SIGN, NULL, 0, "FD file dir check done.");
+#endif
+
 
    if (jd != NULL)
    {
@@ -118,7 +134,10 @@ check_file_dir(int force_check)
 static int
 check_jobs(int force_check)
 {
-   int           ret = SUCCESS;
+   int           i,
+                 jd_pos,
+                 ret = SUCCESS;
+   unsigned int  job_id;
    char          *p_dir_no,
                  *p_job_id,
                  *ptr;
@@ -152,208 +171,259 @@ check_jobs(int force_check)
       if (dirp->d_name[0] != '.')
       {
          (void)strcpy(ptr, dirp->d_name);
-
-         if (stat(file_dir, &stat_buf) == -1)
+         job_id = (unsigned int)strtoul(ptr, (char **)NULL, 16);
+         jd_pos = -1;
+         for (i = 0; i < no_of_job_ids; i++)
+         {
+            if (jd[i].job_id == job_id)
+            {
+               jd_pos = i;
+               break;
+            }
+         }
+         if (jd_pos == -1)
          {
             /*
-             * Be silent when there is no such file or directory, since
-             * it could be that it has been removed by some other process.
+             * This is a old directory no longer in
+             * our job list. So lets remove the
+             * entire directory.
              */
-            if (errno != ENOENT)
+            if (rec_rmdir(file_dir) < 0)
             {
-               system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Failed to stat() `%s' : %s",
-                          file_dir, strerror(errno));
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to rec_rmdir() %s", file_dir);
+            }
+            else
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Removed directory %s since it is no longer in database.",
+                          file_dir);
             }
          }
          else
          {
-            /* Test if it is a directory. */
-            if (S_ISDIR(stat_buf.st_mode))
+            if (stat(file_dir, &stat_buf) == -1)
             {
-               if ((id_dp = opendir(file_dir)) == NULL)
+               /*
+                * Be silent when there is no such file or directory, since
+                * it could be that it has been removed by some other process.
+                */
+               if (errno != ENOENT)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Failed to opendir() `%s' : %s",
+                             "Failed to stat() `%s' : %s",
                              file_dir, strerror(errno));
                }
-               else
+            }
+            else
+            {
+               /* Test if it is a directory. */
+               if (S_ISDIR(stat_buf.st_mode))
                {
-                  p_job_id = ptr + strlen(dirp->d_name);
-                  *p_job_id = '/';
-                  p_job_id++;
-                  errno = 0;
-                  while ((id_dirp = readdir(id_dp)) != NULL)
+                  if ((id_dp = opendir(file_dir)) == NULL)
                   {
-                     if (id_dirp->d_name[0] != '.')
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Failed to opendir() `%s' : %s",
+                                file_dir, strerror(errno));
+                  }
+                  else
+                  {
+                     p_job_id = ptr + strlen(dirp->d_name);
+                     *p_job_id = '/';
+                     p_job_id++;
+                     errno = 0;
+                     while ((id_dirp = readdir(id_dp)) != NULL)
                      {
-                        (void)strcpy(p_job_id, id_dirp->d_name);
-                        if (stat(file_dir, &stat_buf) == -1)
+                        if (id_dirp->d_name[0] != '.')
                         {
-                           if (errno != ENOENT)
+                           (void)strcpy(p_job_id, id_dirp->d_name);
+                           if (stat(file_dir, &stat_buf) == -1)
                            {
-                              system_log(WARN_SIGN, __FILE__, __LINE__,
-                                         "Failed to stat() `%s' : %s",
-                                         file_dir, strerror(errno));
-                           }
-                        }
-                        else
-                        {
-                           if (S_ISDIR(stat_buf.st_mode))
-                           {
-                              if ((stat_buf.st_nlink < MAX_FD_DIR_CHECK) ||
-                                  (force_check == YES))
+                              if (errno != ENOENT)
                               {
-                                 if ((dir_no_dp = opendir(file_dir)) == NULL)
+                                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                                            "Failed to stat() `%s' : %s",
+                                            file_dir, strerror(errno));
+                              }
+                           }
+                           else
+                           {
+                              if (S_ISDIR(stat_buf.st_mode))
+                              {
+                                 if ((stat_buf.st_nlink < MAX_FD_DIR_CHECK) ||
+                                     (force_check == YES))
                                  {
-                                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                                               "Failed to opendir() `%s' : %s",
-                                               file_dir, strerror(errno));
-                                 }
-                                 else
-                                 {
-                                    p_dir_no = p_job_id + strlen(id_dirp->d_name);
-                                    *p_dir_no = '/';
-                                    p_dir_no++;
-                                    errno = 0;
-                                    while ((dir_no_dirp = readdir(dir_no_dp)) != NULL)
+                                    if ((dir_no_dp = opendir(file_dir)) == NULL)
                                     {
-                                       if (dir_no_dirp->d_name[0] != '.')
+                                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                  "Failed to opendir() `%s' : %s",
+                                                  file_dir, strerror(errno));
+                                    }
+                                    else
+                                    {
+                                       p_dir_no = p_job_id + strlen(id_dirp->d_name);
+                                       *p_dir_no = '/';
+                                       p_dir_no++;
+                                       errno = 0;
+                                       while ((dir_no_dirp = readdir(dir_no_dp)) != NULL)
                                        {
-                                          (void)strcpy(p_dir_no, dir_no_dirp->d_name);
-                                          if (stat(file_dir, &stat_buf) == -1)
+                                          if (dir_no_dirp->d_name[0] != '.')
                                           {
-                                             if (errno != ENOENT)
+                                             (void)strcpy(p_dir_no, dir_no_dirp->d_name);
+                                             if (stat(file_dir, &stat_buf) == -1)
                                              {
-                                                system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                           "Failed to stat() `%s' : %s",
-                                                           file_dir, strerror(errno));
-                                             }
-                                          }
-                                          else
-                                          {
-                                             if (S_ISDIR(stat_buf.st_mode))
-                                             {
-                                                int gotcha = NO,
-                                                    i;
-
-                                                for (i = 0; i < *no_msg_queued; i++)
+                                                if (errno != ENOENT)
                                                 {
-                                                   if (CHECK_STRCMP(qb[i].msg_name, ptr) == 0)
-                                                   {
-                                                      gotcha = YES;
-                                                      break;
-                                                   }
+                                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                              "Failed to stat() `%s' : %s",
+                                                              file_dir, strerror(errno));
                                                 }
-                                                if (gotcha == NO)
+                                             }
+                                             else
+                                             {
+                                                if (S_ISDIR(stat_buf.st_mode))
                                                 {
-                                                   DIR           *file_dp;
-                                                   struct dirent *file_dirp;
+                                                   int gotcha = NO;
 
-                                                   if ((file_dp = opendir(file_dir)) == NULL)
+                                                   for (i = 0; i < *no_msg_queued; i++)
                                                    {
-                                                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                                 "Failed to opendir() `%s' : %s",
-                                                                 file_dir, strerror(errno));
-                                                   }
-                                                   else
-                                                   {
-                                                      while ((file_dirp = readdir(file_dp)) != NULL)
+                                                      if (CHECK_STRCMP(qb[i].msg_name, ptr) == 0)
                                                       {
-                                                         if (file_dirp->d_name[0] != '.')
-                                                         {
-                                                            gotcha = YES;
-                                                            break;
-                                                         }
-                                                         errno = 0;
-                                                      }
-                                                      if ((errno) && (errno != ENOENT))
-                                                      {
-                                                         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                                    "Failed to readdir() `%s' : %s",
-                                                                    file_dir, strerror(errno));
-                                                      }
-                                                      if (closedir(file_dp) == -1)
-                                                      {
-                                                         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                                    "Failed to closedir() `%s' : %s",
-                                                                    file_dir, strerror(errno));
+                                                         gotcha = YES;
+                                                         break;
                                                       }
                                                    }
+                                                   if (gotcha == NO)
+                                                   {
+                                                      int           file_counter = 0;
+                                                      off_t         size_counter = 0;
+                                                      char          *p_file;
+                                                      DIR           *file_dp;
+                                                      struct dirent *file_dirp;
 
-                                                   if (gotcha == YES)
-                                                   {
-                                                      /*
-                                                       * Message is NOT in queue. Add message to queue.
-                                                       */
-                                                      system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                                 "Message `%s' not in queue, adding message.",
-                                                                 ptr);
-                                                      add_message_to_queue(ptr);
-                                                   }
-                                                   else
-                                                   {
-                                                      /*
-                                                       * This is just an empty directory, delete it.
-                                                       */
-                                                      if (rmdir(file_dir) == -1)
+                                                      if ((file_dp = opendir(file_dir)) == NULL)
                                                       {
                                                          system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                                    "Failed to rmdir() `%s' : %s",
+                                                                    "Failed to opendir() `%s' : %s",
                                                                     file_dir, strerror(errno));
                                                       }
                                                       else
                                                       {
-                                                         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                                                    "Deleted empty directory `%s'.",
-                                                                    file_dir);
+                                                         p_file = file_dir + strlen(file_dir);
+                                                         *p_file = '/';
+                                                         p_file++;
+                                                         errno = 0;
+                                                         while ((file_dirp = readdir(file_dp)) != NULL)
+                                                         {
+                                                            if (((file_dirp->d_name[0] == '.') &&
+                                                                (file_dirp->d_name[1] == '\0')) ||
+                                                                ((file_dirp->d_name[0] == '.') &&
+                                                                (file_dirp->d_name[1] == '.') &&
+                                                                (file_dirp->d_name[2] == '\0')))
+                                                            {
+                                                               continue;
+                                                            }
+                                                            (void)strcpy(p_file, file_dirp->d_name);
+                                                            if (stat(file_dir, &stat_buf) != -1)
+                                                            {
+                                                               file_counter++;
+                                                               size_counter += stat_buf.st_size;
+                                                            }
+                                                            errno = 0;
+                                                         }
+                                                         *(p_file - 1) = '\0';
+                                                         if ((errno) && (errno != ENOENT))
+                                                         {
+                                                            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                                       "Failed to readdir() `%s' : %s",
+                                                                       file_dir, strerror(errno));
+                                                         }
+                                                         if (closedir(file_dp) == -1)
+                                                         {
+                                                            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                                       "Failed to closedir() `%s' : %s",
+                                                                       file_dir, strerror(errno));
+                                                         }
+                                                      }
+
+                                                      if (file_counter > 0)
+                                                      {
+                                                         /*
+                                                          * Message is NOT in queue. Add message to queue.
+                                                          */
+                                                         system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_OFF_T == 4
+                                                                    "Message `%s' not in queue, adding message (%d files %ld bytes).",
+#else
+                                                                    "Message `%s' not in queue, adding message (%d files %lld bytes).",
+#endif
+                                                                    ptr, file_counter, size_counter);
+                                                         add_message_to_queue(ptr, file_counter, size_counter, job_id, jd_pos);
+                                                      }
+                                                      else
+                                                      {
+                                                         /*
+                                                          * This is just an empty directory, delete it.
+                                                          */
+                                                         if (rmdir(file_dir) == -1)
+                                                         {
+                                                            system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                                       "Failed to rmdir() `%s' : %s",
+                                                                       file_dir, strerror(errno));
+                                                         }
+                                                         else
+                                                         {
+                                                            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                                       "Deleted empty directory `%s'.",
+                                                                       file_dir);
+                                                         }
                                                       }
                                                    }
                                                 }
                                              }
                                           }
+                                          errno = 0;
                                        }
-                                       errno = 0;
-                                    }
 
-                                    if ((errno) && (errno != ENOENT))
-                                    {
-                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                  "Failed to readdir() `%s' : %s",
-                                                  file_dir, strerror(errno));
-                                    }
-                                    if (closedir(dir_no_dp) == -1)
-                                    {
-                                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                                  "Failed to closedir() `%s' : %s",
-                                                  file_dir, strerror(errno));
+                                       if ((errno) && (errno != ENOENT))
+                                       {
+                                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                     "Failed to readdir() `%s' : %s",
+                                                     file_dir, strerror(errno));
+                                       }
+                                       if (closedir(dir_no_dp) == -1)
+                                       {
+                                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                     "Failed to closedir() `%s' : %s",
+                                                     file_dir, strerror(errno));
+                                       }
                                     }
                                  }
-                              }
-                              else
-                              {
-                                 if (stat_buf.st_nlink >= MAX_FD_DIR_CHECK)
+                                 else
                                  {
-                                    ret = INCORRECT;
+                                    if (stat_buf.st_nlink >= MAX_FD_DIR_CHECK)
+                                    {
+                                       ret = INCORRECT;
+                                    }
                                  }
                               }
                            }
                         }
+                        errno = 0;
                      }
-                     errno = 0;
-                  }
 
-                  if ((errno) && (errno != ENOENT))
-                  {
-                     system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "Failed to readdir() `%s' : %s",
-                                file_dir, strerror(errno));
-                  }
-                  if (closedir(id_dp) == -1)
-                  {
-                     system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "Failed to closedir() `%s' : %s",
-                                file_dir, strerror(errno));
+                     if ((errno) && (errno != ENOENT))
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "Failed to readdir() `%s' : %s",
+                                   file_dir, strerror(errno));
+                     }
+                     if (closedir(id_dp) == -1)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "Failed to closedir() `%s' : %s",
+                                   file_dir, strerror(errno));
+                     }
                   }
                }
             }
@@ -382,10 +452,13 @@ check_jobs(int force_check)
 
 /*------------------------ add_message_to_queue() -----------------------*/
 static void
-add_message_to_queue(char *dir_name)
+add_message_to_queue(char         *dir_name,
+                     int          file_counter,
+                     off_t        size_counter,
+                     unsigned int job_id,
+                     int          jd_pos)
 {
-   unsigned int job_id,
-                pos,
+   unsigned int pos,
                 split_job_counter,
                 unique_number;
    time_t       creation_time;
@@ -402,7 +475,6 @@ add_message_to_queue(char *dir_name)
     */
    (void)strcpy(msg_name, dir_name);
    ptr = msg_name;
-   job_id = (unsigned int)strtoul(ptr, (char **)NULL, 16);
    while ((*ptr != '/') && (*ptr != '\0'))
    {
       ptr++;
@@ -431,7 +503,7 @@ add_message_to_queue(char *dir_name)
       return;
    }
    *ptr = '\0';
-   creation_time = strtol(p_start, (char **)NULL, 16);
+   creation_time = (time_t)strtol(p_start, (char **)NULL, 16);
    ptr++;
    p_start = ptr;
    while ((*ptr != '_') && (*ptr != '\0'))
@@ -466,35 +538,20 @@ add_message_to_queue(char *dir_name)
       (void)sprintf(del_dir, "%s%s%s/%s", p_work_dir,
                     AFD_FILE_DIR, OUTGOING_DIR, dir_name);
 #ifdef _DELETE_LOG
-      remove_files(del_dir, -1, job_id, OTHER_DEL);
+      remove_job_files(del_dir, -1, job_id, OTHER_DEL);
 #else
-      remove_files(del_dir, -1);
+      remove_job_files(del_dir, -1);
 #endif
    }
    else
    {
-      if (jd == NULL)
+      if (jd_pos != -1)
       {
-         if (read_job_ids() == INCORRECT)
-         {
-            no_of_job_ids = 0;
-         }
-      }
-      if (no_of_job_ids > 0)
-      {
-         int    i,
-                qb_pos;
+         int    qb_pos;
          double msg_number;
 
-         for (i = 0; i < no_of_job_ids; i++)
-         {
-            if (jd[i].job_id == job_id)
-            {
-               msg_priority = jd[i].priority;
-               break;
-            }
-         }
-         msg_number = ((double)msg_priority) *
+         msg_priority = jd[jd_pos].priority;
+         msg_number = ((double)msg_priority - 47.0) *
                       (((double)creation_time * 10000.0) +
                       (double)unique_number + (double)split_job_counter);
          if (*no_msg_queued > 0)
@@ -571,6 +628,10 @@ add_message_to_queue(char *dir_name)
          qb[qb_pos].creation_time = creation_time;
          qb[qb_pos].pos = pos;
          qb[qb_pos].connect_pos = -1;
+         qb[qb_pos].retries = 0;
+         qb[qb_pos].files_to_send = file_counter;
+         qb[qb_pos].file_size_to_send = size_counter;
+         qb[qb_pos].special_flag = 0;
          (*no_msg_queued)++;
          fsa[mdb[pos].fsa_pos].jobs_queued++;
       }

@@ -77,7 +77,7 @@ sfilter(char *p_filter, char *p_file, char separator_char)
    {
       length = 0;
       p_tmp = ptr;
-      switch(*ptr)
+      switch (*ptr)
       {
          case '*' :
             ptr++;

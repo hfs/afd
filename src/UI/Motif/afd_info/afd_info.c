@@ -1,6 +1,6 @@
 /*
  *  afd_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -365,6 +365,7 @@ main(int argc, char *argv[])
 
    /* Fill up the text widget with some values */
    if ((fsa[host_position].protocol & FTP_FLAG) ||
+       (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
        (fsa[host_position].protocol & SCP_FLAG) ||
 #endif /* _WITH_SCP_SUPPORT */
@@ -508,6 +509,7 @@ main(int argc, char *argv[])
    if (prev.toggle_pos != 0)
    {
       if ((fsa[host_position].protocol & FTP_FLAG) ||
+          (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
           (fsa[host_position].protocol & SCP_FLAG) ||
 #endif /* _WITH_SCP_SUPPORT */
@@ -546,6 +548,10 @@ main(int argc, char *argv[])
    if (fsa[host_position].protocol & FTP_FLAG)
    {
       length += sprintf(&protocol_label_str[length], "FTP ");
+   }
+   if (fsa[host_position].protocol & SFTP_FLAG)
+   {
+      length += sprintf(&protocol_label_str[length], "SFTP ");
    }
    if (fsa[host_position].protocol & LOC_FLAG)
    {

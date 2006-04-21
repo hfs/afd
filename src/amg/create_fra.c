@@ -607,11 +607,13 @@ create_fra(int no_of_dirs)
    }
 
    /* Unlock file which holds the fsa_id */
-   if (fcntl(fra_id_fd, F_SETLKW, &ulock) < 0)
+   if (old_fra_fd != -1)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Could not unset write lock : %s", strerror(errno));
-      exit(INCORRECT);
+      if (fcntl(fra_id_fd, F_SETLKW, &ulock) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not unset write lock : %s", strerror(errno));
+      }
    }
 
    /* Close the FRA ID file */

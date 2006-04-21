@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -1335,6 +1335,11 @@ eval_dir_config(off_t db_size)
 #ifdef _WITH_MAP_SUPPORT
                                   (CHECK_STRCMP(search_ptr - j, MAP_SHEME) == 0) ||
 #endif
+                                  ((*(search_ptr - j) == 's') &&
+                                   (*(search_ptr - j + 1) == 'f') &&
+                                   (*(search_ptr - j + 2) == 't') &&
+                                   (*(search_ptr - j + 3) == 'p') &&
+                                   (*(search_ptr - j + 4) == '\0')) ||
                                   ((*(search_ptr - j) == 'h') &&
                                    (*(search_ptr - j + 1) == 't') &&
                                    (*(search_ptr - j + 2) == 't') &&
@@ -2105,6 +2110,10 @@ check_hostname_list(char *recipient, unsigned int flag)
         {
            protocol = LOC_FLAG;
         }
+   else if (memcmp(recipient, SFTP_SHEME, SFTP_SHEME_LENGTH) == 0)
+        {
+           protocol = SFTP_FLAG;
+        }
 #ifdef WITH_SSL
    else if (memcmp(recipient, HTTPS_SHEME, HTTPS_SHEME_LENGTH) == 0)
         {
@@ -2294,6 +2303,7 @@ copy_job(int              file_no,
 #ifdef _WITH_AFW2WMO
                      AFW2WMO_ID_LENGTH,
 #endif /* _WITH_AFW2WMO */
+                     FAX2GTS_ID_LENGTH,
                      TIFF2GTS_ID_LENGTH,
                      GTS2TIFF_ID_LENGTH,
                      GRIB2WMO_ID_LENGTH,
@@ -2324,6 +2334,7 @@ copy_job(int              file_no,
 #ifdef _WITH_AFW2WMO
                      AFW2WMO_ID,
 #endif /* _WITH_AFW2WMO */
+                     FAX2GTS_ID,
                      TIFF2GTS_ID,
                      GTS2TIFF_ID,
                      GRIB2WMO_ID,

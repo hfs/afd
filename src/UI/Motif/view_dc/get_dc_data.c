@@ -326,7 +326,7 @@ get_dc_data(void)
             {
                if (strcmp(jd[j].host_alias, host_name) == 0)
                {
-                  get_dir_options(jd[j].dir_id_pos, &d_o);
+                  get_dir_options(jd[j].dir_id, &d_o);
                   show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name, &d_o);
                }
                break;

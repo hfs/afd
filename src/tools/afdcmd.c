@@ -1,6 +1,6 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -181,7 +181,7 @@ main(int argc, char *argv[])
    /*
     * Ensure that the user may use this program.
     */
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -489,11 +489,11 @@ main(int argc, char *argv[])
             position = atoi(hosts[i]);
             if ((position < 0) || (position > (no_of_dirs - 1)))
             {
-               (void)fprintf(stderr,
-                             "WARNING : Position %d out of range. Ignoring. (%s %d)\n",
-                             position, __FILE__, __LINE__);
-               errors++;
-               continue;
+               /*
+                * Lets assume that this is not the position but the
+                * directory alias.
+                */
+               position = -1;
             }
          }
          if (position < 0)
@@ -1367,7 +1367,7 @@ eval_input(int argc, char *argv[])
    {
       if (*(argv[0] + 2) == '\0')
       {
-         switch(*(argv[0] + 1))
+         switch (*(argv[0] + 1))
          {
             case 'q': /* start queue */
                options ^= START_QUEUE_OPTION;
@@ -1480,7 +1480,7 @@ eval_input(int argc, char *argv[])
                correct = NO;
                break;
 
-         } /* switch(*(argv[0] + 1)) */
+         } /* switch (*(argv[0] + 1)) */
       }
       else
       {

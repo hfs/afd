@@ -1,6 +1,6 @@
 /*
  *  show_ilog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@
 #define RECIPIENT_NAME_NO_ENTER 11
 #define RECIPIENT_NAME          12
 
-#define NO_OF_VISIBLE_LINES     18
+#define NO_OF_VISIBLE_LINES     20
 #define MAXARGS                 20
 
 #define LINES_BUFFERED          1000

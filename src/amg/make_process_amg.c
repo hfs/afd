@@ -78,7 +78,7 @@ make_process_amg(char *work_dir,
    (void)sprintf(mp_str, "%d", max_process);
    (void)sprintf(nd_str, "%d", no_of_local_dirs);
 
-   switch(proc_id = fork())
+   switch (proc_id = fork())
    {
       case -1: /* Could not generate process */
                system_log(FATAL_SIGN, __FILE__, __LINE__,

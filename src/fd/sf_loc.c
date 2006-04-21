@@ -1,6 +1,6 @@
 /*
  *  sf_loc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -452,7 +452,7 @@ main(int argc, char *argv[])
             for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
             {
                if (pmatch(rule[trans_rule_pos].filter[k],
-                          p_file_name_buffer) == 0)
+                          p_file_name_buffer, NULL) == 0)
                {
                   change_name(p_file_name_buffer,
                               rule[trans_rule_pos].filter[k],
@@ -845,7 +845,11 @@ main(int argc, char *argv[])
                   fsa->total_file_size += *tmp_ptr;
                }
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file size for host %s overflowed. Correcting to %lu.",
+# if SIZEOF_OFF_T == 4
+                          "Total file size for host %s overflowed. Correcting to %ld.",
+# else
+                          "Total file size for host %s overflowed. Correcting to %lld.",
+# endif
                           fsa->host_dsp_name, fsa->total_file_size);
             }
             else if ((fsa->total_file_counter == 0) &&

@@ -1,6 +1,6 @@
 /*
  *  afdddefs - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -21,16 +21,17 @@
 #ifndef __afdddefs_h
 #define __afdddefs_h
 
-#define HUNK_MAX             4096
-#define DEFAULT_AFD_PORT_NO  "4444"
-#define DEFAULT_FILE_NO      0
-#define STAT_INTERVAL        120   /* in seconds */
-#define EVERYTHING           -1
-#define AFDD_CMD_TIMEOUT     900
-#define MAX_AFDD_CONNECTIONS 5
-#define AFD_SHUTTING_DOWN    124
+#define HUNK_MAX                 4096
+#define DEFAULT_AFD_PORT_NO      "4444"
+#define DEFAULT_FILE_NO          0
+#define STAT_INTERVAL            120   /* in seconds */
+#define EVERYTHING               -1
+#define AFDD_CMD_TIMEOUT         900
+#define MAX_AFDD_CONNECTIONS     5
+#define MAX_AFDD_CONNECTIONS_DEF "MAX_AFDD_CONNECTIONS"
+#define AFD_SHUTTING_DOWN        124
 
-#define DEFAULT_CHECK_INTERVAL 3   /* Default interval in seconds to */
+#define DEFAULT_CHECK_INTERVAL   3 /* Default interval in seconds to */
                                    /* check if certain values have   */
                                    /* changed in the FSA.            */
 

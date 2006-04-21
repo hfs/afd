@@ -452,7 +452,7 @@ mon_popup_cb(Widget    w,
       return;
    }
 
-   switch(sel_typ)
+   switch (sel_typ)
    {
       case MON_RETRY_SEL:
       case MON_SWITCH_SEL:
@@ -682,7 +682,7 @@ mon_popup_cb(Widget    w,
    {
       if (connect_data[i].inverse > OFF)
       {
-         switch(sel_typ)
+         switch (sel_typ)
          {
             case MON_RETRY_SEL : /* Retry to connect to remote AFD only if */
                                  /* we are currently disconnected from it. */
@@ -1057,7 +1057,7 @@ start_remote_prog(Widget    w,
             display_offset = 1;
          }
 
-         switch(item_no)
+         switch (item_no)
          {
             case AFD_CTRL_SEL : /* Remote afd_ctrl */
                {
@@ -1430,7 +1430,7 @@ start_remote_prog(Widget    w,
                   printf("\n");
                }
 #endif /* TEST_OUTPUT */
-               switch(item_no)
+               switch (item_no)
                {
                   case AFD_CTRL_SEL : /* Remote afd_ctrl */
                      mconfig_log(MON_LOG, DEBUG_SIGN, "%-*s: %s started",
@@ -1601,7 +1601,7 @@ change_mon_font_cb(Widget    w,
       current_font = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          (void)strcpy(font_name, FONT_0);
@@ -1731,7 +1731,7 @@ change_mon_rows_cb(Widget    w,
       current_row = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          no_of_rows_set = atoi(ROW_0);
@@ -1866,7 +1866,7 @@ change_mon_style_cb(Widget    w,
       current_style = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0   :
          line_style = BARS_ONLY;
@@ -1891,7 +1891,7 @@ change_mon_style_cb(Widget    w,
    }
 
 #ifdef _DEBUG
-   switch(line_style)
+   switch (line_style)
    {
       case BARS_ONLY             :
          (void)fprintf(stderr, "Changing line style to bars only.\n");
@@ -1957,7 +1957,7 @@ change_mon_history_cb(Widget    w,
       current_his_log = item_no;
    }
 
-   switch(item_no)
+   switch (item_no)
    {
       case 0 :
          his_log_set = atoi(HIS_0);

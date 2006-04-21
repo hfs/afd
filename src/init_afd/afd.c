@@ -1,6 +1,6 @@
 /*
  *  afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -85,6 +85,8 @@ DESCR__S_M1
  **   16.06.2002 H.Kiehl Added -h and -H options.
  **   01.05.2004 H.Kiehl Added options to initialize AFD.
  **   23.04.2005 H.Kiehl Added -z option.
+ **   07.04.2006 H.Kiehl When doing initialization only delete AFD files,
+ **                      not AFD_MON files.
  **
  */
 DESCR__E_M1
@@ -104,6 +106,9 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 #include "permission.h"
+#include "logdefs.h"
+#include "amgdefs.h"
+#include "statdefs.h"
 
 /* Some local definitions */
 #define AFD_ONLY                  1
@@ -129,8 +134,10 @@ char        *p_work_dir,
             probe_only_fifo[MAX_PATH_LENGTH];
 const char  *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
-static void usage(char *);
+/* Local functions. */
+static void delete_fifodir_files(char *, int),
+            delete_log_files(char *, int),
+            usage(char *);
 static int  check_database(void);
 
 
@@ -178,7 +185,7 @@ main(int argc, char *argv[])
    check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
    get_user(user, fake_user);
 
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s [%s]\n", PERMISSION_DENIED_STR, user);
@@ -601,7 +608,7 @@ main(int argc, char *argv[])
            }
 
            (void)strcpy(exec_cmd, AFD);
-           switch(fork())
+           switch (fork())
            {
               case -1 :
 
@@ -673,7 +680,7 @@ main(int argc, char *argv[])
               }
 
               (void)strcpy(exec_cmd, AFD);
-              switch(fork())
+              switch (fork())
               {
                  case -1 : /* Could not generate process */
                     (void)fprintf(stderr,
@@ -746,15 +753,11 @@ main(int argc, char *argv[])
            }
            else
            {
+              int  offset;
               char dirs[MAX_PATH_LENGTH];
 
-              (void)sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
-              if (rec_rmdir(dirs) == INCORRECT)
-              {
-                 (void)fprintf(stderr,
-                               "WARNING : Failed to delete everything in %s.\n",
-                               dirs);
-              }
+              offset = sprintf(dirs, "%s%s", p_work_dir, FIFO_DIR);
+              delete_fifodir_files(dirs, offset);
               (void)sprintf(dirs, "%s%s", p_work_dir, AFD_MSG_DIR);
               if (rec_rmdir(dirs) == INCORRECT)
               {
@@ -778,13 +781,8 @@ main(int argc, char *argv[])
                                   "WARNING : Failed to delete everything in %s.\n",
                                   dirs);
                  }
-                 (void)sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
-                 if (rec_rmdir(dirs) == INCORRECT)
-                 {
-                    (void)fprintf(stderr,
-                                  "WARNING : Failed to delete everything in %s.\n",
-                                  dirs);
-                 }
+                 offset = sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
+                 delete_log_files(dirs, offset);
               }
               exit(SUCCESS);
            }
@@ -896,7 +894,7 @@ main(int argc, char *argv[])
 
       /* Start AFD */
       (void)strcpy(exec_cmd, AFD);
-      switch(fork())
+      switch (fork())
       {
          case -1 : /* Could not generate process */
             (void)fprintf(stderr,
@@ -1064,6 +1062,162 @@ check_database(void)
 #else
    return(eaccess(db_file, R_OK));
 #endif
+}
+
+
+/*+++++++++++++++++++++++++ delete_fifodir_files() ++++++++++++++++++++++*/
+static void
+delete_fifodir_files(char *fifodir, int offset)
+{
+   int  i,
+        tmp_sys_log_fd;
+   char *file_ptr,
+        *filelist[] =
+         {
+            FSA_ID_FILE,
+            FRA_ID_FILE,
+            STATUS_SHMID_FILE,
+            BLOCK_FILE,
+            AMG_COUNTER_FILE,
+            COUNTER_FILE,
+            MESSAGE_BUF_FILE,
+            MSG_CACHE_FILE,
+            MSG_QUEUE_FILE,
+            FILE_MASK_FILE,
+            DC_LIST_FILE,
+            DIR_NAME_FILE,
+            JOB_ID_DATA_FILE,
+            PWB_DATA_FILE,
+            CURRENT_MSG_LIST_FILE,
+            AMG_DATA_FILE,
+            AMG_DATA_FILE_TMP,
+            LOCK_PROC_FILE,
+            AFD_ACTIVE_FILE,
+            WINDOW_ID_FILE,
+            SYSTEM_LOG_FIFO,
+            RECEIVE_LOG_FIFO,
+            TRANSFER_LOG_FIFO,
+            TRANS_DEBUG_LOG_FIFO,
+            AFD_CMD_FIFO,
+            AFD_RESP_FIFO,
+            AMG_CMD_FIFO,
+            DB_UPDATE_FIFO,
+            FD_CMD_FIFO,
+            FD_RESP_FIFO,
+            AW_CMD_FIFO,
+            IP_FIN_FIFO,
+            SF_FIN_FIFO,
+            RETRY_FD_FIFO,
+            FD_DELETE_FIFO,
+            FD_WAKE_UP_FIFO,
+            PROBE_ONLY_FIFO,
+#ifdef _INPUT_LOG
+            INPUT_LOG_FIFO,
+#endif
+#ifdef _OUTPUT_LOG
+            OUTPUT_LOG_FIFO,
+#endif
+#ifdef _DELETE_LOG
+            DELETE_LOG_FIFO,
+#endif
+#ifdef _PRODUCTION_LOG
+            PRODUCTION_LOG_FIFO,
+#endif
+            DEL_TIME_JOB_FIFO,
+            FD_READY_FIFO,
+            MSG_FIFO,
+            DC_CMD_FIFO, /* from amgdefs.h */
+            DC_RESP_FIFO
+         },
+        *mfilelist[] =
+        {
+           FSA_STAT_FILE_ALL,
+           FRA_STAT_FILE_ALL,
+           ALTERNATE_FILE_ALL
+        };
+
+   file_ptr = fifodir + offset;
+
+   /* Delete single files. */
+   for (i = 0; i < (sizeof(filelist) / sizeof(*filelist)); i++)
+   {
+      (void)strcpy(file_ptr, filelist[i]);
+      (void)unlink(fifodir);
+   }
+   *file_ptr = '\0';
+
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDOUT_FILENO;
+
+   /* Delete multiple files. */
+   for (i = 0; i < (sizeof(mfilelist) / sizeof(*mfilelist)); i++)
+   {
+      (void)remove_files(fifodir, &mfilelist[i][1]);
+   }
+
+   sys_log_fd = tmp_sys_log_fd;
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++++++ delete_log_files() +++++++++++++++++++++++*/
+static void
+delete_log_files(char *logdir, int offset)
+{
+   int  i,
+        tmp_sys_log_fd;
+   char *log_ptr,
+        *loglist[] =
+        {
+           "/DAEMON_LOG.init_afd",
+           NEW_STATISTIC_FILE,
+           NEW_ISTATISTIC_FILE
+        },
+        *mloglist[] =
+        {
+           SYSTEM_LOG_NAME_ALL,
+           RECEIVE_LOG_NAME_ALL,
+           TRANSFER_LOG_NAME_ALL,
+           TRANS_DB_LOG_NAME_ALL,
+#ifdef _INPUT_LOG
+           INPUT_BUFFER_FILE_ALL,
+#endif
+#ifdef _OUTPUT_LOG
+           OUTPUT_BUFFER_FILE_ALL,
+#endif
+#ifdef _DELETE_LOG
+           DELETE_BUFFER_FILE_ALL,
+#endif
+#ifdef _PRODUCTION_LOG
+           PRODUCTION_BUFFER_FILE_ALL,
+#endif
+           ISTATISTIC_FILE_ALL,
+           STATISTIC_FILE_ALL
+        };
+
+   log_ptr = logdir + offset;
+
+   /* Delete single files. */
+   for (i = 0; i < (sizeof(loglist) / sizeof(*loglist)); i++)
+   {
+      (void)strcpy(log_ptr, loglist[i]);
+      (void)unlink(logdir);
+   }
+   *log_ptr = '\0';
+
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDOUT_FILENO;
+
+   /* Delete multiple files. */
+   for (i = 0; i < (sizeof(mloglist)/sizeof(*mloglist)); i++)
+   {
+      (void)remove_files(logdir, mloglist[i]);
+   }
+
+   sys_log_fd = tmp_sys_log_fd;
+
+   return;
 }
 
 

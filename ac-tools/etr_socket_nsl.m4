@@ -7,11 +7,13 @@ dnl
 dnl @version $Id: etr_socket_nsl.m4,v 1.1 2001/06/07 08:31:03 simons Exp $
 dnl @author Warren Young <warren@etr-usa.com>
 dnl
+dnl Modified by changing CFLAGS to LIBS by Holger.Kiehl@dwd.de
+dnl
 AC_DEFUN([ETR_SOCKET_NSL],
 [
 AC_CACHE_CHECK(for libraries containing socket functions,
 ac_cv_socket_libs, [
-        oCFLAGS=$CFLAGS
+        oLIBS=$LIBS
 
         AC_TRY_LINK([
                         #include <sys/types.h>
@@ -28,7 +30,7 @@ ac_cv_socket_libs, [
 
         if test x"$ac_cv_socket_libs" = "xno"
         then
-                CFLAGS="$oCFLAGS -lsocket"
+                LIBS="$oLIBS -lsocket"
                 AC_TRY_LINK([
                                 #include <sys/types.h>
                                 #include <sys/socket.h>
@@ -45,7 +47,7 @@ ac_cv_socket_libs, [
 
         if test x"$ac_cv_socket_libs" = "xno"
         then
-                CFLAGS="$oCFLAGS -lsocket -lnsl"
+                LIBS="$oLIBS -lsocket -lnsl"
                 AC_TRY_LINK([
                                 #include <sys/types.h>
                                 #include <sys/socket.h>
@@ -60,7 +62,7 @@ ac_cv_socket_libs, [
                         ac_cv_socket_libs="-lsocket -lnsl", ac_cv_socket_libs=no)
         fi
 
-        CFLAGS=$oCFLAGS
+        LIBS=$oLIBS
 ])
 
         if test x"$ac_cv_socket_libs" = "xno"

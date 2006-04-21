@@ -1,6 +1,6 @@
 /*
  *  lookup_job_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -236,7 +236,8 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
    if ((buffer = malloc(buf_size)) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "malloc() error : %s", strerror(errno));
+                 "Failed to malloc() %d bytes : %s",
+                 buf_size, strerror(errno));
       exit(INCORRECT);
    }
    (void)memset(buffer, 0, buf_size);

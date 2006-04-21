@@ -232,7 +232,7 @@ gts2tiff(char *path, char *filename)
       {
          total_size = stat_buf.st_size;
       }
-      switch(total_size % 4)
+      switch (total_size % 4)
       {
          case 0: word_offset = 2;
                  break;

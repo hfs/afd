@@ -56,30 +56,33 @@ DESCR__E_M3
 #include "show_queue.h"
 
 /* External global variables */
-extern Widget      listbox_w,
-                   printshell,
-                   statusbox_w,
-                   summarybox_w;
-extern char        file_name[],
-                   search_file_name[],
-                   search_directory_name[],
-                   **search_recipient,
-                   search_file_size_str[],
-                   summary_str[],
-                   total_summary_str[];
-extern int         file_name_length,
-                   items_selected,
-                   no_of_search_hosts;
-extern XT_PTR_TYPE device_type,
-                   range_type,
-                   toggles_set;
-extern time_t      start_time_val,
-                   end_time_val;
-extern FILE        *fp;
+extern Widget       listbox_w,
+                    printshell,
+                    statusbox_w,
+                    summarybox_w;
+extern char         file_name[],
+                    search_file_name[],
+                    **search_dir,
+                    **search_recipient,
+                    search_file_size_str[],
+                    summary_str[],
+                    total_summary_str[];
+extern int          file_name_length,
+                    items_selected,
+                    no_of_search_dirs,
+                    no_of_search_dirids,
+                    no_of_search_hosts;
+extern unsigned int *search_dirid;
+extern XT_PTR_TYPE  device_type,
+                    range_type,
+                    toggles_set;
+extern time_t       start_time_val,
+                    end_time_val;
+extern FILE         *fp;
 
 /* Local function prototypes. */
-static void        write_header(int),
-                   write_summary(int);
+static void         write_header(int),
+                    write_summary(int);
 
 
 /*######################### print_data_button() #########################*/
@@ -313,9 +316,8 @@ write_header(int fd)
    if ((start_time_val < 0) && (end_time_val < 0))
    {
       length += sprintf(&buffer[length],
-                        "\tTime Interval : earliest entry - latest entry\n\tFile name     : %s\n\tFile size     : %s\n\tDirectory     : %s\n",
-                       search_file_name, search_file_size_str,
-                       search_directory_name);
+                        "\tTime Interval : earliest entry - latest entry\n\tFile name     : %s\n\tFile size     : %s\n",
+                       search_file_name, search_file_size_str);
    }
    else if ((start_time_val > 0) && (end_time_val < 0))
         {
@@ -323,9 +325,8 @@ write_header(int fd)
                               "\tTime Interval : %m.%d. %H:%M",
                               localtime(&start_time_val));
            length += sprintf(&buffer[length],
-                             " - latest entry\n\tFile name     : %s\n\tFile size     : %s\n\tDirectory     : %s\n",
-                             search_file_name, search_file_size_str,
-                             search_directory_name);
+                             " - latest entry\n\tFile name     : %s\n\tFile size     : %s\n",
+                             search_file_name, search_file_size_str);
         }
         else if ((start_time_val < 0) && (end_time_val > 0))
              {
@@ -333,9 +334,8 @@ write_header(int fd)
                                    "\tTime Interval : earliest entry - %m.%d. %H:%M",
                                    localtime(&end_time_val));
                 length += sprintf(&buffer[length],
-                                  "\n\tFile name     : %s\n\tFile size     : %s\n\tDirectory     : %s\n",
-                                  search_file_name, search_file_size_str,
-                                  search_directory_name);
+                                  "\n\tFile name     : %s\n\tFile size     : %s\n",
+                                  search_file_name, search_file_size_str);
              }
              else
              {
@@ -346,11 +346,39 @@ write_header(int fd)
                                    " - %m.%d. %H:%M",
                                    localtime(&end_time_val));
                 length += sprintf(&buffer[length],
-                                  "\n\tFile name     : %s\n\tFile size     : %s\n\tDirectory     : %s\n",
-                                  search_file_name, search_file_size_str,
-                                  search_directory_name);
+                                  "\n\tFile name     : %s\n\tFile size     : %s\n",
+                                  search_file_name, search_file_size_str);
              }
 
+   if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
+   {
+      int i;
+
+      if (no_of_search_dirs > 0)
+      {
+         length += sprintf(&buffer[length], "\tDirectory     : %s\n",
+                           search_dir[0]);
+         for (i = 1; i < no_of_search_dirs; i++)
+         {
+            length += sprintf(&buffer[length], "\t                %s\n",
+                              search_dir[i]);
+         }
+      }
+      if (no_of_search_dirids > 0)
+      {
+         length += sprintf(&buffer[length], "\tDir Identifier: %x",
+                           search_dirid[0]);
+         for (i = 1; i < no_of_search_dirids; i++)
+         {
+            length += sprintf(&buffer[length], ", %x", search_dirid[i]);
+         }
+         length += sprintf(&buffer[length], "\n");
+      }
+   }
+   else
+   {
+      length += sprintf(&buffer[length], "\tDirectory     :\n");
+   }
    if (no_of_search_hosts > 0)
    {
       int i;

@@ -1,6 +1,6 @@
 /*
  *  mondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,14 +35,20 @@
 
 #define MON_CONFIG_FILE          "/MON_CONFIG"
 #define AFD_MON_CONFIG_FILE      "/AFD_MON_CONFIG"
+
 #define MON_ACTIVE_FILE          "/AFD_MON_ACTIVE"
 #define MON_STATUS_FILE          "/mon_status"
+#define MON_STATUS_FILE_ALL      "/mon_status.*"
 #define AFD_MON_STATUS_FILE      "/afd_mon.status"
 #define MSA_ID_FILE              "/msa.id"
+#define AHL_FILE_NAME            "/afd_host_list."
+#define AHL_FILE_NAME_ALL        "/afd_host_list.*"
 #define MON_CMD_FIFO             "/afd_mon_cmd.fifo"
 #define MON_RESP_FIFO            "/afd_mon_resp.fifo"
 #define MON_PROBE_ONLY_FIFO      "/afd_mon_probe_only.fifo"
-#define AHL_FILE_NAME            "/afd_host_list."
+#define RETRY_MON_FIFO           "/retry_mon.fifo."
+#define RETRY_MON_FIFO_ALL       "/retry_mon.fifo.*"
+#define MON_SYS_LOG_FIFO         "/mon_sys_log.fifo"
 
 #define STORAGE_TIME             7    /* Time in days to store top       */
                                       /* values for transfer rate and    */
@@ -228,7 +234,9 @@ struct mon_status_area
                                                  /*+------+-------------+*/
                                                  /*|Bit(s)|   Meaning   |*/
                                                  /*+------+-------------+*/
-                                                 /*| 3-32 | Not used.   |*/
+                                                 /*| 4-32 | Not used.   |*/
+                                                 /*| 3    | Don't use   |*/
+                                                 /*|      | full path.  |*/
                                                  /*| 2    | Use -Y      |*/
                                                  /*|      | instead of  |*/
                                                  /*|      | -X (ssh).   |*/

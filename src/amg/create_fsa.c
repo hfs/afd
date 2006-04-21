@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,6 +54,8 @@ DESCR__S_M3
  **   18.04.2001 H.Kiehl Add version number to structure.
  **   26.09.2002 H.Kiehl Added automatic conversion of FSA.
  **   26.06.2004 H.Kiehl Added error_history and ttl.
+ **   16.02.2006 H.Kiehl Added socket send and receive buffer.
+ **   08.03.2006 H.Kiehl Added duplicate check on a per host basis.
  **
  */
 DESCR__E_M3
@@ -443,6 +445,14 @@ create_fsa(void)
          fsa[i].mc_ct_rate_limit       = hl[i].transfer_rate_limit;
          fsa[i].mc_ctrl_per_process    = hl[i].transfer_rate_limit;
          fsa[i].ttl                    = hl[i].ttl;
+         fsa[i].socksnd_bufsize        = hl[i].socksnd_bufsize;
+         fsa[i].sockrcv_bufsize        = hl[i].sockrcv_bufsize;
+         fsa[i].keep_connected         = hl[i].keep_connected;
+#ifdef WITH_DUP_CHECK
+         fsa[i].dup_check_flag         = hl[i].dup_check_flag;
+         fsa[i].dup_check_timeout      = hl[i].dup_check_timeout;
+#endif
+         fsa[i].host_id                = get_str_checksum(fsa[i].host_alias);
          fsa[i].protocol_options       = hl[i].protocol_options;
          fsa[i].mc_nack_counter        = 0;
          fsa[i].special_flag           = 0;
@@ -591,6 +601,13 @@ create_fsa(void)
          fsa[i].protocol_options       = hl[i].protocol_options;
          fsa[i].transfer_rate_limit    = hl[i].transfer_rate_limit;
          fsa[i].ttl                    = hl[i].ttl;
+         fsa[i].socksnd_bufsize        = hl[i].socksnd_bufsize;
+         fsa[i].sockrcv_bufsize        = hl[i].sockrcv_bufsize;
+         fsa[i].keep_connected         = hl[i].keep_connected;
+#ifdef WITH_DUP_CHECK
+         fsa[i].dup_check_flag         = hl[i].dup_check_flag;
+         fsa[i].dup_check_timeout      = hl[i].dup_check_timeout;
+#endif
          if (hl[i].host_status & HOST_TWO_FLAG)
          {
             fsa[i].host_toggle = HOST_TWO;
@@ -717,6 +734,7 @@ create_fsa(void)
             fsa[i].debug                  = old_fsa[host_pos].debug;
             fsa[i].special_flag           = old_fsa[host_pos].special_flag;
             fsa[i].original_toggle_pos    = old_fsa[host_pos].original_toggle_pos;
+            fsa[i].host_id                = old_fsa[host_pos].host_id;
             fsa[i].mc_ct_rate_limit       = old_fsa[host_pos].mc_ct_rate_limit;
             fsa[i].mc_nack_counter        = old_fsa[host_pos].mc_nack_counter;
             if (fsa[i].active_transfers > 1)
@@ -807,6 +825,7 @@ create_fsa(void)
             fsa[i].mc_ct_rate_limit    = fsa[i].transfer_rate_limit;
             fsa[i].mc_ctrl_per_process = fsa[i].transfer_rate_limit;
             fsa[i].debug               = NO;
+            fsa[i].host_id             = get_str_checksum(fsa[i].host_alias);
             fsa[i].last_connection = fsa[i].last_retry_time = time(NULL);
             fsa[i].first_error_time    = 0L;
             memset(&fsa[i].job_status, 0, size);
@@ -1031,6 +1050,13 @@ create_fsa(void)
                      hl[j].transfer_rate_limit = fsa[j].transfer_rate_limit;
                      hl[j].number_of_no_bursts = fsa[j].special_flag & NO_BURST_COUNT_MASK;
                      hl[j].ttl                 = fsa[j].ttl;
+                     hl[j].socksnd_bufsize     = fsa[j].socksnd_bufsize;
+                     hl[j].sockrcv_bufsize     = fsa[j].sockrcv_bufsize;
+                     hl[j].keep_connected      = fsa[j].keep_connected;
+#ifdef WITH_DUP_CHECK
+                     hl[j].dup_check_flag      = fsa[j].dup_check_flag;
+                     hl[j].dup_check_timeout   = fsa[j].dup_check_timeout;
+#endif
                      hl[j].protocol            = fsa[j].protocol;
                      hl[j].protocol_options    = fsa[j].protocol_options;
                      hl[j].in_dir_config       = NO;

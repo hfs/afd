@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,12 +47,13 @@ DESCR__S_M1
  ** HISTORY
  **   22.06.1997 H.Kiehl Created
  **   22.08.1998 H.Kiehl Added some more exit handlers.
+ **   26.01.2006 H.Kiehl Made MAX_AFDD_CONNECTIONS configurable in AFD_CONFIG.
  */
 DESCR__E_M1
 
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>           /* memset()                                */
-#include <stdlib.h>           /* atoi(), getenv()                        */
+#include <stdlib.h>           /* atoi(), getenv(), malloc()              */
 #include <ctype.h>            /* isdigit()                               */
 #include <time.h>             /* clock_t                                 */
 #include <signal.h>           /* signal()                                */
@@ -87,15 +88,16 @@ const char        *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local global variables. */
 static int        in_child = NO,
+                  max_afdd_connections = MAX_AFDD_CONNECTIONS,
                   new_sockfd,
                   sockfd,
                   no_of_connections;
-static pid_t      pid[MAX_AFDD_CONNECTIONS];
+static pid_t      *pid;
 
 /* Local function prototypes. */
 static int        get_free_connection(void);
 static void       afdd_exit(void),
-                  get_afd_config_value(char *),
+                  get_afdd_config_value(char *, int *),
                   sig_bus(int),
                   sig_exit(int),
                   sig_segv(int),
@@ -134,7 +136,17 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
    p_work_dir_end = work_dir + strlen(work_dir);
    no_of_connections = 0;
-   (void)memset(pid, 0, MAX_AFDD_CONNECTIONS * sizeof(pid_t));
+   (void)strcpy(port_no, DEFAULT_AFD_PORT_NO);
+   get_afdd_config_value(port_no, &max_afdd_connections);
+   if ((pid = malloc((max_afdd_connections * sizeof(pid_t)))) == NULL)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to malloc() %d bytes : %s",
+                 (max_afdd_connections * sizeof(pid_t)),
+                 strerror(errno));
+      exit(INCORRECT);
+   }
+   (void)memset(pid, 0, max_afdd_connections * sizeof(pid_t));
    if ((ptr = getenv("LOGNAME")) != NULL)
    {
       length = strlen(ptr);
@@ -190,8 +202,6 @@ main(int argc, char *argv[])
          }
       }
    }
-   (void)strcpy(port_no, DEFAULT_AFD_PORT_NO);
-   get_afd_config_value(port_no);
    port = atoi(port_no);
    if (get_afd_name(afd_name) == INCORRECT)
    {
@@ -360,7 +370,7 @@ main(int argc, char *argv[])
             (void)strcpy(remote_ip_str, inet_ntoa(peer_address.sin_addr));
             for (i = 0; i < number_of_trusted_hosts; i++)
             {
-               if (pmatch(trusted_host[i], remote_ip_str) == 0)
+               if (pmatch(trusted_host[i], remote_ip_str, NULL) == 0)
                {
                   gotcha = YES;
                   break;
@@ -373,16 +383,35 @@ main(int argc, char *argv[])
                (void)close(new_sockfd);
                continue;
             }
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "AFDD: Connection from %s", remote_ip_str);
+            if (no_of_connections >= max_afdd_connections)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "AFDD: Connection attempt from %s, but denied because max connection (%d) reached.",
+                          remote_ip_str, max_afdd_connections);
+            }
+            else
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "AFDD: Connection from %s", remote_ip_str);
+            }
          }
          else
          {
-            system_log(DEBUG_SIGN, NULL, 0, "AFDD: Connection from %s",
-                       inet_ntoa(peer_address.sin_addr));
+            if (no_of_connections >= max_afdd_connections)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "AFDD: Connection attempt from %s, but denied because max connection (%d) reached.",
+                          inet_ntoa(peer_address.sin_addr),
+                          max_afdd_connections);
+            }
+            else
+            {
+               system_log(DEBUG_SIGN, NULL, 0, "AFDD: Connection from %s",
+                          inet_ntoa(peer_address.sin_addr));
+            }
          }
 
-         if (no_of_connections >= MAX_AFDD_CONNECTIONS)
+         if (no_of_connections >= max_afdd_connections)
          {
             length = sprintf(reply,
                              "421 Service not available. There are currently to many users (%d) connected.\r\n",
@@ -400,7 +429,7 @@ main(int argc, char *argv[])
             }
             else
             {
-               switch(pid[pos] = fork())
+               switch (pid[pos] = fork())
                {
                   case -1 : /* Could not generate process */
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -433,7 +462,7 @@ get_free_connection(void)
 {
    int i;
 
-   for (i = 0; i < MAX_AFDD_CONNECTIONS; i++)
+   for (i = 0; i < max_afdd_connections; i++)
    {
       if (pid[i] == 0)
       {
@@ -457,7 +486,7 @@ zombie_check(void)
        status;
 
    /* Did any of the jobs become zombies? */
-   for (i = 0; i < MAX_AFDD_CONNECTIONS; i++)
+   for (i = 0; i < max_afdd_connections; i++)
    {
       if ((pid[i] > 0) &&
           (waitpid(pid[i], &status, WNOHANG) > 0))
@@ -484,23 +513,36 @@ zombie_check(void)
 }
 
 
-/*+++++++++++++++++++++++++ get_afd_config_value() ++++++++++++++++++++++*/
+/*++++++++++++++++++++++++ get_afdd_config_value() ++++++++++++++++++++++*/
 static void                                                                
-get_afd_config_value(char *port_no)
+get_afdd_config_value(char *port_no, int *max_afdd_connections)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
 
-   (void)sprintf(config_file, "%s%s%s",
-                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
+   (void)sprintf(config_file, "%s%s%s", p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
       char *ptr = buffer,
-           tmp_trusted_host[16];
+           tmp_trusted_host[16],
+           value[MAX_INT_LENGTH];
 
-      if (get_definition(buffer,
-                         AFD_TCP_PORT_DEF,
+      if (get_definition(buffer, MAX_AFDD_CONNECTIONS_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *max_afdd_connections = atoi(value);
+         if (*max_afdd_connections < 0)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
+                       *max_afdd_connections, MAX_AFDD_CONNECTIONS_DEF,
+                       MAX_AFDD_CONNECTIONS);
+            *max_afdd_connections = MAX_AFDD_CONNECTIONS;
+         }
+      }
+
+      if (get_definition(buffer, AFD_TCP_PORT_DEF,
                          port_no, MAX_INT_LENGTH) != NULL)
       {
          int port;
@@ -508,6 +550,9 @@ get_afd_config_value(char *port_no)
          port = atoi(port_no);
          if ((port < 1024) || (port > 10240))
          {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Invalid port number given (%d) in AFD_CONFIG, setting to default %s.",
+                       port, DEFAULT_AFD_PORT_NO);
             (void)strcpy(port_no, DEFAULT_AFD_PORT_NO);
          }
       }
@@ -518,8 +563,7 @@ get_afd_config_value(char *port_no)
        */
       do
       {
-         if ((ptr = get_definition(ptr,
-                                   TRUSTED_REMOTE_IP_DEF,
+         if ((ptr = get_definition(ptr, TRUSTED_REMOTE_IP_DEF,
                                    tmp_trusted_host, 16)) != NULL)
          {
             int  counter = 0;
@@ -598,7 +642,7 @@ afdd_exit(void)
       int i;
 
       /* Kill all child process */
-      for (i = 0; i < MAX_AFDD_CONNECTIONS; i++)
+      for (i = 0; i < max_afdd_connections; i++)
       {
          if (pid[i] > 0)
          {

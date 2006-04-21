@@ -99,7 +99,9 @@ DESCR__E_M3
 #endif
 
 /* Local global variables */
+#ifdef _WITH_UNIQUE_NUMBERS
 static int            counter_fd;
+#endif
 static mode_t         file_mode;
 #ifdef _PRODUCTION_LOG
 static char           *p_extract_id;

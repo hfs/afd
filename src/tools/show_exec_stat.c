@@ -85,7 +85,7 @@ main(int argc, char *argv[])
    /*
     * Ensure that the user may use this program.
     */
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE     :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);

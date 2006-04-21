@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -490,6 +490,13 @@ main(int argc, char *argv[])
                hl[i].protocol            = fsa[i].protocol;
                hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
                hl[i].transfer_rate_limit = fsa[i].transfer_rate_limit;
+               hl[i].socksnd_bufsize     = fsa[i].socksnd_bufsize;
+               hl[i].sockrcv_bufsize     = fsa[i].sockrcv_bufsize;
+               hl[i].keep_connected      = fsa[i].keep_connected;
+#ifdef WITH_DUP_CHECK
+               hl[i].dup_check_flag      = fsa[i].dup_check_flag;
+               hl[i].dup_check_timeout   = fsa[i].dup_check_timeout;
+#endif
                hl[i].protocol_options    = fsa[i].protocol_options;
                hl[i].host_status = 0;
                if (fsa[i].special_flag & HOST_DISABLED)
@@ -768,7 +775,7 @@ main(int argc, char *argv[])
 #endif
                  while (count < n)
                  {
-                    switch(buffer[count])
+                    switch (buffer[count])
                     {
                        case HOST_CONFIG_UPDATE :
                           /* HOST_CONFIG updated by edit_hc */
@@ -797,6 +804,13 @@ main(int argc, char *argv[])
                              hl[i].protocol            = fsa[i].protocol;
                              hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
                              hl[i].transfer_rate_limit = fsa[i].transfer_rate_limit;
+                             hl[i].socksnd_bufsize     = fsa[i].socksnd_bufsize;
+                             hl[i].sockrcv_bufsize     = fsa[i].sockrcv_bufsize;
+                             hl[i].keep_connected      = fsa[i].keep_connected;
+#ifdef WITH_DUP_CHECK
+                             hl[i].dup_check_flag      = fsa[i].dup_check_flag;
+                             hl[i].dup_check_timeout   = fsa[i].dup_check_timeout;
+#endif
                              hl[i].protocol_options    = fsa[i].protocol_options;
                              hl[i].host_status = 0;
                              if (fsa[i].special_flag & HOST_DISABLED)

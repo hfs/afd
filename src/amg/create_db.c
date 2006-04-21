@@ -582,7 +582,8 @@ create_db(void)
          {
             p_file++;
          }
-         lookup_file_mask_id(&db[i], p_file - db[i].files);
+         db[i].fbl = p_file - db[i].files;
+         lookup_file_mask_id(&db[i], db[i].fbl);
          if ((de[dir_counter].flag & ALL_FILES) && (db[i].no_of_files > 1))
          {
             p_file = db[i].files;
@@ -649,6 +650,7 @@ create_db(void)
               de[dir_counter].fme[de[dir_counter].nfg - 1].pos[de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count] = i;
               de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count++;
               db[i].file_mask_id = db[i - 1].file_mask_id;
+              db[i].fbl = db[i - 1].fbl;
            }
 
       /* Store number of local options */
@@ -909,51 +911,63 @@ create_db(void)
                   if (CHECK_STRCMP(db[i].recipient, MAP_SHEME) != 0)
                   {
 #endif
-                     if ((db[i].recipient[0] == 'h') &&
-                         (db[i].recipient[1] == 't') &&
+                     if ((db[i].recipient[0] == 's') &&
+                         (db[i].recipient[1] == 'f') &&
                          (db[i].recipient[2] == 't') &&
                          (db[i].recipient[3] == 'p') &&
-#ifdef WITH_SSL
-                         ((db[i].recipient[4] == '\0') ||
-                          ((db[i].recipient[4] == 's') &&
-                           (db[i].recipient[5] == '\0'))))
-#else
                          (db[i].recipient[4] == '\0'))
-#endif
                      {
-                        db[i].protocol = HTTP;
+                        db[i].protocol = SFTP;
                      }
                      else
                      {
-                        if ((db[i].recipient[0] == 'm') &&
-                            (db[i].recipient[1] == 'a') &&
-                            (db[i].recipient[2] == 'i') &&
-                            (db[i].recipient[3] == 'l') &&
-                            (db[i].recipient[4] == 't') &&
-                            (db[i].recipient[5] == 'o') &&
+                        if ((db[i].recipient[0] == 'h') &&
+                            (db[i].recipient[1] == 't') &&
+                            (db[i].recipient[2] == 't') &&
+                            (db[i].recipient[3] == 'p') &&
 #ifdef WITH_SSL
-                            ((db[i].recipient[6] == '\0') ||
-                             ((db[i].recipient[6] == 's') &&
-                              (db[i].recipient[7] == '\0'))))
+                            ((db[i].recipient[4] == '\0') ||
+                             ((db[i].recipient[4] == 's') &&
+                              (db[i].recipient[5] == '\0'))))
 #else
-                            (db[i].recipient[6] == '\0'))
+                            (db[i].recipient[4] == '\0'))
 #endif
                         {
-                           db[i].protocol = SMTP;
+                           db[i].protocol = HTTP;
                         }
                         else
                         {
-                           system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                      "Unknown sheme <%s>.", db[i].recipient);
-                           p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-                           if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+                           if ((db[i].recipient[0] == 'm') &&
+                               (db[i].recipient[1] == 'a') &&
+                               (db[i].recipient[2] == 'i') &&
+                               (db[i].recipient[3] == 'l') &&
+                               (db[i].recipient[4] == 't') &&
+                               (db[i].recipient[5] == 'o') &&
+#ifdef WITH_SSL
+                               ((db[i].recipient[6] == '\0') ||
+                                ((db[i].recipient[6] == 's') &&
+                                 (db[i].recipient[7] == '\0'))))
+#else
+                               (db[i].recipient[6] == '\0'))
+#endif
                            {
-                              p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+                              db[i].protocol = SMTP;
                            }
-                           free(db); free(de);
-                           free(tmp_ptr);
-                           unmap_data(jd_fd, (void *)&jd);
-                           exit(INCORRECT);
+                           else
+                           {
+                              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                         "Unknown sheme <%s>.",
+                                         db[i].recipient);
+                              p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
+                              if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
+                              {
+                                 p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+                              }
+                              free(db); free(de);
+                              free(tmp_ptr);
+                              unmap_data(jd_fd, (void *)&jd);
+                              exit(INCORRECT);
+                           }
                         }
                      }
 #ifdef _WITH_MAP_SUPPORT

@@ -432,7 +432,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
    char        *ptr,
                *value = XmTextGetString(w);
 
-   switch(type)
+   switch (type)
    {
       case START_TIME_NO_ENTER : 
          if (value[0] == '\0')
@@ -499,8 +499,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
       case DIRECTORY_NAME_NO_ENTER :
       case DIRECTORY_NAME :
          {
-            int i = 0,
-                is_dir_id,
+            int is_dir_id,
                 length,
                 max_dir_length = 0,
                 max_dirid_length = 0;
@@ -518,7 +517,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             ptr = value;
             for (;;)
             {
-               while ((*ptr == ' ') || (*ptr == '\0'))
+               while (*ptr == ' ')
                {
                   if (*ptr == '\\')
                   {

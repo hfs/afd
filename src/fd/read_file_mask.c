@@ -1,7 +1,7 @@
 /*
  *  read_file_mask.c - Part of AFD, an automatic file distribution
  *                     program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
+
 #include <stdio.h>            /* sprintf()                               */
 #include <string.h>           /* strerror()                              */
 #include <stdlib.h>           /* malloc()                                */
@@ -58,6 +59,8 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 #include "fddefs.h"
+
+/* #define DEBUG_FILE_LIST */
 
 /* External global variables. */
 extern char *p_work_dir;
@@ -124,14 +127,14 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
       ptr += sizeof(int);
       if (((*fml)[i].file_list = malloc((*fml)[i].fbl)) == NULL)
       {
-         int j;
+         int k;
 
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to malloc() %d bytes : %s",
                     (*fml)[i].fbl, strerror(errno));
-         for (j = 0; j < i; j++)
+         for (k = 0; k < i; k++)
          {
-            free((*fml)[j].file_list);
+            free((*fml)[k].file_list);
          }
          free(buffer);
          (void)close(fd);
@@ -140,6 +143,18 @@ read_file_mask(char *dir_alias, int *nfg, struct file_mask **fml)
       (void)memcpy((*fml)[i].file_list, ptr, (*fml)[i].fbl);
       ptr += (*fml)[i].fbl;
    }
+#ifdef DEBUG_FILE_LIST
+   for (i = 0; i < *nfg; i++)
+   {
+      ptr = (*fml)[i].file_list;
+      for (j = 0; j < (*fml)[i].fc; j++)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "%d %d: %s", i, j, ptr);
+         NEXT(ptr);
+      }
+   }
+#endif
    free(buffer);
    if (close(fd) == -1)
    {

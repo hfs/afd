@@ -1,6 +1,6 @@
 /*
  *  check_fsa_entries.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -105,8 +105,7 @@ check_fsa_entries(void)
                        "Active transfers for host %s is %d. It should be 0. Correcting.",
                        fsa[i].host_dsp_name, fsa[i].active_transfers);
             fsa[i].active_transfers = 0;
-            fsa[i].trl_per_process = fsa[i].transfer_rate_limit;
-            fsa[i].mc_ctrl_per_process = fsa[i].mc_ct_rate_limit;
+            calc_trl_per_process(i);
 
             /*
              * If active transfers is zero and this is a retrieve job

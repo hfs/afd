@@ -380,6 +380,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  (void)memcpy(str_number, tmp_str_number, 3);
               }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'. Ignoring time entry.",
+                            time_str);
+                 return(INCORRECT);
+              }
       }
       else
       {
@@ -387,8 +394,8 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
       }
    } /* for (;;) */
 
-
    /* Evaluate 'hour' field (0-23) */
+   step_size = 0;
    for (;;)
    {
       if ((step_size != 0) ||
@@ -480,7 +487,20 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  {
                     if (str_number[1] == '\0')
                     {
-                       te->hour = ALL_HOURS;
+                       if (step_size == 0)
+                       {
+                          te->hour = ALL_HOURS;
+                       }
+                       else
+                       {
+                          int i;
+
+                          for (i = 0; i < 24; i = i + step_size)
+                          {
+                             te->hour |= bit_array[i];
+                          }
+                          step_size = 0;
+                       }
                     }
                     else
                     {
@@ -580,6 +600,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  (void)memcpy(str_number, tmp_str_number, 3);
               }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'. Ignoring time entry.",
+                            time_str);
+                 return(INCORRECT);
+              }
       }
       else
       {
@@ -588,6 +615,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
    } /* for (;;) */
    
    /* Evaluate 'day of month' field (1-31) */
+   step_size = 0;
    for (;;)
    {
       if ((step_size != 0) ||
@@ -691,7 +719,20 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  {
                     if (str_number[1] == '\0')
                     {
-                       te->day_of_month = ALL_DAY_OF_MONTH;
+                       if (step_size == 0)
+                       {
+                          te->day_of_month = ALL_DAY_OF_MONTH;
+                       }
+                       else
+                       {
+                          int i;
+
+                          for (i = 0; i <= 31; i = i + step_size)
+                          {
+                             te->day_of_month |= bit_array[i];
+                          }
+                          step_size = 0;
+                       }
                     }
                     else
                     {
@@ -797,6 +838,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  (void)memcpy(str_number, tmp_str_number, 3);
               }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'. Ignoring time entry.",
+                            time_str);
+                 return(INCORRECT);
+              }
       }
       else
       {
@@ -805,6 +853,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
    } /* for (;;) */
    
    /* Evaluate 'month' field (1-12) */
+   step_size = 0;
    for (;;)
    {
       if ((step_size != 0) ||
@@ -906,7 +955,20 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  {
                     if (str_number[1] == '\0')
                     {
-                       te->month = ALL_MONTH;
+                       if (step_size == 0)
+                       {
+                          te->month = ALL_MONTH;
+                       }
+                       else
+                       {
+                          int i;
+
+                          for (i = 0; i <= 12; i = i + step_size)
+                          {
+                             te->month |= bit_array[i];
+                          }
+                          step_size = 0;
+                       }
                     }
                     else
                     {
@@ -1011,6 +1073,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  }
                  (void)memcpy(str_number, tmp_str_number, 3);
               }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'. Ignoring time entry.",
+                            time_str);
+                 return(INCORRECT);
+              }
       }
       else
       {
@@ -1019,6 +1088,7 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
    } /* for (;;) */
 
    /* Evaluate 'day of week' field (1-7) */
+   step_size = 0;
    for (;;)
    {
       if ((step_size != 0) ||
@@ -1111,7 +1181,20 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  {
                     if (str_number[1] == '\0')
                     {
-                       te->day_of_week = ALL_DAY_OF_WEEK;
+                       if (step_size == 0)
+                       {
+                          te->day_of_week = ALL_DAY_OF_WEEK;
+                       }
+                       else
+                       {
+                          int i;
+
+                          for (i = 0; i <= 7; i = i + step_size)
+                          {
+                             te->day_of_week |= bit_array[i];
+                          }
+                          step_size = 0;
+                       }
                     }
                     else
                     {
@@ -1206,6 +1289,13 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                     return(INCORRECT);
                  }
                  (void)memcpy(str_number, tmp_str_number, 3);
+              }
+              else
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'. Ignoring time entry.",
+                            time_str);
+                 return(INCORRECT);
               }
       }
       else

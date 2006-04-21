@@ -1,6 +1,6 @@
 /*
  *  eval_host_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,7 +35,13 @@ DESCR__S_M3
  **   This function reads the HOST_CONFIG file which has the following
  **   format:
  **
- **   AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL
+ **   Keep connected        <------------------------------------------------+
+ **   Duplicate check flag    <-------------------------------------------+  |
+ **   Duplicate check timeout <----------------------------------------+  |  |
+ **   Socket receive buffer <---------------------------------------+  |  |  |
+ **   Socket send buffer    <-----------------------------------+   |  |  |  |
+ **                                                             |   |  |  |  |
+ **   AH:HN1:HN2:HT:PXY:AT:ME:RI:TB:SR:FSO:TT:NB:HS:SF:TRL:TTL:SSB:SRB:DT:DF:KC
  **   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   |
  **   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   |   +-> TTL
  **   |   |   |   |  |  |  |  |  |  |   |  |  |  |  |   +-----> Transfer rate
@@ -77,6 +83,9 @@ DESCR__S_M3
  **                      and some protocol specific information.
  **   10.06.2004 H.Kiehl Added transfer rate limit.
  **   27.06.2004 H.Kiehl Added TTL.
+ **   16.02.2006 H.Kiehl Added socket send and receive buffer.
+ **   28.02.2006 H.Kiehl Added keep connected parameter.
+ **   09.03.2006 H.Kiehl Added dupcheck on a per host basis.
  **
  */
 DESCR__E_M3
@@ -113,7 +122,11 @@ eval_host_config(int              *hosts_found,
           offset;
    char   *ptr,
           *hostbase = NULL,
+#ifdef WITH_DUP_CHECK
+          number[MAX_LONG_LENGTH + 1];
+#else
           number[MAX_INT_LENGTH + 1];
+#endif
 
    /* Ensure that the HOST_CONFIG file does exist. */
    if (eaccess(host_config_file, F_OK) == -1)
@@ -247,6 +260,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -302,6 +322,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -356,6 +383,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -419,6 +453,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -471,6 +512,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -565,6 +613,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -647,6 +702,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -728,6 +790,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -817,6 +886,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -896,6 +972,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -974,6 +1057,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
          error_flag = YES;
 
          if (*ptr == '\n')
@@ -1051,6 +1141,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
 
          if (*ptr == '\n')
          {
@@ -1202,6 +1299,13 @@ eval_host_config(int              *hosts_found,
          (*hl)[host_counter].protocol_options    = 0;
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
 
          if (*ptr == '\n')
          {
@@ -1295,6 +1399,7 @@ eval_host_config(int              *hosts_found,
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                                                           FTP_FAST_MOVE |
                                                           FTP_FAST_CD |
+                                                          FTP_IGNORE_BIN |
                                                           FTP_PASSIVE_MODE)) ||
                  ((*hl)[host_counter].protocol_options < FTP_PASSIVE_MODE)))
             {
@@ -1314,6 +1419,13 @@ eval_host_config(int              *hosts_found,
          /* Initialise rest with DEFAULTS. */
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
 
          if (*ptr == '\n')
          {
@@ -1385,6 +1497,13 @@ eval_host_config(int              *hosts_found,
          /* Initialise rest with DEFAULTS. */
          (*hl)[host_counter].transfer_rate_limit = 0;
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
 
          /*
           * As of 1.3.0 SET_IDLE_TIME, STAT_KEEPALIVE and FTP_PASSIVE_MODE
@@ -1444,6 +1563,7 @@ eval_host_config(int              *hosts_found,
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                                                     FTP_FAST_MOVE |
                                                     FTP_FAST_CD |
+                                                    FTP_IGNORE_BIN |
                                                     FTP_PASSIVE_MODE)) ||
            ((*hl)[host_counter].protocol_options < FTP_PASSIVE_MODE)))
       {
@@ -1458,6 +1578,7 @@ eval_host_config(int              *hosts_found,
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                      FTP_FAST_MOVE |
                      FTP_FAST_CD |
+                     FTP_IGNORE_BIN |
                      FTP_PASSIVE_MODE),
                     FTP_PASSIVE_MODE);
          system_log(WARN_SIGN, NULL, 0, "Setting it to 0.");
@@ -1518,6 +1639,13 @@ eval_host_config(int              *hosts_found,
       {
          /* Initialise rest with DEFAULTS. */
          (*hl)[host_counter].ttl                 = 0;
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
 
          if (*ptr == '\n')
          {
@@ -1582,6 +1710,369 @@ eval_host_config(int              *hosts_found,
            else
            {
               (*hl)[host_counter].ttl = atoi(number);
+           }
+      if ((*ptr == '\n') || (*ptr == '\0'))
+      {
+         /* Initialise rest with DEFAULTS. */
+         (*hl)[host_counter].socksnd_bufsize     = 0;
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
+
+         if (*ptr == '\n')
+         {
+            while (*ptr == '\n')
+            {
+               ptr++;
+            }
+            (host_counter)++;
+            continue;
+         }
+         else
+         {
+            break;
+         }
+      }
+
+      /* Store Socket Send Buffer. */
+      i = 0; ptr++;
+      while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
+             (i < MAX_INT_LENGTH))
+      {
+         if (isdigit((int)(*ptr)))
+         {
+            number[i] = *ptr;
+            ptr++; i++;
+         }
+         else
+         {
+            error_flag = YES;
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in SSB field for host %s, using default 0.",
+                       (int)*ptr, (*hl)[host_counter].host_alias);
+
+            /* Ignore this entry. */
+            i = 0;
+            while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+         }
+      }
+      number[i] = '\0';
+      if (i == 0)
+      {
+         error_flag = YES;
+         (*hl)[host_counter].socksnd_bufsize = 0;
+      }
+      else if (i == MAX_INT_LENGTH)
+           {
+              error_flag = YES;
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for SSB to large (>%d characters) for host %s to store as integer.",
+                         MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value 0.");
+              (*hl)[host_counter].socksnd_bufsize = 0;
+              while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+           else
+           {
+              (*hl)[host_counter].socksnd_bufsize = (unsigned int)strtoul(number, NULL, 10);
+           }
+      if ((*ptr == '\n') || (*ptr == '\0'))
+      {
+         /* Initialise rest with DEFAULTS. */
+         (*hl)[host_counter].sockrcv_bufsize     = 0;
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
+
+         if (*ptr == '\n')
+         {
+            while (*ptr == '\n')
+            {
+               ptr++;
+            }
+            (host_counter)++;
+            continue;
+         }
+         else
+         {
+            break;
+         }
+      }
+
+      /* Store Socket Receive Buffer. */
+      i = 0; ptr++;
+      while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
+             (i < MAX_INT_LENGTH))
+      {
+         if (isdigit((int)(*ptr)))
+         {
+            number[i] = *ptr;
+            ptr++; i++;
+         }
+         else
+         {
+            error_flag = YES;
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in SRB field for host %s, using default 0.",
+                       (int)*ptr, (*hl)[host_counter].host_alias);
+
+            /* Ignore this entry. */
+            i = 0;
+            while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+         }
+      }
+      number[i] = '\0';
+      if (i == 0)
+      {
+         error_flag = YES;
+         (*hl)[host_counter].sockrcv_bufsize = 0;
+      }
+      else if (i == MAX_INT_LENGTH)
+           {
+              error_flag = YES;
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for SRB to large (>%d characters) for host %s to store as integer.",
+                         MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value 0.");
+              (*hl)[host_counter].sockrcv_bufsize = 0;
+              while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+           else
+           {
+              (*hl)[host_counter].sockrcv_bufsize = (unsigned int)strtoul(number, NULL, 10);
+           }
+      if ((*ptr == '\n') || (*ptr == '\0'))
+      {
+         /* Initialise rest with DEFAULTS. */
+#ifdef WITH_DUP_CHECK
+         (*hl)[host_counter].dup_check_timeout   = 0L;
+         (*hl)[host_counter].dup_check_flag      = 0;
+#endif
+         (*hl)[host_counter].keep_connected      = 0;
+
+         if (*ptr == '\n')
+         {
+            while (*ptr == '\n')
+            {
+               ptr++;
+            }
+            (host_counter)++;
+            continue;
+         }
+         else
+         {
+            break;
+         }
+      }
+
+#ifdef WITH_DUP_CHECK
+      /* Store Dupcheck Timeout. */
+      i = 0; ptr++;
+      while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
+             (i < MAX_LONG_LENGTH))
+      {
+         if (isdigit((int)(*ptr)))
+         {
+            number[i] = *ptr;
+            ptr++; i++;
+         }
+         else
+         {
+            error_flag = YES;
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in DT field for host %s, using default 0.",
+                       (int)*ptr, (*hl)[host_counter].host_alias);
+
+            /* Ignore this entry. */
+            i = 0;
+            while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+         }
+      }
+      number[i] = '\0';
+      if (i == 0)
+      {
+         error_flag = YES;
+         (*hl)[host_counter].dup_check_timeout = 0L;
+      }
+      else if (i == MAX_LONG_LENGTH)
+           {
+              error_flag = YES;
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for DT to large (>%d characters) for host %s to store as long integer.",
+                         MAX_LONG_LENGTH, (*hl)[host_counter].host_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value 0.");
+              (*hl)[host_counter].dup_check_timeout = 0L;
+              while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+           else
+           {
+              (*hl)[host_counter].dup_check_timeout = strtol(number, NULL, 10);
+           }
+      if ((*ptr == '\n') || (*ptr == '\0'))
+      {
+         /* Initialise rest with DEFAULTS. */
+         (*hl)[host_counter].dup_check_flag      = 0;
+         (*hl)[host_counter].keep_connected      = 0;
+
+         if (*ptr == '\n')
+         {
+            while (*ptr == '\n')
+            {
+               ptr++;
+            }
+            (host_counter)++;
+            continue;
+         }
+         else
+         {
+            break;
+         }
+      }
+
+      /* Store Dupcheck Flag. */
+      i = 0; ptr++;
+      while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
+             (i < MAX_INT_LENGTH))
+      {
+         if (isdigit((int)(*ptr)))
+         {
+            number[i] = *ptr;
+            ptr++; i++;
+         }
+         else
+         {
+            error_flag = YES;
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in DF field for host %s, using default 0.",
+                       (int)*ptr, (*hl)[host_counter].host_alias);
+
+            /* Ignore this entry. */
+            i = 0;
+            while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+         }
+      }
+      number[i] = '\0';
+      if (i == 0)
+      {
+         error_flag = YES;
+         (*hl)[host_counter].dup_check_flag = 0;
+      }
+      else if (i == MAX_INT_LENGTH)
+           {
+              error_flag = YES;
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for DF to large (>%d characters) for host %s to store as integer.",
+                         MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value 0.");
+              (*hl)[host_counter].dup_check_flag = 0;
+              while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+           else
+           {
+              (*hl)[host_counter].dup_check_flag = (unsigned int)strtoul(number, NULL, 10);
+           }
+      if ((*ptr == '\n') || (*ptr == '\0'))
+      {
+         /* Initialise rest with DEFAULTS. */
+         (*hl)[host_counter].keep_connected      = 0;
+
+         if (*ptr == '\n')
+         {
+            while (*ptr == '\n')
+            {
+               ptr++;
+            }
+            (host_counter)++;
+            continue;
+         }
+         else
+         {
+            break;
+         }
+      }
+#endif /* WITH_DUP_CHECK */
+
+      /* Keep Connected. */
+      i = 0; ptr++;
+      while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0') &&
+             (i < MAX_INT_LENGTH))
+      {
+         if (isdigit((int)(*ptr)))
+         {
+            number[i] = *ptr;
+            ptr++; i++;
+         }
+         else
+         {
+            error_flag = YES;
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in KC field for host %s, using default 0.",
+                       (int)*ptr, (*hl)[host_counter].host_alias);
+
+            /* Ignore this entry. */
+            i = 0;
+            while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+            {
+               ptr++;
+            }
+         }
+      }
+      number[i] = '\0';
+      if (i == 0)
+      {
+         error_flag = YES;
+         (*hl)[host_counter].keep_connected = 0;
+      }
+      else if (i == MAX_INT_LENGTH)
+           {
+              error_flag = YES;
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for KC to large (>%d characters) for host %s to store as integer.",
+                         MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value 0.");
+              (*hl)[host_counter].keep_connected = 0;
+              while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+           else
+           {
+              (*hl)[host_counter].keep_connected = (unsigned int)strtoul(number, NULL, 10);
            }
 
       /* Ignore the rest of the line. We have everything we need. */

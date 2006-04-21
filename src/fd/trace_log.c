@@ -1,6 +1,6 @@
 /*
  *  trace_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,6 +33,18 @@ DESCR__S_M3
  **                  char *fmt, ...)
  **
  ** DESCRIPTION
+ **   Function trace_log() prints out more details of what has been
+ **   send or received in 'buffer'. Depending on the 'type' flag
+ **   it prints out 'buffer' in hex or just normal ASCII. The 'type'
+ **   flag can be one of the following:
+ **
+ **     W_TRACE         - ASCII write trace
+ **     R_TRACE         - ASCII read trace
+ **     C_TRACE         - ASCII command trace
+ **     BIN_CMD_W_TRACE - binary command write trace (hex)
+ **     BIN_CMD_R_TRACE - binary command read trace (hex)
+ **     BIN_W_TRACE     - binary write trace (hex)
+ **     BIN_R_TRACE     - binary read trace (hex)
  **
  ** RETURN VALUES
  **   None.
@@ -42,6 +54,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   25.12.2003 H.Kiehl Created
+ **   08.02.2006 H.Kiehl Added binary commad tracing.
+ **   07.04.2006 H.Kiehl Added ASCII command flag C_TRACE.
  **
  */
 DESCR__E_M3
@@ -65,7 +79,7 @@ extern char                       *p_work_dir,
 extern struct job                 db;
 extern struct filetransfer_status *fsa;
 
-static void hex_print(char *, int, char *, int);
+static void                       hex_print(char *, int, char *, int);
 
 #define HOSTNAME_OFFSET 16
 #define ASCII_OFFSET    54
@@ -82,7 +96,9 @@ trace_log(char *file,
 {
    if ((((type == BIN_R_TRACE) || (type == BIN_W_TRACE)) &&
         (fsa->debug == FULL_TRACE_MODE)) ||
-       (((type == R_TRACE) || (type == W_TRACE)) && (fsa->debug > DEBUG_MODE)))
+       (((type == R_TRACE) || (type == W_TRACE) || (type == C_TRACE) ||
+         (type == BIN_CMD_R_TRACE) || (type == BIN_CMD_W_TRACE)) &&
+        (fsa->debug > DEBUG_MODE)))
    {
       if ((trans_db_log_fd == STDERR_FILENO) && (p_work_dir != NULL))
       {
@@ -161,14 +177,22 @@ trace_log(char *file,
          switch (type)
          {
             case BIN_R_TRACE :
+            case BIN_CMD_R_TRACE :
             case R_TRACE     :
                buf[length] = '<';
                buf[length + 2] = 'R';
                break;
 
             case BIN_W_TRACE :
+            case BIN_CMD_W_TRACE :
             case W_TRACE     :
                buf[length] = 'W';
+               buf[length + 2] = '>';
+               break;
+
+            case C_TRACE :
+               buf[length] = '<';
+               buf[length + 1] = 'C';
                buf[length + 2] = '>';
                break;
 
@@ -183,7 +207,8 @@ trace_log(char *file,
 
          if ((buffer != NULL) && (buffer_length > 0))
          {
-            if ((type == BIN_R_TRACE) || (type == BIN_W_TRACE))
+            if ((type == BIN_R_TRACE) || (type == BIN_W_TRACE) ||
+                (type == BIN_CMD_R_TRACE) || (type == BIN_CMD_W_TRACE))
             {
                hex_print(buf, header_length, buffer, buffer_length);
             }

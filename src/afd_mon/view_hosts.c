@@ -1,6 +1,6 @@
 /*
  *  view_hosts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -161,7 +161,7 @@ main(int argc, char *argv[])
             {
                for (k = 0; k < no_of_filters; k++)
                {
-                  if (pmatch(argv[k + 2], ahl[i][j].host_alias) == 0)
+                  if (pmatch(argv[k + 2], ahl[i][j].host_alias, NULL) == 0)
                   {
                      if (show_header == YES)
                      {
@@ -245,9 +245,9 @@ main(int argc, char *argv[])
             {
                for (k = 0; k < no_of_filters; k++)
                {
-                  if ((pmatch(argv[k + 2], ahl[i][j].real_hostname[0]) == 0) ||
+                  if ((pmatch(argv[k + 2], ahl[i][j].real_hostname[0], NULL) == 0) ||
                       ((ahl[i][j].real_hostname[1][0] != '\0') &&
-                       (pmatch(argv[k + 2], ahl[i][j].real_hostname[1]) == 0)))
+                       (pmatch(argv[k + 2], ahl[i][j].real_hostname[1], NULL) == 0)))
                   {
                      if (show_header == YES)
                      {

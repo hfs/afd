@@ -29,15 +29,15 @@ else
    EXTRA_MAP_PROG     = sf_map
 endif
 
-EXTRA_PROGRAMS        = $(EXTRA_MAP_PROG)
-
-MAINTAINERCLEANFILES  = Makefile.in
 noinst_HEADERS        = fddefs.h
 INCLUDES              = -I.. -I../init_afd -I../amg -I../log -I../misc\
                         -I../protocols
 bin_PROGRAMS          = fd sf_ftp sf_ftp_trace sf_smtp sf_smtp_trace\
-                        sf_scp sf_scp_trace sf_wmo sf_wmo_trace $(AFD_MAP_PROG)\
-                        sf_loc gf_ftp gf_ftp_trace gf_http gf_http_trace
+                        sf_scp sf_scp_trace sf_sftp sf_sftp_trace sf_wmo\
+                        sf_wmo_trace $(AFD_MAP_PROG) sf_loc gf_ftp\
+                        gf_ftp_trace gf_http gf_http_trace
+EXTRA_PROGRAMS        = $(EXTRA_MAP_PROG) sf_http sf_http_trace
+MAINTAINERCLEANFILES  = Makefile.in $(EXTRA_PROGRAMS)
 fd_SOURCES            = check_file_dir.c\
                         check_fra_fd.c\
                         check_fsa_entries.c\
@@ -53,11 +53,12 @@ fd_SOURCES            = check_file_dir.c\
                         init_msg_buffer.c\
                         init_msg_ptrs.c\
                         lookup_job_id.c\
+                        manage_trl_process.c\
                         read_current_msg_list.c\
                         recount_jobs_queued.c\
                         recreate_msg.c\
                         remove_connection.c\
-                        remove_files.c\
+                        remove_job_files.c\
                         remove_msg.c
 fd_LDADD              = ../common/libafd.a
 fd_DEPENDENCIES       = $(fd_LDADD) fddefs.h
@@ -88,6 +89,58 @@ sf_ftp_trace_SOURCES  = $(sf_ftp_SOURCES) trace_log.c
 sf_ftp_trace_LDADD    = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
                         ../protocols/libtraceprotocols.a\
                         ../common/libafd.a @AFD_SSL_LIBS@
+sf_http_SOURCES       = append.c\
+                        archive_file.c\
+                        check_burst_2.c\
+                        eval_input_sf.c\
+                        eval_message.c\
+                        eval_recipient.c\
+                        fsa_attach_pos.c\
+                        get_file_names.c\
+                        get_group_list.c\
+                        gsf_check_fsa.c\
+                        init_sf.c\
+                        init_sf_burst2.c\
+                        limit_transfer_rate.c\
+                        output_log_ptrs.c\
+                        reset_fsa.c\
+                        sf_http.c\
+                        trans_db_log.c\
+                        trans_exec.c\
+                        trans_log.c
+sf_http_LDADD         = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
+                        ../protocols/libprotocols.a\
+                        ../common/libafd.a @AFD_SSL_LIBS@
+sf_http_trace_SOURCES = $(sf_http_SOURCES) trace_log.c
+sf_http_trace_LDADD   = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
+                        ../protocols/libtraceprotocols.a\
+                        ../common/libafd.a @AFD_SSL_LIBS@
+sf_sftp_SOURCES       = append.c\
+                        archive_file.c\
+                        check_burst_2.c\
+                        eval_input_sf.c\
+                        eval_message.c\
+                        eval_recipient.c\
+                        fsa_attach_pos.c\
+                        get_file_names.c\
+                        get_group_list.c\
+                        gsf_check_fsa.c\
+                        init_sf.c\
+                        init_sf_burst2.c\
+                        limit_transfer_rate.c\
+                        output_log_ptrs.c\
+                        reset_fsa.c\
+                        sf_sftp.c\
+                        trans_db_log.c\
+                        trans_exec.c\
+                        trans_log.c
+sf_sftp_LDADD         = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
+                        ../protocols/libprotocols.a\
+                        ../common/libafd.a @AFD_UTIL_LIB@
+sf_sftp_trace_SOURCES = $(sf_sftp_SOURCES) trace_log.c
+sf_sftp_trace_LDADD   = $(MISC_LIB) @EXTRA_SOCKET_LIBS@\
+                        ../protocols/libtraceprotocols.a\
+                        ../common/libafd.a @AFD_UTIL_LIB@
 sf_smtp_SOURCES       = append.c\
                         archive_file.c\
                         eval_input_sf.c\
@@ -130,10 +183,10 @@ sf_scp_SOURCES        = append.c\
                         trans_exec.c\
                         trans_log.c
 sf_scp_LDADD          = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
-                        ../common/libafd.a
+                        ../common/libafd.a @AFD_UTIL_LIB@
 sf_scp_trace_SOURCES  = $(sf_scp_SOURCES) trace_log.c
 sf_scp_trace_LDADD    = @EXTRA_SOCKET_LIBS@ ../protocols/libtraceprotocols.a\
-                        ../common/libafd.a
+                        ../common/libafd.a @AFD_UTIL_LIB@
 sf_wmo_SOURCES        = append.c\
                         archive_file.c\
                         check_burst_2.c\

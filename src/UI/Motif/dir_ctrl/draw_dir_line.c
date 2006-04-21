@@ -387,7 +387,7 @@ draw_dir_type(int pos, int x, int y)
    char str[5];
    GC   tmp_gc;
 
-   switch(fra[pos].protocol)
+   switch (fra[pos].protocol)
    {
       case FTP : 
          str[0] = ' '; str[1] = 'F'; str[2] = 'T'; str[3] = 'P';
@@ -456,7 +456,7 @@ draw_dir_chars(int pos, char type, int x, int y)
    XGCValues  gc_values;
    GC         tmp_gc;
 
-   switch(type)
+   switch (type)
    {
       case FILES_IN_DIR :
          ptr = connect_data[pos].str_files_in_dir;

@@ -221,7 +221,7 @@ main(int argc, char *argv[])
                  ptr++; ptr++;
                  n -= 2;
 
-                 switch(type)
+                 switch (type)
                  {
                     case 1:  /* mmap() emmulator */
 

@@ -48,6 +48,7 @@ DESCR__E_M3
 #include <stdio.h>               /* sprintf()                            */
 #include <string.h>              /* strcmp(), strcpy(), memcpy()         */
 #include <stdlib.h>              /* calloc(), realloc(), free()          */
+#include <signal.h>              /* kill(), SIGKILL                      */
 #include <math.h>                /* log10()                              */
 #include <errno.h>
 #include <X11/Xlib.h>
@@ -66,12 +67,14 @@ extern float                  max_bar_length;
 extern int                    bar_thickness_3,
                               glyph_width,
                               his_log_set,
+                              no_of_active_process,
                               no_of_afds,
                               no_of_columns,
                               no_selected,
                               window_width;
 extern unsigned short         step_size;
 extern unsigned long          redraw_time_line;
+extern struct apps_list       *apps_list;
 extern struct mon_line        *connect_data;
 extern struct mon_status_area *msa;
 
@@ -363,6 +366,8 @@ Widget   w;
       if ((msa[i].afd_switching != NO_SWITCHING) &&
           (connect_data[i].afd_toggle != msa[i].afd_toggle))
       {
+         int j;
+
          connect_data[i].afd_toggle = msa[i].afd_toggle;
          if (connect_data[i].afd_alias_length < MAX_AFDNAME_LENGTH)
          {
@@ -377,6 +382,36 @@ Widget   w;
             connect_data[i].afd_display_str[MAX_AFDNAME_LENGTH] = '\0';
             draw_identifier = YES;
          }
+
+         /*
+          * With autoswitching it is best to kill the connection,
+          * otherwise if the host/connection dies the user will not
+          * be able to restart a window because the rsh/ssh process
+          * do not die.
+          */
+#ifdef ONLY_KILL_AUTO_SWITCHING
+         if (msa[i].afd_switching == AUTO_SWITCHING)
+         {
+#endif
+            for (j = 0; j < no_of_active_process; j++)
+            {
+               if (apps_list[j].position == i)
+               {
+                  if (kill(apps_list[j].pid, SIGKILL) < 0)
+                  {
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "Failed to kill() %d : %s",
+                                apps_list[j].pid, strerror(errno));
+                  }
+               }
+            }
+
+            /*
+             * Note: make_xprocess() will take care of any zombies.
+             */
+#ifdef ONLY_KILL_AUTO_SWITCHING
+         }
+#endif
       }
 
       if (draw_identifier == YES)

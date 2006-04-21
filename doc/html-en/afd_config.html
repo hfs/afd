@@ -39,26 +39,32 @@ the new value:
    <td valign=top>afdd</td>
 </tr>
 <tr>
+   <td valign=top>MAX_AFDD_CONNECTIONS</td>
+   <td>The number of hosts that may connect to the afdd process.</td>
+   <td valign=top>5</td>
+   <td valign=top>afdd</td>
+</tr>
+<tr>
    <td valign=top><a name="dir_config_name">DIR_CONFIG_NAME</a></td>
    <td>The file from where AFD will read it's configuration. This
        option may be used more then once, thus making it possible
        to read from multiple configuration files.</td>
    <td valign=top>$AFD_WORK_DIR/etc/DIR_CONFIG</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>MAX_NO_OF_DIR_CHECKS</td>
    <td>This is the number of times dir_check my fork itself to
        copy or exec some command.</td>
    <td valign=top>20</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>MAX_PROCESS_PER_DIR</td>
    <td>The maximum number of process that may be forked for one
        directory.</td>
    <td valign=top>10</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>AMG_DIR_RESCAN_TIME</td>
@@ -70,7 +76,7 @@ the new value:
        also the interval time that the AMG checks if the DIR_CONFIG or
        HOST_CONFIG file have been changed. The unit is second.</td>
    <td valign=top>5</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>DEFAULT_DELETE_FILES_FLAG</td>
@@ -82,14 +88,14 @@ the new value:
        more then one type, just add the next with a space or comma as
        a separator sign and the whole string must be placed in ".</td>
    <td valign=top>Not set</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>DEFAULT_OLD_FILE_TIME</td>
    <td>When to delete Unknown, Queued or Locked files from one of AFD's
        input directories. The value is in hours.</td>
    <td valign=top>24</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>REMOVE_UNUSED_HOSTS</td>
@@ -97,7 +103,7 @@ the new value:
        host is not found in DIR_CONFIG. With this option set, those hosts
        will be deleted.</td>
    <td valign=top>Not set</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>MAX_CONNECTIONS</td>
@@ -105,14 +111,14 @@ the new value:
        AFD allows. Don't set this value to high since some environments
        allow only a limited number of process per user.</td>
    <td valign=top>50</td>
-   <td valign=top>FD</td>
+   <td valign=top>fd</td>
 </tr>
 <tr>
    <td valign=top>REMOTE_FILE_CHECK_INTERVAL</td>
    <td>The interval in second that the FD rescans remote directories for
        files. Do not set this value to low.</td>
    <td valign=top>60</td>
-   <td valign=top>FD</td>
+   <td valign=top>fd</td>
 </tr>
 <tr>
    <td valign=top><a name="create_target_dir">CREATE_TARGET_DIR</a></td>
@@ -124,7 +130,7 @@ the new value:
        <a href="dir_config.html#create_target_dir">create target dir</a>
        this can be overriden.</td>
     <td valign=top>NO</td>
-    <td valign=top>FD</td>
+    <td valign=top>fd</td>
 </tr>
 <tr>
    <td valign=top>DEFAULT_AGE_LIMIT</td>
@@ -135,14 +141,25 @@ the new value:
        <a href="dir_config.html#age-limit">age-limit</a> option in
        DIR_CONFIG.</td>
    <td valign=top>0</td>
-   <td valign=top>FD</td>
+   <td valign=top>fd</td>
+</tr>
+<tr>
+   <td valign=top>EXEC_TIMEOUT</td>
+   <td>When setting one of the exec options (<a href="dir_config.html#exec">
+       exec</a> or <a href="dir_config.html#pexec">pexec</a>), the default
+       is to let those process run as long as those process want to run,
+       ie. there is no restriction in time. This default can be changed
+       to the value specified here in seconds. If the time is up the
+       process is killed.</td>
+   <td valign=top>0</td>
+   <td valign=top>amg/fd</td>
 </tr>
 <tr>
    <td valign=top>DEFAULT_SMTP_SERVER</td>
    <td>The default SMTP server where mails are to be send to. This can
        be an IP number or a hostname.</td>
    <td valign=top>localhost</td>
-   <td valign=top>FD</td>
+   <td valign=top>fd</td>
 </tr>
 <tr>
    <td valign=top><a name="default_smtp_from">DEFAULT_SMTP_FROM</a></td>
@@ -150,7 +167,7 @@ the new value:
        is not set under [options]. If not set it will take the user- and
        hostname from the current system where AFD is running.</td>
    <td valign=top>&lt;current user&gt;@&lt;hostname&gt;</td>
-   <td valign=top>FD</td>
+   <td valign=top>fd</td>
 </tr>
 <tr>
    <td valign=top>MAX_COPIED_FILES</td>
@@ -161,14 +178,14 @@ the new value:
        take to long to process all the files at once and time is lost
        that could be used to transmit data.</td>
    <td valign=top>100</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>MAX_COPIED_FILE_SIZE</td>
    <td>The maximum size in Kilobytes that are copied before they are
        send to the FD.</td>
    <td valign=top>100 MB</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>ONE_DIR_COPY_TIMEOUT</td>
@@ -176,7 +193,7 @@ the new value:
        copy from this directory until it reaches the timeout set by this
        option in seconds.</td>
    <td valign=top>10</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>FULL_SCAN_TIMEOUT</td>
@@ -188,7 +205,7 @@ the new value:
        will try to continue with the full directories until
        FULL_SCAN_TIMEOUT is reached.</td>
    <td valign=top>0</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>DIR_CHECK_TIMEOUT</td>
@@ -196,14 +213,14 @@ the new value:
        important (with '*'), this is the minimum time that these
        directories have to wait during one scan of all directories.</td>
    <td valign=top>30</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top>CREATE_SOURCE_DIR_MODE</td>
    <td>The permission of the source directories that found in the DIR_CONFIG
        and created by AMG if they are not there.</td>
    <td valign=top>775</td>
-   <td valign=top>AMG</td>
+   <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top><a name="max_system_log_files">MAX_SYSTEM_LOG_FILES</a></td>
@@ -294,17 +311,17 @@ the new value:
        you must put the full command in ". The hostname will be added to the
        end of the command.</td>
    <td valign=top><pre>&nbsp;</pre></td>
-   <td valign=top>AFD_CTRL</td>
+   <td valign=top>afd_ctrl</td>
 </tr>
 <tr>
    <td valign=top><a name="traceroute_cmd">TRACEROUTE_CMD</a></td>
    <td>Full path of the traceroute command plus any options. The hostname
        will be added to the end of the command.</td>
    <td valign=top><pre>&nbsp;</pre></td>
-   <td valign=top>AFD_CTRL</td>
+   <td valign=top>afd_ctrl</td>
 </tr>
 <tr>
-   <td valign=top>FAKE_USER &lt;fake user less&gt;</td>
+   <td valign=top>FAKE_USER &lt;fake user name&gt;</td>
    <td>This option allows the administrator to allow certain users
        to take up another identity, even if they do not exist on the
        system. This user will then be used to look up the permissions
@@ -319,7 +336,11 @@ the new value:
              afd_ctrl -u operator
        </pre>
        the afd_ctrl dialog will come up with the permissions of
-       operator.</td>
+       operator. More fake users can be added with a comma as separater:
+       <pre>
+             FAKE_USER     afd->operator,afd->donald
+       </pre>
+       The list may not be longer then 1023 bytes.</td>
    <td valign=top><pre>&nbsp;</pre></td>
    <td valign=top><pre>&nbsp;</pre></td>
 </tr>
@@ -332,9 +353,9 @@ restarted.
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 1999 - 2005 by H.Kiehl<br>
+   Copyright &copy; 1999 - 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 20.11.2005
+   Last updated: 27.03.2006
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

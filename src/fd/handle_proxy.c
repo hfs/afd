@@ -1,6 +1,6 @@
 /*
  *  handle_proxy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -123,13 +123,13 @@ handle_proxy(void)
                      {
                         if (status != 230)
                         {
-                           trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                           trans_db_log(INFO_SIGN, NULL, 0, msg_str,
                                         "Entered user name <%s> [Proxy].",
                                         buffer);
                         }
                         else
                         {
-                           trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                           trans_db_log(INFO_SIGN, NULL, 0, msg_str,
                                         "Entered user name <%s> [Proxy]. No password required, logged in.",
                                         buffer);
                         }
@@ -153,13 +153,13 @@ handle_proxy(void)
                      {
                         if (status != 230)
                         {
-                           trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                           trans_db_log(INFO_SIGN, NULL, 0, msg_str,
                                         "Entered account name <%s> [Proxy].",
                                         buffer);
                         }
                         else
                         {
-                           trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                           trans_db_log(INFO_SIGN, NULL, 0, msg_str,
                                         "Entered account name <%s> [Proxy]. No password required, logged in.",
                                         buffer);
                         }
@@ -219,7 +219,7 @@ handle_proxy(void)
                   {
                      if (fsa->debug > NORMAL_MODE)
                      {
-                        trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                        trans_db_log(INFO_SIGN, NULL, 0, msg_str,
                                      "Entered password.");
                      }
                   }

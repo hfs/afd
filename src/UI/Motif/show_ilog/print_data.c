@@ -363,7 +363,7 @@ write_header(int fd)
       }
       if (no_of_search_dirids > 0)
       {
-         length += sprintf(&buffer[length], "\tDiralias      : %s",
+         length += sprintf(&buffer[length], "\tDir Identifier: %s",
                            search_dirid[0]);
          for (i = 1; i < no_of_search_dirids; i++)
          {

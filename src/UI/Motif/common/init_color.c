@@ -1,6 +1,6 @@
 /*
  *  init_color.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -83,11 +83,12 @@ init_color(Display *p_disp)
                { STOP_TRANSFER_COLOR, STOP_TRANSFER_COLOR_1, STOP_TRANSFER_COLOR_2, STOP_TRANSFER_COLOR_3 },                 /* Transfer stopped.           */
                { NOT_WORKING_COLOR, NOT_WORKING_COLOR_1, NOT_WORKING_COLOR_2, NOT_WORKING_COLOR_3 },                         /* Connection not working.     */
                { NOT_WORKING2_COLOR, NOT_WORKING2_COLOR_1, NOT_WORKING2_COLOR_2, NOT_WORKING2_COLOR_3 },                     /* Connection not working.     */
-#ifdef _WITH_WMO_SUPPORT
                { BLACK_COLOR, BLACK_COLOR_1, BLACK_COLOR_2, BLACK_COLOR_3 },                                                 /* Foreground color.           */
+#ifdef _WITH_WMO_SUPPORT
+               { SFTP_BURST_TRANSFER_ACTIVE_COLOR, SFTP_BURST_TRANSFER_ACTIVE_COLOR_1, SFTP_BURST_TRANSFER_ACTIVE_COLOR_2, SFTP_BURST_TRANSFER_ACTIVE_COLOR_3 },                                                 /* Foreground color.           */
                { WMO_BURST_TRANSFER_ACTIVE_COLOR, WMO_BURST_TRANSFER_ACTIVE_COLOR_1, WMO_BURST_TRANSFER_ACTIVE_COLOR_2, WMO_BURST_TRANSFER_ACTIVE_COLOR_3 }
 #else
-               { BLACK_COLOR, BLACK_COLOR_1, BLACK_COLOR_2, BLACK_COLOR_3 }                                                  /* Foreground color.           */
+               { SFTP_BURST_TRANSFER_ACTIVE, SFTP_BURST_TRANSFER_ACTIVE_1, SFTP_BURST_TRANSFER_ACTIVE_2, SFTP_BURST_TRANSFER_ACTIVE_3 }                                                  /* Foreground color.           */
 #endif
             };
    int      i;

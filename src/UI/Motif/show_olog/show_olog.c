@@ -1,6 +1,6 @@
 /*
  *  show_olog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,6 +45,7 @@ DESCR__S_M1
  **                      window manager allows this, but allow to change
  **                      height.
  **   10.04.2004 H.Kiehl Added TLS/SSL support.
+ **   31.01.2006 H.Kiehl Added SFTP support.
  **
  */
 DESCR__E_M1
@@ -727,6 +728,13 @@ main(int argc, char *argv[])
                                 NULL);
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_FILE);
+   toggle_w = XtVaCreateManagedWidget("SFTP",
+                                xmToggleButtonGadgetClass, togglebox_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    True,
+                                NULL);
+   XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggled, (XtPointer)SHOW_SFTP);
 #ifdef _WITH_SCP_SUPPORT
    toggle_w = XtVaCreateManagedWidget("SCP",
                                 xmToggleButtonGadgetClass, togglebox_w,
@@ -761,6 +769,7 @@ main(int argc, char *argv[])
                  SHOW_HTTP |
 #endif
                  SHOW_SMTP |
+                 SHOW_SFTP |
 #ifdef _WITH_SCP_SUPPORT
                  SHOW_SCP |
 #endif
@@ -1431,7 +1440,7 @@ init_show_olog(int *argc, char *argv[])
 
    /* Now lets see if user may use this program */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);

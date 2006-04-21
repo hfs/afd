@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2005 Holger Kiehl
+## Copyright (C) 2001 - 2006 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -117,7 +117,7 @@ show_exec_stat_SOURCES       = show_exec_stat.c
 show_exec_stat_LDADD         = ../common/libafd.a
 sysconf_SOURCES              = sysconf.c
 sysconf_LDADD                = ../common/libafd.a
-tiff_sniffer_SOURCES         = tiff-sniffer.c
+tiff_sniffer_SOURCES         = tiff_sniffer.c
 udc_SOURCES                  = update_db.c
 udc_LDADD                    = ../common/libafd.a
 view_ls_data_SOURCES         = view_ls_data.c

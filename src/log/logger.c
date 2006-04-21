@@ -201,7 +201,7 @@ check_data(long rescan_time)
             {
                log_pos = 0;
             }
-            switch(prev_msg_str[LOG_SIGN_POSITION])
+            switch (prev_msg_str[LOG_SIGN_POSITION])
             {
                case 'I' : /* Info */
                   p_log_fifo[log_pos] = INFO_ID;
@@ -387,7 +387,7 @@ check_data(long rescan_time)
                        {
                           log_pos = 0;
                        }
-                       switch(msg_str[LOG_SIGN_POSITION])
+                       switch (msg_str[LOG_SIGN_POSITION])
                        {
                           case 'I' : /* Info */
                              p_log_fifo[log_pos] = INFO_ID;

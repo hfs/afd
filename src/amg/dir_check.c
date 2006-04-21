@@ -1,6 +1,6 @@
 /*
  *  dir_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -159,8 +159,10 @@ time_t                     *file_mtime_pool;
 off_t                      *file_size_pool;
 #endif
 #ifdef _POSIX_SAVED_IDS
+int                        no_of_sgids;
 uid_t                      afd_uid;
-gid_t                      afd_gid;
+gid_t                      afd_gid,
+                           *afd_sgids;
 #endif
 char                       *p_dir_alias,
                            *p_mmap = NULL,
@@ -955,7 +957,7 @@ main(int argc, char *argv[])
                           }
                        } /* while (fdc > 0) */
 
-                       if ((fdc = 0) && ((full_scan_timeout == 0) ||
+                       if ((fdc == 0) && ((full_scan_timeout == 0) ||
                            (diff_time < full_scan_timeout)))
                        {
                           last_fdc_pos = 0;
@@ -1082,7 +1084,7 @@ main(int argc, char *argv[])
                              }
                           } /* while (fpdc > 0) */
 
-                          if ((fpdc = 0) && ((full_scan_timeout == 0) ||
+                          if ((fpdc == 0) && ((full_scan_timeout == 0) ||
                               (diff_time < full_scan_timeout)))
                           {
                              last_fpdc_pos = 0;
@@ -1628,7 +1630,7 @@ handle_dir(int    dir_pos,
                            if ((db[de[dir_pos].fme[j].pos[k]].lfs & GO_PARALLEL) &&
                                (no_of_process < max_process))
                            {
-                              switch(dcpl[no_of_process].pid = fork())
+                              switch (dcpl[no_of_process].pid = fork())
                               {
                                  case -1 : /* ERROR, process creation not possible */
 
@@ -1816,7 +1818,7 @@ handle_dir(int    dir_pos,
                                     no_of_process++;
                                     p_afd_status->amg_fork_counter++;
                                     break;
-                              } /* switch() */
+                              } /* switch () */
                            }
                            else
                            {
@@ -2052,7 +2054,7 @@ get_one_zombie(pid_t cpid)
 
       if (WIFEXITED(status))
       {
-         switch(WEXITSTATUS(status))
+         switch (WEXITSTATUS(status))
          {
             case 0 : /* Ordinary end of process */
             case 1 : /* No files found */
@@ -2184,7 +2186,7 @@ check_fifo(int read_fd, int write_fd)
 #endif
       while (count < n)
       {
-         switch(buffer[count])
+         switch (buffer[count])
          {
             case STOP  :
                for (i = 0; i < no_fork_jobs; i++)

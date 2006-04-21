@@ -1,6 +1,6 @@
 /*
  *  gf_ftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -145,7 +145,7 @@ main(int argc, char *argv[])
    init_gf(argc, argv, FTP_FLAG);
    msg_str[0] = '\0';
    timeout_flag = OFF;
-   if (fsa->transfer_rate_limit > 0)
+   if (fsa->trl_per_process > 0)
    {
       if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
       {
@@ -183,7 +183,14 @@ main(int argc, char *argv[])
 
    if (db.transfer_mode == 'D')
    {
-      db.transfer_mode = 'I';
+      if (fsa->protocol_options & FTP_IGNORE_BIN)
+      {
+         db.transfer_mode = 'N';
+      }
+      else
+      {
+         db.transfer_mode = 'I';
+      }
    }
 
    /* Now determine the real hostname. */
@@ -336,21 +343,24 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Set transfer mode */
-   if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
+   if (db.transfer_mode != 'N')
    {
-      trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                "Failed to set transfer mode to %c (%d).",
-                db.transfer_mode, status);
-      (void)ftp_quit();
-      exit(eval_timeout(TYPE_ERROR));
-   }
-   else
-   {
-      if (fsa->debug > NORMAL_MODE)
+      /* Set transfer mode */
+      if ((status = ftp_type(db.transfer_mode)) != SUCCESS)
       {
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                      "Changed transfer mode to %c.", db.transfer_mode);
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                   "Failed to set transfer mode to %c (%d).",
+                   db.transfer_mode, status);
+         (void)ftp_quit();
+         exit(eval_timeout(TYPE_ERROR));
+      }
+      else
+      {
+         if (fsa->debug > NORMAL_MODE)
+         {
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                         "Changed transfer mode to %c.", db.transfer_mode);
+         }
       }
    }
 
@@ -486,7 +496,7 @@ main(int argc, char *argv[])
                offset = 0;
             }
             if (((status = ftp_data(rl[i].file_name, offset, db.mode_flag,
-                                    DATA_READ)) != SUCCESS) &&
+                                    DATA_READ, db.rcvbuf_size)) != SUCCESS) &&
                 (status != -550))
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -591,7 +601,7 @@ main(int argc, char *argv[])
                }
 
                bytes_done = 0;
-               if (fsa->transfer_rate_limit > 0)
+               if (fsa->trl_per_process > 0)
                {
                   init_limit_transfer_rate();
                }
@@ -622,7 +632,7 @@ main(int argc, char *argv[])
                      exit(eval_timeout(READ_REMOTE_ERROR));
                   }
 
-                  if (fsa->transfer_rate_limit > 0)
+                  if (fsa->trl_per_process > 0)
                   {
                      limit_transfer_rate(status, fsa->trl_per_process, clktck);
                   }
@@ -736,8 +746,8 @@ main(int argc, char *argv[])
                   {
                      /*
                       * If the file size is not the same as the one when we did
-                      * the remote ls command, give a warning in the transfer log
-                      * so some action can be taken against the originator.
+                      * the remote ls command, give a warning in the transfer
+                      * log so some action can be taken against the originator.
                       */
                      if ((bytes_done + offset) != rl[i].size)
                      {
@@ -748,6 +758,7 @@ main(int argc, char *argv[])
                                   "File size of file %s changed from %lld to %lld when it was retrieved.",
 #endif
                                   rl[i].file_name, rl[i].size, bytes_done + offset);
+                        fsa->total_file_size += (bytes_done + offset - rl[i].size);
                         rl[i].size = bytes_done + offset;
                      }
                      fsa->total_file_size -= rl[i].size;

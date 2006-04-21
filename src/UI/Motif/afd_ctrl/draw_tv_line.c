@@ -402,7 +402,7 @@ draw_tv_chars(int pos, char type, int x, int y)
    char       *ptr = NULL;
    XGCValues  gc_values;  
 
-   switch(type)
+   switch (type)
    {
       case FILE_SIZE_IN_USE :
          ptr = jd[pos].str_fs_use;

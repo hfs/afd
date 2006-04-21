@@ -1,6 +1,6 @@
 /*
  *  gf_http.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -158,7 +158,7 @@ main(int argc, char *argv[])
    init_gf(argc, argv, HTTP_FLAG);
    msg_str[0] = '\0';
    timeout_flag = OFF;
-   if (fsa->transfer_rate_limit > 0)
+   if (fsa->trl_per_process > 0)
    {
       if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
       {
@@ -222,9 +222,9 @@ main(int argc, char *argv[])
    /* Connect to remote HTTP-server */
    if ((status = http_connect(db.hostname, db.port,
 #ifdef WITH_SSL
-                              db.user, db.password, db.auth)) != SUCCESS)
+                              db.user, db.password, db.auth, db.sndbuf_size, db.rcvbuf_size)) != SUCCESS)
 #else
-                              db.user, db.password)) != SUCCESS)
+                              db.user, db.password, db.sndbuf_size, db.rcvbuf_size)) != SUCCESS)
 #endif
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -281,7 +281,7 @@ main(int argc, char *argv[])
    if ((buffer = malloc(blocksize + 4)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to malloc() %d bytes error : %s",
+                 "Failed to malloc() %d bytes : %s",
                  blocksize + 4, strerror(errno));
       http_quit();
       exit(ALLOC_ERROR);
@@ -462,7 +462,7 @@ main(int argc, char *argv[])
                          p_file_name);
          }
          bytes_done = 0;
-         if (fsa->transfer_rate_limit > 0)
+         if (fsa->trl_per_process > 0)
          {
             init_limit_transfer_rate();
          }
@@ -479,7 +479,7 @@ main(int argc, char *argv[])
                   http_quit();
                   exit(eval_timeout(READ_REMOTE_ERROR));
                }
-               if (fsa->transfer_rate_limit > 0)
+               if (fsa->trl_per_process > 0)
                {
                   limit_transfer_rate(status, fsa->trl_per_process, clktck);
                }
@@ -514,7 +514,7 @@ main(int argc, char *argv[])
                if ((chunkbuffer = malloc(blocksize + 4)) == NULL)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to malloc() %d bytes error : %s",
+                             "Failed to malloc() %d bytes : %s",
                              blocksize + 4, strerror(errno));
                   http_quit();
                   (void)unlink(local_tmp_file);
@@ -536,7 +536,7 @@ main(int argc, char *argv[])
                   (void)unlink(local_tmp_file);
                   exit(eval_timeout(READ_REMOTE_ERROR));
                }
-               if (fsa->transfer_rate_limit > 0)
+               if (fsa->trl_per_process > 0)
                {
                   limit_transfer_rate(status, fsa->trl_per_process, clktck);
                }
@@ -785,9 +785,9 @@ main(int argc, char *argv[])
          {
             trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
 #if SIZEOF_OFF_T == 4
-                      "File size of file %s changed from %ld to %u when it was retrieved.",
+                      "File size of file %s changed from %ld to %ld when it was retrieved.",
 #else
-                      "File size of file %s changed from %lld to %u when it was retrieved.",
+                      "File size of file %s changed from %lld to %lld when it was retrieved.",
 #endif
                       p_file_name, content_length, bytes_done + offset);
          }

@@ -18,7 +18,7 @@
 
 MAINTAINERCLEANFILES   = Makefile.in
 noinst_HEADERS         = mondefs.h
-INCLUDES               = -I.. -I../init_afd -I../afdd
+INCLUDES               = -I.. -I../init_afd -I../afdd -I../log
 bin_PROGRAMS           = afd_mon afd_mon_status mafd msa_view topview\
                          view_hosts mon mafdcmd
 afd_mon_SOURCES        = afd_mon.c\

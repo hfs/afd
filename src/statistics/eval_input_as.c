@@ -86,7 +86,7 @@ eval_input_as(int  argc,
    /**********************************************************/
    while ((--argc > 0) && ((*++argv)[0] == '-'))
    {
-      switch(*(argv[0] + 1))
+      switch (*(argv[0] + 1))
       {
          case 'f': /* Name of the statistic file */
 
@@ -140,7 +140,7 @@ eval_input_as(int  argc,
             correct = NO;
             break;
 
-      } /* switch(*(argv[0] + 1)) */
+      } /* switch (*(argv[0] + 1)) */
    }
 
    /* If input is not correct show syntax */

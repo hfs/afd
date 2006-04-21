@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -108,13 +108,14 @@ init_gf(int argc, char *argv[], int protocol)
         }
 
    db.fsa_pos = INCORRECT;
-   db.transfer_mode = DEFAULT_TRANSFER_MODE;
    db.toggle_host = NO;
    db.protocol = protocol;
    db.special_ptr = NULL;
 #ifdef WITH_SSL
    db.auth = NO;
 #endif
+   db.sndbuf_size = 0;
+   db.rcvbuf_size = 0;
 
    if ((status = eval_input_gf(argc, argv, p_db)) < 0)
    {
@@ -137,6 +138,23 @@ init_gf(int argc, char *argv[], int protocol)
       db.port = DEFAULT_HTTPS_PORT;
    }
 #endif
+   if (fsa->protocol_options & FTP_IGNORE_BIN)
+   {
+      db.transfer_mode = 'N';
+   }
+   else
+   {
+      db.transfer_mode = DEFAULT_TRANSFER_MODE;
+   }
+   if (db.sndbuf_size <= 0)
+   {
+      db.sndbuf_size = fsa->socksnd_bufsize;
+   }
+   if (db.rcvbuf_size <= 0)
+   {
+      db.rcvbuf_size = fsa->sockrcv_bufsize;
+   }
+
    if ((fsa->error_counter > 0) && (fra[db.fra_pos].time_option == YES))
    {
       next_check_time = fra[db.fra_pos].next_check_time;

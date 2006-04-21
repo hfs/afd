@@ -497,7 +497,7 @@ init_asmtp(int argc, char *argv[], struct data *p_db)
                           *(argv[0] + 1), __FILE__, __LINE__);
             correct = NO;
             break;
-      } /* switch(*(argv[0] + 1)) */
+      } /* switch (*(argv[0] + 1)) */
    }
    if ((*argv)[0] != '-')
    {

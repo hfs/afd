@@ -133,6 +133,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        rec.c\
                        rec_rmdir.c\
                        remove_dir.c\
+                       remove_files.c\
                        reshuffel_log_files.c\
                        rlock_region.c\
                        send_cmd.c\

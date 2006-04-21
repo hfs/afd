@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -102,6 +102,10 @@ Widget w;
       if (fsa[host_position].protocol & FTP_FLAG)
       {
          length += sprintf(&protocol_label_str[length], "FTP ");
+      }
+      if (fsa[host_position].protocol & SFTP_FLAG)
+      {
+         length += sprintf(&protocol_label_str[length], "SFTP ");
       }
       if (fsa[host_position].protocol & LOC_FLAG)
       {
@@ -263,6 +267,7 @@ Widget w;
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
+             (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
              (fsa[host_position].protocol & SCP_FLAG) ||
 #endif /* _WITH_SCP_SUPPORT */
@@ -353,6 +358,7 @@ Widget w;
 
          /* Get IP for the first host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
+             (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
              (fsa[host_position].protocol & SCP_FLAG) ||
 #endif /* _WITH_SCP_SUPPORT */
@@ -431,6 +437,7 @@ Widget w;
 
          /* Get IP for the second host */
          if ((fsa[host_position].protocol & FTP_FLAG) ||
+             (fsa[host_position].protocol & SFTP_FLAG) ||
 #ifdef _WITH_SCP_SUPPORT
              (fsa[host_position].protocol & SCP_FLAG) ||
 #endif /* _WITH_SCP_SUPPORT */

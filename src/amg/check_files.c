@@ -1,6 +1,6 @@
 /*
  *  check_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -89,6 +89,10 @@ DESCR__S_M3
  **   17.04.2005 H.Kiehl When it is a paused directory do not wait for
  **                      a certain file, file size or make any date check.
  **   01.06.2005 H.Kiehl Build in check for duplicate files.
+ **   15.03.2006 H.Kiehl When checking if we have sufficient file permissions
+ **                      we must check supplementary groups as well.
+ **   29.03.2006 H.Kiehl Support for pattern matching with expanding
+ **                      filters.
  **
  */
 DESCR__E_M3
@@ -114,8 +118,10 @@ DESCR__E_M3
 extern int                        amg_counter_fd,
                                   fra_fd; /* Needed by ABS_REDUCE_QUEUE()*/
 #ifdef _POSIX_SAVED_IDS
+extern int                        no_of_sgids;
 extern uid_t                      afd_uid;
-extern gid_t                      afd_gid;
+extern gid_t                      afd_gid,
+                                  *afd_sgids;
 #endif
 #ifdef _INPUT_LOG
 extern int                        il_fd,
@@ -145,6 +151,9 @@ extern struct delete_log          dl;
 
 /* Local function prototype */
 static int                        get_last_char(char *, off_t);
+#ifdef _POSIX_SAVED_IDS
+static int                        check_sgids(gid_t);
+#endif
 
 
 /*########################### check_files() #############################*/
@@ -172,7 +181,8 @@ check_files(struct directory_entry *p_de,
                  ret;
    unsigned int  split_job_counter = 0;
    off_t         bytes_in_dir = 0;
-   time_t        diff_time;
+   time_t        diff_time,
+                 pmatch_time;
    char          fullname[MAX_PATH_LENGTH],
                  *ptr = NULL,
                  *work_ptr;
@@ -301,14 +311,16 @@ check_files(struct directory_entry *p_de,
                      (fra[p_de->fra_pos].ignore_file_time > diff_time))))
                {
 #ifdef _POSIX_SAVED_IDS
-                  if (((stat_buf.st_mode & S_IROTH) ||
+                  if ((stat_buf.st_mode & S_IROTH) ||
                       ((stat_buf.st_gid == afd_gid) && (stat_buf.st_mode & S_IRGRP)) ||
-                      ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR))))
+                      ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR)) ||
+                      ((stat_buf.st_mode & S_IRGRP) && (no_of_sgids > 0) &&
+                       (check_sgids(stat_buf.st_gid) == YES)))
 #else
                   if ((eaccess(fullname, R_OK) == 0))
 #endif
                   {
-                     if ((ret = pmatch(fra[p_de->fra_pos].wait_for_filename, p_dir->d_name)) == 0)
+                     if ((ret = pmatch(fra[p_de->fra_pos].wait_for_filename, p_dir->d_name, &current_time)) == 0)
                      {
                         if ((fra[p_de->fra_pos].end_character == -1) ||
                             (fra[p_de->fra_pos].end_character == get_last_char(fullname, stat_buf.st_size)))
@@ -398,9 +410,11 @@ check_files(struct directory_entry *p_de,
                      (fra[p_de->fra_pos].ignore_file_time > diff_time))))
                {
 #ifdef _POSIX_SAVED_IDS
-                  if (((stat_buf.st_mode & S_IROTH) ||
+                  if ((stat_buf.st_mode & S_IROTH) ||
                       ((stat_buf.st_gid == afd_gid) && (stat_buf.st_mode & S_IRGRP)) ||
-                      ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR))))
+                      ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR)) ||
+                      ((stat_buf.st_mode & S_IRGRP) && (no_of_sgids > 0) &&
+                       (check_sgids(stat_buf.st_gid) == YES)))
 #else
                   if ((eaccess(fullname, R_OK) == 0))
 #endif
@@ -436,12 +450,20 @@ check_files(struct directory_entry *p_de,
                      {
                         int j;
 
-                        /* Filter out only those files we need for this directory */
+                        /* Filter out only those files we need for this directory. */
                         for (i = 0; i < p_de->nfg; i++)
                         {
                            for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++)
                            {
-                              if ((ret = pmatch(p_de->fme[i].file_mask[j], p_dir->d_name)) == 0)
+                              if (p_de->paused_dir == NULL)
+                              {
+                                 pmatch_time = current_time;
+                              }
+                              else
+                              {
+                                 pmatch_time = stat_buf.st_mtime;
+                              }
+                              if ((ret = pmatch(p_de->fme[i].file_mask[j], p_dir->d_name, &pmatch_time)) == 0)
                               {
                                  if ((fra[p_de->fra_pos].end_character == -1) ||
                                      (fra[p_de->fra_pos].end_character == get_last_char(fullname, stat_buf.st_size)))
@@ -554,9 +576,11 @@ check_files(struct directory_entry *p_de,
                    (fra[p_de->fra_pos].ignore_file_time > diff_time)))))
             {
 #ifdef _POSIX_SAVED_IDS
-               if (((stat_buf.st_mode & S_IROTH) ||
+               if ((stat_buf.st_mode & S_IROTH) ||
                    ((stat_buf.st_gid == afd_gid) && (stat_buf.st_mode & S_IRGRP)) ||
-                   ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR))))
+                   ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR)) ||
+                   ((stat_buf.st_mode & S_IRGRP) && (no_of_sgids > 0) &&
+                    (check_sgids(stat_buf.st_gid) == YES)))
 #else
                if ((eaccess(fullname, R_OK) == 0))
 #endif
@@ -567,7 +591,7 @@ check_files(struct directory_entry *p_de,
                   if ((fra[p_de->fra_pos].dup_check_timeout == 0L) ||
                       (((is_duplicate = isdup(fullname, p_de->dir_id,
                                               fra[p_de->fra_pos].dup_check_timeout,
-                                              fra[p_de->fra_pos].dup_check_flag)) == NO) ||
+                                              fra[p_de->fra_pos].dup_check_flag, NO)) == NO) ||
                        (((fra[p_de->fra_pos].dup_check_flag & DC_DELETE) == 0) &&
                         ((fra[p_de->fra_pos].dup_check_flag & DC_STORE) == 0))))
                   {
@@ -677,6 +701,20 @@ check_files(struct directory_entry *p_de,
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    "Failed to move/copy file.");
+#ifdef WITH_DUP_CHECK
+                        /*
+                         * We have already stored the CRC value for
+                         * this file but failed pick up the file.
+                         * So we must remove the CRC value!
+                         */
+                        if ((fra[p_de->fra_pos].dup_check_timeout > 0L) &&
+                            (is_duplicate == NO))
+                        {
+                           (void)isdup(fullname, p_de->dir_id,
+                                       fra[p_de->fra_pos].dup_check_timeout,
+                                       fra[p_de->fra_pos].dup_check_flag, YES);
+                        }
+#endif
                      }
                      else
                      {
@@ -898,9 +936,11 @@ check_files(struct directory_entry *p_de,
                    (fra[p_de->fra_pos].ignore_file_time > diff_time)))))
             {
 #ifdef _POSIX_SAVED_IDS
-               if (((stat_buf.st_mode & S_IROTH) ||
+               if ((stat_buf.st_mode & S_IROTH) ||
                    ((stat_buf.st_gid == afd_gid) && (stat_buf.st_mode & S_IRGRP)) ||
-                   ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR))))
+                   ((stat_buf.st_uid == afd_uid) && (stat_buf.st_mode & S_IRUSR)) ||
+                   ((stat_buf.st_mode & S_IRGRP) && (no_of_sgids > 0) &&
+                    (check_sgids(stat_buf.st_gid) == YES)))
 #else
                if ((eaccess(fullname, R_OK) == 0))
 #endif
@@ -912,7 +952,15 @@ check_files(struct directory_entry *p_de,
                   {
                      for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++)
                      {
-                        if ((ret = pmatch(p_de->fme[i].file_mask[j], p_dir->d_name)) == 0)
+                        if (p_de->paused_dir == NULL)
+                        {
+                           pmatch_time = current_time;
+                        }
+                        else
+                        {
+                           pmatch_time = stat_buf.st_mtime;
+                        }
+                        if ((ret = pmatch(p_de->fme[i].file_mask[j], p_dir->d_name, &pmatch_time)) == 0)
                         {
 #ifdef WITH_DUP_CHECK
                            int is_duplicate = NO;
@@ -920,7 +968,7 @@ check_files(struct directory_entry *p_de,
                            if ((fra[p_de->fra_pos].dup_check_timeout == 0L) ||
                                (((is_duplicate = isdup(fullname, p_de->dir_id,
                                                        fra[p_de->fra_pos].dup_check_timeout,
-                                                       fra[p_de->fra_pos].dup_check_flag)) == NO) ||
+                                                       fra[p_de->fra_pos].dup_check_flag, NO)) == NO) ||
                                 (((fra[p_de->fra_pos].dup_check_flag & DC_DELETE) == 0) &&
                                  ((fra[p_de->fra_pos].dup_check_flag & DC_STORE) == 0))))
                            {
@@ -1036,6 +1084,28 @@ check_files(struct directory_entry *p_de,
                                  system_log(WARN_SIGN, __FILE__, __LINE__,
                                             "Failed to move/copy file `%s' to `%s'.",
                                             fullname, tmp_file_dir);
+#ifdef WITH_DUP_CHECK
+                                 /*
+                                  * We have already stored the CRC value for
+                                  * this file but failed pick up the file.
+                                  * So we must remove the CRC value!
+                                  */
+                                 if ((fra[p_de->fra_pos].dup_check_timeout > 0L) &&
+                                     (is_duplicate == NO))
+                                 {
+                                    (void)isdup(fullname, p_de->dir_id,
+                                                fra[p_de->fra_pos].dup_check_timeout,
+                                                fra[p_de->fra_pos].dup_check_flag, YES);
+
+                                    /*
+                                     * We must set gotcha to yes, otherwise
+                                     * the file will be deleted because
+                                     * we then think it is something
+                                     * not to be distributed.
+                                     */
+                                    gotcha = YES;
+                                 }
+#endif
                               }
                               else
                               {
@@ -1252,7 +1322,7 @@ check_files(struct directory_entry *p_de,
 
                            (void)strcpy(dl.file_name, p_dir->d_name);
                            (void)sprintf(dl.host_name, "%-*s %x",
-                                         MAX_HOSTNAME_LENGTH, "-", AGE_INPUT);
+                                         MAX_HOSTNAME_LENGTH, "-", OTHER_DEL);
                            *dl.file_size = stat_buf.st_size;
                            *dl.job_number = p_de->dir_id;
                            *dl.file_name_length = strlen(p_dir->d_name);
@@ -1423,3 +1493,22 @@ get_last_char(char *file_name, off_t file_size)
 
    return(last_char);
 }
+
+
+#ifdef _POSIX_SAVED_IDS
+/*++++++++++++++++++++++++++++ check_sgids() ++++++++++++++++++++++++++++*/
+static int
+check_sgids(gid_t file_gid)
+{
+   int i;
+
+   for (i = 0; i < no_of_sgids; i++)
+   {
+      if (file_gid == afd_sgids[i])
+      {
+         return(YES);
+      }
+   }
+   return(NO);
+}
+#endif

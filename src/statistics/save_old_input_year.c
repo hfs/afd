@@ -1,6 +1,6 @@
 /*
  *  save_old_input_year.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -180,7 +180,7 @@ save_old_input_year(int new_year)
    *(int*)ptr = no_of_dirs;
    *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_YEAR_ISTAT_VERSION;
    old_istat_db = (struct afd_year_istat *)(ptr + AFD_WORD_OFFSET);
-   (void)memset(old_istat_db, 0, old_year_istat_size);
+   (void)memset(old_istat_db, 0, old_year_istat_size - AFD_WORD_OFFSET);
 
    /*
     * Now copy the data from the old year.

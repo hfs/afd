@@ -1,6 +1,6 @@
 /*
  *  sf_map.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -451,7 +451,11 @@ main(int argc, char *argv[])
                }
 
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "Total file size for host %s overflowed. Correcting to %lu.",
+# if SIZEOF_OFF_T == 4
+                          "Total file size for host %s overflowed. Correcting to %ld.",
+# else
+                          "Total file size for host %s overflowed. Correcting to %lld.",
+# endif
                           fsa->host_dsp_name,
                           fsa->total_file_size);
             }

@@ -1,6 +1,6 @@
 /*
  *  sf_smtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -226,7 +226,7 @@ main(int argc, char *argv[])
    p_work_dir = work_dir;
    files_to_send = init_sf(argc, argv, file_path, SMTP_FLAG);
    p_db = &db;
-   if (fsa->transfer_rate_limit > 0)
+   if (fsa->trl_per_process > 0)
    {
       if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
       {
@@ -409,7 +409,8 @@ main(int argc, char *argv[])
    if ((buffer = malloc(blocksize + 1)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "malloc() error : %s (%s %d)\n", strerror(errno));
+                 "Failed to malloc() %d bytes : %s",
+                 blocksize + 1, strerror(errno));
       exit(ALLOC_ERROR);
    }
    if (db.special_flag & ATTACH_FILE)
@@ -417,7 +418,8 @@ main(int argc, char *argv[])
       if ((encode_buffer = malloc(2 * (blocksize + 1))) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "malloc() error : %s", strerror(errno));
+                    "Failed to malloc() %d bytes : %s",
+                    2 * (blocksize + 1),  strerror(errno));
          exit(ALLOC_ERROR);
       }
 
@@ -521,7 +523,11 @@ main(int argc, char *argv[])
             else
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
-                          "Mail header file %s to large (%d Bytes). Allowed are %d Bytes.",
+#if SIZEOF_OFF_T == 4
+                          "Mail header file %s to large (%ld Bytes). Allowed are 204800 bytes.",
+#else
+                          "Mail header file %s to large (%lld Bytes). Allowed are 204800 bytes.",
+#endif
                           mail_header_file, stat_buf.st_size);
             }
          }
@@ -573,7 +579,7 @@ main(int argc, char *argv[])
                for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
                {
                   if (pmatch(rule[user_rule_pos].filter[k],
-                             p_file_name_buffer) == 0)
+                             p_file_name_buffer, NULL) == 0)
                   {
                      change_name(p_file_name_buffer,
                                  rule[user_rule_pos].filter[k],
@@ -813,7 +819,7 @@ main(int argc, char *argv[])
          else if (db.charset != NULL)
               {
                  length = sprintf(buffer,
-                                  "MIME-Version: 1.0 (produced by AFD %s)\r\nContent-Type: TEXT/PLAIN; charset=%s\r\nContent-Transfer-Encoding: 8BIT\r\n",
+                                  "MIME-Version: 1.0 (produced by AFD %s)\r\nContent-Type: TEXT/plain; charset=%s\r\nContent-Transfer-Encoding: 8BIT\r\n",
                                   PACKAGE_VERSION, db.charset);
 
                  if (smtp_write(buffer, NULL, length) < 0)
@@ -837,20 +843,20 @@ main(int argc, char *argv[])
                if (db.charset == NULL)
                {
                   length = sprintf(encode_buffer,
-                                   "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=US-ASCII\r\n\r\n",
+                                   "\r\n--%s\r\nContent-Type: TEXT/plain; charset=US-ASCII\r\n\r\n",
                                    multipart_boundary);
                }
                else
                {
                   length = sprintf(encode_buffer,
-                                   "\r\n--%s\r\nContent-Type: TEXT/PLAIN; charset=%s\r\nContent-Transfer-Encoding: 8BIT\r\n\r\n",
+                                   "\r\n--%s\r\nContent-Type: TEXT/plain; charset=%s\r\nContent-Transfer-Encoding: 8BIT\r\n\r\n",
                                    multipart_boundary, db.charset);
                }
 
                if (smtp_write(encode_buffer, NULL, length) < 0)
                {
                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                            "Failed to write the Content-Type (TEXT/PLAIN) to SMTP-server.");
+                            "Failed to write the Content-Type (TEXT/plain) to SMTP-server.");
                   (void)smtp_quit();
                   exit(eval_timeout(WRITE_REMOTE_ERROR));
                }
@@ -897,7 +903,7 @@ main(int argc, char *argv[])
                   for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
                   {
                      if (pmatch(rule[trans_rule_pos].filter[k],
-                                final_filename) == 0)
+                                final_filename, NULL) == 0)
                      {
                         change_name(final_filename,
                                     rule[trans_rule_pos].filter[k],
@@ -967,7 +973,7 @@ main(int argc, char *argv[])
             for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
             {
                if (pmatch(rule[trans_rule_pos].filter[k],
-                          final_filename) == 0)
+                          final_filename, NULL) == 0)
                {
                   change_name(final_filename,
                               rule[trans_rule_pos].filter[k],
@@ -1030,7 +1036,7 @@ main(int argc, char *argv[])
          smtp_buffer[0] = 0;
       }
 
-      if (fsa->transfer_rate_limit > 0)
+      if (fsa->trl_per_process > 0)
       {
          init_limit_transfer_rate();
       }
@@ -1083,7 +1089,7 @@ main(int argc, char *argv[])
                }
                write_size = blocksize;
             }
-            if (fsa->transfer_rate_limit > 0)
+            if (fsa->trl_per_process > 0)
             {
                limit_transfer_rate(write_size, fsa->trl_per_process, clktck);
             }
@@ -1145,7 +1151,7 @@ main(int argc, char *argv[])
                }
                write_size = rest;
             }
-            if (fsa->transfer_rate_limit > 0)
+            if (fsa->trl_per_process > 0)
             {
                limit_transfer_rate(write_size, fsa->trl_per_process, clktck);
             }
@@ -1306,7 +1312,11 @@ main(int argc, char *argv[])
                fsa->total_file_size += *tmp_ptr;
             }
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                      "Total file size for host %s overflowed. Correcting to %lu.",
+# if SIZEOF_OFF_T == 4
+                      "Total file size for host %s overflowed. Correcting to %ld.",
+# else
+                      "Total file size for host %s overflowed. Correcting to %lld.",
+# endif
                       fsa->host_dsp_name, fsa->total_file_size);
          }
          else if ((fsa->total_file_counter == 0) &&

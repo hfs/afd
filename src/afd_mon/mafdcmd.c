@@ -1,6 +1,6 @@
 /*
  *  mafdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -136,7 +136,7 @@ main(int argc, char *argv[])
    /*
     * Ensure that the user may use this program.
     */
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -313,7 +313,7 @@ main(int argc, char *argv[])
                int  length;
                char cmd[2 + MAX_INT_LENGTH];
 
-               length = sprintf(cmd, "%c %d", ENABLE_MON, position) + 1;
+               length = sprintf(cmd, "%c %d", ENABLE_MON, position);
                if (write(fd, cmd, length) != length)
                {
                   (void)rec(sys_log_fd, ERROR_SIGN,
@@ -374,7 +374,7 @@ main(int argc, char *argv[])
                int  length;
                char cmd[2 + MAX_INT_LENGTH];
 
-               length = sprintf(cmd, "%c %d", DISABLE_MON, position) + 1;
+               length = sprintf(cmd, "%c %d", DISABLE_MON, position);
                if (write(fd, cmd, length) != length)
                {
                   (void)rec(sys_log_fd, ERROR_SIGN,
@@ -424,12 +424,12 @@ main(int argc, char *argv[])
 
             if (msa[position].connect_status == DISABLED)
             {
-               length = sprintf(cmd, "%c %d", ENABLE_MON, position) + 1;
+               length = sprintf(cmd, "%c %d", ENABLE_MON, position);
                action = ENABLE_MON;
             }
             else /* DISABLE AFD */
             {
-               length = sprintf(cmd, "%c %d", DISABLE_MON, position) + 1;
+               length = sprintf(cmd, "%c %d", DISABLE_MON, position);
                action = DISABLE_MON;
             }
             if (write(fd, cmd, length) != length)
@@ -542,6 +542,7 @@ eval_input(int argc, char *argv[])
    /*         -e : enable AFD                                */
    /*         -E : disable AFD                               */
    /*         -r : retry                                     */
+   /*         -s : switch AFD                                */
    /*         -X : toggle enable/disable AFD                 */
    /*                                                        */
    /**********************************************************/
@@ -549,7 +550,7 @@ eval_input(int argc, char *argv[])
    {
       if (*(argv[0] + 2) == '\0')
       {
-         switch(*(argv[0] + 1))
+         switch (*(argv[0] + 1))
          {
             case 'e': /* enable AFD */
                options ^= ENABLE_AFD_OPTION;
@@ -577,7 +578,7 @@ eval_input(int argc, char *argv[])
                correct = NO;
                break;
 
-         } /* switch(*(argv[0] + 1)) */
+         } /* switch (*(argv[0] + 1)) */
       }
       else
       {
@@ -657,6 +658,8 @@ usage(char *progname)
                  "                 -E          disable AFD\n");
    (void)fprintf(stderr,
                  "                 -r          retry\n");
+   (void)fprintf(stderr,
+                 "                 -s          switch AFD\n");
    (void)fprintf(stderr,
                  "                 -X          toggle enable/disable AFD\n");
    (void)fprintf(stderr,

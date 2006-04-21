@@ -1,6 +1,6 @@
 /*
  *  count_pool_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,7 @@ DESCR__E_M3
 #include <stdio.h>                /* sprintf()                            */
 #include <stdlib.h>               /* malloc(), free()                     */
 #include <string.h>               /* strcpy(), strerror()                 */
-#include <ctype.h>                /* isdigit()                            */
+#include <ctype.h>                /* isxdigit()                           */
 #include <sys/stat.h>             /* stat(), S_ISREG()                    */
 #include <unistd.h>               /* read(), close(), rmdir()             */
 #include <dirent.h>               /* opendir(), closedir(), readdir(),    */
@@ -93,7 +93,7 @@ count_pool_files(int    *dir_pos,
 
       length -= 2;
       ptr = pool_dir + length;
-      while ((*ptr != '_') && (isdigit((int)(*ptr))) && (length > 0))
+      while ((*ptr != '_') && (isxdigit((int)(*ptr))) && (length > 0))
       {
          ptr--; length--;
       }

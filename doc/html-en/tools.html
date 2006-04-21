@@ -12,32 +12,39 @@ $AFD_WORK_DIR/sbin. Here follows a description of some of the tools:
 </p>
 <h3 align=center><a name="afdcmd"><u>AFD commands (afdcmd)</u></a></h3>
 <p>
-With this program you can send many commands that you can also
-issue with the <a href="afd_ctrl.html">afd_ctrl</a> dialog on a per
-host basis. When you call afdcmd without any parameters it will show
-all commands it knows:
+With this program you can send most commands that you can also
+issue with the <a href="afd_ctrl.html">afd_ctrl</a> and dir_ctrl
+dialog on a per host or directory basis. When you call afdcmd without
+any parameters it will show all commands it knows:
 </p>
 <pre>
-   SYNTAX  : afdcmd [-w working directory] options hostname|position
-                                         -q      start queue
-                                         -Q      stop queue
-                                         -t      start transfer
-                                         -T      stop transfer
-                                         -e      enable host
-                                         -E      disable host
-                                         -s      switch host
-                                         -r      retry
-                                         -d      enable/disable debug
-                                         -c      enable/disable trace
-                                         -C      enable/disable full trace
-                                         -f      start FD
-                                         -F      stop FD
-                                         -a      start AMG
-                                         -A      stop AMG
-                                         -Z      start/stop FD
-                                         -X      toggle enable/disable host
-                                         -Y      start/stop AMG
-                                         -v      just print Version
+   SYNTAX  : afdcmd [-w working directory] [-u[ &lt;user&gt;]] options hostname|directory|position
+       FSA options:
+                  -q      start queue
+                  -Q      stop queue
+                  -t      start transfer
+                  -T      stop transfer
+                  -e      enable host
+                  -E      disable host
+                  -s      switch host
+                  -r      retry
+                  -d      enable/disable debug
+                  -c      enable/disable trace
+                  -C      enable/disable full trace
+                  -X      toggle enable/disable host
+       FRA options:
+                  -b      enable directory
+                  -B      disable directory
+                  -R      rescan directory
+                  -W      toggle enable/disable directory
+   General options:
+                  -f      start FD
+                  -F      stop FD
+                  -a      start AMG
+                  -A      stop AMG
+                  -Y      start/stop AMG
+                  -Z      start/stop FD
+                  -v      just print Version
 </pre>
 <p>
 In conjunction with cron you can enable/disable certain hosts and control
@@ -72,82 +79,119 @@ To view the content of the FSA (Filetransfer Status Area) there is a
 program called fsa_view. An example output might look as follows:
 </p>
 <pre>
-afd@r2d2:~$ fsa_view fiau
-            Number of hosts: 26   FSA ID: 35
+afd@r2d2:~$ fsa_view fiau_
+    Number of hosts: 34   FSA ID: 1  Struct Version: 2  Pagesize: 4096
 
-=============================&gt; fiau &lt;=============================
-Real hostname 1    : 127.0.0.1
-Real hostname 2    : 
-Hostname (display) : &gt;fiau&lt;
-Host toggle        : HOST_ONE
-Auto toggle        : OFF
-Original toggle    : NONE
-Toggle position    : 4
-Protocol( 60008001): FTP active SSL
-Direction          : SEND 
-Proxy name         : &gt;$Udwd@ifu;$Pgtswetter&lt;
-Debug mode         : OFF
-Host status (   0) : NORMAL_STATUS
-Transfer timeout   : 120
-File size offset   : -2
-Successful retries : 0
-MaxSuccessful ret. : 0
-Special flag (64)  : HOST_IN_DIR_CONFIG NO_BURST=0
-Error counter      : 0
-Total errors       : 7
-Max. errors        : 10
-Error history      : 000 -&gt; Transfer success
-                     000 -&gt; Transfer success
-                     000 -&gt; Transfer success
-                     000 -&gt; Transfer success
-                     000 -&gt; Transfer success
-Retry interval     : 600
-Transfer block size: 1024
-TTL                : 0
-Time of last retry : Sun Dec 10 22:07:05 2000
-Last connection    : Fri Jan  5 20:16:25 2001
-First error time   : Not set.
-Total file counter : 0
-Total file size    : 0
-File counter done  : 104
-Bytes send         : 3100838
-Connections        : 26
-MC NACK counter    : 0
-Jobs queued        : 0
-Active transfers   : 0
-Allowed transfers  : 2
-Rate limit         : 0
-Rate limit per proc: 0
-MC Rate limit      : 40960
-MC Rate limit/proc : 40960
-                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   
+=============================&gt; fiau_ &lt;=============================
+Host alias CRC       : e831dc61
+Real hostname 1      : 127.0.0.1
+Real hostname 2      :
+Hostname (display)   : &gt;fiau_&lt;
+Host toggle          : HOST_ONE
+Auto toggle          : OFF
+Original toggle      : NONE
+Toggle position      : 5
+Protocol(   40000001): FTP active fast_move fast_cd
+Direction            : SEND
+Socket send buffer   : Not set
+Socket rcv buffer    : Not set
+Keep connected       : Not set
+Proxy name           : &gt;$Udwd@ifu;$Pgtswetter&lt;
+Debug mode           : OFF
+Dupcheck timeout     : Disabled
+Host status (   0)   : NORMAL_STATUS
+Transfer timeout     : 120
+File size offset     : -2
+Successful retries   : 0
+MaxSuccessful ret.   : 10
+Special flag ( 64)   : HOST_IN_DIR_CONFIG NO_BURST=0
+Error counter        : 0
+Total errors         : 7
+Max. errors          : 10
+Error history        : 000 -&gt; Transfer success
+                       000 -&gt; Transfer success
+                       000 -&gt; Transfer success
+                       000 -&gt; Transfer success
+                       000 -&gt; Transfer success
+Retry interval       : 600
+Transfer block size  : 4096
+TTL                  : 0
+Time of last retry   : Sat Apr  8 23:36:41 2006
+Last connection      : Sat Apr  8 23:36:41 2006
+First error time     : Not set.
+Total file counter   : 0
+Total file size      : 0
+File counter done    : 104
+Bytes send           : 3100838
+Connections          : 26
+MC NACK counter      : 0
+Jobs queued          : 0
+Active transfers     : 0
+Allowed transfers    : 2
+Rate limit           : 0
+Rate limit per proc  : 0
+MC Rate limit        : 0
+MC Rate limit/proc   : 0
+                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4
 --------------------+-----------+-----------+-----------+-----------+-----------
-PID                 |        -1 |        -1 |        -1 |        -1 |        -1 
-Connect status      |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT 
-Number of files     |         0 |         0 |         0 |         0 |         0 
-No. of files done   |         0 |         0 |         0 |         0 |         0 
-File size           |         0 |         0 |         0 |         0 |         0 
-File size done      |         0 |         0 |         0 |         0 |         0 
-Bytes send          |   3100838 |         0 |         0 |         0 |         0 
-File name in use    |           |           |           |           |           
-File size in use    |         0 |         0 |         0 |         0 |         0 
-Filesize in use done|         0 |         0 |         0 |         0 |         0 
-Unique name         |           |           |           |           |           
-Job ID              |         0 |         0 |         0 |         0 |         0 
+PID                 |        -1 |        -1 |        -1 |        -1 |        -1
+Connect status      |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT |DISCONNECT
+Number of files     |         0 |         0 |         0 |         0 |         0
+No. of files done   |         0 |         0 |         0 |         0 |         0
+File size           |         0 |         0 |         0 |         0 |         0
+File size done      |         0 |         0 |         0 |         0 |         0
+Bytes send          |   3100838 |         0 |         0 |         0 |         0
+File name in use    |           |           |           |           |
+File size in use    |         0 |         0 |         0 |         0 |         0
+Filesize in use done|         0 |         0 |         0 |         0 |         0
+Unique name         |           |           |           |           |
+Job ID              |         0 |         0 |         0 |         0 |         0
+</pre>
+<p>
+Under 'File name in use' will be shown the current file being transmitted.
+To view the full name use the '-l' option to show the long view:
+</p>
+<pre>
+-------- Job  0 -----+------------------------------------------------------
+PID                  : -1
+Connect status       : DISCONNECT
+Number of files      : 0
+No. of files done    : 0
+File size            : 0
+File size done       : 0
+Bytes send           : 3100838
+File name in use     : 
+File size in use     : 0
+File size in use done: 0
+Unique name          : 
+Job ID               : 0
+-------- Job  1 -----+------------------------------------------------------
+PID                  : -1
+Connect status       : DISCONNECT
+Number of files      : 0
+No. of files done    : 0
+File size            : 0
+File size done       : 0
+Bytes send           : 0
+File name in use     : 
+File size in use     : 0
+File size in use done: 0
+Unique name          : 
+Job ID               : 0
 </pre>
 <h3 align=center><a name="fra_view"><u>View FRA (fra_view)</u></a></h3>
 <p>
 To view the content of the FRA (Fileretrieve Status Area), the directories
-monitored by AFD, there is a program called fra_view. The outputlooks as
+monitored by AFD, there is a program called fra_view. The output looks as
 follows:
 </p>
 <pre>
 afd@r2d2:~$ fra_view 3
-            Number of directories: 42   FRA ID: 32
+     Number of directories: 42   FRA ID: 32  Struct Version: 3
 
 =============================&gt; 99ca01ad &lt;=============================
 Directory alias      : 99ca01ad
-Directory position   : 3
+Directory ID         : 99ca01ad
 URL                  : ftp://funk:bla@testmaus
 Host alias           : testmaus
 Wait for             : 
@@ -195,6 +239,61 @@ Month (short)        : 00000000 00000000
 Day of week (uchar)  : 00000000
 Last retrieval       : Sun Jun 19 10:39:10 2005
 </pre>
+<h3 align=center><a name="afd_status"><u>AFD Status (afd_status)</u></a></h3>
+<p>
+The program afd_status prints the current status of the AFD that is diaplayed
+at the bottom row of the afd_ctrl dialog.
+</p>
+<pre>
+AMG                  : 1
+AMG jobs             : 1
+FD                   : 1
+System log           : 1
+Transfer log         : 1
+Trans debug log      : 1
+Archive watch        : 1
+afd_stat             : 1
+afdd                 : 1
+input_log            : 1
+output_log           : 1
+delete_log           : 1
+production_log       : 1
+Receivelog indicator : 155 &lt; I I W I I &gt;
+Receive log history  : ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? I E ? ? ? ? ? I I ? I I I I W W W W I
+Syslog indicator     : 787 &lt; I I I I I &gt;
+System log history   : ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? W W C I W C C W I W W W I I W W I W W
+Translog indicator   : 2317 &lt; I I I I I &gt;
+Transfer log history : ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? ? I I I I I I I I I I I I I I E E I E I
+Number of transfers  : 0
+Number of retrieves  : 0
+Jobs in queue        : 0
+AMG fork() counter   : 6
+FD fork() counter    : 1213
+Burst2 counter       : 4
+Max. FD queue length : 17
+AFD start time       : Thu Jan 19 20:29:37 2006
+</pre>
+<p>
+The process status of each can have the following numbers:
+</p>
+<center><table border>
+<tr>
+   <td align=center>-3</td>
+   <td>The process has stopped normally.</td>
+</tr>
+<tr>
+   <td align=center>0</td>
+   <td>Process is not running.</td>
+</tr>
+<tr>
+   <td align=center>1</td>
+   <td>Process is up and running.</td>
+</tr>
+<tr>
+   <td align=center>19</td>
+   <td>Process is currently shutting down.</td>
+</tr>
+</table></center>
 <h3 align=center><a name="fsa_edit"><u>Edit FSA (fsa_edit)</u></a></h3>
 <p>
 The program fsa_edit can be used to edit the FSA (Filetransfer Status
@@ -226,6 +325,8 @@ that you might wish to manipulate as shown below:
         |  c  |No. of no bursts  |              0 |
         |  d  |Active transfers  |              0 |
         |  e  |File name         |                |
+        |  f  |Jobs queued       |              0 |
+        |  g  |Transferrate limit|              0 |
         +-----+------------------+----------------+
 
 
@@ -296,6 +397,8 @@ as the first argument:
 </p>
 <pre>
     Directory     : /home/afd/data/mfa
+    Dir-alias     : MRZ
+    DIR-options   : time */5 * * * *
     Filter        : G1*
                     G2*
                     G3*
@@ -310,7 +413,7 @@ as the first argument:
 <p>
 If no argument is given, the whole DIR_CONFIG as stored within AFD
 will be printed to stdout. So with this command you can reconstruct
-the DIR_CONFIG if you lost it or it is damaged.
+the DIR_CONFIG if you lost it or it is damaged and AFD is still active.
 </p>
 <h3 align=center><a name="show_exec_stat"><u>Show exec statistics
 (show_exec_stat)</u></a></h3>
@@ -319,9 +422,9 @@ If called will cause dir_check to print out some exec statistics about
 CPU usage in SYSTEM_LOG. This is very usfull to find the jobs that cause
 most of the load. Below is an example output:
 <pre>
-   10 14:40:06 <D> CPU clock times for exec option:
-   10 14:40:06 <D> Job ID     Forks      User       System     Total
-   10 14:40:06 <D> 4b5313cf   3          78         14         92
+   10 14:40:06 &lt;D&gt; CPU clock times for exec option:
+   10 14:40:06 &lt;D&gt; Job ID     Forks      User       System     Total
+   10 14:40:06 &lt;D&gt; 4b5313cf   3          78         14         92
 </pre>
 This statistic will always be printed when dir_check terminates.
 </p>
@@ -373,32 +476,37 @@ user interaction, so it can be used from any shell scripts or programs such as
 
      OPTIONS                              DESCRIPTION
      --version                          - Show current version
-     -a <file size offset>              - Offset of file name when doing a LIST
+     -a &lt;file size offset&gt;              - Offset of file name when doing a LIST
                                           command on the remote side. If you
                                           specify -2 it will try to determine
                                           the size with the SIZE command.
-     -b <block size>                    - FTP block size in bytes. Default 4096
+     -b &lt;block size&gt;                    - FTP block size in bytes. Default 4096
                                           Bytes.
-     -c <config file>                   - Configuration file holding user name,
+     -c &lt;config file&gt;                   - Configuration file holding user name,
                                           password und target directory in URL
                                           format.
      -C                                 - If target directory does not exist create
                                           it.
-     -d <remote directory>              - Directory where file(s) are to be stored.
-     -f <filename>                      - File containing a list of filenames
+     -d &lt;remote directory&gt;              - Directory where file(s) are to be stored.
+     -f &lt;filename&gt;                      - File containing a list of filenames
                                           that are to be send.
-     -h <host name | IP number>         - Hostname or IP number to which to
+     -h &lt;host name | IP number&gt;         - Hostname or IP number to which to
                                           send the file(s).
      -k                                 - Keep FTP control connection with STAT
                                           calls alive/fresh.
-     -l <DOT | DOT_VMS | OFF | xyz.>    - How to lock the file on the remote site.
-     -m <A | I | D>                     - FTP transfer mode, ASCII, binary or DOS.
+     -l &lt;DOT | DOT_VMS | OFF | xyz.&gt;    - How to lock the file on the remote site.
+     -m &lt;A | I | D&gt;                     - FTP transfer mode, ASCII, binary or DOS.
                                           Default is binary.
-     -p <port number>                   - Remote port number of FTP-server.
-     -u <user> <password>               - Remote user name and password. If not
+     -p &lt;port number&gt;                   - Remote port number of FTP-server.
+     -P &lt;proxy procedure&gt;               - Use the given proxy procedure to
+                                          login. See documentation for more
+                                          details on syntax.
+     -u &lt;user&gt; &lt;password&gt;               - Remote user name and password. If not
                                           supplied, it will login as anonymous.
      -r                                 - Remove transmitted file.
-     -t <timout>                        - FTP timeout in seconds. Default 120s.
+     -S &lt;buffer size&gt;                   - Socket send buffer size
+                                          (in bytes).
+     -t &lt;timout&gt;                        - FTP timeout in seconds. Default 120s.
      -v                                 - Verbose. Shows all FTP commands and
                                           the reply from the remote server.
      -x                                 - Use passive mode instead of active
@@ -441,25 +549,25 @@ user interaction, so it can be used from any shell scripts or programs such as
 
      OPTIONS                      DESCRIPTION
      --version                  - Show current version
-     -a <user@host>             - The address where the mail is sent to.
-     -b <block size>            - Transfer block size in bytes. Default 4096
+     -a &lt;user@host&gt;             - The address where the mail is sent to.
+     -b &lt;block size&gt;            - Transfer block size in bytes. Default 4096
                                   Bytes.
-     -c <config file>           - Configuration file holding user name,
+     -c &lt;config file&gt;           - Configuration file holding user name,
                                   domain and SMTP server in URL format.
      -e                         - Encode files in BASE64.
-     -f <filename>              - File containing a list of filenames
+     -f &lt;filename&gt;              - File containing a list of filenames
                                   that are to be send.
-     -h <hostname | IP number>  - Recipient hostname of this mail.
-     -m <mailserver-address>    - Mailserver that will send this mail.
+     -h &lt;hostname | IP number&gt;  - Recipient hostname of this mail.
+     -m &lt;mailserver-address&gt;    - Mailserver that will send this mail.
                                   Default is localhost.
      -n                         - File name is subject.
-     -o <mail address>          - Where the receiver should send is reply.
-     -p <port number>           - Remote port number of SMTP-server.
+     -o &lt;mail address&gt;          - Where the receiver should send is reply.
+     -p &lt;port number&gt;           - Remote port number of SMTP-server.
                                   Default 25.
      -r                         - Remove transmitted file.
-     -s <subject>               - Subject of this mail.
-     -t <timout>                - SMTP timeout in seconds. Default 120s.
-     -u <user>                  - The user who should get the mail.
+     -s &lt;subject&gt;               - Subject of this mail.
+     -t &lt;timout&gt;                - SMTP timeout in seconds. Default 120s.
+     -u &lt;user&gt;                  - The user who should get the mail.
      -v                         - Verbose. Shows all SMTP commands and
                                   the reply from the SMTP server.
      -y                         - File name is user.
@@ -488,9 +596,9 @@ user interaction, so it can be used from any shell scripts or programs such as
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 2001 - 2005 by H.Kiehl<br>
+   Copyright &copy; 2001 - 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 17.08.2005
+   Last updated: 14.04.2006
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

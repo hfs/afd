@@ -329,7 +329,7 @@ main(int argc, char *argv[])
                           {
                              log_pos = 0;
                           }
-                          switch(msg_str[LOG_SIGN_POSITION])
+                          switch (msg_str[LOG_SIGN_POSITION])
                           {
                              case 'I' : /* Info */
                                 p_log_fifo[log_pos] = INFO_ID;

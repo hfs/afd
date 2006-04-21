@@ -1,6 +1,6 @@
 /*
  *  get_dc_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,6 +40,10 @@ DESCR__S_M3
  **   26.04.1999 H.Kiehl Added real hostname to output.
  **   01.01.2004 H.Kiehl Get file mask entries from file mask database.
  **                      Insert password if wanted.
+ **   14.08.2005 H.Kiehl Reconstruct DIR_CONFIG by printing everything
+ **                      to stdout.
+ **   06.01.2006 H.Kiehl When printing data for a specific host, print
+ **                      out information about directory options.
  **
  */
 DESCR__E_M3
@@ -139,7 +143,7 @@ main(int argc, char *argv[])
 
    /* Check if user may view the password. */
    check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
-   switch(get_permissions(&perm_buffer, fake_user))
+   switch (get_permissions(&perm_buffer, fake_user))
    {
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
@@ -458,7 +462,7 @@ get_dc_data(char *host_name)
          }
          else
          {
-            (void)fprintf(stderr, "Job ID database file is empty. (%s %d)\n",
+            (void)fprintf(stderr, "Password database file is empty. (%s %d)\n",
                           __FILE__, __LINE__);
          }
       }
@@ -483,18 +487,17 @@ get_dc_data(char *host_name)
     * Go through current job list and search the JID structure for
     * the host we are looking for.
     */
+   if (fra_attach_passive() == INCORRECT)
+   {
+      (void)fprintf(stderr, "Failed to attach to FRA!\n");
+      exit(INCORRECT);
+   }
    if (host_name[0] == '\0')
    {
-      if (fra_attach_passive() == INCORRECT)
-      {
-         (void)fprintf(stderr, "Failed to attach to FRA!\n");
-         exit(INCORRECT);
-      }
       for (i = 0; i < no_of_dirs_in_dnb; i++)
       {
          show_dir_data(i);
       }
-      (void)fra_detach();
    }
    else
    {
@@ -514,6 +517,7 @@ get_dc_data(char *host_name)
          }
       }
    }
+   (void)fra_detach();
 
    /* Free all memory that was allocated or mapped. */
    if (current_jid_list != NULL)
@@ -566,12 +570,43 @@ show_data(struct job_id_data *p_jd,
           struct passwd_buf  *pwb,
           int                position)
 {
-   int  fml_offset,
-        i,
-        mask_offset;
-   char value[MAX_PATH_LENGTH];
+   int                fml_offset,
+                      fra_pos = -1,
+                      i,
+                      mask_offset;
+   char               value[MAX_PATH_LENGTH];
+   struct dir_options d_o;
 
    (void)fprintf(stdout, "Directory     : %s\n", dir_name);
+
+   for (i = 0; i < no_of_dirs; i++)
+   {
+      if (fra[i].dir_id == p_jd->dir_id)
+      {
+         fra_pos = i;
+         break;
+      }
+   }
+   if (fra_pos == -1)
+   {
+      (void)fprintf(stderr, "Failed to locate `%s' in FRA!\n", dir_name);
+   }
+   else
+   {
+      (void)fprintf(stdout, "Dir-alias     : %s\n", fra[fra_pos].dir_alias);
+   }
+
+   /* If necessary add directory options. */
+   get_dir_options(p_jd->dir_id, &d_o);
+   if (d_o.no_of_dir_options > 0)
+   {
+      (void)fprintf(stdout, "DIR-options   : %s\n", d_o.aoptions[0]);
+      for (i = 1; i < d_o.no_of_dir_options; i++)
+      {
+         (void)fprintf(stdout, "                %s\n", d_o.aoptions[i]);
+      }
+   }
+
    if (fmd != NULL)
    {
       char *p_file = NULL,

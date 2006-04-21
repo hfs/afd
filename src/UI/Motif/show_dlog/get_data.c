@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -285,7 +285,7 @@ static void   display_data(int, time_t, time_t),
               break;                                       \
            }                                               \
         }
-
+#ifdef HAVE_STRTOULL
 #define FILE_SIZE_AND_RECIPIENT(id_string, id_string_length)           \
         {                                                              \
            int ii;                                                     \
@@ -316,7 +316,88 @@ static void   display_data(int, time_t, time_t),
                  ptr++;                                                \
               }                                                        \
                                                                        \
-              tmp_file_size = (double)strtoul(ptr, NULL, 16);          \
+              j = 0;                                                   \
+              while (*ptr != SEPARATOR_CHAR)                           \
+              {                                                        \
+                 ptr++; j++;                                           \
+              }                                                        \
+              if (j > 15)                                              \
+              {                                                        \
+                 tmp_file_size = strtod("INF", NULL);                  \
+              }                                                        \
+              else                                                     \
+              {                                                        \
+                 tmp_file_size = (double)strtoull(ptr - j, NULL, 16);  \
+              }                                                        \
+              if ((gt_lt_sign == EQUAL_SIGN) &&                        \
+                  (tmp_file_size == search_file_size))                 \
+              {                                                        \
+                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                 (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                 /* Write file size. */                                \
+                 print_file_size(p_file_size, (off_t)tmp_file_size);   \
+              }                                                        \
+              else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
+                       (tmp_file_size < search_file_size))             \
+                   {                                                   \
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                      (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                      /* Write file size. */                           \
+                      print_file_size(p_file_size, (off_t)tmp_file_size);\
+                   }                                                   \
+              else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
+                       (tmp_file_size > search_file_size))             \
+                   {                                                   \
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                      (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                      /* Write file size. */                           \
+                      print_file_size(p_file_size, (off_t)tmp_file_size);\
+                   }                                                   \
+                   else                                                \
+                   {                                                   \
+                      IGNORE_ENTRY();                                  \
+                   }                                                   \
+           }                                                           \
+           else                                                        \
+           {                                                           \
+              IGNORE_ENTRY();                                          \
+           }                                                           \
+        }
+#else
+# ifdef LINUX
+#define FILE_SIZE_AND_RECIPIENT(id_string, id_string_length)           \
+        {                                                              \
+           int ii;                                                     \
+                                                                       \
+           for (ii = 0; ii < no_of_search_hosts; ii++)                 \
+           {                                                           \
+              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              {                                                        \
+                 current_search_host = ii;                             \
+                 break;                                                \
+              }                                                        \
+           }                                                           \
+           if (current_search_host != -1)                              \
+           {                                                           \
+              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                     \
+              while (*ptr != SEPARATOR_CHAR)                           \
+              {                                                        \
+                 ptr++;                                                \
+              }                                                        \
+              ptr++;                                                   \
+              if (*ptr == '/')                                         \
+              {                                                        \
+                 /* Ignore  the remote file name */                    \
+                 while (*ptr != SEPARATOR_CHAR)                        \
+                 {                                                     \
+                    ptr++;                                             \
+                 }                                                     \
+                 ptr++;                                                \
+              }                                                        \
+                                                                       \
               j = 0;                                                   \
               while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
@@ -328,7 +409,7 @@ static void   display_data(int, time_t, time_t),
               }                                                        \
               else                                                     \
               {                                                        \
-                 if (j > 20)                                           \
+                 if (j > 15)                                           \
                  {                                                     \
                     tmp_file_size = strtod("INF", NULL);               \
                  }                                                     \
@@ -379,6 +460,89 @@ static void   display_data(int, time_t, time_t),
               IGNORE_ENTRY();                                          \
            }                                                           \
         }
+# else
+#define FILE_SIZE_AND_RECIPIENT(id_string, id_string_length)           \
+        {                                                              \
+           int ii;                                                     \
+                                                                       \
+           for (ii = 0; ii < no_of_search_hosts; ii++)                 \
+           {                                                           \
+              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              {                                                        \
+                 current_search_host = ii;                             \
+                 break;                                                \
+              }                                                        \
+           }                                                           \
+           if (current_search_host != -1)                              \
+           {                                                           \
+              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                     \
+              while (*ptr != SEPARATOR_CHAR)                           \
+              {                                                        \
+                 ptr++;                                                \
+              }                                                        \
+              ptr++;                                                   \
+              if (*ptr == '/')                                         \
+              {                                                        \
+                 /* Ignore  the remote file name */                    \
+                 while (*ptr != SEPARATOR_CHAR)                        \
+                 {                                                     \
+                    ptr++;                                             \
+                 }                                                     \
+                 ptr++;                                                \
+              }                                                        \
+                                                                       \
+              j = 0;                                                   \
+              while (*ptr != SEPARATOR_CHAR)                           \
+              {                                                        \
+                 ptr++; j++;                                           \
+              }                                                        \
+              if (j < 9)                                               \
+              {                                                        \
+                 tmp_file_size = (double)strtoul(ptr - j, NULL, 16);   \
+              }                                                        \
+              else                                                     \
+              {                                                        \
+                 tmp_file_size = strtod("INF", NULL);                  \
+              }                                                        \
+              if ((gt_lt_sign == EQUAL_SIGN) &&                        \
+                  (tmp_file_size == search_file_size))                 \
+              {                                                        \
+                 (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                 (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                 /* Write file size. */                                \
+                 print_file_size(p_file_size, (off_t)tmp_file_size);   \
+              }                                                        \
+              else if ((gt_lt_sign == LESS_THEN_SIGN) &&               \
+                       (tmp_file_size < search_file_size))             \
+                   {                                                   \
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                      (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                      /* Write file size. */                           \
+                      print_file_size(p_file_size, (off_t)tmp_file_size);\
+                   }                                                   \
+              else if ((gt_lt_sign == GREATER_THEN_SIGN) &&            \
+                       (tmp_file_size > search_file_size))             \
+                   {                                                   \
+                      (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                      (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                      /* Write file size. */                           \
+                      print_file_size(p_file_size, (off_t)tmp_file_size);\
+                   }                                                   \
+                   else                                                \
+                   {                                                   \
+                      IGNORE_ENTRY();                                  \
+                   }                                                   \
+           }                                                           \
+           else                                                        \
+           {                                                           \
+              IGNORE_ENTRY();                                          \
+           }                                                           \
+        }
+# endif
+#endif
 
 #define FILE_NAME_AND_RECIPIENT(toggle_id, id_string, id_string_length)\
         {                                                              \
@@ -424,6 +588,72 @@ static void   display_data(int, time_t, time_t),
             }                                                          \
         }
 
+#ifdef HAVE_STRTOULL
+#define FILE_SIZE_ONLY(id_string, id_string_length)                    \
+        {                                                              \
+           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                        \
+           while (*ptr != SEPARATOR_CHAR)                              \
+           {                                                           \
+              ptr++;                                                   \
+           }                                                           \
+           ptr++;                                                      \
+           if (*ptr == '/')                                            \
+           {                                                           \
+              /* Ignore  the remote file name */                       \
+              while (*ptr != SEPARATOR_CHAR)                           \
+              {                                                        \
+                 ptr++;                                                \
+              }                                                        \
+              ptr++;                                                   \
+           }                                                           \
+                                                                       \
+           j = 0;                                                      \
+           while (*ptr != SEPARATOR_CHAR)                              \
+           {                                                           \
+              ptr++; j++;                                              \
+           }                                                           \
+           if (j > 15)                                                 \
+           {                                                           \
+              tmp_file_size = strtod("INF", NULL);                     \
+           }                                                           \
+           else                                                        \
+           {                                                           \
+              tmp_file_size = (double)strtoull(ptr - j, NULL, 16);     \
+           }                                                           \
+           if ((gt_lt_sign == EQUAL_SIGN) &&                           \
+               (tmp_file_size == search_file_size))                    \
+           {                                                           \
+              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+              (void)memcpy(p_type, (id_string), (id_string_length));   \
+                                                                       \
+              /* Write file size. */                                   \
+              print_file_size(p_file_size, (off_t)tmp_file_size);      \
+           }                                                           \
+           else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
+                    (tmp_file_size < search_file_size))                \
+                {                                                      \
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                   (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                   /* Write file size. */                              \
+                   print_file_size(p_file_size, (off_t)tmp_file_size); \
+                }                                                      \
+           else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
+                    (tmp_file_size > search_file_size))                \
+                {                                                      \
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                   (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                   /* Write file size. */                              \
+                   print_file_size(p_file_size, (off_t)tmp_file_size); \
+                }                                                      \
+                else                                                   \
+                {                                                      \
+                   IGNORE_ENTRY();                                     \
+                }                                                      \
+        }
+#else
+# ifdef LINUX
 #define FILE_SIZE_ONLY(id_string, id_string_length)                    \
         {                                                              \
            ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                        \
@@ -453,7 +683,7 @@ static void   display_data(int, time_t, time_t),
            }                                                           \
            else                                                        \
            {                                                           \
-              if (j > 20)                                              \
+              if (j > 15)                                              \
               {                                                        \
                  tmp_file_size = strtod("INF", NULL);                  \
               }                                                        \
@@ -499,6 +729,72 @@ static void   display_data(int, time_t, time_t),
                    IGNORE_ENTRY();                                     \
                 }                                                      \
         }
+# else
+#define FILE_SIZE_ONLY(id_string, id_string_length)                    \
+        {                                                              \
+           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                        \
+           while (*ptr != SEPARATOR_CHAR)                              \
+           {                                                           \
+              ptr++;                                                   \
+           }                                                           \
+           ptr++;                                                      \
+           if (*ptr == '/')                                            \
+           {                                                           \
+              /* Ignore  the remote file name */                       \
+              while (*ptr != SEPARATOR_CHAR)                           \
+              {                                                        \
+                 ptr++;                                                \
+              }                                                        \
+              ptr++;                                                   \
+           }                                                           \
+                                                                       \
+           j = 0;                                                      \
+           while (*ptr != SEPARATOR_CHAR)                              \
+           {                                                           \
+              ptr++; j++;                                              \
+           }                                                           \
+           if (j < 9)                                                  \
+           {                                                           \
+              tmp_file_size = (double)strtoul(ptr - j, NULL, 16);      \
+           }                                                           \
+           else                                                        \
+           {                                                           \
+              tmp_file_size = strtod("INF", NULL);                     \
+           }                                                           \
+           if ((gt_lt_sign == EQUAL_SIGN) &&                           \
+               (tmp_file_size == search_file_size))                    \
+           {                                                           \
+              (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+              (void)memcpy(p_type, (id_string), (id_string_length));   \
+                                                                       \
+              /* Write file size. */                                   \
+              print_file_size(p_file_size, (off_t)tmp_file_size);      \
+           }                                                           \
+           else if ((gt_lt_sign == LESS_THEN_SIGN) &&                  \
+                    (tmp_file_size < search_file_size))                \
+                {                                                      \
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                   (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                   /* Write file size. */                              \
+                   print_file_size(p_file_size, (off_t)tmp_file_size); \
+                }                                                      \
+           else if ((gt_lt_sign == GREATER_THEN_SIGN) &&               \
+                    (tmp_file_size > search_file_size))                \
+                {                                                      \
+                   (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
+                   (void)memcpy(p_type, (id_string), (id_string_length));\
+                                                                       \
+                   /* Write file size. */                              \
+                   print_file_size(p_file_size, (off_t)tmp_file_size); \
+                }                                                      \
+                else                                                   \
+                {                                                      \
+                   IGNORE_ENTRY();                                     \
+                }                                                      \
+        }
+# endif
+#endif
 #endif /* _DELETE_LOG */
 
 
@@ -1100,13 +1396,24 @@ no_criteria(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1119,7 +1426,11 @@ no_criteria(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          /* Write transfer duration, job ID and additional reason. */
@@ -1422,13 +1733,24 @@ file_name_only(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1441,7 +1763,11 @@ file_name_only(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          /* Write transfer duration, job ID and additional reason. */
@@ -1851,13 +2177,24 @@ file_name_and_size(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -1870,7 +2207,11 @@ file_name_and_size(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size != search_file_size))
          {
@@ -2278,13 +2619,24 @@ recipient_only(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -2297,7 +2649,11 @@ recipient_only(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          print_file_size(p_file_size, (off_t)tmp_file_size);
 
          /* Write transfer duration, job ID and additional reason. */
@@ -2467,13 +2823,24 @@ file_name_and_recipient(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -2486,7 +2853,11 @@ file_name_and_recipient(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
 
          /* Write transfer duration, job ID and additional reason. */
          /* Also check if we have to check for directory name.     */
@@ -3029,13 +3400,24 @@ file_name_size_recipient(register char *ptr,
          {
             ptr++; j++;
          }
+#ifdef HAVE_STRTOULL
+         if (j > 15)
+         {
+            tmp_file_size = strtod("INF", NULL);
+         }
+         else
+         {
+            tmp_file_size = (double)strtoull(ptr - j, NULL, 16);
+         }
+#else
          if (j < 9)
          {
             tmp_file_size = (double)strtoul(ptr - j, NULL, 16);
          }
          else
          {
-            if (j > 20)
+# ifdef LINUX
+            if (j > 15)
             {
                tmp_file_size = strtod("INF", NULL);
             }
@@ -3048,7 +3430,11 @@ file_name_size_recipient(register char *ptr,
                tmp_buf[2 + j] = '\0';
                tmp_file_size = strtod(tmp_buf, NULL);
             }
+# else
+            tmp_file_size = strtod("INF", NULL);
+# endif
          }
+#endif
          if ((gt_lt_sign == EQUAL_SIGN) &&
              (tmp_file_size != search_file_size))
          {

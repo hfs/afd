@@ -89,7 +89,7 @@ xrec(Widget parent, char type, char *fmt, ...)
    n++;
    dialog = XmCreateMessageDialog(parent, "Message", arg, n);
    XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_HELP_BUTTON));
-   switch(type)
+   switch (type)
    {
       case INFO_DIALOG    : /* Information and OK button */
          XtUnmanageChild(XmMessageBoxGetChild(dialog, XmDIALOG_CANCEL_BUTTON));

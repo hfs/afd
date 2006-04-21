@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -283,24 +283,8 @@ check_fra_fd(void)
                                        if (fsa[connection[m].fsa_pos].active_transfers < 0)
                                        {
                                           fsa[connection[m].fsa_pos].active_transfers = 0;
-                                          fsa[connection[m].fsa_pos].trl_per_process = fsa[connection[m].fsa_pos].transfer_rate_limit;
-                                          fsa[connection[m].fsa_pos].mc_ctrl_per_process = fsa[connection[m].fsa_pos].mc_ct_rate_limit;
                                        }
-                                       else
-                                       {
-                                          if (fsa[connection[m].fsa_pos].active_transfers > 1)
-                                          {
-                                             fsa[connection[m].fsa_pos].trl_per_process = fsa[connection[m].fsa_pos].transfer_rate_limit /
-                                                                                          fsa[connection[m].fsa_pos].active_transfers;
-                                             fsa[connection[m].fsa_pos].mc_ctrl_per_process = fsa[connection[m].fsa_pos].mc_ct_rate_limit /
-                                                                                              fsa[connection[m].fsa_pos].active_transfers;
-                                          }
-                                          else
-                                          {
-                                             fsa[connection[m].fsa_pos].trl_per_process = fsa[connection[m].fsa_pos].transfer_rate_limit;
-                                             fsa[connection[m].fsa_pos].mc_ctrl_per_process = fsa[connection[m].fsa_pos].mc_ct_rate_limit;
-                                          }
-                                       }
+                                       calc_trl_per_process(connection[m].fsa_pos);
                                        fsa[connection[m].fsa_pos].job_status[connection[m].job_no].proc_id = -1;
                                        fsa[connection[m].fsa_pos].job_status[connection[m].job_no].connect_status = DISCONNECT;
 #ifdef _WITH_BURST_2

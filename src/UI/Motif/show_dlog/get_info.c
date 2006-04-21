@@ -1,6 +1,6 @@
 /*
  *  get_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,7 +74,7 @@ static struct job_id_data  *jd = NULL;
 static struct dir_name_buf *dnb = NULL;
 
 /* Local function prototypes. */
-static int                 get_all(int, char *);
+static unsigned int        get_all(int, char *);
 static void                get_dir_data(int),
                            get_job_data(struct job_id_data *);
 
@@ -332,7 +332,11 @@ get_sum_data(int item, time_t *date, double *file_size)
       if (*ptr == SEPARATOR_CHAR)
       {
          str_hex_number[i] = '\0';
-         *file_size = strtod(str_hex_number, NULL);
+#ifdef HAVE_STRTOULL
+         *file_size = (double)strtoull(str_hex_number, NULL, 16);
+#else
+         *file_size = (double)strtoul(str_hex_number, NULL, 16);
+#endif
       }
       else
       {
@@ -350,7 +354,7 @@ get_sum_data(int item, time_t *date, double *file_size)
 /*              it exists), job number and if available the additional   */
 /*              reasons out of the log file.                             */
 /*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
-static int
+static unsigned int
 get_all(int item, char *input_id)
 {
    int  file_no,
@@ -384,7 +388,7 @@ get_all(int item, char *input_id)
          (void)xrec(appshell, FATAL_DIALOG,
                     "fseek() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
-         return(0);
+         return(0U);
       }
 
       if (fgets(buffer, MAX_FILENAME_LENGTH + MAX_PATH_LENGTH, il[file_no].fp) == NULL)
@@ -392,7 +396,7 @@ get_all(int item, char *input_id)
          (void)xrec(appshell, WARN_DIALOG,
                     "fgets() error : %s (%s %d)",
                     strerror(errno), __FILE__, __LINE__);
-         return(0);
+         return(0U);
       }
       ptr = buffer;
       i = 0;
@@ -421,7 +425,11 @@ get_all(int item, char *input_id)
 #else
          (void)sprintf(id.file_size, "%lld",
 #endif
-                       (off_t)strtod(str_hex_number, NULL));
+#ifdef HAVE_STRTOULL
+                       (off_t)strtoull(str_hex_number, NULL, 16));
+#else
+                       (off_t)strtoul(str_hex_number, NULL, 16));
+#endif
          ptr++;
       }
       else if (i >= 23)
@@ -478,7 +486,7 @@ get_all(int item, char *input_id)
    }
    else
    {
-      return(0);
+      return(0U);
    }
 }
 
@@ -592,7 +600,7 @@ get_dir_data(int dir_pos)
       }
    }
 
-   while (jd[i].dir_id_pos == dir_pos)
+   while ((jd[i].dir_id_pos == dir_pos) && (i < *no_of_job_ids))
    {
       get_file_mask_list(jd[i].file_mask_id, &no_of_file_masks, &file_mask_buf);
       if (file_mask_buf != NULL)
@@ -607,7 +615,7 @@ get_dir_data(int dir_pos)
          gotcha = NO;
          for (j = 0; j < no_of_file_masks; j++)
          {
-            if (pmatch(p_file, id.file_name) == 0)
+            if (pmatch(p_file, id.file_name, NULL) == 0)
             {
                gotcha = YES;
                break;

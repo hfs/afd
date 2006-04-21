@@ -295,7 +295,7 @@ fsa_attach(void)
           (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FSA_VERSION))
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.\n",
+                    "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.",
                     CURRENT_FSA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
 #ifdef HAVE_MMAP
          if (munmap(ptr, stat_buf.st_size) == -1)
@@ -416,7 +416,7 @@ fsa_attach_passive(void)
        (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_FSA_VERSION))
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
-                 "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.\n",
+                 "This code is compiled for of FSA version %d, but the FSA we try to attach is %d.",
                  CURRENT_FSA_VERSION, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
 #ifdef HAVE_MMAP
       if (munmap(ptr, stat_buf.st_size) == -1)
