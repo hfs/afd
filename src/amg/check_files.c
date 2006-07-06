@@ -320,7 +320,8 @@ check_files(struct directory_entry *p_de,
                   if ((eaccess(fullname, R_OK) == 0))
 #endif
                   {
-                     if ((ret = pmatch(fra[p_de->fra_pos].wait_for_filename, p_dir->d_name, &current_time)) == 0)
+                     if ((ret = pmatch(fra[p_de->fra_pos].wait_for_filename,
+                                       p_dir->d_name, &current_time)) == 0)
                      {
                         if ((fra[p_de->fra_pos].end_character == -1) ||
                             (fra[p_de->fra_pos].end_character == get_last_char(fullname, stat_buf.st_size)))
@@ -451,19 +452,20 @@ check_files(struct directory_entry *p_de,
                         int j;
 
                         /* Filter out only those files we need for this directory. */
+                        if (p_de->paused_dir == NULL)
+                        {
+                           pmatch_time = current_time;
+                        }
+                        else
+                        {
+                           pmatch_time = stat_buf.st_mtime;
+                        }
                         for (i = 0; i < p_de->nfg; i++)
                         {
                            for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++)
                            {
-                              if (p_de->paused_dir == NULL)
-                              {
-                                 pmatch_time = current_time;
-                              }
-                              else
-                              {
-                                 pmatch_time = stat_buf.st_mtime;
-                              }
-                              if ((ret = pmatch(p_de->fme[i].file_mask[j], p_dir->d_name, &pmatch_time)) == 0)
+                              if ((ret = pmatch(p_de->fme[i].file_mask[j],
+                                                p_dir->d_name, &pmatch_time)) == 0)
                               {
                                  if ((fra[p_de->fra_pos].end_character == -1) ||
                                      (fra[p_de->fra_pos].end_character == get_last_char(fullname, stat_buf.st_size)))
@@ -948,19 +950,20 @@ check_files(struct directory_entry *p_de,
                   int gotcha = NO;
 
                   /* Filter out only those files we need for this directory */
+                  if (p_de->paused_dir == NULL)
+                  {
+                     pmatch_time = current_time;
+                  }
+                  else
+                  {
+                     pmatch_time = stat_buf.st_mtime;
+                  }
                   for (i = 0; i < p_de->nfg; i++)
                   {
                      for (j = 0; ((j < p_de->fme[i].nfm) && (i < p_de->nfg)); j++)
                      {
-                        if (p_de->paused_dir == NULL)
-                        {
-                           pmatch_time = current_time;
-                        }
-                        else
-                        {
-                           pmatch_time = stat_buf.st_mtime;
-                        }
-                        if ((ret = pmatch(p_de->fme[i].file_mask[j], p_dir->d_name, &pmatch_time)) == 0)
+                        if ((ret = pmatch(p_de->fme[i].file_mask[j],
+                                          p_dir->d_name, &pmatch_time)) == 0)
                         {
 #ifdef WITH_DUP_CHECK
                            int is_duplicate = NO;
@@ -1322,7 +1325,8 @@ check_files(struct directory_entry *p_de,
 
                            (void)strcpy(dl.file_name, p_dir->d_name);
                            (void)sprintf(dl.host_name, "%-*s %x",
-                                         MAX_HOSTNAME_LENGTH, "-", OTHER_DEL);
+                                         MAX_HOSTNAME_LENGTH, "-",
+                                         DEL_UNKNOWN_FILE);
                            *dl.file_size = stat_buf.st_size;
                            *dl.job_number = p_de->dir_id;
                            *dl.file_name_length = strlen(p_dir->d_name);

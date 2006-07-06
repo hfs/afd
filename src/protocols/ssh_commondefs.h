@@ -28,6 +28,7 @@
 
 /* Function prototypes */
 extern int    get_ssh_reply(int, int),
+              my_siginterrupt(int, int),
               ssh_exec(char *, int, char *, char *, char *, char *,
                        int *, pid_t *),
               ssh_login(int, char *);

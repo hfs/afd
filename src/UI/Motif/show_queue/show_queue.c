@@ -1,6 +1,6 @@
 /*
  *  show_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -42,6 +42,7 @@ DESCR__S_M1
  **                      window manager allows this, but allow to change
  **                      the height.
  **   07.02.2005 H.Kiehl Added sending files from queue.
+ **   11.06.2006 H.Kiehl Added support for retrieve jobs.
  **
  */
 DESCR__E_M1
@@ -100,8 +101,11 @@ Window                     main_window;
 XmFontList                 fontlist;
 int                        char_width,
                            file_name_length,
+                           fra_fd = -1,
+                           fra_id,
                            items_selected = NO,
                            no_of_active_process = 0,
+                           no_of_dirs = 0,
                            no_of_search_dirs,
                            no_of_search_dirids,
                            no_of_search_hosts,
@@ -115,6 +119,9 @@ time_t                     start_time_val,
 size_t                     search_file_size;
 unsigned int               *search_dirid = NULL,
                            total_no_files;
+#ifdef HAVE_MMAP
+off_t                      fra_size;
+#endif
 double                     total_file_size;
 char                       *p_work_dir,
                            font_name[256],
@@ -130,6 +137,7 @@ struct delete_log          dl;
 #endif
 struct queued_file_list    *qfl;
 struct queue_tmp_buf       *qtb;
+struct fileretrieve_status *fra;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local function prototypes */
@@ -587,8 +595,9 @@ main(int argc, char *argv[])
 /*-----------------------------------------------------------------------*/
 /*                           Toggle Box                                  */
 /*                           ----------                                  */
-/* Let user select the distribution type: Input, Output and/or ALL Input.*/
-/* Default is Input and Output.                                          */
+/* Let user select the distribution type: Input, unsent Input, Output,   */
+/* unsent Output, Retrieves and Pending Retrieves.                       */
+/* Default is Input, Output and Pending Retrieves.                       */
 /*-----------------------------------------------------------------------*/
    togglebox_w = XtVaCreateWidget("togglebox",
                                 xmRowColumnWidgetClass, selectionbox_w,
@@ -654,8 +663,47 @@ main(int argc, char *argv[])
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_UNSENT_INPUT);
    XtManageChild(togglebox_w);
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       togglebox_w);
+   argcount++;
+   separator_w = XmCreateSeparator(selectionbox_w, "separator", args, argcount);
+   XtManageChild(separator_w);
+   togglebox_w = XtVaCreateWidget("togglebox",
+                                xmRowColumnWidgetClass, selectionbox_w,
+                                XmNorientation,         XmHORIZONTAL,
+                                XmNpacking,             XmPACK_TIGHT,
+                                XmNnumColumns,          1,
+                                XmNtopAttachment,       XmATTACH_FORM,
+                                XmNleftAttachment,      XmATTACH_WIDGET,
+                                XmNleftWidget,          separator_w,
+                                XmNbottomAttachment,    XmATTACH_FORM,
+                                XmNresizable,           False,
+                                NULL);
+   toggle_w = XtVaCreateManagedWidget("Retrieve",
+                                xmToggleButtonGadgetClass, togglebox_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    False,
+                                NULL);
+   XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggled, (XtPointer)SHOW_RETRIEVES);
+   toggle_w = XtVaCreateManagedWidget("Pending",
+                                xmToggleButtonGadgetClass, togglebox_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    True,
+                                NULL);
+   XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggled, (XtPointer)SHOW_PENDING_RETRIEVES);
+   XtManageChild(togglebox_w);
 
-   toggles_set = SHOW_OUTPUT | SHOW_INPUT;
+   toggles_set = SHOW_OUTPUT | SHOW_INPUT | SHOW_PENDING_RETRIEVES;
 
 /*-----------------------------------------------------------------------*/
 /*                          Vertical Separator                           */

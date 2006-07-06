@@ -70,7 +70,8 @@ init_fra_data(void)
    }
    for (i = 0; i < no_of_dirs; i++)
    {
-      if ((fra[i].protocol == FTP) || (fra[i].protocol == HTTP))
+      if ((fra[i].protocol == FTP) || (fra[i].protocol == HTTP) ||
+          (fra[i].protocol == SFTP))
       {
          if ((no_of_retrieves % 10) == 0)
          {

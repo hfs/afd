@@ -1,6 +1,6 @@
 /*
  *  delete_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -63,40 +63,38 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern Display                 *display;
-extern Widget                  appshell,
-                               listbox_w,
-                               statusbox_w;
-extern int                     queue_tmp_buf_entries;
-extern XT_PTR_TYPE             toggles_set;
-extern unsigned int            total_no_files;
-extern double                  total_file_size;
-extern char                    *p_work_dir,
-                               user[];
-extern struct queued_file_list *qfl;
-extern struct queue_tmp_buf    *qtb;
+extern Display                    *display;
+extern Widget                     appshell,
+                                  listbox_w,
+                                  statusbox_w;
+extern int                        fra_fd,
+                                  no_of_dirs,
+                                  queue_tmp_buf_entries;
+extern XT_PTR_TYPE                toggles_set;
+extern unsigned int               total_no_files;
+extern double                     total_file_size;
+extern char                       *p_work_dir,
+                                  user[];
+extern struct queued_file_list    *qfl;
+extern struct queue_tmp_buf       *qtb;
 #ifdef _DELETE_LOG
-extern struct delete_log       dl;
+extern struct delete_log          dl;
 #endif
+extern struct fileretrieve_status *fra;
 
 /* Global variables */
-int                            fra_fd = -1,
-                               fra_id,
-                               fsa_fd = -1,
-                               fsa_id,
-                               no_of_dirs = 0,
-                               no_of_hosts,
-                               counter_fd;
+int                               fsa_fd = -1,
+                                  fsa_id,
+                                  no_of_hosts,
+                                  counter_fd;
 #ifdef HAVE_MMAP
-off_t                          fra_size,
-                               fsa_size;
+off_t                             fsa_size;
 #endif
-struct fileretrieve_status     *fra;
-struct filetransfer_status     *fsa;
-struct afd_status              *p_afd_status;
+struct filetransfer_status        *fsa;
+struct afd_status                 *p_afd_status;
 
 /* Local function prototypes. */
-static void check_fds(int *);
+static void                       check_fds(int *);
 
 
 /*############################ delete_files() ###########################*/
@@ -169,7 +167,8 @@ delete_files(int no_selected, int *select_list)
       return;
    }
 
-   if (toggles_set & SHOW_OUTPUT)
+   if ((toggles_set & SHOW_OUTPUT) || (toggles_set & SHOW_RETRIEVES) ||
+       (toggles_set & SHOW_PENDING_RETRIEVES))
    {
       /* Map to FD queue. */
       (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR,
@@ -284,6 +283,80 @@ delete_files(int no_selected, int *select_list)
            {
               /* Don't allow user to delete unsent files. */
               deleted = NO;
+           }
+      else if ((qfl[select_list[i] - 1].queue_type == SHOW_RETRIEVES) ||
+               (qfl[select_list[i] - 1].queue_type == SHOW_PENDING_RETRIEVES))
+           {
+              check_fds(&fd_delete_fd);
+              if (p_afd_status->fd == ON)
+              {
+                 wbuf[0] = DELETE_RETRIEVE;
+                 length = 1 + sprintf(&wbuf[1], "%.0f %d",
+                                      qfl[select_list[i] - 1].msg_number,
+                                      qfl[select_list[i] - 1].retrieve_pos) + 1;
+                 if (write(fd_delete_fd, wbuf, length) != length)
+                 {
+                    (void)xrec(appshell, FATAL_DIALOG,
+                               "Failed to write() to <%s> : %s (%s %d)",
+                               FD_DELETE_FIFO, strerror(errno),
+                               __FILE__, __LINE__);
+                    return;
+                 }
+              }
+              else
+              {
+                 int pos;
+
+                 if ((pos = get_host_position(fsa,
+                                              qfl[select_list[i] - 1].hostname,
+                                              no_of_hosts)) != INCORRECT)
+                 {
+                    int gotcha,
+                        qb_pos;
+
+                    gotcha = NO;
+                    for (qb_pos = (*no_msg_queued - 1); qb_pos > -1; qb_pos--)
+                    {
+                       if ((qb[qb_pos].msg_number == qfl[select_list[i] - 1].msg_number) &&
+                           (qb[qb_pos].pos == qfl[select_list[i] - 1].retrieve_pos) &&
+                           (qb[qb_pos].msg_name[0] == '\0'))
+                       {
+                          if (qb[qb_pos].pid == PENDING)
+                          {
+                             gotcha = YES;
+                          }
+                          break;
+                       }
+                    }
+                    if (gotcha == YES)
+                    {
+                       off_t lock_offset;
+
+                       lock_offset = AFD_WORD_OFFSET +
+                                     (pos * sizeof(struct filetransfer_status));
+#ifdef LOCK_DEBUG
+                       lock_region_w(fsa_fd, lock_offset + LOCK_TFC, __FILE__, __LINE__);
+#else
+                       lock_region_w(fsa_fd, lock_offset + LOCK_TFC);
+#endif
+                       fsa[pos].jobs_queued--;
+                       if (qb_pos != (*no_msg_queued - 1))
+                       {
+                          size_t move_size;
+
+                          move_size = (*no_msg_queued - 1 - qb_pos) * sizeof(struct queue_buf);
+                          (void)memmove(&qb[qb_pos], &qb[qb_pos + 1], move_size);
+                       }
+                       (*no_msg_queued)--;
+#ifdef LOCK_DEBUG
+                       unlock_region(fsa_fd, lock_offset + LOCK_TFC, __FILE__, __LINE__);
+#else
+                       unlock_region(fsa_fd, lock_offset + LOCK_TFC);
+#endif
+                    }
+                 }
+              }
+              deleted = NEITHER;
            }
            else /* It's in one of the input queue's. */
            {
@@ -573,7 +646,7 @@ delete_files(int no_selected, int *select_list)
       (void)fsa_detach(NO);
       (void)detach_afd_status();
    }
-   if (toggles_set & SHOW_OUTPUT)
+   if (toggles_set & SHOW_INPUT)
    {
       (void)fra_detach();
    }

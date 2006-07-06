@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2005 Holger Kiehl
+## Copyright (C) 2001 - 2006 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -35,7 +35,8 @@ INCLUDES              = -I.. -I../init_afd -I../amg -I../log -I../misc\
 bin_PROGRAMS          = fd sf_ftp sf_ftp_trace sf_smtp sf_smtp_trace\
                         sf_scp sf_scp_trace sf_sftp sf_sftp_trace sf_wmo\
                         sf_wmo_trace $(AFD_MAP_PROG) sf_loc gf_ftp\
-                        gf_ftp_trace gf_http gf_http_trace
+                        gf_ftp_trace gf_http gf_http_trace gf_sftp\
+                        gf_sftp_trace
 EXTRA_PROGRAMS        = $(EXTRA_MAP_PROG) sf_http sf_http_trace
 MAINTAINERCLEANFILES  = Makefile.in $(EXTRA_PROGRAMS)
 fd_SOURCES            = check_file_dir.c\
@@ -251,7 +252,7 @@ gf_ftp_SOURCES        = eval_input_gf.c\
                         eval_recipient.c\
                         fsa_attach_pos.c\
                         get_group_list.c\
-                        get_remote_file_names.c\
+                        get_remote_file_names_ftp.c\
                         gf_ftp.c\
                         gsf_check_fsa.c\
                         handle_proxy.c\
@@ -267,6 +268,25 @@ gf_ftp_LDADD          = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
 gf_ftp_trace_SOURCES  = $(gf_ftp_SOURCES) trace_log.c
 gf_ftp_trace_LDADD    = @EXTRA_SOCKET_LIBS@ ../protocols/libtraceprotocols.a\
                         ../common/libafd.a @AFD_SSL_LIBS@
+gf_sftp_SOURCES       = eval_input_gf.c\
+                        eval_recipient.c\
+                        fsa_attach_pos.c\
+                        get_group_list.c\
+                        get_remote_file_names_sftp.c\
+                        gf_sftp.c\
+                        gsf_check_fsa.c\
+                        init_gf.c\
+                        limit_transfer_rate.c\
+                        read_file_mask.c\
+                        reset_fsa.c\
+                        reset_values.c\
+                        trans_db_log.c\
+                        trans_log.c
+gf_sftp_LDADD         = @EXTRA_SOCKET_LIBS@ ../protocols/libprotocols.a\
+                        ../common/libafd.a @AFD_UTIL_LIB@
+gf_sftp_trace_SOURCES = $(gf_sftp_SOURCES) trace_log.c
+gf_sftp_trace_LDADD   = @EXTRA_SOCKET_LIBS@ ../protocols/libtraceprotocols.a\
+                        ../common/libafd.a @AFD_UTIL_LIB@
 gf_http_SOURCES       = eval_input_gf.c\
                         eval_recipient.c\
                         fsa_attach_pos.c\

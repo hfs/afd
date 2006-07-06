@@ -1,6 +1,6 @@
 /*
  *  append.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -398,7 +398,7 @@ remove_append(unsigned int job_id, char *file_name)
    {
       if ((tmp_ptr = posi(ptr, search_str)) == NULL)
       {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Failed to locate <%s> in restart option of message %s.",
                     search_str, msg);
          free(buffer);

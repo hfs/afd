@@ -62,10 +62,9 @@
 /* Maximum length of the file name that is displayed */
 #define SHOW_SHORT_FORMAT       50
 #define SHOW_LONG_FORMAT        70
-#define HEADING_LINE_SHORT      "Date   Time     File name                                           File size"
-#define SUM_SEP_LINE_SHORT      "============================================================================="
-#define HEADING_LINE_LONG       "Date   Time     File name                                                               File size"
-#define SUM_SEP_LINE_LONG       "================================================================================================="
+#define DATE_TIME_HEADER        "Date   Time     "
+#define FILE_NAME_HEADER        "File name"
+#define REST_HEADER             "File size"
 
 #define LOG_CHECK_INTERVAL      1000L   /* Default interval in milli-    */
                                         /* seconds to check for changes  */

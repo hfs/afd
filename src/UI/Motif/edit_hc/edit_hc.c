@@ -112,6 +112,7 @@ DESCR__E_M1
 #ifdef WITH_EDITRES
 # include <X11/Xmu/Editres.h>
 #endif
+#include <X11/Intrinsic.h>
 #include "edit_hc.h"
 #include "afd_ctrl.h"
 #include "source.h"
@@ -230,7 +231,8 @@ static void                create_option_menu_fso(Widget, Widget, XmFontList),
 int
 main(int argc, char *argv[])
 {
-   char            window_title[100],
+   char            label_str[HOST_ALIAS_LABEL_LENGTH + MAX_HOSTNAME_LENGTH],
+                   window_title[100],
                    work_dir[MAX_PATH_LENGTH];
    static String   fallback_res[] =
                    {
@@ -440,7 +442,21 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNbottomWidget,     h_separator_bottom_w);
    argcount++;
    box_w = XmCreateForm(form_w, "host_list_box_w", args, argcount);
-   label_w = XtVaCreateManagedWidget("Alias Hostname:",
+
+   (void)memcpy(label_str, HOST_ALIAS_LABEL, HOST_ALIAS_LABEL_LENGTH);
+   if (HOST_ALIAS_LABEL_LENGTH < MAX_HOSTNAME_LENGTH)
+   {
+      (void)memset(&label_str[HOST_ALIAS_LABEL_LENGTH], ' ',
+                   (MAX_HOSTNAME_LENGTH - HOST_ALIAS_LABEL_LENGTH));
+      label_str[MAX_HOSTNAME_LENGTH] = ':';
+      label_str[MAX_HOSTNAME_LENGTH + 1] = '\0';
+   }
+   else
+   {
+      label_str[HOST_ALIAS_LABEL_LENGTH] = ':';
+      label_str[HOST_ALIAS_LABEL_LENGTH + 1] = '\0';
+   }
+   label_w = XtVaCreateManagedWidget(label_str,
                              xmLabelGadgetClass,  box_w,
                              XmNfontList,         fontlist,
                              XmNtopAttachment,    XmATTACH_FORM,
@@ -2128,20 +2144,20 @@ create_option_menu_nob(Widget parent, Widget label_w, XmFontList fontlist)
 static void
 init_widget_data(void)
 {
-   int      i;
-   XmString item;
-   Arg      args[MAXARGS];
-   Cardinal argcount;
-   Pixmap   icon,
-            iconmask;
-   Display  *sdisplay = XtDisplay(host_list_w);
-   Window   win = XtWindow(host_list_w);
+   int           i;
+   Arg           args[MAXARGS];
+   Cardinal      argcount;
+   Pixmap        icon,
+                 iconmask;
+   Display       *sdisplay = XtDisplay(host_list_w);
+   Window        win = XtWindow(host_list_w);
+   XmStringTable item_list;
+
+   item_list = (XmStringTable)XtMalloc(no_of_hosts * sizeof(XmString));
 
    for (i = 0; i < no_of_hosts; i++)
    {
-      item = XmStringCreateLocalized(fsa[i].host_alias);
-      XmListAddItemUnselected(host_list_w, item, i + 1);
-      XmStringFree(item);
+      item_list[i] = XmStringCreateLocalized(fsa[i].host_alias);
 
       /* Initialize array holding all changed entries. */
       ce[i].value_changed = 0;
@@ -2185,6 +2201,17 @@ init_widget_data(void)
          }
       }
    }
+
+   XtVaSetValues(host_list_w,
+                 XmNitems,      item_list,
+                 XmNitemCount,  no_of_hosts,
+                 NULL);
+
+   for (i = 0; i < no_of_hosts; i++)
+   {
+      XmStringFree(item_list[i]);
+   }
+   XtFree((char *)item_list);
 
    /*
     * Create source cursor for drag & drop

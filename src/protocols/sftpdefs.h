@@ -181,25 +181,39 @@
 #define SSH_FX_OWNER_INVALID                29         /* 6+      */
 #define SSH_FX_GROUP_INVALID                30         /* 6+      */
 
+/* Storage for whats returned in SSH_FXP_NAME reply. */
+struct name_list
+       {
+          char         *name;
+          struct stat  stat_buf;
+          unsigned int stat_flag;
+       };
+
 struct stored_messages
        {
           unsigned int request_id;
           unsigned int message_length;
-          char         *sm_buffer;
+          char         *sm_buffer;      /* Stored message buffer. */
        };
+
 struct sftp_connect_data
        {
           unsigned int           version;
           unsigned int           request_id;
           unsigned int           stored_replies;
-          unsigned int           handle_length;
-          unsigned int           stat_flags;
+          unsigned int           file_handle_length;
+          unsigned int           dir_handle_length;
+          unsigned int           stat_flag;
           unsigned int           pending_write_id[MAX_PENDING_WRITES];
+          unsigned int           nl_pos;     /* Name list position. */
+          unsigned int           nl_length;  /* Name list length. */
           int                    pending_write_counter;
           int                    max_pending_writes;
           off_t                  file_offset;
           char                   *cwd;           /* Current working dir. */
-          char                   *handle;
+          char                   *file_handle;
+          char                   *dir_handle;
+          struct name_list       *nl;
           struct stat            stat_buf;
           struct stored_messages sm[MAX_SFTP_REPLY_BUFFER];
           char                   debug;
@@ -210,11 +224,13 @@ struct sftp_connect_data
 extern unsigned int sftp_version(void);
 extern int          sftp_cd(char *, int),
                     sftp_connect(char *, int, char *, char *, char),
+                    sftp_close_dir(void),
                     sftp_close_file(void),
                     sftp_dele(char *),
                     sftp_flush(void),
                     sftp_mkdir(char *),
                     sftp_move(char *, char *, int),
+                    sftp_open_dir(char *, char),
                     sftp_open_file(int, char *, off_t, mode_t *, int, int *, char),
                     sftp_pwd(void),
                     sftp_read(char *, int),

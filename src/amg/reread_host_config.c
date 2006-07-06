@@ -241,8 +241,10 @@ reread_host_config(time_t           *hc_old_time,
                 * finding the place where the change took place, overwrite
                 * all parameters.
                 */
-               (void)strcpy(fsa[host_pos].real_hostname[0], hl[i].real_hostname[0]);
-               (void)strcpy(fsa[host_pos].real_hostname[1], hl[i].real_hostname[1]);
+               (void)memcpy(fsa[host_pos].real_hostname[0],
+                            hl[i].real_hostname[0], MAX_REAL_HOSTNAME_LENGTH);
+               (void)memcpy(fsa[host_pos].real_hostname[1],
+                            hl[i].real_hostname[1], MAX_REAL_HOSTNAME_LENGTH);
                if (CHECK_STRCMP(hl[i].host_toggle_str, (*old_hl)[host_pos].host_toggle_str) != 0)
                {
                   if (hl[i].host_toggle_str[0] == '\0')
@@ -275,7 +277,8 @@ reread_host_config(time_t           *hc_old_time,
                      }
                   }
                }
-               (void)strcpy(fsa[host_pos].proxy_name, hl[i].proxy_name);
+               (void)memcpy(fsa[host_pos].proxy_name, hl[i].proxy_name,
+                            MAX_PROXY_NAME_LENGTH + 1);
                fsa[host_pos].allowed_transfers = hl[i].allowed_transfers;
                if ((*old_hl)[host_pos].allowed_transfers != hl[i].allowed_transfers)
                {

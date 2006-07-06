@@ -304,7 +304,7 @@ main(int argc, char *argv[])
                    db.hostname, db.port);
    }
 
-   /* Connect to remote FTP-server. */
+   /* Connect to remote SFTP-server. */
    if ((status = sftp_connect(db.hostname, db.port, db.user,
                               db.password, fsa->debug)) != SUCCESS)
    {
@@ -615,13 +615,13 @@ main(int argc, char *argv[])
                      (void)strcpy(dl.file_name, p_file_name_buffer);
                      (void)sprintf(dl.host_name, "%-*s %x",
                                    MAX_HOSTNAME_LENGTH, fsa->host_dsp_name,
-                                   OTHER_DEL);
+                                   OTHER_OUTPUT_DEL);
                      *dl.file_size = *p_file_size_buffer;
                      *dl.job_number = db.job_id;
                      *dl.file_name_length = strlen(p_file_name_buffer);
                      dl_real_size = *dl.file_name_length + dl.size +
                                     sprintf((dl.file_name + *dl.file_name_length + 1),
-                                            "%s Duplicate file", SEND_FILE_FTP);
+                                            "%s Duplicate file", SEND_FILE_SFTP);
                      if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                      {
                         system_log(ERROR_SIGN, __FILE__, __LINE__,

@@ -140,7 +140,7 @@ defaults is shown in the table below:
    <th>Default</th>
 </tr>
 <tr>
-   <td width=30%>delete unknown files [time in hours]</td>
+   <td width=30%><a name="delete_unknown_files">delete unknown files [time in hours]</a></td>
    <td>Delete all files that are older then the number of hours
        specified with the &lt;old file time&gt; option and are
        not to be distributed. If the optional time in hours is specified
@@ -324,6 +324,16 @@ defaults is shown in the table below:
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>100 MB</td>
+</tr>
+<tr>
+   <td width=30%>accept dot files</td>
+   <td>Setting this option will enable AFD to retrieve files starting
+       with a dot from a remote host. When downloaded the dot will
+       be autamatically removed. Use the trans_rename option if you
+       want to keep the dot.</td>
+   <td align=center>&nbsp;</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
 </tr>
 <tr>
    <td width=30%>wait for &lt;file pattern&gt;</td>
@@ -1179,7 +1189,8 @@ section. Valid options can be taken from the following table:
        optional options have the following meaning:<br>
        <pre>
           -d                  Deletes the original file after executing
-                              the command.
+                              the command regardless if the command
+                              was succesfull or not.
           -D                  When an error occurs during execution all
                               files will be deleted. This only works if
                               no %s is found in the command string
@@ -1360,6 +1371,20 @@ section. Valid options can be taken from the following table:
 <tr>
    <td><a name="file_name_is_user">file name is user [rename rule]</a></td>
    <td>The user name of the mail is the file name. This can only be used
+       when sending mails. The optional rename rule allows to filter or
+       create the user name from the file name. For a detailed description
+       of the renaming procedure see <a href="rename_rules.html">rename rule</a>.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="file_name_is_target">file name is target [rename rule]</a></td>
+   <td>The full recipient of the mail is the file name. This can only be used
        when sending mails. The optional rename rule allows to filter or
        create the user name from the file name. For a detailed description
        of the renaming procedure see <a href="rename_rules.html">rename rule</a>.</td>
@@ -1555,6 +1580,17 @@ section. Valid options can be taken from the following table:
        be active. NOTE: It's much better to use the
        <a href="host_config.html#protocol_options">HOST_CONFIG</a> to set
        active or passive mode.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>login site &lt;command&gt;</td>
+   <td>This option is used to execute the command once after login.</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
@@ -1921,7 +1957,7 @@ to 30 minutes, it needs to be done asfollows:
    <td width=90%><small><address>
    Copyright &copy; 1997 - 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 20.04.2006
+   Last updated: 02.07.2006
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

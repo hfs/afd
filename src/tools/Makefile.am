@@ -95,7 +95,7 @@ get_hostname_SOURCES         = get_hostname.c
 get_hostname_LDADD           = ../common/libafd.a
 grib2wmo_SOURCES             = grib2wmo.c\
                                receive_log.c
-grib2wmo_LDADD               = ../misc/libmisc.a ../common/libafd.a 
+grib2wmo_LDADD               = ../misc/libmisc.a
 gts2tiff_SOURCES             = gts2tiff.c\
                                receive_log.c
 gts2tiff_LDADD               = ../misc/libmisc.a ../common/libafd.a 

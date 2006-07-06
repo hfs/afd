@@ -1,7 +1,7 @@
 /*
- *  get_remote_file_names.c - Part of AFD, an automatic file distribution
- *                            program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  get_remote_file_names_sftp.c - Part of AFD, an automatic file distribution
+ *                                 program.
+ *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,10 +23,10 @@
 DESCR__S_M3
 /*
  ** NAME
- **   get_remote_file_names - searches message directory for any changes
+ **   get_remote_file_names_sftp - searches remote directory for any changes
  **
  ** SYNOPSIS
- **   int get_remote_file_names(off_t *file_size_to_retrieve)
+ **   int get_remote_file_names_sftp(off_t *file_size_to_retrieve)
  **
  ** DESCRIPTION
  **
@@ -37,10 +37,7 @@ DESCR__S_M3
  **   H.Kiehl
  **
  ** HISTORY
- **   20.08.2000 H.Kiehl Created
- **   15.07.2002 H.Kiehl Option to ignore files which have a certain size.
- **   10.04.2005 H.Kiehl Detect older version 1.2.x ls data types and try
- **                      to convert them.
+ **   01.05.2006 H.Kiehl Created
  **
  */
 DESCR__E_M3
@@ -48,14 +45,14 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>                /* strcpy(), strerror(), memmove()    */
 #include <stdlib.h>                /* malloc(), realloc(), free()        */
-#include <time.h>                  /* time(), mktime()                   */ 
+#include <time.h>                  /* time(), mktime(), strftime()       */ 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>                /* unlink()                           */
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <errno.h>
-#include "ftpdefs.h"
+#include "sftpdefs.h"
 #include "fddefs.h"
 
 #define REMOTE_LIST_STEP_SIZE 10
@@ -76,85 +73,25 @@ extern struct filetransfer_status *fsa;
 static time_t                     current_time;
 
 /* Local function prototypes. */
-static int                        check_list(char *, off_t *);
+static int                        check_list(char *, struct stat *, off_t *);
 static void                       remove_ls_data(void);
 
 
-/*####################### get_remote_file_names() #######################*/
+/*#################### get_remote_file_names_sftp() #####################*/
 int
-get_remote_file_names(off_t *file_size_to_retrieve)
+get_remote_file_names_sftp(off_t *file_size_to_retrieve)
 {
    int              files_to_retrieve = 0,
                     gotcha,
                     i, j,
                     nfg,           /* Number of file mask. */
-                    status,
-                    type;
-   char             *nlist = NULL,
-                    *p_end,
-                    *p_list,
+                    status;
+   char             filename[MAX_FILENAME_LENGTH],
+                    *nlist = NULL,
                     *p_mask;
    struct file_mask *fml = NULL;
    struct tm        *p_tm;
-
-   /*
-    * Get a directory listing from the remote site so we can see
-    * what files are there.
-    */
-#ifdef WITH_SSL
-   if (db.auth == BOTH)
-   {
-      type = NLIST_CMD | BUFFERED_LIST | ENCRYPT_DATA;
-   }
-   else
-   {
-#endif
-      type = NLIST_CMD | BUFFERED_LIST;
-#ifdef WITH_SSL
-   }
-#endif
-   if ((status = ftp_list(db.mode_flag, type, &nlist)) != SUCCESS)
-   {
-      if ((status == 550) || (status == 450))
-      {
-         remove_ls_data();
-         trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to send NLST command (%d).", status);
-         (void)ftp_quit();
-         exitflag = 0;
-         exit(TRANSFER_SUCCESS);
-      }
-      else
-      {
-         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                   "Failed to send NLST command (%d).", status);
-         (void)ftp_quit();
-         exit(LIST_ERROR);
-      }
-   }
-   else
-   {
-      if (fsa->debug > NORMAL_MODE)
-      {
-         trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                      "Send NLST command.");
-      }
-   }
-
-   /*
-    * Some systems return 550 for the NLST command when no files
-    * are found, others return 125 (ie. success) but do not return
-    * any data. So check here if this is the second case.
-    */
-   if (nlist == NULL)
-   {
-      remove_ls_data();
-      trans_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                "No files found (%d).", status);
-      (void)ftp_quit();
-      exitflag = 0;
-      exit(TRANSFER_SUCCESS);
-   }
+   struct stat      stat_buf;
 
    /* Get all file masks for this directory. */
    if (read_file_mask(fra[db.fra_pos].dir_alias, &nfg, &fml) == INCORRECT)
@@ -165,7 +102,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
       {
          free(fml);
       }
-      (void)ftp_quit();
+      sftp_quit();
       exit(INCORRECT);
    }
 
@@ -177,58 +114,104 @@ get_remote_file_names(off_t *file_size_to_retrieve)
       current_time = mktime(p_tm);
    }
 
-   /* Reduce the list to what is really required. */
+   /*
+    * Get a directory listing from the remote site so we can see
+    * what files are there.
+    */
    *file_size_to_retrieve = 0;
-   p_list = nlist;
-   do
+   if ((status = sftp_open_dir("", fsa->debug)) == SUCCESS)
    {
-      p_end = p_list;
-      while ((*p_end != '\n') && (*p_end != '\r') && (*p_end != '\0'))
+      if (fsa->debug > NORMAL_MODE)
       {
-         p_end++;
+         trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                      "Opened remote directory.");
       }
-      if (*p_end != '\0')
+      while ((status = sftp_readdir(filename, &stat_buf)) == SUCCESS)
       {
-         *p_end = '\0';
-         gotcha = NO;
-         for (i = 0; i < nfg; i++)
+         if ((((filename[0] == '.') && (filename[1] == '\0')) ||
+              ((filename[0] == '.') && (filename[1] == '.') &&
+               (filename[2] == '\0'))) ||
+             (((fra[db.fra_pos].dir_flag & ACCEPT_DOT_FILES) == 0) &&
+              (filename[0] == '.')))
          {
-            p_mask = fml[i].file_list;
-            for (j = 0; j < fml[i].fc; j++)
+            continue;
+         }
+         else
+         {
+            if (fsa->debug > NORMAL_MODE)
             {
-               if (((status = pmatch(p_mask, p_list, NULL)) == 0) &&
-                   (check_list(p_list, file_size_to_retrieve) == 0))
+               time_t mtime;
+               char   dstr[26];
+
+               mtime = stat_buf.st_mtime;
+               p_tm = gmtime(&mtime);
+               (void)strftime(dstr, 26, "%a %h %d %H:%M:%S %Y", p_tm);
+               trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+#if SIZEOF_OFF_T == 4
+                            "%s  `%s' size=%ld",
+#else
+                            "%s  `%s' size=%lld",
+#endif
+                            dstr, filename, stat_buf.st_size);
+            }
+            gotcha = NO;
+            for (i = 0; i < nfg; i++)
+            {
+               p_mask = fml[i].file_list;
+               for (j = 0; j < fml[i].fc; j++)
                {
-                  gotcha = YES;
-                  files_to_retrieve++;
+                  if (((status = pmatch(p_mask, filename, NULL)) == 0) &&
+                      (check_list(filename, &stat_buf, file_size_to_retrieve) == 0))
+                  {
+                     gotcha = YES;
+                     files_to_retrieve++;
+                     break;
+                  }
+                  else if (status == 1)
+                       {
+                          /* This file is definitly NOT wanted! */
+                          /* Lets skip the rest of this group.  */
+                          break;
+                       }
+                  NEXT(p_mask);
+               }
+               if (gotcha == YES)
+               {
                   break;
                }
-               else if (status == 1)
-                    {
-                       /* This file is definitly NOT wanted! */
-                       /* Lets skip the rest of this group.  */
-                       break;
-                    }
-               NEXT(p_mask);
-            }
-            if (gotcha == YES)
-            {
-               break;
             }
          }
-         p_list = p_end + 1;
-         while ((*p_list == '\r') || (*p_list == '\n'))
-         {
-            p_list++;
-         }
+      }
+      if (status == INCORRECT)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                   "Failed to read remote directory.");
+         sftp_quit();
+         exit(LIST_ERROR);
+      }
+      if (sftp_close_dir() == INCORRECT)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                   "Failed to close remote directory.");
       }
       else
       {
-         p_list = p_end;
+         if (fsa->debug > NORMAL_MODE)
+         {
+            trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                         "Closed remote directory.");
+         }
       }
-   } while (*p_list != '\0');
+   }
+   else
+   {
+      trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                "Failed to open remote directory for reading.");
+      sftp_quit();
+      exit(LIST_ERROR);
+   }
 
-   free(nlist);
+   /* Free file mask list. */
    for (i = 0; i < nfg; i++)
    {
       free(fml[i].file_list);
@@ -304,7 +287,7 @@ get_remote_file_names(off_t *file_size_to_retrieve)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "mmap_resize() error : %s", strerror(errno));
-               (void)ftp_quit();
+               sftp_quit();
                exit(INCORRECT);
             }
             no_of_listed_files = (int *)ptr;
@@ -326,11 +309,9 @@ get_remote_file_names(off_t *file_size_to_retrieve)
 
 /*+++++++++++++++++++++++++++++ check_list() ++++++++++++++++++++++++++++*/
 static int
-check_list(char *file, off_t *file_size_to_retrieve)
+check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
 {
-   static int check_date = YES,
-              check_size = YES;
-   int        status;
+   int status;
 
    if ((fra[db.fra_pos].stupid_mode == YES) ||
        (fra[db.fra_pos].remove == YES))
@@ -346,7 +327,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "malloc() error : %s", strerror(errno));
-            (void)ftp_quit();
+            sftp_quit();
             exit(INCORRECT);
          }
          no_of_listed_files = (int *)ptr;
@@ -367,7 +348,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "realloc() error : %s", strerror(errno));
-                 (void)ftp_quit();
+                 sftp_quit();
                  exit(INCORRECT);
               }
               no_of_listed_files = (int *)ptr;
@@ -382,43 +363,10 @@ check_list(char *file, off_t *file_size_to_retrieve)
               }
            }
 
-      if ((check_date == YES) && (fra[db.fra_pos].ignore_file_time != 0))
+      if (fra[db.fra_pos].ignore_file_time != 0)
       {
-         time_t file_mtime;
-
-         if ((status = ftp_date(file, &file_mtime)) == SUCCESS)
-         {
-            rl[*no_of_listed_files].file_mtime = file_mtime;
-            rl[*no_of_listed_files].got_date = YES;
-            if (fsa->debug > NORMAL_MODE)
-            {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                            "Date for %s is %ld.", file, file_mtime);
-            }
-         }
-         else if ((status == 500) || (status == 502))
-              {
-                 check_date = NO;
-                 rl[*no_of_listed_files].got_date = NO;
-                 if (fsa->debug > NORMAL_MODE)
-                 {
-                    trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                 "Date command MDTM not supported [%d]",
-                                 status);
-                 }
-              }
-              else
-              {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                           "Failed to get date of file %s.", file);
-                 if (timeout_flag == ON)
-                 {
-                    (void)ftp_quit();
-                    exit(DATE_ERROR);
-                 }
-                 rl[*no_of_listed_files].got_date = NO;
-                 check_date = NO;
-              }
+         rl[*no_of_listed_files].file_mtime = p_stat_buf->st_mtime;
+         rl[*no_of_listed_files].got_date = YES;
       }
       else
       {
@@ -427,8 +375,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
    }
    else
    {
-      int    i;
-      time_t file_mtime;
+      int i;
 
       if (rl_fd == -1)
       {
@@ -444,7 +391,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to open() `%s' : %s",
                        list_file, strerror(errno));
-            (void)ftp_quit();
+            sftp_quit();
             exit(INCORRECT);
          }
          if (fstat(rl_fd, &stat_buf) == -1)
@@ -452,7 +399,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to fstat() `%s' : %s",
                        list_file, strerror(errno));
-            (void)ftp_quit();
+            sftp_quit();
             exit(INCORRECT);
          }
          if (stat_buf.st_size == 0)
@@ -464,7 +411,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Failed to lseek() in `%s' : %s",
                           list_file, strerror(errno));
-               (void)ftp_quit();
+               sftp_quit();
                exit(INCORRECT);
             }
             if (write(rl_fd, "", 1) != 1)
@@ -472,7 +419,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Failed to write() to `%s' : %s",
                           list_file, strerror(errno));
-               (void)ftp_quit();
+               sftp_quit();
                exit(INCORRECT);
             }
          }
@@ -486,7 +433,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to mmap() to `%s' : %s",
                        list_file, strerror(errno));
-            (void)ftp_quit();
+            sftp_quit();
             exit(INCORRECT);
          }
          no_of_listed_files = (int *)ptr;
@@ -546,7 +493,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    "Failed to open() `%s' : %s",
                                    new_list_file, strerror(errno));
-                        (void)ftp_quit();
+                        sftp_quit();
                         exit(INCORRECT);
                      }
                      rl_size = (((no_of_old_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
@@ -557,7 +504,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    "Failed to lseek() in `%s' : %s",
                                    new_list_file, strerror(errno));
-                        (void)ftp_quit();
+                        sftp_quit();
                         exit(INCORRECT);
                      }
                      if (write(new_rl_fd, "", 1) != 1)
@@ -565,7 +512,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    "Failed to write() to `%s' : %s",
                                    new_list_file, strerror(errno));
-                        (void)ftp_quit();
+                        sftp_quit();
                         exit(INCORRECT);
                      }
                      if ((new_ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
@@ -574,7 +521,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                         system_log(ERROR_SIGN, __FILE__, __LINE__,
                                    "Failed to mmap() to `%s' : %s",
                                    new_list_file, strerror(errno));
-                        (void)ftp_quit();
+                        sftp_quit();
                         exit(INCORRECT);
                      }
                      no_of_new_listed_files = (int *)new_ptr;
@@ -670,7 +617,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to open() `%s' : %s",
                                         new_list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           rl_size = (((no_of_old_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
@@ -681,7 +628,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to lseek() in `%s' : %s",
                                         new_list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           if (write(new_rl_fd, "", 1) != 1)
@@ -689,7 +636,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to write() to `%s' : %s",
                                         new_list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           if ((new_ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
@@ -698,7 +645,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to mmap() to `%s' : %s",
                                         new_list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           no_of_new_listed_files = (int *)new_ptr;
@@ -803,7 +750,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to open() `%s' : %s",
                                         list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           rl_size = (REMOTE_LIST_STEP_SIZE *
@@ -814,7 +761,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to lseek() in `%s' : %s",
                                         list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           if (write(rl_fd, "", 1) != 1)
@@ -822,7 +769,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to write() to `%s' : %s",
                                         list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           if ((ptr = mmap(0, rl_size, (PROT_READ | PROT_WRITE),
@@ -832,7 +779,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
                              system_log(ERROR_SIGN, __FILE__, __LINE__,
                                         "Failed to mmap() to `%s' : %s",
                                         list_file, strerror(errno));
-                             (void)ftp_quit();
+                             sftp_quit();
                              exit(INCORRECT);
                           }
                           no_of_listed_files = (int *)ptr;
@@ -854,90 +801,10 @@ check_list(char *file, off_t *file_size_to_retrieve)
       {
          if (CHECK_STRCMP(rl[i].file_name, file) == 0)
          {
-            /* Try to get remote date. */
-            if (check_date == YES)
-            {
-               if ((status = ftp_date(file, &file_mtime)) == SUCCESS)
-               {
-                  rl[i].got_date = YES;
-                  if (rl[i].file_mtime != file_mtime)
-                  {
-                     rl[i].file_mtime = file_mtime;
-                     rl[i].retrieved = NO;
-                  }
-                  if (fsa->debug > NORMAL_MODE)
-                  {
-                     trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                  "Date for %s is %ld.", file, file_mtime);
-                  }
-               }
-               else if ((status == 500) || (status == 502))
-                    {
-                       check_date = NO;
-                       rl[i].got_date = NO;
-                       if (fsa->debug > NORMAL_MODE)
-                       {
-                          trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                       "Date command MDTM not supported [%d]",
-                                       status);
-                       }
-                    }
-                    else
-                    {
-                       trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
-                                 __FILE__, __LINE__, msg_str,
-                                 "Failed to get date of file %s.", file);
-                       if (timeout_flag == ON)
-                       {
-                          (void)ftp_quit();
-                          exit(DATE_ERROR);
-                       }
-                       rl[i].got_date = NO;
-                    }
-            }
-
-            /* Try to get remote size. */
-            if (check_size == YES)
-            {
-               off_t size;
-
-               if ((status = ftp_size(file, &size)) == SUCCESS)
-               {
-                  if (rl[i].size != size)
-                  {
-                     rl[i].size = size;
-                     rl[i].retrieved = NO;
-                  }
-                  if (fsa->debug > NORMAL_MODE)
-                  {
-                     trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                  "Size for %s is %d.", file, size);
-                  }
-               }
-               else if ((status == 500) || (status == 502))
-                    {
-                       check_size = NO;
-                       if (fsa->debug > NORMAL_MODE)
-                       {
-                          trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                       "Size command SIZE not supported [%d]",
-                                       status);
-                       }
-                    }
-                    else
-                    {
-                       trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
-                                 __FILE__, __LINE__, msg_str,
-                                 "Failed to get size of file %s.", file);
-                       if (timeout_flag == ON)
-                       {
-                          (void)ftp_quit();
-                          exit(DATE_ERROR);
-                       }
-                       check_size = NO;
-                    }
-            }
-
+            rl[i].file_mtime = p_stat_buf->st_mtime;
+            rl[i].got_date = YES;
+            rl[i].size = p_stat_buf->st_size;
+            rl[i].retrieved = NO;
             rl[i].in_list = YES;
             if (rl[i].retrieved == NO)
             {
@@ -1002,7 +869,7 @@ check_list(char *file, off_t *file_size_to_retrieve)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "mmap_resize() error : %s", strerror(errno));
-            (void)ftp_quit();
+            sftp_quit();
             exit(INCORRECT);
          }
          no_of_listed_files = (int *)ptr;
@@ -1015,92 +882,15 @@ check_list(char *file, off_t *file_size_to_retrieve)
             *no_of_listed_files = 0;
          }
       }
-      if (check_date == YES)
-      {
-         if ((status = ftp_date(file, &file_mtime)) == SUCCESS)
-         {
-            rl[*no_of_listed_files].file_mtime = file_mtime;
-            rl[*no_of_listed_files].got_date = YES;
-            if (fsa->debug > NORMAL_MODE)
-            {
-               trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                            "Date for %s is %ld.", file, file_mtime);
-            }
-         }
-         else if ((status == 500) || (status == 502))
-              {
-                 check_date = NO;
-                 rl[*no_of_listed_files].got_date = NO;
-                 if (fsa->debug > NORMAL_MODE)
-                 {
-                    trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                                 "Date command MDTM not supported [%d]",
-                                 status);
-                 }
-              }
-              else
-              {
-                 trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
-                           __FILE__, __LINE__, msg_str,
-                           "Failed to get date of file %s.", file);
-                 if (timeout_flag == ON)
-                 {
-                    (void)ftp_quit();
-                    exit(DATE_ERROR);
-                 }
-                 rl[*no_of_listed_files].got_date = NO;
-              }
-      }
-      else
-      {
-         rl[*no_of_listed_files].got_date = NO;
-      }
+      rl[*no_of_listed_files].file_mtime = p_stat_buf->st_mtime;
+      rl[*no_of_listed_files].got_date = YES;
    }
 
    (void)strcpy(rl[*no_of_listed_files].file_name, file);
    rl[*no_of_listed_files].retrieved = NO;
    rl[*no_of_listed_files].in_list = YES;
-   if (check_size == YES)
-   {
-      off_t size;
-
-      if ((status = ftp_size(file, &size)) == SUCCESS)
-      {
-         rl[*no_of_listed_files].size = size;
-         *file_size_to_retrieve += size;
-         if (fsa->debug > NORMAL_MODE)
-         {
-            trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                         "Size for %s is %d.", file, size);
-         }
-      }
-      else if ((status == 500) || (status == 502))
-           {
-              check_size = NO;
-              rl[*no_of_listed_files].size = -1;
-              if (fsa->debug > NORMAL_MODE)
-              {
-                 trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
-                              "Size command SIZE not supported [%d]", status);
-              }
-           }
-           else
-           {
-              trans_log((timeout_flag == ON) ? ERROR_SIGN : DEBUG_SIGN,
-                        __FILE__, __LINE__, msg_str,
-                        "Failed to get size of file %s.", file);
-              if (timeout_flag == ON)
-              {
-                 (void)ftp_quit();
-                 exit(DATE_ERROR);
-              }
-              rl[*no_of_listed_files].size = -1;
-           }
-   }
-   else
-   {
-      rl[*no_of_listed_files].size = -1;
-   }
+   rl[*no_of_listed_files].size = p_stat_buf->st_size;
+   *file_size_to_retrieve += p_stat_buf->st_size;
 
    if ((fra[db.fra_pos].ignore_size == 0) ||
        ((fra[db.fra_pos].gt_lt_sign == ISIZE_EQUAL) &&

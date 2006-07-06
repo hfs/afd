@@ -291,7 +291,7 @@ expand_filter(char *orig_filter, time_t check_time)
             {
                time_t time_buf;
 
-               time_buf = time(NULL);
+               time_buf = check_time;
 
                if (time_modifier > 0)
                {
@@ -469,10 +469,12 @@ expand_filter(char *orig_filter, time_t check_time)
                  }
                  else /* It must be the hostname modifier. */
                  {
+#ifdef HAVE_GETHOSTNAME
                     char hostname[40];
 
                     if (gethostname(hostname, 40) == -1)
                     {
+#endif
                        char *p_hostname;
 
                        if ((p_hostname = getenv("HOSTNAME")) != NULL)
@@ -485,11 +487,13 @@ expand_filter(char *orig_filter, time_t check_time)
                           *(wptr + 1) = 'h';
                           wptr += 2;
                        }
+#ifdef HAVE_GETHOSTNAME
                     }
                     else
                     {
                        wptr += sprintf(wptr, "%s", hostname);
                     }
+#endif
                     rptr += 2;
                  }
          }
@@ -499,6 +503,7 @@ expand_filter(char *orig_filter, time_t check_time)
             wptr++; rptr++;
          }
       }
+      *wptr = '\0';
    }
    return;
 }

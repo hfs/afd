@@ -52,8 +52,8 @@ DESCR__E_M3
 #include <errno.h>
 #include "ftpdefs.h"
 #include "fddefs.h"
-#include "smtpdefs.h"
 #include "httpdefs.h"
+#include "ssh_commondefs.h"
 #ifdef _WITH_WMO_SUPPORT
 #include "wmodefs.h"
 #endif
@@ -92,9 +92,9 @@ init_gf(int argc, char *argv[], int protocol)
         {
            db.port = DEFAULT_HTTP_PORT;
         }
-   else if (protocol & SMTP_FLAG)
+   else if (protocol & SFTP_FLAG)
         {
-           db.port = DEFAULT_SMTP_PORT;
+           db.port = DEFAULT_SSH_PORT;
         }
 #ifdef _WITH_WMO_SUPPORT
    else if (protocol & WMO_FLAG)
@@ -108,6 +108,7 @@ init_gf(int argc, char *argv[], int protocol)
         }
 
    db.fsa_pos = INCORRECT;
+   db.transfer_mode = DEFAULT_TRANSFER_MODE;
    db.toggle_host = NO;
    db.protocol = protocol;
    db.special_ptr = NULL;
@@ -141,10 +142,6 @@ init_gf(int argc, char *argv[], int protocol)
    if (fsa->protocol_options & FTP_IGNORE_BIN)
    {
       db.transfer_mode = 'N';
-   }
-   else
-   {
-      db.transfer_mode = DEFAULT_TRANSFER_MODE;
    }
    if (db.sndbuf_size <= 0)
    {

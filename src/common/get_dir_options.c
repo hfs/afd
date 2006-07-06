@@ -517,7 +517,8 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             d_o->no_of_dir_options++;
          }
 #endif
-         if ((fra[i].protocol == FTP) || (fra[i].protocol == HTTP))
+         if ((fra[i].protocol == FTP) || (fra[i].protocol == HTTP) ||
+             (fra[i].protocol == SFTP))
          {
             (void)strcpy(d_o->url, fra[i].url);
          }

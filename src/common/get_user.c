@@ -1,6 +1,6 @@
 /*
  *  get_user.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -191,47 +191,50 @@ get_user(char *user, char *fake_user)
             }
             else
             {
-               char *buffer;
+               char *buffer = NULL;
 
-               if ((buffer = malloc(MAX_PATH_LENGTH + MAX_PATH_LENGTH)) != NULL)
+               if (exec_cmd("who am i", &buffer, -1, NULL, 0, 0L, YES) != INCORRECT)
                {
-                  if (exec_cmd("who am i", buffer, -1, NULL, 0, 0L) != INCORRECT)
-                  {
-                     char *search_ptr = buffer;
+                  char *search_ptr = buffer;
 
-                     while ((*search_ptr != '(') && (*search_ptr != '\0') &&
+                  while ((*search_ptr != '(') && (*search_ptr != '\0') &&
+                         ((search_ptr - buffer) < (MAX_PATH_LENGTH + MAX_PATH_LENGTH)))
+                  {
+                     search_ptr++;
+                  }
+                  if (*search_ptr == '(')
+                  {
+                     char *start_ptr = search_ptr + 1;
+
+                     search_ptr++;
+                     while ((*search_ptr != ')') && (*search_ptr != '\0') &&
                             ((search_ptr - buffer) < (MAX_PATH_LENGTH + MAX_PATH_LENGTH)))
                      {
                         search_ptr++;
                      }
-                     if (*search_ptr == '(')
+                     if (*search_ptr == ')')
                      {
-                        char *start_ptr = search_ptr + 1;
+                        int real_display_length = search_ptr - start_ptr;
 
-                        search_ptr++;
-                        while ((*search_ptr != ')') && (*search_ptr != '\0') &&
-                               ((search_ptr - buffer) < (MAX_PATH_LENGTH + MAX_PATH_LENGTH)))
+                        if ((length + real_display_length) < MAX_FULL_USER_ID_LENGTH)
                         {
-                           search_ptr++;
-                        }
-                        if (*search_ptr == ')')
-                        {
-                           int real_display_length = search_ptr - start_ptr;
-
-                           if ((length + real_display_length) < MAX_FULL_USER_ID_LENGTH)
+                           (void)memcpy(&user[length], start_ptr,
+                                        real_display_length);
+                           user[length + real_display_length] = '\0';
+                           if (buffer != NULL)
                            {
-                              (void)memcpy(&user[length], start_ptr,
-                                           real_display_length);
-                              user[length + real_display_length] = '\0';
                               free(buffer);
-                              return;
                            }
+                           return;
                         }
                      }
                   }
-                  free(buffer);
-                  ptr = getenv("DISPLAY");
                }
+               if (buffer != NULL)
+               {
+                  free(buffer);
+               }
+               ptr = getenv("DISPLAY");
             }
          }
          if ((length + display_length) < MAX_FULL_USER_ID_LENGTH)

@@ -1,6 +1,6 @@
 /*
  *  show_queue.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,9 +25,11 @@
 /* What information should be displayed */
 #define SHOW_INPUT              1      /* Files queued, due to error or */
                                        /* queue stopped.                */
-#define SHOW_OUTPUT             2      /* Files in FD queue. */
-#define SHOW_UNSENT_INPUT       4      /* All files in input dir.       */
-#define SHOW_UNSENT_OUTPUT      8      /* Files currently send by FD.   */
+#define SHOW_OUTPUT             2      /* Files in FD queue.            */
+#define SHOW_RETRIEVES          4      /* Retrieving jobs.              */
+#define SHOW_UNSENT_INPUT       8      /* All files in input dir.       */
+#define SHOW_UNSENT_OUTPUT      16     /* Files currently send by FD.   */
+#define SHOW_PENDING_RETRIEVES  32     /* Pending retrieve jobs.        */
 
 #define GOT_JOB_ID              -2
 #define GOT_JOB_ID_DIR_ONLY     -3
@@ -81,8 +83,10 @@
 /* Structure that holds a list of files that where found. */
 struct queued_file_list
        {
+          double       msg_number;
           off_t        size;
           time_t       mtime;
+          int          retrieve_pos;
           int          dir_id_pos;
           int          queue_tmp_buf_pos;
           unsigned int job_id;
@@ -92,7 +96,8 @@ struct queued_file_list
           char         hostname[MAX_HOSTNAME_LENGTH + 1];
           char         priority;
           char         queue_type; /* SHOW_INPUT, SHOW_OUTPUT,              */
-                                   /* SHOW_UNSENT_INPUT, SHOW_UNSENT_OUTPUT */
+                                   /* SHOW_UNSENT_INPUT, SHOW_UNSENT_OUTPUT,*/
+                                   /* SHOW_RETRIEVES, SHOW_PENDING_RETRIEVES*/
        };
 
 struct queue_tmp_buf
@@ -155,6 +160,7 @@ extern void close_button(Widget, XtPointer, XtPointer),
             display_data(void),
             format_input_info(char *, int),
             format_output_info(char *, int),
+            format_retrieve_info(char *, int),
             get_data(void),
             info_click(Widget, XtPointer, XEvent *),
             item_selection(Widget, XtPointer, XtPointer),

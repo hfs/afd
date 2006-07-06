@@ -198,7 +198,7 @@ scp_write(char *block, int size)
            /* In some cases, the write system call hangs. */
            signal(SIGALRM, sig_ignore_handler); /* Ignore the default which */
                                                 /* is to abort.             */
-           siginterrupt(SIGALRM, 1); /* Allow SIGALRM to interrupt write. */
+           my_siginterrupt(SIGALRM, 1); /* Allow SIGALRM to interrupt write. */
 
            alarm(transfer_timeout); /* Set up an alarm to interrupt write. */
            if ((status = write(data_fd, block, size)) != size)

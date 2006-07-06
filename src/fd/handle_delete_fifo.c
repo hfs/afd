@@ -37,6 +37,7 @@ DESCR__S_M3
  **     DELETE_ALL_JOBS_FROM_HOST: <type><hast alias>\0
  **     DELETE_MESSAGE           : <type><message name>\0
  **     DELETE_SINGLE_FILE       : <type><message name + file name>\0
+ **     DELETE_RETRIEVE          : <type><message number> <retrieve pos>\0
  **
  ** RETURN VALUES
  **   None.
@@ -46,6 +47,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   09.01.2005 H.Kiehl Created
+ **   11.06.2006 H.Kiehl Ability to remove retrieve jobs.
  **
  */
 DESCR__E_M3
@@ -62,7 +64,8 @@ DESCR__E_M3
 extern int                        fsa_fd,
                                   *no_msg_queued,
                                   no_of_hosts,
-                                  no_of_trl_groups;
+                                  no_of_trl_groups,
+                                  *retrieve_list;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
 extern struct connection          *connection;
@@ -118,7 +121,8 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
       {
          if ((*del_read_ptr == DELETE_ALL_JOBS_FROM_HOST) ||
              (*del_read_ptr == DELETE_MESSAGE) ||
-             (*del_read_ptr == DELETE_SINGLE_FILE))
+             (*del_read_ptr == DELETE_SINGLE_FILE) ||
+             (*del_read_ptr == DELETE_RETRIEVE))
          {
             p_str_end = del_read_ptr + 1;
             while ((*p_str_end != '\0') &&
@@ -507,6 +511,187 @@ handle_delete_fifo(int delete_jobs_fd, size_t fifo_size, char *file_dir)
                                      "Reading garbage on FD delete fifo (%c).",
                                      *p_end);
                        }
+                    }
+                    else
+                    {
+                       system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                  "Reading garbage on FD delete fifo (%c).",
+                                  *p_end);
+                    }
+                 }
+            else if (*del_read_ptr == DELETE_RETRIEVE)
+                 {
+                    char *p_end;
+
+                    del_read_ptr++;
+                    del_bytes_read--;
+                    p_end = del_read_ptr;
+                    while ((*p_end != ' ') && (*p_end != '\0'))
+                    {
+                       p_end++;
+                    }
+                    if (*p_end == ' ')
+                    {
+                       double msg_number;
+
+                       *p_end = '\0';
+                       p_end++;
+                       msg_number = strtod(del_read_ptr, NULL);
+                       if (*p_end != '\0')
+                       {
+                          int retrieve_pos;
+
+                          retrieve_pos = atoi(p_end);
+                          for (i = 0; i < *no_msg_queued; i++)
+                          {
+                             if ((qb[i].msg_number == msg_number) &&
+                                 (qb[i].pos == retrieve_pos) &&
+                                 (qb[i].msg_name[0] == '\0'))
+                             {
+                                /*
+                                 * Kill the job when it is currently
+                                 * distributing data.
+                                 */
+                                if (qb[i].pid > 0)
+                                {
+                                   if (kill(qb[i].pid, SIGKILL) < 0)
+                                   {
+                                      if (errno != ESRCH)
+                                      {
+                                         system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                    "Failed to kill transfer job to %s (%d) : %s",
+                                                    mdb[qb[i].pos].host_name,
+                                                    qb[i].pid, strerror(errno));
+                                      }
+                                   }
+                                   else
+                                   {
+                                      off_t lock_offset;
+
+                                      lock_offset = AFD_WORD_OFFSET +
+                                                    (connection[qb[i].connect_pos].fsa_pos * sizeof(struct filetransfer_status));
+
+#ifdef LOCK_DEBUG
+                                      lock_region_w(fsa_fd, lock_offset + LOCK_TFC, __FILE__, __LINE__);
+#else
+                                      lock_region_w(fsa_fd, lock_offset + LOCK_TFC);
+#endif
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].total_file_counter -= fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].no_of_files - fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].no_of_files_done;
+#ifdef _VERIFY_FSA
+                                      if (fsa[connection[qb[i].connect_pos].fsa_pos].total_file_counter < 0)
+                                      {
+                                         system_log(INFO_SIGN, __FILE__, __LINE__,
+                                                    "Total file counter for host `%s' less then zero. Correcting.",
+                                                    fsa[connection[qb[i].connect_pos].fsa_pos].host_dsp_name);
+                                         fsa[connection[qb[i].connect_pos].fsa_pos].total_file_counter = 0;
+                                      }
+#endif
+
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].total_file_size -= (fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_size - fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_size_done + fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_size_in_use_done);
+#ifdef _VERIFY_FSA
+                                      if (fsa[connection[qb[i].connect_pos].fsa_pos].total_file_size < 0)
+                                      {
+                                         system_log(INFO_SIGN, __FILE__, __LINE__,
+                                                    "Total file size for host `%s' overflowed. Correcting.",
+                                                    fsa[connection[qb[i].connect_pos].fsa_pos].host_dsp_name);
+                                         fsa[connection[qb[i].connect_pos].fsa_pos].total_file_size = 0;
+                                      }
+                                      else
+                                      {
+                                         if ((fsa[connection[qb[i].connect_pos].fsa_pos].total_file_counter == 0) &&
+                                             (fsa[connection[qb[i].connect_pos].fsa_pos].total_file_size < 0))
+                                         {
+                                            system_log(INFO_SIGN, __FILE__, __LINE__,
+                                                       "fc for host `%s' is zero but fs is not zero. Correcting.",
+                                                       fsa[connection[qb[i].connect_pos].fsa_pos].host_dsp_name);
+                                            fsa[connection[qb[i].connect_pos].fsa_pos].total_file_size = 0;
+                                         }
+                                      }
+#endif
+
+#ifdef LOCK_DEBUG
+                                      unlock_region(fsa_fd, lock_offset + LOCK_TFC, __FILE__, __LINE__);
+#else
+                                      unlock_region(fsa_fd, lock_offset + LOCK_TFC);
+#endif
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].connect_status = DISCONNECT;
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].no_of_files = 0;
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].no_of_files_done = 0;
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_size = 0;
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_size_done = 0;
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_size_in_use = 0;
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_size_in_use_done = 0;
+                                      fsa[connection[qb[i].connect_pos].fsa_pos].job_status[connection[qb[i].connect_pos].job_no].file_name_in_use[0] = '\0';
+                                      remove_connection(&connection[qb[i].connect_pos],
+                                                        NO, now);
+                                   }
+                                }
+                                else
+                                {
+                                   int fsa_pos;
+
+                                   if ((fsa_pos = get_host_position(fsa, fra[retrieve_list[retrieve_pos]].host_alias, no_of_hosts)) == -1)
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 "Failed to locate `%s' in FSA.",
+                                                 fra[retrieve_list[retrieve_pos]].host_alias);
+                                   }
+                                   else
+                                   {
+                                      ABS_REDUCE(fsa_pos);
+                                      if ((fsa[fsa_pos].jobs_queued == 0) &&
+                                          (fsa[fsa_pos].error_counter > 0))
+                                      {
+                                         int   j;
+                                         off_t lock_offset;
+
+                                         lock_offset = AFD_WORD_OFFSET +
+                                                       (fsa_pos * sizeof(struct filetransfer_status));
+#ifdef LOCK_DEBUG
+                                         lock_region_w(fsa_fd, lock_offset + LOCK_EC, __FILE__, __LINE__);
+#else
+                                         lock_region_w(fsa_fd, lock_offset + LOCK_EC);
+#endif
+                                         fsa[fsa_pos].error_counter = 0;
+
+                                         /*
+                                          * Remove the error condition (NOT_WORKING) from
+                                          * all jobs of this host.
+                                          */
+                                         for (j = 0; j < fsa[fsa_pos].allowed_transfers; j++)
+                                         {
+                                            if (fsa[fsa_pos].job_status[j].connect_status == NOT_WORKING)
+                                            {
+                                               fsa[fsa_pos].job_status[j].connect_status = DISCONNECT;
+                                            }
+                                         }
+                                         fsa[fsa_pos].error_history[0] = 0;
+                                         fsa[fsa_pos].error_history[1] = 0;
+#ifdef LOCK_DEBUG
+                                         unlock_region(fsa_fd, lock_offset + LOCK_EC, __FILE__, __LINE__);
+#else
+                                         unlock_region(fsa_fd, lock_offset + LOCK_EC);
+#endif
+                                      }
+                                   }
+                                }
+                                fra[retrieve_list[retrieve_pos]].queued = NO;
+                                if (i != (*no_msg_queued - 1))
+                                {
+                                   (void)memmove(&qb[i], &qb[i + 1],
+                                                 sizeof(struct queue_buf));
+                                }
+                                (*no_msg_queued)--;
+                                break;
+                             }
+                          }
+                       }
+                       else
+                       {
+                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                     "Reading garbage on FD delete fifo (unexpected 0).");
+                       }
+                       *(p_end - 1) = ' ';
                     }
                     else
                     {

@@ -47,6 +47,8 @@ DESCR__S_M3
  **   30.12.2003 H.Kiehl Remove old file mask entries.
  **   17.10.2004 H.Kiehl Remove outgoing job directory.
  **   10.04.2005 H.Kiehl Remove alternate file.
+ **   22.06.2006 H.Kiehl Catch the case when *no_of_file_mask_ids is larger
+ **                      then the actual number stored.
  **
  */
 DESCR__E_M3
@@ -1876,6 +1878,25 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                            }
                            ptr += (mask_offset + *(int *)(ptr + fml_offset) +
                                    sizeof(char) + *(ptr + mask_offset - 1));
+                           if ((ptr - fmd) >= (original_size - size_removed))
+                           {
+                              if ((k + 1) != *no_of_file_mask_ids)
+                              {
+                                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                                            "The number of file mask is to large %d, changing to %d.",
+                                            *no_of_file_mask_ids, k);
+                                 *no_of_file_mask_ids = i;
+                              }
+                              else if ((ptr - fmd) > (original_size - size_removed))
+                                   {
+                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                 "Hmmm, something is wrong here (k=%d *no_of_file_mask_ids=%d  diff1=%d diff2=%d).",
+                                                 k, *no_of_file_mask_ids,
+                                                 (ptr - fmd),
+                                                 (original_size - size_removed));
+                                      break;
+                                   }
+                           }
                         }
                      }
                      ptr = fmd - AFD_WORD_OFFSET;
@@ -1891,6 +1912,16 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                         }
                         system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                    "Removed %d file masks.", file_mask_removed);
+                     }
+#ifdef HAVE_MMAP
+                     if (msync(ptr, (original_size - size_removed), MS_SYNC) == -1)
+#else
+                     if (msync_emu(ptr) == -1)
+#endif
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to msync() `%s' : %s",
+                                   fmd_file_name, strerror(errno));
                      }
 #ifdef HAVE_MMAP
                      if (munmap(ptr, (original_size - size_removed)) == -1)

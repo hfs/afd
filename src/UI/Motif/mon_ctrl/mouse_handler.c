@@ -1348,20 +1348,22 @@ start_remote_prog(Widget    w,
          }
          else
          {
-            int gotcha = NO;
+            int    gotcha = NO;
+#ifdef WHEN_WE_KNOW
+            Window window_id;
+#endif
 
             if ((item_no == AFD_CTRL_SEL) || (item_no == DIR_CTRL_SEL))
             {
                int    j;
-#ifdef WHEN_WE_KNOW
-               Window window_id;
-#endif
 
                for (j = 0; j < no_of_active_process; j++)
                {
                   if ((apps_list[j].position == i) &&
-                      ((strcmp(apps_list[j].progname, AFD_CTRL) == 0) ||
-                       (strcmp(apps_list[j].progname, DIR_CTRL) == 0)))
+                      (((item_no == AFD_CTRL_SEL) &&
+                        (strcmp(apps_list[j].progname, AFD_CTRL) == 0)) ||
+                       ((item_no == DIR_CTRL_SEL) &&
+                        (strcmp(apps_list[j].progname, DIR_CTRL) == 0))))
                   {
 #ifdef WHEN_WE_KNOW
                      if ((window_id = get_window_id(apps_list[j].pid,

@@ -1,7 +1,7 @@
 /*
  *  eval_dir_options.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ DESCR__S_M3
  **        accumulate <value>
  **        accumulate size <value>
  **        dupcheck[ <timeout in secs>[ <check type>[ <action>[ <CRC type>]]]]
+ **        accept dot files
  **
  **   For the string old_dir_options it is possible to define the
  **   following values:
@@ -88,6 +89,7 @@ DESCR__S_M3
  **   02.09.2004 H.Kiehl Added "ignore file time" option.
  **   28.11.2004 H.Kiehl Added "delete old locked files" option.
  **   07.06.2005 H.Kiehl Added "dupcheck" option.
+ **   30.06.2006 H.Kiehl Added "accept dot files" option.
  **
  */
 DESCR__E_M3
@@ -138,6 +140,7 @@ extern struct dir_data *dd;
 #ifdef WITH_DUP_CHECK
 # define DUPCHECK_FLAG                   4194304
 #endif
+#define ACCEPT_DOT_FILES_FLAG            8388608
 
 
 /*########################## eval_dir_options() #########################*/
@@ -189,6 +192,7 @@ eval_dir_options(int  dir_pos,
    dd[dir_pos].dup_check_flag = 0;
    dd[dir_pos].dup_check_timeout = 0L;
 #endif
+   dd[dir_pos].accept_dot_files = NO;
 
    /*
     * First evaluate the old directory option so we
@@ -624,6 +628,17 @@ eval_dir_options(int  dir_pos,
 
            }
 #endif /* WITH_DUP_CHECK */
+      else if (((used & ACCEPT_DOT_FILES_FLAG) == 0) &&
+               (strncmp(ptr, ACCEPT_DOT_FILES_ID, ACCEPT_DOT_FILES_ID_LENGTH) == 0))
+           {
+              used |= ACCEPT_DOT_FILES_FLAG;
+              ptr += ACCEPT_DOT_FILES_ID_LENGTH;
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+              dd[dir_pos].accept_dot_files = YES;
+           }
       else if (((used & WAIT_FOR_FILENAME_FLAG) == 0) &&
                (strncmp(ptr, WAIT_FOR_FILENAME_ID, WAIT_FOR_FILENAME_ID_LENGTH) == 0))
            {

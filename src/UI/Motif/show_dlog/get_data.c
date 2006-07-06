@@ -257,13 +257,16 @@ static void   display_data(int, time_t, time_t),
               }                                            \
            }                                               \
                                                            \
-           ptr++;                                          \
-           j = 0;                                          \
-           while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&\
-                  (j < MAX_PROC_USER_LENGTH))              \
+           if (*ptr == SEPARATOR_CHAR)                     \
            {                                               \
-              *(p_proc_user + j) = *ptr;                   \
-              ptr++; j++;                                  \
+              ptr++;                                       \
+              j = 0;                                       \
+              while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') &&\
+                     (j < MAX_PROC_USER_LENGTH))           \
+              {                                            \
+                 *(p_proc_user + j) = *ptr;                \
+                 ptr++; j++;                               \
+              }                                            \
            }                                               \
            while (*ptr != '\n')                            \
            {                                               \
@@ -912,24 +915,27 @@ get_data(void)
    }
    end = time(NULL);
 
-   if (total_no_files != 0)
+   if ((perm.list_limit == 0) || (total_no_files < perm.list_limit))
    {
+      if (total_no_files != 0)
+      {
 #if SIZEOF_TIME_T == 4
-      (void)sprintf(status_message, "Search time: %lds", end - start);
+         (void)sprintf(status_message, "Search time: %lds", end - start);
 #else
-      (void)sprintf(status_message, "Search time: %llds", end - start);
+         (void)sprintf(status_message, "Search time: %llds", end - start);
 #endif
-   }
-   else
-   {
+      }
+      else
+      {
 #if SIZEOF_TIME_T == 4
-      (void)sprintf(status_message, "No data found. Search time: %lds",
+         (void)sprintf(status_message, "No data found. Search time: %lds",
 #else
-      (void)sprintf(status_message, "No data found. Search time: %llds",
+         (void)sprintf(status_message, "No data found. Search time: %llds",
 #endif
-                    end - start);
+                       end - start);
+      }
+      SHOW_MESSAGE();
    }
-   SHOW_MESSAGE();
 
    special_button_flag = SEARCH_BUTTON;
    xstr = XmStringCreateLtoR("Search", XmFONTLIST_DEFAULT_TAG);
@@ -1354,12 +1360,39 @@ no_criteria(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
-                    INSERT_TIME_TYPE(OTHER_DEL_ID_STR, OTHER_DEL_ID_LENGTH);
+                    INSERT_TIME_TYPE(OTHER_OUTPUT_DEL_ID_STR,
+                                     OTHER_OUTPUT_DEL_ID_LENGTH);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    INSERT_TIME_TYPE(OTHER_INPUT_DEL_ID_STR,
+                                     OTHER_INPUT_DEL_ID_LENGTH);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    INSERT_TIME_TYPE(DEL_UNKNOWN_FILE_ID_STR,
+                                     DEL_UNKNOWN_FILE_ID_LENGTH);
                  }
                  else
                  {
@@ -1671,7 +1704,7 @@ file_name_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_OTHER_DEL)
@@ -1680,7 +1713,64 @@ file_name_only(register char *ptr,
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
                        il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-                       INSERT_TIME_TYPE(OTHER_DEL_ID_STR, OTHER_DEL_ID_LENGTH);
+                       INSERT_TIME_TYPE(OTHER_OUTPUT_DEL_ID_STR,
+                                        OTHER_OUTPUT_DEL_ID_LENGTH);
+                       j = 0;
+                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       {
+                          *(p_file_name + j) = *ptr;
+                          ptr++; j++;
+                       }
+                    }
+                    else
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                    {
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       INSERT_TIME_TYPE(OTHER_INPUT_DEL_ID_STR,
+                                        OTHER_INPUT_DEL_ID_LENGTH);
+                       j = 0;
+                       while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
+                       {
+                          *(p_file_name + j) = *ptr;
+                          ptr++; j++;
+                       }
+                    }
+                    else
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
+                    {
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       INSERT_TIME_TYPE(DEL_UNKNOWN_FILE_ID_STR,
+                                        DEL_UNKNOWN_FILE_ID_LENGTH);
                        j = 0;
                        while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
                        {
@@ -1918,12 +2008,39 @@ file_size_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
-                    FILE_SIZE_ONLY(OTHER_DEL_ID_STR, OTHER_DEL_ID_LENGTH);
+                    FILE_SIZE_ONLY(OTHER_OUTPUT_DEL_ID_STR,
+                                   OTHER_OUTPUT_DEL_ID_LENGTH);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    FILE_SIZE_ONLY(OTHER_INPUT_DEL_ID_STR,
+                                   OTHER_INPUT_DEL_ID_LENGTH);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    FILE_SIZE_ONLY(DEL_UNKNOWN_FILE_ID_STR,
+                                   DEL_UNKNOWN_FILE_ID_LENGTH);
                  }
                  else
                  {
@@ -2137,9 +2254,17 @@ file_name_and_size(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == OTHER_DEL)
+         else if ((type == OTHER_OUTPUT_DEL) || (type == OTHER_INPUT_DEL) ||
+                  (type == DEL_UNKNOWN_FILE))
               {
-                 il[file_no].input_id[item_counter] = NO;
+                 if (type == OTHER_OUTPUT_DEL)
+                 {
+                    il[file_no].input_id[item_counter] = NO;
+                 }
+                 else
+                 {
+                    il[file_no].input_id[item_counter] = YES;
+                 }
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
                     ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
@@ -2265,9 +2390,20 @@ file_name_and_size(register char *ptr,
                  (void)memcpy(p_type, EXEC_FAILED_DEL_ID_STR,
                               EXEC_FAILED_DEL_ID_LENGTH);
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
-                 (void)memcpy(p_type, OTHER_DEL_ID_STR, OTHER_DEL_ID_LENGTH);
+                 (void)memcpy(p_type, OTHER_OUTPUT_DEL_ID_STR,
+                              OTHER_OUTPUT_DEL_ID_LENGTH);
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 (void)memcpy(p_type, OTHER_INPUT_DEL_ID_STR,
+                              OTHER_INPUT_DEL_ID_LENGTH);
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 (void)memcpy(p_type, DEL_UNKNOWN_FILE_ID_STR,
+                              DEL_UNKNOWN_FILE_ID_LENGTH);
               }
               else
               {
@@ -2544,7 +2680,7 @@ recipient_only(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_OTHER_DEL)
@@ -2561,7 +2697,68 @@ recipient_only(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       INSERT_TIME_TYPE(OTHER_DEL_ID_STR, OTHER_DEL_ID_LENGTH);
+                       INSERT_TIME_TYPE(OTHER_OUTPUT_DEL_ID_STR,
+                                        OTHER_OUTPUT_DEL_ID_LENGTH);
+                    }
+                    else
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    int ii;
+
+                    for (ii = 0; ii < no_of_search_hosts; ii++)
+                    {
+                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       {
+                          current_search_host = ii;
+                          break;
+                       }
+                    }
+                    if (current_search_host != -1)
+                    {
+                       INSERT_TIME_TYPE(OTHER_INPUT_DEL_ID_STR,
+                                        OTHER_INPUT_DEL_ID_LENGTH);
+                    }
+                    else
+                    {
+                       IGNORE_ENTRY();
+                    }
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    int ii;
+
+                    for (ii = 0; ii < no_of_search_hosts; ii++)
+                    {
+                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       {
+                          current_search_host = ii;
+                          break;
+                       }
+                    }
+                    if (current_search_host != -1)
+                    {
+                       INSERT_TIME_TYPE(DEL_UNKNOWN_FILE_ID_STR,
+                                        DEL_UNKNOWN_FILE_ID_LENGTH);
                     }
                     else
                     {
@@ -2765,11 +2962,26 @@ file_name_and_recipient(register char *ptr,
                                          EXEC_FAILED_DEL_ID_STR,
                                          EXEC_FAILED_DEL_ID_LENGTH);
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
                  il[file_no].input_id[item_counter] = NO;
-                 FILE_NAME_AND_RECIPIENT(SHOW_OTHER_DEL, OTHER_DEL_ID_STR,
-                                         OTHER_DEL_ID_LENGTH);
+                 FILE_NAME_AND_RECIPIENT(SHOW_OTHER_DEL,
+                                         OTHER_OUTPUT_DEL_ID_STR,
+                                         OTHER_OUTPUT_DEL_ID_LENGTH);
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 FILE_NAME_AND_RECIPIENT(SHOW_OTHER_DEL,
+                                         OTHER_INPUT_DEL_ID_STR,
+                                         OTHER_INPUT_DEL_ID_LENGTH);
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 FILE_NAME_AND_RECIPIENT(SHOW_OTHER_DEL,
+                                         DEL_UNKNOWN_FILE_ID_STR,
+                                         DEL_UNKNOWN_FILE_ID_LENGTH);
               }
               else
               {
@@ -3008,13 +3220,39 @@ file_size_and_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
-                    FILE_SIZE_AND_RECIPIENT(OTHER_DEL_ID_STR,
-                                            OTHER_DEL_ID_LENGTH);
+                    FILE_SIZE_AND_RECIPIENT(OTHER_OUTPUT_DEL_ID_STR,
+                                            OTHER_OUTPUT_DEL_ID_LENGTH);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    FILE_SIZE_AND_RECIPIENT(OTHER_INPUT_DEL_ID_STR,
+                                            OTHER_INPUT_DEL_ID_LENGTH);
+                 }
+                 else
+                 {
+                    IGNORE_ENTRY();
+                 }
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 il[file_no].input_id[item_counter] = YES;
+                 if (toggles_set & SHOW_OTHER_DEL)
+                 {
+                    FILE_SIZE_AND_RECIPIENT(DEL_UNKNOWN_FILE_ID_STR,
+                                            DEL_UNKNOWN_FILE_ID_LENGTH);
                  }
                  else
                  {
@@ -3326,9 +3564,17 @@ file_name_size_recipient(register char *ptr,
                     IGNORE_ENTRY();
                  }
               }
-         else if (type == OTHER_DEL)
+         else if ((type == OTHER_OUTPUT_DEL) || (type == OTHER_INPUT_DEL) ||
+                  (type == DEL_UNKNOWN_FILE))
               {
-                 il[file_no].input_id[item_counter] = NO;
+                 if (type == OTHER_OUTPUT_DEL)
+                 {
+                    il[file_no].input_id[item_counter] = NO;
+                 }
+                 else
+                 {
+                    il[file_no].input_id[item_counter] = YES;
+                 }
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
                     int ii;
@@ -3488,9 +3734,20 @@ file_name_size_recipient(register char *ptr,
                  (void)memcpy(p_type, EXEC_FAILED_DEL_ID_STR,
                               EXEC_FAILED_DEL_ID_LENGTH);
               }
-         else if (type == OTHER_DEL)
+         else if (type == OTHER_OUTPUT_DEL)
               {
-                 (void)memcpy(p_type, OTHER_DEL_ID_STR, OTHER_DEL_ID_LENGTH);
+                 (void)memcpy(p_type, OTHER_OUTPUT_DEL_ID_STR,
+                              OTHER_OUTPUT_DEL_ID_LENGTH);
+              }
+         else if (type == OTHER_INPUT_DEL)
+              {
+                 (void)memcpy(p_type, OTHER_INPUT_DEL_ID_STR,
+                              OTHER_INPUT_DEL_ID_LENGTH);
+              }
+         else if (type == DEL_UNKNOWN_FILE)
+              {
+                 (void)memcpy(p_type, DEL_UNKNOWN_FILE_ID_STR,
+                              DEL_UNKNOWN_FILE_ID_LENGTH);
               }
               else
               {

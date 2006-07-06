@@ -43,6 +43,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>                /* sprintf()                           */
+#include <stdlib.h>               /* free()                              */
 #include <string.h>               /* strerror()                          */
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -88,7 +89,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                    tmp_char,
                    tmp_option[1024],
                    command_str[1024],
-                   return_str[MAX_PATH_LENGTH + MAX_PATH_LENGTH + 1];
+                   *return_str = NULL;
 
       while ((*p_end != '\n') && (*p_end != '\0'))
       {
@@ -187,9 +188,9 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                   *insert_list[k] = tmp_char;
                }
 
-               if ((ret = exec_cmd(command_str, return_str, transfer_log_fd,
+               if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
-                                   db.trans_exec_timeout)) != 0) /* ie != SUCCESS */
+                                   db.trans_exec_timeout, YES)) != 0) /* ie != SUCCESS */
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to execute command %s [Return code = %d]",
@@ -228,9 +229,9 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
 
                (void)sprintf(command_str, "cd %s && %s",
                              file_path, p_command);
-               if ((ret = exec_cmd(command_str, return_str, transfer_log_fd,
+               if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
-                                   db.trans_exec_timeout)) != 0)
+                                   db.trans_exec_timeout, YES)) != 0)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to execute command %s [Return code = %d]",
@@ -243,6 +244,11 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                   (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
                                    p_command, MAX_MSG_NAME_LENGTH);
                }
+            }
+            if (return_str != NULL)
+            {
+               free(return_str);
+               return_str = NULL;
             }
          }
          if (rec_rmdir(file_path) < 0)

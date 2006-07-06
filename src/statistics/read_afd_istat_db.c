@@ -1,6 +1,6 @@
 /*
  *  read_afd_istat_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -236,7 +236,7 @@ read_afd_istat_db(int no_of_dirs)
    *(int *)ptr = no_of_dirs;
    *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_STAT_VERSION;
    istat_db = (struct afdistat *)(ptr + AFD_WORD_OFFSET);
-   (void)memset(istat_db, 0, istat_db_size);
+   (void)memset(istat_db, 0, (istat_db_size - AFD_WORD_OFFSET));
 
    if ((no_of_old_dirs < 1) && (old_istat_db != NULL))
    {

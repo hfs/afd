@@ -389,7 +389,6 @@ wmo_quit(void)
             {
                /* timeout has arrived */
                timeout_flag = ON;
-               return;
             }
             else if (FD_ISSET(sock_fd, &rset))
                  {
@@ -398,20 +397,17 @@ wmo_quit(void)
                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                  "read() error (%d) : %s",
                                  status, strerror(errno));
-                       return;
                     }
                  }
             else if (status < 0)
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "select() error : %s", strerror(errno));
-                    return;
                  }
                  else
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "Unknown condition.");
-                    return;
                  }
          }
       }

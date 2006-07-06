@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2003 Holger Kiehl
+## Copyright (C) 2001 - 2006 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -22,7 +22,6 @@ INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
                        -I../afd_ctrl -I../../../init_afd
 bin_PROGRAMS         = view_dc
 view_dc_SOURCES      = callbacks.c\
-                       get_dc_data.c\
                        view_dc.c
 view_dc_LDADD        = ../common/libxafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@

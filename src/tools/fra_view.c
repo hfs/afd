@@ -309,7 +309,15 @@ main(int argc, char *argv[])
          }
          if (fra[i].dir_flag & LINK_NO_EXEC)
          {
-            (void)fprintf(stdout, "LINK_NO_EXEC");
+            (void)fprintf(stdout, "LINK_NO_EXEC ");
+         }
+         if (fra[i].dir_flag & DIR_DISABLED)
+         {
+            (void)fprintf(stdout, "DIR_DISABLED ");
+         }
+         if (fra[i].dir_flag & ACCEPT_DOT_FILES)
+         {
+            (void)fprintf(stdout, "ACCEPT_DOT_FILES");
          }
          (void)fprintf(stdout, "\n");
       }

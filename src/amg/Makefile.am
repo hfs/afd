@@ -70,7 +70,7 @@ dir_check_SOURCES     = check_files.c\
                         send_message.c\
                         sort_time_job.c\
                         store_passwd.c
-dir_check_LDADD       = ../common/libafd.a ../misc/libmisc.a
+dir_check_LDADD       = ../common/libafd.a ../misc/libmisc.a @EXTRA_SOCKET_LIBS@
 test_time_SOURCES     = eval_time_str.c\
                         test_time.c
 test_time_LDADD       = ../common/libafd.a

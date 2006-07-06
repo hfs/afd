@@ -1,6 +1,6 @@
 /*
  *  display_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -162,6 +162,15 @@ display_data(void)
            {
               *p_type = 'I';
               *(p_type + 1) = 'U';
+           }
+      else if (qfl[lines_displayed].queue_type == SHOW_RETRIEVES)
+           {
+              *p_type = 'R';
+           }
+      else if (qfl[lines_displayed].queue_type == SHOW_PENDING_RETRIEVES)
+           {
+              *p_type = 'R';
+              *(p_type + 1) = 'P';
            }
            else
            {

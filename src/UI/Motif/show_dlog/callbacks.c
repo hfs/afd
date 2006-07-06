@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -110,13 +110,15 @@ extern int              file_name_toggle_set,
                         no_of_search_dirs,
                         no_of_search_dirids,
                         special_button_flag,
+                        sum_line_length,
                         no_of_log_files,
                         char_width;
 extern XT_PTR_TYPE      toggles_set;
 extern time_t           start_time_val,
                         end_time_val;
 extern size_t           search_file_size;
-extern char             search_file_name[],
+extern char             header_line[],
+                        search_file_name[],
                         **search_dir,
                         **search_dirid,
                         **search_recipient;
@@ -240,18 +242,12 @@ radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       file_name_length = new_file_name_length;
 
       XGetGeometry(display, main_window, &root_return, &x, &y, &width, &window_height, &border, &depth);
-      if (file_name_length == SHOW_SHORT_FORMAT)
-      {
-         XmTextSetString(headingbox_w, HEADING_LINE_SHORT);
-      }
-      else if (file_name_length == SHOW_MEDIUM_FORMAT)
-           {
-              XmTextSetString(headingbox_w, HEADING_LINE_MEDIUM);
-           }
-           else
-           {
-              XmTextSetString(headingbox_w, HEADING_LINE_LONG);
-           }
+      sum_line_length = sprintf(header_line, "%s%-*s %s%-*s %s",
+                                DATE_TIME_HEADER, file_name_length,
+                                FILE_NAME_HEADER, FILE_SIZE_HEADER,
+                                HOST_NAME_LENGTH, HOST_NAME_HEADER,
+                                REST_HEADER);
+      XmTextSetString(headingbox_w, header_line);
 
       window_width = char_width *
                      (MAX_OUTPUT_LINE_LENGTH + file_name_length + 6);

@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,6 +60,8 @@ DESCR__S_M3
  **                      if we can just move a file.
  **   28.02.2003 H.Kiehl Added option grib2wmo.
  **   13.07.2003 H.Kiehl Option "age-limit" is now used by AMG as well.
+ **   24.06.2006 H.Kiehl Allow for duplicate directories when the
+ **                      directories are in different DIR_CONFIGS.
  **
  */
 DESCR__E_M3
@@ -146,6 +148,9 @@ create_db(void)
 #endif
                    not_in_same_file_system = 0,
                    one_job_only_dir = 0,
+#ifdef WITH_MULTI_DIR_DEFINITION
+                   original_i = -1,
+#endif
                    size,
                    dir_counter = 0,
                    no_of_jobs;
@@ -385,6 +390,17 @@ create_db(void)
    exec_flag_dir = 0;
    for (i = 0; i < no_of_jobs; i++)
    {
+#ifdef WITH_MULTI_DIR_DEFINITION
+      if (*(p_ptr[i].ptr[11] + p_offset) == 1)
+      {
+         continue;
+      }
+      else if ((original_i != -1) &&
+               (*(p_ptr[i].ptr[11] + p_offset) == '\0'))
+           {
+              *(p_ptr[i].ptr[11] + p_offset) = 1;
+           }
+#endif
       exec_flag = 0;
 
       /* Store DIR_CONFIG ID. */
@@ -409,7 +425,13 @@ create_db(void)
        * is necessary so we can specify overlapping wild cards in
        * different file sections for one directory section.
        */
+#ifdef WITH_MULTI_DIR_DEFINITION
+      if ((i > 0) &&
+          (((original_i == -1) && (db[i].dir != db[i - 1].dir)) ||
+           ((original_i != -1) && (strcmp(db[i].dir, db[original_i].dir) != 0))))
+#else
       if ((i > 0) && (db[i].dir != db[i - 1].dir))
+#endif
       {
          if ((de[dir_counter].flag & DELETE_ALL_FILES) ||
              ((de[dir_counter].flag & IN_SAME_FILESYSTEM) &&
@@ -1027,6 +1049,30 @@ create_db(void)
          fjd[no_fork_jobs].system_time = 0;
          no_fork_jobs++;
       }
+#ifdef WITH_MULTI_DIR_DEFINITION
+      if ((*(p_ptr[i].ptr[11] + p_offset) != '\0') &&
+          (*(p_ptr[i].ptr[11] + p_offset) != 1))
+      {
+         int tmp_original_i = original_i;
+
+         original_i = i;
+         i = atoi(p_ptr[i].ptr[11] + p_offset) - 1;
+         if (tmp_original_i != -1)
+         {
+            *(p_ptr[i].ptr[11] + p_offset) = 1;
+         }
+      }
+      else
+      {
+         if ((original_i != -1) &&
+             (((i + 1) >= no_of_jobs) ||
+              (db[original_i].dir != db[i + 1].dir)))
+         {
+            i = original_i;
+            original_i = -1;
+         }
+      }
+#endif
    } /* for (i = 0; i < no_of_jobs; i++)  */
 
    if ((de[dir_counter].flag & DELETE_ALL_FILES) ||

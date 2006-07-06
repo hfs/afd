@@ -29,29 +29,35 @@
 # define SHOW_DUP_INPUT            4
 # define SHOW_DUP_OUTPUT           8
 #endif
-#define SHOW_USER_DEL             16
-#define SHOW_EXEC_FAILED_DEL      32
-#define SHOW_OTHER_DEL            64
+#define SHOW_USER_DEL              16
+#define SHOW_EXEC_FAILED_DEL       32
+#define SHOW_OTHER_DEL             64
 
-#define AGE_OUTPUT_ID_STR         "AGE(O)"
-#define AGE_OUTPUT_ID_LENGTH      (sizeof(AGE_OUTPUT_ID_STR) - 1)
-#define AGE_INPUT_ID_STR          "AGE(I)"
-#define AGE_INPUT_ID_LENGTH       (sizeof(AGE_INPUT_ID_STR) - 1)
+#define AGE_OUTPUT_ID_STR          "AGE(O)"
+#define AGE_OUTPUT_ID_LENGTH       (sizeof(AGE_OUTPUT_ID_STR) - 1)
+#define AGE_INPUT_ID_STR           "AGE(I)"
+#define AGE_INPUT_ID_LENGTH        (sizeof(AGE_INPUT_ID_STR) - 1)
 #ifdef WITH_DUP_CHECK
-# define DUP_INPUT_ID_STR         "DUP(I)"
-# define DUP_INPUT_ID_LENGTH      (sizeof(DUP_INPUT_ID_STR) - 1)
-# define DUP_OUTPUT_ID_STR        "DUP(O)"
-# define DUP_OUTPUT_ID_LENGTH     (sizeof(DUP_OUTPUT_ID_STR) - 1)
+# define DUP_INPUT_ID_STR          "DUP(I)"
+# define DUP_INPUT_ID_LENGTH       (sizeof(DUP_INPUT_ID_STR) - 1)
+# define DUP_OUTPUT_ID_STR         "DUP(O)"
+# define DUP_OUTPUT_ID_LENGTH      (sizeof(DUP_OUTPUT_ID_STR) - 1)
 #endif
-#define USER_DEL_ID_STR           "USER"
-#define USER_DEL_ID_LENGTH        (sizeof(USER_DEL_ID_STR) - 1)
-#define EXEC_FAILED_DEL_ID_STR    "EXEC"
-#define EXEC_FAILED_DEL_ID_LENGTH (sizeof(EXEC_FAILED_DEL_ID_STR) - 1)
-#define OTHER_DEL_ID_STR          "OTHER"
-#define OTHER_DEL_ID_LENGTH       (sizeof(OTHER_DEL_ID_STR) - 1)
-#define UNKNOWN_ID_STR            "UNKNOWN"
-#define UNKNOWN_ID_LENGTH         (sizeof(UNKNOWN_ID_STR) - 1)
-#define MAX_REASON_LENGTH         (sizeof(UNKNOWN_ID_STR) - 1)
+#define USER_DEL_ID_STR            "USER"
+#define USER_DEL_ID_LENGTH         (sizeof(USER_DEL_ID_STR) - 1)
+#define EXEC_FAILED_DEL_ID_STR     "EXEC"
+#define EXEC_FAILED_DEL_ID_LENGTH  (sizeof(EXEC_FAILED_DEL_ID_STR) - 1)
+#define OTHER_OUTPUT_DEL_ID_STR    "OTHER(O)"
+#define OTHER_OUTPUT_DEL_ID_LENGTH (sizeof(OTHER_OUTPUT_DEL_ID_STR) - 1)
+#define OTHER_INPUT_DEL_ID_STR     "OTHER(I)"
+#define OTHER_INPUT_DEL_ID_LENGTH  (sizeof(OTHER_INPUT_DEL_ID_STR) - 1)
+#define UNKNOWN_ID_STR             "UNKNOWN"
+#define UNKNOWN_ID_LENGTH          (sizeof(UNKNOWN_ID_STR) - 1)
+#define DEL_UNKNOWN_FILE_ID_STR    "DUF"
+#define DEL_UNKNOWN_FILE_ID_LENGTH (sizeof(DEL_UNKNOWN_FILE_ID_STR) - 1)
+#define MAX_REASON_LENGTH          (sizeof(OTHER_OUTPUT_DEL_ID_STR) - 1)
+
+#define OTHER_DEL_ID_STR           "OTHER"
 
 /* Position in toggle_label widget table. */
 #define AGE_OUTPUT_POS            0
@@ -109,13 +115,17 @@
 /* Maximum length of the file name that is displayed */
 #define SHOW_SHORT_FORMAT         26
 #define SHOW_MEDIUM_FORMAT        40
-#define SHOW_LONG_FORMAT          60
-#define HEADING_LINE_SHORT        "Date   Time     File name                  File size   Hostname Reason  Process/User   "
-#define SUM_SEP_LINE_SHORT        "======================================================================================="
-#define HEADING_LINE_MEDIUM       "Date   Time     File name                                File size   Hostname Reason  Process/User   "
-#define SUM_SEP_LINE_MEDIUM       "====================================================================================================="
-#define HEADING_LINE_LONG         "Date   Time     File name                                                    File size   Hostname Reason  Process/User   "
-#define SUM_SEP_LINE_LONG         "========================================================================================================================="
+#define SHOW_LONG_FORMAT          70
+#define DATE_TIME_HEADER         "Date   Time     "
+#define FILE_NAME_HEADER         "File name"
+#define FILE_SIZE_HEADER         "File size   "
+#define HOST_NAME_HEADER         "Hostname"
+#if MAX_HOSTNAME_LENGTH < 8
+# define HOST_NAME_LENGTH        8
+#else
+# define HOST_NAME_LENGTH        MAX_HOSTNAME_LENGTH
+#endif
+#define REST_HEADER              "Reason   Process/User  "
 
 /* Structure that holds offset (to job ID) to each item in list. */
 struct item_list

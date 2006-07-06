@@ -308,11 +308,11 @@ main(int argc, char *argv[])
                  }
 
                  /* Now evaluate all data read from fifo, byte after byte */
-                 count = 0;
+                 count = 1;
                  while (count < n)
                  {
                     length = 0;
-                    while ((*ptr != '\n') && (*ptr != '\0') && (count != n))
+                    while ((*ptr != '\n') && (*ptr != '\0') && (count < n))
                     {
                        msg_str[length] = *ptr;
                        ptr++; length++; count++;

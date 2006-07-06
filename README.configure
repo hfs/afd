@@ -60,6 +60,9 @@
                                   then the user starting it. See also
                                   --enable-group_can_write.
                                   [Default: disabled]
+--enable-multi_dir_definition   - Enable support for specifying the same
+                                  directory in multiple DIR_CONFIG files.
+                                  [Default: disabled]
 --enable-ftp_reuse_data_port    - Reuse the FTP data port when sending multiple
                                   files. This reduces the number of sockets in
                                   TIME_WAIT considerably. However it is
@@ -80,6 +83,11 @@
                                   [Default: disabled]
 --enable-lockdebug              - All locks are logged to SYSTEM_LOG. This is
                                   only for debugging, so do not enable this.
+                                  [Default: disabled]
+--enable-show_exec_times        - Show exec times after rereading DIR_CONFIG.
+                                  [Default: disabled]
+--enable-sendfile_support       - Enables sendfile() support. This has
+                                  currently only been tested for linux.
                                   [Default: disabled]
 --enable-readyfile              - Enables support for FSS ready files. Only
                                   used within the German Weather Service (DWD).

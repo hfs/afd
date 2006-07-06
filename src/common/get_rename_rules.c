@@ -1,6 +1,6 @@
 /*
  *  get_rename_rules.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,6 +56,8 @@ DESCR__S_M3
  **   01.02.1997 H.Kiehl Created
  **   01.12.2002 H.Kiehl No need for two newlines before each rule header.
  **                      Added verbose flag and more info when set.
+ **   12.05.2006 H.Kiehl Handle case the rename rule starts without a
+ **                      newline as first line.
  **
  */
 DESCR__E_M3
@@ -155,14 +157,14 @@ get_rename_rules(char *rule_file, int verbose)
          last_read = stat_buf.st_mtime;
 
          /* Allocate memory to store file */
-         if ((buffer = malloc(stat_buf.st_size + 1)) == NULL)
+         if ((buffer = malloc(1 + stat_buf.st_size + 1)) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
                        "malloc() error : %s", strerror(errno));
             exit(INCORRECT);
          }
 
-         /* Open file */
+         /* Open file. */
          if ((fd = open(rule_file, O_RDONLY)) == -1)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -171,8 +173,9 @@ get_rename_rules(char *rule_file, int verbose)
             exit(INCORRECT);
          }
 
-         /* Read file into buffer */
-         if (read(fd, buffer, stat_buf.st_size) != stat_buf.st_size)
+         /* Read file into buffer. */
+         buffer[0] = '\n';
+         if (read(fd, &buffer[1], stat_buf.st_size) != stat_buf.st_size)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
                        "Failed to read() %s : %s", rule_file, strerror(errno));

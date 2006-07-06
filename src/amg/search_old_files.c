@@ -73,7 +73,8 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-extern int                        no_of_local_dirs,
+extern int                        fra_fd,
+                                  no_of_local_dirs,
                                   no_of_hosts;
 extern char                       *p_dir_alias;
 extern struct directory_entry     *de;
@@ -88,11 +89,13 @@ extern struct delete_log          dl;
 void
 search_old_files(time_t current_time)
 {
-   int           i,
+   int           i, j, k,
                  delete_file,
                  junk_files,
-                 file_counter;
-   time_t        diff_time;
+                 file_counter,
+                 ret;
+   time_t        diff_time,
+                 pmatch_time;
    char          *ptr,
                  *work_ptr,
                  tmp_dir[MAX_PATH_LENGTH];
@@ -154,10 +157,15 @@ search_old_files(time_t current_time)
                    * leading dot.
                    */
                   diff_time = current_time - stat_buf.st_mtime;
+                  if (diff_time < 0)
+                  {
+                     diff_time = 0;
+                  }
                   if (((p_dir->d_name[0] == '.') &&
                        (fra[de[i].fra_pos].unknown_file_time == 0) &&
                        (diff_time > 3600)) ||
-                      (diff_time > fra[de[i].fra_pos].unknown_file_time))
+                      ((diff_time > 5L) &&
+                       (diff_time > fra[de[i].fra_pos].unknown_file_time)))
                   {
                      if ((fra[de[i].fra_pos].delete_files_flag & UNKNOWN_FILES) ||
                          (p_dir->d_name[0] == '.'))
@@ -176,7 +184,39 @@ search_old_files(time_t current_time)
                         }
                         else
                         {
-                           delete_file = YES;
+                           if (de[i].flag & ALL_FILES)
+                           {
+                              delete_file = NO;
+                           }
+                           else
+                           {
+                              delete_file = YES;
+                              if (de[i].paused_dir == NULL)
+                              {
+                                 pmatch_time = current_time;
+                              }
+                              else
+                              {
+                                 pmatch_time = stat_buf.st_mtime;
+                              }
+                              for (j = 0; j < de[i].nfg; j++)
+                              {
+                                 for (k = 0; ((k < de[i].fme[j].nfm) && (j < de[i].nfg)); k++)
+                                 {
+                                    if ((ret = pmatch(de[i].fme[j].file_mask[k],
+                                                      p_dir->d_name,
+                                                      &pmatch_time)) == 0)
+                                    {
+                                       delete_file = NO;
+                                       j = de[i].nfg;
+                                    }
+                                    else if (ret == 1)
+                                         {
+                                            break;
+                                         }
+                                 }
+                              }
+                           }
                         }
                         if (delete_file == YES)
                         {
@@ -201,11 +241,12 @@ search_old_files(time_t current_time)
                               dl_real_size = *dl.file_name_length + dl.size +
                                              sprintf((dl.file_name + *dl.file_name_length + 1),
 # if SIZEOF_TIME_T == 4
-                                                     "dir_check() >%ld",
+                                                     "dir_check() >%ld (%s %d)",
 # else
-                                                     "dir_check() >%lld",
+                                                     "dir_check() >%lld (%s %d)",
 # endif
-                                                     diff_time);
+                                                     diff_time,
+                                                     __FILE__, __LINE__);
                               if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                               {
                                  system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -258,7 +299,9 @@ search_old_files(time_t current_time)
                           }
                           else
                           {
-                             char *work_ptr_2;
+                             int   files_deleted = 0;
+                             off_t file_size_deleted = 0;
+                             char  *work_ptr_2;
 
                              work_ptr_2 = tmp_dir + strlen(tmp_dir);
                              *work_ptr_2++ = '/';
@@ -288,6 +331,10 @@ search_old_files(time_t current_time)
                                 if (S_ISREG(stat_buf.st_mode))
                                 {
                                    diff_time = current_time - stat_buf.st_mtime;
+                                   if (diff_time < 0)
+                                   {
+                                      diff_time = 0;
+                                   }
                                    if (diff_time > fra[de[i].fra_pos].queued_file_time)
                                    {
                                       if (unlink(tmp_dir) == -1)
@@ -312,11 +359,12 @@ search_old_files(time_t current_time)
                                          dl_real_size = *dl.file_name_length + dl.size +
                                                         sprintf((dl.file_name + *dl.file_name_length + 1),
 # if SIZEOF_TIME_T == 4
-                                                                "dir_check() >%ld",
+                                                                "dir_check() >%ld (%s %d)",
 # else
-                                                                "dir_check() >%lld",
+                                                                "dir_check() >%lld (%s %d)",
 # endif
-                                                                diff_time);
+                                                                diff_time,
+                                                                __FILE__, __LINE__);
                                          if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                                          {
                                             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -325,7 +373,9 @@ search_old_files(time_t current_time)
                                          }
 #endif /* _DELETE_LOG */
                                          file_counter++;
+                                         files_deleted++;
                                          file_size += stat_buf.st_size;
+                                         file_size_deleted += stat_buf.st_size;
                                       }
                                    }
                                 }
@@ -337,6 +387,12 @@ search_old_files(time_t current_time)
                                 system_log(ERROR_SIGN, __FILE__, __LINE__,
                                            "Could not readdir() %s : %s",
                                            tmp_dir, strerror(errno));
+                             }
+
+                             if (files_deleted > 0)
+                             {
+                                ABS_REDUCE_QUEUE(de[i].fra_pos, files_deleted,
+                                                 file_size_deleted);
                              }
 
                              /* Don't forget to close the directory */

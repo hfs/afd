@@ -25,7 +25,7 @@ init_afd_SOURCES     = init_afd.c\
                        check_permissions.c\
                        count_files.c\
                        init_fifos_afd.c
-init_afd_LDADD       = ../common/libafd.a
+init_afd_LDADD       = ../common/libafd.a @EXTRA_SOCKET_LIBS@
 afd_SOURCES          = afd.c\
                        check_afd_heartbeat.c\
                        shutdown_afd.c

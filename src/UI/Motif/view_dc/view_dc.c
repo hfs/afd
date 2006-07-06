@@ -1,6 +1,6 @@
 /*
  *  view_dc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -23,10 +23,16 @@
 DESCR__S_M1
 /*
  ** NAME
- **   view_dc - displays information on a single AFD
+ **   view_dc - displays DIR_CONFIG data for the given dir or host alias
  **
  ** SYNOPSIS
- **   view_dc [--version] [-w <AFD working directory>] host-name [font name]
+ **   view_dc [options] -d <dir alias> | -h <host alias>
+ **              --version
+ **              -d <dir alias>
+ **              -f <font name>
+ **              -h <host alias>
+ **              -u[ <user>]
+ **              -w <working directory>
  **
  ** DESCRIPTION
  **
@@ -38,6 +44,8 @@ DESCR__S_M1
  ** HISTORY
  **   23.02.1999 H.Kiehl Created
  **   06.08.2004 H.Kiehl Write window ID to a common file.
+ **   19.05.2006 H.Kiehl Use program get_dc_data from the tools section
+ **                      to get the DIR_CONFIG data.
  **
  */
 DESCR__E_M1
@@ -71,20 +79,23 @@ DESCR__E_M1
 #include "version.h"
 #include "permission.h"
 
-/* Global variables */
+/* Global variables. */
 Display      *display;
 XtAppContext app;
 Widget       appshell,
              text_w;
-Dimension    button_height;
-int          glyph_height,
-             glyph_width,
-             sys_log_fd = STDERR_FILENO,
-             view_passwd = NO;
-char         host_name[MAX_HOSTNAME_LENGTH + 1],
+int          sys_log_fd = STDERR_FILENO;
+char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
+             host_alias[MAX_HOSTNAME_LENGTH + 1],
              font_name[40],
+             *p_title,
              *p_work_dir;
 const char   *sys_log_name = SYSTEM_LOG_FIFO;
+
+/* Local variables. */
+static char  *view_buffer = NULL;
+static int   max_x,
+             max_y;
 
 /* Local function prototypes */
 static void  init_view_dc(int *, char **),
@@ -96,6 +107,9 @@ static void  init_view_dc(int *, char **),
 int
 main(int argc, char *argv[])
 {
+   int             glyph_height,
+                   glyph_width,
+                   max_vertical_lines;
    char            window_title[100],
                    work_dir[MAX_PATH_LENGTH];
    static String   fallback_res[] =
@@ -119,6 +133,7 @@ main(int argc, char *argv[])
    XmFontType      dummy;
    Arg             args[MAXARGS];
    Cardinal        argcount;
+   Dimension       button_height;
    uid_t           euid, /* Effective user ID. */
                    ruid; /* Real user ID. */
 
@@ -145,7 +160,7 @@ main(int argc, char *argv[])
    }
 
    (void)strcpy(window_title, "DIR_CONFIG ");
-   (void)strcat(window_title, host_name);
+   (void)strcat(window_title, p_title);
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0,
@@ -179,6 +194,14 @@ main(int argc, char *argv[])
    glyph_width  = font_struct->per_char->width;
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
+
+   /* Calculate the maximum lines to show. */
+   max_vertical_lines = (8 * (DisplayHeight(display, DefaultScreen(display)) /
+                        glyph_height)) / 10;
+   if (max_y > max_vertical_lines)
+   {
+      max_y = max_vertical_lines;
+   }
 
    argcount = 0;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
@@ -257,6 +280,12 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNbottomOffset,           3);
    argcount++;
+   XtSetArg(args[argcount], XmNrows,                   max_y);
+   argcount++;
+   XtSetArg(args[argcount], XmNcolumns,                max_x);
+   argcount++;
+   XtSetArg(args[argcount], XmNvalue,                  view_buffer);
+   argcount++;
    text_w = XmCreateScrolledText(form_w, "dc_text", args, argcount);
    XtManageChild(text_w);
    XtManageChild(form_w);
@@ -271,9 +300,6 @@ main(int argc, char *argv[])
 
    /* Realize all widgets */
    XtRealizeWidget(appshell);
-
-   /* Get DIR_CONFIG data information. */
-   get_dc_data();
 
    /* We want the keyboard focus on the Done button */
    XmProcessTraversal(button_w, XmTRAVERSE_CURRENT);
@@ -292,7 +318,12 @@ main(int argc, char *argv[])
 static void
 init_view_dc(int *argc, char *argv[])
 {
-   char fake_user[MAX_FULL_USER_ID_LENGTH],
+   int  empty_lines,
+        length,
+        line_length;
+   char cmd[MAX_PATH_LENGTH],
+        *data_buffer,
+        fake_user[MAX_FULL_USER_ID_LENGTH],
         *perm_buffer;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
@@ -313,13 +344,21 @@ init_view_dc(int *argc, char *argv[])
    {
       (void)strcpy(font_name, "fixed");
    }
-   if (get_arg(argc, argv, "-h", host_name, MAX_HOSTNAME_LENGTH + 1) == INCORRECT)
+   if (get_arg(argc, argv, "-h", host_alias, MAX_HOSTNAME_LENGTH + 1) == INCORRECT)
    {
-      usage(argv[0]);
-      exit(INCORRECT);
+      if (get_arg(argc, argv, "-d", dir_alias, MAX_DIR_ALIAS_LENGTH + 1) == INCORRECT)
+      {
+         usage(argv[0]);
+         exit(INCORRECT);
+      }
+      host_alias[0] = '\0';
+   }
+   else
+   {
+      dir_alias[0] = '\0';
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -335,7 +374,6 @@ init_view_dc(int *argc, char *argv[])
              ((perm_buffer[3] == '\0') || (perm_buffer[3] == ' ') ||
               (perm_buffer[3] == '\t')))
          {
-            view_passwd = YES;
             free(perm_buffer);
             break;
          }
@@ -343,13 +381,6 @@ init_view_dc(int *argc, char *argv[])
               {
                  (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                  exit(INCORRECT);
-              }
-              else
-              {
-                 if (posi(perm_buffer, VIEW_PASSWD_PERM) != NULL)
-                 {
-                    view_passwd = YES;
-                 }
               }
          free(perm_buffer);
          break;
@@ -363,6 +394,145 @@ init_view_dc(int *argc, char *argv[])
       default :
          (void)fprintf(stderr, "Impossible!! Remove the programmer!\n");
          exit(INCORRECT);
+   }
+
+   /*
+    * Run get_dc_data program to get the data.
+    */
+   length = sprintf(cmd, "%s %s %s", GET_DC_DATA, WORK_DIR_ID, p_work_dir);
+   if (fake_user[0] != '\0')
+   {
+      length += sprintf(&cmd[length], " -u %s", fake_user);
+   }
+   if (host_alias[0] != '\0')
+   {
+      length += sprintf(&cmd[length], " -h %s", host_alias);
+   }
+   else if (dir_alias[0] != '\0')
+        {
+           length += sprintf(&cmd[length], " -d %s", dir_alias);
+        }
+   data_buffer = NULL;
+   if (exec_cmd(cmd, &data_buffer, -1, NULL, 0, 0L, NO) != 0)
+   {
+      (void)fprintf(stderr, "Failed to execute command: %s\n", cmd);
+      (void)fprintf(stderr, "See SYSTEM_LOG for more information.\n");
+      exit(INCORRECT);
+   }
+
+   length = 0;
+   empty_lines = 0;
+   max_x = 0;
+   max_y = 0;
+   while (data_buffer[length] != '\0')
+   {
+      line_length = 0;
+      while ((data_buffer[length] != '\n') && (data_buffer[length] != '\0'))
+      {
+         length++; line_length++;
+      }
+      if (data_buffer[length] == '\n')
+      {
+         max_y++;
+         length++;
+         if (line_length > max_x)
+         {
+            max_x = line_length;
+         }
+         line_length = 0;
+         if (data_buffer[length] == '\n')
+         {
+            length++;
+            empty_lines++;
+            max_y++;
+         }
+      }
+   }
+   if (length > 0)
+   {
+      while (data_buffer[length - 1] == '\n')
+      {
+         length--;
+      }
+      data_buffer[length] = '\0';
+      length++;
+   }
+
+   if ((length > 0) && (host_alias[0] != '\0'))
+   {
+      if (posi(data_buffer, DIR_IDENTIFIER) != NULL)
+      {
+         (void)strcpy(dir_alias, host_alias);
+         host_alias[0] = '\0';
+      }
+   }
+
+   /*
+    * For host alias, lets insert separator lines for empty
+    * lines. This makes it more readable.
+    */
+   if (host_alias[0] != '\0')
+   {
+      if (length == 0)
+      {
+         view_buffer = data_buffer;
+         max_x = sprintf(view_buffer,
+                         "\n  No data found for host %s!\n\n",
+                         host_alias);
+         max_y = 3;
+      }
+      else
+      {
+         size_t new_size;
+         char   *wptr;
+
+         new_size = length + 1 + (empty_lines * (max_x + 1));
+
+         if ((view_buffer = malloc(new_size)) == NULL)
+         {
+            (void)fprintf(stderr, "Failed to malloc() %d bytes : %s",
+                          new_size, strerror(errno));
+            exit(INCORRECT);
+         }
+
+         length = 0;
+         wptr = view_buffer;
+         while (data_buffer[length] != '\0')
+         {
+            while ((data_buffer[length] != '\n') && (data_buffer[length] != '\0'))
+            {
+               *wptr = data_buffer[length];
+               length++; wptr++;
+            }
+            if (data_buffer[length] == '\n')
+            {
+               *wptr = '\n';
+               length++; wptr++;
+               if (data_buffer[length] == '\n')
+               {
+                  (void)memset(wptr, '-', max_x);
+                  wptr += max_x;
+                  *wptr = '\n';
+                  length++; wptr++;
+               }
+            }
+         }
+         free(data_buffer);
+         max_y--;
+      }
+      p_title = host_alias;
+   }
+   else
+   {
+      view_buffer = data_buffer;
+      if (length == 0)
+      {
+         max_x = sprintf(view_buffer,
+                         "\n  No data found for directory %s!\n\n",
+                         dir_alias);
+         max_y = 3;
+      }
+      p_title = dir_alias;
    }
 
    if (atexit(view_dc_exit) != 0)
@@ -381,9 +551,13 @@ init_view_dc(int *argc, char *argv[])
 static void
 usage(char *progname)
 {
-   (void)fprintf(stderr, "Usage : %s [options] -h hostname\n", progname);
+   (void)fprintf(stderr,
+                 "Usage : %s [options] -d <dir alias> | -h <host alias>\n",
+                 progname);
    (void)fprintf(stderr, "             --version\n");
+   (void)fprintf(stderr, "             -d <dir alias>\n");
    (void)fprintf(stderr, "             -f <font name>\n");
+   (void)fprintf(stderr, "             -h <host alias>\n");
    (void)fprintf(stderr, "             -u[ <user>]\n");
    (void)fprintf(stderr, "             -w <working directory>\n");
    return;

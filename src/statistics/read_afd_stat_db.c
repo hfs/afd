@@ -1,6 +1,6 @@
 /*
  *  read_afd_stat_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -238,7 +238,7 @@ read_afd_stat_db(int no_of_hosts)
    *(int *)ptr = no_of_hosts;
    *(ptr + sizeof(int) + 1 + 1 + 1) = CURRENT_STAT_VERSION;
    stat_db = (struct afdstat *)(ptr + AFD_WORD_OFFSET);
-   (void)memset(stat_db, 0, stat_db_size);
+   (void)memset(stat_db, 0, (stat_db_size - AFD_WORD_OFFSET));
 
    if ((no_of_old_hosts < 1) && (old_stat_db != NULL))
    {

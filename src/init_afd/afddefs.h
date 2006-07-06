@@ -171,6 +171,7 @@ typedef unsigned long       u_long_64;
 #define MON_INFO                   "mon_info"
 #define AFD_CMD                    "afdcmd"
 #define VIEW_DC                    "view_dc"
+#define GET_DC_DATA                "get_dc_data"
 #define DIR_CTRL                   "dir_ctrl"
 #define DIR_INFO                   "dir_info"
 #define DIR_CHECK                  "dir_check"
@@ -188,11 +189,13 @@ typedef unsigned long       u_long_64;
 # define AGE_INPUT                 1
 # define USER_DEL                  2
 # define EXEC_FAILED_DEL           3
-# define OTHER_DEL                 4
+# define OTHER_OUTPUT_DEL          4
 # ifdef WITH_DUP_CHECK
 #  define DUP_INPUT                5
 #  define DUP_OUTPUT               6
 # endif
+# define DEL_UNKNOWN_FILE          7
+# define OTHER_INPUT_DEL           8
 #endif
 
 #ifdef _WITH_AFW2WMO
@@ -540,6 +543,7 @@ typedef unsigned long       u_long_64;
 #define FTP_IGNORE_BIN             32
 #define GET_FTP_FLAG               32768
 #define GET_HTTP_FLAG              65536
+#define GET_SFTP_FLAG              131072
 
 #define FTP_SHEME                  "ftp"
 #define FTP_SHEME_LENGTH           (sizeof(FTP_SHEME) - 1)
@@ -624,6 +628,8 @@ typedef unsigned long       u_long_64;
 # define DUPCHECK_ID                     "dupcheck"
 # define DUPCHECK_ID_LENGTH              (sizeof(DUPCHECK_ID) - 1)
 #endif
+#define ACCEPT_DOT_FILES_ID              "accept dot files"
+#define ACCEPT_DOT_FILES_ID_LENGTH       (sizeof(ACCEPT_DOT_FILES_ID) - 1)
 #define UNKNOWN_FILES                    1
 #define QUEUED_FILES                     2
 #define OLD_LOCKED_FILES                 4
@@ -804,6 +810,7 @@ typedef unsigned long       u_long_64;
 #ifdef _WITH_SCP_SUPPORT
 # define SCP_BURST_TRANSFER_ACTIVE 4
 #endif
+#define SFTP_RETRIEVE_ACTIVE       4
 /*############################### Blue ##################################*/
 #define CONNECTING                 5  /* Open connection to remote host, */
                                       /* sending user and password,      */
@@ -1007,6 +1014,7 @@ typedef unsigned long       u_long_64;
 #define DELETE_ALL_JOBS_FROM_HOST  1
 #define DELETE_MESSAGE             2
 #define DELETE_SINGLE_FILE         3
+#define DELETE_RETRIEVE            4
 
 /* Definitions for directory flags. */
 #define MAX_COPIED                 1
@@ -1014,6 +1022,7 @@ typedef unsigned long       u_long_64;
 #define ADD_TIME_ENTRY             4
 #define LINK_NO_EXEC               8
 #define DIR_DISABLED               16
+#define ACCEPT_DOT_FILES           32
 
 #ifdef WITH_DUP_CHECK
 /* Definitions for duplicate check. */
@@ -1235,7 +1244,8 @@ struct filetransfer_status
                                             /*| 32   | RETRIEVE         |*/
                                             /*| 31   | SEND             |*/
                                             /*| 30   | SSL              |*/
-                                            /*| 18-30| Not used.        |*/
+                                            /*| 19-30| Not used.        |*/
+                                            /*| 18   | GET_SFTP         |*/
                                             /*| 17   | GET_HTTP  [SSL]  |*/
                                             /*| 16   | GET_FTP   [SSL]  |*/
                                             /*| 9-15 | Not used.        |*/
@@ -1543,7 +1553,8 @@ struct fileretrieve_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*| 6-32 | Not used.        |*/
+                                            /*| 7-32 | Not used.        |*/
+                                            /*|    6 | ACCEPT_DOT_FILES |*/
                                             /*|    5 | DIR_DISABLED     |*/
                                             /*|    4 | LINK_NO_EXEC     |*/
                                             /*|    3 | ADD_TIME_ENTRY   |*/
@@ -2080,7 +2091,7 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
 #endif
                     eval_host_config(int *, char *, struct host_list **, int),
                     eval_timeout(int),
-                    exec_cmd(char *, char *, int, char *, int, time_t),
+                    exec_cmd(char *, char **, int, char *, int, time_t, int),
                     extract(char *, char *,
 #ifdef _PRODUCTION_LOG
                             time_t, unsigned short, unsigned int, char *,

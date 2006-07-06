@@ -204,22 +204,42 @@ struct data_t
 
 /* Structure holding pointers to all relevant information */
 /* in the global shared memory regions.                   */
+#ifdef WITH_MULTI_DIR_DEFINITION
 struct p_array
        {
-          long   ptr[11];          /* Pointer offdet to the following    */
-                                   /* information:                       */
-                                   /*    0  - priority      char x       */
-                                   /*    1  - directory     char x[]\0   */
-                                   /*    2  - alias name    char x[]\0   */
-                                   /*    3  - no. of files  char x[]\0   */
-                                   /*    4  - file          char x[]\0   */
-                                   /*    5  - no. loc. opt. char x[]\0   */
-                                   /*    6  - loc. options  char x[][]\0 */
-                                   /*    7  - no. std. opt. char x[]\0   */
-                                   /*    8  - std. options  char x[][]\0 */
-                                   /*    9  - recipient     char x[]\0   */
-                                   /*   10  - DIR_CONFIG ID char x[]\0   */
+          long   ptr[12];  /* Pointer offdet to the following            */
+                           /* information:                               */
+                           /*    0  - priority              char x       */
+                           /*    1  - directory             char x[]\0   */
+                           /*    2  - alias name            char x[]\0   */
+                           /*    3  - no. of files          char x[]\0   */
+                           /*    4  - file                  char x[]\0   */
+                           /*    5  - no. loc. options      char x[]\0   */
+                           /*    6  - loc. options          char x[][]\0 */
+                           /*    7  - no. std. options      char x[]\0   */
+                           /*    8  - std. options          char x[][]\0 */
+                           /*    9  - recipient             char x[]\0   */
+                           /*   10  - DIR_CONFIG ID         char x[]\0   */
+                           /*   11  - offset to same dir    char x[]\0   */
        };
+#else
+struct p_array
+       {
+          long   ptr[11];  /* Pointer offdet to the following            */
+                           /* information:                               */
+                           /*    0  - priority              char x       */
+                           /*    1  - directory             char x[]\0   */
+                           /*    2  - alias name            char x[]\0   */
+                           /*    3  - no. of files          char x[]\0   */
+                           /*    4  - file                  char x[]\0   */
+                           /*    5  - no. loc. options      char x[]\0   */
+                           /*    6  - loc. options          char x[][]\0 */
+                           /*    7  - no. std. options      char x[]\0   */
+                           /*    8  - std. options          char x[][]\0 */
+                           /*    9  - recipient             char x[]\0   */
+                           /*   10  - DIR_CONFIG ID         char x[]\0   */
+       };
+#endif
 
 /* Structure that holds one directory entry of the AMG database */
 struct dest_group
@@ -306,6 +326,10 @@ struct dir_data
 #ifndef _WITH_PTHREAD
           unsigned char important_dir;
 #endif
+          unsigned char accept_dot_files;   /* Whether we should pick up */
+                                            /* files starting with a     */
+                                            /* leading dot. Default is   */
+                                            /* NO.                       */
           unsigned char time_option;        /* Flag to indicate if the   */
                                             /* time option is used.      */
           char          priority;           /* Priority for this         */
@@ -370,6 +394,8 @@ struct dir_data
                                             /* that we copy in one go.   */
           unsigned int  dir_id;             /* CRC-32 checksum of this   */
                                             /* directory entry.          */
+          unsigned int  dir_config_id;      /* To find out from which    */
+                                            /* DIR_CONFIG this job comes.*/
           int           fsa_pos;            /* FSA position, only used   */
                                             /* for retrieving files.     */
           int           dir_pos;            /* Position of this directory*/

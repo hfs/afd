@@ -51,6 +51,7 @@ DESCR__E_M3
 #include <string.h>       /* memcpy(), strerror()                        */
 #include <stdlib.h>       /* malloc(), free()                            */
 #include <sys/types.h>    /* fd_set                                      */
+#include <signal.h>       /* kill()                                      */
 #ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
@@ -80,6 +81,7 @@ extern long   transfer_timeout;
 
 /* Local global variables. */
 static int    fdm;
+static pid_t  data_pid;
 
 /* Local function prototypes. */
 static int    get_passwd_reply(int),
@@ -89,6 +91,7 @@ static int    get_passwd_reply(int),
 #ifdef WITH_TRACE
 static size_t pipe_write_np(int, char *, size_t);
 #endif
+static void   sig_ignore_handler(int);
 
 #define NO_PROMPT 0
 
@@ -180,6 +183,7 @@ ssh_exec(char  *host,
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, "ptym_open() error");
       status = INCORRECT;
+      data_pid = 0;
    }
    else
    {
@@ -195,122 +199,163 @@ ssh_exec(char  *host,
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                    "socketpair() error : %s", strerror(errno));
          status = INCORRECT;
+         data_pid = 0;
       }
       else
       {
-         if ((*child_pid = fork()) == 0)  /* Child process */
+         int pipe_fds[2];
+
+         if (pipe(pipe_fds) == -1)
          {
-            char *args[17],
-                 str_port[MAX_INT_LENGTH];
-            int  argcount = 0,
-                 fds;
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                      "pipe() error : %s", strerror(errno));
+            status = INCORRECT;
+            data_pid = 0;
+         }
+         else
+         {
+            if ((*child_pid = fork()) == 0)  /* Child process */
+            {
+               char *args[17],
+                    dummy,
+                    str_port[MAX_INT_LENGTH];
+               int  argcount = 0,
+                    fds;
 #ifdef WITH_TRACE
-            int  i,
-                 length;
-            char buffer[MAX_PATH_LENGTH];
+               int  i,
+                    length;
+               char buffer[MAX_PATH_LENGTH];
 #endif
 
-            setsid();
-            if ((fds = ptys_open(pts_name)) < 0)
-            {
-               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                         "ptys_open() error");
+               setsid();
+               if ((fds = ptys_open(pts_name)) < 0)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                            "ptys_open() error");
+                  (void)close(fdm);
+                  _exit(INCORRECT);
+               }
                (void)close(fdm);
+               if (tty_raw(fds) == -1)
+               {
+                  trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                            "tty_raw() failed in child!");
+               }
+
+               (void)close(sock_fd[0]);
+
+               dup2(sock_fd[1], STDIN_FILENO);
+               dup2(sock_fd[1], STDOUT_FILENO);
+               dup2(fds, STDERR_FILENO);
+
+               if (fds > 2)
+               {
+                  (void)close(fds);
+               }
+
+               args[argcount] = SSH_COMMAND;
+               argcount++;
+               args[argcount] = "-x";
+               argcount++;
+               args[argcount] = "-oFallBackToRsh no";
+               argcount++;
+               args[argcount] = "-p";
+               argcount++;
+               args[argcount] = str_port;
+               argcount++;
+               (void)sprintf(str_port, "%d", port);
+               if (subsystem != NULL)
+               {
+                  args[argcount] = "-e";
+                  argcount++;
+                  args[argcount] = "none";
+                  argcount++;
+               }
+               if (identityFilePath != NULL)
+               {
+                  args[argcount] = "-i";
+                  argcount++;
+                  args[argcount] = identityFilePath;
+                  argcount++;
+               }
+               if (user != NULL)
+               {
+                  args[argcount] = "-l";
+                  argcount++;
+                  args[argcount] = user;
+                  argcount++;
+               }
+               args[argcount] = host;
+               argcount++;
+               if (subsystem != NULL)
+               {
+                  args[argcount] = "-s";
+                  argcount++;
+                  args[argcount] = subsystem;
+                  argcount++;
+               }
+               if (cmd != NULL)
+               {
+                  args[argcount] = cmd;
+                  argcount++;
+               }
+               args[argcount] = NULL;
+               argcount++;
+
+#ifdef WITH_TRACE
+               length = 0;
+               for (i = 0; i < (argcount - 1); i++)
+               {
+                  length += sprintf(&buffer[length], "%s ", args[i]);
+               }
+
+               trace_log(NULL, 0, C_TRACE, buffer, length, NULL);
+#endif
+               /* Synchronize with parent. */
+               (void)close(pipe_fds[1]);
+               if (read(pipe_fds[0], &dummy, 1) != 1)
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                            "read() error : %s", strerror(errno));
+               }
+               (void)close(pipe_fds[0]);
+
+               (void)execvp(SSH_COMMAND, args);
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                         "execvp() error : %s", strerror(errno));
                _exit(INCORRECT);
             }
-            (void)close(fdm);
-            (void)tty_raw(fds);
+            else if (*child_pid > 0) /* Parent process. */
+                 {
+                    (void)close(sock_fd[1]);
 
-            (void)close(sock_fd[0]);
+                    /* Synchronize with child. */
+                    (void)close(pipe_fds[0]);
+                    if (write(pipe_fds[1], "", 1) != 1)
+                    {
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                 "write() error : %s", strerror(errno));
+                    }
+                    (void)close(pipe_fds[1]);
 
-            dup2(sock_fd[1], STDIN_FILENO);
-            dup2(sock_fd[1], STDOUT_FILENO);
-            dup2(fds, STDERR_FILENO);
+                    *fd = sock_fd[0];
+                    if (tty_raw(fdm) == -1)
+                    {
+                       trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                                 "tty_raw() failed in parent!");
+                    }
+                    data_pid = *child_pid;
 
-            if (fds > 2)
-            {
-               (void)close(fds);
-            }
-
-            args[argcount] = SSH_COMMAND;
-            argcount++;
-            args[argcount] = "-x";
-            argcount++;
-            args[argcount] = "-oFallBackToRsh no";
-            argcount++;
-            args[argcount] = "-p";
-            argcount++;
-            args[argcount] = str_port;
-            argcount++;
-            (void)sprintf(str_port, "%d", port);
-            if (subsystem != NULL)
-            {
-               args[argcount] = "-e";
-               argcount++;
-               args[argcount] = "none";
-               argcount++;
-            }
-            if (identityFilePath != NULL)
-            {
-               args[argcount] = "-i";
-               argcount++;
-               args[argcount] = identityFilePath;
-               argcount++;
-            }
-            if (user != NULL)
-            {
-               args[argcount] = "-l";
-               argcount++;
-               args[argcount] = user;
-               argcount++;
-            }
-            args[argcount] = host;
-            argcount++;
-            if (subsystem != NULL)
-            {
-               args[argcount] = "-s";
-               argcount++;
-               args[argcount] = subsystem;
-               argcount++;
-            }
-            if (cmd != NULL)
-            {
-               args[argcount] = cmd;
-               argcount++;
-            }
-            args[argcount] = NULL;
-            argcount++;
-
-#ifdef WITH_TRACE
-            length = 0;
-            for (i = 0; i < (argcount - 1); i++)
-            {
-               length += sprintf(&buffer[length], "%s ", args[i]);
-            }
-
-            trace_log(NULL, 0, C_TRACE, buffer, length, NULL);
-#endif
-
-            (void)execvp(SSH_COMMAND, args);
-            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "execvp() error : %s", strerror(errno));
-            _exit(INCORRECT);
+                    status = SUCCESS;
+                 }
+                 else /* Failed to fork(). */
+                 {
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                              "fork() error : %s", strerror(errno));
+                    data_pid = 0;
+                    status = INCORRECT;
+                 }
          }
-         else if (*child_pid > 0) /* Parent process. */
-              {
-                 (void)close(sock_fd[1]);
-
-                 *fd = sock_fd[0];
-                 (void)tty_raw(fdm);
-
-                 status = SUCCESS;
-              }
-              else /* Failed to fork(). */
-              {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "fork() error : %s", strerror(errno));
-                 status = INCORRECT;
-              }
       }
    }
 
@@ -326,7 +371,8 @@ ssh_exec(char  *host,
 int
 ssh_login(int data_fd, char *passwd)
 {
-   int            max_fd,
+   int            eio_loops = 0,
+                  max_fd,
                   status;
    char           *password = NULL, /* To store the password part. */
                   *passwdBeg = NULL,
@@ -440,140 +486,176 @@ ssh_login(int data_fd, char *passwd)
                }
           else if (FD_ISSET(fdm, &rset))
                {
-                   if ((status = read(fdm, msg_str, MAX_RET_MSG_LENGTH)) < 0)
-                   {
-                      if (errno == ECONNRESET)
-                      {
-                         timeout_flag = CON_RESET;
-                      }
-                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                "read() error : %s", strerror(errno));
-                      status = INCORRECT;
-                   }
-                   else
-                   {
+                  signal(SIGALRM, sig_ignore_handler);
+                  my_siginterrupt(SIGALRM, 1);
+                  alarm(transfer_timeout);
+                  status = read(fdm, msg_str, MAX_RET_MSG_LENGTH);
+                  alarm(0);
+                  signal(SIGALRM, SIG_DFL);
+
+                  if (status < 0)
+                  {
+                     if ((errno == EIO) && (eio_loops < 10))
+                     {
+                        if (eio_loops == 0)
+                        {
+                           trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                                     "Hit an Input/Output error, assuming child was not up. Retrying.");
+                        }
+                        (void)my_usleep(10000L);
+                        eio_loops++;
+                        continue;
+                     }
+                     else
+                     {
+                        if ((errno == EIO) && (eio_loops > 0))
+                        {
+                           trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                                     "Hit an Input/Output error, even after retrying %d times.",
+                                     eio_loops);
+                        }
+                        if (errno == ECONNRESET)
+                        {
+                           timeout_flag = CON_RESET;
+                        }
+                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                  "read() error : %s", strerror(errno));
+                        status = INCORRECT;
+                     }
+                  }
+                  else
+                  {
 #ifdef WITH_TRACE
-                      trace_log(NULL, 0, R_TRACE, msg_str, status, NULL);
+                     trace_log(NULL, 0, R_TRACE, msg_str, status, NULL);
 #endif
-                      msg_str[status] = '\0';
-                      if (status == 0)
-                      {
-                         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                   "SSH program closed the socket unexpected.");
-                         status = INCORRECT;
-                      }
-                      else
-                      {
-                         char *ptr = msg_str;
+                     msg_str[status] = '\0';
+                     if (status == 0)
+                     {
+                        trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                  "SSH program closed the socket unexpected.");
+                        status = INCORRECT;
+                     }
+                     else
+                     {
+                        char *ptr = msg_str;
 
-                         while (*ptr)
-                         {
-                            if (*ptr == '\n')
-                            {
-                               *ptr = ' ';
-                            }
-                            ptr++;
-                         }
-                         ptr = msg_str;
-                         if ((posi(ptr, "assword:") != NULL) ||
-                             (!strncmp(msg_str, "Enter passphrase", 16)))
-                         {
-                            if (password)
-                            {
-                               size_t length = strlen(password);
+                        while (*ptr)
+                        {
+                           if (*ptr == '\n')
+                           {
+                              *ptr = ' ';
+                           }
+                           ptr++;
+                        }
+                        ptr = msg_str;
+                        if ((posi(ptr, "assword:") != NULL) ||
+                            (!strncmp(msg_str, "Enter passphrase", 16)))
+                        {
+                           if (password)
+                           {
+                              size_t length = strlen(password);
 
 #ifdef WITH_TRACE
-                               if ((status = pipe_write_np(fdm, password, length)) != length)
+                              if ((status = pipe_write_np(fdm, password, length)) != length)
 #else
-                               if ((status = pipe_write(fdm, password, length)) != length)
+                              if ((status = pipe_write(fdm, password, length)) != length)
 #endif
-                               {
-                                  if (errno != 0)
-                                  {
-                                     msg_str[0] = '\0';
-                                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                               "write() error [%d] : %s",
-                                               status, strerror(errno));
-                                  }
-                               }
-                               else
-                               {
-                                  /* Check if correct password was entered. */
-                                  msg_str[0] = '\0';
-                                  if ((status = get_passwd_reply(fdm)) > 0)
-                                  {
-                                     if ((status == 1) && (msg_str[0] == '\n'))
-                                     {
-                                        status = SUCCESS;
-                                     }
-                                     else
-                                     {
-                                        trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                                                  "Failed to enter passwd.");
-                                        status = INCORRECT;
-                                     }
-                                  }
-                               }
-                            }
-                            else /* if (!password) */
-                            {
-                               /* It's asking for a password or passphrase and */
-                               /* we don't have one. Report error.             */
-                               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                                         "ssh is asking for password (or passphrase) and none is provided. Bailing out!");
-                               status = INCORRECT;
-                            }
-                         }
-                         /*
-	                  * It's not asking for a password. Three cases :
-	                  * 1) We're using a private key (Identity file)
-	                  * 2) It's asking for something else (prior host key
-	                  *    exchange or host key mismatch).
-	                  * 3) It's an unknown failure. Go on, we'll catch by
-	                  *    later (with a timeout, and no good message. Bad).
-	                  */
-	                 else if (posi(ptr, "(yes/no)") != NULL)
-	                      {
-                                 if ((status = pipe_write(fdm, "no\n", 3)) != 3)
-                                 {
-                                    if (errno != 0)
-                                    {
-                                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                                 "write() error [%d] : %s",
-                                                 status, strerror(errno));
-                                    }
-                                 }
-                                 else
+                              {
+                                 if (errno != 0)
                                  {
                                     msg_str[0] = '\0';
-                                    if ((status = get_ssh_reply(fdm, YES)) != SUCCESS)
-                                    {
-                                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                                 "Failed to send no to verify ssh connection. [%d]",
-                                                 status);
-                                    }
+                                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                              "write() error [%d] : %s",
+                                              status, strerror(errno));
                                  }
-                                 trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                                           "Please connect to this host with the command line SSH utility and answer this question appropriately.");
-                                 status = INCORRECT;
-	                      }
+                              }
                               else
                               {
-                                 /* Replace '\n's by spaces for logging. */
-                                 while (*ptr++)
+                                 /* Check if correct password was entered. */
+                                 msg_str[0] = '\0';
+                                 if ((status = get_passwd_reply(fdm)) > 0)
                                  {
-                                    if ((*ptr == '\n') || (*ptr == '\r'))
+                                    if ((status == 1) && (msg_str[0] == '\n'))
                                     {
-                                       *ptr = ' ';
+                                       status = SUCCESS;
+                                    }
+                                    else
+                                    {
+                                       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                                                 "Failed to enter passwd.");
+                                       status = INCORRECT;
                                     }
                                  }
-                                 trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                                           "Protocol error. ssh is complaining, see next message.");
-                                 status = INCORRECT;
                               }
-                      }
-                   }
-                   break;
+                           }
+                           else /* if (!password) */
+                           {
+                              /* It's asking for a password or passphrase and */
+                              /* we don't have one. Report error.             */
+                              trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                                        "ssh is asking for password (or passphrase) and none is provided. Bailing out!");
+                              status = INCORRECT;
+                           }
+                        }
+                        /*
+                         * It's not asking for a password. Three cases :
+                         * 1) We're using a private key (Identity file)
+                         * 2) It's asking for something else (prior host key
+                         *    exchange or host key mismatch).
+                         * 3) It's an unknown failure. Go on, we'll catch by
+                         *    later (with a timeout, and no good message. Bad).
+                         */
+                        else if (posi(ptr, "(yes/no)") != NULL)
+                             {
+                                if ((status = pipe_write(fdm, "no\n", 3)) != 3)
+                                {
+                                   if (errno != 0)
+                                   {
+                                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                                "write() error [%d] : %s",
+                                                status, strerror(errno));
+                                   }
+                                }
+                                else
+                                {
+                                   msg_str[0] = '\0';
+                                   if ((status = get_ssh_reply(fdm, YES)) != SUCCESS)
+                                   {
+                                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                                "Failed to send no to verify ssh connection. [%d]",
+                                                status);
+                                   }
+                                }
+                                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                                          "Please connect to this host with the command line SSH utility and answer this question appropriately.");
+                                status = INCORRECT;
+                             }
+#ifdef WITH_EFENCE
+                        else if (posi(ptr, "Electric Fence") != NULL)
+                             {
+                                /* Lets assume that no password is */
+                                /* required to login.              */
+                                status = SUCCESS;
+                             }
+#endif
+                             else
+                             {
+                                /* Replace '\n's by spaces for logging. */
+                                while (*ptr++)
+                                {
+                                   if ((*ptr == '\n') || (*ptr == '\r'))
+                                   {
+                                      *ptr = ' ';
+                                   }
+                                }
+                                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                                          "Protocol error. ssh is complaining, see next message (%d).",
+                                          status);
+                                status = INCORRECT;
+                             }
+                     }
+                  }
+                  break;
                }
       }
       else if (status == 0) /* Timeout. */
@@ -581,6 +663,20 @@ ssh_login(int data_fd, char *passwd)
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "SSH program not responding.");
                status = INCORRECT;
+               if (data_pid > 0)
+               {
+                  if (kill(data_pid, SIGKILL) == -1)
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               "sftp_quit(): Failed to kill() data ssh process %d : %s",
+                               data_pid, strerror(errno));
+                  }
+                  else
+                  {
+                     trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                               "ssh_login(): Killing hanging data ssh process.");
+                  }
+               }
                break;
            }
            else
@@ -806,6 +902,28 @@ get_ssh_reply(int fd, int check_reply)
         }
 
    return(status);
+}
+
+
+/*########################## my_siginterrupt() ##########################*/
+int
+my_siginterrupt(int sig, int flag)
+{
+   int              ret;
+   struct sigaction act;
+
+   (void)sigaction(sig, NULL, &act);
+   if (flag)
+   {
+      act.sa_flags &= SA_RESTART;
+   }
+   else
+   {
+      act.sa_flags |= SA_RESTART;
+   }
+   ret = sigaction(sig, &act, NULL);
+
+   return(ret);
 }
 
 
@@ -1084,4 +1202,13 @@ tty_raw(int fd)
       return(-1);
    }
    return(0);
+}
+
+
+/*+++++++++++++++++++++++++ sig_ignore_handler() ++++++++++++++++++++++++*/
+static void
+sig_ignore_handler(int signo)
+{
+   /* Do nothing. This just allows us to receive a SIGALRM, thus */
+   /* interrupting a system call without being forced to abort.  */
 }

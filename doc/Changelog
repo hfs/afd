@@ -319,8 +319,8 @@
              correct permissions, we failed to check for supplementary
              groups.
 16.03.2006 - Implemented group transfer limit.
-21.03.2006 - When doing the pexec show what command we currently execute
-             int the job details window.
+21.03.2006 - When doing pexec show what command we currently execute
+             in the job details window.
 28.03.2006 - For option pexec show in TRANSFER_LOG what we are doing
              and how long it took to execute the command.
 29.03.2006 - Support for file filters with time modifiers.
@@ -344,3 +344,51 @@
            - Fix some errors in show_ilog dialog not showing any or
              all data.
 ------------------------> Released: 20.04.2006 <---------------------------
+
+
+
+----------------------------> Version 1.3.3 <------------------------------
+                             ---------------
+21.04.2006 - When converting the FSA, the memory used must be initialized.
+22.04.2006 - Added sendfile() support for FTP. Currently only tested
+             for linux.
+24.04.2006 - When setting "delete unknown files" to zero, the function
+             search_old_files() could delete files that are to be
+             distributed. Fixed.
+04.05.2006 - Setting FTP type ASCII or BIN had no effect. Fixed.
+09.05.2006 - Implemented fetching via SFTP.
+12.05.2006 - Handle rename.rule files that do not start with an empty
+             line at start correctly.
+13.05.2006 - Fix two errors in time expansion function for pattern
+             matching.
+18.05.2006 - Do not burst when users are not the same and protocol
+             is SFTP.
+25.05.2006 - It is now possible to view DIR_CONFIG data from the dir_ctrl
+             dialog.
+04.06.2006 - Added email option 'file name is target'.
+10.06.2006 - Delete log knows more different delete types.
+11.06.2006 - Dialog show_queue can now handle retrieve jobs.
+19.06.2006 - Speedup host listing in edit_hc dialog.
+           - In dialog edit_hc adapt length of host alias list when
+             MAX_HOSTNAME_LENGTH is changed.
+20.06.2006 - Adapt length of show_olog and show_dlog dialog when
+             MAX_HOSTNAME_LENGTH is changed.
+21.06.2006 - When list limit is reached, don't show the search time
+             otherwise the warning showing that list limit is reached
+             will be overwritten.
+           - Fix an error when sf_xxx delete a file and this was
+             shown with garbage in delete log.
+26.06.2006 - When rereading DIR_CONFIG reset protocol flags, otherwise
+             protocols will accumulate until AMG is restarted.
+27.06.2006 - When downloading a file with leading dot remove the dot
+             when finish downloading.
+           - Optionally allow for duplicate directories when the
+             directories are in different DIR_CONFIGS (configure with
+             --enable-multi_dir_definition).
+30.06.2006 - Added directory option 'accept dot files', so files with
+             a leading dot can be downloaded from a remote host.
+04.07.2007 - When we delete old files from the queue we must subtract
+             those from the queued files in FRA.
+           - When opening an afd_ctrl dialog via mon_ctrl it was not
+             possible to open the dir_ctrl dialog via mon_ctrl. Fixed.
+------------------------> Released: 05.07.2006 <---------------------------

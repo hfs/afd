@@ -65,6 +65,9 @@ extern int  ftp_connect(char *, int),
 #endif
             ftp_data(char *, off_t, int, int, int),
             ftp_close_data(void),
+#ifdef WITH_SENDFILE
+            ftp_sendfile(int, off_t *, int),
+#endif
             ftp_write(char *, char *, int),
             ftp_read(char *, int),
             ftp_user(char *),

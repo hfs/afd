@@ -401,8 +401,8 @@ draw_dir_type(int pos, int x, int y)
          str[0] = ' '; str[1] = 'L'; str[2] = 'O'; str[3] = 'C';
          break;
 
-      case SMTP : 
-         str[0] = 'S'; str[1] = 'M'; str[2] = 'T'; str[3] = 'P';
+      case SFTP : 
+         str[0] = 'S'; str[1] = 'F'; str[2] = 'T'; str[3] = 'P';
          break;
 
 #ifdef _WITH_WMO_SUPPORT

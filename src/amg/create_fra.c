@@ -411,7 +411,14 @@ create_fra(int no_of_dirs)
          fra[i].files_received         = 0;
          fra[i].no_of_process          = 0;
          fra[i].dir_status             = NORMAL_STATUS;
-         fra[i].dir_flag               = 0;
+         if (dd[i].accept_dot_files == NO)
+         {
+            fra[i].dir_flag            = 0;
+         }
+         else
+         {
+            fra[i].dir_flag            = ACCEPT_DOT_FILES;
+         }
          if (fra[i].time_option == YES)
          {
             (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));
@@ -497,6 +504,13 @@ create_fra(int no_of_dirs)
             fra[i].bytes_in_queue         = old_fra[k].bytes_in_queue;
             fra[i].dir_status             = old_fra[k].dir_status;
             fra[i].dir_flag               = old_fra[k].dir_flag;
+            if (((fra[i].dir_flag & ACCEPT_DOT_FILES) &&
+                 (dd[i].accept_dot_files == NO)) ||
+                (((fra[i].dir_flag & ACCEPT_DOT_FILES) == 0) &&
+                 (dd[i].accept_dot_files == YES)))
+            {
+               fra[i].dir_flag ^= ACCEPT_DOT_FILES;
+            }
             fra[i].queued                 = old_fra[k].queued;
             (void)memcpy(&fra[i].ate, &old_fra[k].ate,
                          sizeof(struct bd_time_entry));
@@ -511,7 +525,14 @@ create_fra(int no_of_dirs)
             fra[i].bytes_in_dir           = 0;
             fra[i].bytes_in_queue         = 0;
             fra[i].dir_status             = NORMAL_STATUS;
-            fra[i].dir_flag               = 0;
+            if (dd[i].accept_dot_files == NO)
+            {
+               fra[i].dir_flag            = 0;
+            }
+            else
+            {
+               fra[i].dir_flag            = ACCEPT_DOT_FILES;
+            }
             fra[i].queued                 = NO;
             fra[i].wait_for_filename[0]   = '\0';
             fra[i].accumulate_size        = 0;

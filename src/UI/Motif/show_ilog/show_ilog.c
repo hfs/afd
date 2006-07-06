@@ -1,6 +1,6 @@
 /*
  *  show_ilog.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -113,6 +113,7 @@ int                        char_width,
                            no_of_search_dirs,
                            no_of_search_dirids,
                            special_button_flag,
+                           sum_line_length,
                            sys_log_fd = STDERR_FILENO;
 #ifdef HAVE_MMAP
 off_t                      fra_size;
@@ -123,6 +124,7 @@ time_t                     start_time_val,
 size_t                     search_file_size;
 char                       *p_work_dir,
                            font_name[40],
+                           header_line[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1],
                            search_file_name[MAX_PATH_LENGTH],
                            **search_dir = NULL,
                            **search_dirid = NULL,
@@ -894,14 +896,10 @@ main(int argc, char *argv[])
    XtVaGetValues(buttonbox_w, XmNheight, &button_height, NULL);
 
    /* Write heading. */
-   if (file_name_length == SHOW_SHORT_FORMAT)
-   {
-      XmTextSetString(headingbox_w, HEADING_LINE_SHORT);
-   }
-   else
-   {
-      XmTextSetString(headingbox_w, HEADING_LINE_LONG);
-   }
+   sum_line_length = sprintf(header_line, "%s%-*s %s",
+                             DATE_TIME_HEADER, file_name_length,
+                             FILE_NAME_HEADER, REST_HEADER);
+   XmTextSetString(headingbox_w, header_line);
 
    if ((no_of_search_dirs > 0) || (no_of_search_dirids > 0))
    {

@@ -1,6 +1,6 @@
 /*
  *  error_action.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -93,6 +93,11 @@ error_action(char *alias_name, char *action)
                             "Failed to start process %s : %s",
                             fullname, strerror(errno));
                  _exit(INCORRECT);
+              }
+              else
+              {
+                 system_log(DEBUG_SIGN, NULL, 0,
+                            "Error action: %s %s", fullname, action);
               }
               _exit(SUCCESS);
            }

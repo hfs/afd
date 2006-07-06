@@ -1,6 +1,6 @@
 /*
  *  send_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -212,39 +212,40 @@ send_files(int no_selected, int *select_list)
             }
          }
       }
-      else /* It's in one of the input queue's. */
-      {
-         if ((perm.send_limit > 0) &&
-             ((user_limit + to_do) >= perm.send_limit))
-         {
-            limit_reached++;
-         }
-         else
-         {
-            if (qfl[select_list[i] - 1].hostname[0] == '\0')
-            {
-               (void)sprintf(fullname, "%s/%s",
-                             dnb[qfl[select_list[i] - 1].dir_id_pos].dir_name,
-                             qfl[select_list[i] - 1].file_name);
-            }
-            else
-            {
-               (void)sprintf(fullname, "%s/.%s/%s",
-                             dnb[qfl[select_list[i] - 1].dir_id_pos].dir_name,
-                             qfl[select_list[i] - 1].hostname,
-                             qfl[select_list[i] - 1].file_name);
-            }
-            if (stat(fullname, &stat_buf) == -1)
-            {
-               not_found++;
-            }
-            else
-            {
-               (void)fprintf(fp, "%s\n", fullname);
-               to_do++;
-            }
-         }
-      }
+      else if ((qfl[select_list[i] - 1].queue_type != SHOW_RETRIEVES) &&
+               (qfl[select_list[i] - 1].queue_type != SHOW_PENDING_RETRIEVES))
+           {
+              if ((perm.send_limit > 0) &&
+                  ((user_limit + to_do) >= perm.send_limit))
+              {
+                 limit_reached++;
+              }
+              else
+              {
+                 if (qfl[select_list[i] - 1].hostname[0] == '\0')
+                 {
+                    (void)sprintf(fullname, "%s/%s",
+                                  dnb[qfl[select_list[i] - 1].dir_id_pos].dir_name,
+                                  qfl[select_list[i] - 1].file_name);
+                 }
+                 else
+                 {
+                    (void)sprintf(fullname, "%s/.%s/%s",
+                                  dnb[qfl[select_list[i] - 1].dir_id_pos].dir_name,
+                                  qfl[select_list[i] - 1].hostname,
+                                  qfl[select_list[i] - 1].file_name);
+                 }
+                 if (stat(fullname, &stat_buf) == -1)
+                 {
+                    not_found++;
+                 }
+                 else
+                 {
+                    (void)fprintf(fp, "%s\n", fullname);
+                    to_do++;
+                 }
+              }
+           }
    }
 
    if (fclose(fp) == EOF)

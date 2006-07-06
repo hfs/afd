@@ -1193,24 +1193,32 @@ get_data(void)
        ((end > end_time_val) && (end_time_val != -1)))
    {
       set_sensitive();
-      if (total_no_files != 0)
+      if ((perm.list_limit == 0) || (total_no_files < perm.list_limit))
       {
+         /*
+          * Do not show search time when list limit is reached.
+          * Otherwise we overwrite the warning that list limit is
+          * reached.
+          */
+         if (total_no_files != 0)
+         {
 #if SIZEOF_TIME_T == 4
-         (void)sprintf(status_message, "Search time: %lds", end - start);
+            (void)sprintf(status_message, "Search time: %lds", end - start);
 #else
-         (void)sprintf(status_message, "Search time: %llds", end - start);
+            (void)sprintf(status_message, "Search time: %llds", end - start);
 #endif
-      }
-      else
-      {
+         }
+         else
+         {
 #if SIZEOF_TIME_T == 4
-         (void)sprintf(status_message, "No data found. Search time: %lds",
+            (void)sprintf(status_message, "No data found. Search time: %lds",
 #else
-         (void)sprintf(status_message, "No data found. Search time: %llds",
+            (void)sprintf(status_message, "No data found. Search time: %llds",
 #endif
-                       end - start);
+                          end - start);
+         }
+         SHOW_MESSAGE();
       }
-      SHOW_MESSAGE();
 
       special_button_flag = SEARCH_BUTTON;
       xstr = XmStringCreateLtoR("Search", XmFONTLIST_DEFAULT_TAG);

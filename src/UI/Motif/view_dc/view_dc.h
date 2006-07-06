@@ -26,7 +26,6 @@
 #define MAXARGS                  20
 
 /* Function prototypes */
-extern void close_button(Widget, XtPointer, XtPointer),
-            get_dc_data(void);
+extern void close_button(Widget, XtPointer, XtPointer);
 
 #endif /* __view_dc_h */

@@ -210,10 +210,11 @@ reread_dir_config(int              dc_changed,
             }
          }
 
-         /* Reread database file */
+         /* Reread database file. */
          for (i = 0; i < no_of_hosts; i++)
          {
             hl[i].in_dir_config = NO;
+            hl[i].protocol = 0;
          }
          if (eval_dir_config(db_size) < 0)
          {
@@ -368,9 +369,14 @@ reread_dir_config(int              dc_changed,
                         * place where the change took place,
                         * overwrite all parameters.
                         */
-                       (void)strcpy(fsa[host_pos].real_hostname[0], hl[i].real_hostname[0]);
-                       (void)strcpy(fsa[host_pos].real_hostname[1], hl[i].real_hostname[1]);
-                       (void)strcpy(fsa[host_pos].proxy_name, hl[i].proxy_name);
+                       (void)memcpy(fsa[host_pos].real_hostname[0],
+                                    hl[i].real_hostname[0],
+                                    MAX_REAL_HOSTNAME_LENGTH);
+                       (void)memcpy(fsa[host_pos].real_hostname[1],
+                                    hl[i].real_hostname[1],
+                                    MAX_REAL_HOSTNAME_LENGTH);
+                       (void)memcpy(fsa[host_pos].proxy_name, hl[i].proxy_name,
+                                    MAX_PROXY_NAME_LENGTH + 1);
                        fsa[host_pos].allowed_transfers = hl[i].allowed_transfers;
                        if (old_hl[i].allowed_transfers != hl[i].allowed_transfers)
                        {

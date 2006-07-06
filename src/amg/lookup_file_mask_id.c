@@ -1,7 +1,7 @@
 /*
  *  lookup_file_mask_id.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 2003, 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,6 +67,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   28.12.2003 H.Kiehl Created
+ **   22.06.2006 H.Kiehl Catch the case when *no_of_file_masks is larger
+ **                      then the actual number stored.
  **
  */
 DESCR__E_M3
@@ -102,6 +104,18 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
           *ptr,
           *tmp_ptr;
 
+   if (fmd_size == 0)
+   {
+      struct stat stat_buf;
+
+      if (fstat(fmd_fd, &stat_buf) == -1)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "fstat() error : %s", strerror(errno));
+         exit(INCORRECT);
+      }
+      fmd_size = stat_buf.st_size;
+   }
    ptr = fmd;
    fml_offset = sizeof(int) + sizeof(int);
    mask_offset = fml_offset + sizeof(int) + sizeof(unsigned int) +
@@ -117,24 +131,40 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
       }
       ptr += (mask_offset + *(int *)(ptr + fml_offset) + sizeof(char) +
               *(ptr + mask_offset - 1));
+
+      /*
+       * The following check is necessary on Linux x86_64. I don't
+       * know why this is happening that *no_of_file_masks is to
+       * large. So far it only happens on a 4 CPU System with a large
+       * DIR_CONFIG. This needs to be fixed properly.
+       */
+      if ((ptr - fmd) >= fmd_size)
+      {
+         if ((i + 1) != *no_of_file_masks)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "The number of file mask is to large %d, changing to %d.",
+                       *no_of_file_masks, i);
+            *no_of_file_masks = i;
+         }
+         else if ((ptr - fmd) > fmd_size)
+              {
+                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#if SIZEOF_OFF_T == 4
+                            "Hmmm, something is wrong here (i=%d *no_of_file_masks=%d diff=%d fmd_size=%ld).",
+#else
+                            "Hmmm, something is wrong here (i=%d *no_of_file_masks=%d diff=%d fmd_size=%lld).",
+#endif
+                            i, *no_of_file_masks, (ptr - fmd), fmd_size);
+                 break;
+              }
+      }
    }
 
    /*
     * This is a brand new job! Append this to the file_mask structure.
     * Resize the file mask database and reset pointers and values.
     */
-   if (fmd_size == 0)
-   {
-      struct stat stat_buf;
-
-      if (fstat(fmd_fd, &stat_buf) == -1)
-      {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "fstat() error : %s", strerror(errno));
-         exit(INCORRECT);
-      }
-      fmd_size = stat_buf.st_size;
-   }
    new_size = mask_offset + fbl + 1 + fmd_size;
    if ((new_size % sizeof(int)) != 0) /* Determine fill bytes. */
    {

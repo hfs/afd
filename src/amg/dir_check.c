@@ -699,8 +699,8 @@ main(int argc, char *argv[])
                        if (stat(de[i].dir, &dir_stat_buf) < 0)
                        {
                           system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                     "Can't access directory %s : %s",
-                                     de[i].dir, strerror(errno));
+                                     "Can't access directory entry %d %s : %s",
+                                     i, de[i].dir, strerror(errno));
                        }
                        else
                        {
@@ -1399,7 +1399,9 @@ handle_dir(int    dir_pos,
            int    *pdf)
 #endif
 {
-   if ((fra[de[dir_pos].fra_pos].dir_flag & LINK_NO_EXEC) ||
+   if ((pool_dir != NULL) || /* NOTE: this must be first since if this is */
+                             /*       not NULL, dir_pos is -1!!!!         */
+       (fra[de[dir_pos].fra_pos].dir_flag & LINK_NO_EXEC) ||
        ((no_of_process < max_process) &&
         ((pool_dir != NULL) ||
          (fra[de[dir_pos].fra_pos].no_of_process < fra[de[dir_pos].fra_pos].max_process))))
@@ -2189,6 +2191,7 @@ check_fifo(int read_fd, int write_fd)
          switch (buffer[count])
          {
             case STOP  :
+#ifdef SHOW_EXEC_TIMES
                for (i = 0; i < no_fork_jobs; i++)
                {
                   if (fjd[i].forks > 0)
@@ -2213,6 +2216,7 @@ check_fifo(int read_fd, int write_fd)
                      i = j;
                   }
                }
+#endif
                if (p_mmap != NULL)
                {
 #ifdef HAVE_MMAP

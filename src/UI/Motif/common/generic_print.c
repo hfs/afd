@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,7 +47,7 @@ DESCR__E_M3
 
 #include <stdio.h>               /* sprintf(), popen()                   */
 #include <string.h>              /* strcpy(), strcat(), strerror()       */
-#include <stdlib.h>              /* exit()                               */
+#include <stdlib.h>              /* exit(), free()                       */
 #include <signal.h>              /* signal()                             */
 #include <sys/types.h>
 #include <unistd.h>              /* unlink(), getpid()                   */
@@ -516,12 +516,12 @@ void
 send_mail_cmd(char *message)
 {
    int  ret;
-   char buffer[MAX_PATH_LENGTH + MAX_PATH_LENGTH],
+   char *buffer = NULL,
         cmd[MAX_PATH_LENGTH];
 
    (void)sprintf(cmd, "%s -a %s -s \"AFD log data\" -t 20 %s",
                  ASMTP, mailto, file_name);
-   if ((ret = exec_cmd(cmd, buffer, -1, NULL, 0, 0L)) != 0)
+   if ((ret = exec_cmd(cmd, &buffer, -1, NULL, 0, 0L, YES)) != 0)
    {
       (void)xrec(appshell, ERROR_DIALOG,
                  "Failed to send mail command `%s' [%d] : %s (%s %d)",
@@ -540,6 +540,10 @@ send_mail_cmd(char *message)
       }
    }
    (void)unlink(file_name);
+   if (buffer != NULL)
+   {
+      free(buffer);
+   }
 
    return;
 }

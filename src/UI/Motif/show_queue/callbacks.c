@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -292,10 +292,15 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
          {
             format_output_info(text, pos - 1);
          }
-         else
-         {
-            format_input_info(text, pos - 1);
-         }
+         else if ((qfl[pos - 1].queue_type == SHOW_RETRIEVES) ||
+                  (qfl[pos - 1].queue_type == SHOW_PENDING_RETRIEVES))
+              {
+                 format_retrieve_info(text, pos - 1);
+              }
+              else
+              {
+                 format_input_info(text, pos - 1);
+              }
 
          /* Show the information. */
          show_info(text);

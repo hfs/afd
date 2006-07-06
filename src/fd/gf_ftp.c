@@ -45,6 +45,8 @@ DESCR__S_M1
  **   06.08.2000 H.Kiehl Created
  **   11.04.2004 H.Kiehl Added TLS/SSL support.
  **   13.06.2004 H.Kiehl Added transfer rate limit.
+ **   27.06.2006 H.Kiehl When downloading a file with leading dot
+ **                      remove the dot when finish downloading.
  **
  */
 DESCR__E_M1
@@ -385,7 +387,7 @@ main(int argc, char *argv[])
       }
    } /* if (db.target_dir[0] != '\0') */
 
-   if ((files_to_retrieve = get_remote_file_names(&file_size_to_retrieve)) > 0)
+   if ((files_to_retrieve = get_remote_file_names_ftp(&file_size_to_retrieve)) > 0)
    {
       int         fd,
                   i;
@@ -479,7 +481,14 @@ main(int argc, char *argv[])
          {
             off_t offset;
 
-            (void)strcpy(p_local_tmp_file, rl[i].file_name);
+            if (rl[i].file_name[0] != '.')
+            {
+               (void)strcpy(p_local_tmp_file, rl[i].file_name);
+            }
+            else
+            {
+               (void)strcpy(p_local_file, rl[i].file_name);
+            }
             if (fsa->file_size_offset != -1)
             {
                if (stat(local_tmp_file, &stat_buf) == -1)
@@ -733,11 +742,17 @@ main(int argc, char *argv[])
 #ifdef _VERIFY_FSA
                   if (fsa->total_file_counter < 0)
                   {
+                     int tmp_val;
+
+                     tmp_val = files_to_retrieve - (files_retrieved + 1);
+                     if (tmp_val < 0)
+                     {
+                        tmp_val = 0;
+                     }
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                 "Total file counter for host <%s> less then zero. Correcting to %d.",
-                                fsa->host_dsp_name,
-                                files_to_retrieve - (files_retrieved + 1));
-                     fsa->total_file_counter = files_to_retrieve - (files_retrieved + 1);
+                                fsa->host_dsp_name, tmp_val);
+                     fsa->total_file_counter = tmp_val;
                   }
 #endif
 
@@ -897,7 +912,14 @@ main(int argc, char *argv[])
                }
 
                /* Rename the file so AMG can grab it. */
-               (void)strcpy(p_local_file, rl[i].file_name);
+               if (rl[i].file_name[0] != '.')
+               {
+                  (void)strcpy(p_local_file, rl[i].file_name);
+               }
+               else
+               {
+                  (void)strcpy(p_local_file, &rl[i].file_name[1]);
+               }
                if (rename(local_tmp_file, local_file) == -1)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
@@ -928,12 +950,6 @@ main(int argc, char *argv[])
    } /* files_to_retrieve > 0 */
 
    fsa->job_status[(int)db.job_no].connect_status = CLOSING_CONNECTION;
-#if SIZEOF_OFF_T == 4
-   trans_log(INFO_SIGN, NULL, 0, NULL, "%ld Bytes retrieved in %d file(s).",
-#else
-   trans_log(INFO_SIGN, NULL, 0, NULL, "%lld Bytes retrieved in %d file(s).",
-#endif
-             file_size_retrieved, files_retrieved);
    if ((status = ftp_quit()) != SUCCESS)
    {
       trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
@@ -959,7 +975,17 @@ gf_ftp_exit(void)
    int  fd;
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
-   reset_fsa((struct job *)&db, exitflag);
+   if ((fsa != NULL) && (db.fsa_pos >= 0))
+   {
+#if SIZEOF_OFF_T == 4
+      trans_log(INFO_SIGN, NULL, 0, NULL, "%ld Bytes retrieved in %d file(s).",
+#else
+      trans_log(INFO_SIGN, NULL, 0, NULL, "%lld Bytes retrieved in %d file(s).",
+#endif
+                fsa->job_status[(int)db.job_no].file_size_done,
+                fsa->job_status[(int)db.job_no].no_of_files_done);
+      reset_fsa((struct job *)&db, exitflag);
+   }
 
    (void)strcpy(sf_fin_fifo, p_work_dir);
    (void)strcat(sf_fin_fifo, FIFO_DIR);

@@ -432,8 +432,10 @@ This statistic will always be printed when dir_check terminates.
 <p>
 To remove a job from the AFD system there is the program rm_job
 &lt;full job name&gt;. To get the full job name just look into the files
-(or error) directory. To delete for example all jobs with the job ID 999
+directory. To delete for example all jobs with the job ID 999
 the following command will do this for you: rm_job `find $AFD_WORK_DIR/files -name "*_999" -print`
+Currently rm_job can only delete outgoing jobs, not those that
+are fetching files from a remote host.
 </p>
 <h3 align=center><a name="set_pw"><u>Set password (set_pw)</u></a></h3>
 <p>
@@ -598,7 +600,7 @@ user interaction, so it can be used from any shell scripts or programs such as
    <td width=90%><small><address>
    Copyright &copy; 2001 - 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 14.04.2006
+   Last updated: 06.06.2006
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -1,6 +1,6 @@
 /*
  *  ftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -201,6 +201,9 @@ DESCR__E_M3
 #include <signal.h>       /* signal()                                    */
 #include <sys/types.h>    /* fd_set                                      */
 #include <sys/time.h>     /* struct timeval                              */
+#ifdef WITH_SENDFILE
+# include <sys/sendfile.h>
+#endif
 #ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>  /* socket(), shutdown(), bind(), accept(),     */
                           /* setsockopt()                                */
@@ -352,6 +355,10 @@ ftp_connect(char *hostname, int port)
       (void)close(control_fd);
       return(INCORRECT);
    }
+#ifdef WITH_TRACE
+   length = sprintf(msg_str, "Connected to %s", hostname);
+   trace_log(NULL, 0, C_TRACE, msg_str, length, NULL);
+#endif
 
    length = sizeof(ctrl);
    if (getsockname(control_fd, (struct sockaddr *)&ctrl, &length) < 0)
@@ -1649,7 +1656,7 @@ ftp_list(int mode, int type, ...)
    /* Read last message: 'Binary Transfer complete' */
    if ((reply = get_reply()) != INCORRECT)
    {
-      if (reply == 226)
+      if ((reply == 226) || (reply == 250))
       {
          reply = SUCCESS;
       }
@@ -2466,7 +2473,7 @@ ftp_close_data(void)
          return(INCORRECT);
       }
       transfer_timeout = tmp_ftp_timeout;
-      if (reply != 226)
+      if ((reply != 226) && (reply != 250))
       {
          return(reply);
       }
@@ -2583,6 +2590,68 @@ ftp_write(char *block, char *buffer, int size)
    
    return(SUCCESS);
 }
+
+
+#ifdef WITH_SENDFILE
+/*############################ ftp_sendfile() ###########################*/
+int
+ftp_sendfile(int source_fd, off_t *offset, int size)
+{
+   int    nleft,
+          nwritten;
+   fd_set wset;
+
+   nleft = size;
+   size = 0;
+   FD_ZERO(&wset);
+   while (nleft > 0)
+   {
+      FD_SET(data_fd, &wset);
+      timeout.tv_usec = 0L;
+      timeout.tv_sec = transfer_timeout;
+
+      nwritten = select(data_fd + 1, NULL, &wset, NULL, &timeout);
+
+      if (FD_ISSET(data_fd, &wset))
+      {
+         if ((nwritten = sendfile(data_fd, source_fd, offset, nleft)) > 0)
+         {
+            nleft -= nwritten;
+            size += nwritten;
+         }
+         else if (nwritten == 0)
+              {
+                 nleft = 0;
+              }
+              else
+              {
+                 if (errno == ECONNRESET)
+                 {
+                    timeout_flag = CON_RESET;
+                 }
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                           "ftp_sendfile(): sendfile() error (%d) : %s",
+                           nwritten, strerror(errno));
+                 return(-errno);
+              }
+      }
+      else if (nwritten == 0)
+           {
+              /* timeout has arrived */
+              timeout_flag = ON;
+              return(INCORRECT);
+           }
+           else
+           {
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                        "ftp_sendfile(): select() error : %s", strerror(errno));
+              return(INCORRECT);
+           }
+   }
+   
+   return(size);
+}
+#endif /* WITH_SENDFILE */
 
 
 #ifdef _BLOCK_MODE

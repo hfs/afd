@@ -538,7 +538,7 @@ add_message_to_queue(char         *dir_name,
       (void)sprintf(del_dir, "%s%s%s/%s", p_work_dir,
                     AFD_FILE_DIR, OUTGOING_DIR, dir_name);
 #ifdef _DELETE_LOG
-      remove_job_files(del_dir, -1, job_id, OTHER_DEL);
+      remove_job_files(del_dir, -1, job_id, OTHER_OUTPUT_DEL);
 #else
       remove_job_files(del_dir, -1);
 #endif

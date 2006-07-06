@@ -77,6 +77,7 @@ DESCR__S_M1
  **   03.07.2002 H.Kiehl Added charset option.
  **   04.07.2002 H.Kiehl Add To header by default.
  **   13.06.2004 H.Kiehl Added transfer rate limit.
+ **   04.06.2006 H.Kiehl Added option 'file name is target'.
  **
  */
 DESCR__E_M1
@@ -400,7 +401,9 @@ main(int argc, char *argv[])
    {
       (void)strcpy(ptr, fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
    }
-   if (((db.special_flag & FILE_NAME_IS_USER) == 0) && (db.group_list == NULL))
+   if (((db.special_flag & FILE_NAME_IS_USER) == 0) &&
+       ((db.special_flag & FILE_NAME_IS_TARGET) == 0) &&
+       (db.group_list == NULL))
    {
       (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
    }
@@ -594,7 +597,49 @@ main(int argc, char *argv[])
                (void)strcpy(db.user, p_file_name_buffer);
             }
             (void)sprintf(remote_user, "%s@%s", db.user, db.hostname);
-         } /* if (db.special_flag & FILE_NAME_IS_USER) */
+         }
+         else if (db.special_flag & FILE_NAME_IS_TARGET)
+              {
+                 register int k;
+
+                 if (db.user_rename_rule[0] != '\0')
+                 {
+                    for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
+                    {
+                       if (pmatch(rule[user_rule_pos].filter[k],
+                                  p_file_name_buffer, NULL) == 0)
+                       {
+                          change_name(p_file_name_buffer,
+                                      rule[user_rule_pos].filter[k],
+                                      rule[user_rule_pos].rename_to[k],
+                                      remote_user, &counter_fd, db.job_id);
+                          break;
+                       }
+                    }
+                 }
+                 else
+                 {
+                    (void)strcpy(remote_user, p_file_name_buffer);
+                 }
+                 k = 0;
+                 ptr = remote_user;
+                 while ((*ptr != '@') && (*ptr != '\0'))
+                 {
+                    db.user[k] = *ptr;
+                    k++; ptr++;
+                 }
+                 if (*ptr == '@')
+                 {
+                    db.user[k] = '\0';
+                 }
+                 else
+                 {
+                    db.user[0] = '\0';
+                    trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
+                              "File name `%s' is not a mail address!",
+                              remote_user);
+                 }
+              }
    
          /* Send remote user name */
          if (db.group_list == NULL)
@@ -765,7 +810,8 @@ main(int argc, char *argv[])
                  no_of_bytes += length;
               } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
 
-         if ((db.special_flag & FILE_NAME_IS_USER) == 0)
+         if (((db.special_flag & FILE_NAME_IS_USER) == 0) &&
+             ((db.special_flag & FILE_NAME_IS_TARGET) == 0))
          {
             if (db.group_list == NULL)
             {

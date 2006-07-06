@@ -118,13 +118,16 @@
 /* Maximum length of the file name that is displayed */
 #define SHOW_SHORT_FORMAT        26
 #define SHOW_MEDIUM_FORMAT       40
-#define SHOW_LONG_FORMAT         60
-#define HEADING_LINE_SHORT       "Date   Time     File name                  Hostname Type    File size   TT   A"
-#define SUM_SEP_LINE_SHORT       "=============================================================================="
-#define HEADING_LINE_MEDIUM      "Date   Time     File name                                Hostname Type    File size   TT   A"
-#define SUM_SEP_LINE_MEDIUM      "============================================================================================"
-#define HEADING_LINE_LONG        "Date   Time     File name                                                    Hostname Type    File size   TT   A"
-#define SUM_SEP_LINE_LONG        "================================================================================================================"
+#define SHOW_LONG_FORMAT         70
+#define DATE_TIME_HEADER         "Date   Time     "
+#define FILE_NAME_HEADER         "File name"
+#define HOST_NAME_HEADER         "Hostname"
+#if MAX_HOSTNAME_LENGTH < 8
+# define HOST_NAME_LENGTH        8
+#else
+# define HOST_NAME_LENGTH        MAX_HOSTNAME_LENGTH
+#endif
+#define REST_HEADER              "Type    File size   TT   A"
 
 #define LOG_CHECK_INTERVAL       1000L   /* Default interval in milli-    */
                                         /* seconds to check for changes  */

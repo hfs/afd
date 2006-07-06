@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2003 Holger Kiehl
+## Copyright (C) 2001 - 2006 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -17,14 +17,16 @@
 ##
 
 MAINTAINERCLEANFILES        = Makefile.in
-noinst_HEADERS              = commondefs.h ftpdefs.h httpdefs.h scpdefs.h\
-                              sftpdefs.h smtpdefs.h ssh_commondefs.h wmodefs.h
+noinst_HEADERS              = commondefs.h ftpdefs.h httpdefs.h pop3defs.h\
+                              scpdefs.h sftpdefs.h smtpdefs.h ssh_commondefs.h\
+                              wmodefs.h
 INCLUDES                    = -I.. -I../init_afd -I../fd @AFD_SSL_INCLUDES@
 lib_LIBRARIES               = libprotocols.a libtraceprotocols.a
 libprotocols_a_SOURCES      = common.c\
                               encode_base64.c\
                               ftpcmd.c\
                               httpcmd.c\
+                              pop3cmd.c\
                               scpcmd.c\
                               sftpcmd.c\
                               smtpcmd.c\

@@ -1,7 +1,7 @@
 /*
  *  check_old_time_jobs.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -178,7 +178,7 @@ check_old_time_jobs(int no_of_jobs)
                             * The only thing we can do now is remove them.
                             */
 #ifdef _DELETE_LOG
-                           remove_time_dir("-", -1, OTHER_DEL);
+                           remove_time_dir("-", -1, OTHER_INPUT_DEL);
 #else
                            remove_time_dir("-", -1);
 #endif
@@ -265,7 +265,8 @@ check_old_time_jobs(int no_of_jobs)
                                */
 #ifdef _DELETE_LOG
                              remove_time_dir(jd[jid_pos].host_alias,
-                                             jd[jid_pos].job_id, OTHER_DEL);
+                                             jd[jid_pos].job_id,
+                                             OTHER_INPUT_DEL);
 #else
                              remove_time_dir(jd[jid_pos].host_alias,
                                              jd[jid_pos].job_id);

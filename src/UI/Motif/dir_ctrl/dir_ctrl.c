@@ -46,6 +46,7 @@ DESCR__S_M1
  **                      via any window manager.
  **   20.12.2003 H.Kiehl Added search option.
  **   27.03.2003 H.Kiehl Added profile option.
+ **   25.05.2006 H.Kiehl Added View->Configuration option.
  **
  */
 DESCR__E_M1
@@ -535,6 +536,8 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
          dcp.show_elog_list     = NULL;
          dcp.show_queue         = YES; /* View show_queue dialog */
          dcp.show_queue_list    = NULL;
+         dcp.view_dc            = YES; /* View DIR_CONFIG entry */
+         dcp.view_dc_list       = NULL;
          break;
 
       default : /* Something must be wrong! */
@@ -801,7 +804,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
        (dcp.show_olog != NO_PERMISSION) ||
        (dcp.show_elog != NO_PERMISSION) ||
        (dcp.show_queue != NO_PERMISSION) ||
-       (dcp.info != NO_PERMISSION))
+       (dcp.info != NO_PERMISSION) ||
+       (dcp.view_dc != NO_PERMISSION))
    {
       view_pull_down_w = XmCreatePulldownMenu(*menu_w,
                                               "View Pulldown", NULL, 0);
@@ -896,17 +900,29 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          XtAddCallback(vw[DIR_SHOW_QUEUE_W], XmNactivateCallback, dir_popup_cb,
                        (XtPointer)SHOW_QUEUE_SEL);
       }
-      if (dcp.info != NO_PERMISSION)
+      if ((dcp.info != NO_PERMISSION) || (dcp.view_dc != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
                               xmSeparatorWidgetClass, view_pull_down_w,
                               NULL);
-         vw[DIR_INFO_W] = XtVaCreateManagedWidget("Info",
+         if (dcp.info != NO_PERMISSION)
+         {
+            vw[DIR_INFO_W] = XtVaCreateManagedWidget("Info",
                               xmPushButtonWidgetClass, view_pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
-         XtAddCallback(vw[DIR_INFO_W], XmNactivateCallback, dir_popup_cb,
-                       (XtPointer)DIR_INFO_SEL);
+            XtAddCallback(vw[DIR_INFO_W], XmNactivateCallback, dir_popup_cb,
+                          (XtPointer)DIR_INFO_SEL);
+         }
+         if (dcp.view_dc != NO_PERMISSION)
+         {
+            vw[DIR_VIEW_DC_W] = XtVaCreateManagedWidget("Configuration",
+                              xmPushButtonWidgetClass, view_pull_down_w,
+                              XmNfontList,             fontlist,
+                              NULL);
+            XtAddCallback(vw[DIR_VIEW_DC_W], XmNactivateCallback, dir_popup_cb,
+                          (XtPointer)DIR_VIEW_DC_SEL);
+         }
       }
    }
 
@@ -1000,7 +1016,7 @@ init_popup_menu(Widget line_window_w)
    XmString x_string;
    Widget   popupmenu,
             pushbutton;
-   Arg      args[3];
+   Arg      args[4];
    Cardinal argcount;
 
    argcount = 0;
@@ -1009,13 +1025,15 @@ init_popup_menu(Widget line_window_w)
 
    if ((dcp.show_rlog != NO_PERMISSION) ||
        (dcp.disable != NO_PERMISSION) ||
-       (dcp.info != NO_PERMISSION))
+       (dcp.info != NO_PERMISSION) ||
+       (dcp.view_dc != NO_PERMISSION))
    {
       if (dcp.show_rlog != NO_PERMISSION)
       {
          argcount = 0;
          x_string = XmStringCreateLocalized("Receive Log");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pushbutton = XmCreatePushButton(popupmenu, "Receive", args, argcount);
          XtAddCallback(pushbutton, XmNactivateCallback,
                        dir_popup_cb, (XtPointer)R_LOG_SEL);
@@ -1027,6 +1045,7 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Enable/Disable");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pushbutton = XmCreatePushButton(popupmenu, "Disable", args, argcount);
          XtAddCallback(pushbutton, XmNactivateCallback,
                        dir_popup_cb, (XtPointer)DIR_DISABLE_SEL);
@@ -1038,6 +1057,7 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Rescan");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
          pushbutton = XmCreatePushButton(popupmenu, "Disable", args, argcount);
          XtAddCallback(pushbutton, XmNactivateCallback,
                        dir_popup_cb, (XtPointer)DIR_RESCAN_SEL);
@@ -1049,6 +1069,7 @@ init_popup_menu(Widget line_window_w)
          argcount = 0;
          x_string = XmStringCreateLocalized("Info");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
 #ifdef WITH_CTRL_ACCELERATOR
          XtSetArg(args[argcount], XmNaccelerator, "Ctrl<Key>I"); argcount++;
 #else
@@ -1058,6 +1079,19 @@ init_popup_menu(Widget line_window_w)
          pushbutton = XmCreatePushButton(popupmenu, "Info", args, argcount);
          XtAddCallback(pushbutton, XmNactivateCallback,
                        dir_popup_cb, (XtPointer)DIR_INFO_SEL);
+         XtManageChild(pushbutton);
+         XmStringFree(x_string);
+      }
+      if (dcp.view_dc != NO_PERMISSION)
+      {
+         argcount = 0;
+         x_string = XmStringCreateLocalized("Configuration");
+         XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pushbutton = XmCreatePushButton(popupmenu, "Configuration",
+                                         args, argcount);
+         XtAddCallback(pushbutton, XmNactivateCallback,
+                       dir_popup_cb, (XtPointer)DIR_VIEW_DC_SEL);
          XtManageChild(pushbutton);
          XmStringFree(x_string);
       }
@@ -1310,6 +1344,8 @@ eval_permissions(char *perm_buffer)
       dcp.show_olog_list     = NULL;
       dcp.show_elog          = YES;   /* View the delete log   */
       dcp.show_elog_list     = NULL;
+      dcp.view_dc            = YES;   /* View DIR_CONFIG entry */
+      dcp.view_dc_list       = NULL;
    }
    else
    {
@@ -1516,6 +1552,26 @@ eval_permissions(char *perm_buffer)
          {
             dcp.show_elog = NO_LIMIT;
             dcp.show_elog_list = NULL;
+         }
+      }
+
+      /* May the user view the DIR_CONFIG file? */
+      if ((ptr = posi(perm_buffer, VIEW_DIR_CONFIG_PERM)) == NULL)
+      {
+         /* The user may NOT view the DIR_CONFIG file. */
+         dcp.view_dc = NO_PERMISSION;
+      }
+      else
+      {
+         ptr--;
+         if ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            dcp.view_dc = store_host_names(&dcp.view_dc_list, ptr + 1);
+         }
+         else
+         {
+            dcp.view_dc = NO_LIMIT;
+            dcp.view_dc_list = NULL;
          }
       }
    }

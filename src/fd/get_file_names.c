@@ -364,12 +364,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                   }
                   else
                   {
-# else
-#  if SIZEOF_TIME_T == 4
+# endif
+# if SIZEOF_TIME_T == 4
                      (void)sprintf(str_diff_time, " >%ld", diff_time);
-#  else
+# else
                      (void)sprintf(str_diff_time, " >%lld", diff_time);
-#  endif
 # endif
 # ifdef WITH_DUP_CHECK
                   }
@@ -413,6 +412,13 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                                                      SEND_FILE_HTTP,
                                                      str_diff_time);
                        }
+                 else if (db.protocol & SFTP_FLAG)
+                      {
+                          prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
+                                                     "%s%s",
+                                                     SEND_FILE_SFTP,
+                                                     str_diff_time);
+                      }
 # ifdef _WITH_SCP_SUPPORT
                  else if (db.protocol & SCP_FLAG)
                       {

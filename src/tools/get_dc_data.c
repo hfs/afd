@@ -93,7 +93,8 @@ static struct passwd_buf   *pwb = NULL;
 
 /* Local function prototypes. */
 static void                check_dir_options(int),
-                           get_dc_data(char *),
+                           get_dc_data(char *, char *),
+                           print_recipient(char *),
                            show_data(struct job_id_data *, char *, char *,
                                      int, struct passwd_buf *, int),
                            show_dir_data(int);
@@ -107,7 +108,8 @@ static int                 get_current_jid_list(void),
 int
 main(int argc, char *argv[])
 {
-   char fake_user[MAX_FULL_USER_ID_LENGTH],
+   char dir_alias[MAX_INT_LENGTH + 1],
+        fake_user[MAX_FULL_USER_ID_LENGTH],
         host_name[MAX_HOSTNAME_LENGTH + 1],
         *perm_buffer,
         work_dir[MAX_PATH_LENGTH];
@@ -123,22 +125,34 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if (argc == 2)
+   if (get_arg(&argc, argv, "-h", host_name, MAX_HOSTNAME_LENGTH) != SUCCESS)
    {
-      if (my_strncpy(host_name, argv[1], MAX_HOSTNAME_LENGTH + 1) == -1)
+      if (get_arg(&argc, argv, "-d", dir_alias, MAX_DIR_ALIAS_LENGTH) != SUCCESS)
       {
-         (void)fprintf(stderr, "Usage: %s <host alias>\n", argv[0]);
-         if (strlen(argv[1]) > MAX_HOSTNAME_LENGTH)
+         dir_alias[0] = '\0';
+         if (argc == 2)
          {
-            (void)fprintf(stderr, "Given host_alias `%s' is to long (> %d)\n",
-                          argv[1], MAX_HOSTNAME_LENGTH);
+            if (my_strncpy(host_name, argv[1], MAX_HOSTNAME_LENGTH + 1) == -1)
+            {
+               (void)fprintf(stderr, "Usage: %s <host alias>\n", argv[0]);
+               if (strlen(argv[1]) > MAX_HOSTNAME_LENGTH)
+               {
+                  (void)fprintf(stderr,
+                                "Given host_alias `%s' is to long (> %d)\n",
+                                argv[1], MAX_HOSTNAME_LENGTH);
+               }
+               exit(INCORRECT);
+            }
          }
-         exit(INCORRECT);
+         else
+         {
+            host_name[0] = '\0';
+         }
       }
-   }
-   else
-   {
-      host_name[0] = '\0';
+      else
+      {
+         host_name[0] = '\0';
+      }
    }
 
    /* Check if user may view the password. */
@@ -183,7 +197,7 @@ main(int argc, char *argv[])
       (void)fprintf(stderr, "Failed to attach to FSA!\n");
       exit(INCORRECT);
    }
-   get_dc_data(host_name);
+   get_dc_data(host_name, dir_alias);
    (void)fsa_detach(NO);
 
    exit(SUCCESS);
@@ -192,7 +206,7 @@ main(int argc, char *argv[])
 
 /*############################ get_dc_data() ############################*/
 static void
-get_dc_data(char *host_name)
+get_dc_data(char *host_name, char *dir_alias)
 {
    int         dnb_fd,
                fmd_fd,
@@ -494,28 +508,75 @@ get_dc_data(char *host_name)
    }
    if (host_name[0] == '\0')
    {
-      for (i = 0; i < no_of_dirs_in_dnb; i++)
+      if (dir_alias[0] == '\0')
       {
-         show_dir_data(i);
-      }
-   }
-   else
-   {
-      for (i = 0; i < no_of_current_jobs; i++)
-      {
-         for (j = 0; j < no_of_job_ids; j++)
+         for (i = 0; i < no_of_dirs_in_dnb; i++)
          {
-            if (jd[j].job_id == current_jid_list[i])
+            show_dir_data(i);
+         }
+      }
+      else
+      {
+         for (i = 0; i < no_of_dirs; i++)
+         {
+            if (strcmp(dir_alias, fra[i].dir_alias) == 0)
             {
-               if (strcmp(jd[j].host_alias, host_name) == 0)
+               for (j = 0; j < no_of_dirs_in_dnb; j++)
                {
-                  show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name,
-                            fmd, no_of_passwd, pwb, position);
+                  if (dnb[j].dir_id == fra[i].dir_id)
+                  {
+                     show_dir_data(j);
+                     break;
+                  }
                }
                break;
             }
          }
       }
+   }
+   else
+   {
+      /*
+       * First lets check if this host_name is not
+       * just a retrieving host_name. If that is the
+       * case lets show the content of the whole
+       * directory.
+       */
+      if (fsa[position].protocol & SEND_FLAG)
+      {
+         for (i = 0; i < no_of_current_jobs; i++)
+         {
+            for (j = 0; j < no_of_job_ids; j++)
+            {
+               if (jd[j].job_id == current_jid_list[i])
+               {
+                  if (strcmp(jd[j].host_alias, host_name) == 0)
+                  {
+                     show_data(&jd[j], dnb[jd[j].dir_id_pos].dir_name,
+                               fmd, no_of_passwd, pwb, position);
+                  }
+                  break;
+               }
+            }
+         }
+      }
+      else if (fsa[position].protocol & RETRIEVE_FLAG)
+           {
+              for (i = 0; i < no_of_dirs; i++)
+              {
+                 if (strcmp(fra[i].host_alias, host_name) == 0)
+                 {
+                    for (j = 0; j < no_of_dirs_in_dnb; j++)
+                    {
+                       if (dnb[j].dir_id == fra[i].dir_id)
+                       {
+                          show_dir_data(j);
+                          break;
+                       }
+                    }
+                 }
+              }
+           }
    }
    (void)fra_detach();
 
@@ -579,6 +640,14 @@ show_data(struct job_id_data *p_jd,
 
    (void)fprintf(stdout, "Directory     : %s\n", dir_name);
 
+   get_dir_options(p_jd->dir_id, &d_o);
+   if (d_o.url[0] != '\0')
+   {
+      (void)strcpy(value, d_o.url);
+      print_recipient(value);
+      fprintf(stdout, "DIR-URL       : %s\n", value);
+   }
+
    for (i = 0; i < no_of_dirs; i++)
    {
       if (fra[i].dir_id == p_jd->dir_id)
@@ -597,7 +666,6 @@ show_data(struct job_id_data *p_jd,
    }
 
    /* If necessary add directory options. */
-   get_dir_options(p_jd->dir_id, &d_o);
    if (d_o.no_of_dir_options > 0)
    {
       (void)fprintf(stdout, "DIR-options   : %s\n", d_o.aoptions[0]);
@@ -642,140 +710,7 @@ show_data(struct job_id_data *p_jd,
 
    /* Print recipient */
    (void)strcpy(value, p_jd->recipient);
-   if (view_passwd == YES)
-   {
-      if (pwb != NULL)
-      {
-         char *ptr;
-
-         ptr = value;
-         while ((*ptr != ':') && (*ptr != '\0'))
-         {
-            /* We don't need the scheme so lets ignore it here. */
-            ptr++;
-         }
-         if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
-         {
-            ptr += 3; /* Away with '://' */
-
-            /* There is no password if this is a mail group. */
-            if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '\0'))
-            {
-               char uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
-
-               i = 0;
-               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                      (i < MAX_USER_NAME_LENGTH))
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  uh_name[i] = *ptr;
-                  ptr++; i++;
-               }
-               if ((*ptr != '\0') && (*ptr != ':') &&
-                   (i > 0) && (i != MAX_USER_NAME_LENGTH))
-               {
-                  int  uh_name_length = i;
-                  char *p_start = ptr;
-
-                  ptr++;
-                  i = 0;
-                  while ((*ptr != '\0') && (*ptr != '/') && (*ptr != ':') &&
-                         (*ptr != ';') && (i < MAX_REAL_HOSTNAME_LENGTH))
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     uh_name[uh_name_length + i] = *ptr;
-                     i++; ptr++;
-                  }
-                  if (i > 0)
-                  {
-                     while (*ptr != '\0')
-                     {
-                        ptr++;
-                     }
-                     uh_name[uh_name_length + i] = '\0';
-                     for (i = 0; i < no_of_passwd; i++)
-                     {
-                        if (CHECK_STRCMP(uh_name, pwb[i].uh_name) == 0)
-                        {
-                           int           j;
-                           size_t        pw_length;
-                           unsigned char *tmp_ptr;
-
-                           pw_length = strlen((char *)pwb[i].passwd);
-                           (void)memmove((p_start + pw_length + 1), p_start,
-                                         (ptr - p_start + 1));
-                           *p_start = ':';
-                           p_start++;
-                           tmp_ptr = pwb[i].passwd;
-                           j = 0;
-                           while (*tmp_ptr != '\0')
-                           {
-                              if ((j % 2) == 0)
-                              {
-                                 *p_start = *tmp_ptr + 24 - j;
-                              }
-                              else
-                              {
-                                 *p_start = *tmp_ptr + 11 - j;
-                              }
-                              tmp_ptr++; j++; p_start++;
-                           }
-                           break;
-                        }
-                     }
-                  }
-               }
-            }
-         }
-      }
-   }
-   else
-   {
-      char *ptr = value;
-
-      /*
-       * The user may not see the password. Lets cut it out and
-       * replace it with XXXXX.
-       */
-      while (*ptr != ':')
-      {
-         ptr++;
-      }
-      ptr++;
-      while ((*ptr != ':') && (*ptr != '@'))
-      {
-         if (*ptr == '\\')
-         {
-            ptr++;
-         }
-         ptr++;
-      }
-      if (*ptr == ':')
-      {
-         char *p_end = ptr + 1,
-              tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-         ptr++;
-         while (*ptr != '@')
-         {
-            if (*ptr == '\\')
-            {
-               ptr++;
-            }
-            ptr++;
-         }
-         (void)strcpy(tmp_buffer, ptr);
-         *p_end = '\0';
-         (void)strcat(value, "XXXXX");
-         (void)strcat(value, tmp_buffer);
-      }
-   }
+   print_recipient(value);
    (void)fprintf(stdout, "Recipient     : %s\n", value);
    (void)fprintf(stdout, "Real hostname : %s\n",
                  fsa[position].real_hostname[0]);
@@ -888,16 +823,16 @@ show_dir_data(int dir_pos)
    }
 
    /* Directory entry. */
+   (void)strcpy(value, dnb[dir_pos].orig_dir_name);
+   print_recipient(value);
    if (fra[fra_pos].in_dc_flag & DIR_ALIAS_IDC)
    {
       (void)fprintf(stdout, "%s %s\n%s\n\n",
-                    DIR_IDENTIFIER, fra[fra_pos].dir_alias,
-                    dnb[dir_pos].orig_dir_name);
+                    DIR_IDENTIFIER, fra[fra_pos].dir_alias, value);
    }
    else
    {
-      (void)fprintf(stdout, "%s\n%s\n\n",
-                    DIR_IDENTIFIER, dnb[dir_pos].orig_dir_name);
+      (void)fprintf(stdout, "%s\n%s\n\n", DIR_IDENTIFIER, value);
    }
 
    /* If necessary add directory options. */
@@ -946,142 +881,8 @@ show_dir_data(int dir_pos)
 
          do
          {
-            /* Print recipient */
             (void)strcpy(value, jd[job_pos].recipient);
-            if (view_passwd == YES)
-            {
-               if (pwb != NULL)
-               {
-                  char *ptr;
-
-                  ptr = value;
-                  while ((*ptr != ':') && (*ptr != '\0'))
-                  {
-                     /* We don't need the scheme so lets ignore it here. */
-                     ptr++;
-                  }
-                  if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
-                  {
-                     ptr += 3; /* Away with '://' */
-
-                     /* There is no password if this is a mail group. */
-                     if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '\0'))
-                     {
-                        char uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
-
-                        i = 0;
-                        while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                               (i < MAX_USER_NAME_LENGTH))
-                        {
-                           if (*ptr == '\\')
-                           {
-                              ptr++;
-                           }
-                           uh_name[i] = *ptr;
-                           ptr++; i++;
-                        }
-                        if ((*ptr != '\0') && (*ptr != ':') &&
-                            (i > 0) && (i != MAX_USER_NAME_LENGTH))
-                        {
-                           int  uh_name_length = i;
-                           char *p_start = ptr;
-
-                           ptr++;
-                           i = 0;
-                           while ((*ptr != '\0') && (*ptr != '/') && (*ptr != ':') &&
-                                  (*ptr != ';') && (i < MAX_REAL_HOSTNAME_LENGTH))
-                           {
-                              if (*ptr == '\\')
-                              {
-                                 ptr++;
-                              }
-                              uh_name[uh_name_length + i] = *ptr;
-                              i++; ptr++;
-                           }
-                           if (i > 0)
-                           {
-                              while (*ptr != '\0')
-                              {
-                                 ptr++;
-                              }
-                              uh_name[uh_name_length + i] = '\0';
-                              for (i = 0; i < no_of_passwd; i++)
-                              {
-                                 if (CHECK_STRCMP(uh_name, pwb[i].uh_name) == 0)
-                                 {
-                                    int           j;
-                                    size_t        pw_length;
-                                    unsigned char *tmp_ptr;
-
-                                    pw_length = strlen((char *)pwb[i].passwd);
-                                    (void)memmove((p_start + pw_length + 1), p_start,
-                                                  (ptr - p_start + 1));
-                                    *p_start = ':';
-                                    p_start++;
-                                    tmp_ptr = pwb[i].passwd;
-                                    j = 0;
-                                    while (*tmp_ptr != '\0')
-                                    {
-                                       if ((j % 2) == 0)
-                                       {
-                                          *p_start = *tmp_ptr + 24 - j;
-                                       }
-                                       else
-                                       {
-                                          *p_start = *tmp_ptr + 11 - j;
-                                       }
-                                       tmp_ptr++; j++; p_start++;
-                                    }
-                                    break;
-                                 }
-                              }
-                           }
-                        }
-                     }
-                  }
-               }
-            }
-            else
-            {
-               char *ptr = value;
-
-               /*
-                * The user may not see the password. Lets cut it out and
-                * replace it with XXXXX.
-                */
-               while (*ptr != ':')
-               {
-                  ptr++;
-               }
-               ptr++;
-               while ((*ptr != ':') && (*ptr != '@'))
-               {
-                  if (*ptr == '\\')
-                  {
-                     ptr++;
-                  }
-                  ptr++;
-               }
-               if (*ptr == ':')
-               {
-                  char *p_end = ptr + 1,
-                       tmp_buffer[MAX_RECIPIENT_LENGTH];
-
-                  ptr++;
-                  while (*ptr != '@')
-                  {
-                     if (*ptr == '\\')
-                     {
-                        ptr++;
-                     }
-                     ptr++;
-                  }
-                  (void)strcpy(tmp_buffer, ptr);
-                  *p_end = '\0';
-                  (void)strcat(value, "XXXXX");
-                  (void)strcat(value, tmp_buffer);
-               }
-            }
+            print_recipient(value);
             (void)fprintf(stdout, "         %s\n", value);
          } while (same_options(&job_pos, jd[job_pos].dir_id, jd[job_pos].file_mask_id));
 
@@ -1334,4 +1135,156 @@ get_current_jid_list(void)
    }
 
    return(SUCCESS);
+}
+
+
+/*-------------------------- print_recipient() --------------------------*/
+static void
+print_recipient(char *print_buffer)
+{
+   /* Print recipient */
+   if (view_passwd == YES)
+   {
+      if (pwb != NULL)
+      {
+         int  i;
+         char *ptr;
+
+         ptr = print_buffer;
+         while ((*ptr != ':') && (*ptr != '\0'))
+         {
+            /* We don't need the scheme so lets ignore it here. */
+            ptr++;
+         }
+         if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
+         {
+            ptr += 3; /* Away with '://' */
+
+            /* There is no password if this is a mail group. */
+            if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '\0'))
+            {
+               char uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
+
+               i = 0;
+               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
+                      (i < MAX_USER_NAME_LENGTH))
+               {
+                  if (*ptr == '\\')
+                  {
+                     ptr++;
+                  }
+                  uh_name[i] = *ptr;
+                  ptr++; i++;
+               }
+               if ((*ptr != '\0') && (*ptr != ':') &&
+                   (i > 0) && (i != MAX_USER_NAME_LENGTH))
+               {
+                  int  uh_name_length = i;
+                  char *p_start = ptr;
+
+                  ptr++;
+                  i = 0;
+                  while ((*ptr != '\0') && (*ptr != '/') && (*ptr != ':') &&
+                         (*ptr != ';') && (i < MAX_REAL_HOSTNAME_LENGTH))
+                  {
+                     if (*ptr == '\\')
+                     {
+                        ptr++;
+                     }
+                     uh_name[uh_name_length + i] = *ptr;
+                     i++; ptr++;
+                  }
+                  if (i > 0)
+                  {
+                     while (*ptr != '\0')
+                     {
+                        ptr++;
+                     }
+                     uh_name[uh_name_length + i] = '\0';
+                     for (i = 0; i < no_of_passwd; i++)
+                     {
+                        if (CHECK_STRCMP(uh_name, pwb[i].uh_name) == 0)
+                        {
+                           int           j;
+                           size_t        rest_length;
+                           char          tmp_buffer[MAX_RECIPIENT_LENGTH];
+                           unsigned char tmp_char,
+                                         *tmp_ptr;
+
+                           rest_length = strlen(p_start) + 1;
+                           (void)memcpy(tmp_buffer, p_start, rest_length);
+                           *p_start = ':';
+                           p_start++;
+                           tmp_ptr = pwb[i].passwd;
+                           j = 0;
+                           while (*tmp_ptr != '\0')
+                           {
+                              if ((j % 2) == 0)
+                              {
+                                 tmp_char = *tmp_ptr + 24 - j;
+                              }
+                              else
+                              {
+                                 tmp_char = *tmp_ptr + 11 - j;
+                              }
+                              if (tmp_char == '@')
+                              {
+                                 *p_start = '\\';
+                                 p_start++;
+                              }
+                              *p_start = tmp_char;
+                              tmp_ptr++; j++; p_start++;
+                           }
+                           (void)memcpy(p_start, tmp_buffer, rest_length);
+                           break;
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   }
+   else
+   {
+      char *ptr = print_buffer;
+
+      /*
+       * The user may not see the password. Lets cut it out and
+       * replace it with XXXXX.
+       */
+      while ((*ptr != ':') && (*ptr != '\0'))
+      {
+         ptr++;
+      }
+      ptr++;
+      while ((*ptr != ':') && (*ptr != '@'))
+      {
+         if (*ptr == '\\')
+         {
+            ptr++;
+         }
+         ptr++;
+      }
+      if (*ptr == ':')
+      {
+         char *p_end = ptr + 1,
+              tmp_buffer[MAX_RECIPIENT_LENGTH];
+
+         ptr++;
+         while (*ptr != '@')
+         {
+            if (*ptr == '\\')
+            {
+               ptr++;
+            }
+            ptr++;
+         }
+         (void)strcpy(tmp_buffer, ptr);
+         *p_end = '\0';
+         (void)strcat(print_buffer, "XXXXX");
+         (void)strcat(print_buffer, tmp_buffer);
+      }
+   }
+   return;
 }

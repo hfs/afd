@@ -479,7 +479,8 @@ main(int argc, char *argv[])
                 (((status = ftp_user(db.user)) != SUCCESS) && (status != 230)))
             {
                if ((disconnect == YES) ||
-                   ((burst_2_counter > 0) && ((status == 500) || (status == 530))))
+                   ((burst_2_counter > 0) &&
+                    ((status == 500) || (status == 503) || (status == 530))))
                {
                   /*
                    * Aaargghh..., we need to logout again! The server is
@@ -1043,7 +1044,7 @@ main(int argc, char *argv[])
                      (void)strcpy(dl.file_name, p_file_name_buffer);
                      (void)sprintf(dl.host_name, "%-*s %x",
                                    MAX_HOSTNAME_LENGTH, fsa->host_dsp_name,
-                                   OTHER_DEL);
+                                   OTHER_OUTPUT_DEL);
                      *dl.file_size = *p_file_size_buffer;
                      *dl.job_number = db.job_id;
                      *dl.file_name_length = strlen(p_file_name_buffer);
@@ -1687,6 +1688,121 @@ main(int argc, char *argv[])
                init_limit_transfer_rate();
             }
 
+#ifdef WITH_SENDFILE
+# if defined (WITH_SSL) || defined (WITH_EUMETSAT_HEADERS)
+            if (((db.special_flag & FILE_NAME_IS_HEADER) == 0) &&
+#  ifdef WITH_SSL
+#   ifdef WITH_EUMETSAT_HEADERS
+                (db.auth == NO) &&
+#   else
+                (db.auth == NO))
+#   endif
+#  endif
+#  ifdef WITH_EUMETSAT_HEADERS
+                ((db.special_flag & ADD_EUMETSAT_HEADER) == 0))
+#  endif
+# else
+            if ((db.special_flag & FILE_NAME_IS_HEADER) == 0)
+# endif
+            {
+               off_t offset = append_offset;
+
+               do
+               {
+                  if ((bytes_buffered = ftp_sendfile(fd, &offset,
+                                                     blocksize)) < 0)
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               "Failed to write %d Bytes to remote file `%s' (%d)",
+                               blocksize, initial_filename, -bytes_buffered);
+
+                     if (timeout_flag == OFF)
+                     {
+                        /*
+                         * Close the remote file can sometimes provide
+                         * useful information, why the write fails.
+                         * This however can be dangerous in situations
+                         * when people do not use any form of file
+                         * logging. Lets see how things work out.
+                         */
+                        if ((status = ftp_close_data()) != SUCCESS)
+                        {
+                           trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
+                                     "Failed to close remote file `%s' (%d).",
+                                     initial_filename, status);
+                        }
+                        else
+                        {
+                           if (fsa->debug > NORMAL_MODE)
+                           {
+                              trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                                           "Closed data connection for file `%s'.",
+                                           initial_filename);
+                           }
+                        }
+                     }
+                     (void)ftp_quit();
+                     exit(eval_timeout(WRITE_REMOTE_ERROR));
+                  }
+
+                  if (bytes_buffered > 0)
+                  {
+                     if (fsa->trl_per_process > 0)
+                     {
+                        limit_transfer_rate(bytes_buffered,
+                                            fsa->trl_per_process, clktck);
+                     }
+
+                     no_of_bytes += bytes_buffered;
+                     if (db.fsa_pos != INCORRECT)
+                     {
+                        (void)gsf_check_fsa();
+                        if (db.fsa_pos != INCORRECT)
+                        {
+                              fsa->job_status[(int)db.job_no].file_size_in_use_done = no_of_bytes + append_offset;
+                              fsa->job_status[(int)db.job_no].file_size_done += bytes_buffered;
+                              fsa->job_status[(int)db.job_no].bytes_send += bytes_buffered;
+                        }
+                     }
+#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+                     if ((fsa->protocol_options & STAT_KEEPALIVE) &&
+                         (do_keep_alive_check))
+                     {
+                        if (keep_alive_check_interval > 40)
+                        {
+                           time_t tmp_time = time(NULL);
+
+                           keep_alive_check_interval = -1;
+                           if ((tmp_time - keep_alive_time) >= FTP_CTRL_KEEP_ALIVE_INTERVAL)
+                           {
+                              keep_alive_time = tmp_time;
+                              if ((status = ftp_keepalive()) != SUCCESS)
+                              {
+                                 trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
+                                           "Failed to send STAT command (%d).",
+                                           status);
+                                 if (timeout_flag == ON)
+                                 {
+                                    timeout_flag = OFF;
+                                 }
+                                 do_keep_alive_check = 0;
+                              }
+                              else if (fsa->debug > NORMAL_MODE)
+                                   {
+                                      trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                                                   "Send STAT command.");
+                                   }
+                           }
+                        }
+                        keep_alive_check_interval++;
+                     }
+#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+                  }
+               } while (bytes_buffered > 0);
+            }
+            else
+            {
+#endif /* WITH_SENDFILE */
             /* Read (local) and write (remote) file. */
             if (ascii_buffer != NULL)
             {
@@ -1743,6 +1859,31 @@ main(int argc, char *argv[])
                      }
                      else
                      {
+                        if (timeout_flag == OFF)
+                        {
+                           /*
+                            * Close the remote file can sometimes provide
+                            * useful information, why the write fails.
+                            * This however can be dangerous in situations
+                            * when people do not use any form of file
+                            * logging. Lets see how things work out.
+                            */
+                           if ((status = ftp_close_data()) != SUCCESS)
+                           {
+                              trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
+                                        "Failed to close remote file `%s' (%d).",
+                                        initial_filename, status);
+                           }
+                           else
+                           {
+                              if (fsa->debug > NORMAL_MODE)
+                              {
+                                 trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
+                                              "Closed data connection for file `%s'.",
+                                              initial_filename);
+                              }
+                           }
+                        }
                         (void)ftp_quit();
                      }
                      exit(eval_timeout(WRITE_REMOTE_ERROR));
@@ -1800,6 +1941,9 @@ main(int argc, char *argv[])
 #endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
                } /* if (bytes_buffered > 0) */
             } while (bytes_buffered == blocksize);
+#ifdef WITH_SENDFILE
+            }
+#endif
 
             /*
              * Since there are always some users sending files to the
@@ -1896,7 +2040,7 @@ main(int argc, char *argv[])
                }
             }
 
-            /* Close remote file */
+            /* Close remote file. */
             if ((status = ftp_close_data()) != SUCCESS)
             {
                /*
@@ -1917,8 +2061,8 @@ main(int argc, char *argv[])
                else
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, msg_str,
-                            "Failed to close remote file `%s' (%d). Ignoring since file size is %d.",
-                            initial_filename, status, *p_file_size_buffer);
+                            "Failed to close remote file `%s' (%d). Ignoring since file size is 0.",
+                            initial_filename, status);
                }
             }
             else

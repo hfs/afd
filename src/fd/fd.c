@@ -1554,7 +1554,8 @@ system_log(DEBUG_SIGN, NULL, 0,
                                         *job_id, *dir_no, *creation_time,
                                         *unique_number, *split_job_counter);
 #ifdef _DELETE_LOG
-                          remove_job_files(del_dir, -1, *job_id, OTHER_DEL);
+                          remove_job_files(del_dir, -1, *job_id,
+                                           OTHER_OUTPUT_DEL);
 #else
                           remove_job_files(del_dir, -1);
 #endif
@@ -2442,7 +2443,7 @@ zombie_check(struct connection *p_con,
 #ifdef _DELETE_LOG
                   remove_job_files(del_dir, -1,
                                    fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                   OTHER_DEL);
+                                   OTHER_OUTPUT_DEL);
 #else
                   remove_job_files(del_dir, -1);
 #endif
@@ -2599,8 +2600,6 @@ zombie_check(struct connection *p_con,
             case NO_FILES_TO_SEND : /* There are no files to send. Most */
                                     /* properly the files have benn     */
                                     /* deleted due to age.              */
-               remove_connection(p_con, NEITHER, now);
-
                /*
                 * This is actually a good time to check if there are
                 * at all any files to be send. If NOT and the auto
@@ -2649,6 +2648,7 @@ zombie_check(struct connection *p_con,
                                  fsa[p_con->fsa_pos].host_alias);
                   }
                }
+               remove_connection(p_con, NEITHER, now);
                return(NO);
 
             case ALLOC_ERROR           : /* */

@@ -124,6 +124,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
            db.port = -1;
         }
    db.fsa_pos = INCORRECT;
+   db.transfer_mode = DEFAULT_TRANSFER_MODE;
    db.toggle_host = NO;
    db.resend = NO;
    db.protocol = protocol;
@@ -180,10 +181,6 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    if (fsa->protocol_options & FTP_IGNORE_BIN)
    {
       db.transfer_mode = 'N';
-   }
-   else
-   {
-      db.transfer_mode = DEFAULT_TRANSFER_MODE;
    }
 #ifdef WITH_DUP_CHECK
    db.dup_check_flag = fsa->dup_check_flag;

@@ -386,7 +386,7 @@ dir_popup_cb(Widget    w,
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
        ((sel_typ == DIR_DISABLE_SEL) || (sel_typ == DIR_INFO_SEL) ||
-        (sel_typ == DIR_RESCAN_SEL)))
+        (sel_typ == DIR_RESCAN_SEL) || (sel_typ == DIR_VIEW_DC_SEL)))
    {
       (void)xrec(appshell, INFO_DIALOG,
                  "You must first select a directory!\nUse mouse button 1 together with the SHIFT or CTRL key.");
@@ -608,6 +608,26 @@ dir_popup_cb(Widget    w,
          make_xprocess(progname, progname, args, -1);
          return;
 
+      case DIR_VIEW_DC_SEL : /* View DIR_CONFIG entries. */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         args[5] = "-d";
+         if (fake_user[0] != '\0')
+         {
+            args[7] = "-u";
+            args[8] = fake_user;
+            args[9] = NULL;
+         }
+         else
+         {
+            args[7] = NULL;
+         }
+         (void)strcpy(progname, VIEW_DC);
+         break;
+
       case EXIT_SEL  : /* Exit */
          XFreeFont(display, font_struct);
          XFreeGC(display, letter_gc);
@@ -656,6 +676,10 @@ dir_popup_cb(Widget    w,
          if (dcp.afd_load_list != NULL)
          {
             FREE_RT_ARRAY(dcp.afd_load_list);
+         }
+         if (dcp.view_dc_list != NULL)
+         {
+            FREE_RT_ARRAY(dcp.view_dc_list);
          }
          free(connect_data);
          free(args);
@@ -767,7 +791,7 @@ dir_popup_cb(Widget    w,
                   for (ii = 0; ii < no_of_active_process; ii++)
                   {
                      if ((apps_list[ii].position == i) &&
-                         (strcmp(apps_list[ii].progname, MON_INFO) == 0))
+                         (strcmp(apps_list[ii].progname, DIR_INFO) == 0))
                      {
                         gotcha = YES;
                         break;
@@ -782,6 +806,34 @@ dir_popup_cb(Widget    w,
                   {
                      (void)xrec(appshell, INFO_DIALOG,
                                 "Information dialog for %s is already open on your display.",
+                                fra[i].dir_alias);
+                  }
+               }
+               break;
+
+            case DIR_VIEW_DC_SEL : /* Show DIR_CONFIG data for this directory. */
+               {
+                  int gotcha = NO,
+                      ii;
+
+                  for (ii = 0; ii < no_of_active_process; ii++)
+                  {
+                     if ((apps_list[ii].position == i) &&
+                         (strcmp(apps_list[ii].progname, VIEW_DC) == 0))
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+                  if (gotcha == NO)
+                  {
+                     args[6] = fra[i].dir_alias;
+                     make_xprocess(progname, progname, args, i);
+                  }
+                  else
+                  {
+                     (void)xrec(appshell, INFO_DIALOG,
+                                "Configuration dialog for %s is already open on your display.",
                                 fra[i].dir_alias);
                   }
                }

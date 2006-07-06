@@ -1,6 +1,6 @@
 /*
  *  remove_time_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -131,7 +131,7 @@ remove_time_dir(char *host_name, unsigned int job_id)
                *dl.file_size = stat_buf.st_size;
                *dl.job_number = job_id;
                *dl.file_name_length = strlen(p_dir->d_name);
-               if (reason == OTHER_DEL)
+               if (reason == OTHER_INPUT_DEL)
                {
                   prog_name_length = sprintf((dl.file_name + *dl.file_name_length + 1),
                                              "AMG Failed to locate time job after DIR_CONFIG update.");

@@ -141,7 +141,8 @@ send_message(char           *outgoing_file_dir,
       {
          (void)strcpy(dl.file_name, file_name_pool[i]);
          (void)sprintf(dl.host_name, "%-*s %x",
-                       MAX_HOSTNAME_LENGTH, db[position].host_alias, OTHER_DEL);
+                       MAX_HOSTNAME_LENGTH, db[position].host_alias,
+                       OTHER_INPUT_DEL);
          *dl.file_size = file_size_pool[i];
          *dl.job_number = db[position].job_id;
          *dl.file_name_length = strlen(file_name_pool[i]);

@@ -1,7 +1,7 @@
 /*
  *  remove_pool_directory.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -109,7 +109,7 @@ remove_pool_directory(char *job_dir, unsigned int dir_id)
 
                (void)strcpy(dl.file_name, p_dir->d_name);
                (void)sprintf(dl.host_name, "%-*s %x",
-                             MAX_HOSTNAME_LENGTH, "-", OTHER_DEL);
+                             MAX_HOSTNAME_LENGTH, "-", OTHER_INPUT_DEL);
                *dl.file_size = stat_buf.st_size;
                *dl.job_number = dir_id;
                *dl.file_name_length = strlen(p_dir->d_name);

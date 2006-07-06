@@ -302,8 +302,12 @@ eval_host_config(int              *hosts_found,
          {
             ptr++;
          }
+         (*hl)[host_counter].real_hostname[0][i - 1] = '\0';
       }
-      (*hl)[host_counter].real_hostname[0][i] = '\0';
+      else
+      {
+         (*hl)[host_counter].real_hostname[0][i] = '\0';
+      }
       if ((*ptr == '\n') || (*ptr == '\0'))
       {
          /* Initialise all other values with DEFAULTS */
@@ -364,8 +368,12 @@ eval_host_config(int              *hosts_found,
          {
             ptr++;
          }
+         (*hl)[host_counter].real_hostname[1][i - 1] = '\0';
       }
-      (*hl)[host_counter].real_hostname[1][i] = '\0';
+      else
+      {
+         (*hl)[host_counter].real_hostname[1][i] = '\0';
+      }
       if ((*ptr == '\n') || (*ptr == '\0'))
       {
          /* Initialise all other values with DEFAULTS. */
@@ -425,6 +433,7 @@ eval_host_config(int              *hosts_found,
          {
             ptr++;
          }
+         i--;
       }
       else if ((i > 0) && (i != 4))
            {

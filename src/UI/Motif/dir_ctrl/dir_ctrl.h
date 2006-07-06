@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,12 +55,14 @@
 #define DIR_DELETE_W                   5
 #define DIR_SHOW_QUEUE_W               6
 #define DIR_INFO_W                     7
-#define NO_DIR_VIEW_MENU               8
+#define DIR_VIEW_DC_W                  8
+#define NO_DIR_VIEW_MENU               9
 
 /* Definitions of popup selections. */
 #define DIR_INFO_SEL                   70
 #define DIR_DISABLE_SEL                71
 #define DIR_RESCAN_SEL                 72
+#define DIR_VIEW_DC_SEL                73
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
 /*         afd_ctrl.h        0 - 39                    */
@@ -132,6 +134,7 @@ struct dir_control_perm
           char        **show_elog_list;
           char        **show_queue_list;
           char        **afd_load_list;
+          char        **view_dc_list;
           signed char info;                  /* Info about AFD           */
           signed char disable;               /* Enable/Disable AFD       */
           signed char rescan;                /* Rescan Directory         */
@@ -143,6 +146,7 @@ struct dir_control_perm
           signed char show_elog;             /* Show Delete Log          */
           signed char show_queue;            /* Show Queue               */
           signed char afd_load;              /* Show load of AFD         */
+          signed char view_dc;               /* View DIR_CONFIG entries  */
        };
 
 /* Function Prototypes */

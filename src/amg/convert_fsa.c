@@ -395,6 +395,7 @@ convert_fsa(int           old_fsa_fd,
          *old_fsa_size = -1;
          return(NULL);
       }
+      (void)memset(ptr, 0, new_size);
       new_fsa = (struct filetransfer_status_1 *)ptr;
 
       /*
@@ -634,6 +635,7 @@ convert_fsa(int           old_fsa_fd,
               *old_fsa_size = -1;
               return(NULL);
            }
+           (void)memset(ptr, 0, new_size);
            new_fsa = (struct filetransfer_status_2 *)ptr;
 
            /*
@@ -883,6 +885,7 @@ convert_fsa(int           old_fsa_fd,
               *old_fsa_size = -1;
               return(NULL);
            }
+           (void)memset(ptr, 0, new_size);
            new_fsa = (struct filetransfer_status_2 *)ptr;
 
            /*

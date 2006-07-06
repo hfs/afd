@@ -4,13 +4,13 @@
 
 Secure Shell Working Group                                  J. Galbraith
 Internet-Draft                                          VanDyke Software
-Expires: July 21, 2006                                      O. Saarenmaa
+Expires: July 29, 2006                                      O. Saarenmaa
                                                                 F-Secure
-                                                        January 17, 2006
+                                                        January 25, 2006
 
 
                        SSH File Transfer Protocol
-                    draft-ietf-secsh-filexfer-11.txt
+                    draft-ietf-secsh-filexfer-12.txt
 
 Status of this Memo
 
@@ -35,7 +35,7 @@ Status of this Memo
    The list of Internet-Draft Shadow Directories can be accessed at
    http://www.ietf.org/shadow.html.
 
-   This Internet-Draft will expire on July 21, 2006.
+   This Internet-Draft will expire on July 29, 2006.
 
 Copyright Notice
 
@@ -53,7 +53,7 @@ Abstract
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 1]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 1]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -109,7 +109,7 @@ Table of Contents
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 2]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 2]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -123,11 +123,12 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
      9.5.  Attrs Response . . . . . . . . . . . . . . . . . . . . . . 53
    10. Extensions . . . . . . . . . . . . . . . . . . . . . . . . . . 53
    11. Implementation Considerations  . . . . . . . . . . . . . . . . 54
-   12. Security Considerations  . . . . . . . . . . . . . . . . . . . 55
-   13. Changes from Previous Protocol Versions  . . . . . . . . . . . 56
-   14. References . . . . . . . . . . . . . . . . . . . . . . . . . . 56
-     14.1. Normative References . . . . . . . . . . . . . . . . . . . 56
-     14.2. Informative References . . . . . . . . . . . . . . . . . . 57
+   12. IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 55
+   13. Security Considerations  . . . . . . . . . . . . . . . . . . . 55
+   14. Changes from Previous Protocol Versions  . . . . . . . . . . . 56
+   15. References . . . . . . . . . . . . . . . . . . . . . . . . . . 56
+     15.1. Normative References . . . . . . . . . . . . . . . . . . . 56
+     15.2. Informative References . . . . . . . . . . . . . . . . . . 57
    Authors' Addresses . . . . . . . . . . . . . . . . . . . . . . . . 58
    Intellectual Property and Copyright Statements . . . . . . . . . . 59
 
@@ -164,8 +165,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 3]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 3]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -221,7 +221,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 4]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 4]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -277,7 +277,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 5]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 5]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -333,7 +333,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 6]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 6]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -389,7 +389,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 7]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 7]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -445,7 +445,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 8]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 8]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -501,7 +501,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                 [Page 9]
+Galbraith & Saarenmaa     Expires July 29, 2006                 [Page 9]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -557,7 +557,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 10]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 10]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -613,7 +613,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 11]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 11]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -669,7 +669,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 12]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 12]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -725,7 +725,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 13]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 13]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -781,7 +781,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 14]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 14]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -790,7 +790,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
    that identifying the user is assumed to take place outside of this
    protocol.
 
-   Servers SHOULD interpret a path name component ".."  (Section 12) as
+   Servers SHOULD interpret a path name component ".."  (Section 13) as
    referring to the parent directory, and "." as referring to the
    current directory.
 
@@ -837,7 +837,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 15]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 15]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -893,7 +893,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 16]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 16]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -949,7 +949,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 17]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 17]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -997,18 +997,24 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 7.3.  Size
 
    The 'size' field specifies the number of bytes that can be read from
-   the file, or in other words, the location of the end-of-file.  This
-   attribute MUST NOT be present during file creation.
+   the file, or in other words, the location of the end-of-file.
 
-   If this field is present during a setstat operation, the file MUST be
-   extended or truncated to the specified size.
+   If this field is present during file creation, it indicates the
+   number of bytes the client intends to transfer, but SHOULD NOT effect
+   the creation of the file.  The server can use this information to
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 18]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 18]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
+
+   determine if the client sent all the intended data and the file was
+   transfered in it's entirity.
+
+   If this field is present during a setstat operation, the file MUST be
+   extended or truncated to the specified size.
 
    Files opened with the SSH_FXF_TEXT flag may have a size that is
    greater or less than the value of the size field.  The server MAY
@@ -1052,20 +1058,20 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
    local representation the ability to translate to a common syntax that
    can be interpreted by both.  In the case where there is no
    translation available to the client or server, the attribute value
+
+
+
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 19]
+
+Internet-Draft         SSH File Transfer Protocol           January 2006
+
+
    must be constructed without the "@".  Therefore, the absence of the @
    from the owner or owner_group attribute signifies that no translation
    was available and the receiver of the attribute should not place any
    special meaning on the attribute value.  Even though the attribute
    value cannot be translated, it may still be useful.  In the case of a
    client, the attribute string may be used for local display of
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 19]
-
-Internet-Draft         SSH File Transfer Protocol           January 2006
-
-
    ownership.
 
    user@localhost represents a user in the context of the server.
@@ -1108,19 +1114,20 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
    operating systems either don't have this field, only optionally
    maintain it, or maintain it with less resolution than other fields.
 
+
+
+
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 20]
+
+Internet-Draft         SSH File Transfer Protocol           January 2006
+
+
    The 'mtime' contains the last time the file was written.
 
    'createtime' contains the creation time of the file.
 
    'ctime' contains the last time the file attributes were changed.  The
    exact meaning of this field depends on the server.
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 20]
-
-Internet-Draft         SSH File Transfer Protocol           January 2006
-
 
    All times are represented as seconds from Jan 1, 1970 in UTC.  A
    negative value indicates number of seconds before Jan 1, 1970.  In
@@ -1159,6 +1166,18 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
        SFX_ACL_AUDIT_ALARM_INCLUDED    0x00000010
        SFX_ACL_AUDIT_ALARM_INHERITED   0x00000020
 
+
+
+
+
+
+
+
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 21]
+
+Internet-Draft         SSH File Transfer Protocol           January 2006
+
+
       SFX_ACL_CONTROL_INCLUDED
       SFX_ACL_CONTROL_PRESENT
       SFX_ACL_CONTROL_INHERITED
@@ -1166,17 +1185,6 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
          intends to modify the ALLOWED/DENIED entries of the ACL.
          Otherwise, the client intends for these entries to be
          preserved.
-
-
-
-
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 21]
-
-Internet-Draft         SSH File Transfer Protocol           January 2006
-
 
          If the PRESENT bit is not set, then the client wishes to remove
          control entries.  If the server doesn't support separate
@@ -1219,20 +1227,17 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
       open request and must set the SFX_ACL_AUDIT_ALARM_INCLUDED during
       the setstat operation.
 
+
+
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 22]
+
+Internet-Draft         SSH File Transfer Protocol           January 2006
+
+
       Clients that do not intend specifically to modify the AUDIT or
       ALARM entries SHOULD NOT set SSH_FXF_ACCESS_AUDIT_ALARM_INFO in
       the open-flags and SHOULD NOT set the SFX_ACL_AUDIT_ALARM_INCLUDED
       bit because these operations are often privileged and will fail.
-
-
-
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 22]
-
-Internet-Draft         SSH File Transfer Protocol           January 2006
-
 
       If the SFX_ACL_AUDIT_ALARM_INCLUDED is set, and the requested
       change can not be made, the server MUST fail the request.
@@ -1280,12 +1285,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-
-
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 23]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 23]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1341,7 +1341,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 24]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 24]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1397,7 +1397,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 25]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 25]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1453,7 +1453,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 26]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 26]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1509,7 +1509,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 27]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 27]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1565,7 +1565,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 28]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 28]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1621,7 +1621,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 29]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 29]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1677,7 +1677,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 30]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 30]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1733,7 +1733,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 31]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 31]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1789,7 +1789,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 32]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 32]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1845,7 +1845,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 33]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 33]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1901,7 +1901,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 34]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 34]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -1957,7 +1957,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 35]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 35]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2013,7 +2013,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 36]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 36]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2069,7 +2069,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 37]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 37]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2125,7 +2125,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 38]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 38]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2181,7 +2181,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 39]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 39]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2237,7 +2237,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 40]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 40]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2293,7 +2293,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 41]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 41]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2349,7 +2349,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 42]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 42]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2405,7 +2405,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 43]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 43]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2461,7 +2461,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 44]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 44]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2517,7 +2517,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 45]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 45]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2573,7 +2573,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 46]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 46]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2629,7 +2629,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 47]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 47]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2685,7 +2685,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 48]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 48]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2741,7 +2741,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 49]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 49]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2797,7 +2797,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 50]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 50]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2853,7 +2853,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 51]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 51]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2909,7 +2909,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 52]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 52]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -2965,7 +2965,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 53]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 53]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -3021,7 +3021,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 54]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 54]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -3034,7 +3034,16 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
    all the requested data, even if the data is available.
 
 
-12.  Security Considerations
+12.  IANA Considerations
+
+   An IANA registry needs to be created containing:
+   o  The packet types define defined in Section 4.3
+   o  The extension specified in this draft, which are: 'text-seek',
+      'supported2', 'acl-supported', 'newline', 'versions', 'version-
+      select', 'filename-charset', 'filename-translation-control'
+
+
+13.  Security Considerations
 
    It is assumed that both ends of the connection have been
    authenticated and that the connection has privacy and integrity
@@ -3065,6 +3074,14 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
    Filesystems often contain entries for objects that are not files at
    all, but are rather devices.  For example, it may be possible to
+
+
+
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 55]
+
+Internet-Draft         SSH File Transfer Protocol           January 2006
+
+
    access serial ports, tape devices, or named pipes using this
    protocol.  Servers should exercise caution when granting access to
    such resources.  In addition to the dangers inherent in allowing
@@ -3074,14 +3091,6 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
 
    Servers should take care that file-system quotas are respected for
    users.  In addition, implementations should be aware that attacks may
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 55]
-
-Internet-Draft         SSH File Transfer Protocol           January 2006
-
-
    be possible, or facilitated, by filling a filesystem.  For example,
    filling the filesystem where event logging and auditing occurs may,
    at best, cause the system to crash, or at worst, allow the attacker
@@ -3100,7 +3109,7 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
    allowed access outside the intended area.
 
 
-13.  Changes from Previous Protocol Versions
+14.  Changes from Previous Protocol Versions
 
    RFC EDITOR: PLEASE REMOVE ENTIRE SECTION BEFORE PUBLISHING
 
@@ -3112,15 +3121,23 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
    RFC EDITOR: END PLEASE REMOVE ENTIRE SECTION BEFORE PUBLISHING
 
 
-14.  References
+15.  References
 
-14.1.  Normative References
+15.1.  Normative References
 
    [RFC3010]  Shepler, S., Callaghan, B., Robinson, D., Thurlow, R.,
               Beame, C., Eisler, M., and D. Noveck, "NFS version 4
               Protocol", RFC 3010, December 2000.
 
    [RFC4251]  Ylonen, T. and C. Lonvick, "The Secure Shell (SSH)
+
+
+
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 56]
+
+Internet-Draft         SSH File Transfer Protocol           January 2006
+
+
               Protocol Architecture", RFC 4251, January 2006.
 
    [RFC4253]  Ylonen, T. and C. Lonvick, "The Secure Shell (SSH)
@@ -3130,20 +3147,12 @@ Internet-Draft         SSH File Transfer Protocol           January 2006
               Connection Protocol", RFC 4254, January 2006.
 
    [IEEE.1003-1.1996]
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 56]
-
-Internet-Draft         SSH File Transfer Protocol           January 2006
-
-
               Institute of Electrical and Electronics Engineers,
               "Information Technology - Portable Operating System
               Interface (POSIX) - Part 1: System Application Program
               Interface (API) [C Language]", IEEE Standard 1003.2, 1996.
 
-14.2.  Informative References
+15.2.  Informative References
 
    [RFC1521]  Borenstein, N. and N. Freed, "MIME (Multipurpose Internet
               Mail Extensions) Part One: Mechanisms for Specifying and
@@ -3180,16 +3189,7 @@ Trademark notice
 
 
 
-
-
-
-
-
-
-
-
-
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 57]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 57]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -3245,7 +3245,7 @@ Authors' Addresses
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 58]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 58]
 
 Internet-Draft         SSH File Transfer Protocol           January 2006
 
@@ -3301,6 +3301,6 @@ Acknowledgment
 
 
 
-Galbraith & Saarenmaa     Expires July 21, 2006                [Page 59]
+Galbraith & Saarenmaa     Expires July 29, 2006                [Page 59]
 
 

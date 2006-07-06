@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,6 +28,7 @@ DESCR__S_M3
  ** SYNOPSIS
  **   void format_output_info(char *text, int pos)
  **   void format_input_info(char *text, int pos)
+ **   void format_retrieve_info(char *text, int pos)
  **
  ** DESCRIPTION
  **   The function format_output_info() formats data from the various
@@ -70,6 +71,11 @@ DESCR__S_M3
  **                                  .
  **                                 etc.
  **
+ **    format_retrieve_info() looks as follows:
+ **         Hostname   : esoc
+ **         Dir-ID     : 4323121
+ **         Directory  : /aaa/bbb/ccc
+ **
  **
  ** RETURN VALUES
  **   Returns the formated text.
@@ -79,6 +85,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   29.07.2001 H.Kiehl Created
+ **   11.06.2006 H.Kiehl Show retrieve information.
  **
  */
 DESCR__E_M3
@@ -785,6 +792,94 @@ format_input_info(char *text, int pos)
    if (jobs_found > 0)
    {
       free((void *)p_array);
+   }
+
+   return;
+}
+
+
+/*####################### format_retrieve_info() ########################*/
+void
+format_retrieve_info(char *text, int pos)
+{
+   int                 count,
+                       fd,
+                       i,
+                       length;
+   off_t               dnb_size;
+   char                fullname[MAX_PATH_LENGTH];
+   struct stat         stat_buf;
+   struct dir_name_buf *dnb;
+
+   /* Map to directory name buffer. */
+   (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR,
+                 DIR_NAME_FILE);
+   if ((fd = open(fullname, O_RDONLY)) == -1)
+   {
+      (void)xrec(appshell, ERROR_DIALOG,
+                 "Failed to open() <%s> : %s (%s %d)",
+                 fullname, strerror(errno), __FILE__, __LINE__);
+      return;
+   }
+   if (fstat(fd, &stat_buf) == -1)
+   {
+      (void)xrec(appshell, ERROR_DIALOG,
+                 "Failed to fstat() <%s> : %s (%s %d)",
+                 fullname, strerror(errno), __FILE__, __LINE__);
+      (void)close(fd);
+      return;
+   }
+   if (stat_buf.st_size > 0)
+   {
+      char *ptr;
+
+      if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
+                      MAP_SHARED, fd, 0)) == (caddr_t) -1)
+      {
+         (void)xrec(appshell, ERROR_DIALOG,
+                    "Failed to mmap() to <%s> : %s (%s %d)",
+                    fullname, strerror(errno), __FILE__, __LINE__);
+         (void)close(fd);
+         return;
+      }
+      dnb_size = stat_buf.st_size;
+      ptr += AFD_WORD_OFFSET;
+      dnb = (struct dir_name_buf *)ptr;
+      (void)close(fd);
+   }
+   else
+   {
+      (void)xrec(appshell, ERROR_DIALOG,
+                 "Dirname database file is empty. (%s %d)",
+                 __FILE__, __LINE__);
+      (void)close(fd);
+      return;
+   }
+
+   /* Show hostname. */
+   max_x = sprintf(text, "Hostname   : %s\n", qfl[pos].hostname);
+   length = max_x;
+
+   count = sprintf(text + length, "Dir_ID     : %x\n", qfl[pos].dir_id);
+   length += count;
+   max_y = 2;
+
+   if (dnb[qfl[pos].dir_id_pos].dir_name[0] != '\0')
+   {
+      count = sprintf(text + length, "Directory  : %s\n",
+                      dnb[qfl[pos].dir_id_pos].dir_name);
+      length += count;
+      if (count > max_x)
+      {
+         max_x = count;
+      }
+      max_y++;
+   }
+   if (munmap(((char *)dnb - AFD_WORD_OFFSET), dnb_size) == -1)
+   {
+      (void)xrec(appshell, INFO_DIALOG,
+                 "munmap() error : %s (%s %d)",
+                 strerror(errno), __FILE__, __LINE__);
    }
 
    return;

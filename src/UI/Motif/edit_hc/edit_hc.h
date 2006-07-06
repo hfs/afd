@@ -66,8 +66,12 @@
 
 #define MAX_CHARS_IN_LINE      56
 
-/* Messages returned to the user */
+/* Messages returned to the user. */
 #define REAL_HOST_NAME_WRONG   "You must enter a real hostname."
+
+/* Label name for host alias list. */
+#define HOST_ALIAS_LABEL        "Alias Hostname"
+#define HOST_ALIAS_LABEL_LENGTH (sizeof(HOST_ALIAS_LABEL) - 1)
 
 /* Definitions to show which values have been changed. */
 #define REAL_HOSTNAME_1_CHANGED       1

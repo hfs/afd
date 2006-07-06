@@ -55,6 +55,8 @@ DESCR__S_M3
  **   11.04.2006 H.Kiehl For protocol SCP we must also check if the
  **                      target directories are the same before we do
  **                      a burst.
+ **   18.05.2006 H.Kiehl For protocol SFTP users must be the same,
+ **                      otherwise a burst is not possible.
  **
  */
 DESCR__E_M3
@@ -368,23 +370,17 @@ retry:
                         /*
                          * Ports must be the same!
                          */
-#ifdef WITH_SSL
                         if ((p_new_db->port != db.port) ||
-# ifdef _WITH_SCP_SUPPORT
+#ifdef _WITH_SCP_SUPPORT
                             ((db.protocol & SCP_FLAG) &&
                              (strcmp(p_new_db->target_dir, db.target_dir) != 0)) ||
-# endif
-                            ((db.auth == NO) && (p_new_db->auth != NO)) ||
-                            ((db.auth != NO) && (p_new_db->auth == NO)))
-#else
-# ifdef _WITH_SCP_SUPPORT
-                        if ((p_new_db->port != db.port) ||
-                            ((db.protocol & SCP_FLAG) &&
-                             (strcmp(p_new_db->target_dir, db.target_dir) != 0)))
-# else
-                        if (p_new_db->port != db.port)
-# endif
 #endif
+#ifdef WITH_SSL
+                            ((db.auth == NO) && (p_new_db->auth != NO)) ||
+                            ((db.auth != NO) && (p_new_db->auth == NO)) ||
+#endif
+                            ((db.protocol & SFTP_FLAG) &&
+                             (strcmp(p_new_db->user, db.user) != 0)))
                         {
                            free(p_new_db);
                            p_new_db = NULL;

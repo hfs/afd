@@ -247,6 +247,8 @@
 #define FILE_NAME_IS_HEADER_ID_LENGTH   (sizeof(FILE_NAME_IS_HEADER_ID) - 1)
 #define FILE_NAME_IS_USER_ID            "file name is user"
 #define FILE_NAME_IS_USER_ID_LENGTH     (sizeof(FILE_NAME_IS_USER_ID) - 1)
+#define FILE_NAME_IS_TARGET_ID          "file name is target"
+#define FILE_NAME_IS_TARGET_ID_LENGTH   (sizeof(FILE_NAME_IS_TARGET_ID) - 1)
 #define FILE_NAME_IS_SUBJECT_ID         "file name is subject"
 #define FILE_NAME_IS_SUBJECT_ID_LENGTH  (sizeof(FILE_NAME_IS_SUBJECT_ID) - 1)
 #define ADD_MAIL_HEADER_ID              "mail header"
@@ -318,6 +320,7 @@
 #define FORCE_COPY                     256
 #define CHANGE_FTP_MODE                512 /* We might at a latter stage */
                                            /* change the default mode.   */
+#define FILE_NAME_IS_TARGET            512
 #ifdef _WITH_TRANS_EXEC
 # define TRANS_EXEC                    1024
 #endif /* _WITH_TRANS_EXEC */
@@ -724,7 +727,8 @@ extern int   append_compare(char *, char *),
              fsa_attach_pos(int),
              get_file_names(char *, off_t *),
              get_job_data(unsigned int, int, time_t, off_t),
-             get_remote_file_names(off_t *),
+             get_remote_file_names_ftp(off_t *),
+             get_remote_file_names_sftp(off_t *),
              gsf_check_fsa(void),
              init_fifos_fd(void),
              init_sf(int, char **, char *, int),

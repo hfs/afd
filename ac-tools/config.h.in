@@ -224,6 +224,9 @@
    release 3. */
 #undef SETVBUF_REVERSED
 
+/* With show exec times */
+#undef SHOW_EXEC_TIMES
+
 /* The size of a `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
@@ -266,17 +269,26 @@
 /* With editres support */
 #undef WITH_EDITRES
 
+/* With Electric fence support */
+#undef WITH_EFENCE
+
 /* With eumetsat header support */
 #undef WITH_EUMETSAT_HEADERS
 
 /* With MS FTP error workaround */
 #undef WITH_MS_ERROR_WORKAROUND
 
+/* With multiple directory definitions */
+#undef WITH_MULTI_DIR_DEFINITION
+
 /* With password in message */
 #undef WITH_PASSWD_IN_MSG
 
 /* With FSS-type ready files */
 #undef WITH_READY_FILES
+
+/* With sendfile support */
+#undef WITH_SENDFILE
 
 /* Some programs with setuid */
 #undef WITH_SETUID

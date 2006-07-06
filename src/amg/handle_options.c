@@ -617,7 +617,7 @@ search_again:
                          tmp_char,
                          tmp_option[1024],
                          command_str[1024],
-                         return_str[MAX_PATH_LENGTH + MAX_PATH_LENGTH + 1];
+                         *return_str = NULL;
 
             while ((*p_end != '\n') && (*p_end != '\0'))
             {
@@ -696,10 +696,10 @@ search_again:
                         *insert_list[k] = tmp_char;
                      }
 
-                     if ((ret = exec_cmd(command_str, return_str,
+                     if ((ret = exec_cmd(command_str, &return_str,
                                          receive_log_fd, p_dir_alias,
                                          MAX_DIR_ALIAS_LENGTH,
-                                         exec_timeout)) != 0) /* ie != SUCCESS */
+                                         exec_timeout, YES)) != 0) /* ie != SUCCESS */
                      {
                         receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                                     "Failed to execute command %s [Return code = %d]",
@@ -721,10 +721,15 @@ search_again:
                                  *end_ptr = '\0';
                                  end_ptr++;
                               }
-                              receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                              receive_log(WARN_SIGN, NULL, 0, 0L,
                                           "%s", start_ptr);
                            } while (*end_ptr != '\0');
                         }
+                     }
+                     if (return_str != NULL)
+                     {
+                        free(return_str);
+                        return_str = NULL;
                      }
                      if (del_orig_file != NULL)
                      {
@@ -815,10 +820,10 @@ search_again:
 
                (void)sprintf(command_str, "cd %s && %s", file_path, p_command);
 
-               if ((ret = exec_cmd(command_str, return_str,
+               if ((ret = exec_cmd(command_str, &return_str,
                                    receive_log_fd, p_dir_alias,
                                    MAX_DIR_ALIAS_LENGTH,
-                                   exec_timeout)) != 0)
+                                   exec_timeout, YES)) != 0)
                {
                   receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                               "Failed to execute command %s [Return code = %d]",
@@ -840,10 +845,14 @@ search_again:
                            *end_ptr = '\0';
                            end_ptr++;
                         }
-                        receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
-                                    "%s", start_ptr);
+                        receive_log(WARN_SIGN, NULL, 0, 0L, "%s", start_ptr);
                      } while (*end_ptr != '\0');
                   }
+               }
+               if (return_str != NULL)
+               {
+                  free(return_str);
+                  return_str = NULL;
                }
 
                if (del_orig_file != NULL)
@@ -1578,7 +1587,7 @@ search_again:
                   {
                      char error_name[MAX_PATH_LENGTH];
 
-                     (void)sprintf(error_name, "%s%s/%s", p_work_dir,
+                     (void)sprintf(error_name, "%s%s/error/%s", p_work_dir,
                                    AFD_FILE_DIR, p_file_name);
                      if (rename(fullname, error_name) == -1)
                      {

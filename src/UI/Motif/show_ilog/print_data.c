@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,6 +64,7 @@ extern Widget      listbox_w,
                    statusbox_w,
                    summarybox_w;
 extern char        file_name[],
+                   header_line[],
                    search_file_name[],
                    **search_dir,
                    **search_dirid,
@@ -71,10 +72,10 @@ extern char        file_name[],
                    search_file_size_str[],
                    summary_str[],
                    total_summary_str[];
-extern int         file_name_length,
-                   no_of_search_dirs,
+extern int         no_of_search_dirs,
                    no_of_search_dirids,
-                   no_of_search_hosts;
+                   no_of_search_hosts,
+                   sum_line_length;
 extern XT_PTR_TYPE device_type,
                    range_type;
 extern time_t      start_time_val,
@@ -82,15 +83,20 @@ extern time_t      start_time_val,
 extern FILE        *fp;
 
 /* Local function prototypes. */
-static void        write_header(int),
-                   write_summary(int);
+static void        write_header(int, char *),
+                   write_summary(int, char *);
 
 
 /*######################### print_data_button() #########################*/
 void
 print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   char message[MAX_MESSAGE_LENGTH];
+   char message[MAX_MESSAGE_LENGTH],
+        sum_sep_line[MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1];
+
+   /* Prepare separator line. */
+   (void)memset(sum_sep_line, '=', sum_line_length);
+   sum_sep_line[sum_line_length] = '\0';
 
    if (range_type == SELECTION_TOGGLE)
    {
@@ -129,7 +135,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          if (prepare_status == SUCCESS)
          {
-            write_header(fd);
+            write_header(fd, sum_sep_line);
 
             XtVaGetValues(listbox_w, XmNitems, &all_items, NULL);
             for (i = 0; i < no_selected; i++)
@@ -152,7 +158,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
              * Remember to insert the correct summary, since all files
              * have now been deselected.
              */
-            write_summary(fd);
+            write_summary(fd, sum_sep_line);
             (void)strcpy(summary_str, total_summary_str);
             SHOW_SUMMARY_DATA();
 
@@ -228,7 +234,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       if (prepare_status == SUCCESS)
       {
-         write_header(fd);
+         write_header(fd, sum_sep_line);
 
          XtVaGetValues(listbox_w,
                        XmNitemCount, &no_of_items,
@@ -247,7 +253,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
             }
             XtFree(line);
          }
-         write_summary(fd);
+         write_summary(fd, sum_sep_line);
 
          if (device_type == PRINTER_TOGGLE)
          {
@@ -303,7 +309,7 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
 
 /*+++++++++++++++++++++++++++ write_header() ++++++++++++++++++++++++++++*/
 static void
-write_header(int fd)
+write_header(int fd, char *sum_sep_line)
 {
    int  length;
    char buffer[1024];
@@ -394,16 +400,8 @@ write_header(int fd)
    }
 
    /* Don't forget the heading for the data. */
-   if (file_name_length == SHOW_SHORT_FORMAT)
-   {
-      length += sprintf(&buffer[length], "%s\n%s\n",
-                        HEADING_LINE_SHORT, SUM_SEP_LINE_SHORT);
-   }
-   else
-   {
-      length += sprintf(&buffer[length], "%s\n%s\n",
-                        HEADING_LINE_LONG, SUM_SEP_LINE_LONG);
-   }
+   length += sprintf(&buffer[length], "%s\n%s\n",
+                     header_line, sum_sep_line);
 
    /* Write heading to file/printer. */
    if (write(fd, buffer, length) != length)
@@ -419,20 +417,12 @@ write_header(int fd)
 
 /*+++++++++++++++++++++++++++ write_summary() +++++++++++++++++++++++++++*/
 static void
-write_summary(int fd)
+write_summary(int fd, char *sum_sep_line)
 {
    int  length;
-   char buffer[1024];
+   char buffer[(2 * (MAX_OUTPUT_LINE_LENGTH + SHOW_LONG_FORMAT + 1))];
 
-   if (file_name_length == SHOW_SHORT_FORMAT)
-   {
-      length = sprintf(buffer, "%s\n", SUM_SEP_LINE_SHORT);
-   }
-   else
-   {
-      length = sprintf(buffer, "%s\n", SUM_SEP_LINE_LONG);
-   }
-   length += sprintf(&buffer[length], "%s\n", summary_str);
+   length = sprintf(buffer, "%s\n%s\n", sum_sep_line, summary_str);
 
    /* Write summary to file/printer. */
    if (write(fd, buffer, length) != length)

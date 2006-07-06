@@ -105,6 +105,8 @@ DESCR__S_M3
  **   28.05.2005 H.Kiehl Added support for mbox.
  **   08.06.2005 H.Kiehl When searching for next file group we did not
  **                      check if this was commented out.
+ **   24.06.2006 H.Kiehl Allow for duplicate directories when the
+ **                      directories are in different DIR_CONFIGS.
  **
  */
 DESCR__E_M3
@@ -151,15 +153,13 @@ extern struct host_list       *hl;        /* Structure that holds all the   */
 extern struct dir_name_buf    *dnb;
 extern struct dir_config_buf  *dcl;
 
-/* Global variables */
-struct dir_data               *dd = NULL;
-
-/* Global local variables */
+/* Global variables. */
 int                           no_of_local_dirs,
                               *no_of_passwd,
                               pwb_fd,
                               job_no;   /* By job number we here mean for   */
                                         /* each destination specified!      */
+struct dir_data               *dd = NULL;
 struct p_array                *pp;
 struct passwd_buf             *pwb = NULL;
 static char                   *p_t = NULL;   /* Start of directory table.   */
@@ -171,8 +171,13 @@ static int                    check_hostname_list(char *, unsigned int),
 #endif
                               count_new_lines(char *, char *);
 static void                   copy_to_file(void),
+#ifdef WITH_MULTI_DIR_DEFINITION
+                              copy_job(int, int, int, struct dir_group *),
+                              insert_dir(struct dir_group *, int),
+#else
                               copy_job(int, int, struct dir_group *),
                               insert_dir(struct dir_group *),
+#endif
                               insert_hostname(struct dir_group *),
                               store_full_path(char *, char *);
 static char                   *posi_identifier(char *, char *, size_t);
@@ -641,6 +646,31 @@ eval_dir_config(off_t db_size)
               {
                  dir->type = REMOTE_DIR;
                  dir->protocol = FTP;
+                 (void)strcpy(dir->url, dir->location);
+#ifdef WITH_PASSWD_IN_MSG
+                 store_passwd(dir->url, NO);
+#else
+                 store_passwd(dir->url, YES);
+#endif
+                 (void)strcpy(dir->orig_dir_name, dir->url);
+
+                 /*
+                  * Cut away the URL and make the directory look like a
+                  * real directory of the following format:
+                  * $AFD_WORK_DIR/files/incoming/<user>@<hostname>/[<user>/]<remote dir>
+                  */
+                 if (create_remote_dir(dir->url, dir->location) == INCORRECT)
+                 {
+                    continue;
+                 }
+              }
+         else if ((dir->location[0] == 's') && (dir->location[1] == 'f') &&
+                  (dir->location[2] == 't') && (dir->location[3] == 'p') &&
+                  ((dir->location[4] == ':') && (dir->location[5] == '/') &&
+                   (dir->location[6] == '/')))
+              {
+                 dir->type = REMOTE_DIR;
+                 dir->protocol = SFTP;
                  (void)strcpy(dir->url, dir->location);
 #ifdef WITH_PASSWD_IN_MSG
                  store_passwd(dir->url, NO);
@@ -1742,178 +1772,215 @@ check_dummy_line:
             {
                if (CHECK_STRCMP(dir->location, dd[j].dir_name) == 0)
                {
-                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Ignoring duplicate directory entry %s in %s.",
-                             dir->location, dcl[dcd].dir_config_file);
-                  duplicate = YES;
+#ifdef WITH_MULTI_DIR_DEFINITION
+                  if (dcl[dcd].dc_id == dd[j].dir_config_id)
+                  {
+#endif
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Ignoring duplicate directory entry %s in %s.",
+                                dir->location, dcl[dcd].dir_config_file);
+                     duplicate = YES;
+#ifdef WITH_MULTI_DIR_DEFINITION
+                  }
+                  else
+                  {
+                     duplicate = NEITHER;
+                  }
+#endif
                   break;
                }
             }
 
-            if (duplicate == NO)
+#ifdef WITH_MULTI_DIR_DEFINITION
+            if (duplicate != YES)
             {
-               if ((no_of_local_dirs % 10) == 0)
+#endif
+               if (duplicate == NO)
                {
-                  size_t new_size = (((no_of_local_dirs / 10) + 1) * 10) *
-                                    sizeof(struct dir_data);
-
-                  if (no_of_local_dirs == 0)
+                  if ((no_of_local_dirs % 10) == 0)
                   {
-                     if ((dd = malloc(new_size)) == NULL)
+                     size_t new_size = (((no_of_local_dirs / 10) + 1) * 10) *
+                                       sizeof(struct dir_data);
+
+                     if (no_of_local_dirs == 0)
                      {
-                        system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                   "malloc() error : %s", strerror(errno));
-                        exit(INCORRECT);
+                        if ((dd = malloc(new_size)) == NULL)
+                        {
+                           system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                      "malloc() error : %s", strerror(errno));
+                           exit(INCORRECT);
+                        }
                      }
+                     else
+                     {
+                        if ((dd = realloc((char *)dd, new_size)) == NULL)
+                        {
+                           system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                      "realloc() error : %s", strerror(errno));
+                           exit(INCORRECT);
+                        }
+                     }
+                  }
+
+                  dd[no_of_local_dirs].dir_pos = lookup_dir_id(dir->location,
+                                                               dir->orig_dir_name);
+                  dd[no_of_local_dirs].dir_id = dnb[dd[no_of_local_dirs].dir_pos].dir_id;
+                  dd[no_of_local_dirs].in_dc_flag = 0;
+                  if (dir->alias[0] == '\0')
+                  {
+                     (void)sprintf(dir->alias, "%x",
+                                   dnb[dd[no_of_local_dirs].dir_pos].dir_id);
                   }
                   else
                   {
-                     if ((dd = realloc((char *)dd, new_size)) == NULL)
+                     int gotcha = NO;
+
+                     /* Check if the directory alias was not already specified. */
+                     for (j = 0; j < no_of_local_dirs; j++)
                      {
-                        system_log(FATAL_SIGN, __FILE__, __LINE__,
-                                   "realloc() error : %s", strerror(errno));
-                        exit(INCORRECT);
+                        if (CHECK_STRCMP(dir->alias, dd[j].dir_alias) == 0)
+                        {
+                           (void)sprintf(dir->alias, "%x",
+                                         dnb[dd[no_of_local_dirs].dir_pos].dir_id);
+                           gotcha = YES;
+                           system_log(WARN_SIGN, __FILE__, __LINE__,
+                                      "Duplicate directory alias `%s' in `%s', giving it another alias: `%s'",
+                                      dd[j].dir_alias, dcl[dcd].dir_config_file,
+                                      dir->alias);
+                           break;
+                        }
+                     }
+                     if (gotcha == NO)
+                     {
+                        dd[no_of_local_dirs].in_dc_flag |= DIR_ALIAS_IDC;
                      }
                   }
-               }
 
-               dd[no_of_local_dirs].dir_pos = lookup_dir_id(dir->location,
-                                                            dir->orig_dir_name);
-               dd[no_of_local_dirs].dir_id = dnb[dd[no_of_local_dirs].dir_pos].dir_id;
-               dd[no_of_local_dirs].in_dc_flag = 0;
-               if (dir->alias[0] == '\0')
-               {
-                  (void)sprintf(dir->alias, "%x",
-                                dnb[dd[no_of_local_dirs].dir_pos].dir_id);
-               }
-               else
-               {
-                  int gotcha = NO;
-
-                  /* Check if the directory alias was not already specified. */
-                  for (j = 0; j < no_of_local_dirs; j++)
+                  (void)strcpy(dd[no_of_local_dirs].dir_alias, dir->alias);
+                  if (dir->type == LOCALE_DIR)
                   {
-                     if (CHECK_STRCMP(dir->alias, dd[j].dir_alias) == 0)
+                     dd[no_of_local_dirs].fsa_pos = -1;
+                     dd[no_of_local_dirs].host_alias[0] = '\0';
+                     STRNCPY(dd[no_of_local_dirs].url, dir->location,
+                             MAX_RECIPIENT_LENGTH);
+                     if (strlen(dir->location) >= MAX_RECIPIENT_LENGTH)
                      {
-                        (void)sprintf(dir->alias, "%x",
-                                      dnb[dd[no_of_local_dirs].dir_pos].dir_id);
-                        gotcha = YES;
-                        system_log(WARN_SIGN, __FILE__, __LINE__,
-                                   "Duplicate directory alias `%s' in `%s', giving it another alias: `%s'",
-                                   dd[j].dir_alias, dcl[dcd].dir_config_file,
-                                   dir->alias);
-                        break;
+                        dd[no_of_local_dirs].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
                      }
                   }
-                  if (gotcha == NO)
-                  {
-                     dd[no_of_local_dirs].in_dc_flag |= DIR_ALIAS_IDC;
-                  }
-               }
-
-               (void)strcpy(dd[no_of_local_dirs].dir_alias, dir->alias);
-               if (dir->type == LOCALE_DIR)
-               {
-                  dd[no_of_local_dirs].fsa_pos = -1;
-                  dd[no_of_local_dirs].host_alias[0] = '\0';
-                  STRNCPY(dd[no_of_local_dirs].url, dir->location,
-                          MAX_RECIPIENT_LENGTH);
-                  if (strlen(dir->location) >= MAX_RECIPIENT_LENGTH)
-                  {
-                     dd[no_of_local_dirs].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
-                  }
-               }
-               else if (dir->type == REMOTE_DIR)
-                    {
-                       (void)strcpy(dd[no_of_local_dirs].url, dir->url);
-                       dd[no_of_local_dirs].fsa_pos = check_hostname_list(dir->url,
-                                                                          RETRIEVE_FLAG);
-                       (void)strcpy(dd[no_of_local_dirs].host_alias,
-                                    hl[dd[no_of_local_dirs].fsa_pos].host_alias);
-                       store_file_mask(dd[no_of_local_dirs].dir_alias, dir);
-                    }
-                    else
-                    {
-                       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                  "Unknown dir type %d for %s.",
-                                  dir->type, dir->alias);
-                       dd[no_of_local_dirs].fsa_pos = -1;
-                       dd[no_of_local_dirs].host_alias[0] = '\0';
-                       STRNCPY(dd[no_of_local_dirs].url, dir->location,
-                               MAX_RECIPIENT_LENGTH);
-                       if (strlen(dir->location) >= MAX_RECIPIENT_LENGTH)
+                  else if (dir->type == REMOTE_DIR)
                        {
-                          dd[no_of_local_dirs].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
+                          (void)strcpy(dd[no_of_local_dirs].url, dir->url);
+                          dd[no_of_local_dirs].fsa_pos = check_hostname_list(dir->url,
+                                                                             RETRIEVE_FLAG);
+                          (void)strcpy(dd[no_of_local_dirs].host_alias,
+                                       hl[dd[no_of_local_dirs].fsa_pos].host_alias);
+                          store_file_mask(dd[no_of_local_dirs].dir_alias, dir);
                        }
-                    }
-               (void)strcpy(dd[no_of_local_dirs].dir_name, dir->location);
-               dd[no_of_local_dirs].protocol = dir->protocol;
-               dir->dir_config_id = dcl[dcd].dc_id;
+                       else
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "Unknown dir type %d for %s.",
+                                     dir->type, dir->alias);
+                          dd[no_of_local_dirs].fsa_pos = -1;
+                          dd[no_of_local_dirs].host_alias[0] = '\0';
+                          STRNCPY(dd[no_of_local_dirs].url, dir->location,
+                                  MAX_RECIPIENT_LENGTH);
+                          if (strlen(dir->location) >= MAX_RECIPIENT_LENGTH)
+                          {
+                             dd[no_of_local_dirs].url[MAX_RECIPIENT_LENGTH - 1] = '\0';
+                          }
+                       }
+                  (void)strcpy(dd[no_of_local_dirs].dir_name, dir->location);
+                  dd[no_of_local_dirs].protocol = dir->protocol;
+                  dd[no_of_local_dirs].dir_config_id = dcl[dcd].dc_id;
+                  dir->dir_config_id = dcl[dcd].dc_id;
 
-               /* Evaluate the directory options.  */
-               eval_dir_options(no_of_local_dirs, dir->dir_options, dir->option);
+                  /* Evaluate the directory options. */
+                  eval_dir_options(no_of_local_dirs, dir->dir_options, dir->option);
 
-               /* Increase directory counter */
-               no_of_local_dirs++;
+                  /* Increase directory counter. */
+                  no_of_local_dirs++;
 
 #ifdef _DEBUG
-               (void)fprintf(p_debug_file,
-                             "\n\n=================> Contents of directory struct %4d<=================\n",
-                             no_of_local_dirs);
-               (void)fprintf(p_debug_file,
-                             "                   =================================\n");
+                  (void)fprintf(p_debug_file,
+                                "\n\n=================> Contents of directory struct %4d<=================\n",
+                                no_of_local_dirs);
+                  (void)fprintf(p_debug_file,
+                                "                   =================================\n");
 
-               /* Print directory name and alias. */
-               (void)fprintf(p_debug_file, "%3d: %s Alias: %s DIR_CONFIG ID: %x\n",
-                             i + 1, dir->location, dir->alias,
-                             dir->dir_config_id);
+                  /* Print directory name and alias. */
+                  (void)fprintf(p_debug_file, "%3d: %s Alias: %s DIR_CONFIG ID: %x\n",
+                                i + 1, dir->location, dir->alias,
+                                dir->dir_config_id);
 
-               /* Print contents of each file group. */
-               for (j = 0; j < dir->fgc; j++)
+                  /* Print contents of each file group. */
+                  for (j = 0; j < dir->fgc; j++)
+                  {
+                     /* Print file group name. */
+                     (void)fprintf(p_debug_file, "    >%s<\n",
+                                   dir->file[j].file_group_name);
+
+                     /* Print the name of each file. */
+                     for (k = 0; k < dir->file[j].fc; k++)
+                     {
+                        (void)fprintf(p_debug_file, "\t%3d: %s\n", k + 1,
+                                      dir->file[j].files[k]);
+                     }
+
+                     /* Print all destinations. */
+                     for (k = 0; k < dir->file[j].dgc; k++)
+                     {
+                        /* First print destination group name. */
+                        (void)fprintf(p_debug_file, "\t\t%3d: >%s<\n", k + 1,
+                                      dir->file[j].dest[k].dest_group_name);
+
+                        /* Show all recipient's. */
+                        (void)fprintf(p_debug_file, "\t\t\tRecipients:\n");
+                        for (m = 0; m < dir->file[j].dest[k].rc; m++)
+                        {
+                           (void)fprintf(p_debug_file, "\t\t\t%3d: %s\n", m + 1,
+                                         dir->file[j].dest[k].recipient[m]);
+                        }
+
+                        /* Show all options. */
+                        (void)fprintf(p_debug_file, "\t\t\tOptions:\n");
+                        for (m = 0; m < dir->file[j].dest[k].oc; m++)
+                        {
+                           (void)fprintf(p_debug_file, "\t\t\t%3d: %s\n", m + 1,
+                                         dir->file[j].dest[k].options[m]);
+                        }
+                     }
+                  }
+#endif
+
+                  /* Insert directory into temporary memory. */
+#ifdef WITH_MULTI_DIR_DEFINITION
+                  insert_dir(dir, NO);
+#else
+                  insert_dir(dir);
+#endif
+               }
+#ifdef WITH_MULTI_DIR_DEFINITION
+               else
                {
-                  /* Print file group name. */
-                  (void)fprintf(p_debug_file, "    >%s<\n",
-                                dir->file[j].file_group_name);
-
-                  /* Print the name of each file. */
-                  for (k = 0; k < dir->file[j].fc; k++)
+                  (void)strcpy(dir->alias, dd[j].dir_alias);
+                  dir->dir_config_id = dcl[dcd].dc_id;
+                  if (dir->type == REMOTE_DIR)
                   {
-                     (void)fprintf(p_debug_file, "\t%3d: %s\n", k + 1,
-                                   dir->file[j].files[k]);
+                     /* add_file_mask(dd[j].dir_alias, dir); */
                   }
 
-                  /* Print all destinations. */
-                  for (k = 0; k < dir->file[j].dgc; k++)
-                  {
-                     /* First print destination group name. */
-                     (void)fprintf(p_debug_file, "\t\t%3d: >%s<\n", k + 1,
-                                   dir->file[j].dest[k].dest_group_name);
-
-                     /* Show all recipient's. */
-                     (void)fprintf(p_debug_file, "\t\t\tRecipients:\n");
-                     for (m = 0; m < dir->file[j].dest[k].rc; m++)
-                     {
-                        (void)fprintf(p_debug_file, "\t\t\t%3d: %s\n", m + 1,
-                                      dir->file[j].dest[k].recipient[m]);
-                     }
-
-                     /* Show all options. */
-                     (void)fprintf(p_debug_file, "\t\t\tOptions:\n");
-                     for (m = 0; m < dir->file[j].dest[k].oc; m++)
-                     {
-                        (void)fprintf(p_debug_file, "\t\t\t%3d: %s\n", m + 1,
-                                      dir->file[j].dest[k].options[m]);
-                     }
-                  }
+                  /* Insert directory into temporary memory. */
+                  insert_dir(dir, YES);
                }
 #endif
 
-               /* Insert directory into temporary memory. */
-               insert_dir(dir);
-
                /* Insert hostnames into temporary memory. */
                insert_hostname(dir);
+#ifdef WITH_MULTI_DIR_DEFINITION
             } /* if (duplicate == NO) */
+#endif
             for (j = 0; j < dir->fgc; j++)
             {
                int m;
@@ -2113,6 +2180,10 @@ check_hostname_list(char *recipient, unsigned int flag)
    else if (memcmp(recipient, SFTP_SHEME, SFTP_SHEME_LENGTH) == 0)
         {
            protocol = SFTP_FLAG;
+           if (flag & RETRIEVE_FLAG)
+           {
+              protocol |= GET_SFTP_FLAG;
+           }
         }
 #ifdef WITH_SSL
    else if (memcmp(recipient, HTTPS_SHEME, HTTPS_SHEME_LENGTH) == 0)
@@ -2247,8 +2318,64 @@ check_hostname_list(char *recipient, unsigned int flag)
 
 /*++++++++++++++++++++++++++++ insert_dir() ++++++++++++++++++++++++++++*/
 static void
+#ifdef WITH_MULTI_DIR_DEFINITION
+insert_dir(struct dir_group *dir, int dup_entry)
+#else
 insert_dir(struct dir_group *dir)
+#endif
 {
+#ifdef WITH_MULTI_DIR_DEFINITION
+   int i,
+       j,
+       prev_job_no = -1;
+
+   if (dup_entry == YES)
+   {
+      char           *p_offset;
+      struct p_array *p_ptr;
+
+      p_ptr = pp;
+      p_offset = p_t;
+      for (i = 0; i < job_no; i++)
+      {
+         if (strcmp(p_ptr[i].ptr[1] + p_offset, dir->location) == 0)
+         {
+            i++;
+            while ((strcmp(p_ptr[i].ptr[1] + p_offset, dir->location) == 0) &&
+                   (i < job_no))
+            {
+               i++;
+            }
+            i--;
+
+            /*
+             * If the value is already set, it means the directory
+             * appears more then two times.
+             */
+            if (*(p_ptr[i].ptr[11] + p_offset) == '\0')
+            {
+               (void)sprintf((p_ptr[i].ptr[11] + p_offset), "%d", job_no);
+               prev_job_no = i;
+               break;
+            }
+         }
+      }
+      if (prev_job_no == -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "Hmmm, failed to locate duplicate directory `%s'.",
+                    dir->location);
+      }
+   }
+
+   for (i = 0; i < dir->fgc; i++)
+   {
+      for (j = 0; j < dir->file[i].dgc; j++)
+      {
+         copy_job(i, j, prev_job_no, dir);
+      } /* next destination group */
+   } /* next file group */
+#else
    int i,
        j;
 
@@ -2259,6 +2386,7 @@ insert_dir(struct dir_group *dir)
          copy_job(i, j, dir);
       } /* next destination group */
    } /* next file group */
+#endif
 
    return;
 }
@@ -2282,6 +2410,9 @@ insert_dir(struct dir_group *dir)
 static void
 copy_job(int              file_no,
          int              dest_no,
+#ifdef WITH_MULTI_DIR_DEFINITION
+         int              prev_job_no,
+#endif
          struct dir_group *dir)
 {
    int            i, j, k,
@@ -2315,10 +2446,10 @@ copy_job(int              file_no,
                   };
    size_t         new_size;
    char           buffer[MAX_INT_LENGTH],
-                  *ptr = NULL,     /* Pointer where data is to be       */
+                  *ptr,            /* Pointer where data is to be       */
                                    /* stored.                           */
-                  *p_start = NULL, /* Points to start of local options. */
-                  *p_offset = NULL,
+                  *p_start,        /* Points to start of local options. */
+                  *p_offset,
                   *p_loption[LOCAL_OPTION_POOL_SIZE] =
                   {
                      RENAME_ID,
@@ -2344,7 +2475,7 @@ copy_job(int              file_no,
                      DELETE_ID,
                      CONVERT_ID
                   };
-   struct p_array *p_ptr = NULL;
+   struct p_array *p_ptr;
 
    /* Check if the buffer for pointers is large enough. */
    if ((job_no % PTR_BUF_SIZE) == 0)
@@ -2404,21 +2535,33 @@ copy_job(int              file_no,
    ptr++;
 
    /* Insert directory. */
-   if ((file_no == 0) && (dest_no == 0))
+#ifdef WITH_MULTI_DIR_DEFINITION
+   if (prev_job_no == -1)
    {
-      offset = sprintf(ptr, "%s", dir->location);
-      p_ptr[job_no].ptr[1] = ptr - p_offset;
-      ptr += offset + 1;
+#endif
+      if ((file_no == 0) && (dest_no == 0))
+      {
+         offset = sprintf(ptr, "%s", dir->location);
+         p_ptr[job_no].ptr[1] = ptr - p_offset;
+         ptr += offset + 1;
 
-      offset = sprintf(ptr, "%s", dir->alias);
-      p_ptr[job_no].ptr[2] = ptr - p_offset;
-      ptr += offset + 1;
+         offset = sprintf(ptr, "%s", dir->alias);
+         p_ptr[job_no].ptr[2] = ptr - p_offset;
+         ptr += offset + 1;
+      }
+      else
+      {
+         p_ptr[job_no].ptr[1] = p_ptr[job_no - 1].ptr[1]; /* Directory */
+         p_ptr[job_no].ptr[2] = p_ptr[job_no - 1].ptr[2]; /* Alias */
+      }
+#ifdef WITH_MULTI_DIR_DEFINITION
    }
    else
    {
-      p_ptr[job_no].ptr[1] = p_ptr[job_no - 1].ptr[1]; /* Directory */
-      p_ptr[job_no].ptr[2] = p_ptr[job_no - 1].ptr[2]; /* Alias */
+      p_ptr[job_no].ptr[1] = p_ptr[prev_job_no].ptr[1]; /* Directory */
+      p_ptr[job_no].ptr[2] = p_ptr[prev_job_no].ptr[2]; /* Alias */
    }
+#endif
 
    /* Insert file masks. */
    p_ptr[job_no].ptr[3] = ptr - p_offset;
@@ -2562,10 +2705,17 @@ copy_job(int              file_no,
    offset = sprintf(ptr, "%s", dir->file[file_no].dest[dest_no].recipient[0]);
    ptr += offset + 1;
 
-   /* Insert DIR_CONFIG ID */
+   /* Insert DIR_CONFIG ID. */
    p_ptr[job_no].ptr[10] = ptr - p_offset;
    offset = sprintf(ptr, "%x", dir->dir_config_id);
    ptr += offset + 1;
+
+#ifdef WITH_MULTI_DIR_DEFINITION
+   /* Offset to same directory. */
+   p_ptr[job_no].ptr[11] = ptr - p_offset;
+   *ptr = '\0';
+   ptr += MAX_INT_LENGTH + 1;
+#endif
    ptr++;
 
    /* Increase job number. */

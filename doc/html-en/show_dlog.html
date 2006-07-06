@@ -89,12 +89,25 @@ time by filling in some of the following values:
           <td>Deleted by some user action.</td>
        </tr>
        <tr>
-          <td>OTHER</td>
+          <td>EXEC</td>
+          <td>Deleted because the <a href="dir_config.html#exec">exec</a>
+              option failed and deletion was configured in this case.</td>
+       </tr>
+       <tr>
+          <td>DUF</td>
+          <td>There was no rule to distribute this file and the directory
+              option <a href="dir_config.html#delete_unknown_files">delete
+              unknown files</a> is set or the system default
+              was set to delete this.</td>
+       </tr>
+       <tr>
+          <td>OTHER(I/O)</td>
           <td>If they do not fall under the above reasons. They can be
               because of internal reasons like the system does not have
               enough resources. Or when the sending process detects that
               the same file name is being transmitted into the same
-              remote directory, it will be deleted.</td>
+              remote directory, it will be deleted. (I) will show
+              that it was deleted on input and (O) on output.</td>
        </tr>
        </table>
    </td>
