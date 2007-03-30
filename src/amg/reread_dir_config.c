@@ -1,6 +1,6 @@
 /*
  *  reread_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -274,9 +274,9 @@ reread_dir_config(int              dc_changed,
                   {
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                                "Hmmm, pid is %d!!!", tmp_dc_pid);
+                                "Hmmm, pid is %d!!!", (pri_pid_t)tmp_dc_pid);
 #else
-                                "Hmmm, pid is %lld!!!", tmp_dc_pid);
+                                "Hmmm, pid is %lld!!!", (pri_pid_t)tmp_dc_pid);
 #endif
                   }
 

@@ -1,6 +1,6 @@
 /*
  *  ftpdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,44 +21,48 @@
 #define __ftpdefs_h
 
 #ifndef MAX_FILENAME_LENGTH
-#define MAX_FILENAME_LENGTH       256
+# define MAX_FILENAME_LENGTH      256
 #endif
 #ifndef SUCCESS
-#define SUCCESS                   0
+# define SUCCESS                  0
 #endif
 #ifndef INCORRECT
-#define INCORRECT                 -1
+# define INCORRECT                -1
 #endif
 
 #ifndef MAX_RET_MSG_LENGTH
-#define MAX_RET_MSG_LENGTH        1024
+# define MAX_RET_MSG_LENGTH       1024
 #endif
 #define MAX_DATA_CONNECT_RETRIES  3
 #define DEFAULT_FTP_PORT          21
 #define MAX_FTP_DATE_LENGTH       15
 
 #ifdef _BLOCK_MODE
-#define DATA_BLOCK                128
-#define END_BLOCK                 64
+# define DATA_BLOCK               128
+# define END_BLOCK                64
 #endif
 
-#define PASSIVE_MODE             10
-#define ACTIVE_MODE              11
+/* Definitions for the different FTP modes (PORT, PASV, EPRT, EPSV). */
+#define PASSIVE_MODE              1
+#define ACTIVE_MODE               2
+#define EXTENDED_MODE             4
+#define ALLOW_DATA_REDIRECT       8
 
 /* Definitions for the ftp_data() function. */
-#define DATA_WRITE               1
-#define DATA_READ                2
+#define DATA_WRITE                1
+#define DATA_READ                 2
 
 /* Definitions for the ftp_list() function. */
-#define LIST_CMD                 1
-#define NLIST_CMD                2
-#define ONE_FILENAME             4
-#define BUFFERED_LIST            8
+#define LIST_CMD                  1
+#define NLIST_CMD                 2
+#define ONE_FILENAME              4
+#define BUFFERED_LIST             8
 #ifdef WITH_SSL
-#define ENCRYPT_DATA             16
+#define ENCRYPT_DATA              16
 #endif
 
-extern int  ftp_connect(char *, int),
+extern int  ftp_auth_data(void),
+            ftp_connect(char *, int),
 #ifdef WITH_SSL
             ftp_ssl_auth(void),
             ftp_ssl_init(char),
@@ -84,6 +88,7 @@ extern int  ftp_connect(char *, int),
             ftp_pwd(void),
             ftp_chmod(char *, char *),
             ftp_move(char *, char *, int, int),
+            ftp_noop(void),
             ftp_keepalive(void),
             ftp_list(int, int, ...),
             ftp_dele(char *),

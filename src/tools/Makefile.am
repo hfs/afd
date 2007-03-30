@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2006 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -38,8 +38,10 @@ EXTRA_PROGRAMS               = bfc binfc byte_order convert_jid count_burst\
                                del_cache $(EXTRA_DUPCHECK) get_counter\
                                force_archive_check get_full_date\
                                get_file_size gts2tiff linger rdu sysconf\
-                               tiff_sniffer watch_dir fra_version
+                               tiff_sniffer watch_dir fra_version\
+                               convert_ls_data view_error_queue
 MAINTAINERCLEANFILES         = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES                   = gmon.out core core.*
 afdcmd_SOURCES               = afdcmd.c
 afdcmd_LDADD                 = ../common/libafd.a
 afdcfg_SOURCES               = afdcfg.c
@@ -57,6 +59,8 @@ convert_fsa_SOURCES          = convert_fsa.c
 convert_fsa_LDADD            = ../common/libafd.a
 convert_jid_SOURCES          = convert_jid.c
 convert_jid_LDADD            = ../common/libafd.a
+convert_ls_data_SOURCES      = convert_ls_data.c
+convert_ls_data_LDADD        = ../common/libafd.a
 convert_stat_SOURCES         = convert_stat.c
 convert_stat_LDADD           = ../common/libafd.a
 count_burst_SOURCES          = count_burst.c
@@ -120,6 +124,8 @@ sysconf_LDADD                = ../common/libafd.a
 tiff_sniffer_SOURCES         = tiff_sniffer.c
 udc_SOURCES                  = update_db.c
 udc_LDADD                    = ../common/libafd.a
+view_error_queue_SOURCES     = view_error_queue.c
+view_error_queue_LDADD       = ../common/libafd.a
 view_ls_data_SOURCES         = view_ls_data.c
 watch_dir_SOURCES            = watch_dir.c
 watch_dir_LDADD              = ../common/libafd.a
@@ -130,6 +136,7 @@ install-exec-local:
 	then \
 		chmod 4755 $(DESTDIR)$(bindir)/afdcmd ; \
 		chmod 4755 $(DESTDIR)$(bindir)/udc ; \
+		chmod 4755 $(DESTDIR)$(bindir)/get_dc_data ; \
 	fi
 	cd $(DESTDIR)$(bindir) && rm -f uhc
 	cd $(DESTDIR)$(bindir) && ln -s udc uhc

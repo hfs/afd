@@ -1,6 +1,6 @@
 /*
  *  remove_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   remove_dir - removes one directory with all its files
  **
  ** SYNOPSIS
- **   int remove_dir(char *dirname)
+ **   int remove_dir(char *dirname, int wait_time)
  **
  ** DESCRIPTION
  **   Deletes the directory 'dirname' with all its files. If there
@@ -59,9 +59,16 @@ DESCR__E_M3
 
 /*############################# remove_dir() ############################*/
 int
+#ifdef WITH_UNLINK_DELAY
+remove_dir(char *dirname, int wait_time)
+#else
 remove_dir(char *dirname)
+#endif
 {
    int           addchar = NO;
+#ifdef WITH_UNLINK_DELAY
+   int           loops = 0;
+#endif
    char          *ptr;
    struct dirent *dirp;
    DIR           *dp;
@@ -71,7 +78,7 @@ remove_dir(char *dirname)
    if ((dp = opendir(dirname)) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to opendir() <%s> : %s", dirname, strerror(errno));
+                 "Failed to opendir() `%s' : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
    if (*(ptr - 1) != '/')
@@ -88,50 +95,69 @@ remove_dir(char *dirname)
          continue;
       }
       (void)strcpy(ptr, dirp->d_name);
+#ifdef WITH_UNLINK_DELAY
+try_again:
+#endif
       if (unlink(dirname) == -1)
       {
          if (errno == ENOENT)
          {
+#ifdef WITH_UNLINK_DELAY
+            if (loops == 0)
+            {
+#endif
             system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Failed to delete <%s> : %s", dirname, strerror(errno));
+                       "Failed to delete `%s' : %s", dirname, strerror(errno));
+#ifdef WITH_UNLINK_DELAY
+            }
+#endif
          }
-         else
-         {
-            int ret = INCORRECT,
-                save_errno = errno;
+#ifdef WITH_UNLINK_DELAY
+         else if ((errno == EBUSY) && (wait_time > 0) &&
+                  (loops > (10 * wait_time)))
+              {
+                 (void)my_usleep(100000L);
+                 loops++;
+                 goto try_again;
+              }
+#endif
+              else
+              {
+                 int ret = INCORRECT,
+                     save_errno = errno;
 
-            if (errno == EPERM)
-            {
-               struct stat stat_buf;
+                 if (errno == EPERM)
+                 {
+                    struct stat stat_buf;
 
-               if (stat(dirname, &stat_buf) == -1)
-               {
-                  system_log(ERROR_SIGN, __FILE__, __LINE__,
-                             "Failed to stat() %s : %s",
-                             dirname, strerror(errno));
-               }
-               else
-               {
-                  if (S_ISDIR(stat_buf.st_mode))
-                  {
-                     ret = FILE_IS_DIR;
-                  }
-               }
-            }
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to delete <%s> : %s",
-                       dirname, strerror(save_errno));
-            (void)closedir(dp);
-            if (addchar == YES)
-            {
-               ptr[-1] = 0;
-            }
-            else
-            {
-               *ptr = '\0';
-            }
-            return(ret);
-         }
+                    if (stat(dirname, &stat_buf) == -1)
+                    {
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Failed to stat() `%s' : %s",
+                                  dirname, strerror(errno));
+                    }
+                    else
+                    {
+                       if (S_ISDIR(stat_buf.st_mode))
+                       {
+                          ret = FILE_IS_DIR;
+                       }
+                    }
+                 }
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to delete `%s' : %s",
+                            dirname, strerror(save_errno));
+                 (void)closedir(dp);
+                 if (addchar == YES)
+                 {
+                    ptr[-1] = 0;
+                 }
+                 else
+                 {
+                    *ptr = '\0';
+                 }
+                 return(ret);
+              }
       }
    }
    if (addchar == YES)
@@ -145,13 +171,13 @@ remove_dir(char *dirname)
    if (closedir(dp) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to closedir() <%s> : %s", dirname, strerror(errno));
+                 "Failed to closedir() `%s' : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
    if (rmdir(dirname) == -1)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Failed to rmdir() <%s> : %s", dirname, strerror(errno));
+                 "Failed to rmdir() `%s' : %s", dirname, strerror(errno));
       return(INCORRECT);
    }
 

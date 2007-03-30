@@ -1,6 +1,6 @@
 /*
  *  fra_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -159,8 +159,8 @@ main(int argc, char *argv[])
                  no_of_dirs, fra_id, (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1)));
    for (i = position; i < last; i++)
    {
-      (void)fprintf(stdout, "=============================> %s <=============================\n",
-                    fra[i].dir_alias);
+      (void)fprintf(stdout, "=============================> %s (%d) <=============================\n",
+                    fra[i].dir_alias, i);
       (void)fprintf(stdout, "Directory alias      : %s\n", fra[i].dir_alias);
       (void)fprintf(stdout, "Directory ID         : %x\n", fra[i].dir_id);
       (void)fprintf(stdout, "URL                  : %s\n", fra[i].url);
@@ -177,23 +177,31 @@ main(int argc, char *argv[])
       (void)fprintf(stdout, "Files received       : %u\n", fra[i].files_received);
       (void)fprintf(stdout, "Files in directory   : %u\n", fra[i].files_in_dir);
 #if SIZEOF_OFF_T == 4
-      (void)fprintf(stdout, "Bytes in directory   : %ld\n", fra[i].bytes_in_dir);
+      (void)fprintf(stdout, "Bytes in directory   : %ld\n", (pri_off_t)fra[i].bytes_in_dir);
 #else
-      (void)fprintf(stdout, "Bytes in directory   : %lld\n", fra[i].bytes_in_dir);
+      (void)fprintf(stdout, "Bytes in directory   : %lld\n", (pri_off_t)fra[i].bytes_in_dir);
 #endif
       (void)fprintf(stdout, "Files in queue(s)    : %u\n", fra[i].files_queued);
 #if SIZEOF_OFF_T == 4
-      (void)fprintf(stdout, "Bytes in queue(s)    : %ld\n", fra[i].bytes_in_queue);
+      (void)fprintf(stdout, "Bytes in queue(s)    : %ld\n", (pri_off_t)fra[i].bytes_in_queue);
 #else
-      (void)fprintf(stdout, "Bytes in queue(s)    : %lld\n", fra[i].bytes_in_queue);
+      (void)fprintf(stdout, "Bytes in queue(s)    : %lld\n", (pri_off_t)fra[i].bytes_in_queue);
 #endif
 #if SIZEOF_OFF_T == 4
-      (void)fprintf(stdout, "Accumulate size      : %ld\n", fra[i].accumulate_size);
+      (void)fprintf(stdout, "Accumulate size      : %ld\n", (pri_off_t)fra[i].accumulate_size);
 #else
-      (void)fprintf(stdout, "Accumulate size      : %lld\n", fra[i].accumulate_size);
+      (void)fprintf(stdout, "Accumulate size      : %lld\n", (pri_off_t)fra[i].accumulate_size);
 #endif
       (void)fprintf(stdout, "Accumulate           : %u\n", fra[i].accumulate);
       (void)fprintf(stdout, "gt_lt_sign           : %u\n", fra[i].gt_lt_sign);
+      (void)fprintf(stdout, "Max errors           : %d\n", fra[i].max_errors);
+      (void)fprintf(stdout, "Error counter        : %u\n", fra[i].error_counter);
+#if SIZEOF_TIME_T == 4
+      (void)fprintf(stdout, "Warn time            : %ld\n", (pri_time_t)fra[i].warn_time);
+#else
+      (void)fprintf(stdout, "Warn time            : %lld\n", (pri_time_t)fra[i].warn_time);
+#endif
+      (void)fprintf(stdout, "Keep connected       : %u\n", fra[i].keep_connected);
       if (fra[i].ignore_size == 0)
       {
          (void)fprintf(stdout, "Ignore size          : 0\n");
@@ -207,7 +215,7 @@ main(int argc, char *argv[])
 #else
             (void)fprintf(stdout, "Ignore size          : %lld\n",
 #endif
-                          fra[i].ignore_size);
+                          (pri_off_t)fra[i].ignore_size);
          }
          else if (fra[i].gt_lt_sign & ISIZE_LESS_THEN)
               {
@@ -216,7 +224,7 @@ main(int argc, char *argv[])
 #else
                  (void)fprintf(stdout, "Ignore size          : < %lld\n",
 #endif
-                               fra[i].ignore_size);
+                               (pri_off_t)fra[i].ignore_size);
               }
          else if (fra[i].gt_lt_sign & ISIZE_GREATER_THEN)
               {
@@ -225,7 +233,7 @@ main(int argc, char *argv[])
 #else
                  (void)fprintf(stdout, "Ignore size          : > %lld\n",
 #endif
-                               fra[i].ignore_size);
+                               (pri_off_t)fra[i].ignore_size);
               }
               else
               {
@@ -234,7 +242,7 @@ main(int argc, char *argv[])
 #else
                  (void)fprintf(stdout, "Ignore size          : ? %lld\n",
 #endif
-                               fra[i].ignore_size);
+                               (pri_off_t)fra[i].ignore_size);
               }
       }
       if (fra[i].ignore_file_time == 0)
@@ -268,16 +276,25 @@ main(int argc, char *argv[])
                     fra[i].max_copied_files);
 #if SIZEOF_OFF_T == 4
       (void)fprintf(stdout, "Max size             : %ld\n",
-                    fra[i].max_copied_file_size);
 #else
       (void)fprintf(stdout, "Max size             : %lld\n",
-                    fra[i].max_copied_file_size);
 #endif
+                    (pri_off_t)fra[i].max_copied_file_size);
       if (fra[i].dir_status == NORMAL_STATUS)
       {
          (void)fprintf(stdout, "Directory status(%3d): NORMAL_STATUS\n",
                        fra[i].dir_status);
       }
+      else if (fra[i].dir_status == WARNING_ID)
+           {
+              (void)fprintf(stdout, "Directory status(%3d): WARN TIME REACHED\n",
+                            fra[i].dir_status);
+           }
+      else if (fra[i].dir_status == NOT_WORKING2)
+           {
+              (void)fprintf(stdout, "Directory status(%3d): NOT WORKING\n",
+                            fra[i].dir_status);
+           }
       else if (fra[i].dir_status == DISABLED)
            {
               (void)fprintf(stdout, "Directory status(%3d): DISABLED\n",
@@ -315,9 +332,31 @@ main(int argc, char *argv[])
          {
             (void)fprintf(stdout, "DIR_DISABLED ");
          }
+#ifdef WITH_INOTIFY
+         if (fra[i].dir_flag & INOTIFY_RENAME)
+         {
+            (void)fprintf(stdout, "INOTIFY_RENAME ");
+         }
+         if (fra[i].dir_flag & INOTIFY_CLOSE)
+         {
+            (void)fprintf(stdout, "INOTIFY_CLOSE ");
+         }
+#endif
          if (fra[i].dir_flag & ACCEPT_DOT_FILES)
          {
-            (void)fprintf(stdout, "ACCEPT_DOT_FILES");
+            (void)fprintf(stdout, "ACCEPT_DOT_FILES ");
+         }
+         if (fra[i].dir_flag & DONT_GET_DIR_LIST)
+         {
+            (void)fprintf(stdout, "DONT_GET_DIR_LIST ");
+         }
+         if (fra[i].dir_flag & DIR_ERROR_SET)
+         {
+            (void)fprintf(stdout, "DIR_ERROR_SET ");
+         }
+         if (fra[i].dir_flag & WARN_TIME_REACHED)
+         {
+            (void)fprintf(stdout, "WARN_TIME_REACHED");
          }
          (void)fprintf(stdout, "\n");
       }
@@ -352,13 +391,27 @@ main(int argc, char *argv[])
          {
             (void)fprintf(stdout, "DONT_REPORT_UNKNOWN_FILES ");
          }
+#ifdef WITH_INOTIFY
+         if (fra[i].in_dc_flag & INOTIFY_FLAG_IDC)
+         {
+            (void)fprintf(stdout, "INOTIFY_FLAG ");
+         }
+#endif
          if (fra[i].in_dc_flag & MAX_CP_FILES_IDC)
          {
             (void)fprintf(stdout, "MAX_COPIED_FILES ");
          }
          if (fra[i].in_dc_flag & MAX_CP_FILE_SIZE_IDC)
          {
-            (void)fprintf(stdout, "MAX_COPIED_FILE_SIZE");
+            (void)fprintf(stdout, "MAX_COPIED_FILE_SIZE ");
+         }
+         if (fra[i].in_dc_flag & WARN_TIME_IDC)
+         {
+            (void)fprintf(stdout, "WARN_TIME ");
+         }
+         if (fra[i].in_dc_flag & KEEP_CONNECTED_IDC)
+         {
+            (void)fprintf(stdout, "KEEP_CONNECTED");
          }
          (void)fprintf(stdout, "\n");
       }
@@ -374,12 +427,16 @@ main(int argc, char *argv[])
 #else
          (void)fprintf(stdout, "Dupcheck timeout     : %lld\n",
 #endif
-                       fra[i].dup_check_timeout);
+                       (pri_time_t)fra[i].dup_check_timeout);
          (void)fprintf(stdout, "Dupcheck flag        : ");
          if (fra[i].dup_check_flag & DC_FILENAME_ONLY)
          {
             (void)fprintf(stdout, "FILENAME_ONLY ");
          }
+         else if (fra[i].dup_check_flag & DC_NAME_NO_SUFFIX)
+              {
+                 (void)fprintf(stdout, "NAME_NO_SUFFIX ");
+              }
          else if (fra[i].dup_check_flag & DC_FILE_CONTENT)
               {
                  (void)fprintf(stdout, "FILE_CONTENT ");
@@ -430,10 +487,14 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "Stupid mode          : NO\n");
       }
-      else
-      {
-         (void)fprintf(stdout, "Stupid mode          : YES\n");
-      }
+      else if (fra[i].stupid_mode == GET_ONCE_ONLY)
+           {
+              (void)fprintf(stdout, "Stupid mode          : GET_ONCE_ONLY\n");
+           }
+           else
+           {
+              (void)fprintf(stdout, "Stupid mode          : YES\n");
+           }
       (void)fprintf(stdout, "Protocol (%4d)      : ", fra[i].protocol);
       if (fra[i].protocol == FTP)
       {

@@ -1,6 +1,6 @@
 /*
  *  afd_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -65,6 +65,9 @@ DESCR__S_M1
  **
  **   To view these activities there is an X interface called mon_ctrl.
  **
+ **   NOTE: Calculation of the week number (current_week, new_week), was
+ **         taken from glibc-20060511T1325 (time/strftime_l.c).
+ **
  ** RETURN VALUES
  **   SUCCESS on normal exit and INCORRECT when an error has occurred.
  **
@@ -85,7 +88,10 @@ DESCR__E_M1
 #include <ctype.h>            /* isdigit()                               */
 #include <time.h>             /* time()                                  */
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <sys/wait.h>         /* waitpid()                               */
+#include <netinet/in.h>
+#include <arpa/inet.h>        /* inet_ntoa()                             */
 #include <sys/time.h>         /* struct timeval                          */
 #ifdef HAVE_MMAP
 # include <sys/mman.h>        /* mmap(), munmap()                        */
@@ -95,28 +101,42 @@ DESCR__E_M1
 # include <fcntl.h>
 #endif
 #include <unistd.h>           /* lseek(), write(), exit(), getpid()      */
+#include <netdb.h>            /* getservbyport(), struct hostent         */
 #include <errno.h>
 #include "mondefs.h"
+#include "sumdefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int                    got_shuttdown_message = NO,
+                       in_child = NO,
                        mon_cmd_fd,
+                       mon_log_fd = STDERR_FILENO,
                        mon_resp_fd = -1,
                        msa_fd = -1,
                        msa_id,
                        no_of_afds,
                        probe_only_fd,
-                       sys_log_fd = STDERR_FILENO;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                       mon_cmd_writefd,
+                       mon_log_readfd,
+                       mon_resp_readfd,
+                       probe_only_readfd,
+#endif
+                       sys_log_fd = STDERR_FILENO,
+                       timeout_flag;
+long                   tcp_timeout = 120L;     /* not used (mon_log()) */
 off_t                  msa_size;
 size_t                 proc_list_size;
-pid_t                  mon_log_pid,
+pid_t                  log_proc_pid,
+                       mon_log_pid,
                        own_pid,
                        sys_log_pid;
 time_t                 afd_mon_db_time;
 char                   afd_mon_db_file[MAX_PATH_LENGTH],
                        mon_active_file[MAX_PATH_LENGTH],
                        mon_cmd_fifo[MAX_PATH_LENGTH],
+                       *p_mon_alias,
                        probe_only_fifo[MAX_PATH_LENGTH],
                        *p_work_dir;
 struct afd_mon_status  *p_afd_mon_status;
@@ -124,30 +144,46 @@ struct mon_status_area *msa;
 struct process_list    *pl = NULL;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void            afd_mon_exit(void),
+                       get_sum_data(int, time_t ),
                        mon_active(void),
+                       print_data(int, int, time_t, unsigned int, u_off_t,
+                                  unsigned int, u_off_t, unsigned int,
+                                  unsigned int, u_off_t),
                        sig_bus(int),
                        sig_exit(int),
                        sig_segv(int),
-                       zombie_check(void);
+                       zombie_check(time_t);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
 int
 main(int argc, char *argv[])
 {
-   int            fd,
-                  status,
-                  old_afd_mon_stat;
+   int            check_time,
+                  current_month,
+                  current_week,
+                  current_year,
+                  fd,
+                  new_month,
+                  new_week,
+                  new_year,
+                  old_afd_mon_stat,
+                  status;
+   time_t         new_day_sum_time,
+                  new_hour_sum_time,
+                  now,
+                  time_offset,
+                  tmp_now;
    char           afd_mon_status_file[MAX_PATH_LENGTH],
                   hostname[64],
                   mon_status_file[MAX_PATH_LENGTH],
                   *ptr,
-                  sys_log_fifo[MAX_PATH_LENGTH],
                   work_dir[MAX_PATH_LENGTH];
    struct stat    stat_buf;
    struct timeval timeout;
+   struct tm      *p_ts;
    fd_set         rset;
 
    CHECK_FOR_VERSION(argc, argv);
@@ -164,22 +200,25 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Now check if the log directory has been created */
+   /* Now check if the log directory has been created. */
    ptr = p_work_dir + strlen(p_work_dir);
    (void)strcpy(ptr, LOG_DIR);
    if (check_dir(p_work_dir, R_OK | W_OK | X_OK) < 0)
    {
       exit(INCORRECT);
    }
+   (void)strcpy(ptr, RLOG_DIR);
+   if (check_dir(p_work_dir, R_OK | W_OK | X_OK) < 0)
+   {
+      exit(INCORRECT);
+   }
    *ptr = '\0';
 
-   /* Initialise variables */
+   /* Initialise variables. */
    (void)strcpy(mon_status_file, work_dir);
    (void)strcat(mon_status_file, FIFO_DIR);
    (void)strcpy(mon_active_file, mon_status_file);
    (void)strcat(mon_active_file, MON_ACTIVE_FILE);
-   (void)strcpy(sys_log_fifo, mon_status_file);
-   (void)strcat(sys_log_fifo, MON_SYS_LOG_FIFO);
    (void)strcpy(afd_mon_status_file, mon_status_file);
    (void)strcat(afd_mon_status_file, AFD_MON_STATUS_FILE);
    (void)strcat(mon_status_file, MON_STATUS_FILE);
@@ -187,24 +226,6 @@ main(int argc, char *argv[])
    (void)strcat(afd_mon_db_file, ETC_DIR);
    (void)strcat(afd_mon_db_file, AFD_MON_CONFIG_FILE);
 
-   /* Open (create) system log fifo. */
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
-      {
-         (void)fprintf(stderr,
-                       "ERROR   : Could not create fifo %s. (%s %d)\n",
-                       sys_log_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-   if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
    if (init_fifos_mon() == INCORRECT)
    {
       (void)fprintf(stderr,
@@ -213,19 +234,19 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Make sure that no other afd_monitor is running in this directory */
+   /* Make sure that no other afd_monitor is running in this directory. */
    if (check_mon(10L) == 1)
    {
       (void)fprintf(stderr, "Another %s is active, terminating.\n", AFD_MON);
       exit(0);
    }
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(afd_mon_exit) != 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not register exit handler : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      (void)fprintf(stderr,
+                    "Could not register exit handler : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
@@ -236,9 +257,8 @@ main(int argc, char *argv[])
        (signal(SIGPIPE, SIG_IGN) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not set signal handlers : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not set signal handlers : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -329,9 +349,9 @@ main(int argc, char *argv[])
    {
       (void)memset(p_afd_mon_status, 0, sizeof(struct afd_mon_status));
    }
-   p_afd_mon_status->afd_mon     = ON;
-   p_afd_mon_status->mon_sys_log = 0;
-   p_afd_mon_status->mon_log     = 0;
+   p_afd_mon_status->afd_mon       = ON;
+   p_afd_mon_status->mon_sys_log   = 0;
+   p_afd_mon_status->mon_log       = 0;
 
    /* Start log process for afd_monitor */
    if ((sys_log_pid = start_process(MON_SYS_LOG, -1)) < 0)
@@ -350,9 +370,10 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_afd_mon_status->mon_log = ON;
-   p_afd_mon_status->start_time = time(NULL);
-   (void)rec(sys_log_fd, INFO_SIGN,
-             "=================> STARTUP <=================\n");
+
+   now = p_afd_mon_status->start_time = time(NULL);
+   system_log(INFO_SIGN, NULL, 0,
+              "=================> STARTUP <=================");
    if (gethostname(hostname, 64) == 0)
    {
       char      dstr[26];
@@ -360,35 +381,102 @@ main(int argc, char *argv[])
 
       p_ts = localtime(&p_afd_mon_status->start_time);
       strftime(dstr, 26, "%a %h %d %H:%M:%S %Y", p_ts);
-      (void)rec(sys_log_fd, CONFIG_SIGN, "Starting on <%s> %s\n",
-                hostname, dstr);
+      system_log(CONFIG_SIGN, NULL, 0, "Starting on <%s> %s", hostname, dstr);
    }
-   (void)rec(sys_log_fd, INFO_SIGN, "Starting %s (%s)\n",
-             AFD_MON, PACKAGE_VERSION);
+   system_log(INFO_SIGN, NULL, 0,
+              "Starting %s (%s)", AFD_MON, PACKAGE_VERSION);
 
    if (msa_attach() != SUCCESS)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to attach to MSA. (%s %d)\n", __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to MSA.");
       exit(INCORRECT);
    }
 
-   /* Start all process */
+   /* Start all process. */
    start_all();
 
    /* Log all pid's in MON_ACTIVE file. */
    mon_active();
 
+   tmp_now = now;
+   new_hour_sum_time = ((now / 3600) * 3600) + 3600;
+   new_day_sum_time = ((now / 86400) * 86400) + 86400;
+   check_time = NO;
+   p_ts = localtime(&now);
+   current_week = (p_ts->tm_yday - (p_ts->tm_wday - 1 + 7) % 7 + 7) / 7;
+   current_month = p_ts->tm_mon;
+   current_year = p_ts->tm_year + 1900;
+
    FD_ZERO(&rset);
    for (;;)
    {
-      /* Initialise descriptor set and timeout */
+      now = time(NULL);
+
+      /* Initialise descriptor set and timeout. */
       FD_SET(mon_cmd_fd, &rset);
-      timeout.tv_usec = 0;
-      timeout.tv_sec = 10;
+      timeout.tv_usec = 0L;
+      if ((now + 10L) <= new_hour_sum_time)
+      {
+         time_offset = 10L;
+         check_time = NO;
+      }
+      else
+      {
+         time_offset = new_hour_sum_time - now;;
+         check_time = YES;
+      }
+      timeout.tv_sec = time_offset;
 
       /* Wait for message x seconds and then continue. */
       status = select(mon_cmd_fd + 1, &rset, NULL, NULL, &timeout);
+
+      if ((check_time == YES) &&
+          ((status == 0) || ((tmp_now = time(NULL)) >= new_hour_sum_time)))
+      {
+         if (tmp_now < now)
+         {
+            now = time(NULL);
+         }
+         else
+         {
+            now = tmp_now;
+         }
+         get_sum_data(HOUR_SUM, now);
+         new_hour_sum_time = ((now / 3600) * 3600) + 3600;
+
+         /* See if we can do the day summary. */
+         if (now >= new_day_sum_time)
+         {
+            get_sum_data(DAY_SUM, now);
+            new_day_sum_time = ((now / 86400) * 86400) + 86400;
+
+            p_ts = localtime(&now);
+            new_week = (p_ts->tm_yday - (p_ts->tm_wday - 1 + 7) % 7 + 7) / 7;
+            new_month = p_ts->tm_mon;
+            new_year = p_ts->tm_year + 1900;
+
+            /* See if we have reached a new week. */
+            if (current_week != new_week)
+            {
+               get_sum_data(WEEK_SUM, now);
+               current_week = new_week;
+            }
+
+            /* See if we have reached a new month. */
+            if (current_month != new_month)
+            {
+               get_sum_data(MONTH_SUM, now);
+               current_month = new_month;
+            }
+
+            /* See if we have reached a new year. */
+            if (current_year != new_year)
+            {
+               get_sum_data(YEAR_SUM, now);
+               current_year = new_year;
+            }
+         }
+      }
 
       if (FD_ISSET(mon_cmd_fd, &rset))
       {
@@ -399,7 +487,7 @@ main(int argc, char *argv[])
          {
             int count = 0;
 
-            /* Now evaluate all data read from fifo, byte after byte */
+            /* Now evaluate all data read from fifo, byte after byte. */
             while (count < n)
             {
                switch (buffer[count])
@@ -419,11 +507,65 @@ main(int argc, char *argv[])
 
                      if (send_cmd(ACKN, probe_only_fd) < 0)
                      {
-                        (void)rec(sys_log_fd, FATAL_SIGN,
-                                  "Was not able to send acknowledge via fifo. (%s %d)\n",
-                                  __FILE__, __LINE__);
+                        system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                   "Was not able to send acknowledge via fifo.");
                         exit(INCORRECT);
                      }
+                     break;
+
+                  case GOT_LC : /* Got log capabilities. */
+                     count++;
+                     if (buffer[count] == ' ')
+                     {
+                        int  bytes_handled = 0;
+                        char str_num[MAX_INT_LENGTH];
+
+                        count++;
+                        while ((isdigit((int)(buffer[count]))) &&
+                               (count < n) &&
+                               (bytes_handled < MAX_INT_LENGTH))
+                        {
+                           str_num[bytes_handled] = buffer[count];
+                           count++; bytes_handled++;
+                        }
+                        if (bytes_handled > 0)
+                        {
+                           int pos;
+
+                           str_num[bytes_handled] = '\0';
+                           pos = atoi(str_num);
+
+                           if (pos < no_of_afds)
+                           {
+                              if (pl[pos].log_pid > 0)
+                              {
+                                 stop_log_process(pos);
+                              }
+                              if (((msa[pos].log_capabilities & AFDD_SYSTEM_LOG) &&
+                                   (msa[pos].options & AFDD_SYSTEM_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_RECEIVE_LOG) &&
+                                   (msa[pos].options & AFDD_RECEIVE_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_TRANSFER_LOG) &&
+                                   (msa[pos].options & AFDD_TRANSFER_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_TRANSFER_DEBUG_LOG) &&
+                                   (msa[pos].options & AFDD_TRANSFER_DEBUG_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_INPUT_LOG) &&
+                                   (msa[pos].options & AFDD_INPUT_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_PRODUCTION_LOG) &&
+                                   (msa[pos].options & AFDD_PRODUCTION_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_OUTPUT_LOG) &&
+                                   (msa[pos].options & AFDD_OUTPUT_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_DELETE_LOG) &&
+                                   (msa[pos].options & AFDD_DELETE_LOG)) ||
+                                  ((msa[pos].log_capabilities & AFDD_JOB_DATA) &&
+                                   (msa[pos].options & AFDD_JOB_DATA)))
+                              {
+                                 start_log_process(pos, msa[pos].log_capabilities);
+                              }
+                           }
+                        }
+                     }
+                     count--;
                      break;
 
                   case DISABLE_MON : /* Disable monitoring of an AFD. */
@@ -448,7 +590,7 @@ main(int argc, char *argv[])
                            str_num[bytes_handled] = '\0';
                            pos = atoi(str_num);
 
-                           if ((pos < no_of_afds) && (pl[pos].pid > 0))
+                           if ((pos < no_of_afds) && (pl[pos].mon_pid > 0))
                            {
                               msa[pos].connect_status = DISABLED;
                               stop_process(pos, NO);
@@ -480,10 +622,10 @@ main(int argc, char *argv[])
                            str_num[bytes_handled] = '\0';
                            pos = atoi(str_num);
 
-                           if ((pos < no_of_afds) && (pl[pos].pid == 0))
+                           if ((pos < no_of_afds) && (pl[pos].mon_pid == 0))
                            {
                               msa[pos].connect_status = DISCONNECTED;
-                              if ((pl[pos].pid = start_process("mon", pos)) != INCORRECT)
+                              if ((pl[pos].mon_pid = start_process(MON_PROC, pos)) != INCORRECT)
                               {
                                  pl[pos].start_time = time(NULL);
                               }
@@ -495,10 +637,9 @@ main(int argc, char *argv[])
 
                   default        : /* Reading garbage from fifo */
 
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "Reading garbage on fifo %s [%d]. Ignoring. (%s %d)\n",
-                               MON_CMD_FIFO, (int)buffer[count],
-                               __FILE__, __LINE__);
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Reading garbage on fifo %s [%d]. Ignoring.",
+                                MON_CMD_FIFO, (int)buffer[count]);
                      break;
                }
                count++;
@@ -517,8 +658,7 @@ main(int argc, char *argv[])
               }
               if (stat_buf.st_mtime != afd_mon_db_time)
               {
-                 (void)rec(sys_log_fd, INFO_SIGN,
-                           "Rereading AFD_MON_CONFIG.\n");
+                 system_log(INFO_SIGN, NULL, 0, "Rereading AFD_MON_CONFIG.");
                  afd_mon_db_time = stat_buf.st_mtime;
 
                  /* Kill all process */
@@ -526,33 +666,31 @@ main(int argc, char *argv[])
 
                  if (msa_detach() != SUCCESS)
                  {
-                    (void)rec(sys_log_fd, ERROR_SIGN,
-                              "Failed to detach from MSA. (%s %d)\n",
-                              __FILE__, __LINE__);
+                    system_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to detach from MSA.");
                  }
-
                  create_msa();
 
                  if (msa_attach() != SUCCESS)
                  {
-                    (void)rec(sys_log_fd, FATAL_SIGN,
-                              "Failed to attach to MSA. (%s %d)\n",
-                              __FILE__, __LINE__);
+                    system_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "Failed to attach to MSA.");
                     exit(INCORRECT);
                  }
 
                  /* Start all process */
                  start_all();
+
+                 mon_active();
               }
 
               /* Check if any process terminated for whatever reason. */
-              zombie_check();
+              zombie_check(now + time_offset);
            }
            else
            {
-              (void)rec(sys_log_fd, FATAL_SIGN,
-                        "select() error : %s (%s %d)\n",
-                        strerror(errno), __FILE__, __LINE__);
+              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                         "select() error : %s", strerror(errno));
               exit(INCORRECT);
            }
    } /* for (;;) */
@@ -563,7 +701,7 @@ main(int argc, char *argv[])
 
 /*+++++++++++++++++++++++++++ zombie_check() ++++++++++++++++++++++++++++*/
 static void
-zombie_check(void)
+zombie_check(time_t now)
 {
    int   faulty = NO,
          i,
@@ -580,38 +718,33 @@ zombie_check(void)
       p_afd_mon_status->mon_sys_log = OFF;
       if ((ret_stat = WIFEXITED(status)))
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "System log of %s terminated with %d. (%s %d)\n",
-                   AFD_MON, ret_stat, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "System log of %s terminated with %d.", AFD_MON, ret_stat);
          sys_log_pid = 0;
       }
       else if (WIFSIGNALED(status))
            {
               /* Abnormal termination. */
-              (void)rec(sys_log_fd, ERROR_SIGN,
-                        "Abnormal termination of system log process of %s. (%s %d)\n",
-                        AFD_MON, __FILE__, __LINE__);
+              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Abnormal termination of system log process of %s.",
+                         AFD_MON);
               sys_log_pid = 0;
            }
 
       /* Restart log process. */
-      (void)rec(sys_log_fd, INFO_SIGN,
-                "Restart %s system log process. (%s %d)\n",
-                AFD_MON, __FILE__, __LINE__);
+      system_log(INFO_SIGN, NULL, 0, "Restart %s system log process.", AFD_MON);
       if ((sys_log_pid = start_process(MON_SYS_LOG, -1)) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, 
-                   "Could not start system log process for AFD_MON. (%s %d)\n",
-                   __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not start system log process for AFD_MON.");
          exit(INCORRECT);
       }
       p_afd_mon_status->mon_sys_log = ON;
    }
    else if (ret == -1)
         {
-           (void)rec(sys_log_fd, ERROR_SIGN,
-                     "waitpid() error : %s (%s %d)\n",
-                     strerror(errno), __FILE__, __LINE__);
+           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "waitpid() error : %s", strerror(errno));
         }
    if ((ret = waitpid(mon_log_pid, &status, WNOHANG)) == mon_log_pid)
    {
@@ -620,38 +753,34 @@ zombie_check(void)
       p_afd_mon_status->mon_log = OFF;
       if ((ret_stat = WIFEXITED(status)))
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Monitor log of %s terminated with %d. (%s %d)\n",
-                   AFD_MON, ret_stat, __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Monitor log of %s terminated with %d.", AFD_MON, ret_stat);
          mon_log_pid = 0;
       }
       else if (WIFSIGNALED(status))
            {
               /* Abnormal termination. */
-              (void)rec(sys_log_fd, ERROR_SIGN,
-                        "Abnormal termination of monitor log process of %s. (%s %d)\n",
-                        AFD_MON, __FILE__, __LINE__);
+              system_log(ERROR_SIGN, __FILE__, __LINE__,
+                         "Abnormal termination of monitor log process of %s.",
+                         AFD_MON);
               mon_log_pid = 0;
            }
 
       /* Restart log process. */
-      (void)rec(sys_log_fd, INFO_SIGN,
-                "Restart %s monitor log process. (%s %d)\n",
-                AFD_MON, __FILE__, __LINE__);
+      system_log(INFO_SIGN, NULL, 0,
+                 "Restart %s monitor log process.", AFD_MON);
       if ((mon_log_pid = start_process(MONITOR_LOG, -1)) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, 
-                   "Could not start monitor log process for AFD_MON. (%s %d)\n",
-                   __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not start monitor log process for AFD_MON.");
          exit(INCORRECT);
       }
       p_afd_mon_status->mon_log = ON;
    }
    else if (ret == -1)
         {
-           (void)rec(sys_log_fd, ERROR_SIGN,
-                     "waitpid() error : %s (%s %d)\n",
-                     strerror(errno), __FILE__, __LINE__);
+           system_log(ERROR_SIGN, __FILE__, __LINE__,
+                      "waitpid() error : %s", strerror(errno));
         }
 
    /*
@@ -659,9 +788,9 @@ zombie_check(void)
     */
    for (i = 0; i < no_of_afds; i++)
    {
-      if (pl[i].pid > 0)
+      if (pl[i].mon_pid > 0)
       {
-         if ((ret = waitpid(pl[i].pid, &status, WNOHANG)) == pl[i].pid)
+         if ((ret = waitpid(pl[i].mon_pid, &status, WNOHANG)) == pl[i].mon_pid)
          {
             if (WIFEXITED(status))
             {
@@ -669,33 +798,40 @@ zombie_check(void)
                {
                   case SUCCESS :
                      faulty = NO;
-                     pl[i].pid = 0;
+                     pl[i].mon_pid = 0;
                      pl[i].start_time = 0;
                      pl[i].number_of_restarts = 0;
                      break;
 
                   default   : /* Unkown error */
                      faulty = YES;
-                     pl[i].pid = 0;
+                     pl[i].mon_pid = 0;
                      break;
                }
             }
             else if (WIFSIGNALED(status))
                  {
                     /* Abnormal termination. */
-                    (void)rec(sys_log_fd, WARN_SIGN,
-                              "Abnormal termination of process %d monitoring %s. (%s %d)\n",
-                              pl[i].pid, pl[i].afd_alias,
-                              __FILE__, __LINE__);
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                               "Abnormal termination of process %d monitoring %s.",
+#else
+                               "Abnormal termination of process %lld monitoring %s.",
+#endif
+                               (pri_pid_t)pl[i].mon_pid, pl[i].afd_alias);
                     faulty = YES;
-                    pl[i].pid = 0;
+                    pl[i].mon_pid = 0;
                  }
          }
          else if (ret == -1)
               {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "waitpid() %d (pos %d) error : %s (%s %d)\n",
-                           pl[i].pid, i, strerror(errno), __FILE__, __LINE__);
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                            "waitpid() %d (pos %d) error : %s",
+#else
+                            "waitpid() %lld (pos %d) error : %s",
+#endif
+                            (pri_pid_t)pl[i].mon_pid, i, strerror(errno));
               }
 
          if ((faulty == YES) && (msa[i].connect_status != DISABLED))
@@ -703,12 +839,9 @@ zombie_check(void)
             if (pl[i].number_of_restarts < 20)
             {
                /* Restart monitor process. */
-               if ((pl[i].pid = start_process("mon", i)) != INCORRECT)
+               if ((pl[i].mon_pid = start_process(MON_PROC, i)) != INCORRECT)
                {
-                  time_t current_time;
-
-                  (void)time(&current_time);
-                  if (current_time > (pl[i].start_time + 5))
+                  if (now > (pl[i].start_time + 5))
                   {
                      pl[i].number_of_restarts = 0;
                   }
@@ -716,18 +849,87 @@ zombie_check(void)
                   {
                      pl[i].number_of_restarts++;
                   }
-                  pl[i].start_time = current_time;
+                  pl[i].start_time = now;
                }
             }
             else
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "To many restarts of mon process for %s. Will NOT try to start it again. (%s %d)\n",
-                         pl[i].afd_alias, __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "To many restarts of mon process for %s. Will NOT try to start it again.",
+                          pl[i].afd_alias);
             }
             faulty = NO;
          }
-      } /* if (pl[i].pid > 0) */
+      } /* if (pl[i].mon_pid > 0) */
+
+      if (pl[i].log_pid > 0)
+      {
+         if ((ret = waitpid(pl[i].log_pid, &status, WNOHANG)) == pl[i].log_pid)
+         {
+            if (WIFEXITED(status))
+            {
+               switch (WEXITSTATUS(status))
+               {
+                  case REMOTE_HANGUP     :
+                  case FAILED_LOG_CMD    :
+                  case LOG_CONNECT_ERROR :
+                     pl[i].next_retry_time_log = now + RETRY_INTERVAL;
+                     pl[i].log_pid = -1;
+                     break;
+
+                  case MISSED_PACKET :
+                     start_log_process(i, msa[i].log_capabilities);
+                     break;
+
+                  default   : /* Unkown error */
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                                "Termination of process %d receiving log data from %s (%d).",
+#else
+                                "Termination of process %lld receiving log data from %s (%d).",
+#endif
+                                (pri_pid_t)pl[i].log_pid, pl[i].afd_alias,
+                                WEXITSTATUS(status));
+                     pl[i].next_retry_time_log = now + RETRY_INTERVAL;
+                     pl[i].log_pid = -1;
+                     break;
+               }
+            }
+            else if (WIFSIGNALED(status))
+                 {
+                    /* Abnormal termination. */
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                               "Abnormal termination of process %d receiving log data from %s.",
+#else
+                               "Abnormal termination of process %lld receiving log data from %s.",
+#endif
+                               (pri_pid_t)pl[i].log_pid, pl[i].afd_alias);
+                    pl[i].next_retry_time_log = now + RETRY_INTERVAL;
+                    pl[i].log_pid = -1;
+                 }
+         }
+         else if (ret == -1)
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
+                            "waitpid() %d (pos %d) error : %s",
+#else
+                            "waitpid() %lld (pos %d) error : %s",
+#endif
+                            (pri_pid_t)pl[i].log_pid, i, strerror(errno));
+              }
+      } /* if (pl[i].log_pid > 0) */
+
+      /*
+       * Lets check if we need to restart any log process at a given
+       * time.
+       */
+      if ((pl[i].log_pid == -1) && (pl[i].next_retry_time_log != 0L) &&
+          (now > pl[i].next_retry_time_log))
+      {
+         start_log_process(i, msa[i].log_capabilities);
+      }
    } /* for (i = 0; i < no_of_afds; i++) */
 
    return;
@@ -757,17 +959,15 @@ mon_active(void)
                              (S_IRUSR | S_IWUSR))) < 0)
 #endif
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to create %s : %s (%s %d)\n",
-                mon_active_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to create %s : %s", mon_active_file, strerror(errno));
       exit(INCORRECT);
    }
-   size = ((3 + no_of_afds) * sizeof(pid_t)) + sizeof(int) + 1;
+   size = ((3 + no_of_afds + no_of_afds) * sizeof(pid_t)) + sizeof(int) + 1;
    if ((buffer = malloc(size)) == NULL)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "malloc() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "malloc() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -783,23 +983,23 @@ mon_active(void)
    ptr += sizeof(int);
    for (i = 0; i < no_of_afds; i++)
    {
-      *(pid_t *)ptr = pl[i].pid;
+      *(pid_t *)ptr = pl[i].mon_pid;
+      ptr += sizeof(pid_t);
+      *(pid_t *)ptr = pl[i].log_pid;
       ptr += sizeof(pid_t);
    }
 
    /* Write buffer into file. */
    if (write(mon_active_fd, buffer, size) != size)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "write() error in %s : %s (%s %d)\n",
-                mon_active_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "write() error in %s : %s", mon_active_file, strerror(errno));
       exit(INCORRECT);
    }
    if (close(mon_active_fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
    if (buffer != NULL)
    {
@@ -810,97 +1010,401 @@ mon_active(void)
 }
 
 
+/*+++++++++++++++++++++++++++ get_sum_data() ++++++++++++++++++++++++++++*/
+static void
+get_sum_data(int sum_type, time_t now)
+{
+   int          i;
+   unsigned int diff_files_received,
+                diff_files_send,
+                diff_connections,
+                diff_total_errors,
+                total_files_received = 0,
+                total_files_send = 0,
+                total_connections = 0,
+                total_total_errors = 0;
+   u_off_t      diff_bytes_received,
+                diff_bytes_send,
+                diff_log_bytes_received,
+                total_bytes_received = 0,
+                total_bytes_send = 0,
+                total_log_bytes_received = 0;
+
+   for (i = 0; i < no_of_afds; i++)
+   {
+      p_mon_alias = msa[i].afd_alias;
+      if (msa[i].files_received[CURRENT_SUM] >= msa[i].files_received[sum_type])
+      {
+         diff_files_received = msa[i].files_received[CURRENT_SUM] - msa[i].files_received[sum_type];
+      }
+      else
+      {
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, now, NULL,
+                 "files_received overflowed!");
+         diff_files_received = msa[i].files_received[CURRENT_SUM];
+      }
+      if (msa[i].bytes_received[CURRENT_SUM] >= msa[i].bytes_received[sum_type])
+      {
+         diff_bytes_received = msa[i].bytes_received[CURRENT_SUM] - msa[i].bytes_received[sum_type];
+      }
+      else
+      {
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, now, NULL,
+                 "bytes_received overflowed!");
+         diff_bytes_received = msa[i].bytes_received[CURRENT_SUM];
+      }
+      if (msa[i].files_send[CURRENT_SUM] >= msa[i].files_send[sum_type])
+      {
+         diff_files_send = msa[i].files_send[CURRENT_SUM] - msa[i].files_send[sum_type];
+      }
+      else
+      {
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, now, NULL,
+                 "files_send overflowed!");
+         diff_files_send = msa[i].files_send[CURRENT_SUM];
+      }
+      if (msa[i].bytes_send[CURRENT_SUM] >= msa[i].bytes_send[sum_type])
+      {
+         diff_bytes_send = msa[i].bytes_send[CURRENT_SUM] - msa[i].bytes_send[sum_type];
+      }
+      else
+      {
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, now, NULL,
+                 "bytes_send overflowed!");
+         diff_bytes_send = msa[i].bytes_send[CURRENT_SUM];
+      }
+      if (msa[i].connections[CURRENT_SUM] >= msa[i].connections[sum_type])
+      {
+         diff_connections = msa[i].connections[CURRENT_SUM] - msa[i].connections[sum_type];
+      }
+      else
+      {
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, now, NULL,
+                 "connections overflowed!");
+         diff_connections = msa[i].connections[CURRENT_SUM];
+      }
+      if (msa[i].total_errors[CURRENT_SUM] >= msa[i].total_errors[sum_type])
+      {
+         diff_total_errors = msa[i].total_errors[CURRENT_SUM] - msa[i].total_errors[sum_type];
+      }
+      else
+      {
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, now, NULL,
+                 "total_errors overflowed!");
+         diff_total_errors = msa[i].total_errors[CURRENT_SUM];
+      }
+      if (msa[i].log_bytes_received[CURRENT_SUM] >= msa[i].log_bytes_received[sum_type])
+      {
+         diff_log_bytes_received = msa[i].log_bytes_received[CURRENT_SUM] - msa[i].log_bytes_received[sum_type];
+      }
+      else
+      {
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, now, NULL,
+                 "log_bytes_received overflowed!");
+         diff_log_bytes_received = msa[i].log_bytes_received[CURRENT_SUM];
+      }
+
+      print_data(YES, sum_type, now, diff_files_received,
+                 diff_bytes_received, diff_files_send,
+                 diff_bytes_send, diff_connections, diff_total_errors,
+                 diff_log_bytes_received);
+      msa[i].files_received[sum_type] = msa[i].files_received[CURRENT_SUM];
+      msa[i].bytes_received[sum_type] = msa[i].bytes_received[CURRENT_SUM];
+      msa[i].files_send[sum_type] = msa[i].files_send[CURRENT_SUM];
+      msa[i].bytes_send[sum_type] = msa[i].bytes_send[CURRENT_SUM];
+      msa[i].connections[sum_type] = msa[i].connections[CURRENT_SUM];
+      msa[i].total_errors[sum_type] = msa[i].total_errors[CURRENT_SUM];
+      msa[i].log_bytes_received[sum_type] = msa[i].log_bytes_received[CURRENT_SUM];
+
+      total_files_received += diff_files_received;
+      total_bytes_received += diff_bytes_received;
+      total_files_send += diff_files_send;
+      total_bytes_send += diff_bytes_send;
+      total_connections += diff_connections;
+      total_total_errors += diff_total_errors;
+      total_log_bytes_received += diff_log_bytes_received;
+   }
+   print_data(NO, sum_type, now, total_files_received,
+              total_bytes_received, total_files_send,
+              total_bytes_send, total_connections, total_total_errors,
+              total_log_bytes_received);
+
+   return;
+}
+
+
+/*----------------------------- print_data() ----------------------------*/
+static void
+print_data(int          mon_log_fd,
+           int          log_type,
+           time_t       now,
+           unsigned int files_received,
+           u_off_t      bytes_received,
+           unsigned int files_send,
+           u_off_t      bytes_send,
+           unsigned int connections,
+           unsigned int total_errors,
+           u_off_t      log_bytes_received)
+{
+   int  length;
+   char line[108 + (4 * MAX_INT_LENGTH) + (3 * MAX_LONG_LONG_LENGTH)];
+
+   length = sprintf(line, "--%s sum-- Input: %u files ",
+                    sum_stat_type[log_type], files_received);
+   if (bytes_received < KILOBYTE)
+   {
+#if SIZEOF_OFF_T == 4
+      length += sprintf(&line[length], "%lu bytes | Output: %u files ",
+#else
+      length += sprintf(&line[length], "%llu bytes | Output: %u files ",
+#endif
+                        bytes_received, files_send);
+   }
+   else if (bytes_received < MEGABYTE)
+        {
+           length += sprintf(&line[length], "%.2f KB | Output: %u files ",
+                             (double)bytes_received / F_KILOBYTE, files_send);
+        }
+   else if (bytes_received < GIGABYTE)
+        {
+           length += sprintf(&line[length], "%.2f MB | Output: %u files ",
+                             (double)bytes_received / F_MEGABYTE, files_send);
+        }
+   else if (bytes_received < TERABYTE)
+        {
+           length += sprintf(&line[length], "%.2f GB | Output: %u files ",
+                             (double)bytes_received / F_GIGABYTE, files_send);
+        }
+   else if (bytes_received < PETABYTE)
+        {
+           length += sprintf(&line[length], "%.2f TB | Output: %u files ",
+                             (double)bytes_received / F_TERABYTE, files_send);
+        }
+   else if (bytes_received < EXABYTE)
+        {
+           length += sprintf(&line[length], "%.2f PB | Output: %u files ",
+                             (double)bytes_received / F_PETABYTE, files_send);
+        }
+        else
+        {
+           length += sprintf(&line[length], "%.2f EB | Output: %u files ",
+                             (double)bytes_received / F_EXABYTE, files_send);
+        }
+   if (bytes_send < KILOBYTE)
+   {
+#if SIZEOF_OFF_T == 4
+      length += sprintf(&line[length], "%lu bytes %u connections %u errors",
+#else
+      length += sprintf(&line[length], "%llu bytes %u connections %u errors",
+#endif
+                        bytes_send, connections, total_errors);
+   }
+   else if (bytes_send < MEGABYTE)
+        {
+           length += sprintf(&line[length], "%.2f KB %u connections %u errors",
+                             (double)bytes_send / F_KILOBYTE,
+                             connections, total_errors);
+        }
+   else if (bytes_send < GIGABYTE)
+        {
+           length += sprintf(&line[length], "%.2f MB %u connections %u errors",
+                             (double)bytes_send / F_MEGABYTE,
+                             connections, total_errors);
+        }
+   else if (bytes_send < TERABYTE)
+        {
+           length += sprintf(&line[length], "%.2f GB %u connections %u errors",
+                             (double)bytes_send / F_GIGABYTE,
+                             connections, total_errors);
+        }
+   else if (bytes_send < PETABYTE)
+        {
+           length += sprintf(&line[length], "%.2f TB %u connections %u errors",
+                             (double)bytes_send / F_TERABYTE,
+                             connections, total_errors);
+        }
+   else if (bytes_send < EXABYTE)
+        {
+           length += sprintf(&line[length], "%.2f PB %u connections %u errors",
+                             (double)bytes_send / F_PETABYTE,
+                             connections, total_errors);
+        }
+        else
+        {
+           length += sprintf(&line[length], "%.2f EB %u connections %u errors",
+                             (double)bytes_send / F_EXABYTE,
+                             connections, total_errors);
+        }
+   if (log_bytes_received < KILOBYTE)
+   {
+#if SIZEOF_OFF_T == 4
+      length += sprintf(&line[length], " | Log data received: %lu bytes",
+#else
+      length += sprintf(&line[length], " | Log data received: %llu bytes",
+#endif
+                        log_bytes_received);
+   }
+   else if (log_bytes_received < MEGABYTE)
+        {
+           length += sprintf(&line[length], " | Log data received: %.2f KB",
+                             (double)log_bytes_received / F_KILOBYTE);
+        }
+   else if (log_bytes_received < GIGABYTE)
+        {
+           length += sprintf(&line[length], " | Log data received: %.2f MB",
+                             (double)log_bytes_received / F_MEGABYTE);
+        }
+   else if (log_bytes_received < TERABYTE)
+        {
+           length += sprintf(&line[length], " | Log data received: %.2f GB",
+                             (double)log_bytes_received / F_GIGABYTE);
+        }
+   else if (log_bytes_received < PETABYTE)
+        {
+           length += sprintf(&line[length], " | Log data received: %.2f TB",
+                             (double)log_bytes_received / F_TERABYTE);
+        }
+   else if (log_bytes_received < EXABYTE)
+        {
+           length += sprintf(&line[length], " | Log data received: %.2f PB",
+                             (double)log_bytes_received / F_PETABYTE);
+        }
+        else
+        {
+           length += sprintf(&line[length], " | Log data received: %.2f EB",
+                             (double)log_bytes_received / F_EXABYTE);
+        }
+   if (mon_log_fd == YES)
+   {
+      mon_log(INFO_SIGN, NULL, 0, now, NULL, "%s", line);
+   }
+   else
+   {
+      system_log(INFO_SIGN, NULL, 0, "%s", line);
+   }
+
+   return;
+}
+
+
 /*++++++++++++++++++++++++++++ afd_mon_exit() +++++++++++++++++++++++++++*/
 static void
 afd_mon_exit(void)
 {
-   char hostname[64];
-
-   /* Kill any job still active! */
-   stop_process(-1, got_shuttdown_message);
-   p_afd_mon_status->afd_mon = STOPPED;
-
-   (void)rec(sys_log_fd, INFO_SIGN, "Stopped %s.\n", AFD_MON);
-   (void)unlink(mon_active_file);
-
-   if (mon_log_pid > 0)
+   if (in_child == NO)
    {
-      if (kill(mon_log_pid, SIGINT) == -1)
+      char hostname[64];
+
+      /* Kill any job still active! */
+      stop_process(-1, got_shuttdown_message);
+      p_afd_mon_status->afd_mon = STOPPED;
+
+      system_log(INFO_SIGN, NULL, 0, "Stopped %s.", AFD_MON);
+      (void)unlink(mon_active_file);
+
+      if (mon_log_pid > 0)
       {
-         if (errno != ESRCH)
+         int j;
+
+         if (kill(mon_log_pid, SIGINT) == -1)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Failed to kill monitor log process (%d) : %s (%s %d)\n",
-                      mon_log_pid, strerror(errno), __FILE__, __LINE__);
+            if (errno != ESRCH)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to kill monitor log process (%d) : %s",
+                          mon_log_pid, strerror(errno));
+            }
+         }
+
+         /* Wait for the child to terminate. */
+         for (j = 0; j < MAX_SHUTDOWN_TIME;  j++)
+         {
+            if (waitpid(mon_log_pid, NULL, WNOHANG) == mon_log_pid)
+            {
+               mon_log_pid = NOT_RUNNING;
+               break;
+            }
+            else
+            {
+               (void)sleep(1);
+            }
+         }
+         if (mon_log_pid != NOT_RUNNING)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to stop monitor log process for AFD_MON.");
          }
       }
-   }
-   p_afd_mon_status->mon_log = STOPPED;
+      p_afd_mon_status->mon_log = STOPPED;
 
-   if (msa_detach() != SUCCESS)
-   {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Failed to detach from MSA. (%s %d)\n",
-                __FILE__, __LINE__);
-   }
-
-   if (gethostname(hostname, 64) == 0)
-   {
-      char      date_str[26];
-      time_t    now;
-      struct tm *p_ts;
-
-      now = time(NULL);
-      p_ts = localtime(&now);
-      strftime(date_str, 26, "%a %h %d %H:%M:%S %Y", p_ts);
-      (void)rec(sys_log_fd, CONFIG_SIGN,
-                "Shutdown on <%s> %s\n", hostname, date_str);
-   }
-   (void)rec(sys_log_fd, INFO_SIGN,
-             "=================> SHUTDOWN <=================\n");
-
-   if (got_shuttdown_message == YES)
-   {
-      /* Tell 'mafd' that we received shutdown message */
-      if (send_cmd(ACKN, mon_resp_fd) < 0)
+      if (msa_detach() != SUCCESS)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to send ACKN : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to detach from MSA.");
       }
-   }
 
-   /* As the last process kill the system log process. */
-   if (sys_log_pid > 0)
-   {
-      FILE *p_sys_log;
-
-      if ((p_sys_log = fdopen(sys_log_fd, "a+")) != NULL)
+      if (gethostname(hostname, 64) == 0)
       {
-         (void)fflush(p_sys_log);
-         (void)fclose(p_sys_log);
+         char      date_str[26];
+         time_t    now;
+         struct tm *p_ts;
+
+         now = time(NULL);
+         p_ts = localtime(&now);
+         strftime(date_str, 26, "%a %h %d %H:%M:%S %Y", p_ts);
+         system_log(CONFIG_SIGN, NULL, 0,
+                    "Shutdown on <%s> %s", hostname, date_str);
       }
-      /* Give system log to tell whether AMG, FD, etc */
-      /* have been stopped.                           */
-      (void)my_usleep(10000L);
-      (void)kill(sys_log_pid, SIGINT);
-   }
-   p_afd_mon_status->mon_sys_log = STOPPED;
+      system_log(INFO_SIGN, NULL, 0,
+                 "=================> SHUTDOWN <=================");
+
+      if (got_shuttdown_message == YES)
+      {
+         /* Tell 'mafd' that we received shutdown message */
+         if (send_cmd(ACKN, mon_resp_fd) < 0)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to send ACKN : %s", strerror(errno));
+         }
+      }
+
+      /* As the last process kill the system log process. */
+      if (sys_log_pid > 0)
+      {
+         FILE *p_sys_log;
+
+         if ((p_sys_log = fdopen(sys_log_fd, "a+")) != NULL)
+         {
+            (void)fflush(p_sys_log);
+            (void)fclose(p_sys_log);
+         }
+         /* Give system log to tell whether AMG, FD, etc */
+         /* have been stopped.                           */
+         (void)my_usleep(10000L);
+         (void)kill(sys_log_pid, SIGINT);
+      }
+      p_afd_mon_status->mon_sys_log = STOPPED;
 #ifdef HAVE_MMAP
-   if (msync((void *)p_afd_mon_status, sizeof(struct afd_mon_status),
-              MS_SYNC) == -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "msync() error : %s", strerror(errno));
-   }
-   if (munmap((void *)p_afd_mon_status, sizeof(struct afd_mon_status)) == -1)
-   {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "munmap() error : %s", strerror(errno));
-   }
+      if (msync((void *)p_afd_mon_status, sizeof(struct afd_mon_status),
+                 MS_SYNC) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "msync() error : %s", strerror(errno));
+      }
+      if (munmap((void *)p_afd_mon_status, sizeof(struct afd_mon_status)) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "munmap() error : %s", strerror(errno));
+      }
+#else
+      if (munmap_emu((void *)p_afd_mon_status) == -1)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "munmap_emu() error : %s", strerror(errno));
+      }
 #endif
 
-   (void)close(sys_log_fd);
+      (void)close(sys_log_fd);
+   }
 
    return;
 }
@@ -910,8 +1414,7 @@ afd_mon_exit(void)
 static void
 sig_segv(int signo)
 {
-   (void)rec(sys_log_fd, FATAL_SIGN, "Aaarrrggh! Received SIGSEGV. (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
    afd_mon_exit();
 
    /* Dump core so we know what happened. */
@@ -923,8 +1426,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   (void)rec(sys_log_fd, FATAL_SIGN, "Uuurrrggh! Received SIGBUS. (%s %d)\n",
-             __FILE__, __LINE__);
+   system_log(FATAL_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
    afd_mon_exit();
 
    /* Dump core so we know what happened. */

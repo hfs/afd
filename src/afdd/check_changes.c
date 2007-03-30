@@ -1,6 +1,6 @@
 /*
  *  check_changes.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -55,7 +55,9 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        host_config_counter,
+                                  log_defs,
                                   no_of_hosts;
+extern pid_t                      log_pid;
 extern char                       afd_config_file[],
                                   current_msg_list_file[];
 extern unsigned char              **old_error_history;
@@ -67,25 +69,27 @@ extern struct filetransfer_status *fsa;
 void
 check_changes(FILE *p_data)
 {
-   static int      old_amg_status,
-                   old_archive_watch_status,
-                   old_fd_status,
-                   old_max_connections,
-                   old_no_of_jobs;
+   static int          old_amg_status,
+                       old_archive_watch_status,
+                       old_fd_status,
+                       old_max_connections,
+                       old_no_of_jobs;
    static unsigned int old_sys_log_ec;
-   static time_t   next_stat_time,
-                   old_st_mtime;
-   static char     old_receive_log_history[MAX_LOG_HISTORY],
-                   old_sys_log_history[MAX_LOG_HISTORY],
-                   old_trans_log_history[MAX_LOG_HISTORY];
-   register int    i;
-   time_t          now;
+   static time_t       next_stat_time,
+                       old_st_mtime;
+   static char         old_receive_log_history[MAX_LOG_HISTORY],
+                       old_sys_log_history[MAX_LOG_HISTORY],
+                       old_trans_log_history[MAX_LOG_HISTORY];
+   register int        i;
+   time_t              now;
 
-   if (check_fsa(NO) == YES)
+   if (check_fsa(YES) == YES)
    {
       int fd,
+          loop_counter = 0,
           no_of_jobs = -1;
 
+retry_check:
       if ((fd = open(current_msg_list_file, O_RDONLY)) == -1)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -108,7 +112,23 @@ check_changes(FILE *p_data)
                       current_msg_list_file, strerror(errno));
          }
       }
-      FREE_RT_ARRAY(old_error_history);
+      if (old_error_history != NULL)
+      {
+         FREE_RT_ARRAY(old_error_history);
+         old_error_history = NULL;
+      }
+
+      if (check_fsa(YES) == YES)
+      {
+         loop_counter++;
+         if (loop_counter < 10)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Hmm, FSA has changed again!");
+            my_usleep(500000L);
+            goto retry_check;
+         }
+      }
       RT_ARRAY(old_error_history, no_of_hosts, ERROR_HISTORY_LENGTH,
                unsigned char);
       for (i = 0; i < no_of_hosts; i++)
@@ -139,6 +159,10 @@ check_changes(FILE *p_data)
          host_config_counter = (int)*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET + SIZEOF_INT);
          show_host_list(p_data);
       }
+   }
+   if (check_fra(YES) == YES)
+   {
+      show_dir_list(p_data);
    }
 
    /*

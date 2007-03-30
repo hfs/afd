@@ -1,6 +1,6 @@
 /*
  *  output_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -132,6 +132,9 @@ main(int argc, char *argv[])
                   check_size,
                   status,
                   log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int            writefd;
+#endif
    off_t          *file_size;
    time_t         next_file_time,
                   now;
@@ -170,13 +173,21 @@ main(int argc, char *argv[])
       (void)strcpy(output_log_fifo, work_dir);
       (void)strcat(output_log_fifo, FIFO_DIR);
       (void)strcat(output_log_fifo, OUTPUT_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(output_log_fifo, &log_fd, &writefd) == -1)
+#else
       if ((log_fd = open(output_log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if (make_fifo(output_log_fifo) == SUCCESS)
             {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (open_fifo_rw(output_log_fifo, &log_fd, &writefd) == -1)
+#else
                if ((log_fd = open(output_log_fifo, O_RDWR)) == -1)
+#endif
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to open() fifo %s : %s",
@@ -278,7 +289,8 @@ main(int argc, char *argv[])
    get_log_number(&log_number,
                   (max_output_log_files - 1),
                   OUTPUT_BUFFER_FILE,
-                  strlen(OUTPUT_BUFFER_FILE));
+                  OUTPUT_BUFFER_FILE_LENGTH,
+                  NULL);
    (void)sprintf(current_log_file, "%s%s/%s0",
                  work_dir, LOG_DIR, OUTPUT_BUFFER_FILE);
    p_end = log_file;
@@ -298,7 +310,7 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end);
+         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
       }
    }
 
@@ -368,7 +380,7 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end);
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
             output_file = open_log_file(current_log_file);
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                              SWITCH_FILE_TIME;
@@ -455,12 +467,12 @@ main(int argc, char *argv[])
                                         "%-10llx %s%c%s%c%llx%c%.2f%c%x%c%s%c%s\n",
 # endif
 #endif
-                                        now,
+                                        (pri_time_t)now,
                                         p_host_name,
                                         SEPARATOR_CHAR,
                                         p_file_name + *unl,
                                         SEPARATOR_CHAR,
-                                        *file_size,
+                                        (pri_off_t)*file_size,
                                         SEPARATOR_CHAR,
                                         *transfer_duration / (double)clktck,
                                         SEPARATOR_CHAR,
@@ -488,12 +500,12 @@ main(int argc, char *argv[])
                                         "%-10llx %s%c%s%c%llx%c%.2f%c%x%c%s\n",
 # endif
 #endif
-                                        now,
+                                        (pri_time_t)now,
                                         p_host_name,
                                         SEPARATOR_CHAR,
                                         p_file_name + *unl,
                                         SEPARATOR_CHAR,
-                                        *file_size,
+                                        (pri_off_t)*file_size,
                                         SEPARATOR_CHAR,
                                         *transfer_duration / (double)clktck,
                                         SEPARATOR_CHAR,
@@ -541,7 +553,7 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end);
+                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
                  output_file = open_log_file(current_log_file);
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
               }

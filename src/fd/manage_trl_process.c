@@ -1,6 +1,6 @@
 /*
  *  manage_trl_process.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,7 +46,8 @@ DESCR__E_M3
 
 #include <stdio.h>       /* sprintf()                                    */
 #include <string.h>      /* strlen(), strerror()                         */
-#include <stdlib.h>      /* malloc(), realloc(), free()                  */
+#include <stdlib.h>      /* malloc(), realloc(), free(), strtoul()       */
+#include <ctype.h>       /* isdigit()                                    */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -151,7 +152,7 @@ init_trl_data(void)
 #else
                     "Failed to malloc() %lld bytes : %s",
 #endif
-                    file_size + 1, strerror(errno));
+                    (pri_off_t)(file_size + 1), strerror(errno));
          (void)close(fd);
          return;
       }
@@ -549,8 +550,7 @@ calc_trl_per_process(int fsa_pos)
    if ((no_of_trl_groups > 0) && (trlc[fsa_pos].pos != -1))
    {
       int   active_transfers = 0,
-            i,
-            possible_active_transfers = 0;
+            i;
       off_t tmp_trl_per_process;
 
       for (i = 0; i < trlg[trlc[fsa_pos].pos].no_of_hosts; i++)

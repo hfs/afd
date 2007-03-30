@@ -14,7 +14,7 @@ following appearance:
 As shown this dialog is divided into four main areas: menu, heading, connection
 and status.
 </p>
-<h3><center><a name="menu"><u>Menu</u></a></center></h3>
+<h3 align=center><a name="menu"><u>Menu</u></a></h3>
 <p>
 The menu area has five pull down buttons: Host, View, Control and Setup.
 If your afd_ctrl window does not have all buttons shown and described here,
@@ -26,7 +26,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
 <img align=left src="../images/host_popup.png" alt="[popup of Host button]">
 <table border>
    <tr>
-      <td>Start/Stop input queue</td>
+      <td><a name="start_stop_input_queue">Start/Stop input queue</a></td>
       <td>Allows you to start or stop the queue of one or more selected
           hosts. When the queue is stopped the queue led turns brown.</td>
       <td>&nbsp;</td>
@@ -52,7 +52,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
       <td align=center><img src="../images/disable_yes_no.png" alt="[Dialog to ask user again if he is sure]"></td>
    </tr>
    <tr>
-      <td><a name="Switch host">Switch host</a></td>
+      <td><a name="Switch_host">Switch host</a></td>
       <td>Switch host allows to change the destination address of
           selected host. To see whether a certain host has a secondary
           address look in <a HREF="afd_info.html">afd_info dialog</a>.</td>
@@ -78,7 +78,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
                 is being done. To watch the output the 
                 <a href="#Transfer_Debug_Log">Transfer Debug Log</a>
                 button. The contents of the debug log is described in
-                <a href="log.html#transfer_debug_log"Log Files</a>.</td>
+                <a href="log.html#transfer_debug_log">Log Files</a>.</td>
          </tr>
          <tr>
             <td>Trace</td>
@@ -205,7 +205,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
    </tr>
    <tr>
       <td>Job details</td>
-      <td>This closes and opens the <a href="afd_ctrl.html#Job Details">
+      <td>This closes and opens the <a href="afd_ctrl.html#Job_Details">
           Job details</a> dialog when jobs are selected.</td>
    </tr>
 </table>
@@ -307,7 +307,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
 </table>
 <br clear=left>
 <br>
-<h3><center><a name="heading"><u>Heading</u></a></center></h3>
+<h3 align=center><a name="heading"><u>Heading</u></a></h3>
 <center><img src="../images/heading.gif" alt="[closeup of the heading]"></center>
 <p>
 The heading is just a quick reminder of what the fields in the
@@ -336,7 +336,7 @@ connection area mean:
    <td>This is the error counter for this destination.</td>
 </tr>
 </table>
-<h3><center><a name="connection"><u>Connection</u></a></center></h3>
+<h3 align=center><a name="connection_field"><u>Connection</u></a></h3>
 <p>
 The connection area is the actual area which monitors and controls the AFD.
 The meaning of each field is shown below:
@@ -361,7 +361,7 @@ The meaning of each field is shown below:
           <td><center><img src="../images/error_host.gif"></center></td>
 	  <td>Error. Files cannot be transmitted. It turns red when the error
 	      counter has reached the value set in the 
-	      <a href="amg.html#max_errors">HOST_CONFIG</a> file.</td>
+	      <a href="host_config.html#max_errors">HOST_CONFIG</a> file.</td>
        </tr>
        <tr>
           <td><center><img src="../images/no_entry_host.gif"></center></td>
@@ -393,6 +393,12 @@ The meaning of each field is shown below:
        <tr>
           <td><center><img src="../images/normal_status.gif"></center></td>
 	  <td>Normal status. Messages will be generated for the FD.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfer_stopped.gif"></center></td>
+	  <td>There are jobs in the error queue. Further jobs, which are in
+	      the error queue, will be held back once a certain number have
+	      been queued.</td>
        </tr>
        <tr>
           <td><center><img src="../images/queue_stopped.gif"></center></td>
@@ -502,15 +508,23 @@ The meaning of each field is shown below:
    <td><b>7</b></td>
    <td>File Counter</td>
    <td>Total number of files that still have to be send for this
-       destination.</td>
+       destination. The numbers will be shown up to 9999 files, after
+       this a character will be added: m for Mega Files (1000 * 1000 files),
+       g for Giga Files (1000 * 1000 * 1000 files), t for Tera Files (1000 *
+       1000 * 1000 * 1000 files), p for Peta Files (1000 * 1000 * 1000 *
+       1000 * 1000 files) and e for Exa Files (1000 * 1000 * 1000 * 1000 *
+       1000 * 1000 files).</td>
 </tr>
 <tr>
    <td><b>8</b></td>
    <td>File Size</td>
    <td>Total number of bytes that still have to be send for this destination.
        The last character always shows the current unit: B for Bytes, K for
-       Kilo Bytes, M for Mega Bytes, G for Giga Bytes and T for Tera
-       Bytes.</td>
+       Kilo Bytes (1024 Bytes), M for Mega Bytes (1024 * 1024 Bytes), G for
+       Giga Bytes (1024 * 1024 * 1024 Bytes), T for Tera Bytes (1024 * 1024 *
+       1024 * 1024 Bytes), P for Peta Bytes (1024 * 1024 * 1024 * 1024 *
+       1024 Bytes) and E for Exa Bytes (1024 * 1024 * 1024 * 1024 * 1024 *
+       1024 Bytes).</td>
 </tr>
 <tr>
    <td><b>9</b></td>
@@ -546,7 +560,7 @@ left mouse button (temporary selection) or by holding the ctrl key and the
 left mouse button (permanent selection). The background of the line will
 change to black or grey respectively.
 </p>
-<h3><center><a name="status"><u>Status</u></a></center></h3>
+<h3 align=center><a name="status"><u>Status</u></a></h3>
 <a name="job_queue_counter"></a>
 <center><img src="../images/status.gif"></center>
 <p>
@@ -805,11 +819,11 @@ change to black or grey respectively.
 </tr>
 </table>
 </center>
-<h3><center><a name="Job Details"><u>Job Details</u></a></center></h3>
+<h3 align=center><a name="Job_Details"><u>Job Details</u></a></h3>
 <p>
 The job details can be viewed by clicking with the right mouse button and
 holding the Ctrl button simultaneously when the mouse cursor is on a
-<a href="afd_ctrl.html#connection">connection</a> field. It shows a more
+<a href="afd_ctrl.html#connection_field">connection</a> field. It shows a more
 detailed view of what the current job is doing. If all data has been
 transmitted the rotating dash in the center will go away. To make a very
 long file name visible you can make this window longer by putting the
@@ -821,11 +835,11 @@ it shorter.
 <hr size=3 noshade>
 <table width=100%>
 <tr>
-   <td width=90%><small><address>
+   <td width=90%><address><small>
    Copyright &copy; 1997 - 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 21.03.2006
-   </address></small></td>
+   Last updated: 21.11.2006
+   </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
    <!-- Insert site specific logo -->

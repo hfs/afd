@@ -1,6 +1,6 @@
 /*
  *  sf_loc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -83,14 +83,17 @@ int                        exitflag = IS_FAULTY_VAR,
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
                            *p_no_of_hosts = NULL,
-                           trans_rule_pos, /* Not used [init_sf()]      */
-                           user_rule_pos,  /* Not used [init_sf()]      */
                            fsa_id,
                            fsa_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag = OFF,
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           trans_db_log_readfd,
+                           transfer_log_readfd,
+#endif
+                           trans_rename_blocked = NO,
                            amg_flag = NO;
 #ifdef _WITH_BURST_2
 unsigned int               burst_2_counter = 0;
@@ -154,6 +157,9 @@ main(int argc, char *argv[])
 #endif
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+   int              ol_readfd = -1;
+# endif
    unsigned int     *ol_job_number;
    char             *ol_data = NULL,
                     *ol_file_name;
@@ -222,7 +228,11 @@ main(int argc, char *argv[])
 #ifdef _OUTPUT_LOG
    if (db.output_log == YES)
    {
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+      output_log_ptrs(&ol_fd, &ol_readfd, &ol_job_number, &ol_data, &ol_file_name,
+# else
       output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
+# endif
                       &ol_file_name_length, &ol_archive_name_length,
                       &ol_file_size, &ol_unl, &ol_size, &ol_transfer_time,
                       db.host_alias, LOC);
@@ -241,12 +251,16 @@ main(int argc, char *argv[])
 #ifdef _OUTPUT_LOG
          if ((db.output_log == YES) && (ol_data == NULL))
          {
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+            output_log_ptrs(&ol_fd, &ol_readfd, &ol_job_number, &ol_data, &ol_file_name,
+# else
             output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
+# endif
                             &ol_file_name_length, &ol_archive_name_length,
                             &ol_file_size, &ol_unl, &ol_size, &ol_transfer_time,
                             db.host_alias, LOC);
          }
-#endif /* _OUTPUT_LOG */
+#endif
       }
 #endif /* _WITH_BURST_2 */
       /* If we send a lockfile, do it now. */
@@ -304,7 +318,10 @@ main(int argc, char *argv[])
             }
             else if ((errno == ENOENT) && (db.special_flag & CREATE_TARGET_DIR))
                  {
-                    if (((ret = check_create_path(db.target_dir, 0)) == CREATED_DIR) ||
+                    char *error_ptr;
+
+                    if (((ret = check_create_path(db.target_dir, 0, &error_ptr,
+                                                  YES)) == CREATED_DIR) ||
                         (ret == CHOWN_ERROR))
                     {
                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
@@ -336,18 +353,30 @@ main(int argc, char *argv[])
                     }
                     else if (ret == MKDIR_ERROR)
                          {
+                            if (error_ptr != NULL)
+                            {
+                               *error_ptr = '\0';
+                            }
                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                       "Failed to mkdir() `%s' error : %s",
                                       db.target_dir, strerror(errno));
                          }
                     else if (ret == STAT_ERROR)
                          {
+                            if (error_ptr != NULL)
+                            {
+                               *error_ptr = '\0';
+                            }
                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                       "Failed to stat() `%s' error : %s",
                                       db.target_dir, strerror(errno));
                          }
                     else if (ret == NO_ACCESS)
                          {
+                            if (error_ptr != NULL)
+                            {
+                               *error_ptr = '\0';
+                            }
                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                       "Cannot access directory `%s' : %s",
                                       db.target_dir, strerror(errno));
@@ -449,14 +478,14 @@ main(int argc, char *argv[])
          {
             register int k;
    
-            for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
+            for (k = 0; k < rule[db.trans_rule_pos].no_of_rules; k++)
             {
-               if (pmatch(rule[trans_rule_pos].filter[k],
+               if (pmatch(rule[db.trans_rule_pos].filter[k],
                           p_file_name_buffer, NULL) == 0)
                {
                   change_name(p_file_name_buffer,
-                              rule[trans_rule_pos].filter[k],
-                              rule[trans_rule_pos].rename_to[k],
+                              rule[db.trans_rule_pos].filter[k],
+                              rule[db.trans_rule_pos].rename_to[k],
                               p_ff_name, &counter_fd, db.job_id);
                   break;
                }
@@ -514,8 +543,11 @@ main(int argc, char *argv[])
                        }
                        if (*p_file == '/')
                        {
+                          char *error_ptr;
+
                           *p_file = '\0';
-                          if (((ret = check_create_path(p_to_name, 0)) == CREATED_DIR) ||
+                          if (((ret = check_create_path(p_to_name, 0, &error_ptr,
+                                                        YES)) == CREATED_DIR) ||
                               (ret == CHOWN_ERROR))
                           {
                              trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
@@ -567,18 +599,30 @@ main(int argc, char *argv[])
                           }
                           else if (ret == MKDIR_ERROR)
                                {
+                                  if (error_ptr != NULL)
+                                  {
+                                     *error_ptr = '\0';
+                                  }
                                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                             "Failed to mkdir() `%s' error : %s",
                                             p_to_name, strerror(errno));
                                }
                           else if (ret == STAT_ERROR)
                                {
+                                  if (error_ptr != NULL)
+                                  {
+                                     *error_ptr = '\0';
+                                  }
                                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                             "Failed to stat() `%s' error : %s",
                                             p_to_name, strerror(errno));
                                }
                           else if (ret == NO_ACCESS)
                                {
+                                  if (error_ptr != NULL)
+                                  {
+                                     *error_ptr = '\0';
+                                  }
                                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                             "Cannot access directory `%s' : %s",
                                             p_to_name, strerror(errno));
@@ -668,8 +712,11 @@ main(int argc, char *argv[])
                   }
                   if (*p_file == '/')
                   {
+                     char *error_ptr;
+
                      *p_file = '\0';
-                     if (((ret = check_create_path(ff_name, 0)) == CREATED_DIR) ||
+                     if (((ret = check_create_path(ff_name, 0, &error_ptr,
+                                                   YES)) == CREATED_DIR) ||
                          (ret == CHOWN_ERROR))
                      {
                         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
@@ -691,18 +738,30 @@ main(int argc, char *argv[])
                      }
                      else if (ret == MKDIR_ERROR)
                           {
+                             if (error_ptr != NULL)
+                             {
+                                *error_ptr = '\0';
+                             }
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                        "Failed to mkdir() `%s' error : %s",
                                        ff_name, strerror(errno));
                           }
                      else if (ret == STAT_ERROR)
                           {
+                             if (error_ptr != NULL)
+                             {
+                                *error_ptr = '\0';
+                             }
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                        "Failed to stat() `%s' error : %s",
                                        ff_name, strerror(errno));
                           }
                      else if (ret == NO_ACCESS)
                           {
+                             if (error_ptr != NULL)
+                             {
+                                *error_ptr = '\0';
+                             }
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                        "Cannot access directory `%s' : %s",
                                        ff_name, strerror(errno));
@@ -850,7 +909,7 @@ main(int argc, char *argv[])
 # else
                           "Total file size for host %s overflowed. Correcting to %lld.",
 # endif
-                          fsa->host_dsp_name, fsa->total_file_size);
+                          fsa->host_dsp_name, (pri_off_t)fsa->total_file_size);
             }
             else if ((fsa->total_file_counter == 0) &&
                      (fsa->total_file_size > 0))
@@ -1047,6 +1106,9 @@ main(int argc, char *argv[])
          if (fsa->error_counter > 0)
          {
             int  fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                 readfd,
+#endif
                  j;
             char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
@@ -1062,7 +1124,11 @@ main(int argc, char *argv[])
              */
             (void)sprintf(fd_wake_up_fifo, "%s%s%s",
                           p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(fd_wake_up_fifo, &readfd, &fd) == -1)
+#else
             if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
+#endif
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           "Failed to open() FIFO %s : %s",
@@ -1076,6 +1142,14 @@ main(int argc, char *argv[])
                              "Failed to write() to FIFO %s : %s",
                              fd_wake_up_fifo, strerror(errno));
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s",
+                             fd_wake_up_fifo, strerror(errno));
+               }
+#endif
                if (close(fd) == -1)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1117,6 +1191,12 @@ main(int argc, char *argv[])
                           fsa->host_alias);
             }
          } /* if (fsa->error_counter > 0) */
+#ifdef WITH_ERROR_QUEUE
+         if (db.special_flag & IN_ERROR_QUEUE)
+         {
+            remove_from_error_queue(db.job_id, fsa);
+         }
+#endif
 
          p_file_name_buffer += MAX_FILENAME_LENGTH;
          p_file_size_buffer++;
@@ -1221,8 +1301,11 @@ copy_file_mkdir(char *from, char *to)
                }
                if (*p_file == '/')
                {
+                  char *error_ptr;
+
                   *p_file = '\0';
-                  if (((ret = check_create_path(to, 0)) == CREATED_DIR) ||
+                  if (((ret = check_create_path(to, 0, &error_ptr,
+                                                YES)) == CREATED_DIR) ||
                       (ret == CHOWN_ERROR))
                   {
                      trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
@@ -1253,21 +1336,45 @@ copy_file_mkdir(char *from, char *to)
                   }
                   else if (ret == MKDIR_ERROR)
                        {
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '\0';
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "Failed to mkdir() `%s' error : %s",
                                     to, strerror(errno));
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '/';
+                          }
                        }
                   else if (ret == STAT_ERROR)
                        {
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '\0';
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "Failed to stat() `%s' error : %s",
                                     to, strerror(errno));
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '/';
+                          }
                        }
                   else if (ret == NO_ACCESS)
                        {
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '\0';
+                          }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                                     "Cannot access directory `%s' : %s",
                                     to, strerror(errno));
+                          if (error_ptr != NULL)
+                          {
+                             *error_ptr = '/';
+                          }
                           ret = MOVE_ERROR;
                        }
                   else if (ret == ALLOC_ERROR)
@@ -1357,6 +1464,9 @@ static void
 sf_loc_exit(void)
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
    if ((fsa != NULL) && (db.fsa_pos >= 0))
@@ -1407,7 +1517,11 @@ sf_loc_exit(void)
    (void)strcpy(sf_fin_fifo, p_work_dir);
    (void)strcat(sf_fin_fifo, FIFO_DIR);
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo `%s' : %s", sf_fin_fifo, strerror(errno));
@@ -1426,6 +1540,9 @@ sf_loc_exit(void)
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)close(readfd);
+#endif
       (void)close(fd);
    }
    if (sys_log_fd != STDERR_FILENO)

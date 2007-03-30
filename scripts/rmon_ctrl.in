@@ -14,7 +14,13 @@
 
 AFD_WORK_DIR="/home/afd"
 PATH=$PATH:@prefix@/bin
-DISPLAY=$1:0.0
+echo $1 | /bin/grep ':'
+if [ $? -eq 0 ]
+then
+   DISPLAY=$1
+else
+   DISPLAY=$1:0.0
+fi
 export DISPLAY AFD_WORK_DIR
 
 shift

@@ -1,6 +1,6 @@
 /*
  *  afddefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -57,8 +57,40 @@ extern int  sys_nerr;
 
 #if SIZEOF_OFF_T == 4
 typedef unsigned long       u_off_t;
+typedef long                pri_off_t;
 #else
 typedef unsigned long long  u_off_t;
+typedef long long           pri_off_t;
+#endif
+#if SIZEOF_TIME_T == 4
+typedef long                pri_time_t;
+#else
+typedef long long           pri_time_t;
+#endif
+#if SIZEOF_INO_T == 4
+typedef long                pri_ino_t;
+#else
+typedef long long           pri_ino_t;
+#endif
+#if SIZEOF_PID_T == 4
+typedef int                 pri_pid_t;
+#else
+typedef long long           pri_pid_t;
+#endif
+#if SIZEOF_NLINK_T > 4
+typedef long long           pri_nlink_t;
+#else
+typedef int                 pri_nlink_t;
+#endif
+#if SIZEOF_SIZE_T == 4
+typedef int                 pri_size_t;
+#else
+typedef long long           pri_size_t;
+#endif
+#if SIZEOF_SSIZE_T == 4
+typedef int                 pri_ssize_t;
+#else
+typedef long long           pri_ssize_t;
 #endif
 #ifdef HAVE_LONG_LONG
 typedef unsigned long long  u_long_64;
@@ -167,6 +199,8 @@ typedef unsigned long       u_long_64;
 # define WMOD                      "wmod"
 #endif
 #define AFD_MON                    "afd_mon"
+#define MON_PROC                   "mon"
+#define LOG_MON                    "log_mon"
 #define MON_CTRL                   "mon_ctrl"
 #define MON_INFO                   "mon_info"
 #define AFD_CMD                    "afdcmd"
@@ -204,6 +238,7 @@ typedef unsigned long       u_long_64;
 
 /* Exit status of afd program that starts the AFD. */
 #define AFD_IS_ACTIVE              5
+#define AFD_IS_NOT_ACTIVE          10
 #define NO_DIR_CONFIG              -2
 
 /* Definitions of lock ID's */
@@ -240,10 +275,13 @@ typedef unsigned long       u_long_64;
 #define STOP_AMG_THRESHOLD         20
 #define START_AMG_THRESHOLD        100
 
-/* Bit map flag to to enable/disable certain features in the AFD. */
+/* Bit map flag to to enable/disable certain features in the AFD (FSA). */
 #define DISABLE_RETRIEVE           1
 #define DISABLE_ARCHIVE            2
 #define ENABLE_CREATE_TARGET_DIR   4
+
+/* Bit map flag to to enable/disable certain features in the AFD (FRA). */
+#define DISABLE_DIR_WARN_TIME      1
 
 /* The number of directories that are always in the AFD file directory: */
 /*         ".", "..", "outgoing", "pool", "time", "incoming"            */
@@ -450,6 +488,7 @@ typedef unsigned long       u_long_64;
 #define LOCK_IS_NOT_SET            11
 #define AUTO_SIZE_DETECT           -2
 #define FILE_IS_DIR                -2      /* Used by remove_dir().      */
+#define GET_ONCE_ONLY              2
 
 #define NO_PRIORITY                -1         /* So it knows it does not */
                                               /* need to create the name */
@@ -460,6 +499,29 @@ typedef unsigned long       u_long_64;
 #define EQUAL_SIGN                 1
 #define LESS_THEN_SIGN             2
 #define GREATER_THEN_SIGN          3
+
+/* Size definitions. */
+#define KILOFILE                   1000
+#define MEGAFILE                   1000000
+#define GIGAFILE                   1000000000
+#define TERAFILE                   1000000000000LL
+#define PETAFILE                   1000000000000000LL
+#define EXAFILE                    1000000000000000000LL
+#define KILOBYTE                   1024
+#define MEGABYTE                   1048576
+#define GIGABYTE                   1073741824
+#define TERABYTE                   1099511627776LL
+#define PETABYTE                   1125899906842624LL
+#define EXABYTE                    1152921504606846976LL
+#define F_KILOBYTE                 1024.0
+#define F_MEGABYTE                 1048576.0
+#define F_GIGABYTE                 1073741824.0
+#define F_TERABYTE                 1099511627776.0
+#define F_PETABYTE                 1125899906842624.0
+#define F_EXABYTE                  1152921504606846976.0
+/* Next comes ZETTABYTE and YOTTABYTE, but these are to large for 2^64, */
+/* ie. for 64-bit systems. Wonder what will be the size of the next     */
+/* systems.                                                             */
 
 /* Definitions for ignore options in struct fileretrieve_status. */
 #define ISIZE_EQUAL                1
@@ -472,7 +534,9 @@ typedef unsigned long       u_long_64;
 #define IFTIME_OFF_MASK            56
 
 #define INFO_SIGN                  "<I>"
-#define CONFIG_SIGN                "<C>"
+#define CONFIG_SIGN                "<C>"   /* If changed see:            */
+                                           /*           config_log.c     */
+                                           /*           mconfig_log.c    */
 #define WARN_SIGN                  "<W>"
 #define ERROR_SIGN                 "<E>"
 #define FATAL_SIGN                 "<F>"   /* donated by Paul Merken.    */
@@ -531,8 +595,13 @@ typedef unsigned long       u_long_64;
 #endif
 #define SFTP                       10
 #define SFTP_FLAG                  128
+#define GET_FTP_FLAG               32768
+#define GET_HTTP_FLAG              65536
+#define GET_SFTP_FLAG              131072
 #define SEND_FLAG                  1073741824
 #define RETRIEVE_FLAG              2147483648U
+
+/* Definitions for protocol_options in FSA. */
 #define FTP_PASSIVE_MODE           1
 #define SET_IDLE_TIME              2
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
@@ -541,9 +610,11 @@ typedef unsigned long       u_long_64;
 #define FTP_FAST_MOVE              8
 #define FTP_FAST_CD                16
 #define FTP_IGNORE_BIN             32
-#define GET_FTP_FLAG               32768
-#define GET_HTTP_FLAG              65536
-#define GET_SFTP_FLAG              131072
+#define FTP_EXTENDED_MODE          64
+#ifdef _WITH_BURST_2
+# define DISABLE_BURSTING          128
+#endif
+#define FTP_ALLOW_DATA_REDIRECT    256
 
 #define FTP_SHEME                  "ftp"
 #define FTP_SHEME_LENGTH           (sizeof(FTP_SHEME) - 1)
@@ -588,6 +659,10 @@ typedef unsigned long       u_long_64;
 #define DEL_QUEUED_FILES_ID_LENGTH       (sizeof(DEL_QUEUED_FILES_ID) - 1)
 #define DEL_OLD_LOCKED_FILES_ID          "delete old locked files"
 #define DEL_OLD_LOCKED_FILES_ID_LENGTH   (sizeof(DEL_OLD_LOCKED_FILES_ID) - 1)
+#ifdef WITH_INOTIFY
+# define INOTIFY_FLAG_ID                 "inotify"
+# define INOTIFY_FLAG_ID_LENGTH          (sizeof(INOTIFY_FLAG_ID) - 1)
+#endif
 #define OLD_FILE_TIME_ID                 "old file time"
 #define OLD_FILE_TIME_ID_LENGTH          (sizeof(OLD_FILE_TIME_ID) - 1)
 #define DONT_REP_UNKNOWN_FILES_ID        "do not report unknown files"
@@ -600,6 +675,8 @@ typedef unsigned long       u_long_64;
 #define MAX_PROCESS_ID_LENGTH            (sizeof(MAX_PROCESS_ID) - 1)
 #define DO_NOT_REMOVE_ID                 "do not remove"
 #define DO_NOT_REMOVE_ID_LENGTH          (sizeof(DO_NOT_REMOVE_ID) - 1)
+#define STORE_RETRIEVE_LIST_ID           "store retrieve list"
+#define STORE_RETRIEVE_LIST_ID_LENGTH    (sizeof(STORE_RETRIEVE_LIST_ID) - 1)
 #define STORE_REMOTE_LIST                "store remote list"
 #define STORE_REMOTE_LIST_LENGTH         (sizeof(STORE_REMOTE_LIST) - 1)
 #define DONT_DEL_UNKNOWN_FILES_ID        "do not delete unknown files"
@@ -630,6 +707,12 @@ typedef unsigned long       u_long_64;
 #endif
 #define ACCEPT_DOT_FILES_ID              "accept dot files"
 #define ACCEPT_DOT_FILES_ID_LENGTH       (sizeof(ACCEPT_DOT_FILES_ID) - 1)
+#define DO_NOT_GET_DIR_LIST_ID           "do not get dir list"
+#define DO_NOT_GET_DIR_LIST_ID_LENGTH    (sizeof(DO_NOT_GET_DIR_LIST_ID) - 1)
+#define DIR_WARN_TIME_ID                 "warn time"
+#define DIR_WARN_TIME_ID_LENGTH          (sizeof(DIR_WARN_TIME_ID) - 1)
+#define KEEP_CONNECTED_ID                "keep connected"
+#define KEEP_CONNECTED_ID_LENGTH         (sizeof(KEEP_CONNECTED_ID) - 1)
 #define UNKNOWN_FILES                    1
 #define QUEUED_FILES                     2
 #define OLD_LOCKED_FILES                 4
@@ -657,9 +740,16 @@ typedef unsigned long       u_long_64;
 # define DEFAULT_DUPCHECK_TIMEOUT        3600L
 #endif
 #define DEFAULT_OLD_FILE_TIME            24      /* Hours.               */
+#define DEFAULT_DIR_WARN_TIME            0L      /* Seconds (0 = unset)  */
+#define DEFAULT_KEEP_CONNECTED_TIME      0       /* Seconds (0 = unset)  */
+#define DEFAULT_CREATE_SOURCE_DIR_DEF    YES
+#ifdef WITH_INOTIFY
+# define DEFAULT_INOTIFY_FLAG            0
+#endif
 
 /* Definitions to be read from the AFD_CONFIG file. */
 #define AFD_TCP_PORT_DEF                 "AFD_TCP_PORT"
+#define AFD_TCP_LOGS_DEF                 "AFD_TCP_LOGS"
 #define DEFAULT_PRINTER_CMD_DEF          "DEFAULT_PRINTER_CMD"
 #define DEFAULT_PRINTER_NAME_DEF         "DEFAULT_PRINTER_NAME"
 #define DEFAULT_AGE_LIMIT_DEF            "DEFAULT_AGE_LIMIT"
@@ -669,6 +759,9 @@ typedef unsigned long       u_long_64;
 #define ONE_DIR_COPY_TIMEOUT_DEF         "ONE_DIR_COPY_TIMEOUT"
 #define FULL_SCAN_TIMEOUT_DEF            "FULL_SCAN_TIMEOUT"
 #define REMOTE_FILE_CHECK_INTERVAL_DEF   "REMOTE_FILE_CHECK_INTERVAL"
+#ifdef WITH_INOTIFY
+# define DEFAULT_INOTIFY_FLAG_DEF        "DEFAULT_INOTIFY_FLAG"
+#endif
 #ifndef _WITH_PTHREAD
 # define DIR_CHECK_TIMEOUT_DEF           "DIR_CHECK_TIMEOUT"
 #endif
@@ -677,6 +770,7 @@ typedef unsigned long       u_long_64;
 #define TRACEROUTE_CMD_DEF               "TRACEROUTE_CMD"
 #define DIR_CONFIG_NAME_DEF              "DIR_CONFIG_NAME"
 #define FAKE_USER_DEF                    "FAKE_USER"
+#define CREATE_SOURCE_DIR_DEF            "CREATE_SOURCE_DIR"
 #define CREATE_TARGET_DIR_DEF            "CREATE_TARGET_DIR"
 #define EXEC_TIMEOUT_DEF                 "EXEC_TIMEOUT"
 #define DEFAULT_OLD_FILE_TIME_DEF        "DEFAULT_OLD_FILE_TIME"
@@ -684,6 +778,8 @@ typedef unsigned long       u_long_64;
 #define DEFAULT_SMTP_SERVER_DEF          "DEFAULT_SMTP_SERVER"
 #define DEFAULT_SMTP_FROM_DEF            "DEFAULT_SMTP_FROM"
 #define REMOVE_UNUSED_HOSTS_DEF          "REMOVE_UNUSED_HOSTS"
+#define DELETE_STALE_ERROR_JOBS_DEF      "DELETE_STALE_ERROR_JOBS"
+#define DEFAULT_DIR_WARN_TIME_DEF        "DEFAULT_DIR_WARN_TIME"
 
 /* Heading identifiers for the DIR_CONFIG file and messages. */
 #define DIR_IDENTIFIER                   "[directory]"
@@ -698,6 +794,23 @@ typedef unsigned long       u_long_64;
 #define RECIPIENT_IDENTIFIER_LENGTH      (sizeof(RECIPIENT_IDENTIFIER) - 1)
 #define OPTION_IDENTIFIER                "[options]"
 #define OPTION_IDENTIFIER_LENGTH         (sizeof(OPTION_IDENTIFIER) - 1)
+
+#define VIEW_DC_DIR_IDENTIFIER           "Directory     : "
+#define VIEW_DC_DIR_IDENTIFIER_LENGTH    (sizeof(VIEW_DC_DIR_IDENTIFIER) - 1)
+
+/* Definitions for AFDD Logs. */
+/* NOTE: Bits 1 - 2 are defined in afd_mon/mondefs.h */
+#define AFDD_SYSTEM_LOG                  16
+#define AFDD_RECEIVE_LOG                 32
+#define AFDD_TRANSFER_LOG                64
+#define AFDD_TRANSFER_DEBUG_LOG          128
+#define AFDD_INPUT_LOG                   256
+#define AFDD_PRODUCTION_LOG              512
+#define AFDD_OUTPUT_LOG                  1024
+#define AFDD_DELETE_LOG                  2048
+#define AFDD_JOB_DATA                    4096
+#define AFDD_COMPRESSION_1               8192
+/* NOTE: If new flags are added check afd_mon/mondefs.h first! */
 
 /* Group identifier for mails. */
 #define MAIL_GROUP_IDENTIFIER      '$'
@@ -729,6 +842,12 @@ typedef unsigned long       u_long_64;
 #else
 # define MAX_LONG_LENGTH           21
 #endif
+#define MAX_LONG_LONG_LENGTH       21
+#if SIZEOF_OFF_T == 4
+# define MAX_OFF_T_LENGTH          11
+#else
+# define MAX_OFF_T_LENGTH          20
+#endif
 #define MAX_TOGGLE_STR_LENGTH      5
 #define MAX_USER_NAME_LENGTH       80     /* Maximum length of the user   */
                                           /* name and password.           */
@@ -754,6 +873,8 @@ typedef unsigned long       u_long_64;
 #define MAX_FILENAME_LENGTH        256    /* Maximum length of a filename.*/
 #define MAX_ERROR_STR_LENGTH       34     /* Maximum length of the FD     */
                                           /* error strings. (see fddefs.h)*/
+#define MAX_IP_LENGTH              16     /* Maximum length of an IP      */
+                                          /* number as string.            */
 
 /* The length of message we send via fifo from AMG to FD. */
 #define MAX_BIN_MSG_LENGTH (sizeof(time_t) + sizeof(unsigned int) + sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) + sizeof(unsigned short) + sizeof(unsigned short) + sizeof(char) + sizeof(char))
@@ -779,9 +900,12 @@ typedef unsigned long       u_long_64;
 #define PAUSE_QUEUE_STAT           2
 #define AUTO_PAUSE_QUEUE_STAT      4
 #define DANGER_PAUSE_QUEUE_STAT    8
-#define AUTO_PAUSE_QUEUE_LOCK_STAT 16
+/* NOTE: This is not used.         16 */
 #define HOST_CONFIG_HOST_DISABLED  32
 /* NOTE: HOST_TWO_FLAG             64 */
+#ifdef WITH_ERROR_QUEUE
+#define ERROR_QUEUE_SET            128
+#endif
 
 #define HOST_NOT_IN_DIR_CONFIG     4
 
@@ -854,6 +978,9 @@ typedef unsigned long       u_long_64;
 /*############################ DarkOrange ###############################*/
 #define STOP_TRANSFER              14 /* Transfer to this host is        */
                                       /* stopped.                        */
+#ifdef WITH_ERROR_QUEUE
+# define JOBS_IN_ERROR_QUEUE       14
+#endif
 #define WARNING_ID                 14
 #define TRACE_MODE                 14
 #ifdef _WITH_TRANS_EXEC
@@ -895,6 +1022,7 @@ typedef unsigned long       u_long_64;
 #define AFD_ARCHIVE_DIR            "/archive"
 #define FIFO_DIR                   "/fifodir"
 #define LOG_DIR                    "/log"
+#define RLOG_DIR                   "/rlog"  /* Only used for afd_mon. */
 #define ETC_DIR                    "/etc"
 #define ERROR_ACTION_DIR           "/error_action"
 #define INCOMING_DIR               "/incoming"
@@ -924,6 +1052,9 @@ typedef unsigned long       u_long_64;
 #define MESSAGE_BUF_FILE           "/tmp_msg_buffer"
 #define MSG_CACHE_FILE             "/fd_msg_cache"
 #define MSG_QUEUE_FILE             "/fd_msg_queue"
+#ifdef WITH_ERROR_QUEUE
+#define ERROR_QUEUE_FILE           "/error_queue"
+#endif
 #define FILE_MASK_FILE             "/file_masks"
 #define DC_LIST_FILE               "/dc_name_data"
 #define DIR_NAME_FILE              "/directory_names"
@@ -949,7 +1080,6 @@ typedef unsigned long       u_long_64;
 #define AMG_CMD_FIFO               "/amg_cmd.fifo"
 #define DB_UPDATE_FIFO             "/db_update.fifo"
 #define FD_CMD_FIFO                "/fd_cmd.fifo"
-#define FD_RESP_FIFO               "/fd_resp.fifo"
 #define AW_CMD_FIFO                "/aw_cmd.fifo"
 #define IP_FIN_FIFO                "/ip_fin.fifo"
 #define SF_FIN_FIFO                "/sf_fin.fifo"
@@ -973,6 +1103,7 @@ typedef unsigned long       u_long_64;
 #define DEL_TIME_JOB_FIFO          "/del_time_job.fifo"
 #define FD_READY_FIFO              "/fd_ready.fifo"
 #define MSG_FIFO                   "/msg.fifo"
+#define AFDD_LOG_FIFO              "/afdd_log.fifo"
 /*-----------------------------------------------------------------------*/
 
 /* Definitions for the AFD name */
@@ -1010,11 +1141,13 @@ typedef unsigned long       u_long_64;
 #define SR_EXEC_STAT               26 /* Show + reset exec stat in dir_check. */
 #define SWITCH_MON                 27
 #define FORCE_REMOTE_DIR_CHECK     28
+#define GOT_LC                     29 /* Got log capabilities. */
 
 #define DELETE_ALL_JOBS_FROM_HOST  1
 #define DELETE_MESSAGE             2
 #define DELETE_SINGLE_FILE         3
 #define DELETE_RETRIEVE            4
+#define DELETE_RETRIEVES_FROM_DIR  5
 
 /* Definitions for directory flags. */
 #define MAX_COPIED                 1
@@ -1023,6 +1156,19 @@ typedef unsigned long       u_long_64;
 #define LINK_NO_EXEC               8
 #define DIR_DISABLED               16
 #define ACCEPT_DOT_FILES           32
+#define DONT_GET_DIR_LIST          64
+#define DIR_ERROR_SET              128
+#define WARN_TIME_REACHED          256
+#ifdef WITH_INOTIFY
+# define INOTIFY_RENAME            512
+# define INOTIFY_CLOSE             1024
+/*
+ * Note: The following inotify flag are for the user interface
+ *       AFD_CONFIG and DIR_CONFIG.
+ */
+# define INOTIFY_RENAME_FLAG       1
+# define INOTIFY_CLOSE_FLAG        2
+#endif
 
 #ifdef WITH_DUP_CHECK
 /* Definitions for duplicate check. */
@@ -1032,6 +1178,8 @@ typedef unsigned long       u_long_64;
 # define DC_FILE_CONTENT_BIT       2
 # define DC_FILE_CONT_NAME         4
 # define DC_FILE_CONT_NAME_BIT     3
+# define DC_NAME_NO_SUFFIX         8
+# define DC_NAME_NO_SUFFIX_BIT     4
 # define DC_CRC32                  32768
 # define DC_CRC32_BIT              16
 # define DC_DELETE                 8388608
@@ -1053,6 +1201,11 @@ typedef unsigned long       u_long_64;
 #define DONT_REPUKW_FILES_IDC      32
 #define MAX_CP_FILES_IDC           64
 #define MAX_CP_FILE_SIZE_IDC       128
+#define WARN_TIME_IDC              256
+#define KEEP_CONNECTED_IDC         512
+#ifdef WITH_INOTIFY
+# define INOTIFY_FLAG_IDC          1024
+#endif
 
 /* In process AFD we have various stop flags */
 #define STARTUP_ID                 -1
@@ -1083,6 +1236,8 @@ typedef unsigned long       u_long_64;
 #define LOCK_TFC                   20  /* Total file counter */
 #define LOCK_EC                    21  /* Error counter */
 #define LOCK_CON                   22  /* Connections */
+#define LOCK_EXEC                  23  /* Lock for exec and pexec option, */
+                                       /* this is ALSO used in FRA.       */
 
 /*-----------------------------------------------------------------------*
  * Word offset for memory mapped structures of the AFD. Best is to leave
@@ -1123,15 +1278,23 @@ typedef unsigned long       u_long_64;
  *           |               | monitored by AFD. If this FRA in no
  *           |               | longer in use there will be a -1 here.
  *    -------+---------------+---------------------------------------
- *     5 - 7 | unsigned char | Not used.
+ *       5   | unsigned char | Not used.
+ *    -------+---------------+---------------------------------------
+ *       6   | unsigned char | Flag to enable or disable the
+ *           |               | following features:
+ *           |               | Bit| Meaning
+ *           |               | ---+-----------------------
+ *           |               |  1 | DISABLE_DIR_WARN_TIME
+ *    -------+---------------+---------------------------------------
+ *       7   | unsigned char | Not used.
  *    -------+---------------+---------------------------------------
  *       8   | unsigned char | Version of this structure.
  *    -------+---------------+---------------------------------------
  *    9 - 16 |               | Not used.
  *-----------------------------------------------------------------------*/
-#define AFD_WORD_OFFSET (SIZEOF_INT + 4 + SIZEOF_INT + 4)
-#define AFD_FEATURE_FLAG_OFFSET     5  /* From start */
-#define AFD_FSA_FEATURE_FLAG_OFFSET 11 /* From end   */
+#define AFD_WORD_OFFSET               (SIZEOF_INT + 4 + SIZEOF_INT + 4)
+#define AFD_FEATURE_FLAG_OFFSET_START 5  /* From start */
+#define AFD_FEATURE_FLAG_OFFSET_END   11 /* From end   */
 
 /* Structure that holds status of the file transfer for each host */
 #define CURRENT_FSA_VERSION 2
@@ -1170,6 +1333,12 @@ struct status
           char          file_name_in_use[MAX_FILENAME_LENGTH];
                                                 /* The name of the file  */
                                                 /* that is in transfer.  */
+#ifdef _WITH_BURST_2
+                                                /* NOTE: We misuse this  */
+                                                /* field in case of a    */
+                                                /* burst to specify the  */
+                                                /* number of retries.    */
+#endif
           off_t         file_size_in_use;       /* Total size of current */
                                                 /* file.                 */
           off_t         file_size_in_use_done;  /* Number of bytes send  */
@@ -1191,6 +1360,10 @@ struct filetransfer_status
                                             /* This is the real hostname */
                                             /* where the data should be  */
                                             /* send to.                  */
+/* FIXME: Since we use host_dsp_name in several cases for logging and    */
+/*        when we use toggling and host_alias is already                 */
+/*        MAX_HOSTNAME_LENGTH we place the toggling char where the '\0'  */
+/*        should be. So increase the length by one, when updating FSA!   */
           char           host_dsp_name[MAX_HOSTNAME_LENGTH + 1];
                                             /* This is the hostname that */
                                             /* is being displayed by     */
@@ -1263,7 +1436,9 @@ struct filetransfer_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*| 7-32 | Not used.        |*/
+                                            /*| 9-32 | Not used.        |*/
+                                            /*| 8    | DISABLE_BURSTING |*/
+                                            /*| 7    | FTP_EXTENDED_MODE|*/
                                             /*| 6    | FTP_IGNORE_BIN   |*/
                                             /*| 5    | FTP_FAST_CD      |*/
                                             /*| 4    | FTP_FAST_MOVE    |*/
@@ -1295,7 +1470,8 @@ struct filetransfer_status
                                             /*|   24 | DC_DELETE        |*/
                                             /*|17-23 | Not used.        |*/
                                             /*|   16 | DC_CRC32         |*/
-                                            /*| 4-15 | Not used.        |*/
+                                            /*| 5-15 | Not used.        |*/
+                                            /*|    4 | DC_NAME_NO_SUFFIX|*/
                                             /*|    3 | DC_FILE_CONT_NAME|*/
                                             /*|    2 | DC_FILE_CONTENT  |*/
                                             /*|    1 | DC_FILENAME_ONLY |*/
@@ -1311,20 +1487,21 @@ struct filetransfer_status
                                             /* between these two         */
                                             /* addresses by toggling     */
                                             /* this switch.              */
-          int            host_status;       /* What is the status for    */
+          unsigned int   host_status;       /* What is the status for    */
                                             /* this host?                */
-                                            /*+----+---------------------------+*/
-                                            /*| Bit|      Meaning              |*/
-                                            /*+----+---------------------------+*/
-                                            /*|8-32| Not used.                 |*/
-                                            /*|   7| HOST_TWO_FLAG             |*/
-                                            /*|   6| HOST_CONFIG_HOST_DISABLED |*/
-                                            /*|   5| AUTO_PAUSE_QUEUE_LOCK_STAT|*/
-                                            /*|   4| DANGER_PAUSE_QUEUE_STAT   |*/
-                                            /*|   3| HOST_NOT_IN_DIR_CONFIG    |*/
-                                            /*|   2| PAUSE_QUEUE_STAT          |*/
-                                            /*|   1| STOP_TRANSFER_STAT        |*/
-                                            /*+----+---------------------------+*/
+                                            /*+----+--------------------------+*/
+                                            /*| Bit|      Meaning             |*/
+                                            /*+----+--------------------------+*/
+                                            /*|9-32| Not used.                |*/
+                                            /*|   8| ERROR_QUEUE_SET          |*/
+                                            /*|   7| HOST_TWO_FLAG            |*/
+                                            /*|   6| HOST_CONFIG_HOST_DISABLED|*/
+                                            /*|   5| Not used.                |*/
+                                            /*|   4| DANGER_PAUSE_QUEUE_STAT  |*/
+                                            /*|   3| AUTO_PAUSE_QUEUE_STAT    |*/
+                                            /*|   2| PAUSE_QUEUE_STAT         |*/
+                                            /*|   1| STOP_TRANSFER_STAT       |*/
+                                            /*+----+--------------------------+*/
           int            error_counter;     /* Errors that have so far   */
                                             /* occurred. With the next   */
                                             /* successful transfer this  */
@@ -1437,7 +1614,8 @@ struct host_list
                                             /*|   24 | DC_DELETE        |*/
                                             /*|17-23 | Not used.        |*/
                                             /*|   16 | DC_CRC32         |*/
-                                            /*| 4-15 | Not used.        |*/
+                                            /*| 5-15 | Not used.        |*/
+                                            /*|    4 | DC_NAME_NO_SUFFIX|*/
                                             /*|    3 | DC_FILE_CONT_NAME|*/
                                             /*|    2 | DC_FILE_CONTENT  |*/
                                             /*|    1 | DC_FILENAME_ONLY |*/
@@ -1474,7 +1652,7 @@ struct bd_time_entry
        };
 
 /* Structure holding all neccessary data for retrieving files */
-#define CURRENT_FRA_VERSION 3
+#define CURRENT_FRA_VERSION 4
 #define MAX_WAIT_FOR_LENGTH 64
 struct fileretrieve_status
        {
@@ -1500,7 +1678,7 @@ struct fileretrieve_status
           unsigned char remove;             /* Should the files be       */
                                             /* removed when they are     */
                                             /* being retrieved.          */
-          unsigned char stupid_mode;        /* If set it will NOT        */
+          unsigned char stupid_mode;        /* If set to YES it will NOT */
                                             /* collect information about */
                                             /* files that where found in */
                                             /* directory. So that when   */
@@ -1509,6 +1687,13 @@ struct fileretrieve_status
                                             /* same files. This ensures  */
                                             /* that files are collected  */
                                             /* only once.                */
+                                            /* If this is set to         */
+                                            /* GET_ONCE_ONLY it will get */
+                                            /* the file once only,       */
+                                            /* regardless if the file is */
+                                            /* changed. If set to NO the */
+                                            /* it will try to fetch it   */
+                                            /* again when it changes.    */
           unsigned char delete_files_flag;  /* UNKNOWN_FILES: All unknown*/
                                             /* files will be deleted.    */
                                             /* QUEUED_FILES: Queues will */
@@ -1553,7 +1738,12 @@ struct fileretrieve_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*| 7-32 | Not used.        |*/
+                                            /*|12-32 | Not used.        |*/
+                                            /*|   11 | INOTIFY_CLOSE    |*/
+                                            /*|   10 | INOTIFY_RENAME   |*/
+                                            /*|    9 | WARN_TIME_REACHED|*/
+                                            /*|    8 | DIR_ERROR_SET    |*/
+                                            /*|    7 | DONT_GET_DIR_LIST|*/
                                             /*|    6 | ACCEPT_DOT_FILES |*/
                                             /*|    5 | DIR_DISABLED     |*/
                                             /*|    4 | LINK_NO_EXEC     |*/
@@ -1612,6 +1802,9 @@ struct fileretrieve_status
                                             /*+---+---------------------+*/
                                             /*| * | Rest not used.      |*/
                                             /*+---+---------------------+*/
+          unsigned int  keep_connected;     /* After all files have been */
+                                            /* retrieved, the time to    */
+                                            /* stay connected.           */
 #ifdef WITH_DUP_CHECK                                                      
           unsigned int  dup_check_flag;     /* Flag storing the type of  */
                                             /* check that is to be done  */
@@ -1655,6 +1848,9 @@ struct fileretrieve_status
           time_t        last_retrieval;     /* Time of last retrieval.   */
           time_t        next_check_time;    /* Next time to check for    */
                                             /* files in directory.       */
+          time_t        warn_time;          /* Time when to warn that the*/
+                                            /* directory has not received*/
+                                            /* any data.                 */
           int           unknown_file_time;  /* After how many hours can  */
                                             /* a unknown file be deleted.*/
           int           queued_file_time;   /* After how many hours can  */
@@ -1679,6 +1875,13 @@ struct fileretrieve_status
           int           max_process;        /* The maximum number of     */
                                             /* process that may be       */
                                             /* forked for this directory.*/
+          int           max_errors;         /* Max errors before we ring */
+                                            /* the alarm bells.          */
+          unsigned int  error_counter;      /* The number of errors when */
+                                            /* trying to access this     */
+                                            /* directory. Will be set to */
+                                            /* zero after each succesfull*/
+                                            /* access.                   */
        };
 
 /* Bit map flag for AMG and FD communication. */
@@ -1695,7 +1898,14 @@ struct fileretrieve_status
 /* Structure that holds status of all process */
 struct afd_status
        {
-          signed char   amg;             /* Automatic Message Generator  */
+          signed char   amg;             /* Automatic Message Generator, */
+                                         /* can have the following       */
+                                         /* values:                      */
+                                         /*  -3 - Process has been       */
+                                         /*       stopped normally.      */
+                                         /*   0 - Not running.           */
+                                         /*   1 - Process is running.    */
+                                         /*  19 - Shutting down.         */
           unsigned char amg_jobs;        /* Bitmap to show if jobs of    */
                                          /* the AMG (dir_check(),        */
                                          /* time_job(), ...) are active: */
@@ -1762,6 +1972,7 @@ struct afd_status
           unsigned int  burst2_counter;     /* Number of burst2 done by  */
                                             /* FD.                       */
           unsigned int  max_queue_length;   /* Max. FD queue length.     */
+          unsigned int  dir_scans;          /* Number of directory scans.*/
        };
 
 /* Structure that holds all relevant information of */
@@ -1831,7 +2042,7 @@ struct passwd_buf
 /* for more details.                                              */
 #define CURRENT_FMD_VERSION 0
 
-/* Definition for structure that holds all data for one DIR_CONFIG */
+/* Definition for structure that holds data for different DIR_CONFIG's. */
 #define CURRENT_DCID_VERSION 0
 struct dir_config_list
        {
@@ -1842,6 +2053,9 @@ struct dir_config_list
 struct delete_log
        {
           int           fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+          int           readfd;
+#endif
           unsigned int  *job_number;
           char          *data;
           char          *file_name;
@@ -1873,6 +2087,42 @@ struct dir_options
           char aoptions[MAX_NO_OPTIONS][MAX_OPTION_LENGTH];
           char dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char url[MAX_PATH_LENGTH];
+       };
+
+/* Structure holding all filenames that are/have been retrieved. */
+#define CURRENT_RL_VERSION      0
+#define RETRIEVE_LIST_STEP_SIZE 10
+struct retrieve_list
+       {
+          char   file_name[MAX_FILENAME_LENGTH];
+          char   got_date;
+          char   retrieved;              /* Has the file already been      */
+                                         /* retrieved?                     */
+          char   in_list;                /* Used to remove any files from  */
+                                         /* the list that are no longer at */
+                                         /* the remote host.               */
+          off_t  size;                   /* Size of the file.              */
+          time_t file_mtime;             /* Modification time of file.     */
+       };
+
+/* For compatibility reasons we must still know the retrieve_list from */
+/* 1.2.x so we can convert the old list.                               */
+#define OLD_MAX_FTP_DATE_LENGTH 15
+struct old_retrieve_list
+       {
+          char  file_name[MAX_FILENAME_LENGTH];
+          char  date[OLD_MAX_FTP_DATE_LENGTH];
+          char  retrieved;
+          char  in_list;
+          off_t size;
+       };
+struct old_int_retrieve_list
+       {
+          char file_name[MAX_FILENAME_LENGTH];
+          char date[OLD_MAX_FTP_DATE_LENGTH];
+          char retrieved;
+          char in_list;
+          int  size;
        };
 
 /* Runtime array */
@@ -2045,6 +2295,25 @@ struct dir_options
                          (char *)&fra[(fra_pos)].files_queued - (char *)fra);\
         }
 #endif
+#define SET_DIR_STATUS(flag, status)            \
+        {                                       \
+           if ((flag) & DIR_DISABLED)           \
+           {                                    \
+              (status) = DISABLED;              \
+           }                                    \
+           else if ((flag) & DIR_ERROR_SET)     \
+                {                               \
+                   (status) = NOT_WORKING2;     \
+                }                               \
+           else if ((flag) & WARN_TIME_REACHED) \
+                {                               \
+                   (status) = WARNING_ID;       \
+                }                               \
+                else                            \
+                {                               \
+                   (status) = NORMAL_STATUS;    \
+                }                               \
+        }
 
 /* Macro to check if we can avoid a strcmp. */
 #define CHECK_STRCMP(a, b)  (*(a) != *(b) ? (int)((unsigned char) *(a) - (unsigned char) *(b)) : strcmp((a), (b)))
@@ -2061,6 +2330,14 @@ extern unsigned int get_checksum(char *, int),
                     get_str_checksum(char *);
 extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
                     attach_afd_status(int *),
+#ifdef WITH_ERROR_QUEUE
+                    attach_error_queue(void),
+                    check_error_queue(unsigned int, int),
+                    detach_error_queue(void),
+                    print_error_queue(FILE *),
+                    remove_from_error_queue(unsigned int,
+                                            struct filetransfer_status *),
+#endif
                     afw2wmo(char *, int *, char **, char *),
 #ifdef _PRODUCTION_LOG
                     bin_file_chopper(char *, int *, off_t *, char,
@@ -2069,11 +2346,12 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
 #else
                     bin_file_chopper(char *, int *, off_t *, char),
 #endif
+                    bin_file_convert(char *, off_t, int),
                     bittest(unsigned char *, int),
                     check_afd_heartbeat(long, int),
-                    check_create_path(char *, mode_t),
+                    check_create_path(char *, mode_t, char **, int),
                     check_dir(char *, int),
-                    check_fra(void),
+                    check_fra(int),
                     check_fsa(int),
                     check_lock(char *, char),
                     check_msa(void),
@@ -2091,12 +2369,13 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
 #endif
                     eval_host_config(int *, char *, struct host_list **, int),
                     eval_timeout(int),
-                    exec_cmd(char *, char **, int, char *, int, time_t, int),
+                    exec_cmd(char *, char **, int, char *, int, char *,
+                             time_t, int),
                     extract(char *, char *,
 #ifdef _PRODUCTION_LOG
                             time_t, unsigned short, unsigned int, char *,
 #endif
-                            int, int *, off_t *),
+                            int, int, int *, off_t *),
                     fra_attach(void),
                     fra_attach_passive(void),
                     fra_detach(void),
@@ -2134,10 +2413,17 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
                     my_strncpy(char *, char *, size_t),
                     next_counter(int, int *),
                     open_counter_file(char *),
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                    open_fifo_rw(char *, int *, int *),
+#endif
                     pmatch(char *, char *, time_t *),
                     rec(int, char *, char *, ...),
                     rec_rmdir(char *),
+#ifdef WITH_UNLINK_DELAY
+                    remove_dir(char *, int),
+#else
                     remove_dir(char *),
+#endif
                     remove_files(char *, char *),
                     send_cmd(char, int),
                     wmo2ascii(char *, char *, off_t *);
@@ -2150,8 +2436,16 @@ extern pid_t        start_log(char *);
 #endif
 extern ssize_t      readn(int, void *, int);
 extern time_t       calc_next_time(struct bd_time_entry *, time_t),
+                    calc_next_time_array(int, struct bd_time_entry *, time_t),
+                    datestr2unixtime(char *),
                     write_host_config(int, char *, struct host_list *);
+#ifdef WITH_ERROR_QUEUE
+extern void         add_to_error_queue(unsigned int,
+                                       struct filetransfer_status *),
+                    *attach_buf(char *, int *, size_t, char *, mode_t, int),
+#else
 extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
+#endif
                     bitset(unsigned char *, int),
                     change_alias_order(char **, int),
                     change_name(char *, char *, char *, char *,
@@ -2164,7 +2458,7 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
                     delete_log_ptrs(struct delete_log *),
                     error_action(char *, char *),
                     get_dir_options(unsigned int, struct dir_options *),
-                    get_log_number(int *, int, char *, int),
+                    get_log_number(int *, int, char *, int, char *),
                     get_max_log_number(int *, char *, int),
                     get_rename_rules(char *, int),
                     get_user(char *, char *),
@@ -2182,7 +2476,7 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
                     production_log(time_t, unsigned short, unsigned int,
                                    char *, ...),
 #endif
-                    reshuffel_log_files(int, char *, char *),
+                    reshuffel_log_files(int, char *, char *, int, int),
 #ifdef LOCK_DEBUG
                     rlock_region(int, off_t, char *, int),
 #else

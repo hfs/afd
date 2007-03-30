@@ -1,6 +1,6 @@
 /*
  *  aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -800,7 +800,7 @@ main(int argc, char *argv[])
 #else
                             "Retrieved %s [%lld Bytes]",
 #endif
-                            rl[i].file_name, bytes_done);
+                            rl[i].file_name, (pri_off_t)bytes_done);
                   file_size_done += bytes_done;
                   if (offset > 0)
                   {
@@ -815,7 +815,7 @@ main(int argc, char *argv[])
 #else
       (void)sprintf(msg_str, "%lld Bytes retrieved in %d file(s).",
 #endif
-                    file_size_done, no_of_files_done);
+                    (pri_off_t)file_size_done, no_of_files_done);
 
        if (append_count == 1)
        {
@@ -1186,7 +1186,7 @@ main(int argc, char *argv[])
 #else
                                "Failed to write to remote file %s after writing %lld Bytes.",
 #endif
-                               initial_filename, file_size_done);
+                               initial_filename, (pri_off_t)file_size_done);
                      if (status == EPIPE)
                      {
                         trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
@@ -1359,7 +1359,7 @@ main(int argc, char *argv[])
 #else
                             "Failed to write to remote file %s after writing %lld Bytes.",
 #endif
-                            initial_filename, file_size_done);
+                            initial_filename, (pri_off_t)file_size_done);
                   if (status == EPIPE)
                   {
                      trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
@@ -1483,7 +1483,7 @@ main(int argc, char *argv[])
 #else
                          "Local file size of %s is %lld",
 #endif
-                         final_filename, stat_buf.st_size);
+                         final_filename, (pri_off_t)stat_buf.st_size);
             }
          }
 
@@ -1657,10 +1657,11 @@ main(int argc, char *argv[])
          no_of_files_done++;
          trans_log(INFO_SIGN, NULL, 0, NULL,
 #if SIZEOF_OFF_T == 4
-                   "Send %s [%ld Bytes]", final_filename, stat_buf.st_size);
+                   "Send %s [%ld Bytes]",
 #else
-                   "Send %s [%lld Bytes]", final_filename, stat_buf.st_size);
+                   "Send %s [%lld Bytes]",
 #endif
+                   final_filename, (pri_off_t)stat_buf.st_size);
 
          if ((db.remove == YES) && (db.aftp_mode == TRANSFER_MODE))
          {
@@ -1688,7 +1689,7 @@ main(int argc, char *argv[])
 #else
       (void)sprintf(msg_str, "%lld Bytes send in %d file(s).",
 #endif
-                    file_size_done, no_of_files_done);
+                    (pri_off_t)file_size_done, no_of_files_done);
 
        if (append_count == 1)
        {

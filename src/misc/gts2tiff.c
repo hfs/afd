@@ -69,6 +69,7 @@ DESCR__E_M3
 #endif
 #include <fcntl.h>
 #include <errno.h>
+#include "amgdefs.h"
 
 #define TIFF_END      "-tiff"
 #define NO_OF_TAGS    14

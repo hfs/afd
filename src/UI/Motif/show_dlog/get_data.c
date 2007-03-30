@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -920,10 +920,11 @@ get_data(void)
       if (total_no_files != 0)
       {
 #if SIZEOF_TIME_T == 4
-         (void)sprintf(status_message, "Search time: %lds", end - start);
+         (void)sprintf(status_message, "Search time: %lds",
 #else
-         (void)sprintf(status_message, "Search time: %llds", end - start);
+         (void)sprintf(status_message, "Search time: %llds",
 #endif
+                       (pri_time_t)(end - start));
       }
       else
       {
@@ -932,7 +933,7 @@ get_data(void)
 #else
          (void)sprintf(status_message, "No data found. Search time: %llds",
 #endif
-                       end - start);
+                       (pri_time_t)(end - start));
       }
       SHOW_MESSAGE();
    }

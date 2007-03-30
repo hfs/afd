@@ -21,9 +21,12 @@
 #define __scpdefs_h
 
 /* Function prototypes */
-extern int  scp_connect(char *, int, char *, char *, char *),
+#ifdef WITH_SSH_FINGERPRINT
+extern int  scp_connect(char *, int, unsigned char, char *, char *, char *, char *),
+#else
+extern int  scp_connect(char *, int, unsigned char, char *, char *, char *),
+#endif
             scp_close_file(void),
-            scp_cmd_connect(char *, int, char *, char *, char *),
             scp_open_file(char *, off_t, mode_t),
             scp_write(char *, int);
 extern void scp_quit(void);

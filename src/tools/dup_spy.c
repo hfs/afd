@@ -1,6 +1,6 @@
 /*
  *  dup_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -138,7 +138,7 @@ main(int argc, char *argv[])
 #else
       (void)fprintf(stdout, "Check time  : %lld\n",
 #endif
-                    *(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4));
+                    (pri_time_t)(*(time_t *)(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 4)));
       (void)fprintf(stdout, "CRC        Flag       Timeout\n");
       for (i = 0; i < *no_of_crcs; i++)
       {
@@ -147,7 +147,8 @@ main(int argc, char *argv[])
 #else
          (void)fprintf(stdout, "%-10x %-10d %-12lld\n",
 #endif
-                       cdb[i].crc, cdb[i].flag, cdb[i].timeout);
+                       cdb[i].crc, cdb[i].flag,
+                       (pri_time_t)cdb[i].timeout);
       }
    }
    else

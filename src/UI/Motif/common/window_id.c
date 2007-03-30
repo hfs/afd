@@ -67,6 +67,7 @@ DESCR__E_M3
 #include <string.h>                  /* strcpy(), strcat(), strcmp()     */
 #include <stdlib.h>                  /* getenv()                         */
 #include <sys/types.h>
+#include <signal.h>                  /* kill()                           */
 #include <sys/stat.h>
 #include <unistd.h>                  /* ftruncate()                      */
 #include <fcntl.h>

@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2005 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -16,11 +16,12 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
-MAINTAINERCLEANFILES  = Makefile.in
 noinst_HEADERS        = amgdefs.h
 INCLUDES              = -I.. -I../init_afd -I../fd
 bin_PROGRAMS          = amg dir_check
 EXTRA_PROGRAMS        = test_in_time test_time show_amg_data
+MAINTAINERCLEANFILES  = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES            = gmon.out core core.*
 amg_SOURCES           = amg.c\
                         amg_zombie_check.c\
                         clear_pool_dir.c\
@@ -52,6 +53,7 @@ dir_check_SOURCES     = check_files.c\
                         enter_time_job.c\
                         eval_time_str.c\
                         handle_options.c\
+                        handle_retrieve_list.c\
                         handle_time_jobs.c\
                         init_dir_check.c\
                         init_job_data.c\
@@ -63,6 +65,7 @@ dir_check_SOURCES     = check_files.c\
                         lookup_job_id.c\
                         next.c\
                         receive_log.c\
+                        remove_old_ls_data_files.c\
                         remove_time_dir.c\
                         rename_files.c\
                         save_files.c\

@@ -1,6 +1,6 @@
 /*
  *  resend_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -648,6 +648,9 @@ send_new_message(char           *p_msg_name,
 {
    unsigned short dir_no;
    int            fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  readfd,
+#endif
                   ret;
    char           msg_fifo[MAX_PATH_LENGTH],
                   *ptr;
@@ -673,7 +676,11 @@ send_new_message(char           *p_msg_name,
    (void)strcat(msg_fifo, MSG_FIFO);
 
    /* Open and create message file. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(msg_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(msg_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)xrec(appshell, ERROR_DIALOG, "Could not open %s : %s (%s %d)",
                  msg_fifo, strerror(errno), __FILE__, __LINE__);
@@ -720,6 +727,13 @@ send_new_message(char           *p_msg_name,
          ret = SUCCESS;
       }
 
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (close(readfd) == -1)
+      {
+         (void)xrec(appshell, WARN_DIALOG, "Failed to close() %s : %s (%s %d)",
+                    msg_fifo, strerror(errno), __FILE__, __LINE__);
+      }
+#endif
       if (close(fd) == -1)
       {
          (void)xrec(appshell, WARN_DIALOG, "Failed to close() %s : %s (%s %d)",

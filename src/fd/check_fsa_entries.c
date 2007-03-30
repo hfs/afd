@@ -1,6 +1,6 @@
 /*
  *  check_fsa_entries.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -118,7 +118,7 @@ check_fsa_entries(void)
                for (j = 0; j < no_of_dirs; j++)
                {
                   if ((fra[i].queued == YES) &&
-                      (CHECK_STRCMP(fsa[i].host_alias, fra[j].dir_alias) == 0))
+                      (CHECK_STRCMP(fsa[i].host_alias, fra[j].host_alias) == 0))
                   {
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                 "Queued flag set for dir_alias %s, but actieve_transfers is 0. Unsetting queued flag.",

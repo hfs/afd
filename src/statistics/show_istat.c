@@ -1,6 +1,6 @@
 /*
  *  show_istat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@ DESCR__S_M1
  **               -t[u]           Put in a timestamp when the output is valid.
  **               -y [<x>]        Show information of all years [or year
  **                               minus x].
+ **               -T              Numeric total only.
  **               --version       Show version.
  **
  ** DESCRIPTION
@@ -58,6 +59,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   01.03.2003 H.Kiehl Created
+ **   23.07.2006 H.Kiehl Added -T option.
  **
  */
 DESCR__E_M1
@@ -65,6 +67,7 @@ DESCR__E_M1
 #include <stdio.h>                  /* fprintf(), stderr                 */
 #include <string.h>                 /* strcpy(), strerror(), strcmp()    */
 #include <time.h>                   /* time()                            */
+#include <ctype.h>                  /* isdigit()                         */
 #ifdef TM_IN_SYS_TIME
 #include <sys/time.h>               /* struct tm                         */
 #endif
@@ -87,13 +90,16 @@ DESCR__E_M1
 #endif
 #endif
 
-/* Global variables */
-int        sys_log_fd = STDERR_FILENO; /* Used by get_afd_path() */
-char       *p_work_dir,
-           **arglist; /* Holds list of dirs from command line when given. */
-const char *sys_log_name = SYSTEM_LOG_FIFO;
+/* Global variables. */
+int         sys_log_fd = STDERR_FILENO; /* Used by get_afd_path() */
+char        *p_work_dir,
+            **arglist; /* Holds list of dirs from command line when given. */
+const char  *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Function prototypes */
+/* Local global variables. */
+static int  show_numeric_total_only = NO;
+
+/* Function prototypes. */
 static void display_data(char *, int, char, int, double, double);
 
 
@@ -139,7 +145,8 @@ main(int argc, char *argv[])
    }
    eval_input_ss(argc, argv, statistic_file_name, &show_day, &show_day_summary,
                  &show_hour, &show_hour_summary, &show_min_range, &show_min,
-                 &show_min_summary, &show_year, &dir_counter, &show_time_stamp);
+                 &show_min_summary, &show_year, &dir_counter, &show_time_stamp,
+                 &show_numeric_total_only, YES);
 
    /* Initialize variables */
    p_work_dir = work_dir;
@@ -308,13 +315,16 @@ main(int argc, char *argv[])
 #else
                                 "                   [time span %lld -> %lld]\n",
 #endif
-                                first_time, last_time);
+                                (pri_time_t)first_time, (pri_time_t)last_time);
                }
             }
 
-            (void)fprintf(stdout, "                       ===================================\n");
-            (void)fprintf(stdout, "======================> AFD INPUT STATISTICS SUMMARY %d <========================\n", year);
-            (void)fprintf(stdout, "                       ===================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "                       ===================================\n");
+               (void)fprintf(stdout, "======================> AFD INPUT STATISTICS SUMMARY %d <========================\n", year);
+               (void)fprintf(stdout, "                       ===================================\n");
+            }
 
             if (dir_counter > 0)
             {
@@ -352,15 +362,22 @@ main(int argc, char *argv[])
                      nfr += (double)afd_istat[i].year[j].nfr;
                      nbr +=         afd_istat[i].year[j].nbr;
                   }
-                  display_data(afd_istat[position].dir_alias,
+                  display_data(afd_istat[i].dir_alias,
                                -1, ' ', -1, nfr, nbr);
                   tmp_nfr += nfr; tmp_nbr += nbr;
                }
             }
 
-            (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
-            display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
-            (void)fprintf(stdout, "================================================================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
+               display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+               (void)fprintf(stdout, "================================================================================\n");
+            }
+            else
+            {
+               (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+            }
          }
          else
          {
@@ -370,9 +387,12 @@ main(int argc, char *argv[])
             if (show_day > -1)
             {
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                          ==========================\n");
-               (void)fprintf(stdout, "=========================> AFD INPUT STATISTICS DAY <===========================\n");
-               (void)fprintf(stdout, "                          ==========================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                          ==========================\n");
+                  (void)fprintf(stdout, "=========================> AFD INPUT STATISTICS DAY <===========================\n");
+                  (void)fprintf(stdout, "                          ==========================\n");
+               }
                if (dir_counter < 0)
                {
                   for (i = 0; i < no_of_dirs; i++)
@@ -448,13 +468,23 @@ main(int argc, char *argv[])
 
                if ((show_year > -1) || (show_day_summary > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr; total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             } /* if (show_day > -1) */
 
             /*
@@ -498,14 +528,18 @@ main(int argc, char *argv[])
 #else
                                    "                 [time span %lld -> %lld]\n",
 #endif
-                                   first_time, last_time);
+                                   (pri_time_t)first_time,
+                                   (pri_time_t)last_time);
                   }
                }
 
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                       ================================\n");
-               (void)fprintf(stdout, "=====================> AFD INPUT STATISTICS DAY SUMMARY <=======================\n");
-               (void)fprintf(stdout, "                       ================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                       ================================\n");
+                  (void)fprintf(stdout, "=====================> AFD INPUT STATISTICS DAY SUMMARY <=======================\n");
+                  (void)fprintf(stdout, "                       ================================\n");
+               }
                for (j = 0; j < DAYS_PER_YEAR; j++)
                {
                   nfr = nbr = 0.0;
@@ -521,17 +555,34 @@ main(int argc, char *argv[])
 
                if ((show_year > -1) || (show_day > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr;
                   total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             } /* if (show_day_summary > -1) */
 
-            display_data("Total", -1, ' ', -1, total_nfr, total_nbr);
+            if (show_numeric_total_only == NO)
+            {
+               display_data("Total", -1, ' ', -1, total_nfr, total_nbr);
+            }
+            else
+            {
+               (void)fprintf(stdout, "%.0f %.0f\n", total_nfr, total_nbr);
+            }
          }
 
 #ifdef HAVE_MMAP
@@ -625,13 +676,16 @@ main(int argc, char *argv[])
 #else
                                 "                 [time span %lld -> %lld]\n",
 #endif
-                                first_time, last_time);
+                                (pri_time_t)first_time, (pri_time_t)last_time);
                }
             }
             tmp_nfr = tmp_nbr = 0.0;
-            (void)fprintf(stdout, "                    ========================================\n");
-            (void)fprintf(stdout, "===================> AFD INPUT STATISTICS LAST %2d MINUTE(S) <===================\n", show_min_range);
-            (void)fprintf(stdout, "                    ========================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "                    ========================================\n");
+               (void)fprintf(stdout, "===================> AFD INPUT STATISTICS LAST %2d MINUTE(S) <===================\n", show_min_range);
+               (void)fprintf(stdout, "                    ========================================\n");
+            }
             if (dir_counter < 0)
             {
                for (i = 0; i < no_of_dirs; i++)
@@ -705,9 +759,16 @@ main(int argc, char *argv[])
                   }
                }
             }
-            (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
-            display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
-            (void)fprintf(stdout, "================================================================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
+               display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+               (void)fprintf(stdout, "================================================================================\n");
+            }
+            else
+            {
+               (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+            }
 
 #ifdef HAVE_MMAP
             if (munmap(ptr, stat_buf.st_size) < 0)
@@ -740,9 +801,12 @@ main(int argc, char *argv[])
              */
             tmp_nfr = tmp_nbr = 0.0;
 
-            (void)fprintf(stdout, "                         ==============================\n");
-            (void)fprintf(stdout, "========================> AFD INPUT STATISTICS SUMMARY <========================\n");
-            (void)fprintf(stdout, "                         ==============================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "                         ==============================\n");
+               (void)fprintf(stdout, "========================> AFD INPUT STATISTICS SUMMARY <========================\n");
+               (void)fprintf(stdout, "                         ==============================\n");
+            }
 
             if (dir_counter > 0)
             {
@@ -804,9 +868,16 @@ main(int argc, char *argv[])
                   display_data(afd_istat[i].dir_alias, -1, ' ', -1, nfr, nbr);
                }
             }
-            (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
-            display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
-            (void)fprintf(stdout, "================================================================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");
+               display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+               (void)fprintf(stdout, "================================================================================\n");
+            }
+            else
+            {
+               (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+            }
          }
          else
          {
@@ -816,9 +887,12 @@ main(int argc, char *argv[])
             if (show_day > -1)
             {
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                          ==========================\n");
-               (void)fprintf(stdout, "=========================> AFD INPUT STATISTICS DAY <===========================\n");
-               (void)fprintf(stdout, "                          ==========================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                          ==========================\n");
+                  (void)fprintf(stdout, "=========================> AFD INPUT STATISTICS DAY <===========================\n");
+                  (void)fprintf(stdout, "                          ==========================\n");
+               }
                if (dir_counter < 0)
                {
                   for (i = 0; i < no_of_dirs; i++)
@@ -937,13 +1011,23 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_hour > -1) ||
                    (show_day_summary > -1) || (show_hour_summary > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr; total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             } /* if (show_day > -1) */
 
             /*
@@ -955,9 +1039,12 @@ main(int argc, char *argv[])
 
                p_ts = localtime(&now);
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                       ================================\n");
-               (void)fprintf(stdout, "=====================> AFD INPUT STATISTICS DAY SUMMARY <=======================\n");
-               (void)fprintf(stdout, "                       ================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                       ================================\n");
+                  (void)fprintf(stdout, "=====================> AFD INPUT STATISTICS DAY SUMMARY <=======================\n");
+                  (void)fprintf(stdout, "                       ================================\n");
+               }
                for (j = 0; j < p_ts->tm_yday; j++)
                {
                   nfr = nbr = 0.0;
@@ -973,13 +1060,23 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_hour > -1) || (show_hour_summary > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr; total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             } /* if (show_day_summary > -1) */
 
             /*
@@ -990,9 +1087,12 @@ main(int argc, char *argv[])
                double sec_nfr, sec_nbr;
 
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                          ===========================\n");
-               (void)fprintf(stdout, "=========================> AFD INPUT STATISTICS HOUR <==========================\n");
-               (void)fprintf(stdout, "                          ===========================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                          ===========================\n");
+                  (void)fprintf(stdout, "=========================> AFD INPUT STATISTICS HOUR <==========================\n");
+                  (void)fprintf(stdout, "                          ===========================\n");
+               }
                if (dir_counter < 0)
                {
                   for (i = 0; i < no_of_dirs; i++)
@@ -1154,13 +1254,23 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_day_summary > -1) || (show_hour_summary > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr; total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             } /* if (show_hour > -1) */
 
             /*
@@ -1169,9 +1279,12 @@ main(int argc, char *argv[])
             if (show_hour_summary > -1)
             {
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                       =================================\n");
-               (void)fprintf(stdout, "=====================> AFD INPUT STATISTICS HOUR SUMMARY <======================\n");
-               (void)fprintf(stdout, "                       =================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                       =================================\n");
+                  (void)fprintf(stdout, "=====================> AFD INPUT STATISTICS HOUR SUMMARY <======================\n");
+                  (void)fprintf(stdout, "                       =================================\n");
+               }
                for (j = 0; j < afd_istat[0].hour_counter; j++)
                {
                   nfr = nbr = 0.0;
@@ -1209,13 +1322,23 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_day_summary > -1) || (show_hour > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr; total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             } /* if (show_hour_summary > -1) */
 
             /*
@@ -1226,9 +1349,12 @@ main(int argc, char *argv[])
                int tmp;
 
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                          ===========================\n");
-               (void)fprintf(stdout, "========================> AFD INPUT STATISTICS MINUTE <=========================\n");
-               (void)fprintf(stdout, "                          ===========================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                          ===========================\n");
+                  (void)fprintf(stdout, "========================> AFD INPUT STATISTICS MINUTE <=========================\n");
+                  (void)fprintf(stdout, "                          ===========================\n");
+               }
                if (dir_counter < 0)
                {
                   for (i = 0; i < no_of_dirs; i++)
@@ -1421,13 +1547,23 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) || (show_hour > -1) ||
                    (show_day_summary > -1) || (show_hour_summary > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr; total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             } /* if (show_min > -1) */
 
             /*
@@ -1436,9 +1572,12 @@ main(int argc, char *argv[])
             if (show_min_summary > -1)
             {
                tmp_nfr = tmp_nbr = 0.0;
-               (void)fprintf(stdout, "                      ===================================\n");
-               (void)fprintf(stdout, "====================> AFD INPUT STATISTICS MINUTE SUMMARY <=====================\n");
-               (void)fprintf(stdout, "                      ===================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                      ===================================\n");
+                  (void)fprintf(stdout, "====================> AFD INPUT STATISTICS MINUTE SUMMARY <=====================\n");
+                  (void)fprintf(stdout, "                      ===================================\n");
+               }
             }
             if (show_min_summary == 0)
             {
@@ -1575,16 +1714,33 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_day_summary > -1) || (show_hour > -1))
                {
-                  display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data("Total", -1, ' ', -1, tmp_nfr, tmp_nbr);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%.0f %.0f\n", tmp_nfr, tmp_nbr);
+                  }
                }
                else
                {
                   total_nfr += tmp_nfr; total_nbr += tmp_nbr;
                }
-               (void)fprintf(stdout, "================================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "================================================================================\n");
+               }
             }
 
-            display_data("Total", -1, ' ', -1, total_nfr, total_nbr);
+            if (show_numeric_total_only == NO)
+            {
+               display_data("Total", -1, ' ', -1, total_nfr, total_nbr);
+            }
+            else
+            {
+               (void)fprintf(stdout, "%.0f %.0f\n", total_nfr, total_nbr);
+            }
          }
 
 #ifdef HAVE_MMAP
@@ -1627,86 +1783,101 @@ display_data(char   *name,
              double nfr,
              double nbr)
 {
-   char str1[3],
-        str2[5];
+   if (show_numeric_total_only == NO)
+   {
+      char str1[3],
+           str2[5];
 
-   if (val1 == -1)
-   {
-      str1[0] = ' ';
-      str1[1] = '\0';
-   }
-   else
-   {
-      str1[2] = '\0';
-      if (val1 < 10)
+      if (val1 == -1)
       {
          str1[0] = ' ';
-         str1[1] = val1 + '0';
+         str1[1] = '\0';
       }
       else
       {
-         str1[0] = (val1 / 10) + '0';
-         str1[1] = (val1 % 10) + '0';
+         str1[2] = '\0';
+         if (val1 < 10)
+         {
+            str1[0] = ' ';
+            str1[1] = val1 + '0';
+         }
+         else
+         {
+            str1[0] = (val1 / 10) + '0';
+            str1[1] = (val1 % 10) + '0';
+         }
       }
-   }
-   if (val2 == -1)
-   {
-      str2[0] = ' ';
-      str2[1] = '\0';
-   }
-   else
-   {
-      str2[3] = ':';
-      str2[4] = '\0';
-      if (val2 < 10)
+      if (val2 == -1)
       {
          str2[0] = ' ';
-         str2[1] = ' ';
-         str2[2] = val2 + '0';
+         str2[1] = '\0';
       }
-      else if (val2 < 100)
+      else
+      {
+         str2[3] = ':';
+         str2[4] = '\0';
+         if (val2 < 10)
+         {
+            str2[0] = ' ';
+            str2[1] = ' ';
+            str2[2] = val2 + '0';
+         }
+         else if (val2 < 100)
+              {
+                 str2[0] = ' ';
+                 str2[1] = (val2 / 10) + '0';
+                 str2[2] = (val2 % 10) + '0';
+              }
+              else
+              {
+                 str2[0] = (val2 / 100) + '0';
+                 str2[1] = ((val2 / 10) % 10) + '0';
+                 str2[2] = (val2 % 10) + '0';
+              }
+      }
+      if (nbr >= F_EXABYTE)
+      {
+         (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f EB\n",
+                       MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
+                       nfr, nbr / F_EXABYTE);
+      }
+      else if (nbr >= F_PETABYTE)
            {
-              str2[0] = ' ';
-              str2[1] = (val2 / 10) + '0';
-              str2[2] = (val2 % 10) + '0';
+              (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f PB\n",
+                            MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
+                            nfr, nbr / F_PETABYTE);
+           }
+      else if (nbr >= F_TERABYTE)
+           {
+              (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f TB\n",
+                            MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
+                            nfr, nbr / F_TERABYTE);
+           }
+      else if (nbr >= F_GIGABYTE)
+           {
+              (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f GB\n",
+                            MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
+                            nfr, nbr / F_GIGABYTE);
+           }
+      else if (nbr >= F_MEGABYTE)
+           {
+              (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f MB\n",
+                            MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
+                            nfr,  nbr / F_MEGABYTE);
+           }
+      else if (nbr >= F_KILOBYTE)
+           {
+              (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f KB\n",
+                            MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
+                            nfr,  nbr / F_KILOBYTE);
            }
            else
            {
-              str2[0] = (val2 / 100) + '0';
-              str2[1] = ((val2 / 10) % 10) + '0';
-              str2[2] = (val2 % 10) + '0';
+              (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.0f B\n",
+                            MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
+                            nfr,  nbr);
            }
    }
-   if (nbr >= F_TERABYTE)
-   {
-      (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f TB\n",
-                    MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
-                    nfr, nbr / F_TERABYTE);
-   }
-   else if (nbr >= F_GIGABYTE)
-        {
-           (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f GB\n",
-                         MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
-                         nfr, nbr / F_GIGABYTE);
-        }
-   else if (nbr >= F_MEGABYTE)
-        {
-           (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f MB\n",
-                         MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
-                         nfr,  nbr / F_MEGABYTE);
-        }
-   else if (nbr >= F_KILOBYTE)
-        {
-           (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.3f KB\n",
-                         MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
-                         nfr,  nbr / F_KILOBYTE);
-        }
-        else
-        {
-           (void)fprintf(stdout, "%-*s %2s %c%4s%12.0f %8.0f B\n",
-                         MAX_DIR_ALIAS_LENGTH, name, str1, current, str2,
-                         nfr,  nbr);
-        }
 
    return;
 }

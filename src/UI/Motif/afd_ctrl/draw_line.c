@@ -555,7 +555,7 @@ draw_debug_led(int pos, int x, int y)
 
    if (connect_data[pos].debug > NORMAL_MODE)
    {
-      gc_values.foreground = color_pool[connect_data[pos].debug];
+      gc_values.foreground = color_pool[(int)connect_data[pos].debug];
    }
    else
    {

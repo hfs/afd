@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,6 +56,7 @@ DESCR__E_M1
 #include <ctype.h>            /* toupper()                               */
 #include <unistd.h>           /* gethostname(), getcwd(), STDERR_FILENO  */
 #include <stdlib.h>           /* getenv(), calloc()                      */
+#include <time.h>             /* time()                                  */
 #include <math.h>             /* log10()                                 */
 #include <sys/times.h>        /* times(), struct tms                     */
 #include <sys/types.h>
@@ -102,6 +103,7 @@ GC                         letter_gc,
                            label_bg_gc,
                            red_color_letter_gc,
                            fr_bar_gc,
+                           tu_bar_gc,
                            tr_bar_gc,
                            color_gc,
                            black_line_gc,
@@ -125,7 +127,7 @@ Widget                     appshell,
 Window                     label_window,
                            line_window;
 float                      max_bar_length;
-int                        bar_thickness_2,
+int                        bar_thickness_3,
                            fra_fd = -1,
                            fra_id,
                            no_input,
@@ -143,12 +145,16 @@ int                        bar_thickness_2,
 			   no_of_short_lines, /* Not yet used. */
                            redraw_time_line,
                            sys_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           sys_log_readfd,
+#endif
                            window_width,
                            window_height,
                            x_offset_bars,
                            x_offset_characters,
                            x_offset_dir_full,
                            x_offset_type;
+time_t                     now;
 XT_PTR_TYPE                current_font = -1,
                            current_row = -1,
                            current_style = -1;
@@ -433,6 +439,7 @@ static void
 init_dir_ctrl(int *argc, char *argv[], char *window_title)
 {
    int           i;
+   unsigned int  new_bar_length;
    char          *perm_buffer,
                  hostname[MAX_AFD_NAME_LENGTH];
    struct passwd *pwd;
@@ -488,6 +495,20 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE : /* User is not allowed to use this program */
          {
             char *user;
@@ -608,6 +629,8 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    /* Determine the default bar length */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
 
+   now = time(NULL);
+
    /* Initialise all display data for each directory to monitor */
    for (i = 0; i < no_of_dirs; i++)
    {
@@ -624,6 +647,9 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       connect_data[i].bytes_in_queue = fra[i].bytes_in_queue;
       connect_data[i].max_process = fra[i].max_process;
       connect_data[i].no_of_process = fra[i].no_of_process;
+      connect_data[i].max_errors = fra[i].max_errors;
+      connect_data[i].error_counter = fra[i].error_counter;
+      CREATE_EC_STRING(connect_data[i].str_ec, connect_data[i].error_counter);
       CREATE_FC_STRING(connect_data[i].str_files_in_dir,
                        connect_data[i].files_in_dir);
       CREATE_FS_STRING(connect_data[i].str_bytes_in_dir,
@@ -634,6 +660,14 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
                        connect_data[i].bytes_in_queue);
       CREATE_EC_STRING(connect_data[i].str_np, connect_data[i].no_of_process);
       connect_data[i].last_retrieval = fra[i].last_retrieval;
+      if (*(unsigned char *)((char *)fra - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_DIR_WARN_TIME)
+      {
+         connect_data[i].warn_time = 0;
+      }
+      else
+      {
+         connect_data[i].warn_time = fra[i].warn_time;
+      }
       connect_data[i].bytes_per_sec = 0;
       connect_data[i].prev_bytes_per_sec = 0;
       connect_data[i].str_tr[0] = connect_data[i].str_tr[1] = ' ';
@@ -651,6 +685,31 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       connect_data[i].average_fr = 0.0;
       connect_data[i].max_average_fr = 0.0;
       connect_data[i].bar_length[BYTE_RATE_BAR_NO] = 0;
+      if (connect_data[i].warn_time < 1)
+      {
+         connect_data[i].scale = 0.0;
+         connect_data[i].bar_length[TIME_UP_BAR_NO] = 0;
+      }
+      else
+      {
+         connect_data[i].scale = max_bar_length / connect_data[i].warn_time;
+         new_bar_length = (now - connect_data[i].last_retrieval) * connect_data[i].scale;
+         if (new_bar_length > 0)
+         {
+            if (new_bar_length >= max_bar_length)
+            {
+               connect_data[i].bar_length[TIME_UP_BAR_NO] = max_bar_length;
+            }
+            else
+            {
+               connect_data[i].bar_length[TIME_UP_BAR_NO] = new_bar_length;
+            }
+         }
+         else
+         {
+            connect_data[i].bar_length[TIME_UP_BAR_NO] = 0;
+         }
+      }
       connect_data[i].bar_length[FILE_RATE_BAR_NO] = 0;
       connect_data[i].start_time = times(&tmsdummy);
       connect_data[i].inverse = OFF;
@@ -1598,7 +1657,8 @@ dir_ctrl_exit(void)
 #else
                        "Failed to kill() process %s (%lld) : %s",
 #endif
-                       apps_list[i].progname, apps_list[i].pid, strerror(errno));
+                       apps_list[i].progname, (pri_pid_t)apps_list[i].pid,
+                       strerror(errno));
          }
       }
    }

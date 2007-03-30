@@ -1,6 +1,6 @@
 /*
  *  edit_hc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,6 +79,7 @@ DESCR__S_M1
  **   28.02.2006 H.Kiehl Added option for setting the keep connected
  **                      parameter.
  **   16.03.2006 H.Kiehl Added duplicate check option.
+ **   17.08.2006 H.Kiehl Added extended active or passive mode.
  **
  */
 DESCR__E_M1
@@ -124,6 +125,9 @@ DESCR__E_M1
 XtAppContext               app;
 Display                    *display;
 Widget                     active_mode_w,
+#ifdef _WITH_BURST_2
+                           allow_burst_w,
+#endif
                            appshell,
                            auto_toggle_w,
 #ifdef WITH_DUP_CHECK
@@ -133,12 +137,14 @@ Widget                     active_mode_w,
                            dc_filecontent_w,
                            dc_filenamecontent_w,
                            dc_filename_w,
+                           dc_nosuffix_w,
                            dc_store_w,
                            dc_timeout_label_w,
                            dc_timeout_w,
                            dc_type_w,
                            dc_warn_w,
 #endif
+                           extended_mode_w,
                            first_label_w,
                            ftp_fast_cd_w,
                            ftp_fast_rename_w,
@@ -159,6 +165,7 @@ Widget                     active_mode_w,
                            mode_label_w,
                            no_source_icon_w,
                            passive_mode_w,
+                           passive_redirect_w,
                            proxy_box_w,
                            proxy_name_w,
                            real_hostname_1_w,
@@ -1240,7 +1247,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNnumColumns,       1);
    argcount++;
    dc_type_w = XmCreateRadioBox(box_w, "radiobox", args, argcount);
-   dc_filename_w = XtVaCreateManagedWidget("Filename",
+   dc_filename_w = XtVaCreateManagedWidget("Name",
                                    xmToggleButtonGadgetClass, dc_type_w,
                                    XmNfontList,               fontlist,
                                    XmNset,                    True,
@@ -1248,7 +1255,15 @@ main(int argc, char *argv[])
    XtAddCallback(dc_filename_w, XmNdisarmCallback,
                  (XtCallbackProc)dc_type_radio_button,
                  (XtPointer)FILE_NAME_SEL);
-   dc_filecontent_w = XtVaCreateManagedWidget("File content",
+   dc_nosuffix_w = XtVaCreateManagedWidget("Name no suffix",
+                                   xmToggleButtonGadgetClass, dc_type_w,
+                                   XmNfontList,               fontlist,
+                                   XmNset,                    False,
+                                   NULL);
+   XtAddCallback(dc_nosuffix_w, XmNdisarmCallback,
+                 (XtCallbackProc)dc_type_radio_button,
+                 (XtPointer)FILE_NOSUFFIX_SEL);
+   dc_filecontent_w = XtVaCreateManagedWidget("Content",
                                    xmToggleButtonGadgetClass, dc_type_w,
                                    XmNfontList,               fontlist,
                                    XmNset,                    False,
@@ -1256,7 +1271,7 @@ main(int argc, char *argv[])
    XtAddCallback(dc_filecontent_w, XmNdisarmCallback,
                  (XtCallbackProc)dc_type_radio_button,
                  (XtPointer)FILE_CONTENT_SEL);
-   dc_filenamecontent_w = XtVaCreateManagedWidget("Filename + content",
+   dc_filenamecontent_w = XtVaCreateManagedWidget("Name + content",
                                    xmToggleButtonGadgetClass, dc_type_w,
                                    XmNfontList,               fontlist,
                                    XmNset,                    False,
@@ -1481,12 +1496,26 @@ main(int argc, char *argv[])
                                 XmNleftOffset,       5,
                                 XmNbottomAttachment, XmATTACH_FORM,
                                 NULL);
+   extended_mode_w = XtVaCreateManagedWidget("Extended",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             mode_label_w,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(extended_mode_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button,
+                 (XtPointer)FTP_EXTENDED_MODE_CHANGED);
+
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
    argcount++;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
-   XtSetArg(args[argcount], XmNleftWidget,       mode_label_w);
+   XtSetArg(args[argcount], XmNleftWidget,       extended_mode_w);
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
    argcount++;
@@ -1514,18 +1543,19 @@ main(int argc, char *argv[])
                  (XtCallbackProc)ftp_mode_radio_button,
                  (XtPointer)FTP_PASSIVE_MODE_SEL);
    XtManageChild(ftp_mode_w);
-   ftp_ignore_bin_w = XtVaCreateManagedWidget("Ignore type I",
-                       xmToggleButtonGadgetClass, box_w,
-                       XmNfontList,               fontlist,
-                       XmNset,                    False,
-                       XmNtopAttachment,          XmATTACH_FORM,
-                       XmNtopOffset,              SIDE_OFFSET,
-                       XmNrightAttachment,        XmATTACH_FORM,
-                       XmNbottomAttachment,       XmATTACH_FORM,
-                       NULL);
-   XtAddCallback(ftp_ignore_bin_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)toggle_button, 
-                 (XtPointer)FTP_IGNORE_BIN_CHANGED);
+   passive_redirect_w = XtVaCreateManagedWidget("Redirect",
+                           xmToggleButtonGadgetClass, box_w,
+                           XmNfontList,               fontlist,
+                           XmNset,                    False,
+                           XmNtopAttachment,          XmATTACH_FORM,
+                           XmNtopOffset,              SIDE_OFFSET,
+                           XmNleftAttachment,         XmATTACH_WIDGET,
+                           XmNleftWidget,             ftp_mode_w,
+                           XmNbottomAttachment,       XmATTACH_FORM,
+                           NULL);
+   XtAddCallback(passive_redirect_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)FTP_PASSIVE_REDIRECT_CHANGED);
    XtManageChild(box_w);
 
    argcount = 0;
@@ -1591,6 +1621,47 @@ main(int argc, char *argv[])
    XtAddCallback(ftp_fast_cd_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggle_button, 
                  (XtPointer)FTP_FAST_CD_CHANGED);
+   XtManageChild(box_w);
+
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,        box_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       v_separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   argcount++;
+   box_w = XmCreateForm(form_w, "protocol_specific2_box_w", args, argcount);
+   ftp_ignore_bin_w = XtVaCreateManagedWidget("Ignore type I",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    False,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_FORM,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(ftp_ignore_bin_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button, 
+                 (XtPointer)FTP_IGNORE_BIN_CHANGED);
+#ifdef _WITH_BURST_2
+   allow_burst_w = XtVaCreateManagedWidget("Allow burst",
+                       xmToggleButtonGadgetClass, box_w,
+                       XmNfontList,               fontlist,
+                       XmNset,                    True,
+                       XmNtopAttachment,          XmATTACH_FORM,
+                       XmNtopOffset,              SIDE_OFFSET,
+                       XmNleftAttachment,         XmATTACH_WIDGET,
+                       XmNleftWidget,             ftp_ignore_bin_w,
+                       XmNbottomAttachment,       XmATTACH_FORM,
+                       NULL);
+   XtAddCallback(allow_burst_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)ALLOW_BURST_CHANGED);
+#endif
    XtManageChild(box_w);
 
 /*-----------------------------------------------------------------------*/
@@ -1703,12 +1774,10 @@ main(int argc, char *argv[])
 static void
 init_edit_hc(int *argc, char *argv[], char *window_title)
 {
-   char        *perm_buffer,
-               *p_user,
-               hostname[MAX_AFD_NAME_LENGTH],
-               selected_host[MAX_HOSTNAME_LENGTH + 1],
-               sys_log_fifo[MAX_PATH_LENGTH];
-   struct stat stat_buf;
+   char *perm_buffer,
+        *p_user,
+        hostname[MAX_AFD_NAME_LENGTH],
+        selected_host[MAX_HOSTNAME_LENGTH + 1];
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
        (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
@@ -1731,6 +1800,20 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE     : (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
                       exit(INCORRECT);
 
@@ -1778,28 +1861,6 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
    {
       (void)strcpy(font_name, "fixed");
-   }
-
-   /* Create and open sys_log fifo. */
-   (void)strcpy(sys_log_fifo, p_work_dir);
-   (void)strcat(sys_log_fifo, FIFO_DIR);
-   (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
-      {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Failed to create fifo %s. (%s %d)\n",
-                   sys_log_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
-   {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
 
    /*
@@ -2063,7 +2124,7 @@ create_option_menu_fso(Widget parent, Widget label_w, XmFontList fontlist)
 #if SIZEOF_LONG == 4
       (void)sprintf(button_name, "%d", i);
 #else
-      (void)sprintf(button_name, "%lld", i);
+      (void)sprintf(button_name, "%ld", i);
 #endif
       argcount = 0;
       XtSetArg(args[argcount], XmNfontList, fontlist);
@@ -2118,7 +2179,7 @@ create_option_menu_nob(Widget parent, Widget label_w, XmFontList fontlist)
    /* Add all possible buttons. */
    for (i = 0; i <= MAX_NO_PARALLEL_JOBS; i++)
    {
-#if SIZEOF_LONG
+#if SIZEOF_LONG == 4
       (void)sprintf(button_name, "%d", i);
 #else
       (void)sprintf(button_name, "%ld", i);
@@ -2161,6 +2222,7 @@ init_widget_data(void)
 
       /* Initialize array holding all changed entries. */
       ce[i].value_changed = 0;
+      ce[i].value_changed2 = 0;
       ce[i].real_hostname[0][0] = -1;
       ce[i].real_hostname[1][0] = -1;
       ce[i].proxy_name[0] = -1;

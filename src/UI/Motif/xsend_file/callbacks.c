@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__E_M3
 #include <stdio.h>                  /* popen(), pclose()                 */
 #include <string.h>
 #include <stdlib.h>                 /* exit()                            */
+#include <ctype.h>                  /* isdigit()                         */
 #include <sys/types.h>
 #include <signal.h>                 /* kill()                            */
 #include <unistd.h>                 /* read(), close()                   */
@@ -105,6 +106,29 @@ close_button(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 
+/*####################### active_passive_radio() ########################*/
+void
+active_passive_radio(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   if ((XT_PTR_TYPE)client_data == SET_ACTIVE)
+   {
+      if (db->mode_flag & ACTIVE_MODE)
+      {
+         db->mode_flag |= ACTIVE_MODE;
+      }
+   }
+   else
+   {
+      if (db->mode_flag & PASSIVE_MODE)
+      {
+         db->mode_flag |= PASSIVE_MODE;
+      }
+   }
+
+   return;
+}
+
+
 /*############################ lock_radio() #############################*/
 void
 lock_radio(Widget w, XtPointer client_data, XtPointer call_data)
@@ -143,17 +167,17 @@ create_target_toggle(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 
-/*########################## passive_toggle() ###########################*/
+/*######################### extended_toggle() ###########################*/
 void
-passive_toggle(Widget w, XtPointer client_data, XtPointer call_data)
+extended_toggle(Widget w, XtPointer client_data, XtPointer call_data)
 {
-   if (db->mode_flag == ACTIVE_MODE)
+   if (db->mode_flag & EXTENDED_MODE)
    {
-      db->mode_flag = PASSIVE_MODE;
+      db->mode_flag &= ~EXTENDED_MODE;
    }
    else
    {
-      db->mode_flag = ACTIVE_MODE;
+      db->mode_flag |= EXTENDED_MODE;
    }
 
    return;
@@ -295,7 +319,8 @@ send_button(Widget w, XtPointer client_data, XtPointer call_data)
 #else
             (void)fprintf(stderr, "Failed to kill() process %lld : %s (%s %d)\n",
 #endif
-                          cmd_pid, strerror(errno), __FILE__, __LINE__);
+                          (pri_pid_t)cmd_pid, strerror(errno),
+                          __FILE__, __LINE__);
          }
 #ifdef _IF_IT_DOES_NOT_WORK
          if (wait(NULL) == -1)

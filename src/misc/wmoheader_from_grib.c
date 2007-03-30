@@ -58,6 +58,7 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>               /* sprintf()                            */
+#include "amgdefs.h"
 
 
 /*######################## wmoheader_from_grib() ########################*/

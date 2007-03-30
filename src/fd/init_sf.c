@@ -1,6 +1,6 @@
 /*
  *  init_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,10 +60,11 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        exitflag,
-                                  trans_rule_pos,
-                                  user_rule_pos,
                                   fsa_fd,
                                   no_of_hosts,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                  transfer_log_readfd,
+#endif
                                   transfer_log_fd;
 extern long                       transfer_timeout;
 extern char                       *p_work_dir,
@@ -133,6 +134,7 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
 #ifdef _WITH_TRANS_EXEC
    db.trans_exec_cmd = NULL;
    db.trans_exec_timeout = DEFAULT_EXEC_TIMEOUT;
+   db.set_trans_exec_lock = NO;
 #endif
    db.special_flag = 0;
    db.mode_flag = 0;
@@ -152,8 +154,15 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    db.restart_file = NULL;
    db.user_id = -1;
    db.group_id = -1;
+   db.filename_pos_subject = -1;
+   db.subject_rename_rule[0] = '\0';
 #ifdef WITH_SSL
    db.auth = NO;
+#endif
+   db.ssh_protocol = 0;
+#ifdef WITH_SSH_FINGERPRINT
+   db.ssh_fingerprint[0] = '\0';
+   db.key_type = 0;
 #endif
    (void)strcpy(db.lock_notation, DOT_NOTATION);
    db.sndbuf_size = 0;
@@ -167,20 +176,60 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       exit(-status);
    }
    db.my_pid = getpid();
-   if (db.mode_flag == 0)
+   if ((protocol & FTP_FLAG) && (db.mode_flag == 0))
    {
       if (fsa->protocol_options & FTP_PASSIVE_MODE)
       {
          db.mode_flag = PASSIVE_MODE;
+         if (fsa->protocol_options & FTP_EXTENDED_MODE)
+         {
+            (void)strcpy(db.mode_str, "extended passive");
+         }
+         else
+         {
+            if (fsa->protocol_options & FTP_ALLOW_DATA_REDIRECT)
+            {
+               (void)strcpy(db.mode_str, "passive (with redirect)");
+               db.mode_flag |= ALLOW_DATA_REDIRECT;
+            }
+            else
+            {
+               (void)strcpy(db.mode_str, "passive");
+            }
+         }
       }
       else
       {
          db.mode_flag = ACTIVE_MODE;
+         if (fsa->protocol_options & FTP_EXTENDED_MODE)
+         {
+            (void)strcpy(db.mode_str, "extended active");
+         }
+         else
+         {
+            (void)strcpy(db.mode_str, "active");
+         }
       }
+      if (fsa->protocol_options & FTP_EXTENDED_MODE)
+      {
+         db.mode_flag |= EXTENDED_MODE;
+      }
+   }
+   else
+   {
+      db.mode_str[0] = '\0';
    }
    if (fsa->protocol_options & FTP_IGNORE_BIN)
    {
       db.transfer_mode = 'N';
+   }
+   if (fsa->keep_connected > 0)
+   {
+      db.keep_connected = fsa->keep_connected;
+   }
+   else
+   {
+      db.keep_connected = 0;
    }
 #ifdef WITH_DUP_CHECK
    db.dup_check_flag = fsa->dup_check_flag;
@@ -200,12 +249,20 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, TRANSFER_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(gbuf, &transfer_log_readfd, &transfer_log_fd) == -1)
+#else
    if ((transfer_log_fd = open(gbuf, O_RDWR)) == -1)
+#endif
    {
       if (errno == ENOENT)
       {
          if ((make_fifo(gbuf) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+             (open_fifo_rw(gbuf, &transfer_log_readfd, &transfer_log_fd) == -1))
+#else
              ((transfer_log_fd = open(gbuf, O_RDWR)) == -1))
+#endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Could not open fifo %s : %s",
@@ -238,7 +295,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
     * used or user renaming (SMTP).
     */
    if ((db.trans_rename_rule[0] != '\0') ||
-       (db.user_rename_rule[0] != '\0'))
+       (db.user_rename_rule[0] != '\0') ||
+       (db.subject_rename_rule[0] != '\0'))
    {
       (void)strcpy(gbuf, p_work_dir);
       (void)strcat(gbuf, ETC_DIR);
@@ -246,8 +304,8 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       get_rename_rules(gbuf, NO);
       if (db.trans_rename_rule[0] != '\0')
       {
-         if ((trans_rule_pos = get_rule(db.trans_rename_rule,
-                                        no_of_rule_headers)) < 0)
+         if ((db.trans_rule_pos = get_rule(db.trans_rename_rule,
+                                           no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                       "Could NOT find rule %s. Ignoring this option.",
@@ -257,13 +315,24 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       }
       if (db.user_rename_rule[0] != '\0')
       {
-         if ((user_rule_pos = get_rule(db.user_rename_rule,
-                                       no_of_rule_headers)) < 0)
+         if ((db.user_rule_pos = get_rule(db.user_rename_rule,
+                                          no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Could NOT find rule %s. Ignoring this option.",
                        db.user_rename_rule);
             db.user_rename_rule[0] = '\0';
+         }
+      }
+      if (db.subject_rename_rule[0] != '\0')
+      {
+         if ((db.subject_rule_pos = get_rule(db.subject_rename_rule,
+                                             no_of_rule_headers)) < 0)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Could NOT find rule %s. Ignoring this option.",
+                       db.subject_rename_rule);
+            db.subject_rename_rule[0] = '\0';
          }
       }
    }
@@ -278,7 +347,11 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
        * It could be that all files where to old to be send. If this is
        * the case, no need to go on.
        */
+#ifdef WITH_UNLINK_DELAY
+      if ((ret = remove_dir(file_path, 0)) < 0)
+#else
       if ((ret = remove_dir(file_path)) < 0)
+#endif
       {
          if (ret == FILE_IS_DIR)
          {
@@ -320,6 +393,13 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       unlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
 #else
       unlock_region(fsa_fd, db.lock_offset);
+#endif
+#ifdef WITH_ERROR_QUEUE
+      if ((fsa->host_status & ERROR_QUEUE_SET) &&
+          (check_error_queue(db.job_id, -1) == 1))
+      {
+         db.special_flag |= IN_ERROR_QUEUE;
+      }
 #endif
 
       /* Set the timeout value. */

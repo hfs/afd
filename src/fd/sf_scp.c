@@ -1,6 +1,6 @@
 /*
  *  sf_scp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -93,13 +93,16 @@ int                        counter_fd = -1,     /* NOT USED */
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
                            *p_no_of_hosts,
-                           trans_rule_pos, /* Not used [init_sf()]      */
-                           user_rule_pos,  /* Not used [init_sf()]      */
                            fsa_id,
                            fsa_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           trans_db_log_readfd,
+                           transfer_log_readfd,
+#endif
+                           trans_rename_blocked = NO,
                            amg_flag = NO,
                            timeout_flag;
 #ifdef _WITH_BURST_2
@@ -153,6 +156,9 @@ main(int argc, char *argv[])
    clock_t          clktck;
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+   int              ol_readfd = -1;
+# endif
    unsigned int     *ol_job_number;
    char             *ol_data = NULL,
                     *ol_file_name;
@@ -203,11 +209,6 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-#ifdef LINUX
-   /* Unset DISPLAY if exists. */
-   unsetenv("DISPLAY");
-#endif
-
    /* Initialise variables */
    p_work_dir = work_dir;
    files_to_send = init_sf(argc, argv, file_path, SCP_FLAG);
@@ -252,6 +253,9 @@ main(int argc, char *argv[])
    if (db.output_log == YES)
    {
       output_log_ptrs(&ol_fd,                /* File descriptor to fifo */
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+                      &ol_readfd,
+# endif
                       &ol_job_number,
                       &ol_data,              /* Pointer to buffer       */
                       &ol_file_name,
@@ -292,7 +296,11 @@ main(int argc, char *argv[])
       trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
                    "Trying to make scp connect at port %d.", db.port);
    }
-   if ((status = scp_connect(db.hostname, db.port, db.user,
+#ifdef WITH_SSH_FINGERPRINT
+   if ((status = scp_connect(db.hostname, db.port, db.ssh_protocol, db.user, db.ssh_fingerprint,
+#else
+   if ((status = scp_connect(db.hostname, db.port, db.ssh_protocol, db.user,
+#endif
                              db.password, db.target_dir)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
@@ -349,7 +357,11 @@ main(int argc, char *argv[])
 # ifdef _OUTPUT_LOG
          if ((db.output_log == YES) && (ol_data == NULL))
          {
+#  ifdef WITHOUT_FIFO_RW_SUPPORT
+            output_log_ptrs(&ol_fd, &ol_readfd, &ol_job_number, &ol_data, &ol_file_name,
+#  else
             output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
+#  endif
                             &ol_file_name_length, &ol_archive_name_length,
                             &ol_file_size, &ol_unl, &ol_size, &ol_transfer_time,
                             db.host_alias, SCP);
@@ -459,13 +471,13 @@ main(int argc, char *argv[])
 
                for (;;)
                {
-                  while ((*ptr != '_') && (*ptr != '-') &&
-                         (*ptr != ' ') && (*ptr != '\0') && (*ptr != ';'))
+                  while ((*ptr != '_') && (*ptr != '-') && (*ptr != ' ') &&
+                         (*ptr != '\0') && (*ptr != '.') && (*ptr != ';'))
                   {
                      buffer[header_length] = *ptr;
                      header_length++; ptr++;
                   }
-                  if ((*ptr == '\0') || (*ptr == ';'))
+                  if ((*ptr == '\0') || (*ptr == '.') || (*ptr == ';'))
                   {
                      break;
                   }
@@ -584,7 +596,8 @@ main(int argc, char *argv[])
                           "File `%s' for host %s was DEFINITELY NOT send in dot notation. Size changed from %lld to %lld.",
 #endif
                           p_file_name_buffer, fsa->host_dsp_name,
-                          *p_file_size_buffer, no_of_bytes);
+                          (pri_off_t)*p_file_size_buffer,
+                          (pri_off_t)no_of_bytes);
             }
 
             /* Close local file. */
@@ -711,7 +724,7 @@ main(int argc, char *argv[])
 # else
                           "Total file size for host %s overflowed. Correcting to %lld.",
 # endif
-                          fsa->host_dsp_name, fsa->total_file_size);
+                          fsa->host_dsp_name, (pri_off_t)fsa->total_file_size);
             }
             else if ((fsa->total_file_counter == 0) &&
                      (fsa->total_file_size > 0))
@@ -875,6 +888,9 @@ main(int argc, char *argv[])
          if ((*p_file_size_buffer > 0) && (fsa->error_counter > 0))
          {
             int  fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                 readfd,
+#endif
                  j;
             char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
@@ -890,7 +906,11 @@ main(int argc, char *argv[])
              */
             (void)sprintf(fd_wake_up_fifo, "%s%s%s", p_work_dir,
                           FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(fd_wake_up_fifo, &readfd, &fd) == -1)
+#else
             if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
+#endif
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Failed to open() FIFO `%s' : %s",
@@ -904,6 +924,14 @@ main(int argc, char *argv[])
                              "Failed to write() to FIFO `%s' : %s",
                              fd_wake_up_fifo, strerror(errno));
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO `%s' (read) : %s",
+                             fd_wake_up_fifo, strerror(errno));
+               }
+#endif
                if (close(fd) == -1)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -945,6 +973,12 @@ main(int argc, char *argv[])
                           fsa->host_alias);
             }
          } /* if (fsa->error_counter > 0) */
+#ifdef WITH_ERROR_QUEUE
+         if (db.special_flag & IN_ERROR_QUEUE)
+         {
+            remove_from_error_queue(db.job_id, fsa);
+         }
+#endif
 
          p_file_name_buffer += MAX_FILENAME_LENGTH;
          p_file_size_buffer++;
@@ -1004,6 +1038,9 @@ static void
 sf_scp_exit(void)
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
    /*
@@ -1060,7 +1097,11 @@ sf_scp_exit(void)
    (void)strcpy(sf_fin_fifo, p_work_dir);
    (void)strcat(sf_fin_fifo, FIFO_DIR);
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo `%s' : %s", sf_fin_fifo, strerror(errno));
@@ -1079,6 +1120,9 @@ sf_scp_exit(void)
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)close(readfd);
+#endif
       (void)close(fd);
    }
    if (sys_log_fd != STDERR_FILENO)

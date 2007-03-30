@@ -1,6 +1,6 @@
 /*
  *  get_user.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -193,7 +193,7 @@ get_user(char *user, char *fake_user)
             {
                char *buffer = NULL;
 
-               if (exec_cmd("who am i", &buffer, -1, NULL, 0, 0L, YES) != INCORRECT)
+               if (exec_cmd("who am i", &buffer, -1, NULL, 0, "", 0L, YES) != INCORRECT)
                {
                   char *search_ptr = buffer;
 

@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -432,6 +432,39 @@ write_header(int fd)
       else
       {
          length += sprintf(&buffer[length], ", UNSENT OUTPUT");
+      }
+   }
+   if (toggles_set & SHOW_RETRIEVES)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tQueue typ     : RETRIEVES");
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", RETRIEVES");
+      }
+   }
+   if (toggles_set & SHOW_PENDING_RETRIEVES)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tQueue typ     : PENDING RETRIEVES");
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", PENDING RETRIEVES");
+      }
+   }
+   if (toggles_set & SHOW_TIME_JOBS)
+   {
+      if (length == tmp_length)
+      {
+         length += sprintf(&buffer[length], "\tQueue typ     : TIME");
+      }
+      else
+      {
+         length += sprintf(&buffer[length], ", TIME");
       }
    }
 

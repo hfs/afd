@@ -1,7 +1,7 @@
 /*
  *  view_ls_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,13 +44,13 @@ DESCR__E_M1
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>                 /* exit()                            */
+#include <time.h>                   /* strftime()                        */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>                  /* open()                            */
 #include <unistd.h>                 /* fstat()                           */
 #include <sys/mman.h>               /* mmap()                            */
 #include <errno.h>
-#include "fddefs.h"
 #include "version.h"
 
 /* Local function prototypes. */
@@ -101,12 +101,15 @@ main(int argc, char *argv[])
             }
             else
             {
+               int version;
+
                no_of_listed_files = *(int *)ptr;
+               version = (int)(*(ptr + SIZEOF_INT + 1 + 1 + 1));
                ptr += AFD_WORD_OFFSET;
                rl = (struct retrieve_list *)ptr;
 
-               (void)fprintf(stdout, "\n        %s (%d entries)\n\n",
-                             argv[i], no_of_listed_files);
+               (void)fprintf(stdout, "\n        %s (%d entries  Struct Version: %d)\n\n",
+                             argv[i], no_of_listed_files, version);
                (void)fprintf(stdout, "                        |            |Got |    | In |\n");
                (void)fprintf(stdout, "          Date          |    Size    |date|Retr|list|   File name\n");
                (void)fprintf(stdout, "------------------------+------------+----+----+----+------------------------------------\n");
@@ -118,7 +121,7 @@ main(int argc, char *argv[])
 #else
                   (void)fprintf(stdout, "%s|%12lld| %s| %s| %s|%s\n",
 #endif
-                                time_str, rl[j].size,
+                                time_str, (pri_off_t)rl[j].size,
                                 (rl[j].got_date == YES) ? "YES" : "NO ",
                                 (rl[j].retrieved == YES) ? "YES" : "NO ",
                                 (rl[j].in_list == YES) ? "YES" : "NO ",

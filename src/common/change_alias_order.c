@@ -1,6 +1,6 @@
 /*
  *  change_alias_order.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -230,7 +230,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
 
    /* Copy configuration information from the old FSA. */
    ptr += AFD_WORD_OFFSET;
-   *((char *)ptr - AFD_FSA_FEATURE_FLAG_OFFSET) = *((char *)fsa - AFD_FSA_FEATURE_FLAG_OFFSET);
+   *((char *)ptr - AFD_FEATURE_FLAG_OFFSET_END) = *((char *)fsa - AFD_FEATURE_FLAG_OFFSET_END);
 
    /* Reposition fsa pointer after no_of_host */
    new_fsa = (struct filetransfer_status *)ptr;

@@ -29,12 +29,35 @@ the new value:
    <td valign=top>afdd</td>
 </tr>
 <tr>
+   <td valign=top><a name="afd_tcp_logs">AFD_TCP_LOGS</a></td>
+   <td>The logs that may be requested from the given AFD_TCP_PORT. If
+       this is defined, then it means for all hosts that connect to this
+       port. With the TRUSTED_REMOTE_IP it can be resticted to specific
+       host(s). The value given is an integer bit mask, with the
+       following meaning:
+       <pre>
+           5 (16)    - System Log
+           6 (32)    - Receive Log
+           7 (64)    - Transfer Log
+           8 (128)   - Transfer Debug Log
+           9 (256)   - Input Log
+          10 (512)   - Production Log
+          11 (1024)  - Output Log
+          12 (2048)  - Delete Log
+       </pre>
+       Just add the values in brackets to set the wanted logs.</td>
+   <td valign=top>0</td>
+   <td valign=top>afdd</td>
+</tr>
+<tr>
    <td valign=top>TRUSTED_REMOTE_IP</td>
    <td>Trusted IP-number that may connect to AFD_TCP_PORT. To
        enter more then one IP-number you must have the
        identifier TRUSTED_REMOTE_IP on a new line for each number.
        Wildcards may also be used when specifying the IP-number.
-       If TRUSTED_REMOTE_IP is not set, all hosts may connect.</td>
+       Optionally you can set the AFD_TCP_LOGS flag behind the
+       IP number. If TRUSTED_REMOTE_IP is not set, all hosts may
+       connect.</td>
    <td valign=top>None</td>
    <td valign=top>afdd</td>
 </tr>
@@ -79,14 +102,24 @@ the new value:
    <td valign=top>amg</td>
 </tr>
 <tr>
+   <td valign=top><a name="default_dir_warn_time">DEFAULT_DIR_WARN_TIME</a></td>
+   <td>The time when AMG will warn in receive log that no data has been
+       received in the specified directory. This value will be overridden
+       by <a href="dir_config.html#warn_time">warn time</a> value from
+       DIR_CONFIG if set.  The unit is second.</td>
+   <td valign=top>0</td>
+   <td valign=top>amg</td>
+</tr>
+<tr>
    <td valign=top>DEFAULT_DELETE_FILES_FLAG</td>
-   <td>What to do with files that a certain age but cannot be transmited
-       because either there is no rule (Unknown), they are being queued
-       by AFD (Queued) or they are old locked files (Locked). By specifying
-       one of the above those files will be automatically removed by AFD
-       when DEFAULT_OLD_FILE_TIME value has been reached. To specify
-       more then one type, just add the next with a space or comma as
-       a separator sign and the whole string must be placed in ".</td>
+   <td>What to do with files that have reached a certain age but cannot
+       be transmited because either there is no rule (Unknown), they are
+       being queued by AFD (Queued) or they are old locked files (Locked).
+       By specifying one of the above those files will be automatically
+       removed by AFD when DEFAULT_OLD_FILE_TIME value has been reached.
+       To specify more then one type, just add the next with a space or
+       comma as a separator sign and the whole string must be placed
+       in ".</td>
    <td valign=top>Not set</td>
    <td valign=top>amg</td>
 </tr>
@@ -106,6 +139,15 @@ the new value:
    <td valign=top>amg</td>
 </tr>
 <tr>
+   <td valign=top>DELETE_STALE_ERROR_JOBS</td>
+   <td>When a job is removed from DIR_CONFIG but FD has still files
+       queued and these jobs produce errors (ie. they cannot be send,
+       due to whatever reason), AFD will by default not delete these
+       files. By setting this to YES, such jobs will be removed.</td>
+   <td valign=top>NO</td>
+   <td valign=top>fd</td>
+</tr>
+<tr>
    <td valign=top>MAX_CONNECTIONS</td>
    <td>The maximum number of simultaneous connections/transfers that the
        AFD allows. Don't set this value to high since some environments
@@ -119,6 +161,15 @@ the new value:
        files. Do not set this value to low.</td>
    <td valign=top>60</td>
    <td valign=top>fd</td>
+</tr>
+<tr>
+   <td valign=top><a name="create_source_dir">CREATE_SOURCE_DIR</a></td>
+   <td>If this is set to NO, the source directories will not be created if
+       they do not exist. When set to YES, these will be created if AFD does
+       have the permission to do so. Currently only local directories will be
+       created, not remote directories.</td>
+    <td valign=top>YES</td>
+    <td valign=top>amg</td>
 </tr>
 <tr>
    <td valign=top><a name="create_target_dir">CREATE_TARGET_DIR</a></td>
@@ -170,7 +221,7 @@ the new value:
    <td valign=top>fd</td>
 </tr>
 <tr>
-   <td valign=top>MAX_COPIED_FILES</td>
+   <td valign=top><a name="max_copied_files">MAX_COPIED_FILES</a></td>
    <td>The maximum number of files that are copied before they are
        send to the FD. This value is set so that the AFD starts sending
        files as soon as possible even when there are thousands of files
@@ -353,9 +404,9 @@ restarted.
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 1999 - 2006 by H.Kiehl<br>
+   Copyright &copy; 1999 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 27.03.2006
+   Last updated: 17.03.2007
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

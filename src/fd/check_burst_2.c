@@ -1,6 +1,6 @@
 /*
  *  check_burst_2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -128,12 +128,19 @@ retry:
    {
       struct job *p_new_db = NULL;
       int        fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int        readfd;
+#endif
       char       generic_fifo[MAX_PATH_LENGTH];
 
       (void)strcpy(generic_fifo, p_work_dir);
       (void)strcat(generic_fifo, FIFO_DIR);
       (void)strcat(generic_fifo, SF_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(generic_fifo, &readfd, &fd) == -1)
+#else
       if ((fd = open(generic_fifo, O_RDWR)) == -1)
+#endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__, "Failed to open() %s : %s",
                     generic_fifo, strerror(errno));
@@ -230,6 +237,9 @@ retry:
                 * Host is no longer in FSA, so there is
                 * no way we can communicate with FD.
                 */
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+               (void)close(readfd);
+# endif
                (void)close(fd);
                return(NO);
             }
@@ -245,6 +255,9 @@ retry:
                    * Host is no longer in FSA, so there is
                    * no way we can communicate with FD.
                    */
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+                  (void)close(readfd);
+# endif
                   (void)close(fd);
                   return(NO);
                }
@@ -291,11 +304,24 @@ retry:
 #ifdef _WITH_TRANS_EXEC
                      p_new_db->trans_exec_cmd       = NULL;
                      p_new_db->trans_exec_timeout   = DEFAULT_EXEC_TIMEOUT;
+                     p_new_db->set_trans_exec_lock  = NO;
 #endif
                      p_new_db->special_flag         = 0;
                      p_new_db->mode_flag            = 0;
                      p_new_db->archive_time         = DEFAULT_ARCHIVE_TIME;
-                     p_new_db->retries              = 0;
+                     if ((fsa->job_status[(int)db.job_no].file_name_in_use[0] == '\0') &&
+                         (fsa->job_status[(int)db.job_no].file_name_in_use[1] == 1))
+                     {
+                        p_new_db->retries           = (unsigned int)atoi(&fsa->job_status[(int)db.job_no].file_name_in_use[1]);
+                        if (p_new_db->retries > 0)
+                        {
+                           p_new_db->special_flag |= OLD_ERROR_JOB;
+                        }
+                     }
+                     else
+                     {
+                        p_new_db->retries           = 0;
+                     }
                      p_new_db->age_limit            = DEFAULT_AGE_LIMIT;
 #ifdef _OUTPUT_LOG
                      p_new_db->output_log           = YES;
@@ -318,6 +344,7 @@ retry:
 #ifdef WITH_SSL
                      p_new_db->auth                 = NO;
 #endif
+                     p_new_db->ssh_protocol         = 0;
                      if (db.protocol & FTP_FLAG)
                      {
                         p_new_db->port = DEFAULT_FTP_PORT;
@@ -350,7 +377,7 @@ retry:
                      (void)strcpy(p_new_db->lock_notation, DOT_NOTATION);
                      (void)sprintf(msg_name, "%s%s/%x",
                                    p_work_dir, AFD_MSG_DIR, db.job_id);
-                     if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET) & ENABLE_CREATE_TARGET_DIR)
+                     if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & ENABLE_CREATE_TARGET_DIR)
                      {
                         p_new_db->special_flag |= CREATE_TARGET_DIR;
                      }
@@ -388,14 +415,56 @@ retry:
                         }
                         else
                         {
-                           if (p_new_db->mode_flag == 0)
+                           if ((p_new_db->protocol & FTP_FLAG) &&
+                               (p_new_db->mode_flag == 0))
                            {
-                              p_new_db->mode_flag = PASSIVE_MODE;
+                              if (fsa->protocol_options & FTP_PASSIVE_MODE)
+                              {
+                                 p_new_db->mode_flag = PASSIVE_MODE;
+                                 if (fsa->protocol_options & FTP_EXTENDED_MODE)
+                                 {
+                                    (void)strcpy(p_new_db->mode_str,
+                                                 "extended passive");
+                                 }
+                                 else
+                                 {
+                                    if (fsa->protocol_options & FTP_ALLOW_DATA_REDIRECT)
+                                    {
+                                       (void)strcpy(p_new_db->mode_str,
+                                                    "passive (with redirect)");
+                                    }
+                                    else
+                                    {
+                                       (void)strcpy(p_new_db->mode_str,
+                                                    "passive");
+                                    }
+                                 }
+                              }
+                              else
+                              {
+                                 p_new_db->mode_flag = ACTIVE_MODE;
+                                 if (fsa->protocol_options & FTP_EXTENDED_MODE)
+                                 {
+                                    (void)strcpy(p_new_db->mode_str,
+                                                 "extended active");
+                                 }
+                                 else
+                                 {
+                                    (void)strcpy(p_new_db->mode_str, "active");
+                                 }
+                              }
+                              if (fsa->protocol_options & FTP_EXTENDED_MODE)
+                              {
+                                 p_new_db->mode_flag |= EXTENDED_MODE;
+                              }
                            }
-                           else
+#ifdef WITH_ERROR_QUEUE
+                           if ((fsa->host_status & ERROR_QUEUE_SET) &&
+                               (check_error_queue(db.job_id, -1) == 1))
                            {
-                              p_new_db->mode_flag = ACTIVE_MODE;
+                              p_new_db->special_flag |= IN_ERROR_QUEUE;
                            }
+#endif
                            ret = YES;
                         }
                      }
@@ -435,6 +504,13 @@ retry:
 #endif
             }
          }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
          if (close(fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,

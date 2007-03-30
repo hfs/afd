@@ -1,6 +1,6 @@
 /*
  *  show_exec_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,6 +64,9 @@ int
 main(int argc, char *argv[])
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char action,
         fake_user[MAX_FULL_USER_ID_LENGTH],
         *perm_buffer,
@@ -87,6 +90,20 @@ main(int argc, char *argv[])
     */
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE     :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -130,7 +147,11 @@ main(int argc, char *argv[])
    }
 
    (void)sprintf(fifo, "%s%s%s", p_work_dir, FIFO_DIR, DC_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                     fifo, strerror(errno), __FILE__, __LINE__);
@@ -143,6 +164,13 @@ main(int argc, char *argv[])
                     fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (close(readfd) == -1)
+   {
+      (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",
+                    fifo, strerror(errno), __FILE__, __LINE__);
+   }
+#endif
    if (close(fd) == -1)
    {
       (void)fprintf(stderr, "Failed to close() %s : %s (%s %d)\n",

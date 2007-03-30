@@ -1,7 +1,7 @@
 /*
  *  topview.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -203,17 +203,41 @@ print_data(int pos, int show)
         {
            for (j = 0; j < STORAGE_TIME; j++)
            {
-              if (msa[pos].top_tr[j] > 1048576)
+              if (msa[pos].top_tr[j] > EXABYTE)
               {
-                 (void)fprintf(stdout, " %4u MB", msa[pos].top_tr[j] / 1048576);
+#if SIZEOF_OFF_T == 4
+                 (void)fprintf(stdout, " %4lu EB", msa[pos].top_tr[j] / EXABYTE);
+#else
+                 (void)fprintf(stdout, " %4llu EB", msa[pos].top_tr[j] / EXABYTE);
+#endif
               }
-              else if (msa[pos].top_tr[j] > 1024)
+              else if (msa[pos].top_tr[j] > PETABYTE)
                    {
-                      (void)fprintf(stdout, " %4u KB", msa[pos].top_tr[j] / 1024);
+                      (void)fprintf(stdout, " %4d PB", (int)(msa[pos].top_tr[j] / PETABYTE));
+                   }
+              else if (msa[pos].top_tr[j] > TERABYTE)
+                   {
+                      (void)fprintf(stdout, " %4d TB", (int)(msa[pos].top_tr[j] / TERABYTE));
+                   }
+              else if (msa[pos].top_tr[j] > GIGABYTE)
+                   {
+                      (void)fprintf(stdout, " %4d GB", (int)(msa[pos].top_tr[j] / GIGABYTE));
+                   }
+              else if (msa[pos].top_tr[j] > MEGABYTE)
+                   {
+                      (void)fprintf(stdout, " %4d MB", (int)(msa[pos].top_tr[j] / MEGABYTE));
+                   }
+              else if (msa[pos].top_tr[j] > KILOBYTE)
+                   {
+                      (void)fprintf(stdout, " %4d KB", (int)(msa[pos].top_tr[j] / KILOBYTE));
                    }
                    else
                    {
-                      (void)fprintf(stdout, " %4u B ", msa[pos].top_tr[j]);
+#if SIZEOF_OFF_T == 4
+                      (void)fprintf(stdout, " %4lu B ", msa[pos].top_tr[j]);
+#else
+                      (void)fprintf(stdout, " %4llu B ", msa[pos].top_tr[j]);
+#endif
                    }
            }
         }

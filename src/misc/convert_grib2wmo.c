@@ -54,6 +54,7 @@ DESCR__E_M3
 #include <sys/mman.h>            /* mmap(), munmap()                     */
 #include <fcntl.h>
 #include <errno.h>
+#include "amgdefs.h"
 
 #define DATA_TYPES 3
 

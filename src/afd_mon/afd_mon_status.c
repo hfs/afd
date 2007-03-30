@@ -1,6 +1,6 @@
 /*
  *  afd_mon_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -80,9 +80,12 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   (void)fprintf(stdout, "AFD_MON              : %d\n", p_afd_mon_status->afd_mon);
-   (void)fprintf(stdout, "Mon Sys Log          : %d\n", p_afd_mon_status->mon_sys_log);
-   (void)fprintf(stdout, "Monitor Log          : %d\n", p_afd_mon_status->mon_log);
+   (void)fprintf(stdout, "AFD_MON              : %d\n",
+                 (int)p_afd_mon_status->afd_mon);
+   (void)fprintf(stdout, "Mon Sys Log          : %d\n",
+                 (int)p_afd_mon_status->mon_sys_log);
+   (void)fprintf(stdout, "Monitor Log          : %d\n",
+                 (int)p_afd_mon_status->mon_log);
    (void)fprintf(stdout, "Monsyslog indicator  : %u <",
                  p_afd_mon_status->mon_sys_log_ec);
    for (i = 0; i < LOG_FIFO_SIZE; i++)

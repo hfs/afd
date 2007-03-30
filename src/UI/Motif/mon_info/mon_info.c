@@ -1,6 +1,6 @@
 /*
  *  mon_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -270,9 +270,10 @@ main(int argc, char *argv[])
 
    /* Fill up the text widget with some values */
    (void)sprintf(str_line, "%*s", MON_INFO_LENGTH,
-                 prev.real_hostname[prev.afd_toggle]);
+                 prev.real_hostname[(int)prev.afd_toggle]);
    XmTextSetString(text_wl[0], str_line);
-   (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.port[prev.afd_toggle]);
+   (void)sprintf(str_line, "%*d",
+                 MON_INFO_LENGTH, prev.port[(int)prev.afd_toggle]);
    XmTextSetString(text_wl[1], str_line);
    (void)strftime(tmp_str_line, MAX_INFO_STRING_LENGTH, "%d.%m.%Y  %H:%M:%S",
                   localtime(&prev.last_data_time));
@@ -378,7 +379,7 @@ main(int argc, char *argv[])
    XtManageChild(rowcol2_w);
 
    /* Fill up the text widget with some values */
-   get_ip_no(msa[afd_position].hostname[prev.afd_toggle], tmp_str_line);
+   get_ip_no(msa[afd_position].hostname[(int)prev.afd_toggle], tmp_str_line);
    (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, tmp_str_line);
    XmTextSetString(text_wr[0], str_line);
    (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, prev.r_work_dir);

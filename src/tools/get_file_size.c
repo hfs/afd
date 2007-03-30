@@ -1,7 +1,7 @@
 /*
  *  get_file_size.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,9 +78,9 @@ main(int argc, char *argv[])
    }
 
 #if SIZEOF_OFF_T == 4
-   (void)fprintf(stdout, "%ld\n", file_size);
+   (void)fprintf(stdout, "%ld\n", (pri_off_t)file_size);
 #else
-   (void)fprintf(stdout, "%lld\n", file_size);
+   (void)fprintf(stdout, "%lld\n", (pri_off_t)file_size);
 #endif
 
    exit(SUCCESS);

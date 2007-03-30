@@ -1,6 +1,6 @@
 /*
  *  sf_map.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -75,14 +75,17 @@ int                        counter_fd = -1,    /* NOT USED */
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
                            *p_no_of_hosts,
-                           trans_rule_pos,/* NOT USED */
-                           user_rule_pos, /* NOT USED */
                            timeout_flag = OFF,
                            fsa_id,
                            fsa_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           trans_db_log_readfd,
+                           transfer_log_readfd,
+#endif
+                           trans_rename_blocked = NO,
                            amg_flag = NO;
 long                       transfer_timeout; /* Not used [init_sf()]    */
 #ifdef HAVE_MMAP
@@ -144,6 +147,9 @@ main(int argc, char *argv[])
 #endif
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+   int              ol_readfd = -1;
+# endif
    unsigned int     *ol_job_number;
    char             *ol_data = NULL,
                     *ol_file_name;
@@ -216,6 +222,9 @@ main(int argc, char *argv[])
    if (db.output_log == YES)
    {
       output_log_ptrs(&ol_fd,
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+                      &ol_readfd,
+# endif
                       &ol_job_number,
                       &ol_data,
                       &ol_file_name,
@@ -456,8 +465,7 @@ main(int argc, char *argv[])
 # else
                           "Total file size for host %s overflowed. Correcting to %lld.",
 # endif
-                          fsa->host_dsp_name,
-                          fsa->total_file_size);
+                          fsa->host_dsp_name, (pri_off_t)fsa->total_file_size);
             }
             else if ((fsa->total_file_counter == 0) &&
                      (fsa->total_file_size > 0))
@@ -613,6 +621,9 @@ main(int argc, char *argv[])
       if (fsa->error_counter > 0)
       {
          int  fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+              readfd,
+#endif
               j;
          char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
@@ -628,7 +639,11 @@ main(int argc, char *argv[])
           */
          (void)sprintf(fd_wake_up_fifo, "%s%s%s",
                        p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(fd_wake_up_fifo, &readfd, &fd) == -1)
+#else
          if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
+#endif
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Failed to open() FIFO `%s' : %s",
@@ -642,6 +657,14 @@ main(int argc, char *argv[])
                           "Failed to write() to FIFO `%s' : %s",
                           fd_wake_up_fifo, strerror(errno));
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO `%s' (read) : %s",
+                          fd_wake_up_fifo, strerror(errno));
+            }
+#endif
             if (close(fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -683,6 +706,12 @@ main(int argc, char *argv[])
                        fsa->host_alias);
          }
       } /* if (fsa->error_counter > 0) */
+#ifdef WITH_ERROR_QUEUE
+      if (db.special_flag & IN_ERROR_QUEUE)
+      {
+         remove_from_error_queue(db.job_id, fsa);
+      }
+#endif
 
       p_file_name_buffer += MAX_FILENAME_LENGTH;
       p_file_size_buffer++;
@@ -717,6 +746,9 @@ static void
 sf_map_exit(void)
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
    reset_fsa((struct job *)&db, exitflag);
@@ -733,7 +765,11 @@ sf_map_exit(void)
    (void)strcpy(sf_fin_fifo, p_work_dir);
    (void)strcat(sf_fin_fifo, FIFO_DIR);
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo `%s' : %s", sf_fin_fifo, strerror(errno));
@@ -752,6 +788,9 @@ sf_map_exit(void)
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)close(readfd);
+#endif
       (void)close(fd);
    }
    if (sys_log_fd != STDERR_FILENO)

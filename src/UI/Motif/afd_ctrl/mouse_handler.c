@@ -1563,11 +1563,18 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      if (fsa[i].host_status & STOP_TRANSFER_STAT)
                      {
                         int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        int  readfd;
+#endif
                         char wake_up_fifo[MAX_PATH_LENGTH];
 
                         (void)sprintf(wake_up_fifo, "%s%s%s",
                                       p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        if (open_fifo_rw(wake_up_fifo, &readfd, &fd) == -1)
+#else
                         if ((fd = open(wake_up_fifo, O_RDWR)) == -1)
+#endif
                         {
                            (void)xrec(appshell, ERROR_DIALOG,
                                       "Failed to open() %s : %s (%s %d)",
@@ -1585,6 +1592,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                                          FD_WAKE_UP_FIFO, strerror(errno),
                                          __FILE__, __LINE__);
                            }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           if (close(readfd) == -1)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to close() FIFO %s : %s",
+                                         FD_WAKE_UP_FIFO, strerror(errno));
+                           }
+#endif
                            if (close(fd) == -1)
                            {
                               system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1655,6 +1670,9 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                                  fsa[i].host_dsp_name) == YES)
                         {
                            int    fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           int    readfd;
+#endif
                            size_t length;
                            char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
 
@@ -1666,7 +1684,11 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
                            (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                          p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           if (open_fifo_rw(delete_jobs_host_fifo, &readfd, &fd) == -1)
+#else
                            if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+#endif
                            {
                               (void)xrec(appshell, ERROR_DIALOG,
                                          "Failed to open() %s : %s (%s %d)",
@@ -1686,6 +1708,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                                             FD_DELETE_FIFO, strerror(errno),
                                             __FILE__, __LINE__);
                               }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                              if (close(readfd) == -1)
+                              {
+                                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                            "Failed to close() FIFO %s : %s",
+                                            FD_DELETE_FIFO, strerror(errno));
+                              }
+#endif
                               if (close(fd) == -1)
                               {
                                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1696,7 +1726,11 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                            (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                          p_work_dir, FIFO_DIR,
                                          DEL_TIME_JOB_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           if (open_fifo_rw(delete_jobs_host_fifo, &readfd, &fd) == -1)
+#else
                            if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+#endif
                            {
                               (void)xrec(appshell, ERROR_DIALOG,
                                          "Failed to open() %s : %s (%s %d)",
@@ -1712,6 +1746,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                                             DEL_TIME_JOB_FIFO, strerror(errno),
                                             __FILE__, __LINE__);
                               }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                              if (close(readfd) == -1)
+                              {
+                                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                            "Failed to close() FIFO %s : %s",
+                                            DEL_TIME_JOB_FIFO, strerror(errno));
+                              }
+#endif
                               if (close(fd) == -1)
                               {
                                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1812,11 +1854,18 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                if ((fsa[i].special_flag & HOST_DISABLED) == 0)
                {
                   int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  int  readfd;
+#endif
                   char retry_fifo[MAX_PATH_LENGTH];
 
                   (void)sprintf(retry_fifo, "%s%s%s",
                                 p_work_dir, FIFO_DIR, RETRY_FD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(retry_fifo, &readfd, &fd) == -1)
+#else
                   if ((fd = open(retry_fifo, O_RDWR)) == -1)
+#endif
                   {
                      (void)xrec(appshell, ERROR_DIALOG,
                                 "Failed to open() %s : %s (%s %d)",
@@ -1832,6 +1881,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                                    RETRY_FD_FIFO, strerror(errno),
                                    __FILE__, __LINE__);
                      }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s (read) : %s",
+                                   RETRY_FD_FIFO, strerror(errno));
+                     }
+#endif
                      if (close(fd) == -1)
                      {
                         system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1960,7 +2017,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                (void)strcpy(hosts[k], fsa[i].host_alias);
                if (fsa[i].host_toggle_str[0] != '\0')
                {
-                  (void)strcat(hosts[k], "?");
+                  if (fsa[i].toggle_pos < MAX_HOSTNAME_LENGTH)
+                  {
+                     (void)strcat(hosts[k], "?");
+                  }
+                  else
+                  {
+                     (void)strcat(hosts[k], "*");
+                  }
                }
                args[k + 7] = hosts[k];
                k++;
@@ -2168,11 +2232,18 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      "Are you shure that you want to stop %s?", AMG) == YES)
             {
                int  afd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               int  afd_cmd_readfd;
+#endif
                char afd_cmd_fifo[MAX_PATH_LENGTH];
 
                (void)sprintf(afd_cmd_fifo, "%s%s%s",
                              p_work_dir, FIFO_DIR, AFD_CMD_FIFO);
-               if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_readfd, &afd_cmd_fd) == -1)
+#else
+               if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
+#endif
                {
                   (void)xrec(appshell, ERROR_DIALOG,
                              "Could not open fifo %s : %s (%s %d)",
@@ -2187,6 +2258,13 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              "Was not able to stop %s. (%s %d)",
                              AMG, __FILE__, __LINE__);
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(afd_cmd_readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "close() error : %s", strerror(errno));
+               }
+#endif
                if (close(afd_cmd_fd) == -1)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -2197,11 +2275,18 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
          else
          {
             int  afd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            int  afd_cmd_readfd;
+#endif
             char afd_cmd_fifo[MAX_PATH_LENGTH];
 
             (void)sprintf(afd_cmd_fifo, "%s%s%s",
                           p_work_dir, FIFO_DIR, AFD_CMD_FIFO);
-            if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_readfd, &afd_cmd_fd) == -1)
+#else
+            if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
+#endif
             {
                (void)xrec(appshell, ERROR_DIALOG,
                           "Could not open fifo %s : %s (%s %d)",
@@ -2215,6 +2300,13 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                           "Was not able to start %s. (%s %d)",
                           AMG, __FILE__, __LINE__);
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(afd_cmd_readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+#endif
             if (close(afd_cmd_fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -2230,11 +2322,18 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      "Are you shure that you want to stop %s?\nNOTE: No more files will be distributed!!!", FD) == YES)
             {
                int  afd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               int  afd_cmd_readfd;
+#endif
                char afd_cmd_fifo[MAX_PATH_LENGTH];
 
                (void)sprintf(afd_cmd_fifo, "%s%s%s",
                              p_work_dir, FIFO_DIR, AFD_CMD_FIFO);
-               if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_readfd, &afd_cmd_fd) == -1)
+#else
+               if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
+#endif
                {
                   (void)xrec(appshell, ERROR_DIALOG,
                              "Could not open fifo %s : %s (%s %d)",
@@ -2249,6 +2348,13 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              "Was not able to stop %s. (%s %d)",
                              FD, __FILE__, __LINE__);
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(afd_cmd_readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "close() error : %s", strerror(errno));
+               }
+#endif
                if (close(afd_cmd_fd) == -1)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -2259,11 +2365,18 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
          else /* FD is NOT running. */
          {
             int  afd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            int  afd_cmd_readfd;
+#endif
             char afd_cmd_fifo[MAX_PATH_LENGTH];
 
             (void)sprintf(afd_cmd_fifo, "%s%s%s",
                           p_work_dir, FIFO_DIR, AFD_CMD_FIFO);
-            if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_readfd, &afd_cmd_fd) == -1)
+#else
+            if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
+#endif
             {
                (void)xrec(appshell, ERROR_DIALOG,
                           "Could not open fifo %s : %s (%s %d)",
@@ -2277,6 +2390,13 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                            "Was not able to start %s. (%s %d)",
                            FD, __FILE__, __LINE__);
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(afd_cmd_readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+#endif
             if (close(afd_cmd_fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -2289,11 +2409,18 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
       case REREAD_HOST_CONFIG_SEL : /* Reread DIR_CONFIG or HOST_CONFIG */
          {
             int  db_update_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            int  db_update_readfd;
+#endif
             char db_update_fifo[MAX_PATH_LENGTH];
 
             (void)sprintf(db_update_fifo, "%s%s%s",
                           p_work_dir, FIFO_DIR, DB_UPDATE_FIFO);
-            if ((db_update_fd = open(db_update_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(db_update_fifo, &db_update_readfd, &db_update_fd) == -1)
+#else
+            if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
+#endif
             {
                (void)xrec(appshell, ERROR_DIALOG,
                           "Could not open fifo %s : %s (%s %d)",
@@ -2321,6 +2448,13 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              AMG, __FILE__, __LINE__);
                }
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(db_update_readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+#endif
             if (close(db_update_fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,

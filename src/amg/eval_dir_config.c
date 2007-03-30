@@ -1,6 +1,6 @@
 /*
  *  eval_dir_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -134,12 +134,13 @@ DESCR__E_M3
 #define LOCALE_DIR 0
 #define REMOTE_DIR 1
 
-/* External global variables */
+/* External global variables. */
 #ifdef _DEBUG
 extern FILE                   *p_debug_file;
 #endif
 extern char                   *p_work_dir;
-extern int                    dnb_fd,
+extern int                    create_source_dir,
+                              dnb_fd,
                               data_length,/* The size of data for one job.  */
                               *no_of_dir_names,
                               no_of_dir_configs,
@@ -164,7 +165,7 @@ struct p_array                *pp;
 struct passwd_buf             *pwb = NULL;
 static char                   *p_t = NULL;   /* Start of directory table.   */
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int                    check_hostname_list(char *, unsigned int),
 #ifdef MBOX_DIR
                               create_mbox_dir(char *, char *),
@@ -186,7 +187,7 @@ static char                   *posi_identifier(char *, char *, size_t);
 #define FILE_MASK_STEP_SIZE 256
 /* #define _LINE_COUNTER_TEST */
 
-/* The following macro checks for spaces and comment */
+/* The following macro checks for spaces and comments. */
 #define CHECK_SPACE()                                       \
         {                                                   \
            if ((*ptr == ' ') || (*ptr == '\t'))             \
@@ -251,6 +252,9 @@ eval_dir_config(off_t db_size)
                                          /* destination name.             */
    uid_t            current_uid;
    char             *database = NULL,
+                    *error_ptr,          /* Pointer showing where we fail */
+                                         /* to see that the directory is  */
+                                         /* available for us.             */
                     *ptr,                /* Main pointer that walks       */
                                          /* through buffer.               */
                     last_char,           /* Storage for last character in */
@@ -634,14 +638,16 @@ eval_dir_config(off_t db_size)
                  dir->protocol = LOC;
               }
          else if ((dir->location[0] == 'f') && (dir->location[1] == 't') &&
-                  (dir->location[2] == 'p') && ((dir->location[3] == ':') &&
+                  (dir->location[2] == 'p') &&
 #ifdef WITH_SSL
-                  (dir->location[4] == '/') && (dir->location[5] == '/')) ||
-                  (((dir->location[3] == 's') || (dir->location[3] == 'S')) &&
-                   (dir->location[4] == ':') &&
-                   (dir->location[5] == '/') && (dir->location[6] == '/')))
+                  (((dir->location[3] == ':') && (dir->location[4] == '/') &&
+                    (dir->location[5] == '/')) ||
+                   (((dir->location[3] == 's') || (dir->location[3] == 'S')) &&
+                    (dir->location[4] == ':') &&
+                    (dir->location[5] == '/') && (dir->location[6] == '/'))))
 #else
-                  (dir->location[4] == '/') && (dir->location[5] == '/')))
+                  (dir->location[3] == ':') && (dir->location[4] == '/') &&
+                  (dir->location[5] == '/'))
 #endif
               {
                  dir->type = REMOTE_DIR;
@@ -691,13 +697,14 @@ eval_dir_config(off_t db_size)
               }
          else if ((dir->location[0] == 'h') && (dir->location[1] == 't') &&
                   (dir->location[2] == 't') && (dir->location[3] == 'p') &&
-                  ((dir->location[4] == ':') && (dir->location[5] == '/') &&
 #ifdef WITH_SSL
-                   (dir->location[6] == '/')) ||
-                  ((dir->location[4] == 's') && (dir->location[5] == ':') &&
-                   (dir->location[6] == '/') && (dir->location[7] == '/')))
+                  (((dir->location[4] == ':') && (dir->location[5] == '/') &&
+                    (dir->location[6] == '/')) ||
+                   (((dir->location[4] == 's') && (dir->location[5] == ':') &&
+                     (dir->location[6] == '/') && (dir->location[7] == '/')))))
 #else
-                   (dir->location[6] == '/')))
+                  (dir->location[4] == ':') && (dir->location[5] == '/') &&
+                  (dir->location[6] == '/'))
 #endif
               {
                  dir->type = REMOTE_DIR;
@@ -730,8 +737,9 @@ eval_dir_config(off_t db_size)
 
          /* Now lets check if this directory does exist and if we */
          /* do have enough permissions to work in this directory. */
-         if ((ret = check_create_path(dir->location,
-                                      create_source_dir_mode)) == CREATED_DIR)
+         if ((ret = check_create_path(dir->location, create_source_dir_mode,
+                                      &error_ptr,
+                                      create_source_dir)) == CREATED_DIR)
          {
             system_log(INFO_SIGN, __FILE__, __LINE__,
                        "Created directory `%s' at line %d from %s",
@@ -740,19 +748,70 @@ eval_dir_config(off_t db_size)
          }
          else if (ret == NO_ACCESS)
               {
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Cannot access directory `%s' at line %d from %s (Ignoring this entry) : %s",
-                            dir->location, count_new_lines(database, ptr - 1),
-                            dcl[dcd].dir_config_file, strerror(errno));
-                 continue;
+                 if (error_ptr != NULL)
+                 {
+                    *error_ptr = '\0';
+                 }
+                 if (dir->type == REMOTE_DIR)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Cannot access directory `%s' at line %d from %s (Ignoring this entry) : %s",
+                               dir->location, count_new_lines(database, ptr - 1),
+                               dcl[dcd].dir_config_file, strerror(errno));
+                    continue;
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Cannot access directory `%s' or create a subdirectory in it at line %d from %s : %s",
+                               dir->location, count_new_lines(database, ptr - 1),
+                               dcl[dcd].dir_config_file, strerror(errno));
+                 }
+                 if (error_ptr != NULL)
+                 {
+                    *error_ptr = '/';
+                 }
               }
          else if (ret == MKDIR_ERROR)
               {
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to create directory `%s' at line %d from %s (Ignoring this entry) : %s",
+                 if (error_ptr != NULL)
+                 {
+                    *error_ptr = '\0';
+                 }
+                 if (dir->type == REMOTE_DIR)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Failed to create directory `%s' at line %d from %s (Ignoring this entry) : %s",
+                               dir->location, count_new_lines(database, ptr - 1),
+                               dcl[dcd].dir_config_file, strerror(errno));
+                    continue;
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Failed to create directory `%s' at line %d from %s : %s",
+                               dir->location, count_new_lines(database, ptr - 1),
+                               dcl[dcd].dir_config_file, strerror(errno));
+                 }
+                 if (error_ptr != NULL)
+                 {
+                    *error_ptr = '/';
+                 }
+              }
+         else if (ret == STAT_ERROR)
+              {
+                 if (error_ptr != NULL)
+                 {
+                    *error_ptr = '\0';
+                 }
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to stat() `%s' at line %d from %s : %s",
                             dir->location, count_new_lines(database, ptr - 1),
                             dcl[dcd].dir_config_file, strerror(errno));
-                 continue;
+                 if (error_ptr != NULL)
+                 {
+                    *error_ptr = '/';
+                 }
               }
          else if (ret == ALLOC_ERROR)
               {
@@ -1897,7 +1956,8 @@ check_dummy_line:
                   dir->dir_config_id = dcl[dcd].dc_id;
 
                   /* Evaluate the directory options. */
-                  eval_dir_options(no_of_local_dirs, dir->dir_options, dir->option);
+                  eval_dir_options(no_of_local_dirs, dir->dir_options,
+                                   dir->option);
 
                   /* Increase directory counter. */
                   no_of_local_dirs++;
@@ -2338,10 +2398,10 @@ insert_dir(struct dir_group *dir)
       p_offset = p_t;
       for (i = 0; i < job_no; i++)
       {
-         if (strcmp(p_ptr[i].ptr[1] + p_offset, dir->location) == 0)
+         if (strcmp(p_ptr[i].ptr[DIRECTORY_PTR_POS] + p_offset, dir->location) == 0)
          {
             i++;
-            while ((strcmp(p_ptr[i].ptr[1] + p_offset, dir->location) == 0) &&
+            while ((strcmp(p_ptr[i].ptr[DIRECTORY_PTR_POS] + p_offset, dir->location) == 0) &&
                    (i < job_no))
             {
                i++;
@@ -2352,9 +2412,9 @@ insert_dir(struct dir_group *dir)
              * If the value is already set, it means the directory
              * appears more then two times.
              */
-            if (*(p_ptr[i].ptr[11] + p_offset) == '\0')
+            if (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == '\0')
             {
-               (void)sprintf((p_ptr[i].ptr[11] + p_offset), "%d", job_no);
+               (void)sprintf((p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset), "%d", job_no);
                prev_job_no = i;
                break;
             }
@@ -2419,12 +2479,17 @@ copy_job(int              file_no,
                   offset,
                   options,       /* Counts no. of local options found.  */
                   priority,
+                  /*
+                   * NOTE: TIME_NO_COLLECT_ID option __must__ be checked
+                   *       before TIME_ID. Since both start with time and
+                   *       TIME_ID only consists only of the word time.
+                   */
                   loption_length[LOCAL_OPTION_POOL_SIZE] =
                   {
                      RENAME_ID_LENGTH,
                      EXEC_ID_LENGTH,
-                     TIME_ID_LENGTH,
                      TIME_NO_COLLECT_ID_LENGTH,
+                     TIME_ID_LENGTH,
                      BASENAME_ID_LENGTH,
                      EXTENSION_ID_LENGTH,
                      ADD_PREFIX_ID_LENGTH,
@@ -2433,7 +2498,7 @@ copy_job(int              file_no,
                      TOLOWER_ID_LENGTH,
 #ifdef _WITH_AFW2WMO
                      AFW2WMO_ID_LENGTH,
-#endif /* _WITH_AFW2WMO */
+#endif
                      FAX2GTS_ID_LENGTH,
                      TIFF2GTS_ID_LENGTH,
                      GTS2TIFF_ID_LENGTH,
@@ -2444,6 +2509,32 @@ copy_job(int              file_no,
                      DELETE_ID_LENGTH,
                      CONVERT_ID_LENGTH
                   };
+   unsigned int   loptions_flag[LOCAL_OPTION_POOL_SIZE] =
+                  {
+                     RENAME_ID_FLAG,
+                     EXEC_ID_FLAG,
+                     TIME_NO_COLLECT_ID_FLAG,
+                     TIME_ID_FLAG,
+                     BASENAME_ID_FLAG,
+                     EXTENSION_ID_FLAG,
+                     ADD_PREFIX_ID_FLAG,
+                     DEL_PREFIX_ID_FLAG,
+                     TOUPPER_ID_FLAG,
+                     TOLOWER_ID_FLAG,
+#ifdef _WITH_AFW2WMO
+                     AFW2WMO_ID_FLAG,
+#endif
+                     FAX2GTS_ID_FLAG,
+                     TIFF2GTS_ID_FLAG,
+                     GTS2TIFF_ID_FLAG,
+                     GRIB2WMO_ID_FLAG,
+                     EXTRACT_ID_FLAG,
+                     ASSEMBLE_ID_FLAG,
+                     WMO2ASCII_ID_FLAG,
+                     DELETE_ID_FLAG,
+                     CONVERT_ID_FLAG
+                  },
+                  options_flag;
    size_t         new_size;
    char           buffer[MAX_INT_LENGTH],
                   *ptr,            /* Pointer where data is to be       */
@@ -2454,8 +2545,8 @@ copy_job(int              file_no,
                   {
                      RENAME_ID,
                      EXEC_ID,
-                     TIME_ID,
                      TIME_NO_COLLECT_ID,
+                     TIME_ID,
                      BASENAME_ID,
                      EXTENSION_ID,
                      ADD_PREFIX_ID,
@@ -2464,7 +2555,7 @@ copy_job(int              file_no,
                      TOLOWER_ID,
 #ifdef _WITH_AFW2WMO
                      AFW2WMO_ID,
-#endif /* _WITH_AFW2WMO */
+#endif
                      FAX2GTS_ID,
                      TIFF2GTS_ID,
                      GTS2TIFF_ID,
@@ -2531,7 +2622,7 @@ copy_job(int              file_no,
       }
    }
    *ptr = priority;
-   p_ptr[job_no].ptr[0] = ptr - p_offset;
+   p_ptr[job_no].ptr[PRIORITY_PTR_POS] = ptr - p_offset;
    ptr++;
 
    /* Insert directory. */
@@ -2542,32 +2633,32 @@ copy_job(int              file_no,
       if ((file_no == 0) && (dest_no == 0))
       {
          offset = sprintf(ptr, "%s", dir->location);
-         p_ptr[job_no].ptr[1] = ptr - p_offset;
+         p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = ptr - p_offset;
          ptr += offset + 1;
 
          offset = sprintf(ptr, "%s", dir->alias);
-         p_ptr[job_no].ptr[2] = ptr - p_offset;
+         p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = ptr - p_offset;
          ptr += offset + 1;
       }
       else
       {
-         p_ptr[job_no].ptr[1] = p_ptr[job_no - 1].ptr[1]; /* Directory */
-         p_ptr[job_no].ptr[2] = p_ptr[job_no - 1].ptr[2]; /* Alias */
+         p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = p_ptr[job_no - 1].ptr[DIRECTORY_PTR_POS]; /* Directory */
+         p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = p_ptr[job_no - 1].ptr[ALIAS_NAME_PTR_POS]; /* Alias */
       }
 #ifdef WITH_MULTI_DIR_DEFINITION
    }
    else
    {
-      p_ptr[job_no].ptr[1] = p_ptr[prev_job_no].ptr[1]; /* Directory */
-      p_ptr[job_no].ptr[2] = p_ptr[prev_job_no].ptr[2]; /* Alias */
+      p_ptr[job_no].ptr[DIRECTORY_PTR_POS] = p_ptr[prev_job_no].ptr[DIRECTORY_PTR_POS]; /* Directory */
+      p_ptr[job_no].ptr[ALIAS_NAME_PTR_POS] = p_ptr[prev_job_no].ptr[ALIAS_NAME_PTR_POS]; /* Alias */
    }
 #endif
 
    /* Insert file masks. */
-   p_ptr[job_no].ptr[3] = ptr - p_offset;
+   p_ptr[job_no].ptr[NO_OF_FILES_PTR_POS] = ptr - p_offset;
    offset = sprintf(ptr, "%d", dir->file[file_no].fc);
    ptr += offset + 1;
-   p_ptr[job_no].ptr[4] = ptr - p_offset;
+   p_ptr[job_no].ptr[FILE_PTR_POS] = ptr - p_offset;
    if (dest_no == 0)
    {
       char *p_file = dir->file[file_no].files;
@@ -2582,7 +2673,7 @@ copy_job(int              file_no,
    }
    else
    {
-      p_ptr[job_no].ptr[4] = p_ptr[job_no - 1].ptr[4];
+      p_ptr[job_no].ptr[FILE_PTR_POS] = p_ptr[job_no - 1].ptr[FILE_PTR_POS];
    }
 
    /* Insert local options. These are the options that AMG */
@@ -2598,11 +2689,12 @@ copy_job(int              file_no,
    /*        - time                                        */
    /*        - toupper and tolower                         */
    /*        - delete                                      */
-   p_ptr[job_no].ptr[5] = ptr - p_offset;
+   p_ptr[job_no].ptr[NO_LOCAL_OPTIONS_PTR_POS] = ptr - p_offset;
    if (dir->file[file_no].dest[dest_no].oc > 0)
    {
       p_start = ptr;
       options = 0;
+      options_flag = 0;
       for (i = 0; i < dir->file[file_no].dest[dest_no].oc; i++)
       {
          for (k = 0; k < LOCAL_OPTION_POOL_SIZE; k++)
@@ -2615,6 +2707,7 @@ copy_job(int              file_no,
                                 dest[dest_no].options[i]) + 1;
                ptr += offset;
                options++;
+               options_flag |= loptions_flag[k];
 
                /* Remove the option. */
                for (j = i; j <= dir->file[file_no].dest[dest_no].oc; j++)
@@ -2640,26 +2733,31 @@ copy_job(int              file_no,
          ptr++;
 
          /* Store position of data for local options. */
-         p_ptr[job_no].ptr[6] = p_start + offset - p_offset;
+         p_ptr[job_no].ptr[LOCAL_OPTIONS_PTR_POS] = p_start + offset - p_offset;
 
          /* Store number of local options. */
          (void)strcpy(p_start, buffer);
+
+         /* Insert local options flag. */
+         p_ptr[job_no].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] = ptr - p_offset;
+         offset = sprintf(ptr, "%x", options_flag);
+         ptr += offset + 1;
       }
       else
       {
-         /* No local options */
+         /* No local options. */
          *ptr = '0';
-         ptr++;
-         *ptr = '\0';
-         ptr++;
-         p_ptr[job_no].ptr[6] = -1;
+         *(ptr + 1) = '\0';
+         ptr += 2;
+         p_ptr[job_no].ptr[LOCAL_OPTIONS_PTR_POS] = -1;
+         p_ptr[job_no].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] = -1;
       }
 
       /* Insert standard options. */
-      p_ptr[job_no].ptr[7] = ptr - p_offset;
+      p_ptr[job_no].ptr[NO_STD_OPTIONS_PTR_POS] = ptr - p_offset;
       offset = sprintf(ptr, "%d", dir->file[file_no].dest[dest_no].oc);
       ptr += offset + 1;
-      p_ptr[job_no].ptr[8] = ptr - p_offset;
+      p_ptr[job_no].ptr[STD_OPTIONS_PTR_POS] = ptr - p_offset;
 
       if (dir->file[file_no].dest[dest_no].oc > 0)
       {
@@ -2679,40 +2777,39 @@ copy_job(int              file_no,
       }
       else /* No standard options. */
       {
-         p_ptr[job_no].ptr[8] = -1;
+         p_ptr[job_no].ptr[STD_OPTIONS_PTR_POS] = -1;
       }
    }
    else /* No local and standard options. */
    {
       /* No local options. */
       *ptr = '0';
-      ptr++;
-      *ptr = '\0';
-      ptr++;
-      p_ptr[job_no].ptr[6] = -1;
+      *(ptr + 1) = '\0';
+      ptr += 2;
+      p_ptr[job_no].ptr[LOCAL_OPTIONS_PTR_POS] = -1;
+      p_ptr[job_no].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] = -1;
 
       /* No standard options. */
-      p_ptr[job_no].ptr[7] = ptr - p_offset;
+      p_ptr[job_no].ptr[NO_STD_OPTIONS_PTR_POS] = ptr - p_offset;
       *ptr = '0';
-      ptr++;
-      *ptr = '\0';
-      ptr++;
-      p_ptr[job_no].ptr[8] = -1;
+      *(ptr + 1) = '\0';
+      ptr += 2;
+      p_ptr[job_no].ptr[STD_OPTIONS_PTR_POS] = -1;
    }
 
    /* Insert recipient. */
-   p_ptr[job_no].ptr[9] = ptr - p_offset;
+   p_ptr[job_no].ptr[RECIPIENT_PTR_POS] = ptr - p_offset;
    offset = sprintf(ptr, "%s", dir->file[file_no].dest[dest_no].recipient[0]);
    ptr += offset + 1;
 
    /* Insert DIR_CONFIG ID. */
-   p_ptr[job_no].ptr[10] = ptr - p_offset;
+   p_ptr[job_no].ptr[DIR_CONFIG_ID_PTR_POS] = ptr - p_offset;
    offset = sprintf(ptr, "%x", dir->dir_config_id);
    ptr += offset + 1;
 
 #ifdef WITH_MULTI_DIR_DEFINITION
    /* Offset to same directory. */
-   p_ptr[job_no].ptr[11] = ptr - p_offset;
+   p_ptr[job_no].ptr[OFFSET_TO_SAME_DIR_PTR_POS] = ptr - p_offset;
    *ptr = '\0';
    ptr += MAX_INT_LENGTH + 1;
 #endif
@@ -2751,7 +2848,7 @@ copy_job(int              file_no,
       }
 
       (void)memcpy(&p_ptr[job_no], &p_ptr[job_no - i], sizeof(struct p_array));
-      p_ptr[job_no].ptr[9] = ptr - p_offset;
+      p_ptr[job_no].ptr[RECIPIENT_PTR_POS] = ptr - p_offset;
       offset = sprintf(ptr, "%s",
                        dir->file[file_no].dest[dest_no].recipient[i]);
       ptr += offset + 1;

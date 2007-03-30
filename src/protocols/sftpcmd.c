@@ -1,6 +1,6 @@
 /*
  *  sftpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,8 @@ DESCR__S_M3
  **   int          sftp_close_dir(void)
  **   int          sftp_close_file(void)
  **   int          sftp_connect(char *hostname, int port, char *user,
- **                             char *passwd, char *dir, char debug)
+ **                             char *fingerprint, char *passwd, char *dir,
+ **                             char debug)
  **   int          sftp_dele(char *filename)
  **   int          sftp_flush(void)
  **   int          sftp_mkdir(char *directory)
@@ -88,11 +89,13 @@ DESCR__E_M3
 #include <sys/time.h>         /* struct timeval                          */
 #include <sys/wait.h>         /* waitpid()                               */
 #include <sys/stat.h>         /* S_ISUID, S_ISGID, etc                   */
+#include <setjmp.h>           /* setjmp(), longjmp()                     */
 #include <signal.h>           /* signal(), kill()                        */
 #include <unistd.h>           /* select(), exit(), write(), read(),      */
                               /* close()                                 */
 #include <fcntl.h>            /* O_NONBLOCK                              */
 #include <errno.h>
+#include "ssh_commondefs.h"
 #include "sftpdefs.h"
 #include "fddefs.h"           /* struct job                              */
 
@@ -109,7 +112,7 @@ static int                      byte_order = 1,
                                 data_fd = -1;
 static pid_t                    data_pid = -1;
 static char                     *msg = NULL;
-static struct timeval           timeout;
+static jmp_buf                  env_alrm;
 static struct sftp_connect_data scd;
 
 /* Local function prototypes. */
@@ -131,17 +134,31 @@ static void                     get_msg_str(char *),
                                 set_xfer_str(char *, char *, int),
                                 set_xfer_uint(char *, unsigned int),
                                 set_xfer_uint64(char *, u_long_64),
-                                sig_ignore_handler(int);
+                                sig_handler(int);
 
 
 /*########################### sftp_connect() ############################*/
 int
-sftp_connect(char *hostname, int port, char *user, char *passwd, char debug)
+sftp_connect(char          *hostname,
+             int           port,
+             unsigned char ssh_protocol,
+             char          *user,
+#ifdef WITH_SSH_FINGERPRINT
+             char          *fingerprint,
+#endif
+             char          *passwd,
+             char          debug)
 {
    int status;
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+   int retries = 0;
 
-   if ((status = ssh_exec(hostname, port, user, passwd, NULL, "sftp",
-                          &data_fd, &data_pid)) == SUCCESS)
+retry_connect:
+# endif
+#endif
+   if ((status = ssh_exec(hostname, port, ssh_protocol, user, passwd, NULL,
+                          "sftp", &data_fd, &data_pid)) == SUCCESS)
    {
       unsigned int ui_var = 5;
 
@@ -186,7 +203,11 @@ sftp_connect(char *hostname, int port, char *user, char *passwd, char debug)
 
       if ((status = write_msg(msg, 9)) == SUCCESS)
       {
+#ifdef WITH_SSH_FINGERPRINT
+         if ((status = ssh_login(data_fd, passwd, fingerprint)) == SUCCESS)
+#else
          if ((status = ssh_login(data_fd, passwd)) == SUCCESS)
+#endif
          {
             if ((status = read_msg(msg, 4)) == SUCCESS)
             {
@@ -212,6 +233,11 @@ sftp_connect(char *hostname, int port, char *user, char *passwd, char debug)
                         ui_var -= 5;
                         if (ui_var > 0)
                         {
+                           /*
+                            * Check for any extensions from the server side.
+                            * Currently we have no use for this, so lets just
+                            * ignore them.
+                            */
                            ptr = &msg[5];
                            while (ui_var > 0)
                            {
@@ -222,8 +248,6 @@ sftp_connect(char *hostname, int port, char *user, char *passwd, char debug)
                               }
                               else
                               {
-                                 trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
-                                           "-> %s", p_xfer_str);
                                  ui_var -= (str_len + 4);
                                  free(p_xfer_str);
                                  p_xfer_str = NULL;
@@ -255,6 +279,19 @@ sftp_connect(char *hostname, int port, char *user, char *passwd, char debug)
                }
             }
          }
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+         else if (status == RETRY)
+              {
+                 retries++;
+                 sftp_quit();
+                 if (retries < 5)
+                 {
+                    goto retry_connect;
+                 }
+              }
+# endif
+#endif
       }
    }
 
@@ -393,14 +430,12 @@ retry_cd:
             /* We can only handle one name. */
             if (ui_var == 1)
             {
-               int str_len;
-
                if (scd.cwd != NULL)
                {
                   free(scd.cwd);
                   scd.cwd = NULL;
                }
-               if ((str_len = get_xfer_str(&msg[9], &scd.cwd)) == 0)
+               if (get_xfer_str(&msg[9], &scd.cwd) == 0)
                {
                   msg_str[0] = '\0';
                   status = INCORRECT;
@@ -1578,9 +1613,9 @@ sftp_quit(void)
          {
             trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
 # if SIZEOF_PID_T == 4
-                      "sftp_quit(): Hmm, pid is %d!!!", data_pid);
+                      "sftp_quit(): Hmm, pid is %d!!!", (pri_pid_t)data_pid);
 # else
-                      "sftp_quit(): Hmm, pid is %lld!!!", data_pid);
+                      "sftp_quit(): Hmm, pid is %lld!!!", (pri_pid_t)data_pid);
 # endif
          }
       }
@@ -1880,21 +1915,35 @@ write_msg(char *block, int size)
       }
       else if (FD_ISSET(data_fd, &wset))
            {
-              /* In some cases, the write system call hangs. */
-              signal(SIGALRM, sig_ignore_handler); /* Ignore the default which */
-                                                   /* is to abort.             */
-              my_siginterrupt(SIGALRM, 1); /* Allow SIGALRM to interrupt write. */
+              int tmp_errno;
 
-              alarm(transfer_timeout); /* Set up an alarm to interrupt write. */
+              /* In some cases, the write system call hangs. */
+              if (signal(SIGALRM, sig_handler) == SIG_ERR)
+              {
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                           "write_msg(): Failed to set signal handler : %s",
+                           strerror(errno));
+                 return(INCORRECT);
+              }
+              if (setjmp(env_alrm) != 0)
+              {
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                           "write_msg(): write() timeout (%ld)",
+                           transfer_timeout);
+                 timeout_flag = ON;
+                 return(INCORRECT);
+              }
+              (void)alarm(transfer_timeout);
               status = write(data_fd, ptr, nleft);
-              alarm(0);
-              signal(SIGALRM, SIG_DFL); /* Restore the default which is abort. */
+              tmp_errno = errno;
+              (void)alarm(0);
+
               if (status <= 0)
               {
                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                            "write_msg(): write() error (%d) : %s",
-                           status, strerror(errno));
-                 return(errno);
+                           status, strerror(tmp_errno));
+                 return(tmp_errno);
               }
 #ifdef WITH_TRACE
               if (scd.debug == TRACE_MODE)
@@ -1993,22 +2042,36 @@ read_msg(char *block, int blocksize)
 
       if (FD_ISSET(data_fd, &rset))
       {
-         signal(SIGALRM, sig_ignore_handler); /* Ignore the default which */
-                                              /* is to abort.             */
-         my_siginterrupt(SIGALRM, 1); /* Allow SIGALRM to interrupt read. */
+         int tmp_errno;
 
-         alarm(transfer_timeout); /* Set up an alarm to interrupt read. */
+         if (signal(SIGALRM, sig_handler) == SIG_ERR)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                      "read_msg(): Failed to set signal handler : %s",
+                      strerror(errno));
+            return(INCORRECT);
+         }
+         if (setjmp(env_alrm) != 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                      "read_msg(): read() timeout (%ld)",
+                      transfer_timeout);
+            timeout_flag = ON;
+            return(INCORRECT);
+         }
+         (void)alarm(transfer_timeout);
          bytes_read = read(data_fd, &block[total_read], blocksize - total_read);
-         alarm(0);
-         signal(SIGALRM, SIG_DFL); /* Restore the default which is abort. */
+         tmp_errno = errno;
+         (void)alarm(0);
+
          if (bytes_read == -1)
          {
-            if (errno == ECONNRESET)
+            if (tmp_errno == ECONNRESET)
             {
                timeout_flag = CON_RESET;
             }
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                      "read_msg(): read() error : %s", strerror(errno));
+                      "read_msg(): read() error : %s", strerror(tmp_errno));
             return(INCORRECT);
          }
          else if (bytes_read == 0)
@@ -2610,69 +2673,71 @@ error_2_str(char *msg)
    error_code = get_xfer_uint(msg);
    switch (error_code)
    {
-      case SSH_FX_OK                       : /*  0 */
+      case SSH_FX_OK                          : /*  0 */
          return("No error. (0)");
-      case SSH_FX_EOF                      : /*  1 */
+      case SSH_FX_EOF                         : /*  1 */
          return("Attempted to read past the end-of-file or there are no more directory entries. (1)");
-      case SSH_FX_NO_SUCH_FILE             : /*  2 */
+      case SSH_FX_NO_SUCH_FILE                : /*  2 */
          return("A reference was made to a file which does not exist. (2)");
-      case SSH_FX_PERMISSION_DENIED        : /*  3 */
+      case SSH_FX_PERMISSION_DENIED           : /*  3 */
          return("Permission denied. (3)");
-      case SSH_FX_FAILURE                  : /*  4 */
+      case SSH_FX_FAILURE                     : /*  4 */
          return("An error occurred, but no specific error code exists to describe the failure. (4)");
-      case SSH_FX_BAD_MESSAGE              : /*  5 */
+      case SSH_FX_BAD_MESSAGE                 : /*  5 */
          return("A badly formatted packet or other SFTP protocol incompatibility was detected. (5)");
-      case SSH_FX_NO_CONNECTION            : /*  6 */
+      case SSH_FX_NO_CONNECTION               : /*  6 */
          return("There is no connection to the server. (6)");
-      case SSH_FX_CONNECTION_LOST          : /*  7 */
+      case SSH_FX_CONNECTION_LOST             : /*  7 */
          return("The connection to the server was lost. (7)");
-      case SSH_FX_OP_UNSUPPORTED           : /*  8 */
+      case SSH_FX_OP_UNSUPPORTED              : /*  8 */
          return("Operation unsupported. (8)");
-      case SSH_FX_INVALID_HANDLE           : /*  9 */
+      case SSH_FX_INVALID_HANDLE              : /*  9 */
          return("The handle value was invalid. (9)");
-      case SSH_FX_NO_SUCH_PATH             : /* 10 */
+      case SSH_FX_NO_SUCH_PATH                : /* 10 */
          return("File path does not exist or is invalid. (10)");
-      case SSH_FX_FILE_ALREADY_EXISTS      : /* 11 */
+      case SSH_FX_FILE_ALREADY_EXISTS         : /* 11 */
          return("File already exists. (11)");
-      case SSH_FX_WRITE_PROTECT            : /* 12 */
+      case SSH_FX_WRITE_PROTECT               : /* 12 */
          return("File is on read-only media, or the media is write protected. (12)");
-      case SSH_FX_NO_MEDIA                 : /* 13 */
+      case SSH_FX_NO_MEDIA                    : /* 13 */
          return("The requested operation cannot be completed because there is no media available in the drive. (13)");
-      case SSH_FX_NO_SPACE_ON_FILESYSTEM   : /* 14 */
+      case SSH_FX_NO_SPACE_ON_FILESYSTEM      : /* 14 */
          return("No space on filesystem. (14)");
-      case SSH_FX_QUOTA_EXCEEDED           : /* 15 */
+      case SSH_FX_QUOTA_EXCEEDED              : /* 15 */
          return("Quota exceeded. (15)");
-      case SSH_FX_UNKNOWN_PRINCIPAL        : /* 16 */
+      case SSH_FX_UNKNOWN_PRINCIPAL           : /* 16 */
          return("Unknown principal. (16)");
-      case SSH_FX_LOCK_CONFLICT            : /* 17 */
+      case SSH_FX_LOCK_CONFLICT               : /* 17 */
          return("File could not be opened because it is locked by another process. (17)");
-      case SSH_FX_DIR_NOT_EMPTY            : /* 18 */
+      case SSH_FX_DIR_NOT_EMPTY               : /* 18 */
          return("Directory is not empty. (18)");
-      case SSH_FX_NOT_A_DIRECTORY          : /* 19 */
+      case SSH_FX_NOT_A_DIRECTORY             : /* 19 */
          return("The specified file is not a directory. (19)");
-      case SSH_FX_INVALID_FILENAME         : /* 20 */
+      case SSH_FX_INVALID_FILENAME            : /* 20 */
          return("Invalid filename. (20)");
-      case SSH_FX_LINK_LOOP                : /* 21 */
+      case SSH_FX_LINK_LOOP                   : /* 21 */
          return("Too many symbolic links encountered. (21)");
-      case SSH_FX_CANNOT_DELETE            : /* 22 */
+      case SSH_FX_CANNOT_DELETE               : /* 22 */
          return("File cannot be deleted. (22)");
-      case SSH_FX_INVALID_PARAMETER        : /* 23 */
+      case SSH_FX_INVALID_PARAMETER           : /* 23 */
          return("Invalid parameter. (23)");
-      case SSH_FX_FILE_IS_A_DIRECTORY      : /* 24 */
+      case SSH_FX_FILE_IS_A_DIRECTORY         : /* 24 */
          return("File is a directory. (24)");
-      case SSH_FX_BYTE_RANGE_LOCK_CONFLICT : /* 25 */
+      case SSH_FX_BYTE_RANGE_LOCK_CONFLICT    : /* 25 */
          return("Byte range lock conflict. (25)");
-      case SSH_FX_BYTE_RANGE_LOCK_REFUSED  : /* 26 */
+      case SSH_FX_BYTE_RANGE_LOCK_REFUSED     : /* 26 */
          return("Byte range lock refused. (26)");
-      case SSH_FX_DELETE_PENDING           : /* 27 */
+      case SSH_FX_DELETE_PENDING              : /* 27 */
          return("Delete is pending. (27)");
-      case SSH_FX_FILE_CORRUPT             : /* 28 */
+      case SSH_FX_FILE_CORRUPT                : /* 28 */
          return("File is corrupt. (28)");
-      case SSH_FX_OWNER_INVALID            : /* 29 */
+      case SSH_FX_OWNER_INVALID               : /* 29 */
          return("Invalid owner. (29)");
-      case SSH_FX_GROUP_INVALID            : /* 30 */
+      case SSH_FX_GROUP_INVALID               : /* 30 */
          return("Invalid group. (30)");
-      default                              : /* ?? */
+      case SSH_FX_NO_MATCHING_BYTE_RANGE_LOCK : /* 31 */
+         return("Requested operation could not be completed, because byte range lock has not been granted. (31)");
+      default                                 : /* ?? */
          (void)sprintf(msg_str, "Unknown error code. (%u)", error_code);
          return(msg_str);
    }
@@ -2713,10 +2778,9 @@ is_with_path(char *name)
 }
 
 
-/*+++++++++++++++++++++++++ sig_ignore_handler() ++++++++++++++++++++++++*/
+/*++++++++++++++++++++++++++++ sig_handler() ++++++++++++++++++++++++++++*/
 static void
-sig_ignore_handler(int signo)
+sig_handler(int signo)
 {
-   /* Do nothing. This just allows us to receive a SIGALRM, thus */
-   /* interrupting a system call without being forced to abort.  */
+   longjmp(env_alrm, 1);
 }

@@ -1,6 +1,6 @@
 /*
  *  store_passwd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,6 +39,11 @@ DESCR__S_M3
  **
  ** RETURN VALUES
  **   None.
+ **
+ ** SEE ALSO
+ **   common/get_hostname.c, common/create_message.c, fd/get_job_data.c,
+ **   fd/eval_recipient.c, tools/get_dc_data.c, fd/init_msg_buffer.c,
+ **   tools/set_pw.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -96,7 +101,7 @@ store_passwd(char *recipient, int remove_passwd)
       }
       else
       {
-         /* Get user name */
+         /* Get user name. */
          if (*ptr == '\0')
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -104,8 +109,12 @@ store_passwd(char *recipient, int remove_passwd)
             return;
          }
          i = 0;
-         while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                (i < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+         while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+         while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
          {
             if (*ptr == '\\')
             {
@@ -117,7 +126,8 @@ store_passwd(char *recipient, int remove_passwd)
          if (*ptr == '\0')
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Hmm. This does NOT look like URL for me!?");
+                       "Hmm. This (%s) does NOT look like URL for me!?",
+                       recipient);
             return;
          }
          if (i == MAX_USER_NAME_LENGTH)
@@ -128,6 +138,19 @@ store_passwd(char *recipient, int remove_passwd)
             return;
          }
          uh_name_length = i;
+#ifdef WITH_SSH_FINGERPRINT
+         if (*ptr == ';')
+         {
+            while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
+            {
+               if (*ptr == '\\')
+               {
+                  ptr++;
+               }
+               ptr++;
+            }
+         }
+#endif
          if (*ptr == ':')
          {
             char *p_start_pwd;
@@ -135,9 +158,10 @@ store_passwd(char *recipient, int remove_passwd)
             p_start_pwd = ptr;
             ptr++;
 
-            /* Get password */
+            /* Get password. */
             i = 0;
-            while ((*ptr != '@') && (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
+            while ((*ptr != '@') && (*ptr != '\0') &&
+                   (i < MAX_USER_NAME_LENGTH))
             {
                if (*ptr == '\\')
                {

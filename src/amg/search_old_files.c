@@ -1,6 +1,6 @@
 /*
  *  search_old_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -96,8 +96,7 @@ search_old_files(time_t current_time)
                  ret;
    time_t        diff_time,
                  pmatch_time;
-   char          *ptr,
-                 *work_ptr,
+   char          *work_ptr,
                  tmp_dir[MAX_PATH_LENGTH];
    unsigned int  file_size;
    struct stat   stat_buf;
@@ -112,9 +111,12 @@ search_old_files(time_t current_time)
 
          if ((dp = opendir(tmp_dir)) == NULL)
          {
-            system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Can't access directory %s : %s",
-                       tmp_dir, strerror(errno));
+            if ((errno != ENOENT) && (errno != EACCES))
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Can't access directory %s : %s",
+                          tmp_dir, strerror(errno));
+            }
          }
          else
          {
@@ -245,7 +247,7 @@ search_old_files(time_t current_time)
 # else
                                                      "dir_check() >%lld (%s %d)",
 # endif
-                                                     diff_time,
+                                                     (pri_time_t)diff_time,
                                                      __FILE__, __LINE__);
                               if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                               {
@@ -351,7 +353,7 @@ search_old_files(time_t current_time)
                                          (void)strcpy(dl.file_name, p_dir->d_name);
                                          (void)sprintf(dl.host_name, "%-*s %x",
                                                        MAX_HOSTNAME_LENGTH,
-                                                       fsa[pos].host_dsp_name,
+                                                       fsa[pos].host_alias,
                                                        AGE_INPUT);
                                          *dl.file_size = stat_buf.st_size;
                                          *dl.job_number = de[i].dir_id;
@@ -363,7 +365,7 @@ search_old_files(time_t current_time)
 # else
                                                                 "dir_check() >%lld (%s %d)",
 # endif
-                                                                diff_time,
+                                                                (pri_time_t)diff_time,
                                                                 __FILE__, __LINE__);
                                          if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                                          {

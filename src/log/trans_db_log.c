@@ -1,6 +1,6 @@
 /*
  *  trans_db_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -44,8 +44,7 @@ DESCR__E_M1
 
 #include <stdio.h>                 /* fprintf(), fclose(), stderr,       */
                                    /* strerror()                         */
-#include <string.h>                /* strcmp(), strcpy(), strcat(),      */
-                                   /* strlen()                           */
+#include <string.h>                /* strcmp(), strcpy(), strcat()       */
 #include <stdlib.h>                /* getenv(), exit(), malloc()         */
 #include <unistd.h>                /* fpathconf(), STDERR_FILENO         */
 #include <sys/types.h>
@@ -79,6 +78,9 @@ main(int argc, char *argv[])
                log_stat = START,
                max_trans_db_log_files = MAX_TRANS_DB_LOG_FILES,
                trans_db_log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int         writefd;
+#endif
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
                log_file[MAX_PATH_LENGTH],
@@ -103,7 +105,11 @@ main(int argc, char *argv[])
       (void)strcpy(trans_db_log_fifo, work_dir);
       (void)strcat(trans_db_log_fifo, FIFO_DIR);
       (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(trans_db_log_fifo, &trans_db_log_fd, &writefd) < 0)
+#else
       if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) < 0)
+#endif
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to open() fifo %s : %s",
@@ -145,14 +151,15 @@ main(int argc, char *argv[])
    get_log_number(&log_number,
                   (max_trans_db_log_files - 1),
                   TRANS_DB_LOG_NAME,
-                  strlen(TRANS_DB_LOG_NAME));
+                  TRANS_DB_LOG_NAME_LENGTH,
+                  NULL);
    (void)sprintf(current_log_file, "%s%s/%s0",
                  p_work_dir, LOG_DIR, TRANS_DB_LOG_NAME);
    p_end = log_file;
    p_end += sprintf(log_file, "%s%s/%s",
                     p_work_dir, LOG_DIR, TRANS_DB_LOG_NAME);
 
-   /* Ignore any SIGHUP signal */
+   /* Ignore any SIGHUP signal. */
    if (signal(SIGHUP, SIG_IGN) == SIG_ERR)
    {
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -174,7 +181,7 @@ main(int argc, char *argv[])
             {
                log_number++;
             }
-            reshuffel_log_files(log_number, log_file, p_end);
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
             total_length = 0;
          }
          else

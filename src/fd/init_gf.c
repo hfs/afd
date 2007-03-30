@@ -1,6 +1,6 @@
 /*
  *  init_gf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,6 +62,9 @@ DESCR__E_M3
 extern int                        fsa_fd,
                                   no_of_hosts,
                                   no_of_dirs,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                  transfer_log_readfd,
+#endif
                                   transfer_log_fd;
 extern long                       transfer_timeout;
 extern char                       host_deleted,
@@ -112,9 +115,14 @@ init_gf(int argc, char *argv[], int protocol)
    db.toggle_host = NO;
    db.protocol = protocol;
    db.special_ptr = NULL;
+#ifdef WITH_SSH_FINGERPRINT
+   db.ssh_fingerprint[0] = '\0';
+   db.key_type = 0;
+#endif
 #ifdef WITH_SSL
    db.auth = NO;
 #endif
+   db.ssh_protocol = 0;
    db.sndbuf_size = 0;
    db.rcvbuf_size = 0;
 
@@ -133,6 +141,18 @@ init_gf(int argc, char *argv[], int protocol)
                  "Failed to locate dir_alias <%s> in the FRA.", db.dir_alias);
       exit(INCORRECT);          
    }
+   if (fra[db.fra_pos].keep_connected > 0)
+   {
+      db.keep_connected = fra[db.fra_pos].keep_connected;
+   }
+   else if (fsa->keep_connected > 0)
+        {
+           db.keep_connected = fsa->keep_connected;
+        }
+        else
+        {
+           db.keep_connected = 0;
+        }
 #ifdef WITH_SSL
    if ((fsa->protocol & HTTP_FLAG) && (fsa->protocol & SSL_FLAG))
    {
@@ -172,23 +192,62 @@ init_gf(int argc, char *argv[], int protocol)
       if (fsa->protocol_options & FTP_PASSIVE_MODE)
       {
          db.mode_flag = PASSIVE_MODE;
+         if (fsa->protocol_options & FTP_EXTENDED_MODE)
+         {
+            (void)strcpy(db.mode_str, "extended passive");
+         }
+         else
+         {
+            if (fsa->protocol_options & FTP_ALLOW_DATA_REDIRECT)
+            {
+               (void)strcpy(db.mode_str, "passive (with redirect)");
+            }
+            else
+            {
+               (void)strcpy(db.mode_str, "passive");
+            }
+         }
       }
       else
       {
          db.mode_flag = ACTIVE_MODE;
+         if (fsa->protocol_options & FTP_EXTENDED_MODE)
+         {
+            (void)strcpy(db.mode_str, "extended active");
+         }
+         else
+         {
+            (void)strcpy(db.mode_str, "active");
+         }
       }
+      if (fsa->protocol_options & FTP_EXTENDED_MODE)
+      {
+         db.mode_flag |= EXTENDED_MODE;
+      }
+   }
+   else
+   {
+      db.mode_str[0] = '\0';
    }
 
    /* Open/create log fifos */
    (void)strcpy(gbuf, p_work_dir);
    (void)strcat(gbuf, FIFO_DIR);
    (void)strcat(gbuf, TRANSFER_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(gbuf, &transfer_log_readfd, &transfer_log_fd) == -1)
+#else
    if ((transfer_log_fd = open(gbuf, O_RDWR)) == -1)
+#endif
    {
       if (errno == ENOENT)
       {
          if ((make_fifo(gbuf) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+             (open_fifo_rw(gbuf, &transfer_log_readfd, &transfer_log_fd) == -1))
+#else
              ((transfer_log_fd = open(gbuf, O_RDWR)) == -1))
+#endif
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Could not open fifo `%s' : %s",

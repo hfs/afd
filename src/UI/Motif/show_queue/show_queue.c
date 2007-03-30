@@ -1,6 +1,6 @@
 /*
  *  show_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -702,12 +702,6 @@ main(int argc, char *argv[])
    XtAddCallback(toggle_w, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_PENDING_RETRIEVES);
    XtManageChild(togglebox_w);
-
-   toggles_set = SHOW_OUTPUT | SHOW_INPUT | SHOW_PENDING_RETRIEVES;
-
-/*-----------------------------------------------------------------------*/
-/*                          Vertical Separator                           */
-/*-----------------------------------------------------------------------*/
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
    argcount++;
@@ -721,6 +715,63 @@ main(int argc, char *argv[])
    argcount++;
    separator_w = XmCreateSeparator(selectionbox_w, "separator", args, argcount);
    XtManageChild(separator_w);
+   togglebox_w = XtVaCreateWidget("togglebox",
+                                xmRowColumnWidgetClass, selectionbox_w,
+                                XmNorientation,         XmHORIZONTAL,
+                                XmNpacking,             XmPACK_TIGHT,
+                                XmNnumColumns,          1,
+                                XmNtopAttachment,       XmATTACH_FORM,
+                                XmNleftAttachment,      XmATTACH_WIDGET,
+                                XmNleftWidget,          separator_w,
+                                XmNbottomAttachment,    XmATTACH_FORM,
+                                XmNresizable,           False,
+                                NULL);
+   toggle_w = XtVaCreateManagedWidget("Time",
+                                xmToggleButtonGadgetClass, togglebox_w,
+                                XmNfontList,               fontlist,
+                                XmNset,                    True,
+                                NULL);
+   XtAddCallback(toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggled, (XtPointer)SHOW_TIME_JOBS);
+   XtManageChild(togglebox_w);
+   XtManageChild(selectionbox_w);
+
+   toggles_set = SHOW_OUTPUT | SHOW_INPUT | SHOW_PENDING_RETRIEVES | SHOW_TIME_JOBS;
+
+/*-----------------------------------------------------------------------*/
+/*                         Horizontal Separator                          */
+/*-----------------------------------------------------------------------*/
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,       selectionbox_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,  XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
+   argcount++;
+   separator_w = XmCreateSeparator(mainform_w, "separator", args, argcount);
+   XtManageChild(separator_w);
+
+/*-----------------------------------------------------------------------*/
+/*                      Selection Length Box                             */
+/*                      --------------------                             */
+/* Let user select the length of the file name and if the file name is   */
+/* local or remote.                                                      */
+/*-----------------------------------------------------------------------*/
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopWidget,       separator_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,  XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNrightAttachment, XmATTACH_FORM);
+   argcount++;
+   selectionbox_w = XmCreateForm(mainform_w, "selectionboxlength",
+                                 args, argcount);
 
 /*-----------------------------------------------------------------------*/
 /*                             Radio Box                                 */
@@ -728,10 +779,23 @@ main(int argc, char *argv[])
 /* To select if the output in the list widget should be in long or short */
 /* format. Default is medium, since this is the fastest form.            */
 /*-----------------------------------------------------------------------*/
+
+   /* Label radiobox_w */
+   label_w = XtVaCreateManagedWidget("File name length :",
+                           xmLabelGadgetClass,  selectionbox_w,
+                           XmNfontList,         fontlist,
+                           XmNalignment,        XmALIGNMENT_END,
+                           XmNtopAttachment,    XmATTACH_FORM,
+                           XmNleftAttachment,   XmATTACH_FORM,
+                           XmNleftOffset,       10,
+                           XmNbottomAttachment, XmATTACH_FORM,
+                           NULL);
    argcount = 0;
    XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
    argcount++;
-   XtSetArg(args[argcount], XmNrightAttachment,  XmATTACH_FORM);
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       label_w);
    argcount++;
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
    argcount++;
@@ -767,17 +831,6 @@ main(int argc, char *argv[])
    file_name_length = SHOW_MEDIUM_FORMAT;
 
    XtManageChild(selectionbox_w);
-
-   /* Label radiobox_w */
-   XtVaCreateManagedWidget("File name :",
-                           xmLabelGadgetClass,  selectionbox_w,
-                           XmNfontList,         fontlist,
-                           XmNalignment,        XmALIGNMENT_END,
-                           XmNtopAttachment,    XmATTACH_FORM,
-                           XmNrightAttachment,  XmATTACH_WIDGET,
-                           XmNrightWidget,      radiobox_w,
-                           XmNbottomAttachment, XmATTACH_FORM,
-                           NULL);
 
 /*-----------------------------------------------------------------------*/
 /*                         Horizontal Separator                          */
@@ -1358,7 +1411,7 @@ init_show_queue(int *argc, char *argv[])
       if ((search_dirid = malloc((no_of_search_dirids * sizeof(unsigned int)))) == NULL)
       {
          (void)fprintf(stderr,
-                       "Failed to malloc() %d bytes : %s (%s %d)\n",
+                       "Failed to malloc() %lu bytes : %s (%s %d)\n",
                        no_of_search_dirids * sizeof(unsigned int),
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
@@ -1379,6 +1432,20 @@ init_show_queue(int *argc, char *argv[])
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -1614,7 +1681,7 @@ show_queue_exit(void)
                        "Failed to kill() process %s (%lld) : %s",
 #endif
                        apps_list[i].progname,
-                       apps_list[i].pid, strerror(errno));
+                       (pri_pid_t)apps_list[i].pid, strerror(errno));
          }
       }
    }

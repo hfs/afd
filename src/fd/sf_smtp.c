@@ -1,6 +1,6 @@
 /*
  *  sf_smtp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,6 +78,8 @@ DESCR__S_M1
  **   04.07.2002 H.Kiehl Add To header by default.
  **   13.06.2004 H.Kiehl Added transfer rate limit.
  **   04.06.2006 H.Kiehl Added option 'file name is target'.
+ **   05.08.2006 H.Kiehl For option 'subject' added possibility to insert
+ **                      the filename or part of it.
  **
  */
 DESCR__E_M1
@@ -104,8 +106,6 @@ int                        exitflag = IS_FAULTY_VAR,
                            files_to_delete, /* NOT USED */
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
-                           trans_rule_pos,
-                           user_rule_pos,
                            fsa_id,
                            fsa_fd = -1,
                            line_length = 0, /* encode_base64()           */
@@ -113,6 +113,11 @@ int                        exitflag = IS_FAULTY_VAR,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           trans_db_log_readfd,
+                           transfer_log_readfd,
+#endif
+                           trans_rename_blocked = NO,
                            amg_flag = NO,
                            timeout_flag;
 #ifdef HAVE_MMAP
@@ -183,6 +188,9 @@ main(int argc, char *argv[])
 #endif
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+   int              ol_readfd = -1;
+# endif
    unsigned int     *ol_job_number;
    char             *ol_data = NULL,
                     *ol_file_name;
@@ -285,7 +293,11 @@ main(int argc, char *argv[])
 #ifdef _OUTPUT_LOG
    if (db.output_log == YES)
    {
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+      output_log_ptrs(&ol_fd, &ol_readfd, &ol_job_number, &ol_data, &ol_file_name,
+# else
       output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
+# endif
                       &ol_file_name_length, &ol_archive_name_length,
                       &ol_file_size, &ol_unl, &ol_size, &ol_transfer_time,
                       db.host_alias, SMTP);
@@ -531,7 +543,7 @@ main(int argc, char *argv[])
 #else
                           "Mail header file %s to large (%lld Bytes). Allowed are 204800 bytes.",
 #endif
-                          mail_header_file, stat_buf.st_size);
+                          mail_header_file, (pri_off_t)stat_buf.st_size);
             }
          }
          if (close(mail_fd) == -1)
@@ -579,14 +591,14 @@ main(int argc, char *argv[])
             {
                register int k;
 
-               for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
+               for (k = 0; k < rule[db.user_rule_pos].no_of_rules; k++)
                {
-                  if (pmatch(rule[user_rule_pos].filter[k],
+                  if (pmatch(rule[db.user_rule_pos].filter[k],
                              p_file_name_buffer, NULL) == 0)
                   {
                      change_name(p_file_name_buffer,
-                                 rule[user_rule_pos].filter[k],
-                                 rule[user_rule_pos].rename_to[k],
+                                 rule[db.user_rule_pos].filter[k],
+                                 rule[db.user_rule_pos].rename_to[k],
                                  db.user, &counter_fd, db.job_id);
                      break;
                   }
@@ -604,14 +616,14 @@ main(int argc, char *argv[])
 
                  if (db.user_rename_rule[0] != '\0')
                  {
-                    for (k = 0; k < rule[user_rule_pos].no_of_rules; k++)
+                    for (k = 0; k < rule[db.user_rule_pos].no_of_rules; k++)
                     {
-                       if (pmatch(rule[user_rule_pos].filter[k],
+                       if (pmatch(rule[db.user_rule_pos].filter[k],
                                   p_file_name_buffer, NULL) == 0)
                        {
                           change_name(p_file_name_buffer,
-                                      rule[user_rule_pos].filter[k],
-                                      rule[user_rule_pos].rename_to[k],
+                                      rule[db.user_rule_pos].filter[k],
+                                      rule[db.user_rule_pos].rename_to[k],
                                       remote_user, &counter_fd, db.job_id);
                           break;
                        }
@@ -787,7 +799,53 @@ main(int argc, char *argv[])
          /* Send file name as subject if wanted. */
          if (db.special_flag & MAIL_SUBJECT)
          {
-            length = sprintf(buffer, "Subject: %s\r\n", db.subject);
+            if (db.filename_pos_subject == -1)
+            {
+               length = sprintf(buffer, "Subject: %s\r\n", db.subject);
+            }
+            else
+            {
+               db.subject[db.filename_pos_subject] = '\0';
+               length = sprintf(buffer, "Subject: %s", db.subject);
+               if (db.subject_rename_rule[0] == '\0')
+               {
+                  length += sprintf(&buffer[length], "%s", final_filename);
+               }
+               else
+               {
+                  int  k;
+                  char new_filename[MAX_FILENAME_LENGTH];
+
+                  new_filename[0] = '\0';
+                  for (k = 0; k < rule[db.subject_rule_pos].no_of_rules; k++)
+                  {
+                     if (pmatch(rule[db.subject_rule_pos].filter[k],
+                                final_filename, NULL) == 0)
+                     {
+                        change_name(final_filename,
+                                    rule[db.subject_rule_pos].filter[k],
+                                    rule[db.subject_rule_pos].rename_to[k],
+                                    new_filename, &counter_fd, db.job_id);
+                        break;
+                     }
+                  }
+                  if (new_filename[0] == '\0')
+                  {
+                     (void)strcpy(new_filename, final_filename);
+                  }
+                  length += sprintf(&buffer[length], "%s", new_filename);
+               }
+               if (db.subject[db.filename_pos_subject + 2] != '\0')
+               {
+                  length += sprintf(&buffer[length], "%s\r\n",
+                                    &db.subject[db.filename_pos_subject + 2]);
+               }
+               else
+               {
+                  length += sprintf(&buffer[length], "\r\n");
+               }
+               db.subject[db.filename_pos_subject] = '%';
+            }
             if (smtp_write(buffer, NULL, length) < 0)
             {
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
@@ -808,10 +866,9 @@ main(int argc, char *argv[])
                     exit(eval_timeout(WRITE_REMOTE_ERROR));
                  }
                  no_of_bytes += length;
-              } /* if (db.special_flag & FILE_NAME_IS_SUBJECT) */
+              }
 
-         if (((db.special_flag & FILE_NAME_IS_USER) == 0) &&
-             ((db.special_flag & FILE_NAME_IS_TARGET) == 0))
+         if ((db.special_flag & FILE_NAME_IS_USER) == 0)
          {
             if (db.group_list == NULL)
             {
@@ -843,13 +900,45 @@ main(int argc, char *argv[])
             }
             else
             {
-               char content_type[MAX_CONTENT_TYPE_LENGTH];
+               if (db.trans_rename_rule[0] != '\0')
+               {
+                  int  k;
+                  char content_type[MAX_CONTENT_TYPE_LENGTH],
+                       new_filename[MAX_FILENAME_LENGTH];
 
-               get_content_type(final_filename, content_type);
-               length = sprintf(encode_buffer,
-                                "MIME-Version: 1.0 (produced by AFD %s)\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
-                                PACKAGE_VERSION, content_type,
-                                final_filename, final_filename);
+                  new_filename[0] = '\0';
+                  for (k = 0; k < rule[db.trans_rule_pos].no_of_rules; k++)
+                  {
+                     if (pmatch(rule[db.trans_rule_pos].filter[k],
+                                final_filename, NULL) == 0)
+                     {
+                        change_name(final_filename,
+                                    rule[db.trans_rule_pos].filter[k],
+                                    rule[db.trans_rule_pos].rename_to[k],
+                                    new_filename, &counter_fd, db.job_id);
+                        break;
+                     }
+                  }
+                  if (new_filename[0] == '\0')
+                  {
+                     (void)strcpy(new_filename, final_filename);
+                  }
+                  get_content_type(new_filename, content_type);
+                  length = sprintf(encode_buffer,
+                                   "MIME-Version: 1.0 (produced by AFD %s)\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                   PACKAGE_VERSION, content_type,
+                                   new_filename, new_filename);
+               }
+               else
+               {
+                  char content_type[MAX_CONTENT_TYPE_LENGTH];
+
+                  get_content_type(final_filename, content_type);
+                  length = sprintf(encode_buffer,
+                                   "MIME-Version: 1.0 (produced by AFD %s)\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n",
+                                   PACKAGE_VERSION, content_type,
+                                   final_filename, final_filename);
+               }
                buffer_ptr = encode_buffer;
             }
 
@@ -910,7 +999,7 @@ main(int argc, char *argv[])
             } /* if (db.special_flag & ATTACH_FILE) */
 
             /* Now lets write the message. */
-            extra_mail_header_buffer[0] = 0;
+            extra_mail_header_buffer[0] = '\n';
             if (db.special_flag & ENCODE_ANSI)
             {
                if (smtp_write_iso8859(mail_header_buffer,
@@ -946,14 +1035,14 @@ main(int argc, char *argv[])
                        new_filename[MAX_FILENAME_LENGTH];
 
                   new_filename[0] = '\0';
-                  for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
+                  for (k = 0; k < rule[db.trans_rule_pos].no_of_rules; k++)
                   {
-                     if (pmatch(rule[trans_rule_pos].filter[k],
+                     if (pmatch(rule[db.trans_rule_pos].filter[k],
                                 final_filename, NULL) == 0)
                      {
                         change_name(final_filename,
-                                    rule[trans_rule_pos].filter[k],
-                                    rule[trans_rule_pos].rename_to[k],
+                                    rule[db.trans_rule_pos].filter[k],
+                                    rule[db.trans_rule_pos].rename_to[k],
                                     new_filename, &counter_fd, db.job_id);
                         break;
                      }
@@ -1016,14 +1105,14 @@ main(int argc, char *argv[])
             char new_filename[MAX_FILENAME_LENGTH];
 
             new_filename[0] = '\0';
-            for (k = 0; k < rule[trans_rule_pos].no_of_rules; k++)
+            for (k = 0; k < rule[db.trans_rule_pos].no_of_rules; k++)
             {
-               if (pmatch(rule[trans_rule_pos].filter[k],
+               if (pmatch(rule[db.trans_rule_pos].filter[k],
                           final_filename, NULL) == 0)
                {
                   change_name(final_filename,
-                              rule[trans_rule_pos].filter[k],
-                              rule[trans_rule_pos].rename_to[k],
+                              rule[db.trans_rule_pos].filter[k],
+                              rule[db.trans_rule_pos].rename_to[k],
                               new_filename, &counter_fd, db.job_id);
                   break;
                }
@@ -1079,7 +1168,7 @@ main(int argc, char *argv[])
       }
       if (smtp_buffer != NULL)
       {
-         smtp_buffer[0] = 0;
+         smtp_buffer[0] = '\n';
       }
 
       if (fsa->trl_per_process > 0)
@@ -1363,7 +1452,7 @@ main(int argc, char *argv[])
 # else
                       "Total file size for host %s overflowed. Correcting to %lld.",
 # endif
-                      fsa->host_dsp_name, fsa->total_file_size);
+                      fsa->host_dsp_name, (pri_off_t)fsa->total_file_size);
          }
          else if ((fsa->total_file_counter == 0) &&
                   (fsa->total_file_size > 0))
@@ -1522,6 +1611,9 @@ main(int argc, char *argv[])
       if (fsa->error_counter > 0)
       {
          int  fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+              readfd,
+#endif
               j;
          char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
@@ -1539,7 +1631,11 @@ main(int argc, char *argv[])
           */
          (void)sprintf(fd_wake_up_fifo, "%s%s%s", p_work_dir,
                        FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(fd_wake_up_fifo, &readfd, &fd) == -1)
+#else
          if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
+#endif
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Failed to open() FIFO %s : %s",
@@ -1553,6 +1649,14 @@ main(int argc, char *argv[])
                           "Failed to write() to FIFO %s : %s",
                           fd_wake_up_fifo, strerror(errno));
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO %s (read) : %s",
+                          fd_wake_up_fifo, strerror(errno));
+            }
+#endif
             if (close(fd) == -1)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1594,6 +1698,12 @@ main(int argc, char *argv[])
                        fsa->host_alias);
          }
       }
+#ifdef WITH_ERROR_QUEUE
+      if (db.special_flag & IN_ERROR_QUEUE)
+      {
+         remove_from_error_queue(db.job_id, fsa);
+      }
+#endif
 
       p_file_name_buffer += MAX_FILENAME_LENGTH;
       p_file_size_buffer++;
@@ -1655,6 +1765,9 @@ static void
 sf_smtp_exit(void)
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
    if ((fsa != NULL) && (db.fsa_pos >= 0))
@@ -1686,7 +1799,11 @@ sf_smtp_exit(void)
    (void)strcpy(sf_fin_fifo, p_work_dir);
    (void)strcat(sf_fin_fifo, FIFO_DIR);
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s", sf_fin_fifo, strerror(errno));
@@ -1705,6 +1822,9 @@ sf_smtp_exit(void)
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)close(readfd);
+#endif
       (void)close(fd);
    }
    if (sys_log_fd != STDERR_FILENO)

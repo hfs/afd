@@ -84,7 +84,7 @@ main(int argc, char *argv[])
    }
 
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, DIR_NAME_FILE);
-   if ((fd = open(file, O_RDWR)) == -1)
+   if ((fd = open(file, O_RDONLY)) == -1)
    {
       (void)fprintf(stderr, "Failed to open() `%s' : %s (%s %d)\n",
                     file, strerror(errno), __FILE__, __LINE__);
@@ -99,10 +99,10 @@ main(int argc, char *argv[])
    }
 
 #ifdef HAVE_MMAP
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
 #else
-   if ((ptr = mmap_emu(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap_emu(0, stat_buf.st_size, PROT_READ,
                        MAP_SHARED, file, 0)) == (caddr_t)-1)
 #endif
    {
@@ -147,7 +147,7 @@ main(int argc, char *argv[])
 #ifdef HAVE_MMAP
    if (munmap(ptr, stat_buf.st_size) == -1)
 #else
-   if (munmap(ptr) == -1)
+   if (munmap_emu(ptr) == -1)
 #endif
    {
       (void)fprintf(stderr, "Failed to munmap() `%s' : %s (%s %d)\n",

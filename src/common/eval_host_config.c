@@ -1,6 +1,6 @@
 /*
  *  eval_host_config.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1405,7 +1405,7 @@ eval_host_config(int              *hosts_found,
                 (((*hl)[host_counter].protocol_options > (SET_IDLE_TIME |
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                                                           STAT_KEEPALIVE |
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
                                                           FTP_FAST_MOVE |
                                                           FTP_FAST_CD |
                                                           FTP_IGNORE_BIN |
@@ -1566,10 +1566,15 @@ eval_host_config(int              *hosts_found,
        * have different values. So we must do this check here.
        */
       if (((*hl)[host_counter].protocol_options != 0) &&
-          (((*hl)[host_counter].protocol_options > (SET_IDLE_TIME |
+          (((*hl)[host_counter].protocol_options > (FTP_ALLOW_DATA_REDIRECT |
+#ifdef _WITH_BURST_2
+                                                    DISABLE_BURSTING |
+#endif
+                                                    FTP_EXTENDED_MODE |
+                                                    SET_IDLE_TIME |
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                                                     STAT_KEEPALIVE |
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
                                                     FTP_FAST_MOVE |
                                                     FTP_FAST_CD |
                                                     FTP_IGNORE_BIN |
@@ -1581,10 +1586,15 @@ eval_host_config(int              *hosts_found,
                     "Unknown protocol option <%d> for host %s, largest value is %d and smallest %d.",
                     (*hl)[host_counter].host_status,
                     (*hl)[host_counter].host_alias,
-                    (SET_IDLE_TIME |
+                    (FTP_ALLOW_DATA_REDIRECT |
+#ifdef _WITH_BURST_2
+                     DISABLE_BURSTING |
+#endif
+                     FTP_EXTENDED_MODE |
+                     SET_IDLE_TIME |
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                      STAT_KEEPALIVE |
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
                      FTP_FAST_MOVE |
                      FTP_FAST_CD |
                      FTP_IGNORE_BIN |

@@ -1,6 +1,6 @@
 /*
  *  amg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -100,9 +100,13 @@ DESCR__E_M1
 #ifdef _DEBUG
 FILE                       *p_debug_file;
 #endif
-int                        dnb_fd,
+int                        create_source_dir = DEFAULT_CREATE_SOURCE_DIR_DEF,
+                           dnb_fd,
                            data_length, /* The size of data for one job. */
                            default_delete_files_flag = 0,
+#ifdef WITH_INOTIFY
+                           default_inotify_flag = DEFAULT_INOTIFY_FLAG,
+#endif
                            default_old_file_time = -1,
                            max_process_per_dir = MAX_PROCESS_PER_DIR,
                            *no_of_dir_names,
@@ -126,6 +130,7 @@ off_t                      fra_size,
                            fsa_size,
                            max_copied_file_size = MAX_COPIED_FILE_SIZE * MAX_COPIED_FILE_SIZE_UNIT;
 mode_t                     create_source_dir_mode = DIR_MODE;
+time_t                     default_warn_time = DEFAULT_DIR_WARN_TIME;
 #ifdef HAVE_MMAP
 off_t                      afd_active_size;
 #endif
@@ -147,7 +152,11 @@ const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 static void                amg_exit(void),
                            get_afd_config_value(int *, int *, int *, mode_t *,
                                                 unsigned int *, off_t *,
-                                                int *, int *, int *),
+                                                int *, int *, int *,
+#ifdef WITH_INOTIFY
+                                                unsigned int *,
+#endif
+                                                time_t *, int *),
                            notify_dir_check(void),
                            sig_segv(int),
                            sig_bus(int),
@@ -162,6 +171,10 @@ main(int argc, char *argv[])
                     amg_cmd_fd = 0,          /* File descriptor of the   */
                                              /* used by the controlling  */
                                              /* program AFD.             */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                    amg_cmd_writefd,
+                    db_update_writefd,
+#endif
                     db_update_fd = 0,        /* If the dialog for creat- */
                                              /* ing a new database has a */
                                              /* new database it can      */
@@ -418,7 +431,11 @@ main(int argc, char *argv[])
       }
 
       /* Open fifo to AFD to receive commands. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(amg_cmd_fifo, &amg_cmd_fd, &amg_cmd_writefd) == -1)
+#else
       if ((amg_cmd_fd = coe_open(amg_cmd_fifo, O_RDWR)) == -1)
+#endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "Could not open fifo %s : %s",
@@ -428,7 +445,11 @@ main(int argc, char *argv[])
 
       /* Open fifo for edit_hc and edit_dc so they can */
       /* inform the AMG about any changes.             */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(db_update_fifo, &db_update_fd, &db_update_writefd) == -1)
+#else
       if ((db_update_fd = coe_open(db_update_fifo, O_RDWR)) == -1)
+#endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "Could not open fifo %s : %s",
@@ -438,7 +459,11 @@ main(int argc, char *argv[])
       get_afd_config_value(&rescan_time, &max_no_proc, &max_process_per_dir,
                            &create_source_dir_mode, &max_copied_files,
                            &max_copied_file_size, &default_delete_files_flag,
-                           &default_old_file_time, &remove_unused_hosts);
+                           &default_old_file_time, &remove_unused_hosts,
+#ifdef WITH_INOTIFY
+                           &default_inotify_flag,
+#endif
+                           &default_warn_time, &create_source_dir);
 
       /* Find largest file descriptor. */
       if (amg_cmd_fd > db_update_fd)
@@ -596,6 +621,13 @@ main(int argc, char *argv[])
       if ((dl.fd != -1) && (dl.data != NULL))
       {
          free(dl.data);
+         (void)close(dl.fd);
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (dl.readfd != -1)
+         {
+            (void)close(dl.readfd);
+         }
+# endif
       }
 #endif
 
@@ -690,7 +722,7 @@ main(int argc, char *argv[])
 #else
               "AMG Configuration: Def max copied file size  %lld (Bytes)",
 #endif
-              max_copied_file_size);
+              (pri_off_t)max_copied_file_size);
    system_log(DEBUG_SIGN, NULL, 0,
               "AMG Configuration: Remove unused hosts       %s",
               (remove_unused_hosts == NO) ? "No" : "Yes");
@@ -1047,7 +1079,12 @@ get_afd_config_value(int          *rescan_time,
                      off_t        *max_copied_file_size,
                      int          *default_delete_files_flag,
                      int          *default_old_file_time,
-                     int          *remove_unused_hosts)
+                     int          *remove_unused_hosts,
+#ifdef WITH_INOTIFY
+                     unsigned int *default_inotify_flag,
+#endif
+                     time_t       *default_warn_time,
+                     int          *create_source_dir)
 {
    char *buffer,
         config_file[MAX_PATH_LENGTH];
@@ -1060,7 +1097,7 @@ get_afd_config_value(int          *rescan_time,
       size_t length,
              max_length;
       char   *ptr,
-             value[MAX_INT_LENGTH];
+             value[MAX_LONG_LENGTH];
 
       if (get_definition(buffer, AMG_DIR_RESCAN_TIME_DEF,
                          value, MAX_INT_LENGTH) != NULL)
@@ -1068,7 +1105,7 @@ get_afd_config_value(int          *rescan_time,
          *rescan_time = atoi(value);
          if (*rescan_time < 1)
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+            system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
                        *rescan_time, AMG_DIR_RESCAN_TIME_DEF,
                        DEFAULT_RESCAN_TIME);
@@ -1081,7 +1118,7 @@ get_afd_config_value(int          *rescan_time,
          *max_no_proc = atoi(value);
          if ((*max_no_proc < 1) || (*max_no_proc > 10240))
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+            system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
                        *max_no_proc, MAX_NO_OF_DIR_CHECKS_DEF,
                        MAX_NO_OF_DIR_CHECKS);
@@ -1094,7 +1131,7 @@ get_afd_config_value(int          *rescan_time,
          *max_process_per_dir = atoi(value);
          if ((*max_process_per_dir < 1) || (*max_process_per_dir > 10240))
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+            system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
                        *max_process_per_dir, MAX_PROCESS_PER_DIR_DEF,
                        MAX_PROCESS_PER_DIR);
@@ -1102,12 +1139,51 @@ get_afd_config_value(int          *rescan_time,
          }
          if (*max_process_per_dir > *max_no_proc)
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+            system_log(WARN_SIGN, __FILE__, __LINE__,
                        "%s (%d) may not be larger than %s (%d) in AFD_CONFIG. Setting to %d.",
                        MAX_PROCESS_PER_DIR_DEF, *max_process_per_dir, 
                        MAX_NO_OF_DIR_CHECKS_DEF, *max_no_proc, *max_no_proc);
             *max_process_per_dir = MAX_PROCESS_PER_DIR;
          }
+      }
+#ifdef WITH_INOTIFY
+      if (get_definition(buffer, DEFAULT_INOTIFY_FLAG_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         *default_inotify_flag = (unsigned int)atoi(value);
+         if (*default_inotify_flag > (INOTIFY_RENAME_FLAG|INOTIFY_CLOSE_FLAG))
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Incorrect value (%u) set in AFD_CONFIG for %s. Setting to default %u.",
+                       *default_inotify_flag, DEFAULT_INOTIFY_FLAG_DEF,
+                       DEFAULT_INOTIFY_FLAG);
+            *default_inotify_flag = DEFAULT_INOTIFY_FLAG;
+         }
+      }
+#endif
+      if (get_definition(buffer, CREATE_SOURCE_DIR_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         if (((value[0] == 'n') || (value[0] == 'N')) &&
+             ((value[1] == 'o') || (value[1] == 'O')) &&
+             ((value[2] == '\0') || (value[2] == ' ') || (value[2] == '\t')))
+         {
+            *create_source_dir = NO;
+         }
+         else if (((value[0] == 'y') || (value[0] == 'Y')) &&
+                  ((value[1] == 'e') || (value[1] == 'E')) &&
+                  ((value[2] == 's') || (value[2] == 'S')) &&
+                  ((value[3] == '\0') || (value[3] == ' ') || (value[3] == '\t')))
+              {
+                 *create_source_dir = YES;
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Only YES or NO (and not `%s') are possible for %s in AFD_CONFIG. Setting to default: %s",
+                            value, CREATE_SOURCE_DIR_DEF,
+                            (*create_source_dir == YES) ? "YES" : "NO");
+              }
       }
       if (get_definition(buffer, CREATE_SOURCE_DIR_MODE_DEF,
                          value, MAX_INT_LENGTH) != NULL)
@@ -1116,7 +1192,7 @@ get_afd_config_value(int          *rescan_time,
          if ((*create_source_dir_mode <= 700) ||
              (*create_source_dir_mode > 7777))
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+            system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Invalid mode %u set in AFD_CONFIG for %s. Setting to default %d.",
                        *create_source_dir_mode, CREATE_SOURCE_DIR_MODE_DEF,
                        DIR_MODE);
@@ -1134,6 +1210,9 @@ get_afd_config_value(int          *rescan_time,
          *max_copied_file_size = atoi(value) * 1048576;
          if ((*max_copied_file_size < 1) || (*max_copied_file_size > 1048576000))
          {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "The specified variable for %s in AFD_CONFIG is not int the allowed range > 0 and < 1048576000, setting to default %d.",
+                       MAX_COPIED_FILE_SIZE_DEF, MAX_COPIED_FILE_SIZE);
             *max_copied_file_size = MAX_COPIED_FILE_SIZE * MAX_COPIED_FILE_SIZE_UNIT;
          }
       }
@@ -1147,6 +1226,9 @@ get_afd_config_value(int          *rescan_time,
          *max_copied_files = atoi(value);
          if ((*max_copied_files < 1) || (*max_copied_files > 10240))
          {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "The specified variable for %s in AFD_CONFIG is not int the allowed range > 0 and < 10240, setting to default %d.",
+                       MAX_COPIED_FILES_DEF, MAX_COPIED_FILES);
             *max_copied_files = MAX_COPIED_FILES;
          }
       }
@@ -1160,11 +1242,23 @@ get_afd_config_value(int          *rescan_time,
          *default_old_file_time = atoi(value);
          if ((*default_old_file_time < 1) || (*default_old_file_time > 596523))
          {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+            system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Incorrect value (%d) set in AFD_CONFIG for %s. Setting to default %d.",
                        *default_old_file_time, DEFAULT_OLD_FILE_TIME_DEF,
                        DEFAULT_OLD_FILE_TIME);
             *default_old_file_time = DEFAULT_OLD_FILE_TIME;
+         }
+      }
+      if (get_definition(buffer, DEFAULT_DIR_WARN_TIME_DEF,
+                         value, MAX_LONG_LENGTH) != NULL)
+      {
+         *default_warn_time = (time_t)atol(value);
+         if (*default_warn_time < 0)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "A value less then 0 for AFD_CONFIG variable %s is not possible, setting default %ld",
+                       DEFAULT_DIR_WARN_TIME_DEF, DEFAULT_DIR_WARN_TIME);
+            *default_warn_time = DEFAULT_DIR_WARN_TIME;
          }
       }
       if (get_definition(buffer, DEFAULT_DELETE_FILES_FLAG_DEF,
@@ -1333,10 +1427,17 @@ static void
 notify_dir_check(void)
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char fifo_name[MAX_PATH_LENGTH];
 
    (void)sprintf(fifo_name, "%s%s%s", p_work_dir, FIFO_DIR, IP_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(fifo_name, &readfd, &fd) == -1)
+#else
    if ((fd = open(fifo_name, O_RDWR)) == -1)
+#endif
    {
       system_log(WARN_SIGN, __FILE__, __LINE__,
                  "Could not open() fifo %s : %s", fifo_name, strerror(errno));
@@ -1351,6 +1452,13 @@ notify_dir_check(void)
                     "Could not write() to fifo %s : %s",
                     fifo_name, strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (close(readfd) == -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
+      }
+#endif
       if (close(fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,

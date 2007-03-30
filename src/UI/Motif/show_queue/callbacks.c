@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -297,7 +297,7 @@ info_click(Widget w, XtPointer client_data, XEvent *event)
               {
                  format_retrieve_info(text, pos - 1);
               }
-              else
+              else /* SHOW_INPUT || SHOW_TIME_JOBS */
               {
                  format_input_info(text, pos - 1);
               }
@@ -537,7 +537,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
             ptr = value;
             for (;;)
             {
-               while ((*ptr == ' ') || (*ptr == '\0'))
+               while (*ptr == ' ')
                {
                   if (*ptr == '\\')
                   {
@@ -616,7 +616,7 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                {
                   if ((search_dirid = malloc(no_of_search_dirids * sizeof(unsigned int))) == NULL)
                   {
-                     (void)fprintf(stderr, "Failed to malloc() %d bytes : %s (%s %d)\n",
+                     (void)fprintf(stderr, "Failed to malloc() %lu bytes : %s (%s %d)\n",
                                    no_of_search_dirids * sizeof(unsigned int),
                                    strerror(errno), __FILE__, __LINE__);
                      exit(INCORRECT);

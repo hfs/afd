@@ -1,6 +1,6 @@
 /*
  *  set_pw.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,6 +30,11 @@ DESCR__S_M1
  ** DESCRIPTION
  **
  ** RETURN VALUES
+ **
+ ** SEE ALSO
+ **   common/get_hostname.c, common/create_message.c, fd/get_job_data.c,
+ **   fd/eval_recipient.c, tools/get_dc_data.c, fd/init_msg_buffer.c,
+ **   amg/store_passwd.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -181,6 +186,20 @@ main(int argc, char *argv[])
    get_user(current_user, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -288,8 +307,12 @@ main(int argc, char *argv[])
          {
             int j = 0;
 
-            while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                   (j < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+            while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+            while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                   (*ptr != '\0') && (j < MAX_USER_NAME_LENGTH))
             {
                if (*ptr == '\\')
                {
@@ -332,8 +355,12 @@ main(int argc, char *argv[])
             {
                int j = 0;
 
-               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                      (j < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+               while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+               while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                      (*ptr != '\0') && (j < MAX_USER_NAME_LENGTH))
                {
                   if (*ptr == '\\')
                   {

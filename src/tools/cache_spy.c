@@ -1,7 +1,7 @@
 /*
  *  cache_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -123,8 +123,8 @@ main(int argc, char *argv[])
                        i, MAX_HOSTNAME_LENGTH, mb[i].host_name,
                        mb[i].fsa_pos,
                        mb[i].job_id,
-                       mb[i].msg_time,
-                       mb[i].last_transfer_time,
+                       (pri_time_t)mb[i].msg_time,
+                       (pri_time_t)mb[i].last_transfer_time,
                        mb[i].age_limit,
                        (int)mb[i].type,
                        (int)mb[i].in_current_fsa);

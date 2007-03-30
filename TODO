@@ -375,15 +375,20 @@ o       Allow user to specify some actions if a
         host is not working.                     **    [DONE]
 o       Option to initialize AFD.                 *    [DONE]
 o       Switching AFD's in afd_mon, mon_ctrl.     *    [DONE]
--------------------------> Rel: ?? ????????? 2005 <-------------------------
+--------------------------> Rel: 18 August 2005 <-------------------------
 
 
 
 ------------------------>>>>> Version 2.0.x <<<<<--------------------------
 o       SFTP support.                           ***    [DONE]
 o       Group transfer rate limit.               **    [DONE]
+o       Centralize log files via afd_mon.       ***    [DONE]
+o       Enable 'store remote list' also for
+        local directories.                       **    [DONE]
 o       Dialog to view statistics.                *    [UNDER CONSTRUCTION]
 o       Create WMO server.                        *    [UNDER CONSTRUCTION]
+o       Command line tool that allows to follow
+        files within several AFD's.            ****    [TODO]
 o       Follow directories. Add a dir option that
         tells AFD to search all subsequent
         directories.                             **    [TODO]

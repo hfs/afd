@@ -1,6 +1,6 @@
 /*
  *  error_history.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -181,6 +181,8 @@ popup_error_history(int x_root, int y_root, int host_no)
                                   NULL);
       XtManageChild(error_label);
       XmStringFree(x_string);
+      XtAddEventHandler(error_label, ButtonPressMask|LeaveWindowMask, False,
+                        (XtEventHandler)destroy_error_history, NULL);
       XtPopup(error_shell, XtGrabNone);
       XRaiseWindow(display, XtWindow(error_shell));
    }

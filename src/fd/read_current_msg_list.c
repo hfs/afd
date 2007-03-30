@@ -1,7 +1,7 @@
 /*
  *  read_current_msg_list.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2004, 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -170,7 +170,8 @@ read_current_msg_list(unsigned int **cml, int *no_of_current_msg)
 #else
                     "Failed to read() %d bytes from `%s' [%d]. Bytes read = %lld.",
 #endif
-                    sizeof(int), current_msg_list_file, fd, bytes_read);
+                    sizeof(int), current_msg_list_file, fd,
+                    (pri_ssize_t)bytes_read);
       }
       (void)close(fd);
       return(INCORRECT);
@@ -199,7 +200,7 @@ read_current_msg_list(unsigned int **cml, int *no_of_current_msg)
 #else
                     "Failed to read() %d bytes from `%s' [%d]. Bytes read = %lld.",
 #endif
-                    size, current_msg_list_file, fd, bytes_read);
+                    size, current_msg_list_file, fd, (pri_ssize_t)bytes_read);
       }
       (void)close(fd);
       free(*cml);

@@ -34,6 +34,7 @@ DESCR__S_M3
  **               unsigned int   split_job_counter,
  **               char           *extract_id,
  **               int            type,
+ **               int            options,
  **               int            *files_to_send,
  **               off_t          *file_size)
  **
@@ -85,6 +86,7 @@ DESCR__E_M3
 #include <stdlib.h>                      /* strtoul()                    */
 #include <string.h>                      /* strerror()                   */
 #include <unistd.h>                      /* close()                      */
+#include <ctype.h>                       /* isdigit()                    */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
@@ -99,9 +101,8 @@ DESCR__E_M3
 #endif
 
 /* Local global variables */
-#ifdef _WITH_UNIQUE_NUMBERS
-static int            counter_fd;
-#endif
+static int            counter_fd,
+                      extract_options;
 static mode_t         file_mode;
 #ifdef _PRODUCTION_LOG
 static char           *p_extract_id;
@@ -141,6 +142,7 @@ extract(char           *file_name,
         char           *extract_id,
 #endif
         int            type,
+        int            options,
         int            *files_to_send,
         off_t          *file_size)
 {
@@ -151,7 +153,7 @@ extract(char           *file_name,
    struct stat stat_buf;
 
    (void)sprintf(fullname, "%s/%s", dest_dir, file_name);
-   if ((from_fd = open(fullname, O_RDONLY)) < 0)
+   if ((from_fd = open(fullname, O_RDONLY)) == -1)
    {
       receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "Could not open %s for extracting : %s",
@@ -202,16 +204,18 @@ extract(char           *file_name,
       return(INCORRECT);
    }
 
-#ifdef _WITH_UNIQUE_NUMBERS
-   /* Open counter file. */
-   if ((counter_fd = open_counter_file(COUNTER_FILE)) == -1)
+   if (options & EXTRACT_ADD_UNIQUE_NUMBER)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to open counter file!");
-      (void)close(from_fd);
-      return(INCORRECT);
+      /* Open counter file. */
+      if ((counter_fd = open_counter_file(COUNTER_FILE)) == -1)
+      {
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                     "Failed to open counter file!");
+         (void)close(from_fd);
+         return(INCORRECT);
+      }
    }
-#endif
+   extract_options = options;
 
    /*
     * Prepare file_name pointer for function write_file(), so we
@@ -305,9 +309,10 @@ extract(char           *file_name,
          (void)munmap_emu((void *)src_ptr);
 #endif
          (void)close(from_fd);
-#ifdef _WITH_UNIQUE_NUMBERS
-         (void)close(counter_fd);
-#endif
+         if (options & EXTRACT_ADD_UNIQUE_NUMBER)
+         {
+            (void)close(counter_fd);
+         }
          *(p_file_name - 1) = '\0';
          return(INCORRECT);
    }
@@ -322,11 +327,15 @@ extract(char           *file_name,
                   "Failed to munmap() %s : %s", fullname, strerror(errno));
    }
 
-#ifdef _WITH_UNIQUE_NUMBERS
-   if ((close(from_fd) == -1) || (close(counter_fd) == -1))
-#else
+   if (options & EXTRACT_ADD_UNIQUE_NUMBER)
+   {
+      if (close(counter_fd) == -1)
+      {
+         receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                     "close() error : %s", strerror(errno));
+      }
+   }
    if (close(from_fd) == -1)
-#endif
    {
       receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
                   "close() error : %s", strerror(errno));
@@ -373,6 +382,10 @@ ascii_sohetx(char *src_ptr, off_t total_length, char *file_name)
          {
             ptr++;
             if (write_file(ptr_start, (unsigned int)(ptr - ptr_start), YES) < 0)
+            {
+               return;
+            }
+            if ((ptr - src_ptr) >= total_length)
             {
                return;
             }
@@ -638,11 +651,9 @@ static int
 write_file(char *msg, unsigned int length, int soh_etx)
 {
    int  i,
-#ifdef _WITH_UNIQUE_NUMBERS
-        unique_number,
-#endif
         fd;
-   char *ptr;
+   char *ptr,
+        *p_start;
 
    /*
     * Build the file name from the bulletin header.
@@ -680,10 +691,11 @@ write_file(char *msg, unsigned int length, int soh_etx)
    {
       ptr++;
    }
+   p_start = ptr;
    i = 0;
    while ((*ptr > 31) && (i < MAX_WMO_HEADER_LENGTH) && ((ptr - msg) < length))
    {
-      if (*ptr == ' ')
+      if ((*ptr == ' ') || (*ptr == '/') || (*ptr < ' ') || (*ptr > 'z'))
       {
          p_file_name[i] = '_';
       }
@@ -697,18 +709,20 @@ write_file(char *msg, unsigned int length, int soh_etx)
    {
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Length of WMO header is 0!? Discarding file.");
-      *p_file_name = '\0';
       return(INCORRECT);
    }
-#ifdef _WITH_CRC_UNIQUE_NUMBERS
-   (void)sprintf(&p_file_name[i], "-%x", get_checksum(msg, length));
-#else
-# ifdef _WITH_UNIQUE_NUMBERS
-   (void)next_counter(counter_fd, &unique_number);
-   (void)sprintf(&p_file_name[i], "-%04d", unique_number);
-# endif
+   if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
+   {
+      i += sprintf(&p_file_name[i], "-%x", get_checksum(msg, length));
+   }
+   if (extract_options & EXTRACT_ADD_UNIQUE_NUMBER)
+   {
+      int unique_number;
+
+      (void)next_counter(counter_fd, &unique_number);
+      i += sprintf(&p_file_name[i], "-%04d", unique_number);
+   }
    p_file_name[i] = '\0';
-#endif
 
    if ((fd = open(p_full_file_name, (O_RDWR | O_CREAT | O_TRUNC),
                   file_mode)) < 0)
@@ -720,39 +734,60 @@ write_file(char *msg, unsigned int length, int soh_etx)
       return(INCORRECT);
    }
 
-   if (soh_etx == NO)
+   if (extract_options & EXTRACT_ADD_SOH_ETX)
    {
-      if (write(fd, "\001", 1) != 1)
+      if (soh_etx == NO)
+      {
+         if (write(fd, "\001", 1) != 1)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "Failed to write() SOH : %s", strerror(errno));
+            (void)close(fd);
+            return(INCORRECT);
+         }
+      }
+      if (write(fd, msg, (size_t)length) != (ssize_t)length)
       {
          receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to write() SOH : %s", strerror(errno));
+                     "Failed to write() message : %s", strerror(errno));
          (void)close(fd);
-         *p_file_name = '\0';
          return(INCORRECT);
       }
-   }
-   if (write(fd, msg, (size_t)length) != (ssize_t)length)
-   {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                  "Failed to write() message : %s", strerror(errno));
-      (void)close(fd);
-      *p_file_name = '\0';
-      return(INCORRECT);
-   }
-   if (soh_etx == NO)
-   {
-      if (write(fd, "\003", 1) != 1)
+      if (soh_etx == NO)
       {
-         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
-                     "Failed to write() ETX : %s", strerror(errno));
-         (void)close(fd);
-         *p_file_name = '\0';
-         return(INCORRECT);
+         if (write(fd, "\003", 1) != 1)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "Failed to write() ETX : %s", strerror(errno));
+            (void)close(fd);
+            return(INCORRECT);
+            }
+         *p_file_size += length + 2;
       }
-      *p_file_size += length + 2;
+      else
+      {
+         *p_file_size += length;
+      }
    }
    else
    {
+      if (msg[length - 1] == 3)
+      {
+         length--;
+         while ((length > 0) &&
+                ((msg[length - 1] == '\015') || (msg[length - 1] == '\012')))
+         {
+            length--;
+         }
+      }
+      length -= (p_start - msg);
+      if (write(fd, p_start, (size_t)length) != (ssize_t)length)
+      {
+         receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                     "Failed to write() message : %s", strerror(errno));
+         (void)close(fd);
+         return(INCORRECT);
+      }
       *p_file_size += length;
    }
    (*p_files_to_send)++;

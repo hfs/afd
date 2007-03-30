@@ -69,6 +69,8 @@ annoying. The syntax of afdcfg is as follows:
                                            -A      disable archive
                                            -c      enable create target dir
                                            -C      disable create target dir
+                                           -d      enable dir warn time
+                                           -D      disable dir warn time
                                            -r      enable retrieving of files
                                            -R      disable retrieving of files
                                            -s      status of the above flags
@@ -207,6 +209,10 @@ Bytes in queue(s)    : 0
 Accumulate size      : 0
 Accumulate           : 0
 gt_lt_sign           : 0
+Max errors           : 10
+Error counter        : 0
+Warn time            : 0
+Keep connected       : 0
 Ignore size          : 0
 Ignore file time     : 0
 Max files            : 100
@@ -271,6 +277,7 @@ AMG fork() counter   : 6
 FD fork() counter    : 1213
 Burst2 counter       : 4
 Max. FD queue length : 17
+Directories scanned  : 2418
 AFD start time       : Thu Jan 19 20:29:37 2006
 </pre>
 <p>
@@ -421,11 +428,13 @@ the DIR_CONFIG if you lost it or it is damaged and AFD is still active.
 If called will cause dir_check to print out some exec statistics about
 CPU usage in SYSTEM_LOG. This is very usfull to find the jobs that cause
 most of the load. Below is an example output:
+</p>
 <pre>
    10 14:40:06 &lt;D&gt; CPU clock times for exec option:
    10 14:40:06 &lt;D&gt; Job ID     Forks      User       System     Total
    10 14:40:06 &lt;D&gt; 4b5313cf   3          78         14         92
 </pre>
+<p>
 This statistic will always be printed when dir_check terminates.
 </p>
 <h3 align=center><a name="rm_job"><u>Remove a job (rm_job)</u></a></h3>
@@ -469,7 +478,6 @@ aftp is a tool small tool that sends or retrieve file(s) via FTP without any
 user interaction, so it can be used from any shell scripts or programs such as
 <a href="xsend_file.html">xsend_file</a>. The syntax of aftp is as follows:
 </p>
-<p>
 <pre>
    SYNTAX: [t|r]aftp [options] [file 1 ... file n]
 
@@ -513,6 +521,8 @@ user interaction, so it can be used from any shell scripts or programs such as
                                           the reply from the remote server.
      -x                                 - Use passive mode instead of active
                                           mode when doing the data connection.
+     -X                                 - Use extended mode active or passive
+                                          (-x) mode.
      -z                                 - Use SSL/TLS for control connection.
      -Z                                 - Use SSL/TLS for control and data
                                           connection.
@@ -538,14 +548,12 @@ user interaction, so it can be used from any shell scripts or programs such as
          40 - Failed to read file name file.
          60 - Syntax wrong.
 </pre>
-</p>
 <h3 align=center><a name="asmtp"><u>Automatic SMTP (asmtp)</u></a></h3>
 <p>
 asmtp is a tool small tool that sends file(s) via SMTP without any
 user interaction, so it can be used from any shell scripts or programs such as
 <a href="xsend_file.html">xsend_file</a>. The syntax of asmtp is as follows:
 </p>
-<p>
 <pre>
    SYNTAX: asmtp [options] file(s)
 
@@ -593,15 +601,14 @@ user interaction, so it can be used from any shell scripts or programs such as
          40 - Failed to read file name file.
          60 - Syntax wrong.
 </pre>
-</p>
 <hr size=3 noshade>
 <table width=100%>
 <tr>
-   <td width=90%><small><address>
-   Copyright &copy; 2001 - 2006 by H.Kiehl<br>
+   <td width=90%><address><small>
+   Copyright &copy; 2001 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 06.06.2006
-   </address></small></td>
+   Last updated: 24.03.2007
+   </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
    <!-- Insert site specific logo -->

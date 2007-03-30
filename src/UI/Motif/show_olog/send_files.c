@@ -1,6 +1,6 @@
 /*
  *  send_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -208,7 +208,7 @@ send_files(int no_selected, int *select_list)
 #else
       (void)sprintf(file_name_file, ".file_name_file.%lld.%d",
 #endif
-                    getpid(), counter);
+                    (pri_pid_t)getpid(), counter);
       counter++;
 
       /*
@@ -230,14 +230,6 @@ send_files(int no_selected, int *select_list)
          (void)fprintf(stderr, "Failed to fopen() %s : %s (%s %d)\n",
                        file_name_file, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
-      }
-      if (euid != ruid)
-      {
-         if (seteuid(euid) == -1)
-         {
-            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
-                          euid, strerror(errno));
-         }
       }
       for (i = 0; i < no_selected; i++)
       {
@@ -262,6 +254,14 @@ send_files(int no_selected, int *select_list)
       args[3] = file_name_file;
       args[4] = NULL;
       make_xprocess(progname, progname, args, -1);
+      if (euid != ruid)
+      {
+         if (seteuid(euid) == -1)
+         {
+            (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                          euid, strerror(errno));
+         }
+      }
    } /* if (to_do > 0) */
 
    /* Show user a summary of what was done. */

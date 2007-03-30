@@ -58,13 +58,16 @@ DESCR__E_M1
                                    /* exit()                             */
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef WITH_INOTIFY
+# include <sys/inotify.h>          /* inotify_init()                     */
+#endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>                /* geteuid(), getegid()               */
 #include <errno.h>
 #ifdef _WITH_PTHREAD
-#include <pthread.h>
+# include <pthread.h>
 #endif
 #include "amgdefs.h"
 
@@ -76,6 +79,11 @@ extern int                    afd_status_fd,
                               dir_check_timeout,
 #endif
                               full_scan_timeout,
+#ifdef WITH_INOTIFY
+                              inotify_fd,
+                              *iwl,
+                              no_of_inotify_dirs,
+#endif
                               one_dir_copy_timeout,
                               no_of_dirs,
                               no_of_jobs,
@@ -87,6 +95,13 @@ extern int                    afd_status_fd,
                               fin_fd,
 #ifdef _INPUT_LOG
                               il_fd,
+#endif
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                              dc_cmd_writefd,
+                              dc_resp_readfd,
+                              del_time_job_writefd,
+                              fin_writefd,
+                              receive_log_readfd,
 #endif
                               receive_log_fd;
 extern time_t                 default_exec_timeout;
@@ -147,7 +162,7 @@ init_dir_check(int    argc,
                receive_log_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   /* Get call-up parameters */
+   /* Get call-up parameters. */
    if (argc != 5)
    {
       usage();
@@ -211,7 +226,7 @@ init_dir_check(int    argc,
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    (void)strcpy(afd_file_dir, p_work_dir);
    (void)strcat(afd_file_dir, AFD_FILE_DIR);
    (void)strcpy(outgoing_file_dir, afd_file_dir);
@@ -273,12 +288,16 @@ init_dir_check(int    argc,
    {
       p_data[i].i = i;
       (void)strcpy(p_data[i].afd_file_dir, afd_file_dir);
-      de[i].fme = NULL;
+      de[i].fme   = NULL;
+      de[i].rl_fd = -1;
+      de[i].rl    = NULL;
    }
 #else
    for (i = 0; i < no_of_local_dirs; i++)
    {
-      de[i].fme = NULL;
+      de[i].fme   = NULL;
+      de[i].rl_fd = -1;
+      de[i].rl    = NULL;
    }
    RT_ARRAY(file_name_pool, max_file_buffer, MAX_FILENAME_LENGTH, char);
    if ((file_mtime_pool = malloc(max_file_buffer * sizeof(off_t))) == NULL)
@@ -297,7 +316,7 @@ init_dir_check(int    argc,
    }
 #endif
 
-   /* Open receive log fifo */
+   /* Open receive log fifo. */
    if ((stat(receive_log_fifo, &stat_buf) < 0) ||
        (!S_ISFIFO(stat_buf.st_mode)))
    {
@@ -308,7 +327,11 @@ init_dir_check(int    argc,
          exit(INCORRECT);
       }
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(receive_log_fifo, &receive_log_readfd, &receive_log_fd) == -1)
+#else
    if ((receive_log_fd = coe_open(receive_log_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s",
@@ -316,9 +339,7 @@ init_dir_check(int    argc,
       exit(INCORRECT);
    }
 
-   /*
-    * Open counter file so we can create unique names for each job.
-    */
+   /* Open counter file so we can create unique names for each job. */
    if ((amg_counter_fd = open_counter_file(AMG_COUNTER_FILE)) == -1)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -326,7 +347,7 @@ init_dir_check(int    argc,
       exit(INCORRECT);
    }
 
-   /* Get the fra_id and no of directories of the FRA */
+   /* Get the fra_id and no of directories of the FRA. */
    if (fra_attach() < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FRA.");
@@ -341,20 +362,31 @@ init_dir_check(int    argc,
    }
 
    /* Open fifos to communicate with AMG */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(dc_resp_fifo, &dc_resp_readfd, write_fd) == -1)
+#else
    if ((*write_fd = coe_open(dc_resp_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s", dc_resp_fifo, strerror(errno));
       exit(INCORRECT);
    }
 
-   /* Open fifo to wait for answer from job */
+   /* Open fifo to wait for answer from job. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(dc_cmd_fifo, read_fd, &dc_cmd_writefd) == -1)
+#else
    if ((*read_fd = coe_open(dc_cmd_fifo, O_RDWR | O_NONBLOCK)) == -1)
+#endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s", dc_cmd_fifo, strerror(errno));
       exit(INCORRECT);
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   set_fl(*read_fd, O_NONBLOCK);
+#endif
 
    /*
     * Create and open fifo for process copying/moving files.
@@ -370,7 +402,11 @@ init_dir_check(int    argc,
          exit(INCORRECT);
       }
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(fin_fifo, &fin_fd, &fin_writefd) == -1)
+#else
    if ((fin_fd = coe_open(fin_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s", fin_fifo, strerror(errno));
@@ -385,7 +421,11 @@ init_dir_check(int    argc,
          exit(INCORRECT);
       }
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(del_time_job_fifo, del_time_job_fd, &del_time_job_writefd) == -1)
+#else
    if ((*del_time_job_fd = coe_open(del_time_job_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s",
@@ -445,12 +485,92 @@ init_dir_check(int    argc,
                 "Could not open fifo %s : %s", input_log_fifo, strerror(errno));
       exit(INCORRECT);
    }
-#endif /* _INPUT_LOG */
+#endif
 
    (void)strcpy(rule_file, p_work_dir);
    (void)strcat(rule_file, ETC_DIR);
    (void)strcat(rule_file, RENAME_RULE_FILE);
    get_rename_rules(rule_file, YES);
+
+#ifdef WITH_ERROR_QUEUE
+   if (attach_error_queue() == INCORRECT)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to attach to the error queue!");
+   }
+#endif
+
+   remove_old_ls_data_files();
+
+#ifdef WITH_INOTIFY
+   no_of_inotify_dirs = 0;
+   for (i = 0; i < no_of_local_dirs; i++)
+   {
+      if (((fra[de[i].fra_pos].dir_flag & INOTIFY_RENAME) ||
+           (fra[de[i].fra_pos].dir_flag & INOTIFY_CLOSE)) &&
+          (fra[de[i].fra_pos].time_option == NO) &&
+          (fra[de[i].fra_pos].force_reread == NO))
+      {
+         no_of_inotify_dirs++;
+      }
+   }
+   if (no_of_inotify_dirs > 0)
+   {
+      int      j;
+      uint32_t mask;
+
+      if ((iwl = malloc(no_of_inotify_dirs * sizeof(int))) == NULL)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to malloc() %d bytes : %s",
+                    (no_of_inotify_dirs * sizeof(int)), strerror(errno));
+         exit(INCORRECT);
+      }
+      if ((inotify_fd = inotify_init()) == -1)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to inotify_init() : %s", strerror(errno));
+         exit(INCORRECT);
+      }
+      j = 0;
+      for (i = 0; i < no_of_local_dirs; i++)
+      {
+         if (((fra[de[i].fra_pos].dir_flag & INOTIFY_RENAME) ||
+              (fra[de[i].fra_pos].dir_flag & INOTIFY_CLOSE)) &&
+             (fra[de[i].fra_pos].time_option == NO) &&
+             (fra[de[i].fra_pos].force_reread == NO))
+         {
+            mask = 0;
+            if (fra[de[i].fra_pos].dir_flag & INOTIFY_RENAME)
+            {
+               mask |= IN_MOVED_TO;
+            }
+            if (fra[de[i].fra_pos].dir_flag & INOTIFY_CLOSE)
+            {
+               mask |= (IN_CLOSE_WRITE | IN_CLOSE_NOWRITE);
+            }
+
+            if ((iwl[j] = inotify_add_watch(inotify_fd, de[i].dir, mask)) == -1)
+            {
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "inotify_add_watch() error for `%s' : %s",
+                          de[i].dir, strerror(errno));
+            }
+            j++;
+            if (j > no_of_inotify_dirs)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "How can this be? This is an error of the programmer!");
+               break;
+            }
+         }
+      }
+   }
+   else
+   {
+      inotify_fd = -1;
+   }
+#endif
 
    return;
 }

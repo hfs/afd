@@ -1,6 +1,6 @@
 /*
  *  show_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -42,6 +42,7 @@ DESCR__S_M1
  **               -t[u]           Put in a timestamp when the output is valid.
  **               -y [<x>]        Show information of all years [or year
  **                               minus x].
+ **               -T              Numeric total only.
  **               --version       Show version.
  **
  ** DESCRIPTION
@@ -64,6 +65,7 @@ DESCR__S_M1
  **   09.08.2002 H.Kiehl Added -M option.
  **   16.02.2003 H.Kiehl Added -m and -mr options.
  **   19.02.2003 H.Kiehl Added -t[u] option.
+ **   23.07.2006 H.Kiehl Added -T option.
  **
  */
 DESCR__E_M1
@@ -71,6 +73,7 @@ DESCR__E_M1
 #include <stdio.h>                  /* fprintf(), stderr                 */
 #include <string.h>                 /* strcpy(), strerror(), strcmp()    */
 #include <time.h>                   /* time()                            */
+#include <ctype.h>                  /* isdigit()                         */
 #ifdef TM_IN_SYS_TIME
 #include <sys/time.h>               /* struct tm                         */
 #endif
@@ -93,13 +96,16 @@ DESCR__E_M1
 #endif
 #endif
 
-/* Global variables */
-int        sys_log_fd = STDERR_FILENO; /* Used by get_afd_path() */
-char       *p_work_dir,
-           **arglist; /* Holds list of hostnames from command line when given. */
-const char *sys_log_name = SYSTEM_LOG_FIFO;
+/* Global variables. */
+int         sys_log_fd = STDERR_FILENO; /* Used by get_afd_path() */
+char        *p_work_dir,
+            **arglist; /* Holds list of hostnames from command line when given. */
+const char  *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Function prototypes */
+/* Local global variables. */
+static int  show_numeric_total_only = NO;
+
+/* Function prototypes. */
 static void display_data(double, double, double, double);
 
 
@@ -146,7 +152,7 @@ main(int argc, char *argv[])
    eval_input_ss(argc, argv, statistic_file_name, &show_day,
                  &show_day_summary, &show_hour, &show_hour_summary,
                  &show_min_range, &show_min, &show_min_summary, &show_year,
-                 &host_counter, &show_time_stamp);
+                 &host_counter, &show_time_stamp, &show_numeric_total_only, NO);
 
    /* Initialize variables */
    p_work_dir = work_dir;
@@ -315,13 +321,16 @@ main(int argc, char *argv[])
 #else
                                 "                   [time span %lld -> %lld]\n",
 #endif
-                                first_time, last_time);
+                                (pri_time_t)first_time, (pri_time_t)last_time);
                }
             }
 
-            (void)fprintf(stdout, "                     =============================\n");
-            (void)fprintf(stdout, "====================> AFD STATISTICS SUMMARY %d <===================\n", year);
-            (void)fprintf(stdout, "                     =============================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "                     =============================\n");
+               (void)fprintf(stdout, "====================> AFD STATISTICS SUMMARY %d <===================\n", year);
+               (void)fprintf(stdout, "                     =============================\n");
+            }
 
             if (host_counter > 0)
             {
@@ -337,8 +346,11 @@ main(int argc, char *argv[])
                   else
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
-                                   afd_stat[position].hostname);
+                     if (show_numeric_total_only == NO)
+                     {
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
+                                      afd_stat[position].hostname);
+                     }
                      for (j = 0; j < DAYS_PER_YEAR; j++)
                      {
                         nfs += (double)afd_stat[position].year[j].nfs;
@@ -346,7 +358,10 @@ main(int argc, char *argv[])
                         nc  += (double)afd_stat[position].year[j].nc;
                         ne  += (double)afd_stat[position].year[j].ne;
                      }
-                     display_data(nfs, nbs, nc, ne);
+                     if (show_numeric_total_only == NO)
+                     {
+                        display_data(nfs, nbs, nc, ne);
+                     }
                      tmp_nfs += nfs; tmp_nbs += nbs;
                      tmp_nc += nc; tmp_ne += ne;
                   }
@@ -354,12 +369,15 @@ main(int argc, char *argv[])
             }
             else
             {
-               /* Make a summary of everything */
+               /* Make a summary of everything. */
                for (i = 0; i < no_of_hosts; i++)
                {
                   nfs = nbs = nc = ne = 0.0;
-                  (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
-                                afd_stat[i].hostname);
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
+                                   afd_stat[i].hostname);
+                  }
                   for (j = 0; j < DAYS_PER_YEAR; j++)
                   {
                      nfs += (double)afd_stat[i].year[j].nfs;
@@ -367,15 +385,25 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].year[j].nc;
                      ne  += (double)afd_stat[i].year[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc += nc; tmp_ne += ne;
                }
             }
-            (void)fprintf(stdout, "----------------------------------------------------------------------\n");
-            (void)fprintf(stdout, "Total       ");
-            display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
-            (void)fprintf(stdout, "======================================================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "----------------------------------------------------------------------\n");
+               (void)fprintf(stdout, "Total       ");
+               display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
+               (void)fprintf(stdout, "======================================================================\n");
+            }
+            else
+            {
+               display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
+            }
          }
          else
          {
@@ -385,51 +413,69 @@ main(int argc, char *argv[])
             if (show_day > -1)
             {
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                        ====================\n");
-               (void)fprintf(stdout, "=======================> AFD STATISTICS DAY <==========================\n");
-               (void)fprintf(stdout, "                        ====================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                        ====================\n");
+                  (void)fprintf(stdout, "=======================> AFD STATISTICS DAY <==========================\n");
+                  (void)fprintf(stdout, "                        ====================\n");
+               }
                if (host_counter < 0)
                {
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-*s",
-                                   MAX_HOSTNAME_LENGTH, afd_stat[i].hostname);
+                     if (show_numeric_total_only == NO)
+                     {
+                        (void)fprintf(stdout, "%-*s",
+                                      MAX_HOSTNAME_LENGTH, afd_stat[i].hostname);
+                     }
                      if (show_day == 0) /* Show all days */
                      {
                         for (j = 0; j < DAYS_PER_YEAR; j++)
                         {
-                           if (j == 0)
+                           if (show_numeric_total_only == NO)
                            {
-                              (void)fprintf(stdout, "%4d:", j);
-                           }
-                           else
-                           {
-                              (void)fprintf(stdout, "%*d:",
-                                            MAX_HOSTNAME_LENGTH + 4, j);
+                              if (j == 0)
+                              {
+                                 (void)fprintf(stdout, "%4d:", j);
+                              }
+                              else
+                              {
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
+                              }
                            }
                            nfs += (double)afd_stat[i].year[j].nfs;
                            nbs +=         afd_stat[i].year[j].nbs;
                            nc  += (double)afd_stat[i].year[j].nc;
                            ne  += (double)afd_stat[i].year[j].ne;
-                           display_data(afd_stat[i].year[j].nfs,
-                                        afd_stat[i].year[j].nbs,
-                                        afd_stat[i].year[j].nc,
-                                        afd_stat[i].year[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].year[j].nfs,
+                                           afd_stat[i].year[j].nbs,
+                                           afd_stat[i].year[j].nc,
+                                           afd_stat[i].year[j].ne);
+                           }
                         }
                      }
                      else /* Show a specific day */
                      {
-                        (void)fprintf(stdout, "%*s",
-                                      MAX_HOSTNAME_LENGTH - 3, " ");
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%*s",
+                                         MAX_HOSTNAME_LENGTH - 3, " ");
+                        }
                         nfs += (double)afd_stat[i].year[show_day].nfs;
                         nbs +=         afd_stat[i].year[show_day].nbs;
                         nc  += (double)afd_stat[i].year[show_day].nc;
                         ne  += (double)afd_stat[i].year[show_day].ne;
-                        display_data(afd_stat[i].year[show_day].nfs,
-                                     afd_stat[i].year[show_day].nbs,
-                                     afd_stat[i].year[show_day].nc,
-                                     afd_stat[i].year[show_day].ne);
+                        if (show_numeric_total_only == NO)
+                        {
+                           display_data(afd_stat[i].year[show_day].nfs,
+                                        afd_stat[i].year[show_day].nbs,
+                                        afd_stat[i].year[show_day].nc,
+                                        afd_stat[i].year[show_day].ne);
+                        }
                      }
                      tmp_nfs += nfs; tmp_nbs += nbs;
                      tmp_nc  += nc; tmp_ne  += ne;
@@ -449,43 +495,58 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
-                                      afd_stat[position].hostname);
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                         afd_stat[position].hostname);
+                        }
                         if (show_day == 0) /* Show all days */
                         {
                            for (j = 0; j < DAYS_PER_YEAR; j++)
                            {
-                              if (j == 0)
+                              if (show_numeric_total_only == NO)
                               {
-                                 (void)fprintf(stdout, "%4d:", j);
-                              }
-                              else
-                              {
-                                 (void)fprintf(stdout, "%*d:",
-                                               MAX_HOSTNAME_LENGTH + 4, j);
+                                 if (j == 0)
+                                 {
+                                    (void)fprintf(stdout, "%4d:", j);
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stdout, "%*d:",
+                                                  MAX_HOSTNAME_LENGTH + 4, j);
+                                 }
                               }
                               nfs += (double)afd_stat[position].year[j].nfs;
                               nbs +=         afd_stat[position].year[j].nbs;
                               nc  += (double)afd_stat[position].year[j].nc;
                               ne  += (double)afd_stat[position].year[j].ne;
-                              display_data(afd_stat[position].year[j].nfs,
-                                           afd_stat[position].year[j].nbs,
-                                           afd_stat[position].year[j].nc,
-                                           afd_stat[position].year[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].year[j].nfs,
+                                              afd_stat[position].year[j].nbs,
+                                              afd_stat[position].year[j].nc,
+                                              afd_stat[position].year[j].ne);
+                              }
                            }
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "%*s",
-                                         MAX_HOSTNAME_LENGTH - 3, " ");
+                           if (show_numeric_total_only == NO)
+                           {
+                              (void)fprintf(stdout, "%*s",
+                                            MAX_HOSTNAME_LENGTH - 3, " ");
+                           }
                            nfs += (double)afd_stat[position].year[show_day].nfs;
                            nbs +=         afd_stat[position].year[show_day].nbs;
                            nc  += (double)afd_stat[position].year[show_day].nc;
                            ne  += (double)afd_stat[position].year[show_day].ne;
-                           display_data(afd_stat[position].year[show_day].nfs,
-                                        afd_stat[position].year[show_day].nbs,
-                                        afd_stat[position].year[show_day].nc,
-                                        afd_stat[position].year[show_day].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[position].year[show_day].nfs,
+                                           afd_stat[position].year[show_day].nbs,
+                                           afd_stat[position].year[show_day].nc,
+                                           afd_stat[position].year[show_day].ne);
+                           }
                         }
                         tmp_nfs += nfs; tmp_nbs += nbs;
                         tmp_nc  += nc; tmp_ne  += ne;
@@ -495,7 +556,10 @@ main(int argc, char *argv[])
 
                if ((show_year > -1) || (show_day_summary > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -503,7 +567,10 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             } /* if (show_day > -1) */
 
             /*
@@ -547,17 +614,24 @@ main(int argc, char *argv[])
 #else
                                    "                 [time span %lld -> %lld]\n",
 #endif
-                                   first_time, last_time);
+                                   (pri_time_t)first_time,
+                                   (pri_time_t)last_time);
                   }
                }
 
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                     ==========================\n");
-               (void)fprintf(stdout, "===================> AFD STATISTICS DAY SUMMARY <======================\n");
-               (void)fprintf(stdout, "                     ==========================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                     ==========================\n");
+                  (void)fprintf(stdout, "===================> AFD STATISTICS DAY SUMMARY <======================\n");
+                  (void)fprintf(stdout, "                     ==========================\n");
+               }
                for (j = 0; j < DAYS_PER_YEAR; j++)
                {
-                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -566,14 +640,20 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].year[j].nc;
                      ne  += (double)afd_stat[i].year[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc  += nc; tmp_ne  += ne;
                }
 
                if ((show_year > -1) || (show_day > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -581,10 +661,16 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             } /* if (show_day_summary > -1) */
 
-            (void)fprintf(stdout, "Total        ");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "Total        ");
+            }
             display_data(total_nfs, total_nbs, total_nc, total_ne);
          }
 
@@ -679,13 +765,16 @@ main(int argc, char *argv[])
 #else
                                 "                 [time span %lld -> %lld]\n",
 #endif
-                                first_time, last_time);
+                                (pri_time_t)first_time, (pri_time_t)last_time);
                }
             }
             tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-            (void)fprintf(stdout, "                  ==================================\n");
-            (void)fprintf(stdout, "=================> AFD STATISTICS LAST %2d MINUTE(S) <=================\n", show_min_range);
-            (void)fprintf(stdout, "                  ==================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "                  ==================================\n");
+               (void)fprintf(stdout, "=================> AFD STATISTICS LAST %2d MINUTE(S) <=================\n", show_min_range);
+               (void)fprintf(stdout, "                  ==================================\n");
+            }
             if (host_counter < 0)
             {
                for (i = 0; i < no_of_hosts; i++)
@@ -719,9 +808,13 @@ main(int argc, char *argv[])
                         ne  += (double)afd_stat[i].hour[j].ne;
                      }
                   }
-                  (void)fprintf(stdout, "%-*s",
-                                MAX_HOSTNAME_LENGTH + 4, afd_stat[i].hostname);
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "%-*s",
+                                   MAX_HOSTNAME_LENGTH + 4,
+                                   afd_stat[i].hostname);
+                     display_data(nfs, nbs, nc, ne);
+                  }
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc  += nc; tmp_ne  += ne;
                }
@@ -768,18 +861,28 @@ main(int argc, char *argv[])
                            ne  += (double)afd_stat[position].hour[j].ne;
                         }
                      }
-                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
-                                   afd_stat[position].hostname);
-                     display_data(nfs, nbs, nc, ne);
+                     if (show_numeric_total_only == NO)
+                     {
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
+                                      afd_stat[position].hostname);
+                        display_data(nfs, nbs, nc, ne);
+                     }
                      tmp_nfs += nfs; tmp_nbs += nbs;
                      tmp_nc  += nc; tmp_ne  += ne;
                   }
                }
             }
-            (void)fprintf(stdout, "----------------------------------------------------------------------\n");
-            (void)fprintf(stdout, "Total       ");
-            display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
-            (void)fprintf(stdout, "======================================================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "----------------------------------------------------------------------\n");
+               (void)fprintf(stdout, "Total       ");
+               display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
+               (void)fprintf(stdout, "======================================================================\n");
+            }
+            else
+            {
+               display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
+            }
 
 #ifdef HAVE_MMAP
             if (munmap(ptr, stat_buf.st_size) < 0)
@@ -812,9 +915,12 @@ main(int argc, char *argv[])
              */
             tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
 
-            (void)fprintf(stdout, "                       ========================\n");
-            (void)fprintf(stdout, "======================> AFD STATISTICS SUMMARY <======================\n");
-            (void)fprintf(stdout, "                       ========================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "                       ========================\n");
+               (void)fprintf(stdout, "======================> AFD STATISTICS SUMMARY <======================\n");
+               (void)fprintf(stdout, "                       ========================\n");
+            }
 
             if (host_counter > 0)
             {
@@ -830,8 +936,11 @@ main(int argc, char *argv[])
                   else
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
-                                   afd_stat[position].hostname);
+                     if (show_numeric_total_only == NO)
+                     {
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
+                                      afd_stat[position].hostname);
+                     }
                      for (j = 0; j < afd_stat[position].sec_counter; j++)
                      {
                         nfs += (double)afd_stat[position].hour[j].nfs;
@@ -853,7 +962,10 @@ main(int argc, char *argv[])
                         nc  += (double)afd_stat[position].year[j].nc;
                         ne  += (double)afd_stat[position].year[j].ne;
                      }
-                     display_data(nfs, nbs, nc, ne);
+                     if (show_numeric_total_only == NO)
+                     {
+                        display_data(nfs, nbs, nc, ne);
+                     }
                      tmp_nfs += nfs; tmp_nbs += nbs;
                      tmp_nc += nc; tmp_ne += ne;
                   }
@@ -865,8 +977,11 @@ main(int argc, char *argv[])
                for (i = 0; i < no_of_hosts; i++)
                {
                   nfs = nbs = nc = ne = 0.0;
-                  (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
-                                afd_stat[i].hostname);
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH + 4,
+                                   afd_stat[i].hostname);
+                  }
                   for (j = 0; j < afd_stat[i].sec_counter; j++)
                   {
                      nfs += (double)afd_stat[i].hour[j].nfs;
@@ -888,16 +1003,26 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].year[j].nc;
                      ne  += (double)afd_stat[i].year[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc += nc; tmp_ne += ne;
                }
             }
 
-            (void)fprintf(stdout, "----------------------------------------------------------------------\n");
-            (void)fprintf(stdout, "Total       ");
-            display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
-            (void)fprintf(stdout, "======================================================================\n");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "----------------------------------------------------------------------\n");
+               (void)fprintf(stdout, "Total       ");
+               display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
+               (void)fprintf(stdout, "======================================================================\n");
+            }
+            else
+            {
+               display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
+            }
          }
          else
          {
@@ -907,39 +1032,52 @@ main(int argc, char *argv[])
             if (show_day > -1)
             {
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                        ====================\n");
-               (void)fprintf(stdout, "=======================> AFD STATISTICS DAY <==========================\n");
-               (void)fprintf(stdout, "                        ====================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                        ====================\n");
+                  (void)fprintf(stdout, "=======================> AFD STATISTICS DAY <==========================\n");
+                  (void)fprintf(stdout, "                        ====================\n");
+               }
                if (host_counter < 0)
                {
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
-                                   afd_stat[i].hostname);
+                     if (show_numeric_total_only == NO)
+                     {
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                      afd_stat[i].hostname);
+                     }
                      if (show_day == 0) /* Show all days */
                      {
                         for (j = 0; j < afd_stat[i].day_counter; j++)
                         {
-                           if (j == 0)
+                           if (show_numeric_total_only == NO)
                            {
-                              (void)fprintf(stdout, "%4d:", j);
-                           }
-                           else
-                           {
-                              (void)fprintf(stdout, "%*d:",
-                                            MAX_HOSTNAME_LENGTH + 4, j);
+                              if (j == 0)
+                              {
+                                 (void)fprintf(stdout, "%4d:", j);
+                              }
+                              else
+                              {
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
+                              }
                            }
                            nfs += (double)afd_stat[i].year[j].nfs;
                            nbs +=         afd_stat[i].year[j].nbs;
                            nc  += (double)afd_stat[i].year[j].nc;
                            ne  += (double)afd_stat[i].year[j].ne;
-                           display_data(afd_stat[i].year[j].nfs,
-                                        afd_stat[i].year[j].nbs,
-                                        afd_stat[i].year[j].nc,
-                                        afd_stat[i].year[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].year[j].nfs,
+                                           afd_stat[i].year[j].nbs,
+                                           afd_stat[i].year[j].nc,
+                                           afd_stat[i].year[j].ne);
+                           }
                         }
-                        if (afd_stat[i].day_counter == 0)
+                        if ((afd_stat[i].day_counter == 0) &&
+                            (show_numeric_total_only == NO))
                         {
                            (void)fprintf(stdout, "%4d:", 0);
                            display_data(0, 0.0, 0, 0);
@@ -947,8 +1085,11 @@ main(int argc, char *argv[])
                      }
                      else /* Show a specific day */
                      {
-                        (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
-                                      " ");
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
+                                         " ");
+                        }
                         if (show_day < DAYS_PER_YEAR)
                         {
                            if (afd_stat[i].day_counter < show_day)
@@ -964,14 +1105,20 @@ main(int argc, char *argv[])
                            nbs +=         afd_stat[i].year[j].nbs;
                            nc  += (double)afd_stat[i].year[j].nc;
                            ne  += (double)afd_stat[i].year[j].ne;
-                           display_data(afd_stat[i].year[j].nfs,
-                                        afd_stat[i].year[j].nbs,
-                                        afd_stat[i].year[j].nc,
-                                        afd_stat[i].year[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].year[j].nfs,
+                                           afd_stat[i].year[j].nbs,
+                                           afd_stat[i].year[j].nc,
+                                           afd_stat[i].year[j].ne);
+                           }
                         }
                         else
                         {
-                           display_data(0, 0.0, 0, 0);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(0, 0.0, 0, 0);
+                           }
                         }
                      }
                      tmp_nfs += nfs; tmp_nbs += nbs;
@@ -992,35 +1139,47 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
-                                      afd_stat[position].hostname);
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                         afd_stat[position].hostname);
+                        }
                         if (show_day == 0) /* Show all days */
                         {
                            for (j = 0; j < afd_stat[position].day_counter; j++)
                            {
-                              if (j == 0)
+                              if (show_numeric_total_only == NO)
                               {
-                                 (void)fprintf(stdout, "%4d:", j);
-                              }
-                              else
-                              {
-                                 (void)fprintf(stdout, "%*d:",
-                                               MAX_HOSTNAME_LENGTH + 4, j);
+                                 if (j == 0)
+                                 {
+                                    (void)fprintf(stdout, "%4d:", j);
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stdout, "%*d:",
+                                                  MAX_HOSTNAME_LENGTH + 4, j);
+                                 }
                               }
                               nfs += (double)afd_stat[position].year[j].nfs;
                               nbs +=         afd_stat[position].year[j].nbs;
                               nc  += (double)afd_stat[position].year[j].nc;
                               ne  += (double)afd_stat[position].year[j].ne;
-                              display_data(afd_stat[position].year[j].nfs,
-                                           afd_stat[position].year[j].nbs,
-                                           afd_stat[position].year[j].nc,
-                                           afd_stat[position].year[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].year[j].nfs,
+                                              afd_stat[position].year[j].nbs,
+                                              afd_stat[position].year[j].nc,
+                                              afd_stat[position].year[j].ne);
+                              }
                            }
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
-                                         " ");
+                           if (show_numeric_total_only == NO)
+                           {
+                              (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
+                                            " ");
+                           }
                            if (show_day < DAYS_PER_YEAR)
                            {
                               if (afd_stat[position].day_counter < show_day)
@@ -1036,14 +1195,20 @@ main(int argc, char *argv[])
                               nbs +=         afd_stat[position].year[j].nbs;
                               nc  += (double)afd_stat[position].year[j].nc;
                               ne  += (double)afd_stat[position].year[j].ne;
-                              display_data(afd_stat[position].year[j].nfs,
-                                           afd_stat[position].year[j].nbs,
-                                           afd_stat[position].year[j].nc,
-                                           afd_stat[position].year[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].year[j].nfs,
+                                              afd_stat[position].year[j].nbs,
+                                              afd_stat[position].year[j].nc,
+                                              afd_stat[position].year[j].ne);
+                              }
                            }
                            else
                            {
-                              display_data(0, 0.0, 0, 0);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(0, 0.0, 0, 0);
+                              }
                            }
                         }
                         tmp_nfs += nfs; tmp_nbs += nbs;
@@ -1055,7 +1220,10 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_hour > -1) ||
                    (show_day_summary > -1) || (show_hour_summary > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -1063,7 +1231,10 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             } /* if (show_day > -1) */
 
             /*
@@ -1075,12 +1246,18 @@ main(int argc, char *argv[])
 
                p_ts = localtime(&now);
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                     ==========================\n");
-               (void)fprintf(stdout, "===================> AFD STATISTICS DAY SUMMARY <======================\n");
-               (void)fprintf(stdout, "                     ==========================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                     ==========================\n");
+                  (void)fprintf(stdout, "===================> AFD STATISTICS DAY SUMMARY <======================\n");
+                  (void)fprintf(stdout, "                     ==========================\n");
+               }
                for (j = 0; j < p_ts->tm_yday; j++)
                {
-                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -1089,7 +1266,10 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].year[j].nc;
                      ne  += (double)afd_stat[i].year[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
 
                   tmp_nfs += nfs;
                   tmp_nbs += nbs;
@@ -1100,7 +1280,10 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_hour > -1) || (show_hour_summary > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -1108,7 +1291,10 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             } /* if (show_day_summary > -1) */
 
             /*
@@ -1119,48 +1305,63 @@ main(int argc, char *argv[])
                double sec_nfs, sec_nbs, sec_nc, sec_ne;
 
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                        =====================\n");
-               (void)fprintf(stdout, "=======================> AFD STATISTICS HOUR <=========================\n");
-               (void)fprintf(stdout, "                        =====================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                        =====================\n");
+                  (void)fprintf(stdout, "=======================> AFD STATISTICS HOUR <=========================\n");
+                  (void)fprintf(stdout, "                        =====================\n");
+               }
                if (host_counter < 0)
                {
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
-                                   afd_stat[i].hostname);
+                     if (show_numeric_total_only == NO)
+                     {
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                      afd_stat[i].hostname);
+                     }
                      if (show_hour == 0) /* Show all hours of the day */
                      {
                         for (j = 0; j < afd_stat[i].hour_counter; j++)
                         {
-                           if (j == 0)
+                           if (show_numeric_total_only == NO)
                            {
-                              (void)fprintf(stdout, "%4d:", j);
-                           }
-                           else
-                           {
-                              (void)fprintf(stdout, "%*d:",
-                                            MAX_HOSTNAME_LENGTH + 4, j);
+                              if (j == 0)
+                              {
+                                 (void)fprintf(stdout, "%4d:", j);
+                              }
+                              else
+                              {
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
+                              }
                            }
                            nfs += (double)afd_stat[i].day[j].nfs;
                            nbs +=         afd_stat[i].day[j].nbs;
                            nc  += (double)afd_stat[i].day[j].nc;
                            ne  += (double)afd_stat[i].day[j].ne;
-                           display_data(afd_stat[i].day[j].nfs,
-                                        afd_stat[i].day[j].nbs,
-                                        afd_stat[i].day[j].nc,
-                                        afd_stat[i].day[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].day[j].nfs,
+                                           afd_stat[i].day[j].nbs,
+                                           afd_stat[i].day[j].nc,
+                                           afd_stat[i].day[j].ne);
+                           }
                         }
-                        if (afd_stat[i].hour_counter == 0)
+                        if (show_numeric_total_only == NO)
                         {
-                           (void)fprintf(stdout, "* %2d:",
-                                         afd_stat[i].hour_counter);
-                        }
-                        else
-                        {
-                           (void)fprintf(stdout, "%*s* %2d:",
-                                         MAX_HOSTNAME_LENGTH, " ",
-                                         afd_stat[i].hour_counter);
+                           if (afd_stat[i].hour_counter == 0)
+                           {
+                              (void)fprintf(stdout, "* %2d:",
+                                            afd_stat[i].hour_counter);
+                           }
+                           else
+                           {
+                              (void)fprintf(stdout, "%*s* %2d:",
+                                            MAX_HOSTNAME_LENGTH, " ",
+                                            afd_stat[i].hour_counter);
+                           }
                         }
                         sec_nfs = sec_nbs = sec_nc = sec_ne = 0.0;
                         for (j = 0; j < afd_stat[i].sec_counter; j++)
@@ -1170,28 +1371,40 @@ main(int argc, char *argv[])
                            sec_nc  += (double)afd_stat[i].hour[j].nc;
                            sec_ne  += (double)afd_stat[i].hour[j].ne;
                         }
-                        display_data(sec_nfs, sec_nbs, sec_nc, sec_ne);
+                        if (show_numeric_total_only == NO)
+                        {
+                           display_data(sec_nfs, sec_nbs, sec_nc, sec_ne);
+                        }
                         nfs += sec_nfs; nbs += sec_nbs;
                         nc  += sec_nc; ne  += sec_ne;
                         for (j = (afd_stat[i].hour_counter + 1);
                              j < HOURS_PER_DAY; j++)
                         {
-                           (void)fprintf(stdout, "%*d:",
-                                         MAX_HOSTNAME_LENGTH + 4, j);
+                           if (show_numeric_total_only == NO)
+                           {
+                              (void)fprintf(stdout, "%*d:",
+                                            MAX_HOSTNAME_LENGTH + 4, j);
+                           }
                            nfs += (double)afd_stat[i].day[j].nfs;
                            nbs +=         afd_stat[i].day[j].nbs;
                            nc  += (double)afd_stat[i].day[j].nc;
                            ne  += (double)afd_stat[i].day[j].ne;
-                           display_data(afd_stat[i].day[j].nfs,
-                                        afd_stat[i].day[j].nbs,
-                                        afd_stat[i].day[j].nc,
-                                        afd_stat[i].day[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].day[j].nfs,
+                                           afd_stat[i].day[j].nbs,
+                                           afd_stat[i].day[j].nc,
+                                           afd_stat[i].day[j].ne);
+                           }
                         }
                      }
                      else /* Show a specific hour */
                      {
-                        (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
-                                      " ");
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%*s", MAX_HOSTNAME_LENGTH - 3,
+                                         " ");
+                        }
                         if (show_hour < HOURS_PER_DAY)
                         {
                            if (afd_stat[i].hour_counter < show_hour)
@@ -1207,14 +1420,20 @@ main(int argc, char *argv[])
                            nbs +=         afd_stat[i].day[j].nbs;
                            nc  += (double)afd_stat[i].day[j].nc;
                            ne  += (double)afd_stat[i].day[j].ne;
-                           display_data(afd_stat[i].day[j].nfs,
-                                        afd_stat[i].day[j].nbs,
-                                        afd_stat[i].day[j].nc,
-                                        afd_stat[i].day[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].day[j].nfs,
+                                           afd_stat[i].day[j].nbs,
+                                           afd_stat[i].day[j].nc,
+                                           afd_stat[i].day[j].ne);
+                           }
                         }
                         else
                         {
-                           display_data(0, 0.0, 0, 0);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(0, 0.0, 0, 0);
+                           }
                         }
                      }
                      tmp_nfs += nfs; tmp_nbs += nbs;
@@ -1235,39 +1454,51 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
-                                      afd_stat[position].hostname);
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                         afd_stat[position].hostname);
+                        }
                         if (show_hour == 0) /* Show all hours of the day */
                         {
                            for (j = 0; j < afd_stat[position].hour_counter; j++)
                            {
-                              if (j == 0)
+                              if (show_numeric_total_only == NO)
                               {
-                                 (void)fprintf(stdout, "%4d:", j);
-                              }
-                              else
-                              {
-                                 (void)fprintf(stdout, "%*d:",
-                                               MAX_HOSTNAME_LENGTH + 4, j);
+                                 if (j == 0)
+                                 {
+                                    (void)fprintf(stdout, "%4d:", j);
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stdout, "%*d:",
+                                                  MAX_HOSTNAME_LENGTH + 4, j);
+                                 }
                               }
                               nfs += (double)afd_stat[position].day[j].nfs;
                               nbs +=         afd_stat[position].day[j].nbs;
                               nc  += (double)afd_stat[position].day[j].nc;
                               ne  += (double)afd_stat[position].day[j].ne;
-                              display_data(afd_stat[position].day[j].nfs,
-                                           afd_stat[position].day[j].nbs,
-                                           afd_stat[position].day[j].nc,
-                                           afd_stat[position].day[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].day[j].nfs,
+                                              afd_stat[position].day[j].nbs,
+                                              afd_stat[position].day[j].nc,
+                                              afd_stat[position].day[j].ne);
+                              }
                            }
-                           if (afd_stat[position].hour_counter == 0)
+                           if (show_numeric_total_only == NO)
                            {
-                              (void)fprintf(stdout, "* %2d:",
-                                            afd_stat[position].hour_counter);
-                           }
-                           else
-                           {
-                              (void)fprintf(stdout, "        * %2d:",
-                                            afd_stat[position].hour_counter);
+                              if (afd_stat[position].hour_counter == 0)
+                              {
+                                 (void)fprintf(stdout, "* %2d:",
+                                               afd_stat[position].hour_counter);
+                              }
+                              else
+                              {
+                                 (void)fprintf(stdout, "        * %2d:",
+                                               afd_stat[position].hour_counter);
+                              }
                            }
                            sec_nfs = sec_nbs = sec_nc = sec_ne = 0.0;
                            for (j = 0; j < afd_stat[position].sec_counter; j++)
@@ -1277,28 +1508,40 @@ main(int argc, char *argv[])
                               sec_nc  += (double)afd_stat[position].hour[j].nc;
                               sec_ne  += (double)afd_stat[position].hour[j].ne;
                            }
-                           display_data(sec_nfs, sec_nbs, sec_nc, sec_ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(sec_nfs, sec_nbs, sec_nc, sec_ne);
+                           }
                            nfs += sec_nfs; nbs += sec_nbs;
                            nc  += sec_nc; ne  += sec_ne;
                            for (j = (afd_stat[position].hour_counter + 1);
                                 j < HOURS_PER_DAY; j++)
                            {
-                              (void)fprintf(stdout, "%*d:",
-                                            MAX_HOSTNAME_LENGTH + 4, j);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
+                              }
                               nfs += (double)afd_stat[position].day[j].nfs;
                               nbs +=         afd_stat[position].day[j].nbs;
                               nc  += (double)afd_stat[position].day[j].nc;
                               ne  += (double)afd_stat[position].day[j].ne;
-                              display_data(afd_stat[position].day[j].nfs,
-                                           afd_stat[position].day[j].nbs,
-                                           afd_stat[position].day[j].nc,
-                                           afd_stat[position].day[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].day[j].nfs,
+                                              afd_stat[position].day[j].nbs,
+                                              afd_stat[position].day[j].nc,
+                                              afd_stat[position].day[j].ne);
+                              }
                            }
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "%*s",
-                                         MAX_HOSTNAME_LENGTH - 3, " ");
+                           if (show_numeric_total_only == NO)
+                           {
+                              (void)fprintf(stdout, "%*s",
+                                            MAX_HOSTNAME_LENGTH - 3, " ");
+                           }
                            if (show_hour < HOURS_PER_DAY)
                            {
                               if (afd_stat[position].hour_counter < show_hour)
@@ -1314,14 +1557,20 @@ main(int argc, char *argv[])
                               nbs +=         afd_stat[position].day[j].nbs;
                               nc  += (double)afd_stat[position].day[j].nc;
                               ne  += (double)afd_stat[position].day[j].ne;
-                              display_data(afd_stat[position].day[j].nfs,
-                                           afd_stat[position].day[j].nbs,
-                                           afd_stat[position].day[j].nc,
-                                           afd_stat[position].day[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].day[j].nfs,
+                                              afd_stat[position].day[j].nbs,
+                                              afd_stat[position].day[j].nc,
+                                              afd_stat[position].day[j].ne);
+                              }
                            }
                            else
                            {
-                              display_data(0, 0.0, 0, 0);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(0, 0.0, 0, 0);
+                              }
                            }
                         }
                         tmp_nfs += nfs; tmp_nbs += nbs;
@@ -1333,7 +1582,10 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_day_summary > -1) || (show_hour_summary > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -1341,7 +1593,10 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             } /* if (show_hour > -1) */
 
             /*
@@ -1350,12 +1605,18 @@ main(int argc, char *argv[])
             if (show_hour_summary > -1)
             {
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                     ===========================\n");
-               (void)fprintf(stdout, "===================> AFD STATISTICS HOUR SUMMARY <=====================\n");
-               (void)fprintf(stdout, "                     ===========================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                     ===========================\n");
+                  (void)fprintf(stdout, "===================> AFD STATISTICS HOUR SUMMARY <=====================\n");
+                  (void)fprintf(stdout, "                     ===========================\n");
+               }
                for (j = 0; j < afd_stat[0].hour_counter; j++)
                {
-                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -1364,19 +1625,25 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].day[j].nc;
                      ne  += (double)afd_stat[i].day[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc  += nc; tmp_ne  += ne;
                }
-               if (afd_stat[0].hour_counter == 0)
+               if (show_numeric_total_only == NO)
                {
-                  (void)fprintf(stdout, "* %2d:", afd_stat[0].hour_counter);
-               }
-               else
-               {
-                  (void)fprintf(stdout, "%*s* %2d:",
-                                MAX_HOSTNAME_LENGTH, " ",
-                                afd_stat[0].hour_counter);
+                  if (afd_stat[0].hour_counter == 0)
+                  {
+                     (void)fprintf(stdout, "* %2d:", afd_stat[0].hour_counter);
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "%*s* %2d:",
+                                   MAX_HOSTNAME_LENGTH, " ",
+                                   afd_stat[0].hour_counter);
+                  }
                }
                nfs = nbs = nc = ne = 0.0;
                for (i = 0; i < no_of_hosts; i++)
@@ -1389,12 +1656,18 @@ main(int argc, char *argv[])
                      ne  += (double)afd_stat[i].hour[j].ne;
                   }
                }
-               display_data(nfs, nbs, nc, ne);
+               if (show_numeric_total_only == NO)
+               {
+                  display_data(nfs, nbs, nc, ne);
+               }
                tmp_nfs += nfs; tmp_nbs += nbs;
                tmp_nc  += nc; tmp_ne  += ne;
                for (j = (afd_stat[0].hour_counter + 1); j < HOURS_PER_DAY; j++)
                {
-                  (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "%*d:", MAX_HOSTNAME_LENGTH + 4, j);
+                  }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
                   {
@@ -1403,7 +1676,10 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].day[j].nc;
                      ne  += (double)afd_stat[i].day[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc  += nc; tmp_ne  += ne;
                }
@@ -1411,7 +1687,10 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_day_summary > -1) || (show_hour > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -1419,7 +1698,10 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             } /* if (show_hour_summary > -1) */
 
             /*
@@ -1430,77 +1712,98 @@ main(int argc, char *argv[])
                int tmp;
 
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                        =====================\n");
-               (void)fprintf(stdout, "======================> AFD STATISTICS MINUTE <=========================\n");
-               (void)fprintf(stdout, "                        =====================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                        =====================\n");
+                  (void)fprintf(stdout, "======================> AFD STATISTICS MINUTE <=========================\n");
+                  (void)fprintf(stdout, "                        =====================\n");
+               }
                if (host_counter < 0)
                {
                   for (i = 0; i < no_of_hosts; i++)
                   {
                      nfs = nbs = nc = ne = 0.0;
-                     (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
-                                   afd_stat[i].hostname);
+                     if (show_numeric_total_only == NO)
+                     {
+                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                      afd_stat[i].hostname);
+                     }
                      if (show_min == 0) /* Show all minutes of the hour */
                      {
                         for (j = 0; j < afd_stat[i].sec_counter; j++)
                         {
-                           tmp = j * STAT_RESCAN_TIME;
-                           if ((tmp % 60) == 0)
+                           if (show_numeric_total_only == NO)
                            {
-                              (void)fprintf(stdout, "%*d %4d:",
-                                            MAX_HOSTNAME_LENGTH - 1,
-                                            tmp / 60, j);
-                           }
-                           else
-                           {
-                              (void)fprintf(stdout, "%*d:",
-                                            MAX_HOSTNAME_LENGTH + 4, j);
+                              tmp = j * STAT_RESCAN_TIME;
+                              if ((tmp % 60) == 0)
+                              {
+                                 (void)fprintf(stdout, "%*d %4d:",
+                                               MAX_HOSTNAME_LENGTH - 1,
+                                               tmp / 60, j);
+                              }
+                              else
+                              {
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
+                              }
                            }
                            nfs += (double)afd_stat[i].hour[j].nfs;
                            nbs +=         afd_stat[i].hour[j].nbs;
                            nc  += (double)afd_stat[i].hour[j].nc;
                            ne  += (double)afd_stat[i].hour[j].ne;
-                           display_data(afd_stat[i].hour[j].nfs,
-                                        afd_stat[i].hour[j].nbs,
-                                        afd_stat[i].hour[j].nc,
-                                        afd_stat[i].hour[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].hour[j].nfs,
+                                           afd_stat[i].hour[j].nbs,
+                                           afd_stat[i].hour[j].nc,
+                                           afd_stat[i].hour[j].ne);
+                           }
                         }
-                        tmp = afd_stat[0].sec_counter * STAT_RESCAN_TIME;
-                        if ((tmp % 60) == 0)
+                        if (show_numeric_total_only == NO)
                         {
-                           (void)fprintf(stdout, "%*d*%4d:",
-                                         MAX_HOSTNAME_LENGTH - 1,
-                                         tmp / 60, afd_stat[i].sec_counter);
+                           tmp = afd_stat[0].sec_counter * STAT_RESCAN_TIME;
+                           if ((tmp % 60) == 0)
+                           {
+                              (void)fprintf(stdout, "%*d*%4d:",
+                                            MAX_HOSTNAME_LENGTH - 1,
+                                            tmp / 60, afd_stat[i].sec_counter);
+                           }
+                           else
+                           {
+                              (void)fprintf(stdout, "%*s*%3d:",
+                                            MAX_HOSTNAME_LENGTH, " ",
+                                            afd_stat[i].sec_counter);
+                           }
+                           display_data(0, 0.0, 0, 0);
                         }
-                        else
-                        {
-                           (void)fprintf(stdout, "%*s*%3d:",
-                                         MAX_HOSTNAME_LENGTH, " ",
-                                         afd_stat[i].sec_counter);
-                        }
-                        display_data(0, 0.0, 0, 0);
                         for (j = (afd_stat[i].sec_counter + 1); j < SECS_PER_HOUR; j++)
                         {
-                           tmp = j * STAT_RESCAN_TIME;
-                           if ((tmp % 60) == 0)
+                           if (show_numeric_total_only == NO)
                            {
-                              (void)fprintf(stdout, "%*d %4d:",
-                                            MAX_HOSTNAME_LENGTH - 1,
-                                            tmp / 60, j);
-                           }
-                           else
-                           {
-                              (void)fprintf(stdout, "%*d:",
-                                            MAX_HOSTNAME_LENGTH + 4, j);
+                              tmp = j * STAT_RESCAN_TIME;
+                              if ((tmp % 60) == 0)
+                              {
+                                 (void)fprintf(stdout, "%*d %4d:",
+                                               MAX_HOSTNAME_LENGTH - 1,
+                                               tmp / 60, j);
+                              }
+                              else
+                              {
+                                 (void)fprintf(stdout, "%*d:",
+                                               MAX_HOSTNAME_LENGTH + 4, j);
+                              }
                            }
                            nfs += (double)afd_stat[i].hour[j].nfs;
                            nbs +=         afd_stat[i].hour[j].nbs;
                            nc  += (double)afd_stat[i].hour[j].nc;
                            ne  += (double)afd_stat[i].hour[j].ne;
-                           display_data(afd_stat[i].hour[j].nfs,
-                                        afd_stat[i].hour[j].nbs,
-                                        afd_stat[i].hour[j].nc,
-                                        afd_stat[i].hour[j].ne);
+                           if (show_numeric_total_only == NO)
+                           {
+                              display_data(afd_stat[i].hour[j].nfs,
+                                           afd_stat[i].hour[j].nbs,
+                                           afd_stat[i].hour[j].nc,
+                                           afd_stat[i].hour[j].ne);
+                           }
                         }
                      }
                      else /* Show a specific minute */
@@ -1515,16 +1818,22 @@ main(int argc, char *argv[])
                         {
                            j = afd_stat[i].sec_counter - sec;
                         }
-                        (void)fprintf(stdout, "%*s",
-                                      MAX_HOSTNAME_LENGTH - 3, " ");
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%*s",
+                                         MAX_HOSTNAME_LENGTH - 3, " ");
+                        }
                         nfs += (double)afd_stat[i].hour[j].nfs;
                         nbs +=         afd_stat[i].hour[j].nbs;
                         nc  += (double)afd_stat[i].hour[j].nc;
                         ne  += (double)afd_stat[i].hour[j].ne;
-                        display_data(afd_stat[i].hour[j].nfs,
-                                     afd_stat[i].hour[j].nbs,
-                                     afd_stat[i].hour[j].nc,
-                                     afd_stat[i].hour[j].ne);
+                        if (show_numeric_total_only == NO)
+                        {
+                           display_data(afd_stat[i].hour[j].nfs,
+                                        afd_stat[i].hour[j].nbs,
+                                        afd_stat[i].hour[j].nc,
+                                        afd_stat[i].hour[j].ne);
+                        }
                      }
                      tmp_nfs += nfs; tmp_nbs += nbs;
                      tmp_nc  += nc; tmp_ne  += ne;
@@ -1544,76 +1853,97 @@ main(int argc, char *argv[])
                      else
                      {
                         nfs = nbs = nc = ne = 0.0;
-                        (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
-                                      afd_stat[position].hostname);
+                        if (show_numeric_total_only == NO)
+                        {
+                           (void)fprintf(stdout, "%-*s", MAX_HOSTNAME_LENGTH,
+                                         afd_stat[position].hostname);
+                        }
                         if (show_min == 0) /* Show all minutes of the hour */
                         {
                            for (j = 0; j < afd_stat[position].sec_counter; j++)
                            {
-                              tmp = j * STAT_RESCAN_TIME;
-                              if ((tmp % 60) == 0)
+                              if (show_numeric_total_only == NO)
                               {
-                                 (void)fprintf(stdout, "%*d %4d:",
-                                               MAX_HOSTNAME_LENGTH - 1,
-                                               tmp / 60, j);
-                              }
-                              else
-                              {
-                                 (void)fprintf(stdout, "%*d:",
-                                               MAX_HOSTNAME_LENGTH + 4, j);
+                                 tmp = j * STAT_RESCAN_TIME;
+                                 if ((tmp % 60) == 0)
+                                 {
+                                    (void)fprintf(stdout, "%*d %4d:",
+                                                  MAX_HOSTNAME_LENGTH - 1,
+                                                  tmp / 60, j);
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stdout, "%*d:",
+                                                  MAX_HOSTNAME_LENGTH + 4, j);
+                                 }
                               }
                               nfs += (double)afd_stat[position].hour[j].nfs;
                               nbs +=         afd_stat[position].hour[j].nbs;
                               nc  += (double)afd_stat[position].hour[j].nc;
                               ne  += (double)afd_stat[position].hour[j].ne;
-                              display_data(afd_stat[position].hour[j].nfs,
-                                           afd_stat[position].hour[j].nbs,
-                                           afd_stat[position].hour[j].nc,
-                                           afd_stat[position].hour[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].hour[j].nfs,
+                                              afd_stat[position].hour[j].nbs,
+                                              afd_stat[position].hour[j].nc,
+                                              afd_stat[position].hour[j].ne);
+                              }
                            }
-                           tmp = afd_stat[position].sec_counter * STAT_RESCAN_TIME;
-                           if ((tmp % 60) == 0)
+                           if (show_numeric_total_only == NO)
                            {
-                              (void)fprintf(stdout, "%*d*%4d:",
-                                            MAX_HOSTNAME_LENGTH - 1, tmp / 60,
-                                            afd_stat[position].sec_counter);
+                              tmp = afd_stat[position].sec_counter * STAT_RESCAN_TIME;
+                              if ((tmp % 60) == 0)
+                              {
+                                 (void)fprintf(stdout, "%*d*%4d:",
+                                               MAX_HOSTNAME_LENGTH - 1, tmp / 60,
+                                               afd_stat[position].sec_counter);
+                              }
+                              else
+                              {
+                                 (void)fprintf(stdout, "%*s*%3d:",
+                                               MAX_HOSTNAME_LENGTH, " ",
+                                               afd_stat[position].sec_counter);
+                              }
+                              display_data(0, 0.0, 0, 0);
                            }
-                           else
-                           {
-                              (void)fprintf(stdout, "%*s*%3d:",
-                                            MAX_HOSTNAME_LENGTH, " ",
-                                            afd_stat[position].sec_counter);
-                           }
-                           display_data(0, 0.0, 0, 0);
                            for (j = (afd_stat[position].sec_counter + 1);
                                 j < SECS_PER_HOUR; j++)
                            {
-                              tmp = j * STAT_RESCAN_TIME;
-                              if ((tmp % 60) == 0)
+                              if (show_numeric_total_only == NO)
                               {
-                                 (void)fprintf(stdout, "%*d %4d:",
-                                               MAX_HOSTNAME_LENGTH - 1,
-                                               tmp / 60, j);
-                              }
-                              else
-                              {
-                                 (void)fprintf(stdout, "%*d:",
-                                               MAX_HOSTNAME_LENGTH + 4, j);
+                                 tmp = j * STAT_RESCAN_TIME;
+                                 if ((tmp % 60) == 0)
+                                 {
+                                    (void)fprintf(stdout, "%*d %4d:",
+                                                  MAX_HOSTNAME_LENGTH - 1,
+                                                  tmp / 60, j);
+                                 }
+                                 else
+                                 {
+                                    (void)fprintf(stdout, "%*d:",
+                                                  MAX_HOSTNAME_LENGTH + 4, j);
+                                 }
                               }
                               nfs += (double)afd_stat[position].hour[j].nfs;
                               nbs +=         afd_stat[position].hour[j].nbs;
                               nc  += (double)afd_stat[position].hour[j].nc;
                               ne  += (double)afd_stat[position].hour[j].ne;
-                              display_data(afd_stat[position].hour[j].nfs,
-                                           afd_stat[position].hour[j].nbs,
-                                           afd_stat[position].hour[j].nc,
-                                           afd_stat[position].hour[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].hour[j].nfs,
+                                              afd_stat[position].hour[j].nbs,
+                                              afd_stat[position].hour[j].nc,
+                                              afd_stat[position].hour[j].ne);
+                              }
                            }
                         }
                         else /* Show a specific interval */
                         {
-                           (void)fprintf(stdout, "%*s",
-                                         MAX_HOSTNAME_LENGTH - 3, " ");
+                           if (show_numeric_total_only == NO)
+                           {
+                              (void)fprintf(stdout, "%*s",
+                                            MAX_HOSTNAME_LENGTH - 3, " ");
+                           }
                            if (show_min < 60)
                            {
                               int sec = (show_min * 60) / STAT_RESCAN_TIME;
@@ -1631,14 +1961,20 @@ main(int argc, char *argv[])
                               nbs +=         afd_stat[position].hour[j].nbs;
                               nc  += (double)afd_stat[position].hour[j].nc;
                               ne  += (double)afd_stat[position].hour[j].ne;
-                              display_data(afd_stat[position].hour[j].nfs,
-                                           afd_stat[position].hour[j].nbs,
-                                           afd_stat[position].hour[j].nc,
-                                           afd_stat[position].hour[j].ne);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(afd_stat[position].hour[j].nfs,
+                                              afd_stat[position].hour[j].nbs,
+                                              afd_stat[position].hour[j].nc,
+                                              afd_stat[position].hour[j].ne);
+                              }
                            }
                            else
                            {
-                              display_data(0, 0.0, 0, 0);
+                              if (show_numeric_total_only == NO)
+                              {
+                                 display_data(0, 0.0, 0, 0);
+                              }
                            }
                         }
                         tmp_nfs += nfs; tmp_nbs += nbs;
@@ -1650,7 +1986,10 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) || (show_hour > -1) ||
                    (show_day_summary > -1) || (show_hour_summary > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -1658,7 +1997,10 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             } /* if (show_min > -1) */
 
             /*
@@ -1667,9 +2009,12 @@ main(int argc, char *argv[])
             if (show_min_summary > -1)
             {
                tmp_nfs = tmp_nbs = tmp_nc = tmp_ne = 0.0;
-               (void)fprintf(stdout, "                    =============================\n");
-               (void)fprintf(stdout, "==================> AFD STATISTICS MINUTE SUMMARY <====================\n");
-               (void)fprintf(stdout, "                    =============================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "                    =============================\n");
+                  (void)fprintf(stdout, "==================> AFD STATISTICS MINUTE SUMMARY <====================\n");
+                  (void)fprintf(stdout, "                    =============================\n");
+               }
             }
             if (show_min_summary == 0)
             {
@@ -1677,16 +2022,19 @@ main(int argc, char *argv[])
 
                for (j = 0; j < afd_stat[0].sec_counter; j++)
                {
-                  tmp = j * STAT_RESCAN_TIME;
-                  if ((tmp % 60) == 0)
+                  if (show_numeric_total_only == NO)
                   {
-                     (void)fprintf(stdout, "%*d %3d:",
-                                   MAX_HOSTNAME_LENGTH, tmp / 60, j);
-                  }
-                  else
-                  {
-                     (void)fprintf(stdout, "%*d:",
-                                   MAX_HOSTNAME_LENGTH + 4, j);
+                     tmp = j * STAT_RESCAN_TIME;
+                     if ((tmp % 60) == 0)
+                     {
+                        (void)fprintf(stdout, "%*d %3d:",
+                                      MAX_HOSTNAME_LENGTH, tmp / 60, j);
+                     }
+                     else
+                     {
+                        (void)fprintf(stdout, "%*d:",
+                                      MAX_HOSTNAME_LENGTH + 4, j);
+                     }
                   }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
@@ -1696,37 +2044,46 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].hour[j].nc;
                      ne  += (double)afd_stat[i].hour[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
 
                   tmp_nfs += nfs;
                   tmp_nbs += nbs;
                   tmp_nc  += nc;
                   tmp_ne  += ne;
                }
-               tmp = afd_stat[0].sec_counter * STAT_RESCAN_TIME;
-               if ((tmp % 60) == 0)
+               if (show_numeric_total_only == NO)
                {
-                  (void)fprintf(stdout, "%*d*%3d:", MAX_HOSTNAME_LENGTH,
-                                tmp / 60, afd_stat[0].sec_counter);
-               }
-               else
-               {
-                  (void)fprintf(stdout, "%*s*%3d:", MAX_HOSTNAME_LENGTH, " ",
-                                afd_stat[0].sec_counter);
-               }
-               display_data(0, 0.0, 0, 0);
-               for (j = (afd_stat[0].sec_counter + 1); j < SECS_PER_HOUR; j++)
-               {
-                  tmp = j * STAT_RESCAN_TIME;
+                  tmp = afd_stat[0].sec_counter * STAT_RESCAN_TIME;
                   if ((tmp % 60) == 0)
                   {
-                     (void)fprintf(stdout, "%*d %3d:",
-                                   MAX_HOSTNAME_LENGTH, tmp / 60, j);
+                     (void)fprintf(stdout, "%*d*%3d:", MAX_HOSTNAME_LENGTH,
+                                   tmp / 60, afd_stat[0].sec_counter);
                   }
                   else
                   {
-                     (void)fprintf(stdout, "%*d:",
-                                   MAX_HOSTNAME_LENGTH + 4, j);
+                     (void)fprintf(stdout, "%*s*%3d:", MAX_HOSTNAME_LENGTH, " ",
+                                   afd_stat[0].sec_counter);
+                  }
+                  display_data(0, 0.0, 0, 0);
+               }
+               for (j = (afd_stat[0].sec_counter + 1); j < SECS_PER_HOUR; j++)
+               {
+                  if (show_numeric_total_only == NO)
+                  {
+                     tmp = j * STAT_RESCAN_TIME;
+                     if ((tmp % 60) == 0)
+                     {
+                        (void)fprintf(stdout, "%*d %3d:",
+                                      MAX_HOSTNAME_LENGTH, tmp / 60, j);
+                     }
+                     else
+                     {
+                        (void)fprintf(stdout, "%*d:",
+                                      MAX_HOSTNAME_LENGTH + 4, j);
+                     }
                   }
                   nfs = nbs = nc = ne = 0.0;
                   for (i = 0; i < no_of_hosts; i++)
@@ -1736,7 +2093,10 @@ main(int argc, char *argv[])
                      nc  += (double)afd_stat[i].hour[j].nc;
                      ne  += (double)afd_stat[i].hour[j].ne;
                   }
-                  display_data(nfs, nbs, nc, ne);
+                  if (show_numeric_total_only == NO)
+                  {
+                     display_data(nfs, nbs, nc, ne);
+                  }
                   tmp_nfs += nfs; tmp_nbs += nbs;
                   tmp_nc  += nc; tmp_ne  += ne;
                }
@@ -1752,16 +2112,19 @@ main(int argc, char *argv[])
                     {
                        for (j = (SECS_PER_HOUR + left); j < SECS_PER_HOUR; j++)
                        {
-                          tmp = j * STAT_RESCAN_TIME;
-                          if ((tmp % 60) == 0)
+                          if (show_numeric_total_only == NO)
                           {
-                             (void)fprintf(stdout, "%*d %3d:",
-                                           MAX_HOSTNAME_LENGTH, tmp / 60, j);
-                          }
-                          else
-                          {
-                             (void)fprintf(stdout, "%*d:",
-                                           MAX_HOSTNAME_LENGTH + 4, j);
+                             tmp = j * STAT_RESCAN_TIME;
+                             if ((tmp % 60) == 0)
+                             {
+                                (void)fprintf(stdout, "%*d %3d:",
+                                              MAX_HOSTNAME_LENGTH, tmp / 60, j);
+                             }
+                             else
+                             {
+                                (void)fprintf(stdout, "%*d:",
+                                              MAX_HOSTNAME_LENGTH + 4, j);
+                             }
                           }
                           nfs = nbs = nc = ne = 0.0;
                           for (i = 0; i < no_of_hosts; i++)
@@ -1771,22 +2134,28 @@ main(int argc, char *argv[])
                              nc  += (double)afd_stat[i].hour[j].nc;
                              ne  += (double)afd_stat[i].hour[j].ne;
                           }
-                          display_data(nfs, nbs, nc, ne);
+                          if (show_numeric_total_only == NO)
+                          {
+                             display_data(nfs, nbs, nc, ne);
+                          }
                           tmp_nfs += nfs; tmp_nbs += nbs;
                           tmp_nc  += nc; tmp_ne  += ne;
                        }
                        for (j = 0; j < (sec_ints + left); j++)
                        {
-                          tmp = j * STAT_RESCAN_TIME;
-                          if ((tmp % 60) == 0)
+                          if (show_numeric_total_only == NO)
                           {
-                             (void)fprintf(stdout, "%*d %3d:",
-                                           MAX_HOSTNAME_LENGTH, tmp / 60, j);
-                          }
-                          else
-                          {
-                             (void)fprintf(stdout, "%*d:",
-                                           MAX_HOSTNAME_LENGTH + 4, j);
+                             tmp = j * STAT_RESCAN_TIME;
+                             if ((tmp % 60) == 0)
+                             {
+                                (void)fprintf(stdout, "%*d %3d:",
+                                              MAX_HOSTNAME_LENGTH, tmp / 60, j);
+                             }
+                             else
+                             {
+                                (void)fprintf(stdout, "%*d:",
+                                              MAX_HOSTNAME_LENGTH + 4, j);
+                             }
                           }
                           nfs = nbs = nc = ne = 0.0;
                           for (i = 0; i < no_of_hosts; i++)
@@ -1796,7 +2165,10 @@ main(int argc, char *argv[])
                              nc  += (double)afd_stat[i].hour[j].nc;
                              ne  += (double)afd_stat[i].hour[j].ne;
                           }
-                          display_data(nfs, nbs, nc, ne);
+                          if (show_numeric_total_only == NO)
+                          {
+                             display_data(nfs, nbs, nc, ne);
+                          }
                           tmp_nfs += nfs; tmp_nbs += nbs;
                           tmp_nc  += nc; tmp_ne  += ne;
                        }
@@ -1805,16 +2177,19 @@ main(int argc, char *argv[])
                     {
                        for (j = left; j < afd_stat[0].sec_counter; j++)
                        {
-                          tmp = j * STAT_RESCAN_TIME;
-                          if ((tmp % 60) == 0)
+                          if (show_numeric_total_only == NO)
                           {
-                             (void)fprintf(stdout, "%*d %3d:",
-                                           MAX_HOSTNAME_LENGTH, tmp / 60, j);
-                          }
-                          else
-                          {
-                             (void)fprintf(stdout, "%*d:",
-                                           MAX_HOSTNAME_LENGTH + 4, j);
+                             tmp = j * STAT_RESCAN_TIME;
+                             if ((tmp % 60) == 0)
+                             {
+                                (void)fprintf(stdout, "%*d %3d:",
+                                              MAX_HOSTNAME_LENGTH, tmp / 60, j);
+                             }
+                             else
+                             {
+                                (void)fprintf(stdout, "%*d:",
+                                              MAX_HOSTNAME_LENGTH + 4, j);
+                             }
                           }
                           nfs = nbs = nc = ne = 0.0;
                           for (i = 0; i < no_of_hosts; i++)
@@ -1824,7 +2199,10 @@ main(int argc, char *argv[])
                              nc  += (double)afd_stat[i].hour[j].nc;
                              ne  += (double)afd_stat[i].hour[j].ne;
                           }
-                          display_data(nfs, nbs, nc, ne);
+                          if (show_numeric_total_only == NO)
+                          {
+                             display_data(nfs, nbs, nc, ne);
+                          }
                           tmp_nfs += nfs; tmp_nbs += nbs;
                           tmp_nc  += nc; tmp_ne  += ne;
                        }
@@ -1836,7 +2214,10 @@ main(int argc, char *argv[])
                if ((show_year > -1) || (show_day > -1) ||
                    (show_day_summary > -1) || (show_hour > -1))
                {
-                  (void)fprintf(stdout, "Total        ");
+                  if (show_numeric_total_only == NO)
+                  {
+                     (void)fprintf(stdout, "Total        ");
+                  }
                   display_data(tmp_nfs, tmp_nbs, tmp_nc, tmp_ne);
                }
                else
@@ -1844,10 +2225,16 @@ main(int argc, char *argv[])
                   total_nfs += tmp_nfs; total_nbs += tmp_nbs;
                   total_nc  += tmp_nc; total_ne  += tmp_ne;
                }
-               (void)fprintf(stdout, "=======================================================================\n");
+               if (show_numeric_total_only == NO)
+               {
+                  (void)fprintf(stdout, "=======================================================================\n");
+               }
             }
 
-            (void)fprintf(stdout, "Total        ");
+            if (show_numeric_total_only == NO)
+            {
+               (void)fprintf(stdout, "Total        ");
+            }
             display_data(total_nfs, total_nbs, total_nc, total_ne);
          }
 
@@ -1886,29 +2273,44 @@ main(int argc, char *argv[])
 static void
 display_data(double nfs, double nbs, double nc, double ne)
 {
-   (void)fprintf(stdout, "%14.0f   ", nfs);
-   if (nbs >= F_TERABYTE)
+   if (show_numeric_total_only == NO)
    {
-      (void)fprintf(stdout, "%12.3f TB", nbs / F_TERABYTE);
+      (void)fprintf(stdout, "%14.0f   ", nfs);
+      if (nbs >= F_EXABYTE)
+      {
+         (void)fprintf(stdout, "%12.3f EB", nbs / F_EXABYTE);
+      }
+      else if (nbs >= F_PETABYTE)
+           {
+              (void)fprintf(stdout, "%12.3f PB", nbs / F_PETABYTE);
+           }
+      else if (nbs >= F_TERABYTE)
+           {
+              (void)fprintf(stdout, "%12.3f TB", nbs / F_TERABYTE);
+           }
+      else if (nbs >= F_GIGABYTE)
+           {
+              (void)fprintf(stdout, "%12.3f GB", nbs / F_GIGABYTE);
+           }
+      else if (nbs >= F_MEGABYTE)
+           {
+              (void)fprintf(stdout, "%12.3f MB", nbs / F_MEGABYTE);
+           }
+      else if (nbs >= F_KILOBYTE)
+           {
+              (void)fprintf(stdout, "%12.3f KB", nbs / F_KILOBYTE);
+           }
+           else
+           {
+              (void)fprintf(stdout, "%12.0f B ", nbs);
+           }
+      (void)fprintf(stdout, "%14.0f", nc);
+      (void)fprintf(stdout, "%12.0f\n", ne);
    }
-   else if (nbs >= F_GIGABYTE)
-        {
-           (void)fprintf(stdout, "%12.3f GB", nbs / F_GIGABYTE);
-        }
-   else if (nbs >= F_MEGABYTE)
-        {
-           (void)fprintf(stdout, "%12.3f MB", nbs / F_MEGABYTE);
-        }
-   else if (nbs >= F_KILOBYTE)
-        {
-           (void)fprintf(stdout, "%12.3f KB", nbs / F_KILOBYTE);
-        }
-        else
-        {
-           (void)fprintf(stdout, "%12.0f B ", nbs);
-        }
-   (void)fprintf(stdout, "%14.0f", nc);
-   (void)fprintf(stdout, "%12.0f\n", ne);
+   else
+   {
+      (void)fprintf(stdout, "%.0f %.0f %.0f %.0f\n", nfs, nbs, nc, ne);
+   }
 
    return;
 }

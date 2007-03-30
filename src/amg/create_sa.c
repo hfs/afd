@@ -1,6 +1,6 @@
 /*
  *  create_sa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -77,6 +77,9 @@ create_sa(int no_of_dirs)
    if (first_time == YES)
    {
       int         afd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int         afd_cmd_readfd;
+#endif
       char        afd_cmd_fifo[MAX_PATH_LENGTH];
       struct stat stat_buf;
 
@@ -96,7 +99,11 @@ create_sa(int no_of_dirs)
             exit(INCORRECT);
          }
       }
-      if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_readfd, &afd_cmd_fd) == -1)
+#else
+      if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
+#endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "Could not open fifo %s : %s",
@@ -109,6 +116,13 @@ create_sa(int no_of_dirs)
                     "Was not able to send AMG_READY to %s.", AFD);
       }
       first_time = NO;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (close(afd_cmd_readfd) == -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
+      }
+#endif
       if (close(afd_cmd_fd) == -1)
       {
          system_log(DEBUG_SIGN, __FILE__, __LINE__,

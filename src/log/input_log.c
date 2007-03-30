@@ -1,6 +1,6 @@
 /*
  *  input_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -105,6 +105,9 @@ main(int argc, char *argv[])
                   no_of_buffered_writes = 0,
                   status,
                   *unique_number;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int            writefd;
+#endif
    off_t          *file_size;
    time_t         next_file_time,
                   now;
@@ -136,13 +139,21 @@ main(int argc, char *argv[])
       (void)strcpy(input_log_fifo, work_dir);
       (void)strcat(input_log_fifo, FIFO_DIR);
       (void)strcat(input_log_fifo, INPUT_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(input_log_fifo, &log_fd, &writefd) == -1)
+#else
       if ((log_fd = open(input_log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if (make_fifo(input_log_fifo) == SUCCESS)
             {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (open_fifo_rw(input_log_fifo, &log_fd, &writefd) == -1)
+#else
                if ((log_fd = open(input_log_fifo, O_RDWR)) == -1)
+#endif
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to open() fifo %s : %s",
@@ -214,7 +225,8 @@ main(int argc, char *argv[])
    get_log_number(&log_number,
                   (max_input_log_files - 1),
                   INPUT_BUFFER_FILE,
-                  strlen(INPUT_BUFFER_FILE));
+                  INPUT_BUFFER_FILE_LENGTH,
+                  NULL);
    (void)sprintf(current_log_file, "%s%s/%s0",
                  work_dir, LOG_DIR, INPUT_BUFFER_FILE);
    p_end = log_file;
@@ -233,7 +245,7 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end);
+         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
       }
    }
 
@@ -290,7 +302,7 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end);
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
             input_file = open_log_file(current_log_file);
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                              SWITCH_FILE_TIME;
@@ -347,10 +359,10 @@ main(int argc, char *argv[])
                           (void)fprintf(input_file, "%-10llx %s%c%llx%c%x%c%x\n",
 # endif
 #endif
-                                        now,
+                                        (pri_time_t)now,
                                         p_file_name,
                                         SEPARATOR_CHAR,
-                                        *file_size,
+                                        (pri_off_t)*file_size,
                                         SEPARATOR_CHAR,
                                         *dir_number,
                                         SEPARATOR_CHAR,
@@ -396,7 +408,7 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end);
+                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
                  input_file = open_log_file(current_log_file);
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
               }

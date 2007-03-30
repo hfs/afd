@@ -1,6 +1,6 @@
 /*
  *  eval_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -81,6 +81,9 @@ DESCR__S_M3
  **   12.01.2006 H.Kiehl Added "login site" option.
  **   16.02.2006 H.Kiehl Added "socket send/receive buffer" option.
  **   04.06.2006 H.Kiehl Added option 'file name is target'.
+ **   05.08.2006 H.Kiehl For option 'subject' added possibility to insert
+ **                      the filename or part of it.
+ **   11.02.2006 H.Kiehl Evaluate options for pexec command.
  **
  */
 DESCR__E_M3
@@ -103,7 +106,8 @@ DESCR__E_M3
 #include "ftpdefs.h"
 
 /* External global variables */
-extern int  transfer_log_fd;
+extern int  transfer_log_fd,
+            trans_rename_blocked;
 extern char *p_work_dir;
 
 #define ARCHIVE_FLAG                1
@@ -480,32 +484,78 @@ eval_message(char *message_name, struct job *p_db)
                  {
                     used |= TRANS_RENAME_FLAG;
                     ptr += TRANS_RENAME_ID_LENGTH;
-                    while ((*ptr == ' ') || (*ptr == '\t'))
+                    if (trans_rename_blocked == NO)
                     {
-                       ptr++;
+                       while ((*ptr == ' ') || (*ptr == '\t'))
+                       {
+                          ptr++;
+                       }
+                       end_ptr = ptr;
+                       n = 0;
+                       while ((*end_ptr != '\n') && (*end_ptr != ' ') &&
+                              (*end_ptr != '\0') &&
+                              (n < MAX_RULE_HEADER_LENGTH))
+                       {
+                         p_db->trans_rename_rule[n] = *end_ptr;
+                         end_ptr++; n++;
+                       }
+                       p_db->trans_rename_rule[n] = '\0';
+                       if (n == MAX_RULE_HEADER_LENGTH)
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Rule header for trans_rename option %s to long. #%x",
+                                     p_db->trans_rename_rule, p_db->job_id);
+                          p_db->trans_rename_rule[0] = '\0';
+                       }
+                       else if (n == 0)
+                            {
+                               system_log(WARN_SIGN, __FILE__, __LINE__,
+                                          "No rule header specified in message %x.",
+                                          p_db->job_id);
+                            }
+                            else
+                            {
+                               while (*end_ptr == ' ')
+                               {
+                                  end_ptr++;
+                               }
+                               if ((*end_ptr == 'p') &&
+                                   (*(end_ptr + 1) == 'r') &&
+                                   (*(end_ptr + 2) == 'i') &&
+                                   (*(end_ptr + 3) == 'm') &&
+                                   (*(end_ptr + 4) == 'a') &&
+                                   (*(end_ptr + 5) == 'r') &&
+                                   (*(end_ptr + 6) == 'y') &&
+                                   (*(end_ptr + 7) == '_') &&
+                                   (*(end_ptr + 8) == 'o') &&
+                                   (*(end_ptr + 9) == 'n') &&
+                                   (*(end_ptr + 10) == 'l') &&
+                                   (*(end_ptr + 11) == 'y'))
+                               {
+                                  p_db->special_flag |= TRANS_RENAME_PRIMARY_ONLY;
+                                  end_ptr += 11;
+                               }
+                               else if ((*end_ptr == 's') &&
+                                        (*(end_ptr + 1) == 'e') &&
+                                        (*(end_ptr + 2) == 'c') &&
+                                        (*(end_ptr + 3) == 'o') &&
+                                        (*(end_ptr + 4) == 'n') &&
+                                        (*(end_ptr + 5) == 'd') &&
+                                        (*(end_ptr + 6) == 'a') &&
+                                        (*(end_ptr + 7) == 'r') &&
+                                        (*(end_ptr + 8) == 'y') &&
+                                        (*(end_ptr + 9) == '_') &&
+                                        (*(end_ptr + 10) == 'o') &&
+                                        (*(end_ptr + 11) == 'n') &&
+                                        (*(end_ptr + 12) == 'l') &&
+                                        (*(end_ptr + 13) == 'y'))
+                                    {
+                                       p_db->special_flag |= TRANS_RENAME_SECONDARY_ONLY;
+                                       end_ptr += 13;
+                                    }
+                            }
+                       ptr = end_ptr;
                     }
-                    end_ptr = ptr;
-                    n = 0;
-                    while ((*end_ptr != '\n') && (*end_ptr != '\0') &&
-                           (n < MAX_RULE_HEADER_LENGTH))
-                    {
-                      p_db->trans_rename_rule[n] = *end_ptr;
-                      end_ptr++; n++;
-                    }
-                    p_db->trans_rename_rule[n] = '\0';
-                    if (n == MAX_RULE_HEADER_LENGTH)
-                    {
-                       system_log(WARN_SIGN, __FILE__, __LINE__,
-                                  "Rule header for trans_rename option %s to long. #%x",
-                                  p_db->trans_rename_rule, p_db->job_id);
-                    }
-                    else if (n == 0)
-                         {
-                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                       "No rule header specified in message %x.",
-                                       p_db->job_id);
-                         }
-                    ptr = end_ptr;
                     while ((*ptr != '\n') && (*ptr != '\0'))
                     {
                        ptr++;
@@ -557,13 +607,11 @@ eval_message(char *message_name, struct job *p_db)
                         (p_db->protocol & SCP_FLAG) ||
                         (p_db->protocol & SFTP_FLAG))
                     {
-                       char *start_ptr;
-
                        while ((*ptr == ' ') || (*ptr == '\t'))
                        {
                           ptr++;
                        }
-                       start_ptr = end_ptr = ptr;
+                       end_ptr = ptr;
                        while ((*end_ptr != '\n') && (*end_ptr != '\0') &&
                               (*end_ptr != ' ') && (*end_ptr != '\t'))
                        {
@@ -1059,6 +1107,7 @@ eval_message(char *message_name, struct job *p_db)
                                            "malloc() error : %s",
                                            strerror(errno));
                              }
+                             ptr++;
                           }
                        }
                        else if (*ptr == '/')
@@ -1134,6 +1183,19 @@ eval_message(char *message_name, struct job *p_db)
                                             break;
                                       }
                                    }
+                                   else if (*search_ptr == 's')
+                                        {
+                                           if (p_db->filename_pos_subject == -1)
+                                           {
+                                              p_db->filename_pos_subject = search_ptr - 1 - p_db->subject;
+                                           }
+                                           else
+                                           {
+                                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                         "It is only possible to place the filename in subject once only. #%x",
+                                                         p_db->job_id);
+                                           }
+                                        }
                                 }
                              }
                              search_ptr++;
@@ -1224,9 +1286,9 @@ eval_message(char *message_name, struct job *p_db)
                                                   break;
                                                case 'U': /* Unix time. */
 #if SIZEOF_TIME_T == 4
-                                                  number = sprintf(write_ptr, "%ld", time_buf);
+                                                  number = sprintf(write_ptr, "%ld", (pri_time_t)time_buf);
 #else
-                                                  number = sprintf(write_ptr, "%lld", time_buf);
+                                                  number = sprintf(write_ptr, "%lld", (pri_time_t)time_buf);
 #endif
                                                   break;
                                                default:
@@ -1266,6 +1328,34 @@ eval_message(char *message_name, struct job *p_db)
                                 }
 
                                 free(tmp_buffer);
+                             }
+                          }
+                       }
+
+                       /* Check if we there is a rename rule header. */
+                       if (p_db->filename_pos_subject != -1)
+                       {
+                          while ((*ptr == ' ') || (*ptr == '\t'))
+                          {
+                             ptr++;
+                          }
+                          if ((*ptr != '\n') && (*ptr != '\0'))
+                          {
+                             int n = 0;
+
+                             while ((*ptr != '\n') && (*ptr != '\0') &&
+                                    (n < MAX_RULE_HEADER_LENGTH))
+                             {
+                               p_db->subject_rename_rule[n] = *ptr;
+                               ptr++; n++;
+                             }
+                             p_db->subject_rename_rule[n] = '\0';
+                             if (n == MAX_RULE_HEADER_LENGTH)
+                             {
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "Rule header for subject option %s to long. #%x",
+                                           p_db->subject_rename_rule,
+                                           p_db->job_id);
                              }
                           }
                        }
@@ -1471,7 +1561,7 @@ eval_message(char *message_name, struct job *p_db)
                     {
                        p_db->special_flag |= ATTACH_FILE;
 
-                       while ((*ptr == ' ') && (*ptr == '\t'))
+                       while ((*ptr == ' ') || (*ptr == '\t'))
                        {
                           ptr++;
                        }
@@ -1491,6 +1581,7 @@ eval_message(char *message_name, struct job *p_db)
                              system_log(WARN_SIGN, __FILE__, __LINE__,
                                         "Rule header for trans_rename option %s to long. #%x",
                                         p_db->trans_rename_rule, p_db->job_id);
+                             p_db->trans_rename_rule[0] = '\0';
                           }
                           else if (n == 0)
                                {
@@ -1523,8 +1614,13 @@ eval_message(char *message_name, struct job *p_db)
                        {
                           ptr++;
                        }
+                       while (*ptr == '"')
+                       {
+                          ptr++;
+                       }
                        end_ptr = ptr;
-                       while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+                       while ((*end_ptr != '\n') && (*end_ptr != '\0') &&
+                              (*end_ptr != '"'))
                        {
                          end_ptr++;
                          length++;
@@ -1541,7 +1637,8 @@ eval_message(char *message_name, struct job *p_db)
                           }
                           else
                           {
-                             (void)strcpy(p_db->special_ptr, ptr);
+                             (void)memcpy(p_db->special_ptr, ptr, length);
+                             *(p_db->special_ptr + length) = '\0';
                           }
                           *end_ptr = byte_buf;
                        }
@@ -1939,7 +2036,7 @@ eval_message(char *message_name, struct job *p_db)
                        p_db->special_flag |= ATTACH_FILE;
                        p_db->special_flag |= ATTACH_ALL_FILES;
 
-                       while ((*ptr == ' ') && (*ptr == '\t'))
+                       while ((*ptr == ' ') || (*ptr == '\t'))
                        {
                           ptr++;
                        }
@@ -1959,6 +2056,7 @@ eval_message(char *message_name, struct job *p_db)
                              system_log(WARN_SIGN, __FILE__, __LINE__,
                                         "Rule header for trans_rename option %s to long. #%x",
                                         p_db->trans_rename_rule, p_db->job_id);
+                             p_db->trans_rename_rule[0] = '\0';
                           }
                           else if (n == 0)
                                {
@@ -1981,7 +2079,8 @@ eval_message(char *message_name, struct job *p_db)
             else if (((used & TRANS_EXEC_FLAG) == 0) &&
                      (strncmp(ptr, TRANS_EXEC_ID, TRANS_EXEC_ID_LENGTH) == 0))
                  {
-                    int length = 0;
+                    int exec_timeout_set = NO,
+                        length = 0;
 
                     used |= TRANS_EXEC_FLAG;
                     ptr += TRANS_EXEC_ID_LENGTH;
@@ -1989,6 +2088,77 @@ eval_message(char *message_name, struct job *p_db)
                     {
                        ptr++;
                     }
+                    end_ptr = ptr; /* NOTE: end_ptr needs to be set here */
+                                   /*       because we MIGHT need it in  */
+                                   /*       the following while loop.    */
+
+                    while (*ptr == '-')
+                    {
+                       ptr++;
+                       switch (*ptr)
+                       {
+                          case 't' : /* Timeup pexec command. */
+                             {
+                                int  i;
+                                char str_number[MAX_INT_LENGTH];
+
+                                ptr++;
+                                while ((*ptr == ' ') || (*ptr == '\t'))
+                                {
+                                   ptr++;
+                                }
+                                i = 0;
+                                while ((isdigit((int)(*ptr))) &&
+                                       (i < MAX_INT_LENGTH))
+                                {
+                                   str_number[i] = *ptr;
+                                   i++; ptr++;
+                                }
+                                if (i > 0)
+                                {
+                                   if (i < MAX_INT_LENGTH)
+                                   {
+                                      str_number[i] = '\0';
+                                      p_db->trans_exec_timeout = strtol(str_number,
+                                                                        (char **)NULL, 10);
+                                      exec_timeout_set = YES;
+                                      while ((*ptr == ' ') || (*ptr == '\t'))
+                                      {
+                                         ptr++;
+                                      }
+                                   }
+                                   else
+                                   {
+                                      while ((*ptr != ' ') && (*ptr != '\t') &&
+                                             (*ptr != '\n') && (*ptr != '\0'))
+                                      {
+                                         ptr++;
+                                      }
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 "pexec timeout value to long in message %s.",
+                                                 message_name);
+                                   }
+                                }
+                             }
+                             break;
+
+                          case 'l':
+                          case 'L': /* Set lock so this can only run once. */
+                             ptr++;
+                             while ((*ptr == ' ') || (*ptr == '\t'))
+                             {
+                                ptr++;
+                             }
+                             p_db->set_trans_exec_lock = YES;
+                             break;
+
+                          default: /* Unknown, lets ignore this. Do as if we */
+                                   /* did not know about any options.        */
+                             ptr = end_ptr;
+                             break;
+                       }
+                    }
+
                     end_ptr = ptr;
                     while ((*end_ptr != '\n') && (*end_ptr != '\0'))
                     {
@@ -2008,31 +2178,35 @@ eval_message(char *message_name, struct job *p_db)
                        }
                        else
                        {
-                          char *buffer,
-                               config_file[MAX_PATH_LENGTH];
-
                           (void)strcpy(p_db->trans_exec_cmd, ptr);
-                          (void)sprintf(config_file, "%s%s%s",
-                                        p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-                          if ((eaccess(config_file, F_OK) == 0) &&
-                              (read_file(config_file, &buffer) != INCORRECT))
+                          if (exec_timeout_set == NO)
                           {
-                             char value[MAX_INT_LENGTH];
+                             char *buffer,
+                                  config_file[MAX_PATH_LENGTH];
 
-                             if (get_definition(buffer, EXEC_TIMEOUT_DEF,
-                                                value, MAX_INT_LENGTH) != NULL)
+                             (void)sprintf(config_file, "%s%s%s",
+                                           p_work_dir, ETC_DIR,
+                                           AFD_CONFIG_FILE);
+                             if ((eaccess(config_file, F_OK) == 0) &&
+                                 (read_file(config_file, &buffer) != INCORRECT))
                              {
-                                p_db->trans_exec_timeout = atol(value);
+                                char value[MAX_INT_LENGTH];
+
+                                if (get_definition(buffer, EXEC_TIMEOUT_DEF,
+                                                   value, MAX_INT_LENGTH) != NULL)
+                                {
+                                   p_db->trans_exec_timeout = atol(value);
+                                }
+                                else
+                                {
+                                   p_db->trans_exec_timeout = DEFAULT_EXEC_TIMEOUT;
+                                }
+                                free(buffer);
                              }
                              else
                              {
                                 p_db->trans_exec_timeout = DEFAULT_EXEC_TIMEOUT;
                              }
-                             free(buffer);
-                          }
-                          else
-                          {
-                             p_db->trans_exec_timeout = DEFAULT_EXEC_TIMEOUT;
                           }
                        }
                        *end_ptr = byte_buf;

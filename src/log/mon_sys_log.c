@@ -1,6 +1,6 @@
 /*
  *  mon_sys_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,8 +43,7 @@ DESCR__E_M1
 
 #include <stdio.h>                 /* fprintf(), fclose(), stderr,       */
                                    /* strerror()                         */
-#include <string.h>                /* strcmp(), strcpy(), strcat(),      */
-                                   /* strlen()                           */
+#include <string.h>                /* strcmp(), strcpy(), strcat()       */
 #include <stdlib.h>                /* getenv(), exit(), malloc()         */
 #include <unistd.h>                /* fpathconf(), STDERR_FILENO         */
 #include <signal.h>                /* signal()                           */
@@ -84,6 +83,9 @@ main(int argc, char *argv[])
                log_stat = START,
                max_mon_sys_log_files = MAX_MON_SYS_LOG_FILES,
                mon_sys_log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int         writefd;
+#endif
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
                log_file[MAX_PATH_LENGTH],
@@ -108,7 +110,11 @@ main(int argc, char *argv[])
       (void)strcpy(mon_sys_log_fifo, work_dir);
       (void)strcat(mon_sys_log_fifo, FIFO_DIR);
       (void)strcat(mon_sys_log_fifo, MON_SYS_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(mon_sys_log_fifo, &mon_sys_log_fd, &writefd) < 0)
+#else
       if ((mon_sys_log_fd = open(mon_sys_log_fifo, O_RDWR)) < 0)
+#endif
       {
          (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
                        mon_sys_log_fifo, strerror(errno), __FILE__, __LINE__);
@@ -168,7 +174,8 @@ main(int argc, char *argv[])
    get_log_number(&log_number,
                   (max_mon_sys_log_files - 1),
                   MON_SYS_LOG_NAME,
-                  strlen(MON_SYS_LOG_NAME));
+                  MON_SYS_LOG_NAME_LENGTH,
+                  NULL);
    (void)sprintf(current_log_file, "%s%s/%s0", p_work_dir, LOG_DIR,
                  MON_SYS_LOG_NAME);
    p_end = log_file;
@@ -189,7 +196,7 @@ main(int argc, char *argv[])
             {
                log_number++;
             }
-            reshuffel_log_files(log_number, log_file, p_end);
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
             total_length = 0;
          }
          else

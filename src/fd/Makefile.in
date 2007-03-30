@@ -50,7 +50,11 @@ subdir = src/fd
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
+am__aclocal_m4_deps =  \
+	$(top_srcdir)/ac-tools/ax_check_compiler_flags.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_archflag.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_x86_cpuid.m4 \
+	$(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
@@ -103,7 +107,8 @@ gf_ftp_trace_DEPENDENCIES = ../protocols/libtraceprotocols.a \
 	../common/libafd.a
 am_gf_http_OBJECTS = eval_input_gf.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_group_list.$(OBJEXT) \
-	gf_http.$(OBJEXT) gsf_check_fsa.$(OBJEXT) init_gf.$(OBJEXT) \
+	get_remote_file_names_http.$(OBJEXT) gf_http.$(OBJEXT) \
+	gsf_check_fsa.$(OBJEXT) init_gf.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) read_file_mask.$(OBJEXT) \
 	reset_fsa.$(OBJEXT) reset_values.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_log.$(OBJEXT)
@@ -111,7 +116,8 @@ gf_http_OBJECTS = $(am_gf_http_OBJECTS)
 gf_http_DEPENDENCIES = ../protocols/libprotocols.a ../common/libafd.a
 am__objects_2 = eval_input_gf.$(OBJEXT) eval_recipient.$(OBJEXT) \
 	fsa_attach_pos.$(OBJEXT) get_group_list.$(OBJEXT) \
-	gf_http.$(OBJEXT) gsf_check_fsa.$(OBJEXT) init_gf.$(OBJEXT) \
+	get_remote_file_names_http.$(OBJEXT) gf_http.$(OBJEXT) \
+	gsf_check_fsa.$(OBJEXT) init_gf.$(OBJEXT) \
 	limit_transfer_rate.$(OBJEXT) read_file_mask.$(OBJEXT) \
 	reset_fsa.$(OBJEXT) reset_values.$(OBJEXT) \
 	trans_db_log.$(OBJEXT) trans_log.$(OBJEXT)
@@ -373,6 +379,8 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
+ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
@@ -399,6 +407,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
 RPM = @RPM@
@@ -418,6 +427,8 @@ WITH_AFD_MON_ONLY_TRUE = @WITH_AFD_MON_ONLY_TRUE@
 WITH_AFD_MON_TRUE = @WITH_AFD_MON_TRUE@
 WITH_DELETE_LOG_FALSE = @WITH_DELETE_LOG_FALSE@
 WITH_DELETE_LOG_TRUE = @WITH_DELETE_LOG_TRUE@
+WITH_FIFO_RW_SUPPORT_FALSE = @WITH_FIFO_RW_SUPPORT_FALSE@
+WITH_FIFO_RW_SUPPORT_TRUE = @WITH_FIFO_RW_SUPPORT_TRUE@
 WITH_GTK_FALSE = @WITH_GTK_FALSE@
 WITH_GTK_TRUE = @WITH_GTK_TRUE@
 WITH_INPUT_LOG_FALSE = @WITH_INPUT_LOG_FALSE@
@@ -494,6 +505,7 @@ INCLUDES = -I.. -I../init_afd -I../amg -I../log -I../misc\
                         -I../protocols
 
 MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES = gmon.out core core.*
 fd_SOURCES = check_file_dir.c\
                         check_fra_fd.c\
                         check_fsa_entries.c\
@@ -773,6 +785,7 @@ gf_http_SOURCES = eval_input_gf.c\
                         eval_recipient.c\
                         fsa_attach_pos.c\
                         get_group_list.c\
+                        get_remote_file_names_http.c\
                         gf_http.c\
                         gsf_check_fsa.c\
                         init_gf.c\
@@ -936,6 +949,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_job_data.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_new_positions.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_remote_file_names_ftp.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_remote_file_names_http.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_remote_file_names_sftp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gf_ftp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gf_http.Po@am__quote@
@@ -1091,6 +1105,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)

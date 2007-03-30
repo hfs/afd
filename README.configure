@@ -21,6 +21,10 @@
                                   files it renamed or where it changed its
                                   content.
                                   [Default: enabled]
+--disable-error_queue           - If enabled, AFD will queue error jobs so
+                                  that this will not block jobs that work
+                                  fine to another host.
+                                  [Default: enabled]
 --disable-wmo_support           - Support for the special protocol used by the
                                   WMO to transport data via TCP.
                                   [Default: enabled]
@@ -52,6 +56,10 @@
                                   and afd_ctrl being called from a node
                                   where AFD is not active.
                                   [Default: enabled]
+--disable-fifo_rw_support       - Some systems do not support opening a
+                                  FIFO for reading and writting. With this
+                                  option set AFD will use two file descriptors
+                                  one for reading and one for writting.
 --enable-setuid_progs           - Enables setting setuid flag for the
                                   programms afdcmd, afd, init_afd, mafd,
                                   afd_ctrl, dir_ctrl, mon_ctrl and show_olog.
@@ -59,6 +67,19 @@
                                   want to monitor or control the AFD, other
                                   then the user starting it. See also
                                   --enable-group_can_write.
+                                  [Default: disabled]
+--enable-with_unlink_delay      - Enable delay when unlinking a file and
+                                  we get the error that the file is still
+                                  busy. With this enabled it will make a
+                                  short delay and then retry. This can be
+                                  set when AFD is running on an NFS file-
+                                  system.
+                                  [Default: disabled]
+--enable-multi_dir_scans        - Enable scanning of directories multiple
+                                  times. This is needed on some systems where
+                                  the modification time of directories
+                                  scanned by AFD is not updated correctly.
+                                  Normally it is not needed to set this.
                                   [Default: disabled]
 --enable-multi_dir_definition   - Enable support for specifying the same
                                   directory in multiple DIR_CONFIG files.
@@ -121,6 +142,8 @@
 --enable-compiler-warn          - Turns on lots of warning when compiling.
                                   [Default: disabled]
 --enable-compiler-optimizations - Enables some compiler optimizations.
+                                  [Default: disabled]
+--enable-compiler-profiling     - Turns on compiler profiling support.
                                   [Default: disabled]
 --enable-compile-64-bit         - This forces AFD be compiled as 64 bit
                                   application on system that support both

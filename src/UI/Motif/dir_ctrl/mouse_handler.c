@@ -738,7 +738,7 @@ dir_popup_cb(Widget    w,
              (sel_typ == E_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL)) &&
             ((no_selected > 0) || (no_selected_static > 0)))
         {
-           args[5] = "-d";
+           args[offset] = "-d";
         }
 
    current_time = time(NULL);
@@ -755,7 +755,7 @@ dir_popup_cb(Widget    w,
                if (fra[i].dir_flag & DIR_DISABLED)
                {
                   fra[i].dir_flag ^= DIR_DISABLED;
-                  fra[i].dir_status = NORMAL_STATUS;
+                  SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
                   config_log("ENABLED directory %s", fra[i].dir_alias);
                }
                else
@@ -765,8 +765,62 @@ dir_popup_cb(Widget    w,
                       fra[i].dir_alias) == YES)
                   {
                      fra[i].dir_flag ^= DIR_DISABLED;
-                     fra[i].dir_status = DISABLED;
+                     SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
                      config_log("DISABLED directory %s", fra[i].dir_alias);
+
+                     if (fra[i].host_alias[0] != '\0')
+                     {
+                        int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        int  readfd;
+#endif
+                        char fd_delete_fifo[MAX_PATH_LENGTH];
+
+
+                        (void)sprintf(fd_delete_fifo, "%s%s%s",
+                                      p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        if (open_fifo_rw(fd_delete_fifo, &readfd, &fd) == -1)
+#else
+                        if ((fd = open(fd_delete_fifo, O_RDWR)) == -1)
+#endif
+                        {
+                           (void)xrec(appshell, ERROR_DIALOG,
+                                      "Failed to open() %s : %s (%s %d)",
+                                      FD_DELETE_FIFO, strerror(errno),
+                                      __FILE__, __LINE__);
+                        }
+                        else
+                        {
+                           char   wbuf[MAX_DIR_ALIAS_LENGTH + 2];
+                           size_t length;
+
+                           wbuf[0] = DELETE_RETRIEVES_FROM_DIR;
+                           (void)strcpy(&wbuf[1], fra[i].dir_alias);
+                           length = 1 + strlen(fra[i].dir_alias) + 1;
+                           if (write(fd, wbuf, length) != length)
+                           {
+                              (void)xrec(appshell, ERROR_DIALOG,
+                                         "Failed to write() to %s : %s (%s %d)",
+                                         FD_DELETE_FIFO, strerror(errno),
+                                         __FILE__, __LINE__);
+                           }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           if (close(readfd) == -1)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to close() FIFO %s (read) : %s",
+                                         FD_DELETE_FIFO, strerror(errno));
+                           }
+#endif
+                           if (close(fd) == -1)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to close() FIFO %s (write) : %s",
+                                         FD_DELETE_FIFO, strerror(errno));
+                           }
+                        }
+                     }
                   }
                }
                break;
@@ -844,7 +898,7 @@ dir_popup_cb(Widget    w,
             case I_LOG_SEL : /* View Input Log. */
             case SHOW_QUEUE_SEL : /* View Queue. */
                (void)sprintf(dirs[k], "%x", fra[i].dir_id);
-               args[k + offset] = dirs[k];
+               args[offset + 1 + k] = dirs[k];
                k++;
                break;
 
@@ -882,11 +936,18 @@ dir_popup_cb(Widget    w,
    if (send_msg == YES)
    {
       int  fd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  fd_cmd_readfd;
+#endif
       char fd_cmd_fifo[MAX_PATH_LENGTH];
 
       (void)sprintf(fd_cmd_fifo, "%s%s%s",
                     p_work_dir, FIFO_DIR, FD_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(fd_cmd_fifo, &fd_cmd_readfd, &fd_cmd_fd) == -1)
+#else
       if ((fd_cmd_fd = open(fd_cmd_fifo, O_RDWR)) == -1)
+#endif
       {
          (void)xrec(appshell, WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
                     fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
@@ -898,6 +959,13 @@ dir_popup_cb(Widget    w,
             (void)xrec(appshell, WARN_DIALOG, "write() error : %s (%s %d)",
                        strerror(errno), __FILE__, __LINE__);
          }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(fd_cmd_readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
          if (close(fd_cmd_fd) == -1)
          {
             system_log(DEBUG_SIGN, __FILE__, __LINE__,

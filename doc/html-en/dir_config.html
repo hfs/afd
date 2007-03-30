@@ -33,11 +33,15 @@ give the directory an alias name you can do so by putting the name
 directly behind the directory entry: [directory] &lt;dir alias&gt;.
 AFD is also able to fetch files from a remote host, the directory must
 then be specified in URL format as follows:
-<code>&lt;scheme&gt;://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;:&lt;port&gt;/&lt;url-path&gt;[;type=&lt;i|a|d&gt;]</code>
+<code>&lt;scheme&gt;://[&lt;user&gt;][;fingerprint=&lt;SSH fingerprint&gt;][:&lt;password&gt;]@&lt;host&gt;[:&lt;port&gt;][/&lt;url-path&gt;][;type=&lt;i|a|d&gt;][;protocol=&lt;protocol number&gt;]</code>
 </p>
 <p>
 The items are separated by special characters :, /, @ and ;. If these
 characters appear within one of the items, they must be masked with a \.
+</p>
+<p>
+See <a href="#recipient">recipient</a> for a more detailed description on
+how to use the fingerprint parameter and others.
 </p>
 <p>
 There are currently four schemes for fetching files supported:
@@ -60,6 +64,11 @@ There are currently four schemes for fetching files supported:
        With ftpS both control and data connection are
        encrypted.</td>
    <td>ftps://donald:secret@ducktown/directory</td>
+</tr>
+<tr>
+   <td>sftp</td>
+   <td>SFTP, file transfer via SSH.</td>
+   <td>sftp://donald:secret@ducktown/directory</td>
 </tr>
 <tr>
    <td>http</td>
@@ -225,10 +234,23 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>time &lt;min hour dom month dow&gt;</td>
+   <td width=30%><a name="dir_options_time">time &lt;min hour dom month dow&gt;</a></td>
    <td>With this option it is possible at what interval the directory
-       is to be scanned.</td>
+       is to be scanned. See <a href="#time">time</a> under options for
+       a more detailed description of what each field means.</td>
    <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td width=30%>do not get dir list</td>
+   <td>Setting this option will disable the directory scanning for
+       this directory. This can be used when directory listing are
+       not possible or disabled because of security reasons. Currently
+       this only works for HTTP. This also means that under [files] the
+       full filenames without wildcards must be listed, since the protocol
+       does not resolve any wildcards.</td>
+   <td align=center>&nbsp;</td>
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
 </tr>
@@ -242,14 +264,22 @@ defaults is shown in the table below:
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%><a name="store_remote_list">store remote list</a></td>
+   <td width=30%><a name="store_retrieve_list">store retrieve list [once]</a></td>
    <td>When the above option &lt;do not remove&gt; is set, it can
        happen that always the same files are being collected by the
        AMG. To avoid this situation this option can be set. Then AMG
        will keep a list of files and their modification time and there
        size of all files found during the last scan. So only when a
-       file has changed will it be retrieved by the AMG.</td>
-   <td align=center>&nbsp;</td>
+       file has changed will it be retrieved by the AMG. When the
+       optional parameter 'once' is appended, files will be fetched
+       only onced, regardless if the size or modification time changes.
+       This is can be usefull for directories with lots of files and
+       protocols where we need to poll each individual file for size
+       and date. For SFTP the once parameter is not needed since all
+       needed values are retrieved during the directory scan and no
+       additional polling is required. However when set for SFTP it
+       will only fetch the file once.</td>
+   <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
 </tr>
@@ -297,16 +327,19 @@ defaults is shown in the table below:
 </tr>
 <tr>
    <td width=30%>ignore file time &lt;[=|&gt;|&lt;] value&gt;</td>
-   <td>If the files modification time in the directory have the given
-       value they will be ignored. A greater or less then sign may also
-       be used to ignore files which have a modification time greater
-       or less then the given value. The unit is in seconds.</td>
+   <td>If the difference of the files modification time in the directory
+       and the current time is outside the given value, then it will be
+       ignored.  A greater or less then sign may also be used.
+       The unit is in seconds. This option is best used together with
+       'force reread', because the directory is only scanned when
+       something happens (rename, delete or added a new file) in
+       the directory.</td>
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
 </tr>
 <tr>
-   <td width=30%>max files &lt;value&gt;</td>
+   <td width=30%><a name="max_files">max files &lt;value&gt;</a></td>
    <td>The maximum number of files that are copied before they are
        send to the FD. This value is set so that the AFD starts sending
        files as soon as possible even when there are thousands of files
@@ -342,6 +375,14 @@ defaults is shown in the table below:
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
    <td align=center>&nbsp;</td>
+</tr>
+<tr>
+   <td width=30%><a name="warn_time">warn time &lt;time in seconds&gt;</a></td>
+   <td>When no data has arrived in the directory for the given time
+       it will warn in the <a href="log.html#receive_log">RECEIVE_LOG</a>.</td>
+   <td align=center>X</td>
+   <td align=center>X</td>
+   <td align=center>0 (disabled)</td>
 </tr>
 <tr>
    <td width=30%>accumulate &lt;number of files&gt;</td>
@@ -509,7 +550,7 @@ In the recipient section you specify the user name, password,
 remote host and remote directory in the following URL format:
 </p>
 <p>
-<code>&lt;scheme&gt;://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;:&lt;port&gt;/&lt;url-path&gt;[;type=&lt;i|a|d&gt;][;server=&lt;server name&gt;]</code>
+<code>&lt;scheme&gt;://[&lt;user&gt;][;fingerprint=&lt;SSH fingerprint&gt;][:&lt;password&gt;]@&lt;host&gt;[:&lt;port&gt;][/&lt;url-path&gt;][;type=&lt;i|a|d&gt;][;server=&lt;server name&gt;][;protocol=&lt;protocol number&gt;]</code>
 </p>
 <p>
 The items are separated by special characters :, /, @ and ;. If these
@@ -517,11 +558,43 @@ characters appear within one of the items, they must be masked with a
 \.
 </p>
 <p>
+The fingerprint= is only valid for scheme scp and sftp. To get the
+fingerprint from a host with OpenSSH enter the following command:
+</p>
+<pre>
+                ssh-keygen -lf /etc/ssh/ssh_host_rsa_key.pub
+</pre>
+<p>
+This will generate the fingerprint as shown in the following example:
+</p>
+<pre>
+     1024 11:ff:22:ee:33:dd:44:cc:55:bb:66:aa:77:99:88:88 /etc/ssh/ssh_host_rsa_key.pub
+</pre>
+<p>
+This fingerprint is then added as follows in the recipient line:
+</p>
+<pre>
+     sftp://donald;fingerprint=11-ff-22-ee-33-dd-44-cc-55-bb-66-aa-77-99-88-88:secret@hollywood//home/user
+</pre>
+<p>
+Another valid way of writting this is as follows:
+</p>
+<pre>
+     sftp://donald;fingerprint=ssh-rsa-11-ff-22-ee-33-dd-44-cc-55-bb-66-aa-77-99-88-88:secret@hollywood//home/user
+</pre>
+<p>
+Note that the : are replaced by a minus -.
+</p>
+<p>
 It is not necessary to specify the real hostname or IP number for host.
 In fact it might be much more user friendly to use an alias name here,
 since this will be the name displayed in the afd_ctrl dialog.
 This alias name is then resolved via the <a href="host_config.html">
 HOST_CONFIG</a> file. However, the host must always be supplied.
+</p>
+<p>
+When scheme is sftp or scp one can use the option protocol= to specify the
+SSH protocol version.
 </p>
 <p>
 The server= option is only useful for the mailto scheme. With this option
@@ -759,6 +832,10 @@ section. Valid options can be taken from the following table:
        five minutes, just use "*/5". They can also be used in combination
        with a range. For example, "0-30/5" would equal "0,5,10,15,20,25,30".
        </p>
+       <p>
+       There may be more then one time option. The number of time option
+       is not limited.
+       </p>
    </td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
@@ -870,12 +947,15 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="trans_rename">trans_rename &lt;rule&gt;</a></td>
+   <td><a name="trans_rename">trans_rename &lt;rule&gt; [primary_only|secondary_only]</a></td>
    <td>Rename files on the remote site after the files have been transmitted,
        as defined in the 'rule'-section of the
        <a href="rename_rules.html">etc/rename.rule</a> file. This renaming
        may include directory names, however the directories must exist on
-       the remote site.
+       the remote site. If the additional option primary_only is specified
+       and the system has a secondary host specified, the renaming will only
+       occur on the primary system. When secondary_only is set, the renaming
+       will only happen on the secondary node.
    </td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
@@ -1099,7 +1179,7 @@ section. Valid options can be taken from the following table:
              end, these will be removed.</td>
       </tr>
       <tr>
-         <td><b>sohetx2wmo</b></td>
+         <td><b>sohetxwmo</b></td>
          <td>Adds WMO 8 byte ascii length and 2 bytes type indicator plus
              &lt;SOH&gt;&lt;CR&gt;&lt;CR&gt;&lt;LF&gt; at start and
              &lt;CR&gt;&lt;CR&gt;&lt;LF&gt;&lt;ETX&gt; to end if they are
@@ -1117,6 +1197,13 @@ section. Valid options can be taken from the following table:
          <td>Same as sohetx2wmo0 only that the SOH and ETX will NOT be
              copied to the new file.</td>
       </tr>
+      <tr>
+         <td><b>mrz2wmo</b></td>
+         <td>Converts GRIB, BUFR and BLOK files to files with 8 byte ascii
+             length and 2 bytes type indicator plus &lt;SOH&gt;&lt;CR&gt;&lt;CR&gt;&lt;LF&gt;
+             at start and &lt;CR&gt;&lt;CR&gt;&lt;LF&gt;&lt;ETX&gt; to the
+             end, for the individual fields.</td>
+      </tr>
       </table>
    </td>
    <td align=center>X</td>
@@ -1128,11 +1215,13 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td>extract &lt;type&gt;</td>
-   <td>This options extracts files with WMO bulletins into one file
-       per bulletin. To indicate the length of the bulletin there is
-       either a two or four byte length indicator at the beginning of
-       the following format:
+   <td>extract [-c|-C|-n|-N|-s|-S] &lt;type&gt;</td>
+   <td>This options extracts files with WMO bulletins into one file per
+       bulletin and will delete the original file. Since it is not possible
+       to automatically detect the file type and its length encoding, you
+       to specify what type of file it is. To indicate the length of the
+       bulletin there is either a two or four byte length indicator at the
+       beginning of the following format:
    <table border>
    <tr>
       <td><b>VAX</b></td>
@@ -1171,8 +1260,19 @@ section. Valid options can be taken from the following table:
           GRIB's will overwrite each other.</td>
    </tr>
    </table>
+   <p>
    The file name of the new file will always be the WMO-header, that is:
-   TTAAii_CCCC_YYGGgg[_BBB]</td>
+   TTAAii_CCCC_YYGGgg[_BBB]-&lt;CRC checksum&gt;
+   </p>
+   The optional options have the following meaning:<br>
+   <pre>
+      -c     adds a CRC checksum to end of filename [default]
+      -C     do not add a CRC checksum to end of filename
+      -n     adds a four digit unique number to end of filename
+      -N     do not add a four digit unique number to end of filename [default]
+      -s     add SOH and ETX if not there [default]
+      -S     remove SOH and ETX
+   </pre></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1182,7 +1282,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="exec">exec [-d|-D|-t] &lt;command&gt;</a></td>
+   <td><a name="exec">exec [-d|-D|-l|-L|-t] &lt;command&gt;</a></td>
    <td>Executes a command specified in &lt;command&gt; for each file to be
        distributed. The file name can be supplied with %s. There may be up
        to 10 places in the command where you can insert the file name. The
@@ -1195,6 +1295,15 @@ section. Valid options can be taken from the following table:
                               files will be deleted. This only works if
                               no %s is found in the command string
                               otherwise it will be ignored.
+          -l                  This sets a lock so that only one process
+                              can be executed at one time for each file.
+                              If %s is being used the lock is only set
+                              for the execution duration of that file,
+                              this gives other jobs a chance but only
+                              one can do the execution at one time.
+          -L                  Some as above only that the lock is held
+                              for the duration of all files when %s is
+                              being used.
           -t &lt;time in second&gt; If after the given timeout the execution
                               has not finished the process will be killed.
        </pre>
@@ -1234,11 +1343,13 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="pexec">pexec &lt;command&gt;</a></td>
+   <td><a name="pexec">pexec [-l|-L|-t] &lt;command&gt;</a></td>
    <td>Executes a command specified in &lt;command&gt; for each file after
        it was distributed. The file name can be supplied with %s. There may
        be up to 10 places in the command where you can insert the file name.
-       The files stored in the archive will NOT be effected by this option.</td>
+       The files stored in the archive will NOT be effected by this option.
+       The optional options have the same meaning as those above in the
+       exec option.</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td align=center>X</td>
@@ -1443,10 +1554,10 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="subject_file">subject &lt;full path to subject file&gt;</a></td>
+   <td><a name="subject_file">subject &lt;full path to subject file&gt; [rename rule]</a></td>
    <td>Adds the subject in the &lt;subject file&gt; to the mail. It
-       is possible to insert the current date, for more details see the
-       next option.
+       is possible to insert the current date or filename, for more details
+       see the next option.
        </td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1457,7 +1568,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="subject_line">subject "xxx"</a></td>
+   <td><a name="subject_line">subject "xxx" [rename rule]</a></td>
    <td>Adds the line xxx after the subject identifier to the mails subject.
        It is possible to insert the current date in any form with %tx
        where character x determines the time format which can be one of
@@ -1471,6 +1582,8 @@ section. Valid options can be taken from the following table:
             M - minute [00,59],            S - second [00,60]
             U - Unix time, number of seconds since 00:00:00 01/01/1970 UTC
        </pre>
+       Additionally it is possible to add the filename with %s or parts of
+       it when a rename rule is supplied.
        </td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1906,7 +2019,7 @@ add the following option:
 
            [dir options]
 	   do not remove
-	   store remote list
+	   store retrieve list
 
            [files]
            abc*
@@ -1923,7 +2036,7 @@ add the following option:
                      priority 1
 </pre>
 <p>
-With the option <a href="#store_remote_list">store remote list</a> only
+With the option <a href="#store_retrieve_list">store retrieve list</a> only
 new files or those where the date and/or size has changed will be
 collected. If one want's to increase the poll interval from 1 minute
 to 30 minutes, it needs to be done asfollows:
@@ -1954,11 +2067,11 @@ to 30 minutes, it needs to be done asfollows:
 <hr size=3 noshade>
 <table width=100%>
 <tr>
-   <td width=90%><small><address>
-   Copyright &copy; 1997 - 2006 by H.Kiehl<br>
+   <td width=90%><address><small>
+   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 02.07.2006
-   </address></small></td>
+   Last updated: 11.02.2007
+   </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
    <!-- Insert site specific logo -->

@@ -44,7 +44,7 @@ DESCR__E_M3
 
 
 #include <stdio.h>
-#include <stdarg.h>       /* va_start(), va_arg(), va_end()              */
+#include <stdarg.h>       /* va_start(), va_end()                        */
 #include <string.h>       /* memcpy(), strerror()                        */
 #include <sys/types.h>    /* fd_set                                      */
 #include <sys/time.h>     /* struct timeval                              */

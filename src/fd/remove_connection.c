@@ -52,8 +52,10 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        fsa_fd,
+                                  fra_fd,
                                   no_of_trl_groups;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 extern struct afd_status          *p_afd_status;
 
 
@@ -90,6 +92,30 @@ remove_connection(struct connection *p_con, int faulty, time_t now)
          lock_offset = AFD_WORD_OFFSET +
                        (p_con->fsa_pos * sizeof(struct filetransfer_status));
          fsa[p_con->fsa_pos].last_retry_time = now;
+         if (p_con->fra_pos != -1)
+         {
+            lock_region_w(fra_fd,
+#ifdef LOCK_DEBUG
+                          (char *)&fra[p_con->fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
+#else
+                          (char *)&fra[p_con->fra_pos].error_counter - (char *)fra);
+#endif
+            fra[p_con->fra_pos].error_counter += 1;
+            if ((fra[p_con->fra_pos].error_counter >= fra[p_con->fra_pos].max_errors) &&
+                ((fra[p_con->fra_pos].dir_flag & DIR_ERROR_SET) == 0))
+            {
+               fra[p_con->fra_pos].dir_flag |= DIR_ERROR_SET;
+               SET_DIR_STATUS(fra[p_con->fra_pos].dir_flag,
+                              fra[p_con->fra_pos].dir_status);
+            }
+            unlock_region(fra_fd,
+#ifdef LOCK_DEBUG
+                          (char *)&fra[p_con->fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
+#else
+                          (char *)&fra[p_con->fra_pos].error_counter - (char *)fra);
+#endif
+         }
+
 #ifdef LOCK_DEBUG
          lock_region_w(fsa_fd, lock_offset + LOCK_EC, __FILE__, __LINE__);
 #else

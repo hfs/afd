@@ -127,62 +127,59 @@ Widget w;
       {
          while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
          {
-            if (max_lines < MAX_LINES_IN_ONE_GO)
+            length = strlen(line);
+            total_length += length;
+            if ((log_type_flag == TRANSFER_LOG_TYPE) ||
+                (log_type_flag == TRANS_DB_LOG_TYPE))
             {
-               length = strlen(line);
-               total_length += length;
-               if ((log_type_flag == TRANSFER_LOG_TYPE) ||
-                   (log_type_flag == TRANS_DB_LOG_TYPE))
-               {
-                  if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
-                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
-                       (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
+               if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
+                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
+                    (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
 #ifdef _TOGGLED_PROC_SELECTION
-                       (((toggles_set_parallel_jobs & 1) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '0')) ||
-                       (((toggles_set_parallel_jobs & 2) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '1')) ||
-                       (((toggles_set_parallel_jobs & 4) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '2')) ||
-                       (((toggles_set_parallel_jobs & 8) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '3')) ||
-                       (((toggles_set_parallel_jobs & 16) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '4'))))
+                    (((toggles_set_parallel_jobs & 1) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '0')) ||
+                    (((toggles_set_parallel_jobs & 2) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '1')) ||
+                    (((toggles_set_parallel_jobs & 4) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '2')) ||
+                    (((toggles_set_parallel_jobs & 8) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '3')) ||
+                    (((toggles_set_parallel_jobs & 16) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '4'))))
 #else
-                       (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
-                       (toggles_set_parallel_jobs != 0))))
+                    (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
+                    (toggles_set_parallel_jobs != 0))))
 #endif
-                  {
-                     continue;
-                  }
-               }
-               else
                {
-                  if ((length > LOG_SIGN_POSITION) &&
-                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                       (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
-                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
-                  {
-                     continue;
-                  }
-               }
-
-               for (i = 0; i < no_of_hosts; i++)
-               {
-                  if (log_filter(hosts[i], &line[16]) == 0)
-                  {
-                     memcpy(&line_buffer[chars_buffered], line, length);
-                     chars_buffered += length;
-                     line_counter++;
-                     max_lines++;
-
-                     break;
-                  }
+                  continue;
                }
             }
             else
+            {
+               if ((length > LOG_SIGN_POSITION) &&
+                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                    (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
+                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
+               {
+                  continue;
+               }
+            }
+
+            for (i = 0; i < no_of_hosts; i++)
+            {
+               if (log_filter(hosts[i], &line[16]) == 0)
+               {
+                  memcpy(&line_buffer[chars_buffered], line, length);
+                  chars_buffered += length;
+                  line_counter++;
+                  max_lines++;
+
+                  break;
+               }
+            }
+            if (max_lines >= MAX_LINES_IN_ONE_GO)
             {
                max_lines = 0;
                display_data(w, &lock_counter, &cursor_counter, &locked,
@@ -194,53 +191,50 @@ Widget w;
       {
          while (fgets(line, MAX_LINE_LENGTH, p_log_file) != NULL)
          {
-            if (max_lines < MAX_LINES_IN_ONE_GO)
+            length = strlen(line);
+            total_length += length;
+            if ((log_type_flag == TRANSFER_LOG_TYPE) ||
+                (log_type_flag == TRANS_DB_LOG_TYPE))
             {
-               length = strlen(line);
-               total_length += length;
-               if ((log_type_flag == TRANSFER_LOG_TYPE) ||
-                   (log_type_flag == TRANS_DB_LOG_TYPE))
-               {
-                  if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
-                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
-                       (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
+               if ((length > (LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4)) &&
+                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
+                    (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
 #ifdef _TOGGLED_PROC_SELECTION
-                       (((toggles_set_parallel_jobs & 1) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '0')) ||
-                       (((toggles_set_parallel_jobs & 2) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '1')) ||
-                       (((toggles_set_parallel_jobs & 4) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '2')) ||
-                       (((toggles_set_parallel_jobs & 8) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '3')) ||
-                       (((toggles_set_parallel_jobs & 16) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '4'))))
+                    (((toggles_set_parallel_jobs & 1) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '0')) ||
+                    (((toggles_set_parallel_jobs & 2) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '1')) ||
+                    (((toggles_set_parallel_jobs & 4) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '2')) ||
+                    (((toggles_set_parallel_jobs & 8) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '3')) ||
+                    (((toggles_set_parallel_jobs & 16) == 0) && (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] == '4'))))
 #else
-                       (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
-                       (toggles_set_parallel_jobs != 0))))
+                    (((toggles_set_parallel_jobs - 1) != (line[LOG_SIGN_POSITION + MAX_HOSTNAME_LENGTH + 4] - 48)) &&
+                    (toggles_set_parallel_jobs != 0))))
 #endif
-                  {
-                     continue;
-                  }
-               }
-               else
                {
-                  if ((length > LOG_SIGN_POSITION) &&
-                      ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
-                       (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
-                       (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
-                       (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
-                       (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
-                       (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
-                  {
-                     continue;
-                  }
+                  continue;
                }
-               memcpy(&line_buffer[chars_buffered], line, length);
-               chars_buffered += length;
-               line_counter++;
-               max_lines++;
             }
             else
+            {
+               if ((length > LOG_SIGN_POSITION) &&
+                   ((((toggles_set & SHOW_INFO) == 0) && (line[LOG_SIGN_POSITION] == 'I')) ||
+                    (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
+                    (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
+                    (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                    (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                    (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
+               {
+                  continue;
+               }
+            }
+            memcpy(&line_buffer[chars_buffered], line, length);
+            chars_buffered += length;
+            line_counter++;
+            max_lines++;
+            if (max_lines >= MAX_LINES_IN_ONE_GO)
             {
                max_lines = 0;
                display_data(w, &lock_counter, &cursor_counter, &locked,
@@ -262,11 +256,11 @@ Widget w;
    }
 
    /* Has a new log file been created? */
-   if (((log_type_flag == TRANS_DB_LOG_TYPE) &&
-        (total_length > MAX_TRANS_DB_LOGFILE_SIZE)) ||
-       (((log_type_flag == SYSTEM_LOG_TYPE) ||
-         (log_type_flag == MON_SYSTEM_LOG_TYPE)) &&
-        (total_length > MAX_SYS_LOGFILE_SIZE)) &&
+   if ((((log_type_flag == TRANS_DB_LOG_TYPE) &&
+         (total_length > MAX_TRANS_DB_LOGFILE_SIZE)) ||
+        (((log_type_flag == SYSTEM_LOG_TYPE) ||
+          (log_type_flag == MON_SYSTEM_LOG_TYPE)) &&
+         (total_length > MAX_SYS_LOGFILE_SIZE))) &&
        (current_log_number == 0))
    {
       char        log_file[MAX_PATH_LENGTH];

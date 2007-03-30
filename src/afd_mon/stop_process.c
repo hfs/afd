@@ -1,6 +1,6 @@
 /*
  *  stop_process.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,10 +22,11 @@
 DESCR__S_M3
 /*
  ** NAME
- **   stop_process - stop one or all all monitor process
+ **   stop_process - stop one or all all monitor and log process
  **
  ** SYNOPSIS
  **   void stop_process(int process, int shutdown)
+ **   void stop_log_process(int process)
  **
  ** DESCRIPTION
  **
@@ -38,6 +39,7 @@ DESCR__S_M3
  ** HISTORY
  **   27.12.1998 H.Kiehl Created
  **   14.05.2000 H.Kiehl Enable killing only a single process.
+ **   21.03.2007 H.Kiehl Added stop_log_process().
  **
  */
 DESCR__E_M3
@@ -51,8 +53,7 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                 mon_resp_fd,
-                           no_of_afds,
-                           sys_log_fd;
+                           no_of_afds;
 extern struct process_list *pl;
 
 
@@ -80,31 +81,31 @@ stop_process(int process, int shutdown)
          }
          else
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Hmm, position in MSA to large [%d %d] (%s %d)\n",
-                      process, no_of_afds, __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Hmm, position in MSA to large [%d %d]",
+                       process, no_of_afds);
             return;
          }
       }
       for (i = first; i < last; i++)
       {
-         if (pl[i].pid > 0)
+         if (pl[i].mon_pid > 0)
          {
-            if (kill(pl[i].pid, SIGINT) == -1)
+            if (kill(pl[i].mon_pid, SIGINT) == -1)
             {
                if (errno != ESRCH)
                {
-                  (void)rec(sys_log_fd, WARN_SIGN,
-                            "Failed to kill monitor process to %s (%d) : %s (%s %d)\n",
-                            pl[i].afd_alias, pl[i].pid,
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Failed to kill %s process to %s (%d) : %s",
+                             MON_PROC, pl[i].afd_alias, pl[i].mon_pid,
+                             strerror(errno));
                }
             }
             else
             {
-               if (waitpid(pl[i].pid, &status, 0) == pl[i].pid)
+               if (waitpid(pl[i].mon_pid, &status, 0) == pl[i].mon_pid)
                {
-                  pl[i].pid = 0;
+                  pl[i].mon_pid = 0;
                   pl[i].afd_alias[0] = '\0';
                   pl[i].start_time = 0;
                   pl[i].number_of_restarts = 0;
@@ -113,14 +114,46 @@ stop_process(int process, int shutdown)
                   {
                      if (send_cmd(PROC_TERM, mon_resp_fd) < 0)
                      {
-                        (void)rec(sys_log_fd, WARN_SIGN,
-                                  "Failed to send PROC_TERM : %s (%s %d)\n",
-                                  strerror(errno), __FILE__, __LINE__);
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Failed to send PROC_TERM : %s",
+                                   strerror(errno));
                      }
                   }
                }
             }
          }
+         if (pl[i].log_pid > 0)
+         {
+            stop_log_process(i);
+         }
+      }
+   }
+
+   return;
+}
+
+
+/*########################## stop_log_process() #########################*/
+void
+stop_log_process(int process)
+{
+   int status;
+
+   if (kill(pl[process].log_pid, SIGINT) == -1)
+   {
+      if (errno != ESRCH)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to kill %s process to %s (%d) : %s",
+                    LOG_MON, pl[process].afd_alias, pl[process].log_pid,
+                    strerror(errno));
+      }
+   }
+   else
+   {
+      if (waitpid(pl[process].log_pid, &status, 0) == pl[process].log_pid)
+      {
+         pl[process].log_pid = 0;
       }
    }
 

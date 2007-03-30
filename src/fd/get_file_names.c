@@ -1,6 +1,6 @@
 /*
  *  get_file_names.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -332,7 +332,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to unlink() file `%s' due to age : %s",
-                                p_dir->d_name, strerror(errno));
+                             p_dir->d_name, strerror(errno));
                }
                else
                {
@@ -347,8 +347,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                   }
                   (void)strcpy(dl.file_name, p_dir->d_name);
                   (void)sprintf(dl.host_name, "%-*s %x",
-                                MAX_HOSTNAME_LENGTH,
-                                fsa->host_dsp_name,
+                                MAX_HOSTNAME_LENGTH, fsa->host_alias,
 # ifdef WITH_DUP_CHECK
                                 (is_duplicate == YES) ? DUP_OUTPUT : AGE_OUTPUT);
 # else
@@ -366,10 +365,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                   {
 # endif
 # if SIZEOF_TIME_T == 4
-                     (void)sprintf(str_diff_time, " >%ld", diff_time);
+                     (void)sprintf(str_diff_time, " >%ld",
 # else
-                     (void)sprintf(str_diff_time, " >%lld", diff_time);
+                     (void)sprintf(str_diff_time, " >%lld",
 # endif
+                                   (pri_time_t)diff_time);
 # ifdef WITH_DUP_CHECK
                   }
 # endif
@@ -469,11 +469,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 #endif /* _DELETE_LOG */
                   if (file_to_remove[0] != '\0')
                   {
-                     if ((files_to_delete % 10) == 0)
+                     if ((files_to_delete % 20) == 0)
                      {
                         /* Increase the space for the delete file name buffer */
-                        new_size = ((files_to_delete / 10) + 1) *
-                                   10 * MAX_FILENAME_LENGTH;
+                        new_size = ((files_to_delete / 20) + 1) *
+                                   20 * MAX_FILENAME_LENGTH;
                         offset = p_del_file_name - del_file_name_buffer;
                         if ((del_file_name_buffer = realloc(del_file_name_buffer,
                                                             new_size)) == NULL)
@@ -506,11 +506,11 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                          "File `%s' is duplicate.", p_dir->d_name);
             }
 #endif
-            if ((files_to_send % 10) == 0)
+            if ((files_to_send % 20) == 0)
             {
                /* Increase the space for the file name buffer */
-               new_size = ((files_to_send / 10) + 1) *
-                          10 * MAX_FILENAME_LENGTH;
+               new_size = ((files_to_send / 20) + 1) *
+                          20 * MAX_FILENAME_LENGTH;
                offset = p_file_name - file_name_buffer;
                if ((file_name_buffer = realloc(file_name_buffer,
                                                new_size)) == NULL)
@@ -523,7 +523,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                p_file_name = file_name_buffer + offset;
 
                /* Increase the space for the file size buffer */
-               new_size = ((files_to_send / 10) + 1) * 10 * sizeof(off_t);
+               new_size = ((files_to_send / 20) + 1) * 20 * sizeof(off_t);
                offset = (char *)p_file_size - (char *)file_size_buffer;
                if ((file_size_buffer = realloc(file_size_buffer,
                                                new_size)) == NULL)
@@ -537,7 +537,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 
 #ifdef _WITH_FILE_NAME_SORTING
                /* Increase the space for the mtime buffer. */
-               new_size = ((files_to_send / 10) + 1) * 10 * sizeof(time_t);
+               new_size = ((files_to_send / 20) + 1) * 20 * sizeof(time_t);
                offset = (char *)p_mtime - (char *)mtime_buffer;
                if ((mtime_buffer = realloc(mtime_buffer, new_size)) == NULL)
                {
@@ -697,7 +697,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 # else
                    "Deleted %d duplicate files (%lld Bytes).",
 # endif
-                   dup_counter, dup_counter_size);
+                   dup_counter, (pri_off_t)dup_counter_size);
       }
       if ((files_not_send - dup_counter) > 0)
       {
@@ -708,7 +708,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
                    "Deleted %d files (%lld Bytes) due to age.",
 # endif
                    files_not_send - dup_counter,
-                   file_size_not_send - dup_counter_size);
+                   (pri_off_t)(file_size_not_send - dup_counter_size));
       }
 #else
       trans_log(INFO_SIGN, NULL, 0, NULL,
@@ -717,7 +717,7 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 # else
                 "Deleted %d files (%lld Bytes) due to age.",
 # endif
-                files_not_send, file_size_not_send);
+                files_not_send, (pri_off_t)file_size_not_send);
 #endif
    }
 
@@ -737,6 +737,12 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    if ((files_to_send == 0) && (files_not_send > 0))
    {
       files_to_send = -1;
+#ifdef WITH_ERROR_QUEUE
+      if (fsa->host_status & ERROR_QUEUE_SET)
+      {
+         (void)remove_from_error_queue(db.job_id, fsa);
+      }
+#endif
    }
    return(files_to_send);
 }

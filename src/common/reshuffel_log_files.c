@@ -1,7 +1,7 @@
 /*
  *  reshuffel_log_files.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 1997 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,11 @@ DESCR__S_M3
  **   reshuffel_log_files -
  **
  ** SYNOPSIS
- **   void reshuffel_log_files(int log_number, char *log_file, char *p_end)
+ **   void reshuffel_log_files(int  log_number,
+ **                            char *log_file,
+ **                            char *p_end,
+ **                            int  shift,
+ **                            int  shift_offset)
  **
  ** DESCRIPTION
  **
@@ -38,6 +42,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   11.01.1997 H.Kiehl Created
+ **   22.03.2007 H.Kiehl Added shift factor.
  **
  */
 DESCR__E_M3
@@ -50,57 +55,65 @@ DESCR__E_M3
 
 /*######################## reshuffel_log_files() ########################*/
 void
-reshuffel_log_files(int log_number, char *log_file, char *p_end)
+reshuffel_log_files(int  log_number,
+                    char *log_file,
+                    char *p_end,
+                    int  shift,
+                    int  shift_offset)
 {
    register int i;
    char         dst[MAX_PATH_LENGTH];
 
-   for (i = log_number; i > 0; i--)
+   do
    {
-      (void)sprintf(p_end, "%d", i);
-      (void)strcpy(dst, log_file);
-      (void)sprintf(p_end, "%d", i - 1);
-
-      if (rename(log_file, dst) < 0)
+      for (i = log_number; i > shift_offset; i--)
       {
-         if (errno == ENOSPC)
+         (void)sprintf(p_end, "%d", i);
+         (void)strcpy(dst, log_file);
+         (void)sprintf(p_end, "%d", i - 1);
+
+         if (rename(log_file, dst) < 0)
          {
-            int error_flag = NO;
-
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "DISK FULL!!! Will retry in %d second interval.",
-                       DISK_FULL_RESCAN_TIME);
-
-            while (errno == ENOSPC)
+            if (errno == ENOSPC)
             {
-               (void)sleep(DISK_FULL_RESCAN_TIME);
-               errno = 0;
-               if (rename(log_file, dst) < 0)
+               int error_flag = NO;
+
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "DISK FULL!!! Will retry in %d second interval.",
+                          DISK_FULL_RESCAN_TIME);
+
+               while (errno == ENOSPC)
                {
-                  if (errno != ENOSPC)
+                  (void)sleep(DISK_FULL_RESCAN_TIME);
+                  errno = 0;
+                  if (rename(log_file, dst) < 0)
                   {
-                     system_log(WARN_SIGN, __FILE__, __LINE__,
-                                "Failed to rename() %s to %s : %s",
-                                log_file, dst, strerror(errno));
-                     error_flag = YES;
-                     break;
+                     if (errno != ENOSPC)
+                     {
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Failed to rename() %s to %s : %s",
+                                   log_file, dst, strerror(errno));
+                        error_flag = YES;
+                        break;
+                     }
                   }
                }
+               if (error_flag == NO)
+               {
+                  system_log(INFO_SIGN, __FILE__, __LINE__,
+                             "Continuing after disk was full.");
+               }
             }
-            if (error_flag == NO)
-            {
-               system_log(INFO_SIGN, __FILE__, __LINE__,
-                          "Continuing after disk was full.");
-            }
+            else if (errno != ENOENT)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Failed to rename() %s to %s : %s",
+                               log_file, dst, strerror(errno));
+                 }
          }
-         else if (errno != ENOENT)
-              {
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Failed to rename() %s to %s : %s",
-                            log_file, dst, strerror(errno));
-              }
       }
-   }
+      shift--;
+   } while (shift > 0);
 
    return;
 }

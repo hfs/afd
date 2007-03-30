@@ -1,6 +1,6 @@
 /*
  *  edit_hc.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -51,10 +51,11 @@
 # define ENABLE_DUPCHECK_SEL   3
 # define DISABLE_DUPCHECK_SEL  4
 # define FILE_NAME_SEL         5
-# define FILE_CONTENT_SEL      6
-# define FILE_NAME_CONTENT_SEL 7
-# define DC_DELETE_SEL         8
-# define DC_STORE_SEL          9
+# define FILE_NOSUFFIX_SEL     6
+# define FILE_CONTENT_SEL      7
+# define FILE_NAME_CONTENT_SEL 8
+# define DC_DELETE_SEL         9
+# define DC_STORE_SEL          10
 #endif
 
 #define MAX_TB_BUTTONS         10
@@ -93,7 +94,7 @@
 #define FTP_SET_IDLE_TIME_CHANGED     65536
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
 # define FTP_KEEPALIVE_CHANGED        131072
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+#endif
 #define FTP_FAST_RENAME_CHANGED       262144
 #define FTP_FAST_CD_CHANGED           524288
 #define TRANSFER_RATE_LIMIT_CHANGED   1048576
@@ -109,11 +110,17 @@
 # define DC_WARN_CHANGED              536870912
 # define DC_TIMEOUT_CHANGED           1073741824
 #endif
+#define FTP_EXTENDED_MODE_CHANGED     2147483648U
+#ifdef _WITH_BURST_2
+# define ALLOW_BURST_CHANGED          1
+#endif
+#define FTP_PASSIVE_REDIRECT_CHANGED  2
 
 /* Structure holding all changed entries of one host */
 struct changed_entry
        {
           unsigned int  value_changed;
+          unsigned int  value_changed2;
           char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
           char          host_toggle[2][1];
           char          proxy_name[MAX_PROXY_NAME_LENGTH + 1];
@@ -188,6 +195,7 @@ extern void accept_drop(Widget, XtPointer, XmDropProcCallback),
             submite_button(Widget, XtPointer, XtPointer),
             tb_option_changed(Widget, XtPointer, XtPointer),
             toggle_button(Widget, XtPointer, XtPointer),
+            toggle_button2(Widget, XtPointer, XtPointer),
             value_change(Widget, XtPointer, XtPointer);
 
 #endif /* __edit_hc_h */

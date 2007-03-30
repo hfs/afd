@@ -1,6 +1,6 @@
 /*
  *  in_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,9 @@ DESCR__S_M3
  *              the given crontab like entry
  **
  ** SYNOPSIS
- **   int in_time(time_t current_time, struct bd_time_entry *te);
+ **   int in_time(time_t               current_time,
+ **               unsigned int         no_of_time_entries,
+ **               struct bd_time_entry *te);
  **
  ** DESCRIPTION
  **
@@ -40,6 +42,7 @@ DESCR__S_M3
  ** HISTORY
  **   07.09.2000 H.Kiehl Created
  **   12.05.2001 H.Kiehl Failed to see sunday. Fixed.
+ **   13.11.2006 H.Kiehl Check more then one time entry.
  **
  */
 DESCR__E_M3
@@ -54,52 +57,58 @@ DESCR__E_M3
 
 /*############################# in_time() ###############################*/
 int
-in_time(time_t current_time, struct bd_time_entry *te)
+in_time(time_t               current_time,
+        unsigned int         no_of_time_entries,
+        struct bd_time_entry *te)
 {
-   int       wday;
+   int       i,
+             wday;
    struct tm *bd_time;     /* Broken-down time */
 
    bd_time = localtime(&current_time);
 
-   if (te->month & bit_array[bd_time->tm_mon])
+   for (i = 0; i < no_of_time_entries; i++)
    {
-      if (te->day_of_month & bit_array[bd_time->tm_mday - 1])
+      if (te[i].month & bit_array[bd_time->tm_mon])
       {
-         /*
-          * In struct tm tm_wday is 0 for Sunday. But we use 7
-          * for Sunday.
-          */
-         wday = bd_time->tm_wday;
-         if (wday == 0)
+         if (te[i].day_of_month & bit_array[bd_time->tm_mday - 1])
          {
-            wday = 7;
-         }
-         if (te->day_of_week & bit_array[wday - 1])
-         {
-            if (te->hour & bit_array[bd_time->tm_hour])
+            /*
+             * In struct tm tm_wday is 0 for Sunday. But we use 7
+             * for Sunday.
+             */
+            wday = bd_time->tm_wday;
+            if (wday == 0)
             {
-               /* Evaluate minute (0-59) [0-59] */
+               wday = 7;
+            }
+            if (te[i].day_of_week & bit_array[wday - 1])
+            {
+               if (te[i].hour & bit_array[bd_time->tm_hour])
+               {
+                  /* Evaluate minute (0-59) [0-59] */
 #ifdef _WORKING_LONG_LONG
-               if (((ALL_MINUTES & te->minute) == ALL_MINUTES) ||
-                   ((ALL_MINUTES & te->continuous_minute) == ALL_MINUTES))
-               {
-                  return(YES);
-               }
-               else
-               {
-                  if ((te->minute & bit_array_long[bd_time->tm_min]) ||
-                      (te->continuous_minute & bit_array_long[bd_time->tm_min]))
+                  if (((ALL_MINUTES & te[i].minute) == ALL_MINUTES) ||
+                      ((ALL_MINUTES & te[i].continuous_minute) == ALL_MINUTES))
                   {
                      return(YES);
                   }
-               }
+                  else
+                  {
+                     if ((te[i].minute & bit_array_long[bd_time->tm_min]) ||
+                         (te[i].continuous_minute & bit_array_long[bd_time->tm_min]))
+                     {
+                        return(YES);
+                     }
+                  }
 #else
-               if (bittest(te->minute, bd_time->tm_min) ||
-                   bittest(te->continuous_minute, bd_time->tm_min))
-               {
-                  return(YES);
-               }
+                  if (bittest(te[i].minute, bd_time->tm_min) ||
+                      bittest(te[i].continuous_minute, bd_time->tm_min))
+                  {
+                     return(YES);
+                  }
 #endif
+               }
             }
          }
       }

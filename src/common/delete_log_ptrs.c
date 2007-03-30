@@ -1,6 +1,6 @@
 /*
  *  delete_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -102,7 +102,11 @@ delete_log_ptrs(struct delete_log *dl)
          return;
       }
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(delete_log_fifo, &dl->readfd, &dl->fd) == -1)
+#else
    if ((dl->fd = coe_open(delete_log_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo <%s> : %s",

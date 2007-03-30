@@ -95,16 +95,14 @@ static void            eval_input(int, char **),
 int
 main(int argc, char *argv[])
 {
-   int         errors = 0,
-               i,
-               position;
-   char        fake_user[MAX_FULL_USER_ID_LENGTH],
-               *perm_buffer,
-               *ptr,
-               user[MAX_FULL_USER_ID_LENGTH],
-               sys_log_fifo[MAX_PATH_LENGTH],
-               work_dir[MAX_PATH_LENGTH];
-   struct stat stat_buf;
+   int  errors = 0,
+        i,
+        position;
+   char fake_user[MAX_FULL_USER_ID_LENGTH],
+        *perm_buffer,
+        *ptr,
+        user[MAX_FULL_USER_ID_LENGTH],
+        work_dir[MAX_PATH_LENGTH];
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -138,6 +136,20 @@ main(int argc, char *argv[])
     */
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -235,28 +247,6 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* If the process AFD has not yet created the */
-   /* system log fifo create it now.             */
-   (void)sprintf(sys_log_fifo, "%s%s%s",
-                 p_work_dir, FIFO_DIR, MON_SYS_LOG_FIFO);
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
-      {
-         (void)fprintf(stderr,
-                       "ERROR   : Could not create fifo %s. (%s %d)\n",
-                       sys_log_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
    for (i = 0; i < no_of_afd_names; i++)
    {
       position = -1;
@@ -297,15 +287,22 @@ main(int argc, char *argv[])
          if (msa[position].connect_status == DISABLED)
          {
             int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            int  readfd;
+#endif
             char mon_cmd_fifo[MAX_PATH_LENGTH];
 
             (void)sprintf(mon_cmd_fifo, "%s%s%s",
                           p_work_dir, FIFO_DIR, MON_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(mon_cmd_fifo, &readfd, &fd) == -1)
+#else
             if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to open() %s : %s",
+                          mon_cmd_fifo, strerror(errno));
                errors++;
             }
             else
@@ -316,23 +313,30 @@ main(int argc, char *argv[])
                length = sprintf(cmd, "%c %d", ENABLE_MON, position);
                if (write(fd, cmd, length) != length)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to write() to %s : %s (%s %d)\n",
-                            mon_cmd_fifo, strerror(errno),
-                            __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to write() to %s : %s",
+                             mon_cmd_fifo, strerror(errno));
                   errors++;
                }
                else
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: ENABLED (%s) [mafdcmd].\n",
-                            MAX_AFD_NAME_LENGTH, msa[position].afd_alias, user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: ENABLED (%s) [mafdcmd].",
+                             MAX_AFD_NAME_LENGTH, msa[position].afd_alias, user);
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s",
+                             mon_cmd_fifo, strerror(errno));
+               }
+#endif
                if (close(fd) == -1)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Failed to close() FIFO %s : %s (%s %d)\n",
-                            mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s",
+                             mon_cmd_fifo, strerror(errno));
                }
             }
          }
@@ -358,15 +362,22 @@ main(int argc, char *argv[])
          else
          {
             int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            int  readfd;
+#endif
             char mon_cmd_fifo[MAX_PATH_LENGTH];
 
             (void)sprintf(mon_cmd_fifo, "%s%s%s",
                           p_work_dir, FIFO_DIR, MON_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(mon_cmd_fifo, &readfd, &fd) == -1)
+#else
             if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to open() %s : %s",
+                          mon_cmd_fifo, strerror(errno));
                errors++;
             }
             else
@@ -377,23 +388,30 @@ main(int argc, char *argv[])
                length = sprintf(cmd, "%c %d", DISABLE_MON, position);
                if (write(fd, cmd, length) != length)
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "Failed to write() to %s : %s (%s %d)\n",
-                            mon_cmd_fifo, strerror(errno),
-                            __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Failed to write() to %s : %s",
+                             mon_cmd_fifo, strerror(errno));
                   errors++;
                }
                else
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: DISABLED (%s) [mafdcmd].\n",
-                            MAX_AFD_NAME_LENGTH, msa[position].afd_alias, user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: DISABLED (%s) [mafdcmd].",
+                             MAX_AFD_NAME_LENGTH, msa[position].afd_alias, user);
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s",
+                             mon_cmd_fifo, strerror(errno));
+               }
+#endif
                if (close(fd) == -1)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Failed to close() FIFO %s : %s (%s %d)\n",
-                            mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s",
+                             mon_cmd_fifo, strerror(errno));
                }
             }
          }
@@ -405,15 +423,22 @@ main(int argc, char *argv[])
       if (options & TOGGLE_AFD_OPTION)
       {
          int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         int  readfd;
+#endif
          char mon_cmd_fifo[MAX_PATH_LENGTH];
 
          (void)sprintf(mon_cmd_fifo, "%s%s%s",
                        p_work_dir, FIFO_DIR, MON_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(mon_cmd_fifo, &readfd, &fd) == -1)
+#else
          if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to open() %s : %s (%s %d)\n",
-                      mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to open() %s : %s",
+                       mon_cmd_fifo, strerror(errno));
             errors++;
          }
          else
@@ -434,24 +459,31 @@ main(int argc, char *argv[])
             }
             if (write(fd, cmd, length) != length)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to write() to %s : %s (%s %d)\n",
-                         mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to write() to %s : %s",
+                          mon_cmd_fifo, strerror(errno));
                errors++;
             }
             else
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: %s (%s) [mafdcmd].\n",
-                         MAX_AFD_NAME_LENGTH, msa[position].afd_alias,
-                         (action == DISABLE_MON) ? "DISABLE" : "ENABLE", user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: %s (%s) [mafdcmd].",
+                          MAX_AFD_NAME_LENGTH, msa[position].afd_alias,
+                          (action == DISABLE_MON) ? "DISABLE" : "ENABLE", user);
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO %s : %s",
+                          mon_cmd_fifo, strerror(errno));
+            }
+#endif
             if (close(fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Failed to close() FIFO %s : %s (%s %d)\n",
-                         mon_cmd_fifo, strerror(errno),
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO %s : %s",
+                          mon_cmd_fifo, strerror(errno));
             }
          }
       }
@@ -459,11 +491,18 @@ main(int argc, char *argv[])
       if (options & RETRY_OPTION)
       {
          int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         int  readfd;
+#endif
          char retry_fifo[MAX_PATH_LENGTH];
 
          (void)sprintf(retry_fifo, "%s%s%s%d",
                        p_work_dir, FIFO_DIR, RETRY_MON_FIFO, position);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(retry_fifo, &readfd, &fd) == -1)
+#else
          if ((fd = open(retry_fifo, O_RDWR)) == -1)
+#endif
          {
             (void)fprintf(stderr,
                           "WARNING : Failed to open() %s : %s (%s %d)\n",
@@ -481,12 +520,19 @@ main(int argc, char *argv[])
                              __FILE__, __LINE__);
                errors++;
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO %s : %s"
+                          RETRY_FD_FIFO, strerror(errno));
+            }
+#endif
             if (close(fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Failed to close() FIFO %s : %s (%s %d)\n"
-                         RETRY_FD_FIFO, strerror(errno),
-                         __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() FIFO %s : %s"
+                          RETRY_FD_FIFO, strerror(errno));
             }
          }
       }
@@ -513,9 +559,9 @@ main(int argc, char *argv[])
             {
                msa[position].afd_toggle = (HOST_ONE - 1);
             }
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "%-*s: SWITCHED (%s) [mafdcmd].\n",
-                      MAX_AFD_NAME_LENGTH, msa[position].afd_alias, user);
+            system_log(DEBUG_SIGN, NULL, 0,
+                       "%-*s: SWITCHED (%s) [mafdcmd].",
+                       MAX_AFD_NAME_LENGTH, msa[position].afd_alias, user);
          }
       }
    } /* for (i = 0; i < no_of_afd_names; i++) */

@@ -1,7 +1,7 @@
 /*
  *  lookup_file_mask_id.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -155,7 +155,8 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
 #else
                             "Hmmm, something is wrong here (i=%d *no_of_file_masks=%d diff=%d fmd_size=%lld).",
 #endif
-                            i, *no_of_file_masks, (ptr - fmd), fmd_size);
+                            i, *no_of_file_masks, (ptr - fmd),
+                            (pri_off_t)fmd_size);
                  break;
               }
       }

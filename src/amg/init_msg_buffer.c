@@ -56,6 +56,9 @@ DESCR__E_M3
 /* External global variables. */
 extern int                mb_fd,
                           msg_fifo_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                          msg_fifo_readfd,
+#endif
                           *no_msg_buffered;
 extern char               *p_work_dir;
 extern struct message_buf *mb;
@@ -106,7 +109,11 @@ init_msg_buffer(void)
          exit(INCORRECT);
       }
    }
-   if ((msg_fifo_fd = open(msg_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(msg_fifo, &msg_fifo_readfd, &msg_fifo_fd) == -1)
+#else
+   if ((msg_fifo_fd = open(msg_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s", msg_fifo, strerror(errno));

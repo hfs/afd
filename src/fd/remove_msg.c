@@ -1,6 +1,6 @@
 /*
  *  remove_msg.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2000 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -39,6 +39,7 @@ DESCR__S_M3
  ** HISTORY
  **   27.07.1998 H.Kiehl Created
  **   11.08.2000 H.Kiehl Support for retrieving files.
+ **   29.09.2006 H.Kiehl Added error_counter handling for FRA.
  **
  */
 DESCR__E_M3
@@ -48,7 +49,8 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int                        *no_msg_queued;
+extern int                        fra_fd,
+                                  *no_msg_queued;
 extern struct queue_buf           *qb;
 extern struct fileretrieve_status *fra;
 
@@ -61,6 +63,29 @@ remove_msg(int qb_pos)
    {
       /* Dequeue in FRA. */
       fra[qb[qb_pos].pos].queued = NO;
+
+      if (fra[qb[qb_pos].pos].error_counter > 0)
+      {
+         lock_region_w(fra_fd,
+#ifdef LOCK_DEBUG
+                       (char *)&fra[qb[qb_pos].pos].error_counter - (char *)fra, __FILE__, __LINE__);
+#else
+                       (char *)&fra[qb[qb_pos].pos].error_counter - (char *)fra);
+#endif
+         fra[qb[qb_pos].pos].error_counter = 0;
+         if (fra[qb[qb_pos].pos].dir_flag & DIR_ERROR_SET)
+         {
+            fra[qb[qb_pos].pos].dir_flag ^= DIR_ERROR_SET;
+            SET_DIR_STATUS(fra[qb[qb_pos].pos].dir_flag,
+                           fra[qb[qb_pos].pos].dir_status);
+         }
+         unlock_region(fra_fd,
+#ifdef LOCK_DEBUG
+                       (char *)&fra[qb[qb_pos].pos].error_counter - (char *)fra, __FILE__, __LINE__);
+#else
+                       (char *)&fra[qb[qb_pos].pos].error_counter - (char *)fra);
+#endif
+      }
 
       /* Calculate the next scan time. */
       if (fra[qb[qb_pos].pos].time_option == YES)

@@ -66,6 +66,9 @@ DESCR__E_M1
 
 /* Global variables */
 int                        sys_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           sys_log_readfd,
+#endif
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -197,7 +200,11 @@ main(int argc, char *argv[])
       }
 
       /* Open system log fifo */
-      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(sys_log_fifo, &sys_log_readfd, &sys_log_fd) == -1)
+#else
+      if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
+#endif
       {
          (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
                        sys_log_fifo, strerror(errno), __FILE__, __LINE__);
@@ -356,7 +363,7 @@ main(int argc, char *argv[])
          {
             read_afd_stat_db(no_of_hosts);
          }
-         if (check_fra() == YES)
+         if (check_fra(NO) == YES)
          {
             read_afd_istat_db(no_of_dirs);
          }

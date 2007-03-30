@@ -1,6 +1,6 @@
 /*
  *  create_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,14 +31,19 @@ DESCR__S_M3
  **                      char         *options)
  **
  ** DESCRIPTION
- **   This function creates a message in th AFD message directory.
+ **   This function creates a message in the AFD message directory.
  **   The name of the message is the job ID. From the contents of
- **   this message the sf_xxx process no where to send the files
- **   and with what options.
+ **   this message the sf_xxx process know where to send the files
+ **   and what options to use.
  **
  ** RETURN VALUES
  **   SUCCESS when it managed to create the message, otherwise
  **   INCORRECT will be returned.
+ **
+ ** SEE ALSO
+ **   common/get_hostname.c, fd/eval_recipient.c, fd/get_job_data.c,
+ **   amg/store_passwd.c, fd/init_msg_buffer.c, tools/get_dc_data.c,
+ **   tools/set_pw.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -86,9 +91,11 @@ create_message(unsigned int job_id, char *recipient, char *options)
         (*(ptr + 3) == 'l') && (*(ptr + 4) == 'e') && (*(ptr + 5) == ':')) ||
        ((*ptr == 'm') && (*(ptr + 1) == 'a') && (*(ptr + 2) == 'i') &&
         (*(ptr + 3) == 'l') && (*(ptr + 4) == 't') && (*(ptr + 5) == 'o') &&
-        (*(ptr + 6) == ':')))
+        (*(ptr + 6) == ':')) ||
+       ((*ptr == 'w') && (*(ptr + 1) == 'm') && (*(ptr + 2) == 'o') &&
+        (*(ptr + 3) == ':')))
    {
-      /* No need to store any password for scheme file and mailto. */
+      /* No need to store any password for scheme file, mailto and wmo. */
       password[0] = '\0';
    }
    else
@@ -112,8 +119,12 @@ create_message(unsigned int job_id, char *recipient, char *options)
             char uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
 
             fd = 0;
-            while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                   (fd < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+            while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+            while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                   (*ptr != '\0') && (fd < MAX_USER_NAME_LENGTH))
             {
                if (*ptr == '\\')
                {
@@ -126,7 +137,11 @@ create_message(unsigned int job_id, char *recipient, char *options)
             }
             if (fd > 0)
             {
+#ifdef WITH_SSH_FINGERPRINT
+               if ((fd == MAX_USER_NAME_LENGTH) || (*ptr == ';'))
+#else
                if (fd == MAX_USER_NAME_LENGTH)
+#endif
                {
                   while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
                   {

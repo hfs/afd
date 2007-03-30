@@ -51,13 +51,6 @@
  *                            complicated the code.
  * _WITH_MAP_SUPPORT        - Support for the special protocol used by the
  *                            MAP system of the German Weather Service (DWD).
- * _WITH_UNIQUE_NUMBERS     - When extracting files to the form one file
- *                            per bulletin it can happen that some bulletins
- *                            are over written. To eliminate this set this
- *                            option.
- * _WITH_CRC_UNIQUE_NUMBERS - Same as _WITH_UNIQUE_NUMBERS only that the
- *                            unique number is the CRC32 checksum of the
- *                            content of the bulletin.
  * _WITH_SCP_SUPPORT        - Support for copying files via the SCP protocol.
  *                            This requires a local ssh client.
  * _WITH_TRANS_EXEC         - With option to execute a command after each
@@ -76,10 +69,12 @@
 /* #define _WITH_PTHREAD */
 #define _WITH_AFW2WMO
 /* #define _WITH_MAP_SUPPORT */
-/* #define _WITH_UNIQUE_NUMBERS */
-#define _WITH_CRC_UNIQUE_NUMBERS
 #define _WITH_SCP_SUPPORT
 #define _WITH_TRANS_EXEC
+#define WITH_SSH_FINGERPRINT
+#ifdef WITH_SSH_FINGERPRINT
+# define WITH_REMOVE_FROM_KNOWNHOSTS
+#endif
 #define FTP_CTRL_KEEP_ALIVE_INTERVAL 1200L
 /* #define DO_NOT_ARCHIVE_UNIQUE_PART */
 
@@ -140,9 +135,12 @@
 
 /*-----------------------------------------------------------------------*
  * Some commonly used maximum values.
+ * NOTE: If you change MAX_LINE_LENGTH ensure that you change
+ *       MAX_LOG_DATA_BUFFER so that it is still divisible by
+ *       MAX_LINE_LENGTH and there is no rest (see afdd/afdddefs.h).
  *-----------------------------------------------------------------------*/
 #define MAX_PATH_LENGTH     1024
-#define MAX_LINE_LENGTH     2048
+#define MAX_LINE_LENGTH     2048 /* See note above! */
 
 /*-----------------------------------------------------------------------*
  * The interval time (in seconds) at which the process 'init_afd'

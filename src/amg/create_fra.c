@@ -1,6 +1,6 @@
 /*
  *  create_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ DESCR__S_M3
  **                      and accumulate_size.
  **   09.02.2005 H.Kiehl Added additional time entry structure to enable
  **                      alarm times.
+ **   24.02.2007 H.Kiehl Added inotify support.
  **
  */
 DESCR__E_M3
@@ -393,6 +394,7 @@ create_fra(int no_of_dirs)
          fra[i].ignore_size            = dd[i].ignore_size;
          fra[i].ignore_file_time       = dd[i].ignore_file_time;
          fra[i].gt_lt_sign             = dd[i].gt_lt_sign;
+         fra[i].keep_connected         = dd[i].keep_connected;
          fra[i].max_copied_files       = dd[i].max_copied_files;
          fra[i].max_copied_file_size   = dd[i].max_copied_file_size;
          fra[i].accumulate_size        = dd[i].accumulate_size;
@@ -401,6 +403,8 @@ create_fra(int no_of_dirs)
          fra[i].dup_check_timeout      = dd[i].dup_check_timeout;
          fra[i].dup_check_flag         = dd[i].dup_check_flag;
 #endif
+         fra[i].warn_time              = dd[i].warn_time;
+         fra[i].max_errors             = dd[i].max_errors;
          fra[i].in_dc_flag             = dd[i].in_dc_flag;
          fra[i].last_retrieval         = 0L;
          fra[i].bytes_received         = 0;
@@ -411,6 +415,7 @@ create_fra(int no_of_dirs)
          fra[i].files_received         = 0;
          fra[i].no_of_process          = 0;
          fra[i].dir_status             = NORMAL_STATUS;
+         fra[i].error_counter          = 0;
          if (dd[i].accept_dot_files == NO)
          {
             fra[i].dir_flag            = 0;
@@ -419,6 +424,20 @@ create_fra(int no_of_dirs)
          {
             fra[i].dir_flag            = ACCEPT_DOT_FILES;
          }
+         if (dd[i].do_not_get_dir_list == YES)
+         {
+            fra[i].dir_flag |= DONT_GET_DIR_LIST;
+         }
+#ifdef WITH_INOTIFY
+         if (dd[i].inotify_flag & INOTIFY_RENAME_FLAG)
+         {
+            fra[i].dir_flag |= INOTIFY_RENAME;
+         }
+         if (dd[i].inotify_flag & INOTIFY_CLOSE_FLAG)
+         {
+            fra[i].dir_flag |= INOTIFY_CLOSE;
+         }
+#endif
          if (fra[i].time_option == YES)
          {
             (void)memcpy(&fra[i].te, &dd[i].te, sizeof(struct bd_time_entry));
@@ -456,6 +475,7 @@ create_fra(int no_of_dirs)
          fra[i].ignore_size            = dd[i].ignore_size;
          fra[i].ignore_file_time       = dd[i].ignore_file_time;
          fra[i].gt_lt_sign             = dd[i].gt_lt_sign;
+         fra[i].keep_connected         = dd[i].keep_connected;
          fra[i].max_copied_files       = dd[i].max_copied_files;
          fra[i].max_copied_file_size   = dd[i].max_copied_file_size;
          fra[i].accumulate_size        = dd[i].accumulate_size;
@@ -464,7 +484,9 @@ create_fra(int no_of_dirs)
          fra[i].dup_check_timeout      = dd[i].dup_check_timeout;
          fra[i].dup_check_flag         = dd[i].dup_check_flag;
 #endif
+         fra[i].warn_time              = dd[i].warn_time;
          fra[i].in_dc_flag             = dd[i].in_dc_flag;
+         fra[i].max_errors             = dd[i].max_errors;
          fra[i].no_of_process          = 0;
          fra[i].dir_status             = NORMAL_STATUS;
          if (fra[i].time_option == YES)
@@ -504,6 +526,7 @@ create_fra(int no_of_dirs)
             fra[i].bytes_in_queue         = old_fra[k].bytes_in_queue;
             fra[i].dir_status             = old_fra[k].dir_status;
             fra[i].dir_flag               = old_fra[k].dir_flag;
+            fra[i].error_counter          = old_fra[k].error_counter;
             if (((fra[i].dir_flag & ACCEPT_DOT_FILES) &&
                  (dd[i].accept_dot_files == NO)) ||
                 (((fra[i].dir_flag & ACCEPT_DOT_FILES) == 0) &&
@@ -511,6 +534,42 @@ create_fra(int no_of_dirs)
             {
                fra[i].dir_flag ^= ACCEPT_DOT_FILES;
             }
+            if (((fra[i].dir_flag & DONT_GET_DIR_LIST) &&
+                 (dd[i].do_not_get_dir_list == NO)) ||
+                (((fra[i].dir_flag & DONT_GET_DIR_LIST) == 0) &&
+                 (dd[i].do_not_get_dir_list == YES)))
+            {
+               fra[i].dir_flag ^= DONT_GET_DIR_LIST;
+            }
+            if ((fra[i].dir_flag & WARN_TIME_REACHED) &&
+                ((fra[i].warn_time < 1) ||
+                 ((current_time - fra[i].last_retrieval) < fra[i].warn_time)))
+            {
+               fra[i].dir_flag ^= WARN_TIME_REACHED;
+               SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
+            }
+#ifdef WITH_INOTIFY
+            if ((fra[i].dir_flag & INOTIFY_RENAME) &&
+                ((dd[i].inotify_flag & INOTIFY_RENAME_FLAG) == 0))
+            {
+               fra[i].dir_flag ^= INOTIFY_RENAME;
+            }
+            else if (((fra[i].dir_flag & INOTIFY_RENAME) == 0) &&
+                     (dd[i].inotify_flag & INOTIFY_RENAME_FLAG))
+                 {
+                    fra[i].dir_flag |= INOTIFY_RENAME;
+                 }
+            if ((fra[i].dir_flag & INOTIFY_CLOSE) &&
+                ((dd[i].inotify_flag & INOTIFY_CLOSE_FLAG) == 0))
+            {
+               fra[i].dir_flag ^= INOTIFY_CLOSE;
+            }
+            else if (((fra[i].dir_flag & INOTIFY_CLOSE) == 0) &&
+                     (dd[i].inotify_flag & INOTIFY_CLOSE_FLAG))
+                 {
+                    fra[i].dir_flag |= INOTIFY_CLOSE;
+                 }
+#endif
             fra[i].queued                 = old_fra[k].queued;
             (void)memcpy(&fra[i].ate, &old_fra[k].ate,
                          sizeof(struct bd_time_entry));
@@ -525,6 +584,7 @@ create_fra(int no_of_dirs)
             fra[i].bytes_in_dir           = 0;
             fra[i].bytes_in_queue         = 0;
             fra[i].dir_status             = NORMAL_STATUS;
+            fra[i].error_counter          = 0;
             if (dd[i].accept_dot_files == NO)
             {
                fra[i].dir_flag            = 0;
@@ -533,6 +593,20 @@ create_fra(int no_of_dirs)
             {
                fra[i].dir_flag            = ACCEPT_DOT_FILES;
             }
+            if (dd[i].do_not_get_dir_list == YES)
+            {
+               fra[i].dir_flag |= DONT_GET_DIR_LIST;
+            }
+#ifdef WITH_INOTIFY
+            if (dd[i].inotify_flag & INOTIFY_RENAME_FLAG)
+            {
+               fra[i].dir_flag |= INOTIFY_RENAME;
+            }
+            if (dd[i].inotify_flag & INOTIFY_CLOSE_FLAG)
+            {
+               fra[i].dir_flag |= INOTIFY_CLOSE;
+            }
+#endif
             fra[i].queued                 = NO;
             fra[i].wait_for_filename[0]   = '\0';
             fra[i].accumulate_size        = 0;
@@ -540,6 +614,10 @@ create_fra(int no_of_dirs)
             (void)memset(&fra[i].ate, 0, sizeof(struct bd_time_entry));
          }
       } /* for (i = 0; i < no_of_dirs; i++) */
+
+      /* Copy configuration information from the old FRA. */
+      ptr = (char *)fra - AFD_FEATURE_FLAG_OFFSET_END;
+      *ptr = *((char *)old_fra - AFD_FEATURE_FLAG_OFFSET_END);
    }
 
    /* Release memory of the structure dir_data. */
@@ -549,7 +627,6 @@ create_fra(int no_of_dirs)
    /* Reposition fra pointer after no_of_dirs */
    ptr = (char *)fra;
    ptr -= AFD_WORD_OFFSET;
-   *(ptr + SIZEOF_INT + 1) = 0;                         /* Not used. */
    *(ptr + SIZEOF_INT + 1 + 1) = 0;                     /* Not used. */
    *(ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_FRA_VERSION; /* FRA version number */
    (void)memset((ptr + SIZEOF_INT + 4), 0, SIZEOF_INT); /* Not used. */

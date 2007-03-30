@@ -1,7 +1,7 @@
 /*
  *  init_fifos_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998, 1999 Deutscher Wetterdienst (DWD),
- *                           Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -54,8 +54,15 @@ DESCR__E_M3
 #include "mondefs.h"
 
 extern int  mon_cmd_fd,
+            mon_log_fd,
             mon_resp_fd,
             probe_only_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            mon_cmd_writefd,
+            mon_log_readfd,
+            mon_resp_readfd,
+            probe_only_readfd,
+#endif
             sys_log_fd;
 extern char mon_cmd_fifo[],
             probe_only_fifo[],
@@ -70,7 +77,7 @@ init_fifos_mon(void)
                mon_resp_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
-   /* Initialise fifo names */
+   /* Initialise fifo names. */
    (void)strcpy(mon_resp_fifo, p_work_dir);
    (void)strcat(mon_resp_fifo, FIFO_DIR);
    (void)strcpy(mon_cmd_fifo, mon_resp_fifo);
@@ -87,9 +94,8 @@ init_fifos_mon(void)
    {
       if (make_fifo(mon_cmd_fifo) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not create fifo %s. (%s %d)\n",
-                   mon_cmd_fifo, __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not create fifo %s.", mon_cmd_fifo);
          return(INCORRECT);
       }
    }
@@ -97,9 +103,8 @@ init_fifos_mon(void)
    {
       if (make_fifo(mon_resp_fifo) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not create fifo %s. (%s %d)\n",
-                   mon_resp_fifo, __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not create fifo %s.", mon_resp_fifo);
          return(INCORRECT);
       }
    }
@@ -108,9 +113,8 @@ init_fifos_mon(void)
    {
       if (make_fifo(probe_only_fifo) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not create fifo %s. (%s %d)\n",
-                   probe_only_fifo, __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not create fifo %s.", probe_only_fifo);
          return(INCORRECT);
       }
    }
@@ -119,36 +123,57 @@ init_fifos_mon(void)
    {
       if (make_fifo(mon_log_fifo) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not create fifo %s. (%s %d)\n",
-                   mon_log_fifo, __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not create fifo %s.", mon_log_fifo);
          return(INCORRECT);
       }
    }
 
-   /* Open fifo to AFD to receive commands */
+   /* Open fifo to log to monitor_log. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(mon_log_fifo, &mon_log_readfd, &mon_log_fd) == -1)
+#else
+   if ((mon_log_fd = coe_open(mon_log_fifo, O_RDWR)) == -1)
+#endif
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s", mon_log_fifo, strerror(errno));
+      return(INCORRECT);
+   }
+
+   /* Open fifo to AFD to receive commands. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(mon_cmd_fifo, &mon_cmd_fd, &mon_cmd_writefd) == -1)
+#else
    if ((mon_cmd_fd = coe_open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s", mon_cmd_fifo, strerror(errno));
       return(INCORRECT);
    }
 
-   /* Open fifo to AFD to acknowledge the command */
+   /* Open fifo to AFD to acknowledge the command. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(mon_resp_fifo, &mon_resp_readfd, &mon_resp_fd) == -1)
+#else
    if ((mon_resp_fd = coe_open(mon_resp_fifo, O_RDWR)) == -1)
+#endif
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                mon_resp_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s", mon_resp_fifo, strerror(errno));
       return(INCORRECT);
    }
 
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(probe_only_fifo, &probe_only_readfd, &probe_only_fd) == -1)
+#else
    if ((probe_only_fd = coe_open(probe_only_fifo, O_RDWR)) == -1)
+#endif
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not open fifo %s : %s (%s %d)\n",
-                probe_only_fifo, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s",
+                 probe_only_fifo, strerror(errno));
       return(INCORRECT);
    }
 

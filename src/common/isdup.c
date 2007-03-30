@@ -41,6 +41,7 @@ DESCR__S_M3
  ** HISTORY
  **   11.06.2005 H.Kiehl Created
  **   09.03.2006 H.Kiehl Added parameter to remove a CRC.
+ **   20.12.2006 H.Kiehl Added option to ignore last suffix of filename.
  **
  */
 DESCR__E_M3
@@ -51,6 +52,7 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <time.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <errno.h>
 
 /* External global variables. */
@@ -93,6 +95,35 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
          return(NO);
       }
    }
+   else if (flag & DC_NAME_NO_SUFFIX)
+        {
+           char *p_end;
+
+           p_end = ptr = fullname + strlen(fullname);
+           while ((*ptr != '.') && (*ptr != '/') && (ptr != fullname))
+           {
+              ptr--;
+           }
+           if (*ptr == '.')
+           {
+              p_end = ptr;
+           }
+           while ((*ptr != '/') && (ptr != fullname))
+           {
+              ptr--;
+           }
+           if (*ptr == '/')
+           {
+              ptr++;
+              crc = get_checksum(ptr, (p_end - ptr));
+           }
+           else
+           {
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Unable to find filename in `%s'.", fullname);
+              return(NO);
+           }
+        }
    else if (flag & DC_FILE_CONTENT)
         {
            char buffer[4096];

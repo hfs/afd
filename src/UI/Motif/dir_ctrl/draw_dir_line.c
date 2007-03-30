@@ -1,6 +1,6 @@
 /*
  *  draw_dir_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@ DESCR__S_M3
  ** HISTORY
  **   01.09.2000 H.Kiehl Created
  **   05.05.2002 H.Kiehl Show the number files currently in the directory.
+ **   28.09.2006 H.Kiehl Added error counter.
  **
  */
 DESCR__E_M3
@@ -73,6 +74,7 @@ extern GC                         letter_gc,
                                   label_bg_gc,
                                   red_color_letter_gc,
                                   tr_bar_gc,
+                                  tu_bar_gc,
                                   fr_bar_gc,
                                   color_gc,
                                   black_line_gc,
@@ -83,7 +85,7 @@ extern unsigned long              color_pool[];
 extern float                      max_bar_length;
 extern int                        line_length,
                                   line_height,
-                                  bar_thickness_2,
+                                  bar_thickness_3,
                                   x_offset_bars,
                                   x_offset_characters,
                                   x_offset_dir_full,
@@ -159,7 +161,7 @@ draw_dir_label_line(void)
       if (line_style != BARS_ONLY)
       {
          /*
-          * Draw string " fd   bd  qc  fq   bq  pr  tr   fr"
+          * Draw string " fd   bd  qc  fq   bq  pr  tr   fr  ec"
           *     fd - files in dir
           *     bd - bytes in dir
           *     fq - files in queue(s)
@@ -167,12 +169,13 @@ draw_dir_label_line(void)
           *     pr - active process
           *     tr - transfer rate
           *     fr - file rate
+          *     ec - error counter
           */
          XDrawString(display, label_window, letter_gc,
                      x + x_offset_characters,
                      text_offset + SPACE_ABOVE_LINE,
-                     " fd   bd   fq   bq  pr  tr   fr",
-                     31);
+                     " fd   bd   fq   bq  pr  tr   fr  ec",
+                     35);
       }
 
       x += line_length;
@@ -251,13 +254,15 @@ draw_dir_line_status(int pos, signed char delta)
       draw_dir_chars(pos, NO_OF_DIR_PROCESS, x, y);
       draw_dir_chars(pos, BYTE_RATE, x, y);
       draw_dir_chars(pos, FILE_RATE, x, y);
+      draw_dir_chars(pos, DIR_ERRORS, x, y);
    }
 
    if (line_style != CHARACTERS_ONLY)
    {
       /* Draw bars. */
       draw_dir_bar(pos, delta, BYTE_RATE_BAR_NO, x, y);
-      draw_dir_bar(pos, delta, FILE_RATE_BAR_NO, x, y + bar_thickness_2);
+      draw_dir_bar(pos, delta, TIME_UP_BAR_NO, x, y + bar_thickness_3);
+      draw_dir_bar(pos, delta, FILE_RATE_BAR_NO, x, y + bar_thickness_3 + bar_thickness_3);
 
       /* Show beginning and end of bars. */
       if (connect_data[pos].inverse > OFF)
@@ -312,7 +317,8 @@ draw_dir_identifier(int pos, int x, int y)
    XGCValues  gc_values;
 
    /* Change color of letters when background color is to dark. */
-   if (connect_data[pos].dir_status == DIRECTORY_ACTIVE)
+   if ((connect_data[pos].dir_status == DIRECTORY_ACTIVE) ||
+       (connect_data[pos].dir_status == NOT_WORKING2))
    {
       gc_values.foreground = color_pool[WHITE];
    }
@@ -482,22 +488,28 @@ draw_dir_chars(int pos, char type, int x, int y)
          length = 4;
          break;
 
-      case NO_OF_DIR_PROCESS : 
+      case NO_OF_DIR_PROCESS :
          ptr = connect_data[pos].str_np;
          x_offset = 20 * glyph_width;
          length = 2;
          break;
 
-      case FILE_RATE : 
-         ptr = connect_data[pos].str_fr;
+      case BYTE_RATE :
+         ptr = connect_data[pos].str_tr;
          x_offset = 23 * glyph_width;
          length = 4;
          break;
 
-      case BYTE_RATE : 
-         ptr = connect_data[pos].str_tr;
+      case FILE_RATE :
+         ptr = connect_data[pos].str_fr;
          x_offset = 28 * glyph_width;
          length = 4;
+         break;
+
+      case DIR_ERRORS :
+         ptr = connect_data[pos].str_ec;
+         x_offset = 33 * glyph_width;
+         length = 2;
          break;
 
       default : /* That's not possible! */
@@ -547,6 +559,7 @@ draw_dir_bar(int         pos,
 {
    int x_offset,
        y_offset;
+   GC  tmp_gc;
 
    x_offset = x + x_offset_bars;
    y_offset = y + SPACE_ABOVE_LINE;
@@ -554,23 +567,24 @@ draw_dir_bar(int         pos,
    {
       if (bar_no == BYTE_RATE_BAR_NO)
       {
-         XFillRectangle(display, line_window, tr_bar_gc, x_offset, y_offset,
-                        connect_data[pos].bar_length[(int)bar_no],
-                        bar_thickness_2);
+         tmp_gc = tr_bar_gc;
       }
-      else
-      {
-         XFillRectangle(display, line_window, fr_bar_gc, x_offset, y_offset,
-                        connect_data[pos].bar_length[(int)bar_no],
-                        bar_thickness_2);
-      }
+      else if (bar_no == TIME_UP_BAR_NO)
+           {
+              tmp_gc = tu_bar_gc;
+           }
+           else
+           {
+              tmp_gc = fr_bar_gc;
+           }
+      XFillRectangle(display, line_window, tmp_gc, x_offset, y_offset,
+                     connect_data[pos].bar_length[(int)bar_no],
+                     bar_thickness_3);
    }
 
    /* Remove color behind shrunken bar */
    if (delta < 0)
    {
-      GC tmp_gc;
-
       if (connect_data[pos].inverse == OFF)
       {
          tmp_gc = default_bg_gc;
@@ -590,7 +604,7 @@ draw_dir_bar(int         pos,
                      x_offset + connect_data[pos].bar_length[(int)bar_no],
                      y_offset,
                      (int)max_bar_length - connect_data[pos].bar_length[(int)bar_no],
-                     bar_thickness_2);
+                     bar_thickness_3);
    }
 
    return;

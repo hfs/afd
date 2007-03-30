@@ -1,6 +1,6 @@
 /*
  *  scpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int  scp_connect(char *hostname, int port, char *user,
- **                    char *passwd, char *dir)
+ **                    char *fingerprint, char *passwd, char *dir)
  **   int  scp_open_file(char *filename, off_t size, mode_t mode)
  **   int  scp_close_file(void)
  **   int  scp_write(char *block, int size)
@@ -72,42 +72,79 @@ DESCR__E_M3
 #include <sys/time.h>         /* struct timeval                          */
 #include <sys/wait.h>         /* waitpid()                               */
 #include <sys/stat.h>         /* S_ISUID, S_ISGID, etc                   */
+#include <setjmp.h>           /* setjmp(), longjmp()                     */
 #include <signal.h>           /* signal(), kill()                        */
 #include <unistd.h>           /* select(), write(), close()              */
 #include <errno.h>
+#include "ssh_commondefs.h"
 #include "scpdefs.h"
 #include "fddefs.h"           /* struct job                              */
 
 
-/* External global variables */
+/* External global variables. */
 extern int        timeout_flag;
 extern char       msg_str[];
 extern long       transfer_timeout;
 extern char       tr_hostname[];
 extern struct job db;
 
-/* Local global variables */
+/* Local global variables. */
 static int        data_fd = -1;
 static pid_t      data_pid = -1;
+static jmp_buf    env_alrm;
 
 /* Local function prototypes. */
-static void       sig_ignore_handler(int);
+static void       sig_handler(int);
 
 
 /*########################### scp_connect() #############################*/
 int
-scp_connect(char *hostname, int port, char *user, char *passwd, char *dir)
+scp_connect(char          *hostname,
+            int           port,
+            unsigned char ssh_protocol,
+            char          *user,
+#ifdef WITH_SSH_FINGERPRINT
+            char          *fingerprint,
+#endif
+            char          *passwd,
+            char          *dir)
 {
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+   int  retries = 0;
+# endif
+#endif
    int  status;
    char cmd[MAX_PATH_LENGTH];
 
    (void)sprintf(cmd, "scp -t %s", (dir[0] == '\0') ? "." : dir);
 
-   if ((status = ssh_exec(hostname, port, user, passwd, cmd, NULL,
-                          &data_fd, &data_pid)) == SUCCESS)
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+   do
    {
-      status = ssh_login(data_fd, passwd);
-   }
+# endif
+#endif
+      if ((status = ssh_exec(hostname, port, ssh_protocol, user, passwd, cmd,
+                             NULL, &data_fd, &data_pid)) == SUCCESS)
+      {
+#ifdef WITH_SSH_FINGERPRINT
+         status = ssh_login(data_fd, passwd, fingerprint);
+#else
+         status = ssh_login(data_fd, passwd);
+#endif
+      }
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+      retries++;
+      if (status == RETRY)
+      {
+         scp_quit();
+      }
+   } while ((status == RETRY) && (retries < 5));
+# endif
+#endif
+
    return(status);
 }
 
@@ -126,7 +163,7 @@ scp_open_file(char *filename, off_t size, mode_t mode)
    length = sprintf(cmd, "C%04o %lld %s\n",
 #endif
                     (mode & (S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO)),
-                    size, filename);
+                    (pri_off_t)size, filename);
    if ((status = pipe_write(data_fd, cmd, length)) != length)
    {
       if (errno != 0)
@@ -195,24 +232,34 @@ scp_write(char *block, int size)
    }
    else if (FD_ISSET(data_fd, &wset))
         {
+           int tmp_errno;
+
            /* In some cases, the write system call hangs. */
-           signal(SIGALRM, sig_ignore_handler); /* Ignore the default which */
-                                                /* is to abort.             */
-           my_siginterrupt(SIGALRM, 1); /* Allow SIGALRM to interrupt write. */
-
-           alarm(transfer_timeout); /* Set up an alarm to interrupt write. */
-           if ((status = write(data_fd, block, size)) != size)
+           if (signal(SIGALRM, sig_handler) == SIG_ERR)
            {
-              int tmp_errno = errno;
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                        "scp_write(): Failed to set signal handler : %s",
+                        strerror(errno));
+              return(INCORRECT);
+           }
+           if (setjmp(env_alrm) != 0)
+           {
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                        "scp_write(): write() timeout (%ld)", transfer_timeout);
+              timeout_flag = ON;
+              return(INCORRECT);
+           }
+           (void)alarm(transfer_timeout);
+           status = write(data_fd, block, size);
+           tmp_errno = errno;
+           (void)alarm(0);
 
-              alarm(0);
-              signal(SIGALRM, SIG_DFL); /* restore the default which is abort. */
+           if (status != size)
+           {
               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                         "write() error (%d) : %s", status, strerror(tmp_errno));
               return(tmp_errno);
            }
-           alarm(0);
-           signal(SIGALRM, SIG_DFL); /* Restore the default which is abort. */
 #ifdef WITH_TRACE
            trace_log(NULL, 0, BIN_W_TRACE, block, size, NULL);
 #endif
@@ -286,21 +333,26 @@ scp_quit(void)
 #else
                          "Failed to kill() data ssh process %lld : %s",
 #endif
-                         data_pid, strerror(errno));
+                         (pri_pid_t)data_pid, strerror(errno));
             }
             else
             {
                trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
-                         "Killing hanging data ssh process.");
+#if SIZEOF_PID_T == 4
+                         "Killing hanging data ssh process %d.",
+#else
+                         "Killing hanging data ssh process %lld.",
+#endif
+                         (pri_pid_t)data_pid);
             }
          }
          else
          {
             trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
 #if SIZEOF_PID_T == 4
-                      "Hmm, pid is %d!!!", data_pid);
+                      "Hmm, pid is %d!!!", (pri_pid_t)data_pid);
 #else
-                      "Hmm, pid is %lld!!!", data_pid);
+                      "Hmm, pid is %lld!!!", (pri_pid_t)data_pid);
 #endif
          }
       }
@@ -311,10 +363,9 @@ scp_quit(void)
 }
 
 
-/*+++++++++++++++++++++++++ sig_ignore_handler() ++++++++++++++++++++++++*/
+/*++++++++++++++++++++++++++++ sig_handler() ++++++++++++++++++++++++++++*/
 static void
-sig_ignore_handler(int signo)
+sig_handler(int signo)
 {
-   /* Do nothing. This just allows us to receive a SIGALRM, thus */
-   /* interrupting a system call without being forced to abort.  */
+   longjmp(env_alrm, 1);
 }

@@ -55,6 +55,10 @@ DESCR__E_M3
 /* External global variables */
 extern int  mon_log_fd,
             sys_log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+extern int  mon_log_readfd,
+            sys_log_readfd;
+#endif
 extern char *profile,
             *p_work_dir,
             user[];
@@ -65,6 +69,9 @@ void
 mconfig_log(int type, char *sign, char *fmt, ...)
 {
    int       *p_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int       *p_readfd;
+#endif
    size_t    length;
    time_t    tvalue;
    char      buf[MAX_LINE_LENGTH];
@@ -74,10 +81,16 @@ mconfig_log(int type, char *sign, char *fmt, ...)
    if (type == SYS_LOG)
    {
       p_fd = &sys_log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      p_readfd = &sys_log_readfd;
+#endif
    }
    else
    {
       p_fd = &mon_log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      p_readfd = &mon_log_readfd;
+#endif
    }
 
    /*
@@ -99,12 +112,20 @@ mconfig_log(int type, char *sign, char *fmt, ...)
       {
          (void)strcat(log_fifo, MON_LOG_FIFO);
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(log_fifo, p_readfd, p_fd) == -1)
+#else
       if ((*p_fd = open(log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if ((make_fifo(log_fifo) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                (open_fifo_rw(log_fifo, p_readfd, p_fd) == -1))
+#else
                 ((*p_fd = open(log_fifo, O_RDWR)) == -1))
+#endif
             {
                (void)fprintf(stderr,
                              "WARNING : Could not open fifo %s : %s (%s %d)\n",

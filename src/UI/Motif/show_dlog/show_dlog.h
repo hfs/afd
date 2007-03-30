@@ -77,11 +77,6 @@
 #define GOT_JOB_ID                -2
 #define GOT_JOB_ID_DIR_ONLY       -3
 
-#define F_KILOBYTE                1024.0
-#define F_MEGABYTE                1048576.0
-#define F_GIGABYTE                1073741824.0
-#define F_TERABYTE                1099511627776.0
-
 #define SEARCH_BUTTON             1
 #define STOP_BUTTON               2
 #define STOP_BUTTON_PRESSED       4

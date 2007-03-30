@@ -1,6 +1,6 @@
 /*
  *  error_action.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -106,10 +106,11 @@ error_action(char *alias_name, char *action)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                    "Failed to wait for pid %ld : %s", pid, strerror(errno));
+                    "Failed to wait for pid %ld : %s",
 #else
-                    "Failed to wait for pid %lld : %s", pid, strerror(errno));
+                    "Failed to wait for pid %lld : %s",
 #endif
+                    (pri_pid_t)pid, strerror(errno));
       }
    }
    return;

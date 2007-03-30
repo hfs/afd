@@ -1,6 +1,6 @@
 /*
  *  unlock_region.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -77,7 +77,7 @@ unlock_region(int fd, off_t offset)
 # else
               "unlock_region(): fd=%d start=%lld length=1 file=%s line=%d",
 # endif
-              fd, offset, file, line);                                 
+              fd, (pri_off_t)offset, file, line);                                 
 #endif
 
    if (fcntl(fd, F_SETLK, &ulock) == -1)

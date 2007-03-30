@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2003 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -48,6 +48,7 @@ endif
 EXTRA_PROGRAMS         = $(EXTRA_INPUT_LOG) $(EXTRA_OUTPUT_LOG)\
                          $(EXTRA_DELETE_LOG) $(EXTRA_PRODUCTION_LOG)
 MAINTAINERCLEANFILES   = Makefile.in
+CLEANFILES             = gmon.out core core.*
 noinst_HEADERS         = logdefs.h
 if WITH_AFD_MON_ONLY
    bin_PROGRAMS        = mon_sys_log monitor_log

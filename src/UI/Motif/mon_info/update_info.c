@@ -93,23 +93,24 @@ Widget w;
        */
    }
 
-   if (strcmp(prev.real_hostname[prev.afd_toggle], msa[afd_position].hostname[prev.afd_toggle]) != 0)
+   if (strcmp(prev.real_hostname[(int)prev.afd_toggle],
+              msa[afd_position].hostname[(int)prev.afd_toggle]) != 0)
    {
-      (void)strcpy(prev.real_hostname[prev.afd_toggle],
-                   msa[afd_position].hostname[prev.afd_toggle]);
+      (void)strcpy(prev.real_hostname[(int)prev.afd_toggle],
+                   msa[afd_position].hostname[(int)prev.afd_toggle]);
       (void)sprintf(str_line, "%*s",
-                    MON_INFO_LENGTH, prev.real_hostname[prev.afd_toggle]);
+                    MON_INFO_LENGTH, prev.real_hostname[(int)prev.afd_toggle]);
       XmTextSetString(text_wl[0], str_line);
-      get_ip_no(msa[afd_position].hostname[prev.afd_toggle], tmp_str_line);
+      get_ip_no(msa[afd_position].hostname[(int)prev.afd_toggle], tmp_str_line);
       (void)sprintf(str_line, "%*s", MON_INFO_LENGTH, tmp_str_line);
       XmTextSetString(text_wr[0], str_line);
       flush = YES;
    }
 
-   if (prev.port[prev.afd_toggle] != msa[afd_position].port[prev.afd_toggle])
+   if (prev.port[(int)prev.afd_toggle] != msa[afd_position].port[(int)prev.afd_toggle])
    {
-      prev.port[prev.afd_toggle] = msa[afd_position].port[prev.afd_toggle];
-      (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.port[prev.afd_toggle]);
+      prev.port[(int)prev.afd_toggle] = msa[afd_position].port[(int)prev.afd_toggle];
+      (void)sprintf(str_line, "%*d", MON_INFO_LENGTH, prev.port[(int)prev.afd_toggle]);
       XmTextSetString(text_wl[1], str_line);
       flush = YES;
    }

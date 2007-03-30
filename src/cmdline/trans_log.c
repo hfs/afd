@@ -59,6 +59,7 @@ DESCR__E_M3
 #endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
+#include "cmdline.h"
 
 extern int  timeout_flag,
             transfer_log_fd;

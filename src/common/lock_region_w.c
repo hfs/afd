@@ -1,6 +1,6 @@
 /*
  *  lock_region_w.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -81,7 +81,7 @@ lock_region_w(int fd, off_t offset)
 # else
               "lock_region_w(): fd=%d start=%lld length=1 file=%s line=%d",
 # endif
-              fd, offset, file, line);
+              fd, (pri_off_t)offset, file, line);
 #endif
 
    while (((ret = fcntl(fd, F_SETLKW, &wlock)) == -1) && (errno == EAGAIN) &&

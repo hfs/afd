@@ -1,6 +1,6 @@
 /*
  *  fsa_edit.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -179,7 +179,9 @@ main(int argc, char *argv[])
                     (void)fprintf(stdout, "     Start/Stop transfer...........(2)\n");
                     (void)fprintf(stdout, "     Start/Stop auto queue.........(3)\n");
                     (void)fprintf(stdout, "     Start/Stop danger queue.......(4)\n");
-                    (void)fprintf(stdout, "     Start/Stop auto queue lock....(5)\n");
+#ifdef WITH_ERROR_QUEUE
+                    (void)fprintf(stdout, "     Set/Unset error queue flag....(5)\n");
+#endif
                     (void)fprintf(stdout, "     HOST_CONFIG host disabled.....(6)\n");
                     (void)fprintf(stderr, "     None..........................(7) ");
                     switch (get_key())
@@ -192,8 +194,10 @@ main(int argc, char *argv[])
                                   break;
                        case '4' : fsa[position].host_status ^= DANGER_PAUSE_QUEUE_STAT;
                                   break;
-                       case '5' : fsa[position].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
+#ifdef WITH_ERROR_QUEUE
+                       case '5' : fsa[position].host_status ^= ERROR_QUEUE_SET;
                                   break;
+#endif
                        case '6' : fsa[position].host_status ^= HOST_CONFIG_HOST_DISABLED;
                                   break;
                        case '7' : break;
@@ -317,9 +321,9 @@ menu(int position)
    (void)fprintf(stdout, "        +-----+------------------+----------------+\n");
    (void)fprintf(stdout, "        |  1  |total_file_counter| %14u |\n", fsa[position].total_file_counter);
 #if SIZEOF_OFF_T == 4
-   (void)fprintf(stdout, "        |  2  |total_file_size   | %14ld |\n", fsa[position].total_file_size);
+   (void)fprintf(stdout, "        |  2  |total_file_size   | %14ld |\n", (pri_off_t)fsa[position].total_file_size);
 #else
-   (void)fprintf(stdout, "        |  2  |total_file_size   | %14lld |\n", fsa[position].total_file_size);
+   (void)fprintf(stdout, "        |  2  |total_file_size   | %14lld |\n", (pri_off_t)fsa[position].total_file_size);
 #endif
    (void)fprintf(stdout, "        |  3  |error counter     | %14d |\n", fsa[position].error_counter);
    (void)fprintf(stdout, "        |  4  |No. of connections| %14d |\n", fsa[position].connections);
@@ -335,9 +339,9 @@ menu(int position)
    (void)fprintf(stdout, "        |  e  |File name         | %14s |\n", fsa[position].job_status[0].file_name_in_use);
    (void)fprintf(stdout, "        |  f  |Jobs queued       | %14u |\n", fsa[position].jobs_queued);
 #if SIZEOF_OFF_T == 4
-   (void)fprintf(stdout, "        |  g  |Transferrate limit| %14ld |\n", fsa[position].transfer_rate_limit);
+   (void)fprintf(stdout, "        |  g  |Transferrate limit| %14ld |\n", (pri_off_t)fsa[position].transfer_rate_limit);
 #else
-   (void)fprintf(stdout, "        |  g  |Transferrate limit| %14lld |\n", fsa[position].transfer_rate_limit);
+   (void)fprintf(stdout, "        |  g  |Transferrate limit| %14lld |\n", (pri_off_t)fsa[position].transfer_rate_limit);
 #endif
    if ((fsa[position].auto_toggle == ON) &&
        (fsa[position].original_toggle_pos != NONE))

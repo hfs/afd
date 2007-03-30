@@ -58,6 +58,8 @@ DESCR__S_M3
  **                      Added verbose flag and more info when set.
  **   12.05.2006 H.Kiehl Handle case the rename rule starts without a
  **                      newline as first line.
+ **   08.11.2006 H.Kiehl Allow for spaces in the rule and rename_to part.
+ **                      The space must then be preceeded by a \.
  **
  */
 DESCR__E_M3
@@ -208,14 +210,13 @@ get_rename_rules(char *rule_file, int verbose)
 
          if (no_of_rule_headers > 0)
          {
-            register int j;
+            register int j, k;
             int          no_of_rules,
                          max_rule_length,
                          count,
                          total_no_of_rules = 0;
             char         *end_ptr,
-                         *search_ptr,
-                         tmp_char;
+                         *search_ptr;
 
             if ((rule = calloc(no_of_rule_headers,
                                sizeof(struct rule))) == NULL)
@@ -265,6 +266,11 @@ get_rename_rules(char *rule_file, int verbose)
                         while ((*search_ptr != ' ') && (*search_ptr != '\t') &&
                                (search_ptr < last_ptr))
                         {
+                           if ((*search_ptr == '\\') &&
+                               (*(search_ptr + 1) == ' '))
+                           {
+                              count++; search_ptr++;
+                           }
                            count++; search_ptr++;
                         }
                         if (search_ptr == last_ptr)
@@ -339,19 +345,25 @@ get_rename_rules(char *rule_file, int verbose)
                               }
                               else
                               {
+                                 k = 0;
                                  end_ptr = ptr;
                                  while ((*end_ptr != ' ') && (*end_ptr != '\t') &&
                                         (*end_ptr != '\n') && (*end_ptr != '\0'))
                                  {
-                                    end_ptr++;
+                                    if ((*end_ptr == '\\') &&
+                                        (*(end_ptr + 1) == ' '))
+                                    {
+                                       end_ptr++;
+                                    }
+                                    rule[i].filter[j][k] = *end_ptr;
+                                    end_ptr++; k++;
                                  }
                                  if ((*end_ptr == ' ') || (*end_ptr == '\t'))
                                  {
                                     /*
                                      * Store the filter part.
                                      */
-                                    *end_ptr = '\0';
-                                    (void)strcpy(rule[i].filter[j], ptr);
+                                    rule[i].filter[j][k] = '\0';
                                     end_ptr++;
                                     while ((*end_ptr == ' ') || (*end_ptr == '\t'))
                                     {
@@ -362,15 +374,20 @@ get_rename_rules(char *rule_file, int verbose)
                                      * Store the renaming part.
                                      */
                                     ptr = end_ptr;
+                                    k = 0;
                                     while ((*end_ptr != ' ') && (*end_ptr != '\t') &&
                                            (*end_ptr != '\n') && (*end_ptr != '\0'))
                                     {
-                                       end_ptr++;
+                                       if ((*end_ptr == '\\') &&
+                                           (*(end_ptr + 1) == ' '))
+                                       {
+                                          end_ptr++;
+                                       }
+                                       rule[i].rename_to[j][k] = *end_ptr;
+                                       end_ptr++; k++;
                                     }
-                                    tmp_char = *end_ptr;
-                                    *end_ptr = '\0';
-                                    (void)strcpy(rule[i].rename_to[j], ptr);
-                                    if ((tmp_char == ' ') || (tmp_char == '\t'))
+                                    rule[i].rename_to[j][k] = '\0';
+                                    if ((*end_ptr == ' ') || (*end_ptr == '\t'))
                                     {
                                        int more_data = NO;
 
@@ -394,10 +411,6 @@ get_rename_rules(char *rule_file, int verbose)
                                                      rule[i].rename_to[j]);
                                        }
                                     }
-                                    else if (tmp_char == '\n')
-                                         {
-                                            *end_ptr = '\n';
-                                         }
                                     ptr = end_ptr;
                                     j++;
                                  }

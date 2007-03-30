@@ -89,29 +89,33 @@ then
       sbin/chkconfig --add %{name}
    fi
 else
-   @INITDIR@/afd condrestart > /dev/null 2>&1 || :
-   rm -f var/lock/subsys/afd.restart
+   /etc/init.d/afd condrestart > /dev/null 2>&1 || :
 fi
-
-%postun
-@INITDIR@/afd condrestart > /dev/null 2>&1 || :
-rm -f var/lock/subsys/afd.restart
-exit 0
 
 %pre
 if [ "$1" != 1 ]
 then
-   if [ -f var/lock/subsys/afd ]
+   if [ -r @SYSCONFIGDIR@/afd ]
    then
-      @INITDIR@/afd stop > /dev/null 2>&1 || :
-      touch var/lock/subsys/afd.restart
+      AFD_USERS="`grep \^AFD_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2` `grep \^AFD_HA_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2`"
    else
-      @INITDIR@/afd status > /dev/null 2>&1 || :
-      if [ "$?" = 0 ]
-      then
-         @INITDIR@/afd stop > /dev/null 2>&1 || :
-         touch var/lock/subsys/afd.restart
-      fi
+      AFD_USERS=""
+   fi
+   if [ ! "$AFD_USERS" = "" ]
+   then
+      for afduser in $AFD_USERS
+      do
+         su - $afduser -c "afd -c" > /dev/null 2>&1
+         if [ "$?" = 5 ]
+         then
+            touch var/lock/subsys/restart_afd.$afduser
+         fi
+         su - $afduser -c "afd -S"
+         if [ $? -eq 0 ]
+         then
+            rm -f /var/lock/subsys/afd.$afduser
+         fi
+      done
    fi
 fi
 
@@ -119,6 +123,19 @@ fi
 if [ "$1" = 0 ]
 then
    @INITDIR@/afd stop > /dev/null 2>&1 || :
+   if [ -r @SYSCONFIGDIR@/afd ]
+   then
+      AFD_HA_USERS="`grep \^AFD_HA_USER_ @SYSCONFIGDIR@/afd | cut -d '=' -f2`"
+   else
+      AFD_HA_USERS=""
+   fi
+   if [ ! "$AFD_HA_USERS" = "" ]
+   then
+      for afduser in $AFD_HA_USERS
+      do
+         su - $afduser -c "afd -S"
+      done
+   fi
    if [ -x sbin/chkconfig ]
    then
       sbin/chkconfig --del %{name}
@@ -150,6 +167,10 @@ exit 0
 @INITDIR@/afd
 
 %changelog
+*Thu Nov 16 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+- Don't rely on the lock file in /var/lock/subsys, do a real check if AFD is up.
+- Added support for AFD HA users.
+
 *Tue Apr 11 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
 - When updating, stop AFD before new binaries are installed.
 

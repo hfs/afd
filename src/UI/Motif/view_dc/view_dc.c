@@ -1,6 +1,6 @@
 /*
  *  view_dc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1999 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -108,7 +108,6 @@ int
 main(int argc, char *argv[])
 {
    int             glyph_height,
-                   glyph_width,
                    max_vertical_lines;
    char            window_title[100],
                    work_dir[MAX_PATH_LENGTH];
@@ -191,7 +190,6 @@ main(int argc, char *argv[])
                                XmFONT_IS_FONT, "TAG1");
    font_struct = (XFontStruct *)XmFontListEntryGetFont(entry, &dummy);
    glyph_height = font_struct->ascent + font_struct->descent;
-   glyph_width  = font_struct->per_char->width;
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
 
@@ -324,7 +322,8 @@ init_view_dc(int *argc, char *argv[])
    char cmd[MAX_PATH_LENGTH],
         *data_buffer,
         fake_user[MAX_FULL_USER_ID_LENGTH],
-        *perm_buffer;
+        *perm_buffer,
+        *p_retr_send_sep;
 
    if ((get_arg(argc, argv, "-?", NULL, 0) == SUCCESS) ||
        (get_arg(argc, argv, "-help", NULL, 0) == SUCCESS) ||
@@ -362,6 +361,20 @@ init_view_dc(int *argc, char *argv[])
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -406,14 +419,14 @@ init_view_dc(int *argc, char *argv[])
    }
    if (host_alias[0] != '\0')
    {
-      length += sprintf(&cmd[length], " -h %s", host_alias);
+      length += sprintf(&cmd[length], " -h \"%s\"", host_alias);
    }
    else if (dir_alias[0] != '\0')
         {
-           length += sprintf(&cmd[length], " -d %s", dir_alias);
+           length += sprintf(&cmd[length], " -d \"%s\"", dir_alias);
         }
    data_buffer = NULL;
-   if (exec_cmd(cmd, &data_buffer, -1, NULL, 0, 0L, NO) != 0)
+   if (exec_cmd(cmd, &data_buffer, -1, NULL, 0, "", 0L, NO) != 0)
    {
       (void)fprintf(stderr, "Failed to execute command: %s\n", cmd);
       (void)fprintf(stderr, "See SYSTEM_LOG for more information.\n");
@@ -450,10 +463,14 @@ init_view_dc(int *argc, char *argv[])
    }
    if (length > 0)
    {
+      int new_lines_removed = 0;
+
       while (data_buffer[length - 1] == '\n')
       {
+         new_lines_removed++;
          length--;
       }
+      empty_lines = empty_lines - (new_lines_removed / 2);
       data_buffer[length] = '\0';
       length++;
    }
@@ -462,8 +479,20 @@ init_view_dc(int *argc, char *argv[])
    {
       if (posi(data_buffer, DIR_IDENTIFIER) != NULL)
       {
-         (void)strcpy(dir_alias, host_alias);
-         host_alias[0] = '\0';
+         if ((p_retr_send_sep = posi(data_buffer,
+                                     VIEW_DC_DIR_IDENTIFIER)) == NULL)
+         {
+            (void)strcpy(dir_alias, host_alias);
+            host_alias[0] = '\0';
+         }
+         else
+         {
+            p_retr_send_sep -= (VIEW_DC_DIR_IDENTIFIER_LENGTH + 1);
+         }
+      }
+      else
+      {
+         p_retr_send_sep = NULL;
       }
    }
 
@@ -490,13 +519,30 @@ init_view_dc(int *argc, char *argv[])
 
          if ((view_buffer = malloc(new_size)) == NULL)
          {
+#if SIZEOF_SIZE_T == 4
             (void)fprintf(stderr, "Failed to malloc() %d bytes : %s",
-                          new_size, strerror(errno));
+#else
+            (void)fprintf(stderr, "Failed to malloc() %lld bytes : %s",
+#endif
+                          (pri_size_t)new_size, strerror(errno));
             exit(INCORRECT);
          }
 
-         length = 0;
-         wptr = view_buffer;
+         if (p_retr_send_sep == NULL)
+         {
+            length = 0;
+            wptr = view_buffer;
+         }
+         else
+         {
+            length = p_retr_send_sep - data_buffer;
+            (void)memcpy(view_buffer, data_buffer, length);
+            wptr = &view_buffer[length];
+            (void)memset(wptr, '=', max_x);
+            wptr += max_x;
+            *wptr = '\n';
+            wptr++;
+         }
          while (data_buffer[length] != '\0')
          {
             while ((data_buffer[length] != '\n') && (data_buffer[length] != '\0'))
@@ -517,6 +563,7 @@ init_view_dc(int *argc, char *argv[])
                }
             }
          }
+         *wptr = '\0';
          free(data_buffer);
          max_y--;
       }

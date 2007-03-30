@@ -1,6 +1,6 @@
 /*
  *  format_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -124,7 +124,7 @@ format_info(char **text)
 #else
    count = sprintf(*text + length, "Unique-ID    : %llx_%x\n",
 #endif
-                   id.arrival_time, id.unique_number);
+                   (pri_time_t)id.arrival_time, id.unique_number);
    length += count;
    if (count > max_x)
    {

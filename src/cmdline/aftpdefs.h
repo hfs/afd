@@ -66,6 +66,7 @@
 extern off_t read_file(char *, char **buffer);
 extern char  *posi(char *, char *);
 #endif /* _STANDALONE_ */
+extern int   get_remote_file_names(off_t *);
 
 #define DEFAULT_AFD_USER     "anonymous"
 #define DEFAULT_AFD_PASSWORD "afd@someplace"

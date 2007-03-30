@@ -46,6 +46,7 @@ DESCR__E_M3
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
+#include "amgdefs.h"
 
 extern int receive_log_fd;
 

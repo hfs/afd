@@ -1,6 +1,6 @@
 /*
  *  trans_exec.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   22.05.2001 H.Kiehl Created
+ **   11.02.2007 H.Kiehl Added locking option.
  **
  */
 DESCR__E_M3
@@ -53,7 +54,8 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int                        transfer_log_fd;
+extern int                        fsa_fd,
+                                  transfer_log_fd;
 extern struct filetransfer_status *fsa;
 extern struct job                 db;
 
@@ -139,7 +141,22 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
          }
          else
          {
+            char job_str[4];
+
+            job_str[0] = '[';
+            job_str[1] = db.job_no + '0';
+            job_str[2] = ']';
+            job_str[3] = '\0';
             *(p_tmp_dir + 5) = '\0';
+
+            if (db.set_trans_exec_lock == YES)
+            {
+#ifdef LOCK_DEBUG
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_EXEC, __FILE__, __LINE__);
+#else
+               lock_region_w(fsa_fd, db.lock_offset + LOCK_EXEC);
+#endif
+            }
             if (ii > 0)
             {
                int  length,
@@ -190,7 +207,8 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
 
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
-                                   db.trans_exec_timeout, YES)) != 0) /* ie != SUCCESS */
+                                   job_str, db.trans_exec_timeout,
+                                   YES)) != 0) /* ie != SUCCESS */
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to execute command %s [Return code = %d]",
@@ -231,7 +249,7 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                              file_path, p_command);
                if ((ret = exec_cmd(command_str, &return_str, transfer_log_fd,
                                    fsa->host_dsp_name, MAX_HOSTNAME_LENGTH,
-                                   db.trans_exec_timeout, YES)) != 0)
+                                   job_str, db.trans_exec_timeout, YES)) != 0)
                {
                   trans_log(WARN_SIGN, __FILE__, __LINE__, NULL,
                             "Failed to execute command %s [Return code = %d]",
@@ -244,6 +262,14 @@ trans_exec(char *file_path, char *fullname, char *p_file_name_buffer)
                   (void)my_strncpy(fsa->job_status[(int)db.job_no].file_name_in_use,
                                    p_command, MAX_MSG_NAME_LENGTH);
                }
+            }
+            if (db.set_trans_exec_lock == YES)
+            {
+#ifdef LOCK_DEBUG
+               unlock_region(fsa_fd, db.lock_offset + LOCK_EXEC, __FILE__, __LINE__);
+#else
+               unlock_region(fsa_fd, db.lock_offset + LOCK_EXEC);
+#endif
             }
             if (return_str != NULL)
             {

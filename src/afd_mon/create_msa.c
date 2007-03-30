@@ -1,6 +1,6 @@
 /*
  *  create_msa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -136,9 +136,9 @@ create_msa(void)
          /* Is lock already set or are we setting it again? */
          if ((errno != EACCES) && (errno != EAGAIN) && (errno != EBUSY))
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not set write lock for %s : %s (%s %d)\n",
-                      msa_id_file, strerror(errno), __FILE__, __LINE__);
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Could not set write lock for %s : %s",
+                       msa_id_file, strerror(errno));
             exit(INCORRECT);
          }
       }
@@ -146,9 +146,9 @@ create_msa(void)
       /* Read the MSA file ID */
       if (read(fd, &old_msa_id, sizeof(int)) < 0)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not read the value of the MSA file ID : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not read the value of the MSA file ID : %s",
+                    strerror(errno));
          exit(INCORRECT);
       }
    }
@@ -156,14 +156,13 @@ create_msa(void)
    {
       if ((fd = open(msa_id_file, (O_RDWR | O_CREAT | O_TRUNC),
 #ifdef GROUP_CAN_WRITE
-                     (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP))) < 0)
+                     (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP))) == -1)
 #else
-                     (S_IRUSR | S_IWUSR))) < 0)
+                     (S_IRUSR | S_IWUSR))) == -1)
 #endif
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not open %s : %s (%s %d)\n",
-                   msa_id_file, strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Could not open %s : %s", msa_id_file, strerror(errno));
          exit(INCORRECT);
       }
       old_msa_id = -1;
@@ -183,9 +182,8 @@ create_msa(void)
       /* Get the size of the old MSA file. */
       if (stat(old_msa_stat, &stat_buf) < 0)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to stat() %s : %s (%s %d)\n",
-                   old_msa_stat, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to stat() %s : %s", old_msa_stat, strerror(errno));
          old_msa_id = -1;
       }
       else
@@ -194,9 +192,9 @@ create_msa(void)
          {
             if ((old_msa_fd = open(old_msa_stat, O_RDWR)) < 0)
             {
-               (void)rec(sys_log_fd, ERROR_SIGN,
-                         "Failed to open() %s : %s (%s %d)\n",
-                         old_msa_stat, strerror(errno), __FILE__, __LINE__);
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to open() %s : %s",
+                          old_msa_stat, strerror(errno));
                old_msa_id = old_msa_fd = -1;
             }
             else
@@ -210,41 +208,23 @@ create_msa(void)
                                    MAP_SHARED, old_msa_stat, 0)) == (caddr_t) -1)
 #endif
                {
-                  (void)rec(sys_log_fd, ERROR_SIGN,
-                            "mmap() error : %s (%s %d)\n",
-                            strerror(errno), __FILE__, __LINE__);
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "mmap() error : %s", strerror(errno));
                   old_msa_id = -1;
                }
                else
                {
                   if (*(int *)ptr == STALE)
                   {
-                     (void)rec(sys_log_fd, WARN_SIGN,
-                               "MSA in %s is stale! Ignoring this MSA. (%s %d)\n",
-                               old_msa_stat, __FILE__, __LINE__);
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "MSA in %s is stale! Ignoring this MSA.",
+                                old_msa_stat);
                      old_msa_id = -1;
                   }
-                  else if (stat_buf.st_size != (AFD_WORD_OFFSET + (*(int *)ptr * sizeof(struct mon_status_area))))
-                       {
-                          (void)rec(sys_log_fd, WARN_SIGN,
-                                    "Size of the MSA is not what it should be. Assuming that the structure has changed and will thus not use the old one. (%s %d)\n",
-                                    __FILE__, __LINE__);
-                          old_msa_id = -1;
-#ifdef HAVE_MMAP
-                          if (munmap(ptr, stat_buf.st_size) == -1)
-#else
-                          if (munmap_emu(ptr) == -1)
-#endif
-                          {
-                             (void)rec(sys_log_fd, ERROR_SIGN,
-                                       "Failed to munmap() %s : %s (%s %d)\n",
-                                       old_msa_stat, strerror(errno), __FILE__, __LINE__);
-                          }
-                       }
-                       else
-                       {
-                          old_msa_size = stat_buf.st_size;
-                       }
+                  else
+                  {
+                     old_msa_size = stat_buf.st_size;
+                  }
 
                   /*
                    * We actually could remove the old file now. Better
@@ -272,11 +252,40 @@ create_msa(void)
          /* Now mark it as stale */
          *(int *)ptr = STALE;
 
-         /* Move pointer to correct position so */
-         /* we can extract the relevant data.   */
-         ptr += AFD_WORD_OFFSET;
+         /* Check if the version has changed. */
+         if (*(ptr + SIZEOF_INT + 1 + 1 + 1) != CURRENT_MSA_VERSION)
+         {
+            unsigned char old_version = *(ptr + SIZEOF_INT + 1 + 1 + 1);
 
-         old_msa = (struct mon_status_area *)ptr;
+            /* Unmap old FSA file. */
+#ifdef HAVE_MMAP
+            if (munmap(ptr, old_msa_size) == -1)
+#else
+            if (munmap_emu(ptr) == -1)
+#endif
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to munmap() %s : %s",
+                          old_msa_stat, strerror(errno));
+            }
+            if ((ptr = convert_msa(old_msa_fd, old_msa_stat, &old_msa_size,
+                                   old_no_of_afds,
+                                   old_version, CURRENT_MSA_VERSION)) == NULL)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                           "Failed to convert_msa() %s", old_msa_stat);
+               old_msa_id = -1;
+            }
+         }
+
+         if (old_msa_id != -1)
+         {
+            /* Move pointer to correct position so */
+            /* we can extract the relevant data.   */
+            ptr += AFD_WORD_OFFSET;
+
+            old_msa = (struct mon_status_area *)ptr;
+         }
       }
    }
 
@@ -302,23 +311,21 @@ create_msa(void)
    if ((msa_fd = open(new_msa_stat, (O_RDWR | O_CREAT | O_TRUNC),
                       FILE_MODE)) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to open() %s : %s (%s %d)\n",
-                new_msa_stat, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to open() %s : %s", new_msa_stat, strerror(errno));
       exit(INCORRECT);
    }
 
    if (lseek(msa_fd, msa_size - 1, SEEK_SET) == -1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to lseek() in %s : %s (%s %d)\n",
-                new_msa_stat, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to lseek() in %s : %s", new_msa_stat, strerror(errno));
       exit(INCORRECT);
    }
    if (write(msa_fd, "", 1) != 1)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "write() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "write() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 #ifdef HAVE_MMAP
@@ -329,8 +336,8 @@ create_msa(void)
                        new_msa_stat, 0)) == (caddr_t) -1)
 #endif
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "mmap() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "mmap() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
@@ -384,7 +391,9 @@ create_msa(void)
          (void)memset(msa[i].sys_log_fifo, NO_INFORMATION, LOG_FIFO_SIZE);
          msa[i].host_error_counter = 0;
          msa[i].no_of_hosts        = 0;
+         msa[i].no_of_dirs         = 0;
          msa[i].no_of_jobs         = 0;
+         msa[i].log_capabilities   = 0;
          msa[i].fc                 = 0;
          msa[i].fs                 = 0;
          msa[i].tr                 = 0;
@@ -396,6 +405,17 @@ create_msa(void)
          msa[i].ec                 = 0;
          msa[i].last_data_time     = 0;
          msa[i].connect_status     = DISCONNECTED;
+         msa[i].special_flag       = 0;
+         for (k = 0; k < SUM_STORAGE; k++)
+         {
+            msa[i].bytes_send[k]         = 0;
+            msa[i].bytes_received[k]     = 0;
+            msa[i].files_send[k]         = 0;
+            msa[i].files_received[k]     = 0;
+            msa[i].connections[k]        = 0;
+            msa[i].total_errors[k]       = 0;
+            msa[i].log_bytes_received[k] = 0;
+         }
       } /* for (i = 0; i < no_of_afds; i++) */
    }
    else /* There is an old database file. */
@@ -410,8 +430,8 @@ create_msa(void)
        */
       if ((gotcha = malloc(old_no_of_afds)) == NULL)
       {
-         (void)rec(sys_log_fd, FATAL_SIGN, "malloc() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "malloc() error : %s", strerror(errno));
          exit(INCORRECT);
       }
       (void)memset(gotcha, NO, old_no_of_afds);
@@ -482,8 +502,10 @@ create_msa(void)
                          LOG_FIFO_SIZE);
             msa[i].host_error_counter = old_msa[afd_pos].host_error_counter;
             msa[i].no_of_hosts        = old_msa[afd_pos].no_of_hosts;
+            msa[i].no_of_dirs         = old_msa[afd_pos].no_of_dirs;
             msa[i].no_of_jobs         = old_msa[afd_pos].no_of_jobs;
             msa[i].max_connections    = old_msa[afd_pos].max_connections;
+            msa[i].log_capabilities   = old_msa[afd_pos].log_capabilities;
             msa[i].fc                 = old_msa[afd_pos].fc;
             msa[i].fs                 = old_msa[afd_pos].fs;
             msa[i].tr                 = old_msa[afd_pos].tr;
@@ -497,6 +519,17 @@ create_msa(void)
             msa[i].ec                 = old_msa[afd_pos].ec;
             msa[i].last_data_time     = old_msa[afd_pos].last_data_time;
             msa[i].connect_status     = old_msa[afd_pos].connect_status;
+            msa[i].special_flag       = old_msa[afd_pos].special_flag;
+            for (k = 0; k < SUM_STORAGE; k++)
+            {
+               msa[i].bytes_send[k]         = old_msa[afd_pos].bytes_send[k];
+               msa[i].bytes_received[k]     = old_msa[afd_pos].bytes_received[k];
+               msa[i].files_send[k]         = old_msa[afd_pos].files_send[k];
+               msa[i].files_received[k]     = old_msa[afd_pos].files_received[k];
+               msa[i].connections[k]        = old_msa[afd_pos].connections[k];
+               msa[i].total_errors[k]       = old_msa[afd_pos].total_errors[k];
+               msa[i].log_bytes_received[k] = old_msa[afd_pos].log_bytes_received[k];
+            }
          }
          else /* This AFD is not in the old MSA, therefor it is new. */
          {
@@ -516,7 +549,9 @@ create_msa(void)
             (void)memset(msa[i].sys_log_fifo, NO_INFORMATION, LOG_FIFO_SIZE);
             msa[i].host_error_counter = 0;
             msa[i].no_of_hosts        = 0;
+            msa[i].no_of_dirs         = 0;
             msa[i].no_of_jobs         = 0;
+            msa[i].log_capabilities   = 0;
             msa[i].fc                 = 0;
             msa[i].fs                 = 0;
             msa[i].tr                 = 0;
@@ -530,6 +565,17 @@ create_msa(void)
             msa[i].ec                 = 0;
             msa[i].last_data_time     = 0;
             msa[i].connect_status     = DISCONNECTED;
+            msa[i].special_flag       = 0;
+            for (k = 0; k < SUM_STORAGE; k++)
+            {
+               msa[i].bytes_send[k]         = 0;
+               msa[i].bytes_received[k]     = 0;
+               msa[i].files_send[k]         = 0;
+               msa[i].files_received[k]     = 0;
+               msa[i].connections[k]        = 0;
+               msa[i].total_errors[k]       = 0;
+               msa[i].log_bytes_received[k] = 0;
+            }
          }
       } /* for (i = 0; i < no_of_afds; i++) */
    }
@@ -545,15 +591,14 @@ create_msa(void)
 #else
       if (msync_emu(ptr) == -1)
       {
-         (void)rec(sys_log_fd, ERROR_SIGN, "msync_emu() error (%s %d)\n",
-                   __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__, "msync_emu() error");
       }
       if (munmap_emu(ptr) == -1)
 #endif
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to munmap() %s : %s (%s %d)\n",
-                   new_msa_stat, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() %s : %s",
+                    new_msa_stat, strerror(errno));
       }
    }
 
@@ -574,9 +619,9 @@ create_msa(void)
          if (munmap_emu(ptr) == -1)
 #endif
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "Failed to munmap() %s : %s (%s %d)\n",
-                      old_msa_stat, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to munmap() %s : %s",
+                       old_msa_stat, strerror(errno));
          }
          old_msa = NULL;
       }
@@ -587,9 +632,9 @@ create_msa(void)
    {
       if (unlink(old_msa_stat) < 0)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Failed to unlink() %s : %s (%s %d)\n",
-                   old_msa_stat, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to unlink() %s : %s",
+                    old_msa_stat, strerror(errno));
       }
    }
 
@@ -600,41 +645,39 @@ create_msa(void)
    /* Go to beginning in file */
    if (lseek(fd, 0, SEEK_SET) < 0)
    {
-      (void)rec(sys_log_fd, ERROR_SIGN,
-                "Could not seek() to beginning of %s : %s (%s %d)\n",
-                msa_id_file, strerror(errno), __FILE__, __LINE__);
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not seek() to beginning of %s : %s",
+                 msa_id_file, strerror(errno));
    }
 
    /* Write new value into MSA_ID_FILE file */
    if (write(fd, &msa_id, sizeof(int)) != sizeof(int))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not write value to MSA ID file : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not write value to MSA ID file : %s", strerror(errno));
       exit(INCORRECT);
    }
 
    /* Unlock file which holds the msa_id */
    if (fcntl(fd, F_SETLKW, &ulock) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not unset write lock : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not unset write lock : %s", strerror(errno));
       exit(INCORRECT);
    }
 
    /* Close the MSA ID file */
    if (close(fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    /* Close file with new MSA */
    if (close(msa_fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
    msa_fd = -1;
 
@@ -643,8 +686,8 @@ create_msa(void)
    {
       if (close(old_msa_fd) == -1)
       {
-         (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
       }
    }
 

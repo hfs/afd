@@ -1,7 +1,7 @@
 /*
  *  edit_hc_callbacks.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -61,12 +61,18 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 #include <Xm/List.h>
+#ifdef WITH_DUP_CHECK
+# include <Xm/ToggleB.h>
+#endif
 #include "edit_hc.h"
 #include "afd_ctrl.h"
 
 /* External global variables */
 extern Display                    *display;
 extern Widget                     active_mode_w,
+#ifdef _WITH_BURST_2
+                                  allow_burst_w,
+#endif
                                   auto_toggle_w,
 #ifdef WITH_DUP_CHECK
                                   dc_delete_w,
@@ -75,12 +81,14 @@ extern Widget                     active_mode_w,
                                   dc_filecontent_w,
                                   dc_filenamecontent_w,
                                   dc_filename_w,
+                                  dc_nosuffix_w,
                                   dc_store_w,
                                   dc_timeout_label_w,
                                   dc_timeout_w,
                                   dc_type_w,
                                   dc_warn_w,
 #endif
+                                  extended_mode_w,
                                   first_label_w,
                                   ftp_fast_cd_w,
                                   ftp_fast_rename_w,
@@ -101,6 +109,7 @@ extern Widget                     active_mode_w,
                                   mode_label_w,
                                   no_source_icon_w,
                                   passive_mode_w,
+                                  passive_redirect_w,
                                   proxy_box_w,
                                   proxy_name_w,
                                   real_hostname_1_w,
@@ -153,7 +162,7 @@ close_button(Widget w, XtPointer client_data, XtPointer call_data)
 
    for (i = 0; i < no_of_hosts; i++)
    {
-      if (ce[i].value_changed != 0)
+      if ((ce[i].value_changed != 0) || (ce[i].value_changed2 != 0))
       {
          if (xrec(w, QUESTION_DIALOG,
                   "There are unsaved changes!\nDo you want to discarde these?") != YES)
@@ -228,12 +237,19 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
    if (removed_hosts > 0)
    {
       int  db_update_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  db_update_readfd;
+#endif
       char db_update_fifo[MAX_PATH_LENGTH];
 
       (void)strcpy(db_update_fifo, p_work_dir);
       (void)strcat(db_update_fifo, FIFO_DIR);
       (void)strcat(db_update_fifo, DB_UPDATE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(db_update_fifo, &db_update_readfd, &db_update_fd) == -1)
+#else
       if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
+#endif
       {
          (void)xrec(w, WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
                     db_update_fifo, strerror(errno), __FILE__, __LINE__);
@@ -247,20 +263,34 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
             (void)xrec(w, ERROR_DIALOG,
                        "Failed to REREAD_HOST_CONFIG message to AMG : %s (%s %d)",
                        strerror(-ret), __FILE__, __LINE__);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(db_update_readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+#endif
             if (close(db_update_fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
             }
          }
          else
          {
             int sleep_counter = 0;
 
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(db_update_readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+#endif
             if (close(db_update_fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
             }
 
             /* Wait for AMG to update the FSA. */
@@ -490,6 +520,14 @@ ftp_mode_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    ce[cur_pos].value_changed |= FTP_MODE_CHANGED;
    ce[cur_pos].ftp_mode = (XT_PTR_TYPE)client_data;
+   if (ce[cur_pos].ftp_mode == FTP_PASSIVE_MODE_SEL)
+   {
+      XtSetSensitive(passive_redirect_w, True);
+   }
+   else
+   {
+      XtSetSensitive(passive_redirect_w, False);
+   }
 
    return;
 }
@@ -508,6 +546,7 @@ edc_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       ce[cur_pos].dup_check_flag = (DC_FILENAME_ONLY | DC_CRC32 | DC_DELETE);
       XtSetSensitive(dc_type_w, True);
       XtVaSetValues(dc_filename_w, XmNset, True, NULL);
+      XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
       XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
       XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
       XtSetSensitive(dc_delete_w, True);
@@ -552,6 +591,10 @@ dc_type_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
       {
          ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
       }
+      if (ce[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
+      {
+         ce[cur_pos].dup_check_flag ^= DC_NAME_NO_SUFFIX;
+      }
       if (ce[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
       {
          ce[cur_pos].dup_check_flag ^= DC_FILE_CONT_NAME;
@@ -564,14 +607,38 @@ dc_type_radio_button(Widget w, XtPointer client_data, XtPointer call_data)
            {
               ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
            }
+           if (ce[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_NAME_NO_SUFFIX;
+           }
            if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
            {
               ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
            }
            ce[cur_pos].dup_check_flag |= DC_FILE_CONT_NAME;
         }
+   else if ((XT_PTR_TYPE)client_data == FILE_NOSUFFIX_SEL)
+        {
+           if (ce[cur_pos].dup_check_flag & DC_FILENAME_ONLY)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_FILENAME_ONLY;
+           }
+           if (ce[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_FILE_CONT_NAME;
+           }
+           if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
+           }
+           ce[cur_pos].dup_check_flag |= DC_NAME_NO_SUFFIX;
+        }
         else
         {
+           if (ce[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
+           {
+              ce[cur_pos].dup_check_flag ^= DC_NAME_NO_SUFFIX;
+           }
            if (ce[cur_pos].dup_check_flag & DC_FILE_CONTENT)
            {
               ce[cur_pos].dup_check_flag ^= DC_FILE_CONTENT;
@@ -593,27 +660,45 @@ void
 toggle_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    ce[cur_pos].value_changed |= (XT_PTR_TYPE)client_data;
-#ifdef WITH_DUP_CHECK
-   if ((XT_PTR_TYPE)client_data == DC_DELETE_CHANGED)
+   if ((XT_PTR_TYPE)client_data == FTP_EXTENDED_MODE_CHANGED)
    {
       if (XmToggleButtonGetState(w) == True)
       {
-         XtVaSetValues(dc_store_w, XmNset, False, NULL);
-         XtSetSensitive(dc_store_w, False);
-         if ((ce[cur_pos].dup_check_flag & DC_DELETE) == 0)
-         {
-            ce[cur_pos].dup_check_flag |= DC_DELETE;
-         }
+         XtSetSensitive(passive_redirect_w, False);
       }
       else
       {
-         XtSetSensitive(dc_store_w, True);
-         if (ce[cur_pos].dup_check_flag & DC_DELETE)
+         if (XmToggleButtonGetState(passive_mode_w) == True)
          {
-            ce[cur_pos].dup_check_flag ^= DC_DELETE;
+            XtSetSensitive(passive_redirect_w, True);
+         }
+         else
+         {
+            XtSetSensitive(passive_redirect_w, False);
          }
       }
    }
+#ifdef WITH_DUP_CHECK
+   else if ((XT_PTR_TYPE)client_data == DC_DELETE_CHANGED)
+        {
+           if (XmToggleButtonGetState(w) == True)
+           {
+              XtVaSetValues(dc_store_w, XmNset, False, NULL);
+              XtSetSensitive(dc_store_w, False);
+              if ((ce[cur_pos].dup_check_flag & DC_DELETE) == 0)
+              {
+                 ce[cur_pos].dup_check_flag |= DC_DELETE;
+              }
+           }
+           else
+           {
+              XtSetSensitive(dc_store_w, True);
+              if (ce[cur_pos].dup_check_flag & DC_DELETE)
+              {
+                 ce[cur_pos].dup_check_flag ^= DC_DELETE;
+              }
+           }
+        }
    else if ((XT_PTR_TYPE)client_data == DC_STORE_CHANGED)
         {
            if (XmToggleButtonGetState(w) == True)
@@ -652,6 +737,16 @@ toggle_button(Widget w, XtPointer client_data, XtPointer call_data)
            }
         }
 #endif
+
+   return;
+}
+
+
+/*########################### toggle_button2() ##########################*/
+void
+toggle_button2(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   ce[cur_pos].value_changed2 |= (XT_PTR_TYPE)client_data;
 
    return;
 }
@@ -866,9 +961,8 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
 #endif
 
          default :
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "Hey man! What's going on here? (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Please inform programmer he is doing something wrong here!");
             break;
       }
 
@@ -1057,7 +1151,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
 #else
                (void)sprintf(numeric_str, "%lld",
 #endif
-                             ce[cur_pos].transfer_rate_limit / 1024);
+                             (pri_off_t)(ce[cur_pos].transfer_rate_limit / 1024));
             }
          }
          else
@@ -1074,7 +1168,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
 #else
                (void)sprintf(numeric_str, "%lld",
 #endif
-                             fsa[cur_pos].transfer_rate_limit / 1024);
+                             (pri_off_t)(fsa[cur_pos].transfer_rate_limit / 1024));
             }
          }
          XtVaSetValues(transfer_rate_limit_w, XmNvalue, numeric_str, NULL);
@@ -1173,14 +1267,41 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          }
          XtVaSetValues(proxy_name_w, XmNvalue, tmp_ptr, NULL);
          XtSetSensitive(mode_label_w, True);
+         XtSetSensitive(extended_mode_w, True);
+         if (fsa[cur_pos].protocol_options & FTP_EXTENDED_MODE)
+         {
+            XtVaSetValues(extended_mode_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(extended_mode_w, XmNset, False, NULL);
+         }
          XtSetSensitive(ftp_mode_w, True);
          if (fsa[cur_pos].protocol_options & FTP_PASSIVE_MODE)
          {
             XtVaSetValues(passive_mode_w, XmNset, True, NULL);
             XtVaSetValues(active_mode_w, XmNset, False, NULL);
+            if ((fsa[cur_pos].protocol_options & FTP_EXTENDED_MODE) == 0)
+            {
+               XtSetSensitive(passive_redirect_w, True);
+               if (fsa[cur_pos].protocol_options & FTP_ALLOW_DATA_REDIRECT)
+               {
+                  XtVaSetValues(passive_redirect_w, XmNset, True, NULL);
+               }
+               else
+               {
+                  XtVaSetValues(passive_redirect_w, XmNset, False, NULL);
+               }
+            }
+            else
+            {
+               XtSetSensitive(passive_redirect_w, False);
+               XtVaSetValues(passive_redirect_w, XmNset, False, NULL);
+            }
          }
          else
          {
+            XtSetSensitive(passive_redirect_w, False);
             XtVaSetValues(passive_mode_w, XmNset, False, NULL);
             XtVaSetValues(active_mode_w, XmNset, True, NULL);
          }
@@ -1236,7 +1357,9 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       {
          XtSetSensitive(proxy_box_w, False);
          XtSetSensitive(mode_label_w, False);
+         XtSetSensitive(extended_mode_w, False);
          XtSetSensitive(ftp_mode_w, False);
+         XtSetSensitive(passive_redirect_w, False);
          XtSetSensitive(ftp_idle_time_w, False);
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
          XtSetSensitive(ftp_keepalive_w, False);
@@ -1260,6 +1383,17 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          }
          XtSetSensitive(ftp_ignore_bin_w, False);
       }
+
+#ifdef _WITH_BURST_2
+      if (fsa[cur_pos].protocol_options & DISABLE_BURSTING)
+      {
+         XtVaSetValues(allow_burst_w, XmNset, False, NULL);
+      }
+      else
+      {
+         XtVaSetValues(allow_burst_w, XmNset, True, NULL);
+      }
+#endif
 
       if (ce[cur_pos].value_changed & RETRY_INTERVAL_CHANGED)
       {
@@ -1329,18 +1463,28 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          if (fsa[cur_pos].dup_check_flag & DC_FILE_CONTENT)
          {
             XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+            XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
             XtVaSetValues(dc_filecontent_w, XmNset, True, NULL);
             XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
          }
          else if (fsa[cur_pos].dup_check_flag & DC_FILE_CONT_NAME)
               {
                  XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filenamecontent_w, XmNset, True, NULL);
+              }
+         else if (fsa[cur_pos].dup_check_flag & DC_NAME_NO_SUFFIX)
+              {
+                 XtVaSetValues(dc_filename_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_nosuffix_w, XmNset, True, NULL);
+                 XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
+                 XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
               }
               else
               {
                  XtVaSetValues(dc_filename_w, XmNset, True, NULL);
+                 XtVaSetValues(dc_nosuffix_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filecontent_w, XmNset, False, NULL);
                  XtVaSetValues(dc_filenamecontent_w, XmNset, False, NULL);
               }
@@ -1637,9 +1781,9 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       char user[MAX_FULL_USER_ID_LENGTH];
 
       get_user(user, fake_user);
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "%s was using edit_hc while someone changed the DIR_CONFIG! (%s %d)\n",
-                user, __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "%s was using edit_hc while someone changed the DIR_CONFIG!",
+                 user);
       (void)xrec(w, FATAL_DIALOG, "DO NOT EDIT THE DIR_CONFIG FILE WHILE USING edit_hc!!!!");
       return;
    }
@@ -1657,7 +1801,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
     */
    for (i = 0; i < no_of_hosts; i++)
    {
-      if (ce[i].value_changed != 0)
+      if ((ce[i].value_changed != 0) || (ce[i].value_changed2 != 0))
       {
          prev_changes = changes;
          if (ce[i].value_changed & REAL_HOSTNAME_1_CHANGED)
@@ -1872,6 +2016,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                {
                   fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
                }
+               if (fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX)
+               {
+                  fsa[i].dup_check_flag ^= DC_NAME_NO_SUFFIX;
+               }
                if (fsa[i].dup_check_flag & DC_FILE_CONT_NAME)
                {
                   fsa[i].dup_check_flag ^= DC_FILE_CONT_NAME;
@@ -1887,9 +2035,32 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                     {
                        fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
                     }
+                    if (fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX)
+                    {
+                       fsa[i].dup_check_flag ^= DC_NAME_NO_SUFFIX;
+                    }
                     if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
                     {
                        fsa[i].dup_check_flag ^= DC_FILE_CONTENT;
+                    }
+                 }
+            else if (ce[i].dup_check_flag & DC_NAME_NO_SUFFIX)
+                 {
+                    if ((fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX) == 0)
+                    {
+                       fsa[i].dup_check_flag |= DC_NAME_NO_SUFFIX;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILENAME_ONLY)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILENAME_ONLY;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILE_CONTENT;
+                    }
+                    if (fsa[i].dup_check_flag & DC_FILE_CONT_NAME)
+                    {
+                       fsa[i].dup_check_flag ^= DC_FILE_CONT_NAME;
                     }
                  }
                  else
@@ -1897,6 +2068,10 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                     if ((fsa[i].dup_check_flag & DC_FILENAME_ONLY) == 0)
                     {
                        fsa[i].dup_check_flag |= DC_FILENAME_ONLY;
+                    }
+                    if (fsa[i].dup_check_flag & DC_NAME_NO_SUFFIX)
+                    {
+                       fsa[i].dup_check_flag ^= DC_NAME_NO_SUFFIX;
                     }
                     if (fsa[i].dup_check_flag & DC_FILE_CONTENT)
                     {
@@ -2075,15 +2250,33 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
             fsa[i].protocol_options ^= FTP_IGNORE_BIN;
             changes++;
          }
+         if (ce[i].value_changed & FTP_EXTENDED_MODE_CHANGED)
+         {
+            fsa[i].protocol_options ^= FTP_EXTENDED_MODE;
+            changes++;
+         }
+#ifdef _WITH_BURST_2
+         if (ce[i].value_changed2 & ALLOW_BURST_CHANGED)
+         {
+            fsa[i].protocol_options ^= DISABLE_BURSTING;
+            changes++;
+         }
+#endif
+         if (ce[i].value_changed2 & FTP_PASSIVE_REDIRECT_CHANGED)
+         {
+            fsa[i].protocol_options ^= FTP_ALLOW_DATA_REDIRECT;
+            changes++;
+         }
 
          ce[i].value_changed = 0;
+         ce[i].value_changed2 = 0;
 
          if (prev_changes != changes)
          {
             (void)strcpy(host_list[changed_hosts], fsa[i].host_dsp_name);
             changed_hosts++;
          }
-      } /* if (ce[i].value_changed != 0) */
+      } /* if ((ce[i].value_changed != 0) || (ce[i].value_changed2 != 0)) */
    } /* for (i = 0; i < no_of_hosts; i++) */
 
    /*
@@ -2144,7 +2337,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
 
               (void)sprintf(msg, "Changed alias order in FSA");
               get_user(user, fake_user);
-              (void)rec(sys_log_fd, CONFIG_SIGN, "%s (%s)\n", msg, user);
+              system_log(CONFIG_SIGN, NULL, 0, "%s (%s)", msg, user);
            }
    }
    else
@@ -2169,7 +2362,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       char user[MAX_FULL_USER_ID_LENGTH];
 
       get_user(user, fake_user);
-      (void)rec(sys_log_fd, CONFIG_SIGN, "%s (%s)\n", msg, user);
+      system_log(CONFIG_SIGN, NULL, 0, "%s (%s)", msg, user);
 
       /*
        * Show the hosts that where changed. But ensure that the line
@@ -2191,7 +2384,7 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          } while ((line_length <= MAX_CHARS_IN_LINE) && (changed_hosts > i));
 
          msg[line_length] = '\0';
-         (void)rec(sys_log_fd, INFO_SIGN, "%s\n", msg);
+         system_log(INFO_SIGN, NULL, 0, "%s", msg);
          msg[0] = '\0';
       } while (changed_hosts > i);
    }
@@ -2199,6 +2392,9 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
    if ((host_alias_order_change == YES) || (changes > 0))
    {
       int  ret,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+           db_update_readfd,
+#endif
            db_update_fd;
       char db_update_fifo[MAX_PATH_LENGTH];
 
@@ -2206,7 +2402,11 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
       (void)strcpy(db_update_fifo, p_work_dir);
       (void)strcat(db_update_fifo, FIFO_DIR);
       (void)strcat(db_update_fifo, DB_UPDATE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(db_update_fifo, &db_update_readfd, &db_update_fd) == -1)
+#else
       if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
+#endif
       {
          (void)xrec(w, WARN_DIALOG,
                     "Failed to open() %s : %s (%s %d)",
@@ -2221,10 +2421,17 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
                        "Failed to send update message to AMG : %s (%s %d)",
                        strerror(-ret), __FILE__, __LINE__);
          }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(db_update_readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
          if (close(db_update_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
    }

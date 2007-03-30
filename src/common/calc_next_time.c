@@ -1,6 +1,6 @@
 /*
  *  calc_next_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,10 +27,16 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   time_t calc_next_time(struct bd_time_entry *te, time_t current_time);
+ **   time_t calc_next_time_array(int                  no_of_entries,
+ **                               struct bd_time_entry *te,
+ **                               time_t               current_time);
  **
  ** DESCRIPTION
  **   The function calc_next_time() calculates from the structure
  **   bd_time_entry te the next time as a time_t value.
+ **
+ **   The function calc_next_time_array() uses calc_next_time() to
+ **   calculate the lowest time from an array of time entries.
  **
  ** RETURN VALUES
  **   The function will return the next time as a time_t value
@@ -44,6 +50,9 @@ DESCR__S_M3
  **
  ** HISTORY
  **   04.05.1999 H.Kiehl Created
+ **   13.11.2006 H.Kiehl Added function calc_next_time_array().
+ **   18.11.2006 H.Kiehl It did not handle the case when tm_min=59
+ **                      correctly. Fixed.
  **
  */
 DESCR__E_M3
@@ -61,6 +70,33 @@ static int check_day(struct bd_time_entry *, struct tm *),
            get_greatest_dom(int, int);
 
 
+/*###################### calc_next_time_array() #########################*/
+time_t
+calc_next_time_array(int                  no_of_entries,
+                     struct bd_time_entry *te,
+                     time_t               current_time)
+{
+   int    i;
+   time_t new_time = 0,
+          tmp_time;
+
+   for (i = 0; i < no_of_entries; i++)
+   {
+      tmp_time = calc_next_time(&te[i], current_time);
+      if ((tmp_time < new_time) || (new_time == 0))
+      {
+         new_time = tmp_time;
+      }
+   }
+   if (new_time < current_time)
+   {
+      new_time = current_time;
+   }
+
+   return(new_time);
+}
+
+
 /*######################### calc_next_time() ############################*/
 time_t
 calc_next_time(struct bd_time_entry *te, time_t current_time)
@@ -69,12 +105,8 @@ calc_next_time(struct bd_time_entry *te, time_t current_time)
              i;
    struct tm *bd_time;     /* Broken-down time */
 
+   current_time += 60;
    bd_time = localtime(&current_time);
-   bd_time->tm_min++;
-   if (bd_time->tm_min == 60)
-   {
-      bd_time->tm_min = 0;
-   }
 
    if (check_month(te, bd_time) == INCORRECT)
    {

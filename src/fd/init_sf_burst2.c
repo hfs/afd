@@ -1,6 +1,6 @@
 /*
  *  init_sf_burst2.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,15 +51,10 @@ DESCR__E_M3
 #include "fddefs.h"
 
 /* External global variables */
-extern int                        trans_rule_pos,
-                                  user_rule_pos,
-                                  *p_no_of_hosts,
+extern int                        *p_no_of_hosts,
                                   fsa_fd,
                                   no_of_hosts,
-                                  no_of_rule_headers,
-                                  sys_log_fd,
-                                  transfer_log_fd,
-                                  trans_db_log_fd;
+                                  no_of_rule_headers;
 extern long                       transfer_timeout;
 extern char                       *p_work_dir;
 extern struct filetransfer_status *fsa;
@@ -205,7 +200,7 @@ init_sf_burst2(struct job   *p_new_db,
       p_new_db = NULL;
    }
 
-   if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET) & DISABLE_ARCHIVE)
+   if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & DISABLE_ARCHIVE)
    {
       db.archive_time = 0;
    }
@@ -224,8 +219,8 @@ init_sf_burst2(struct job   *p_new_db,
       get_rename_rules(gbuf, NO);
       if (db.trans_rename_rule[0] != '\0')
       {
-         if ((trans_rule_pos = get_rule(db.trans_rename_rule,
-                                        no_of_rule_headers)) < 0)
+         if ((db.trans_rule_pos = get_rule(db.trans_rename_rule,
+                                           no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                       "Could NOT find rule %s. Ignoring this option.",
@@ -235,13 +230,24 @@ init_sf_burst2(struct job   *p_new_db,
       }
       if (db.user_rename_rule[0] != '\0')
       {
-         if ((user_rule_pos = get_rule(db.user_rename_rule,
-                                       no_of_rule_headers)) < 0)
+         if ((db.user_rule_pos = get_rule(db.user_rename_rule,
+                                          no_of_rule_headers)) < 0)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Could NOT find rule %s. Ignoring this option.",
                        db.user_rename_rule);
             db.user_rename_rule[0] = '\0';
+         }
+      }
+      if (db.subject_rename_rule[0] != '\0')
+      {
+         if ((db.subject_rule_pos = get_rule(db.subject_rename_rule,
+                                             no_of_rule_headers)) < 0)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Could NOT find rule %s. Ignoring this option.",
+                       db.subject_rename_rule);
+            db.subject_rename_rule[0] = '\0';
          }
       }
    }
@@ -300,7 +306,11 @@ init_sf_burst2(struct job   *p_new_db,
        * It could be that all files where to old to be send.
        */
       /* Remove empty file directory. */
+#ifdef WITH_UNLINK_DELAY
+      if ((ret = remove_dir(file_path, 0)) < 0)
+#else
       if ((ret = remove_dir(file_path)) < 0)
+#endif
       {
          if (ret == FILE_IS_DIR)
          {

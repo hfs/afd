@@ -1,6 +1,6 @@
 /*
  *  eval_afd_mon_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -51,6 +51,16 @@ DESCR__S_M3
  **                1 - SSH compression
  **                2 - SSH, use -Y instead of -X when starting X applications
  **                4 - do not use full path to rafdd_cmd/rafdd_cmd_ssh script
+ **                8 - Enable SSL encryption
+ **               16 - send SYSTEM_LOG data
+ **               32 - send RECEIVE_LOG data
+ **               64 - send TRANSFER_LOG data
+ **              128 - send TRANSFER_DEBUG_LOG data
+ **              256 - send INPUT_LOG data
+ **              512 - send PRODUCTION_LOG data
+ **             1024 - send OUTPUT_LOG data
+ **             2048 - send DELETE_LOG data
+ **             4096 - send job data
  **
  ** RETURN VALUES
  **   None.
@@ -75,13 +85,19 @@ DESCR__E_M3
 #include <string.h>             /* strerror(), strcpy()                  */
 #include <ctype.h>              /* isdigit()                             */
 #include <stdlib.h>             /* malloc(), free(), atoi()              */
+#include <sys/types.h>
+#include <sys/stat.h>
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+#include <unistd.h>
 #include <errno.h>
 #include "mondefs.h"
 #include "afdddefs.h"
 
 #define MEM_STEP_SIZE 20
 
-/* External global variables */
+/* External global variables. */
 extern int  sys_log_fd,
             no_of_afds;
 extern char afd_mon_db_file[];
@@ -92,6 +108,7 @@ void
 eval_afd_mon_db(struct mon_list **nml)
 {
    int    cu_counter,
+          fd,
           i;
    size_t new_size;
    char   *afdbase = NULL,
@@ -99,11 +116,57 @@ eval_afd_mon_db(struct mon_list **nml)
           *ptr;
 
    /* Read the contents of the AFD_MON_CONFIG file into a buffer. */
-   if (read_file(afd_mon_db_file, &afdbase) == INCORRECT)
+   if ((fd = open(afd_mon_db_file, O_RDONLY)) != -1)
    {
+      struct stat stat_buf;
+
+      if (fstat(fd, &stat_buf) != -1)
+      {
+         if ((afdbase = malloc(stat_buf.st_size + 2)) != NULL)
+         {
+            if (read(fd, &afdbase[1], stat_buf.st_size) != stat_buf.st_size)
+            {
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "Failed to read() from `%s' : %s",
+                          afd_mon_db_file, strerror(errno));
+               exit(INCORRECT);
+            }
+         }
+         else
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+#if SIZEOF_OFF_T == 4
+                       "Failed to malloc() %ld bytes : %s",
+#else
+                       "Failed to malloc() %lld bytes : %s",
+#endif
+                       (pri_off_t)(stat_buf.st_size + 2), strerror(errno));
+            exit(INCORRECT);
+         }
+      }
+      else
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "Failed to fstat() `%s' : %s",
+                    afd_mon_db_file, strerror(errno));
+         exit(INCORRECT);
+      }
+
+      if (close(fd) == -1)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "close() error : %s", strerror(errno));
+      }
+   }
+   else
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to open() `%s' : %s",
+                 afd_mon_db_file, strerror(errno));
       exit(INCORRECT);
    }
 
+   afdbase[0] = '\n';
    ptr = afdbase;
    no_of_afds = 0;
 
@@ -172,9 +235,9 @@ eval_afd_mon_db(struct mon_list **nml)
          /* Now increase the space */
          if ((*nml = realloc(*nml, new_size)) == NULL)
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not reallocate memory for AFD monitor list : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Could not reallocate memory for AFD monitor list : %s",
+                       strerror(errno));
             exit(INCORRECT);
          }
 
@@ -215,10 +278,9 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          if (tmp_ptr != ptr)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Maximum length for AFD alias name %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                      (*nml)[no_of_afds].afd_alias, MAX_AFDNAME_LENGTH,
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Maximum length for AFD alias name %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
+                       (*nml)[no_of_afds].afd_alias, MAX_AFDNAME_LENGTH);
          }
       }
       (*nml)[no_of_afds].afd_alias[i] = '\0';
@@ -265,10 +327,9 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       if (i == MAX_REAL_HOSTNAME_LENGTH)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Maximum length for real hostname for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                   (*nml)[no_of_afds].afd_alias, MAX_REAL_HOSTNAME_LENGTH,
-                   __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Maximum length for real hostname for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
+                    (*nml)[no_of_afds].afd_alias, MAX_REAL_HOSTNAME_LENGTH);
          while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '|') &&
                 (*ptr != '/') && (*ptr != '\n') && (*ptr != '\0'))
          {
@@ -291,10 +352,9 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          if (i == MAX_REAL_HOSTNAME_LENGTH)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Maximum length for second real hostname for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                      (*nml)[no_of_afds].afd_alias, MAX_REAL_HOSTNAME_LENGTH,
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Maximum length for second real hostname for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
+                       (*nml)[no_of_afds].afd_alias, MAX_REAL_HOSTNAME_LENGTH);
             while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '|') &&
                    (*ptr != '/') && (*ptr != '\n') && (*ptr != '\0'))
             {
@@ -359,10 +419,10 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Non numeric character <%d> in TCP port field for AFD %s, using default %s. (%s %d)\n",
-                      (int)*ptr, (*nml)[no_of_afds].afd_alias,
-                      DEFAULT_AFD_PORT_NO, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in TCP port field for AFD %s, using default %s.",
+                       (int)*ptr, (*nml)[no_of_afds].afd_alias,
+                       DEFAULT_AFD_PORT_NO);
 
             /* Ignore this entry */
             i = 0;
@@ -380,13 +440,12 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       else if (i == MAX_INT_LENGTH)
            {
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Numeric value allowed transfers to large (>%d characters) for AFD %s to store as integer. (%s %d)\n",
-                        MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias,
-                        __FILE__, __LINE__);
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Setting it to the default value %s.\n",
-                        DEFAULT_AFD_PORT_NO);
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value allowed transfers to large (>%d characters) for AFD %s to store as integer.",
+                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value %s.",
+                         DEFAULT_AFD_PORT_NO);
               (*nml)[no_of_afds].port[0] = atoi(DEFAULT_AFD_PORT_NO);
               while ((*ptr != ' ') && (*ptr != '\t') &&
                      (*ptr != '\n') && (*ptr != '\0'))
@@ -415,10 +474,9 @@ eval_afd_mon_db(struct mon_list **nml)
             }
             else
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Non numeric character <%d> in TCP port field for AFD %s, disabling second port. (%s %d)\n",
-                         (int)*ptr, (*nml)[no_of_afds].afd_alias,
-                         __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Non numeric character <%d> in TCP port field for AFD %s, disabling second port.",
+                          (int)*ptr, (*nml)[no_of_afds].afd_alias);
 
                /* Ignore this entry */
                i = 0;
@@ -436,11 +494,10 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          else if (i == MAX_INT_LENGTH)
               {
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "Numeric value allowed transfers to large (>%d characters) for AFD %s to store as integer. (%s %d)\n",
-                           MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias,
-                           __FILE__, __LINE__);
-                 (void)rec(sys_log_fd, WARN_SIGN, "Disabling second port.\n");
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Numeric value allowed transfers to large (>%d characters) for AFD %s to store as integer.",
+                            MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+                 system_log(WARN_SIGN, NULL, 0, "Disabling second port.");
                  (*nml)[no_of_afds].port[1] = (*nml)[no_of_afds].port[0];
                  while ((*ptr != ' ') && (*ptr != '\t') &&
                         (*ptr != '\n') && (*ptr != '\0'))
@@ -505,10 +562,10 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Non numeric character <%d> in poll interval field for AFD %s, using default %s. (%s %d)\n",
-                      (int)*ptr, (*nml)[no_of_afds].afd_alias,
-                      DEFAULT_POLL_INTERVAL, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in poll interval field for AFD %s, using default %s.",
+                       (int)*ptr, (*nml)[no_of_afds].afd_alias,
+                       DEFAULT_POLL_INTERVAL);
 
             /* Ignore this entry */
             i = 0;
@@ -526,13 +583,12 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       else if (i == MAX_INT_LENGTH)
            {
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Numeric value for poll interval to large (>%d characters) for AFD %s to store as integer. (%s %d)\n",
-                        MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias,
-                        __FILE__, __LINE__);
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Setting it to the default value %s.\n",
-                        DEFAULT_POLL_INTERVAL);
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for poll interval to large (>%d characters) for AFD %s to store as integer.",
+                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value %s.",
+                         DEFAULT_POLL_INTERVAL);
               (*nml)[no_of_afds].poll_interval = DEFAULT_POLL_INTERVAL;
               while ((*ptr != ' ') && (*ptr != '\t') &&
                      (*ptr != '\n') && (*ptr != '\0'))
@@ -582,10 +638,10 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Non numeric character <%d> in connect time field for AFD %s, using default %s. (%s %d)\n",
-                      (int)*ptr, (*nml)[no_of_afds].afd_alias,
-                      DEFAULT_CONNECT_TIME, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in connect time field for AFD %s, using default %s.",
+                       (int)*ptr, (*nml)[no_of_afds].afd_alias,
+                       DEFAULT_CONNECT_TIME);
 
             /* Ignore this entry */
             i = 0;
@@ -603,13 +659,12 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       else if (i == MAX_INT_LENGTH)
            {
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Numeric value for connect time to large (>%d characters) for AFD %s to store as integer. (%s %d)\n",
-                        MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias,
-                        __FILE__, __LINE__);
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Setting it to the default value %s.\n",
-                        DEFAULT_CONNECT_TIME);
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for connect time to large (>%d characters) for AFD %s to store as integer.",
+                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value %s.",
+                         DEFAULT_CONNECT_TIME);
               (*nml)[no_of_afds].connect_time = DEFAULT_CONNECT_TIME;
               while ((*ptr != ' ') && (*ptr != '\t') &&
                      (*ptr != '\n') && (*ptr != '\0'))
@@ -658,10 +713,10 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Non numeric character <%d> in disconnect time field for AFD %s, using default %s. (%s %d)\n",
-                      (int)*ptr, (*nml)[no_of_afds].afd_alias,
-                      DEFAULT_DISCONNECT_TIME, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in disconnect time field for AFD %s, using default %s.",
+                       (int)*ptr, (*nml)[no_of_afds].afd_alias,
+                       DEFAULT_DISCONNECT_TIME);
 
             /* Ignore this entry */
             i = 0;
@@ -679,13 +734,12 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       else if (i == MAX_INT_LENGTH)
            {
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Numeric value for disconnect time to large (>%d characters) for AFD %s to store as integer. (%s %d)\n",
-                        MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias,
-                        __FILE__, __LINE__);
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Setting it to the default value %s.\n",
-                        DEFAULT_DISCONNECT_TIME);
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                        "Numeric value for disconnect time to large (>%d characters) for AFD %s to store as integer.",
+                        MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value %s.",
+                         DEFAULT_DISCONNECT_TIME);
               (*nml)[no_of_afds].disconnect_time = DEFAULT_DISCONNECT_TIME;
               while ((*ptr != ' ') && (*ptr != '\t') &&
                      (*ptr != '\n') && (*ptr != '\0'))
@@ -733,10 +787,10 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          else
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Non numeric character <%d> in option field for AFD %s, using default %s. (%s %d)\n",
-                      (int)*ptr, (*nml)[no_of_afds].afd_alias,
-                      DEFAULT_OPTION_ENTRY, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Non numeric character <%d> in option field for AFD %s, using default %s.",
+                       (int)*ptr, (*nml)[no_of_afds].afd_alias,
+                       DEFAULT_OPTION_ENTRY);
 
             /* Ignore this entry */
             i = 0;
@@ -754,13 +808,12 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       else if (i == MAX_INT_LENGTH)
            {
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Numeric value for the options entry to large (>%d characters) for AFD %s to store as integer. (%s %d)\n",
-                        MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias,
-                        __FILE__, __LINE__);
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Setting it to the default value %s.\n",
-                        DEFAULT_OPTION_ENTRY);
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "Numeric value for the options entry to large (>%d characters) for AFD %s to store as integer.",
+                         MAX_INT_LENGTH, (*nml)[no_of_afds].afd_alias);
+              system_log(WARN_SIGN, NULL, 0,
+                         "Setting it to the default value %s.",
+                         DEFAULT_OPTION_ENTRY);
               (*nml)[no_of_afds].options = DEFAULT_OPTION_ENTRY;
               while ((*ptr != ' ') && (*ptr != '\t') &&
                      (*ptr != '\n') && (*ptr != '\0'))
@@ -805,10 +858,9 @@ eval_afd_mon_db(struct mon_list **nml)
       }
       if (i == MAX_REMOTE_CMD_LENGTH)
       {
-         (void)rec(sys_log_fd, WARN_SIGN,
-                   "Maximum length for remote command for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                   (*nml)[no_of_afds].afd_alias, MAX_REMOTE_CMD_LENGTH,
-                   __FILE__, __LINE__);
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Maximum length for remote command for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
+                    (*nml)[no_of_afds].afd_alias, MAX_REMOTE_CMD_LENGTH);
          while ((*ptr != ' ') && (*ptr != '\t') &&
                 (*ptr != '\n') && (*ptr != '\0'))
          {
@@ -828,10 +880,9 @@ eval_afd_mon_db(struct mon_list **nml)
          (void)strcpy((*nml)[no_of_afds].rcmd, DEFAULT_REMOTE_CMD);
          if (i > 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Unknown remote command for %s in AFD_MON_CONFIG. Will set to default (%s). (%s %d)\n",
-                      (*nml)[no_of_afds].afd_alias, DEFAULT_REMOTE_CMD,
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Unknown remote command for %s in AFD_MON_CONFIG. Will set to default (%s).",
+                       (*nml)[no_of_afds].afd_alias, DEFAULT_REMOTE_CMD);
          }
       }
       while ((*ptr == ' ') || (*ptr == '\t'))
@@ -869,10 +920,9 @@ eval_afd_mon_db(struct mon_list **nml)
          }
          if (i == MAX_USER_NAME_LENGTH)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                      (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH,
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
+                       (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH);
             while ((*ptr != '\0') && !((*ptr == '-') && (*(ptr + 1) == '>')) &&
                    (*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n'))
             {
@@ -892,10 +942,9 @@ eval_afd_mon_db(struct mon_list **nml)
             }
             if (i == MAX_USER_NAME_LENGTH)
             {
-               (void)rec(sys_log_fd, WARN_SIGN,
-                         "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters. (%s %d)\n",
-                         (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH,
-                         __FILE__, __LINE__);
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Maximum length for username for %s exceeded in AFD_MON_CONFIG. Will be truncated to %d characters.",
+                          (*nml)[no_of_afds].afd_alias, MAX_USER_NAME_LENGTH);
                while ((*ptr != ' ') && (*ptr != '\t') &&
                       (*ptr != '\n') && (*ptr != '\0'))
                {

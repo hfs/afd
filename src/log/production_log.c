@@ -1,6 +1,6 @@
 /*
  *  production_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -100,6 +100,9 @@ main(int argc, char *argv[])
                   max_production_log_files = MAX_PRODUCTION_LOG_FILES,
                   no_of_buffered_writes = 0,
                   status;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int            writefd;
+#endif
    time_t         next_file_time,
                   now;
    long           fifo_size;
@@ -129,13 +132,21 @@ main(int argc, char *argv[])
       (void)strcpy(production_log_fifo, work_dir);
       (void)strcat(production_log_fifo, FIFO_DIR);
       (void)strcat(production_log_fifo, PRODUCTION_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(production_log_fifo, &log_fd, &writefd) == -1)
+#else
       if ((log_fd = open(production_log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if (make_fifo(production_log_fifo) == SUCCESS)
             {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (open_fifo_rw(production_log_fifo, &log_fd, &writefd) == -1)
+#else
                if ((log_fd = open(production_log_fifo, O_RDWR)) == -1)
+#endif
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to open() fifo %s : %s",
@@ -209,7 +220,7 @@ main(int argc, char *argv[])
     * create it.
     */
    get_log_number(&log_number, (max_production_log_files - 1),
-                  PRODUCTION_BUFFER_FILE, strlen(PRODUCTION_BUFFER_FILE));
+                  PRODUCTION_BUFFER_FILE, PRODUCTION_BUFFER_FILE_LENGTH, NULL);
    (void)sprintf(current_log_file, "%s%s/%s0",
                  work_dir, LOG_DIR, PRODUCTION_BUFFER_FILE);
    p_end = log_file;
@@ -229,7 +240,7 @@ main(int argc, char *argv[])
          {
             log_number++;
          }
-         reshuffel_log_files(log_number, log_file, p_end);
+         reshuffel_log_files(log_number, log_file, p_end, 0, 0);
       }
    }
 
@@ -279,7 +290,7 @@ main(int argc, char *argv[])
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "fclose() error : %s", strerror(errno));
             }
-            reshuffel_log_files(log_number, log_file, p_end);
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
             production_file = open_log_file(current_log_file);
             next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME +
                              SWITCH_FILE_TIME;
@@ -323,7 +334,8 @@ main(int argc, char *argv[])
 #else
                        (void)fprintf(production_file, "%-10llx%s\n",
 #endif
-                                     now, &fifo_buffer[sizeof(short)]);
+                                     (pri_time_t)now,
+                                     &fifo_buffer[sizeof(short)]);
                        length = *msg_length;
                     }
                     n -= length;
@@ -364,7 +376,7 @@ main(int argc, char *argv[])
                     system_log(ERROR_SIGN, __FILE__, __LINE__,
                                "fclose() error : %s", strerror(errno));
                  }
-                 reshuffel_log_files(log_number, log_file, p_end);
+                 reshuffel_log_files(log_number, log_file, p_end, 0, 0);
                  production_file = open_log_file(current_log_file);
                  next_file_time = (now / SWITCH_FILE_TIME) * SWITCH_FILE_TIME + SWITCH_FILE_TIME;
               }

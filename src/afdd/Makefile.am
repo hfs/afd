@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2003 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -17,14 +17,17 @@
 ##
 
 MAINTAINERCLEANFILES = Makefile.in
+CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = afdddefs.h
 INCLUDES             = -I.. -I../log -I../init_afd
 bin_PROGRAMS         = afdd
 afdd_SOURCES         = afdd.c\
                        check_changes.c\
+                       check_logs.c\
                        display_file.c\
                        get_display_data.c\
                        handle_request.c\
+                       show_dir_list.c\
                        show_host_list.c\
                        show_summary_stat.c
 afdd_LDADD           = ../common/libafd.a @EXTRA_SOCKET_LIBS@

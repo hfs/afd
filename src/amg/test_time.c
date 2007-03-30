@@ -1,6 +1,6 @@
 /*
  *  test_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   test_time -
  **
  ** SYNOPSIS
- **   test_time <crontab like time entry>
+ **   test_time <crontab like time entry 1> [<crontab like time entry n>]
  **
  ** DESCRIPTION
  **
@@ -36,14 +36,17 @@ DESCR__S_M3
  **
  ** HISTORY
  **   04.05.1999 H.Kiehl Created
+ **   13.11.2006 H.Kiehl Allow for multiple time entries.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 #include "amgdefs.h"
 
 /* Global variables */
@@ -56,10 +59,9 @@ const char *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-   time_t               current_time,
-                        next_time;
-   char                 str_time[32];
-   struct bd_time_entry te;
+   time_t current_time,
+          next_time;
+   char   str_time[32];
 
    if (get_arg(&argc, argv, "-f", str_time, 32) == SUCCESS)
    {
@@ -69,21 +71,55 @@ main(int argc, char *argv[])
    {
       current_time = time(NULL);
    }
-   if (argc != 2)
+   if (argc < 2)
    {
-      (void)fprintf(stderr, "Usage: %s <crontab like time entry>\n",
+      (void)fprintf(stderr,
+                    "Usage: %s [-f <current unix time>] <crontab like time entry 1> [<crontab like time entry n>]\n",
                     argv[0]);
       exit(INCORRECT);
    }
 
-   if (eval_time_str(argv[1], &te) == INCORRECT)
+   if (argc == 2)
    {
-      exit(INCORRECT);
+      struct bd_time_entry te;
+
+      if (eval_time_str(argv[1], &te) == INCORRECT)
+      {
+         exit(INCORRECT);
+      }
+
+      next_time = calc_next_time(&te, current_time);
+   }
+   else
+   {
+      int                  i;
+      size_t               new_size;
+      struct bd_time_entry *te;
+
+      new_size = (argc - 1) * sizeof(struct bd_time_entry);
+      if ((te = malloc(new_size)) == NULL)
+      {
+         (void)fprintf(stderr, "Failed to malloc() %d bytes : %s",
+                       new_size, strerror(errno));
+         exit(INCORRECT);
+      }
+
+      for (i = 0; i < (argc - 1); i++)
+      {
+         if (eval_time_str(argv[i + 1], &te[i]) == INCORRECT)
+         {
+            exit(INCORRECT);
+         }
+      }
+      next_time = calc_next_time_array((argc - 1), te, current_time);
    }
 
-   next_time = calc_next_time(&te, current_time);
-
-   (void)fprintf(stdout, "%s", ctime(&next_time));
+#if SIZEOF_TIME_T == 4
+   (void)fprintf(stdout, "%ld -> %s",
+#else
+   (void)fprintf(stdout, "%lld -> %s",
+#endif
+                 (pri_time_t)next_time, ctime(&next_time));
 
    exit(SUCCESS);
 }

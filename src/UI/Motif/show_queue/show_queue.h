@@ -30,15 +30,11 @@
 #define SHOW_UNSENT_INPUT       8      /* All files in input dir.       */
 #define SHOW_UNSENT_OUTPUT      16     /* Files currently send by FD.   */
 #define SHOW_PENDING_RETRIEVES  32     /* Pending retrieve jobs.        */
+#define SHOW_TIME_JOBS          64     /* Pending time jobs.            */
 
 #define GOT_JOB_ID              -2
 #define GOT_JOB_ID_DIR_ONLY     -3
 #define GOT_JOB_ID_USER_ONLY    -4
-
-#define F_KILOBYTE              1024.0
-#define F_MEGABYTE              1048576.0
-#define F_GIGABYTE              1073741824.0
-#define F_TERABYTE              1099511627776.0
 
 #define SEARCH_BUTTON           1
 #define STOP_BUTTON             2
@@ -94,6 +90,7 @@ struct queued_file_list
           char         *file_name;
           char         msg_name[MAX_MSG_NAME_LENGTH]; /* NOT used anymore. */
           char         hostname[MAX_HOSTNAME_LENGTH + 1];
+          char         dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char         priority;
           char         queue_type; /* SHOW_INPUT, SHOW_OUTPUT,              */
                                    /* SHOW_UNSENT_INPUT, SHOW_UNSENT_OUTPUT,*/
@@ -168,6 +165,7 @@ extern void close_button(Widget, XtPointer, XtPointer),
             radio_button(Widget, XtPointer, XtPointer),
             save_input(Widget, XtPointer, XtPointer),
             send_button(Widget, XtPointer, XtPointer),
+            send_files(int, int *),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
             show_summary(unsigned int, double),

@@ -1,6 +1,6 @@
 /*
  *  display_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -172,6 +172,10 @@ display_data(void)
               *p_type = 'R';
               *(p_type + 1) = 'P';
            }
+      else if (qfl[lines_displayed].queue_type == SHOW_TIME_JOBS)
+           {
+              *p_type = 'T';
+           }
            else
            {
               *p_type = '?';
@@ -184,7 +188,8 @@ display_data(void)
       (void)sprintf(p_hostname, "%-*s %*lld",
 #endif
                     MAX_HOSTNAME_LENGTH, qfl[lines_displayed].hostname,
-                    MAX_DISPLAYED_FILE_SIZE, qfl[lines_displayed].size);
+                    MAX_DISPLAYED_FILE_SIZE,
+                    (pri_off_t)qfl[lines_displayed].size);
 
       str_list[i] = XmStringCreateLocalized(line);
       if (i == LINES_BUFFERED)
@@ -249,9 +254,17 @@ show_summary(unsigned int total_no_files, double file_size)
         {
            ptr += sprintf(ptr, "%7.2f GB ", file_size / F_GIGABYTE);
         }
-        else
+   else if (file_size < F_PETABYTE)
         {
            ptr += sprintf(ptr, "%7.2f TB ", file_size / F_TERABYTE);
+        }
+   else if (file_size < F_EXABYTE)
+        {
+           ptr += sprintf(ptr, "%7.2f PB ", file_size / F_PETABYTE);
+        }
+        else
+        {
+           ptr += sprintf(ptr, "%7.2f EB ", file_size / F_EXABYTE);
         }
    *ptr = ' ';
    XmTextSetString(summarybox_w, summary_str);

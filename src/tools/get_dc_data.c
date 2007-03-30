@@ -25,12 +25,17 @@ DESCR__S_M3
  **   get_dc_data - gets all data out of the DIR_CONFIG for a host
  **
  ** SYNOPSIS
- **   get_dc_data <host alias>
+ **   get_dc_data [-h <host alias>] [-d <dir alias>]
  **
  ** DESCRIPTION
  **
  ** RETURN VALUES
  **   None.
+ **
+ ** SEE ALSO
+ **   common/get_hostname.c, common/create_message.c, fd/get_job_data.c,
+ **   fd/eval_recipient.c, amg/store_passwd.c, fd/init_msg_buffer.c,
+ **   tools/set_pw.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -97,7 +102,8 @@ static void                check_dir_options(int),
                            print_recipient(char *),
                            show_data(struct job_id_data *, char *, char *,
                                      int, struct passwd_buf *, int),
-                           show_dir_data(int);
+                           show_dir_data(int),
+                           usage(FILE *, char *);
 static int                 get_current_jid_list(void),
                            same_directory(int *, unsigned int),
                            same_file_filter(int *, unsigned int, unsigned int),
@@ -125,6 +131,12 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
+   if (get_arg(&argc, argv, "-?", NULL, 0) == SUCCESS)
+   {
+      usage(stdout, argv[0]);
+      exit(0);
+   }
+
    if (get_arg(&argc, argv, "-h", host_name, MAX_HOSTNAME_LENGTH) != SUCCESS)
    {
       if (get_arg(&argc, argv, "-d", dir_alias, MAX_DIR_ALIAS_LENGTH) != SUCCESS)
@@ -134,7 +146,7 @@ main(int argc, char *argv[])
          {
             if (my_strncpy(host_name, argv[1], MAX_HOSTNAME_LENGTH + 1) == -1)
             {
-               (void)fprintf(stderr, "Usage: %s <host alias>\n", argv[0]);
+               usage(stderr, argv[0]);
                if (strlen(argv[1]) > MAX_HOSTNAME_LENGTH)
                {
                   (void)fprintf(stderr,
@@ -159,6 +171,20 @@ main(int argc, char *argv[])
    check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -537,11 +563,26 @@ get_dc_data(char *host_name, char *dir_alias)
    else
    {
       /*
-       * First lets check if this host_name is not
-       * just a retrieving host_name. If that is the
-       * case lets show the content of the whole
-       * directory.
+       * Lets check both cases, a hostname can be used for retrieving files
+       * and sending files. Always show both.
        */
+      if (fsa[position].protocol & RETRIEVE_FLAG)
+      {
+         for (i = 0; i < no_of_dirs; i++)
+         {
+            if (strcmp(fra[i].host_alias, host_name) == 0)
+            {
+               for (j = 0; j < no_of_dirs_in_dnb; j++)
+               {
+                  if (dnb[j].dir_id == fra[i].dir_id)
+                  {
+                     show_dir_data(j);
+                     break;
+                  }
+               }
+            }
+         }
+      }
       if (fsa[position].protocol & SEND_FLAG)
       {
          for (i = 0; i < no_of_current_jobs; i++)
@@ -560,23 +601,6 @@ get_dc_data(char *host_name, char *dir_alias)
             }
          }
       }
-      else if (fsa[position].protocol & RETRIEVE_FLAG)
-           {
-              for (i = 0; i < no_of_dirs; i++)
-              {
-                 if (strcmp(fra[i].host_alias, host_name) == 0)
-                 {
-                    for (j = 0; j < no_of_dirs_in_dnb; j++)
-                    {
-                       if (dnb[j].dir_id == fra[i].dir_id)
-                       {
-                          show_dir_data(j);
-                          break;
-                       }
-                    }
-                 }
-              }
-           }
    }
    (void)fra_detach();
 
@@ -638,7 +662,7 @@ show_data(struct job_id_data *p_jd,
    char               value[MAX_PATH_LENGTH];
    struct dir_options d_o;
 
-   (void)fprintf(stdout, "Directory     : %s\n", dir_name);
+   (void)fprintf(stdout, "%s%s\n", VIEW_DC_DIR_IDENTIFIER, dir_name);
 
    get_dir_options(p_jd->dir_id, &d_o);
    if (d_o.url[0] != '\0')
@@ -1074,7 +1098,7 @@ get_current_jid_list(void)
    struct stat stat_buf;
 
    (void)sprintf(file, "%s%s%s", p_work_dir, FIFO_DIR, CURRENT_MSG_LIST_FILE);
-   if ((fd = open(file, O_RDWR)) == -1)
+   if ((fd = open(file, O_RDONLY)) == -1)
    {
       (void)fprintf(stderr,
                     "Failed to open() %s. Will not be able to get all information. : %s (%s %d)\n",
@@ -1091,7 +1115,7 @@ get_current_jid_list(void)
       return(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,
@@ -1166,8 +1190,12 @@ print_recipient(char *print_buffer)
                char uh_name[MAX_USER_NAME_LENGTH + MAX_REAL_HOSTNAME_LENGTH + 1];
 
                i = 0;
-               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                      (i < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+               while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+               while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                      (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
                {
                   if (*ptr == '\\')
                   {
@@ -1176,6 +1204,19 @@ print_recipient(char *print_buffer)
                   uh_name[i] = *ptr;
                   ptr++; i++;
                }
+#ifdef WITH_SSH_FINGERPRINT
+               if (*ptr == ';')
+               {
+                  while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
+                  {
+                     if (*ptr == '\\')
+                     {
+                        ptr++;
+                     }
+                     ptr++;
+                  }
+               }
+#endif
                if ((*ptr != '\0') && (*ptr != ':') &&
                    (i > 0) && (i != MAX_USER_NAME_LENGTH))
                {
@@ -1286,5 +1327,15 @@ print_recipient(char *print_buffer)
          (void)strcat(print_buffer, tmp_buffer);
       }
    }
+   return;
+}
+
+
+/*++++++++++++++++++++++++++++ usage() +++++++++++++++++++++++++++++++++*/
+static void
+usage(FILE *stream, char *progname)
+{
+   (void)fprintf(stream, "Usage: %s [-d <dir alias>] [-h <host alias>]\n",
+                 progname);
    return;
 }

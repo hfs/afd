@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -210,22 +210,25 @@ Widget   w;
             new_connect_data[i].max_average_tr = 0.0;
             new_connect_data[i].max_errors = fsa[i].max_errors;
             new_connect_data[i].error_counter = fsa[i].error_counter;
-            if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
-                                        /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
+            if (fsa[i].host_status & PAUSE_QUEUE_STAT)
             {
-               if (fsa[i].host_status & PAUSE_QUEUE_STAT)
-               {
-                  new_connect_data[i].status_led[0] = PAUSE_QUEUE;
-               }
-               else
-               {
-                  new_connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
-               }
+               new_connect_data[i].status_led[0] = PAUSE_QUEUE;
             }
-            else
-            {
-               new_connect_data[i].status_led[0] = NORMAL_STATUS;
-            }
+            else if ((fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+                     (fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT))
+                 {
+                    new_connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
+                 }
+#ifdef WITH_ERROR_QUEUE
+            else if (fsa[i].host_status & ERROR_QUEUE_SET)
+                 {
+                    new_connect_data[i].status_led[0] = JOBS_IN_ERROR_QUEUE;
+                 }
+#endif
+                 else
+                 {
+                    new_connect_data[i].status_led[0] = NORMAL_STATUS;
+                 }
             if (fsa[i].host_status & STOP_TRANSFER_STAT)
             {
                new_connect_data[i].status_led[1] = STOP_TRANSFER;
@@ -468,8 +471,7 @@ Widget   w;
       {
          if (connect_data[i].allowed_transfers != fsa[i].allowed_transfers)
          {
-            int column,
-                column_length,
+            int column_length,
                 max_no_parallel_jobs,
                 row_counter;
 
@@ -861,34 +863,41 @@ Widget   w;
              * STATUS LED
              * ==========
              */
-            if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
-                                        /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
+            if (fsa[i].host_status & PAUSE_QUEUE_STAT)
             {
-               if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+               if (connect_data[i].status_led[0] != PAUSE_QUEUE)
                {
-                  if (connect_data[i].status_led[0] != PAUSE_QUEUE)
-                  {
-                     connect_data[i].status_led[0] = PAUSE_QUEUE;
-                     led_changed |= LED_ONE;
-                  }
-               }
-               else
-               {
-                  if (connect_data[i].status_led[0] != AUTO_PAUSE_QUEUE)
-                  {
-                     connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
-                     led_changed |= LED_ONE;
-                  }
-               }
-            }
-            else
-            {
-               if (connect_data[i].status_led[0] != NORMAL_STATUS)
-               {
-                  connect_data[i].status_led[0] = NORMAL_STATUS;
+                  connect_data[i].status_led[0] = PAUSE_QUEUE;
                   led_changed |= LED_ONE;
                }
             }
+            else if ((fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+                     (fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT))
+                 {
+                    if (connect_data[i].status_led[0] != AUTO_PAUSE_QUEUE)
+                    {
+                       connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
+                       led_changed |= LED_ONE;
+                    }
+                 }
+#ifdef WITH_ERROR_QUEUE
+            else if (fsa[i].host_status & ERROR_QUEUE_SET)
+                 {
+                    if (connect_data[i].status_led[0] != JOBS_IN_ERROR_QUEUE)
+                    {
+                       connect_data[i].status_led[0] = JOBS_IN_ERROR_QUEUE;
+                       led_changed |= LED_ONE;
+                    }
+                 }
+#endif
+                 else
+                 {
+                    if (connect_data[i].status_led[0] != NORMAL_STATUS)
+                    {
+                       connect_data[i].status_led[0] = NORMAL_STATUS;
+                       led_changed |= LED_ONE;
+                    }
+                 }
             if (fsa[i].host_status & STOP_TRANSFER_STAT)
             {
                if (connect_data[i].status_led[1] != STOP_TRANSFER)

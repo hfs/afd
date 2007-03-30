@@ -1,6 +1,6 @@
 /*
  *  handle_time_jobs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,7 +58,11 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        amg_counter_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                  fin_writefd,
+#else
                                   fin_fd,
+#endif
                                   max_process,
                                   no_of_jobs,
                                   no_of_time_jobs,
@@ -102,7 +106,8 @@ handle_time_jobs(int *no_of_process, time_t now)
          {
             break;
          }
-         db[time_job_list[i]].next_start_time = calc_next_time(&db[time_job_list[i]].te, now);
+         db[time_job_list[i]].next_start_time = calc_next_time_array(db[time_job_list[i]].no_of_time_entries,
+                                                                     db[time_job_list[i]].te, now);
       }
    }
 
@@ -265,10 +270,14 @@ handle_time_dir(int time_job_no, int *no_of_process)
                      {
                         p_dest_end--;
                      }
-                     (void)sprintf(unique_name, "%x/%x/%x_%x_%x",
+#if SIZEOF_TIME_T == 4
+                     (void)sprintf(unique_name, "%x/%x/%lx_%x_%x",
+#else
+                     (void)sprintf(unique_name, "%x/%x/%llx_%x_%x",
+#endif
                                    db[time_job_list[time_job_no]].job_id,
-                                   dir_no, creation_time, unique_number,
-                                   split_job_counter);
+                                   dir_no, (pri_time_t)creation_time,
+                                   unique_number, split_job_counter);
                      p_dest = p_dest_end +
                               sprintf(p_dest_end, "/%s/", unique_name);
                      if (mkdir(dest_file_path, DIR_MODE) == -1)
@@ -295,12 +304,12 @@ handle_time_dir(int time_job_no, int *no_of_process)
                else
                {
 #ifndef _WITH_PTHREAD
-                  if ((files_moved % 10) == 0)
+                  if ((files_moved % FILE_NAME_STEP_SIZE) == 0)
                   {
                      size_t new_size;
 
                      /* Calculate new size of file name buffer */
-                     new_size = ((files_moved / 10) + 1) * 10 * MAX_FILENAME_LENGTH;
+                     new_size = ((files_moved / FILE_NAME_STEP_SIZE) + 1) * FILE_NAME_STEP_SIZE * MAX_FILENAME_LENGTH;
 
                      /* Increase the space for the file name buffer */
                      if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)
@@ -355,13 +364,16 @@ handle_time_dir(int time_job_no, int *no_of_process)
                        show_fifo_data('W', "ip_fin", cmd, 1, __FILE__, __LINE__);
 #endif
                        pid = getpid();
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                       if (write(fin_writefd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+#else
                        if (write(fin_fd, &pid, sizeof(pid_t)) != sizeof(pid_t))
+#endif
                        {
                           system_log(ERROR_SIGN, __FILE__, __LINE__,
                                      "Could not write() to fifo %s : %s",
                                      IP_FIN_FIFO, strerror(errno));
                        }
-                       (void)close(fin_fd);
                        exit(SUCCESS);
                     }
                     else /* Parent process */

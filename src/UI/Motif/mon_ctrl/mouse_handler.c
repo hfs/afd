@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -641,7 +641,7 @@ mon_popup_cb(Widget    w,
 
       default  :
          (void)xrec(appshell, WARN_DIALOG,
-#if SIZEOF_LONG
+#if SIZEOF_LONG == 4
                     "Impossible item selection (%d).", sel_typ);
 #else
                     "Impossible item selection (%ld).", sel_typ);
@@ -694,12 +694,19 @@ mon_popup_cb(Widget    w,
                       (msa[i].connect_status == ERROR_ID))
                   {
                      int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     int  readfd;
+#endif
                      char retry_fifo[MAX_PATH_LENGTH];
 
                      (void)sprintf(retry_fifo, "%s%s%s%d",
                                    p_work_dir, FIFO_DIR,
                                    RETRY_MON_FIFO, i);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (open_fifo_rw(retry_fifo, &readfd, &fd) == -1)
+#else
                      if ((fd = open(retry_fifo, O_RDWR)) == -1)
+#endif
                      {
                         (void)xrec(appshell, ERROR_DIALOG,
                                    "Failed to open() %s : %s (%s %d)",
@@ -715,6 +722,14 @@ mon_popup_cb(Widget    w,
                                       retry_fifo, strerror(errno),
                                       __FILE__, __LINE__);
                         }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        if (close(readfd) == -1)
+                        {
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      "Failed to close() FIFO %s : %s",
+                                      retry_fifo, strerror(errno));
+                        }
+#endif
                         if (close(fd) == -1)
                         {
                            system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -767,11 +782,18 @@ mon_popup_cb(Widget    w,
                   if (msa[i].connect_status == DISABLED)
                   {
                      int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     int  readfd;
+#endif
                      char mon_cmd_fifo[MAX_PATH_LENGTH];
 
                      (void)sprintf(mon_cmd_fifo, "%s%s%s",
                                    p_work_dir, FIFO_DIR, MON_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (open_fifo_rw(mon_cmd_fifo, &readfd, &fd) == -1)
+#else
                      if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
                      {
                         (void)xrec(appshell, ERROR_DIALOG,
                                    "Failed to open() %s : %s (%s %d)",
@@ -794,6 +816,14 @@ mon_popup_cb(Widget    w,
                         mconfig_log(SYS_LOG, CONFIG_SIGN,
                                     "ENABLED monitoring for AFD %s",
                                     msa[i].afd_alias);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        if (close(readfd) == -1)
+                        {
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      "Failed to close() FIFO %s : %s",
+                                      mon_cmd_fifo, strerror(errno));
+                        }
+#endif
                         if (close(fd) == -1)
                         {
                            system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -809,11 +839,18 @@ mon_popup_cb(Widget    w,
                          msa[i].afd_alias) == YES)
                      {
                         int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        int  readfd;
+#endif
                         char mon_cmd_fifo[MAX_PATH_LENGTH];
 
                         (void)sprintf(mon_cmd_fifo, "%s%s%s",
                                       p_work_dir, FIFO_DIR, MON_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        if (open_fifo_rw(mon_cmd_fifo, &readfd, &fd) == -1)
+#else
                         if ((fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
                         {
                            (void)xrec(appshell, ERROR_DIALOG,
                                       "Failed to open() %s : %s (%s %d)",
@@ -836,6 +873,14 @@ mon_popup_cb(Widget    w,
                            mconfig_log(SYS_LOG, CONFIG_SIGN,
                                        "DISABLED monitoring for AFD %s",
                                        msa[i].afd_alias);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           if (close(readfd) == -1)
+                           {
+                              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                         "Failed to close() FIFO %s : %s",
+                                         mon_cmd_fifo, strerror(errno));
+                           }
+#endif
                            if (close(fd) == -1)
                            {
                               system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -1658,7 +1703,7 @@ change_mon_font_cb(Widget    w,
          break;
 
       default  :
-#if SIZEOF_LONG
+#if SIZEOF_LONG == 4
          (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%d).",
 #else
          (void)xrec(appshell, WARN_DIALOG, "Impossible font selection (%ld).",

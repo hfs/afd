@@ -10,12 +10,14 @@ To start or stop the AFD there is a small program afd that can be
 used for this task. The program can take the following parameters:
 </p>
 <pre>
-   Usage: afd [-w <AFD working dir>] [-u[ &lt;user&gt;]] [option]
+   Usage: afd [-w &lt;AFD working dir&gt;] [-u[ &lt;user&gt;]] [option]
                  -a          only start AFD
                  -b          Blocks auto restart of AFD
                  -c          only check if AFD is active
                  -C          check if AFD is active, if not start it
                  -d          only start afd_ctrl dialog
+                 -h          only check for heartbeat
+                 -H          check if heartbeat is active, if not start AFD
                  -i          initialize AFD, by deleting fifodir
                  -I          initialize AFD, by deleting everything
                              except for etc directory
@@ -24,6 +26,7 @@ used for this task. The program can take the following parameters:
                  -S          silent AFD shutdown
                  -z          Set shutdown bit
                  --help      Prints out this syntax
+                 -v          Just print version number
                  --version   Show current version
 </pre>
 <p>
@@ -77,13 +80,19 @@ is not active. With -I everything will be reset as if AFD is started
 for the first time. This will also remove any current jobs being
 transmitted or queued by AFD. 
 </p>
+<p>
+If AFD is running on a system with shared disk and filesystem, use the -h
+or -H option to check if AFD is active. AFD has an internal heartbeat
+counter and with this option it checks if this counter is still updated
+by init_afd.
+</p>
 <hr size=3 noshade>
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 2005 by H.Kiehl<br>
+   Copyright &copy; 2005, 2006 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 23.04.2005
+   Last updated: 28.08.2006
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

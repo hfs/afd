@@ -42,7 +42,11 @@ subdir = src/UI/Motif/edit_hc
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
+am__aclocal_m4_deps =  \
+	$(top_srcdir)/ac-tools/ax_check_compiler_flags.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_archflag.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_x86_cpuid.m4 \
+	$(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
@@ -110,6 +114,8 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
+ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
@@ -136,6 +142,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
 RPM = @RPM@
@@ -155,6 +162,8 @@ WITH_AFD_MON_ONLY_TRUE = @WITH_AFD_MON_ONLY_TRUE@
 WITH_AFD_MON_TRUE = @WITH_AFD_MON_TRUE@
 WITH_DELETE_LOG_FALSE = @WITH_DELETE_LOG_FALSE@
 WITH_DELETE_LOG_TRUE = @WITH_DELETE_LOG_TRUE@
+WITH_FIFO_RW_SUPPORT_FALSE = @WITH_FIFO_RW_SUPPORT_FALSE@
+WITH_FIFO_RW_SUPPORT_TRUE = @WITH_FIFO_RW_SUPPORT_TRUE@
 WITH_GTK_FALSE = @WITH_GTK_FALSE@
 WITH_GTK_TRUE = @WITH_GTK_TRUE@
 WITH_INPUT_LOG_FALSE = @WITH_INPUT_LOG_FALSE@
@@ -221,6 +230,7 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 MAINTAINERCLEANFILES = Makefile.in
+CLEANFILES = gmon.out core core.*
 noinst_HEADERS = edit_hc.h no_source.h no_source_mask.h source.h\
                        source_mask.h
 
@@ -422,6 +432,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)

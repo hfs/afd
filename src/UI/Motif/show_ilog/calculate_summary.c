@@ -1,7 +1,7 @@
 /*
  *  calculate_summary.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -162,9 +162,17 @@ calculate_summary(char         *summary_str,
         {
            (void)sprintf(p_summary_str, "%7.2f GB ", file_size / F_GIGABYTE);
         }
-        else
+   else if (file_size < F_PETABYTE)
         {
            (void)sprintf(p_summary_str, "%7.2f TB ", file_size / F_TERABYTE);
+        }
+   else if (file_size < F_EXABYTE)
+        {
+           (void)sprintf(p_summary_str, "%7.2f PB ", file_size / F_PETABYTE);
+        }
+        else
+        {
+           (void)sprintf(p_summary_str, "%7.2f EB ", file_size / F_EXABYTE);
         }
 
    return;

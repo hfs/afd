@@ -1,6 +1,6 @@
 /*
  *  fsa_attach_pos.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -309,7 +309,7 @@ fsa_detach_pos(int pos)
 # else
                  "Failed to munmap() from FSA position %d [fsa_size = %lld] : %s",
 # endif
-                 pos, fsa_size, strerror(errno));
+                 pos, (pri_off_t)fsa_size, strerror(errno));
    }
 #else
    if (munmap_emu(ptr) == -1)

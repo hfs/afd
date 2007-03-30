@@ -83,7 +83,7 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-int                        sys_log_fd = STDERR_FILENO,   /* Not used!    */
+int                        sys_log_fd = STDERR_FILENO,
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -146,9 +146,7 @@ main(int argc, char *argv[])
                     *perm_buffer,
                     *ptr,
                     user[MAX_FULL_USER_ID_LENGTH],
-                    sys_log_fifo[MAX_PATH_LENGTH],
                     work_dir[MAX_PATH_LENGTH];
-   struct stat      stat_buf;
    struct host_list *hl = NULL;
 
    CHECK_FOR_VERSION(argc, argv);
@@ -183,6 +181,20 @@ main(int argc, char *argv[])
     */
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -435,30 +447,6 @@ main(int argc, char *argv[])
          exit(INCORRECT);
    }
 
-   /* If the process AFD has not yet created the */
-   /* system log fifo create it now.             */
-   (void)sprintf(sys_log_fifo, "%s%s%s",
-                 p_work_dir, FIFO_DIR, SYSTEM_LOG_FIFO);
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
-      {
-         (void)fprintf(stderr,
-                       "ERROR   : Could not create fifo %s. (%s %d)\n",
-                       sys_log_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-
-   /* Open system log fifo */
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
    if ((options & RESCAN_OPTION) ||
        (options & ENABLE_DIRECTORY_OPTION) ||
        (options & DISABLE_DIRECTORY_OPTION) ||
@@ -521,9 +509,9 @@ main(int argc, char *argv[])
                   send_msg = YES;
                }
                fra[position].next_check_time = current_time;
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: FORCED rescan (%s) [afdcmd].\n",
-                         MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: FORCED rescan (%s) [afdcmd].",
+                          MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
             }
          }
 
@@ -534,12 +522,12 @@ main(int argc, char *argv[])
          {
             if (fra[position].dir_flag & DIR_DISABLED)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: ENABLED directory (%s) [afdcmd].\n",
-                         MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
-                         user);
-               fra[position].dir_status = NORMAL_STATUS;
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: ENABLED directory (%s) [afdcmd].",
+                          MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
+                          user);
                fra[position].dir_flag ^= DIR_DISABLED;
+               SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
             }
             else
             {
@@ -550,7 +538,7 @@ main(int argc, char *argv[])
          }
 
          /*
-          * DISABLE HOST
+          * DISABLE DIRECTORY
           */
          if (options & DISABLE_DIRECTORY_OPTION)
          {
@@ -562,12 +550,65 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: DISABLED directory (%s) [afdcmd].\n",
-                         MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
-                         user);
-               fra[position].dir_status = DISABLED;
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: DISABLED directory (%s) [afdcmd].",
+                          MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
                fra[position].dir_flag ^= DIR_DISABLED;
+               SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
+
+               if (fra[position].host_alias[0] != '\0')
+               {
+                  int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  int  readfd;
+#endif
+                  char fd_delete_fifo[MAX_PATH_LENGTH];
+
+                  (void)sprintf(fd_delete_fifo, "%s%s%s",
+                                p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(fd_delete_fifo, &readfd, &fd) == -1)
+#else
+                  if ((fd = open(fd_delete_fifo, O_RDWR)) == -1)
+#endif
+                  {
+                     (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                                   FD_DELETE_FIFO, strerror(errno),
+                                   __FILE__, __LINE__);
+                     errors++;
+                  }
+                  else
+                  {
+                     size_t length;
+                     char   wbuf[MAX_DIR_ALIAS_LENGTH + 2];
+
+                     wbuf[0] = DELETE_RETRIEVES_FROM_DIR;
+                     (void)strcpy(&wbuf[1], fra[position].dir_alias);
+                     length = 1 + strlen(fra[position].dir_alias) + 1;
+                     if (write(fd, wbuf, (length + 1)) != (length + 1))
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to write() to %s : %s (%s %d)\n",
+                                      FD_DELETE_FIFO,
+                                      strerror(errno), __FILE__, __LINE__);
+                         errors++;
+                     }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
+                     }
+#endif
+                     if (close(fd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
+                     }
+                  }
+               }
             }
          }
 
@@ -581,21 +622,74 @@ main(int argc, char *argv[])
                /*
                 * ENABLE DIRECTORY
                 */
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: ENABLED directory (%s) [afdcmd].\n",
-                         MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
-                         user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: ENABLED directory (%s) [afdcmd].",
+                          MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
                fra[position].dir_flag ^= DIR_DISABLED;
-               fra[position].dir_status = NORMAL_STATUS;
+               SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
             }
             else /* DISABLE DIRECTORY */
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: DISABLED directory (%s) [afdcmd].\n",
-                         MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
-                         user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: DISABLED directory (%s) [afdcmd].",
+                          MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
+                          user);
                fra[position].dir_flag ^= DIR_DISABLED;
-               fra[position].dir_status = DISABLED;
+               SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
+
+               if (fra[position].host_alias[0] != '\0')
+               {
+                  int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  int  readfd;
+#endif
+                  char fd_delete_fifo[MAX_PATH_LENGTH];
+
+                  (void)sprintf(fd_delete_fifo, "%s%s%s",
+                                p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(fd_delete_fifo, &readfd, &fd) == -1)
+#else
+                  if ((fd = open(fd_delete_fifo, O_RDWR)) == -1)
+#endif
+                  {
+                     (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
+                                   FD_DELETE_FIFO, strerror(errno),
+                                   __FILE__, __LINE__);
+                     errors++;
+                  }
+                  else
+                  {
+                     size_t length;
+                     char   wbuf[MAX_DIR_ALIAS_LENGTH + 2];
+
+                     wbuf[0] = DELETE_RETRIEVES_FROM_DIR;
+                     (void)strcpy(&wbuf[1], fra[position].dir_alias);
+                     length = 1 + strlen(fra[position].dir_alias) + 1;
+                     if (write(fd, wbuf, (length + 1)) != (length + 1))
+                     {
+                        (void)fprintf(stderr,
+                                      "Failed to write() to %s : %s (%s %d)\n",
+                                      FD_DELETE_FIFO,
+                                      strerror(errno), __FILE__, __LINE__);
+                         errors++;
+                     }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
+                     }
+#endif
+                     if (close(fd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
+                     }
+                  }
+               }
             }
          }
       }
@@ -603,11 +697,18 @@ main(int argc, char *argv[])
       if (send_msg == YES)
       {
          int  fd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         int  fd_cmd_readfd;
+#endif
          char fd_cmd_fifo[MAX_PATH_LENGTH];
 
          (void)sprintf(fd_cmd_fifo, "%s%s%s",
                        p_work_dir, FIFO_DIR, FD_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(fd_cmd_fifo, &fd_cmd_readfd, &fd_cmd_fd) == -1)
+#else
          if ((fd_cmd_fd = open(fd_cmd_fifo, O_RDWR)) == -1)
+#endif
          {
             (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
                           fd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
@@ -618,11 +719,17 @@ main(int argc, char *argv[])
             {
                (void)fprintf(stderr, "write() error : %s\n", strerror(errno));
             }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(fd_cmd_readfd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+#endif
             if (close(fd_cmd_fd) == -1)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "close() error : %s (%s %d)\n",
-                         strerror(errno), __FILE__, __LINE__);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
             }
          }
       }
@@ -649,16 +756,15 @@ main(int argc, char *argv[])
          ehc = eval_host_config(&hosts_found, host_config_file, &hl, NO);
          if ((ehc == NO) && (no_of_hosts != hosts_found))
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Hosts found in HOST_CONFIG (%d) and those currently storred (%d) are not the same. Unable to do any changes. (%s %d)\n",
-                      no_of_hosts, hosts_found, __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Hosts found in HOST_CONFIG (%d) and those currently storred (%d) are not the same. Unable to do any changes.",
+                       no_of_hosts, hosts_found);
             ehc = YES;
          }
          else if (ehc == YES)
               {
-                 (void)rec(sys_log_fd, WARN_SIGN,
-                           "Unable to retrieve data from HOST_CONFIG, therefore no values changed in it! (%s %d)\n",
-                           __FILE__, __LINE__);
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Unable to retrieve data from HOST_CONFIG, therefore no values changed in it!");
               }
       }
 
@@ -703,10 +809,10 @@ main(int argc, char *argv[])
             {
                if (fsa[position].host_status & PAUSE_QUEUE_STAT)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: STARTED queue (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: STARTED queue (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].host_status ^= PAUSE_QUEUE_STAT;
                   hl[position].host_status &= ~PAUSE_QUEUE_STAT;
                   change_host_config = YES;
@@ -732,10 +838,10 @@ main(int argc, char *argv[])
                }
                else
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: STOPPED queue (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: STOPPED queue (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].host_status ^= PAUSE_QUEUE_STAT;
                   hl[position].host_status |= PAUSE_QUEUE_STAT;
                   change_host_config = YES;
@@ -750,11 +856,18 @@ main(int argc, char *argv[])
                if (fsa[position].host_status & STOP_TRANSFER_STAT)
                {
                   int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  int  readfd;
+#endif
                   char wake_up_fifo[MAX_PATH_LENGTH];
 
                   (void)sprintf(wake_up_fifo, "%s%s%s",
                                 p_work_dir, FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(wake_up_fifo, &readfd, &fd) == -1)
+#else
                   if ((fd = open(wake_up_fifo, O_RDWR)) == -1)
+#endif
                   {
                      (void)fprintf(stderr,
                                    "WARNING : Failed to open() %s : %s (%s %d)\n",
@@ -772,18 +885,25 @@ main(int argc, char *argv[])
                                       __FILE__, __LINE__);
                         errors++;
                      }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_WAKE_UP_FIFO, strerror(errno));
+                     }
+#endif
                      if (close(fd) == -1)
                      {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                               "Failed to close() FIFO %s : %s (%s %d)\n",
-                               FD_WAKE_UP_FIFO, strerror(errno),
-                               __FILE__, __LINE__);
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_WAKE_UP_FIFO, strerror(errno));
                      }
                   }
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: STARTED transfer (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: STARTED transfer (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].host_status ^= STOP_TRANSFER_STAT;
                   hl[position].host_status &= ~STOP_TRANSFER_STAT;
                   change_host_config = YES;
@@ -809,10 +929,10 @@ main(int argc, char *argv[])
                }
                else
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: STOPPED transfer (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: STOPPED transfer (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].host_status ^= STOP_TRANSFER_STAT;
                   hl[position].host_status |= STOP_TRANSFER_STAT;
                   change_host_config = YES;
@@ -826,10 +946,10 @@ main(int argc, char *argv[])
             {
                if (fsa[position].special_flag & HOST_DISABLED)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: ENABLED (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: ENABLED (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status &= ~HOST_CONFIG_HOST_DISABLED;
                   change_host_config = YES;
@@ -856,13 +976,16 @@ main(int argc, char *argv[])
                else
                {
                   int    fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  int    readfd;
+#endif
                   size_t length;
                   char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
 
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: DISABLED (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: DISABLED (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status |= HOST_CONFIG_HOST_DISABLED;
                   change_host_config = YES;
@@ -870,7 +993,11 @@ main(int argc, char *argv[])
 
                   (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                 p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(delete_jobs_host_fifo, &readfd, &fd) == -1)
+#else
                   if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+#endif
                   {
                      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                                    FD_DELETE_FIFO, strerror(errno),
@@ -891,17 +1018,28 @@ main(int argc, char *argv[])
                                       strerror(errno), __FILE__, __LINE__);
                          errors++;
                      }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
+                     }
+#endif
                      if (close(fd) == -1)
                      {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Failed to close() FIFO %s : %s (%s %d)\n",
-                                  FD_DELETE_FIFO,
-                                  strerror(errno), __FILE__, __LINE__);
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
                      }
                   }
                   (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                 p_work_dir, FIFO_DIR, DEL_TIME_JOB_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(delete_jobs_host_fifo, &readfd, &fd) == -1)
+#else
                   if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+#endif
                   {
                      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                                    DEL_TIME_JOB_FIFO, strerror(errno),
@@ -918,12 +1056,19 @@ main(int argc, char *argv[])
                                       __FILE__, __LINE__);
                         errors++;
                      }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   DEL_TIME_JOB_FIFO, strerror(errno));
+                     }
+#endif
                      if (close(fd) == -1)
                      {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Failed to close() FIFO %s : %s (%s %d)\n",
-                                  DEL_TIME_JOB_FIFO, strerror(errno),
-                                  __FILE__, __LINE__);
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   DEL_TIME_JOB_FIFO, strerror(errno));
                      }
                   }
                }
@@ -939,30 +1084,37 @@ main(int argc, char *argv[])
                   /*
                    * ENABLE HOST
                    */
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: ENABLED (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: ENABLED (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status &= ~HOST_CONFIG_HOST_DISABLED;
                }
                else /* DISABLE HOST */
                {
                   int    fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  int    readfd;
+#endif
                   size_t length;
                   char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
 
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "%-*s: DISABLED (%s) [afdcmd].\n",
-                            MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
-                            user);
+                  system_log(DEBUG_SIGN, NULL, 0,
+                             "%-*s: DISABLED (%s) [afdcmd].",
+                             MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                             user);
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status |= HOST_CONFIG_HOST_DISABLED;
                   length = strlen(fsa[position].host_alias) + 1;
 
                   (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                 p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(delete_jobs_host_fifo, &readfd, &fd) == -1)
+#else
                   if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+#endif
                   {
                      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                                    FD_DELETE_FIFO, strerror(errno),
@@ -983,17 +1135,28 @@ main(int argc, char *argv[])
                                       strerror(errno), __FILE__, __LINE__);
                          errors++;
                      }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
+                     }
+#endif
                      if (close(fd) == -1)
                      {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Failed to close() FIFO %s : %s (%s %d)\n",
-                                  FD_DELETE_FIFO,
-                                  strerror(errno), __FILE__, __LINE__);
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   FD_DELETE_FIFO, strerror(errno));
                      }
                   }
                   (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                 p_work_dir, FIFO_DIR, DEL_TIME_JOB_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  if (open_fifo_rw(delete_jobs_host_fifo, &readfd, &fd) == -1)
+#else
                   if ((fd = open(delete_jobs_host_fifo, O_RDWR)) == -1)
+#endif
                   {
                      (void)fprintf(stderr, "Failed to open() %s : %s (%s %d)\n",
                                    DEL_TIME_JOB_FIFO, strerror(errno),
@@ -1010,12 +1173,19 @@ main(int argc, char *argv[])
                                       __FILE__, __LINE__);
                         errors++;
                      }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (close(readfd) == -1)
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   DEL_TIME_JOB_FIFO, strerror(errno));
+                     }
+#endif
                      if (close(fd) == -1)
                      {
-                        (void)rec(sys_log_fd, DEBUG_SIGN,
-                                  "Failed to close() FIFO %s : %s (%s %d)\n",
-                                  DEL_TIME_JOB_FIFO, strerror(errno),
-                                  __FILE__, __LINE__);
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                   "Failed to close() FIFO %s : %s",
+                                   DEL_TIME_JOB_FIFO, strerror(errno));
                      }
                   }
                }
@@ -1028,9 +1198,9 @@ main(int argc, char *argv[])
             if ((fsa[position].toggle_pos > 0) &&
                 (fsa[position].host_toggle_str[0] != '\0'))
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "Host Switch initiated for host %s (%s) [afdcmd]\n",
-                         fsa[position].host_dsp_name, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "Host Switch initiated for host %s (%s) [afdcmd]",
+                          fsa[position].host_dsp_name, user);
                if (fsa[position].host_toggle == HOST_ONE)
                {
                   fsa[position].host_toggle = HOST_TWO;
@@ -1055,11 +1225,18 @@ main(int argc, char *argv[])
          if (options & RETRY_OPTION)
          {
             int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            int  readfd;
+#endif
             char retry_fifo[MAX_PATH_LENGTH];
 
             (void)sprintf(retry_fifo, "%s%s%s",
                           p_work_dir, FIFO_DIR, RETRY_FD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(retry_fifo, &readfd, &fd) == -1)
+#else
             if ((fd = open(retry_fifo, O_RDWR)) == -1)
+#endif
             {
                (void)fprintf(stderr,
                              "WARNING : Failed to open() %s : %s (%s %d)\n",
@@ -1077,12 +1254,19 @@ main(int argc, char *argv[])
                                 __FILE__, __LINE__);
                   errors++;
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s"
+                             RETRY_FD_FIFO, strerror(errno));
+               }
+#endif
                if (close(fd) == -1)
                {
-                  (void)rec(sys_log_fd, DEBUG_SIGN,
-                            "Failed to close() FIFO %s : %s (%s %d)\n"
-                            RETRY_FD_FIFO, strerror(errno),
-                            __FILE__, __LINE__);
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s : %s"
+                             RETRY_FD_FIFO, strerror(errno));
                }
             }
          }
@@ -1091,16 +1275,16 @@ main(int argc, char *argv[])
          {
             if (fsa[position].debug == NORMAL_MODE)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: Enabled DEBUG mode by user %s [afdcmd].\n",
-                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: Enabled DEBUG mode by user %s [afdcmd].",
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
                fsa[position].debug = DEBUG_MODE;
             }
             else
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: Disabled DEBUG mode by user %s [afdcmd].\n",
-                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: Disabled DEBUG mode by user %s [afdcmd].",
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
                fsa[position].debug = NORMAL_MODE;
             }
          }
@@ -1109,16 +1293,16 @@ main(int argc, char *argv[])
          {
             if (fsa[position].debug == NORMAL_MODE)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: Enabled TRACE mode by user %s [afdcmd].\n",
-                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: Enabled TRACE mode by user %s [afdcmd].",
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
                fsa[position].debug = TRACE_MODE;
             }
             else
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: Disabled TRACE mode by user %s [afdcmd].\n",
-                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: Disabled TRACE mode by user %s [afdcmd].",
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
                fsa[position].debug = NORMAL_MODE;
             }
          }
@@ -1127,16 +1311,16 @@ main(int argc, char *argv[])
          {
             if (fsa[position].debug == NORMAL_MODE)
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: Enabled FULL TRACE MODE by user %s [afdcmd].\n",
-                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: Enabled FULL TRACE MODE by user %s [afdcmd].",
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
                fsa[position].debug = FULL_TRACE_MODE;
             }
             else
             {
-               (void)rec(sys_log_fd, DEBUG_SIGN,
-                         "%-*s: Disabled FULL TRACE mode by user %s [afdcmd].\n",
-                         MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%-*s: Disabled FULL TRACE mode by user %s [afdcmd].",
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
                fsa[position].debug = NORMAL_MODE;
             }
          }
@@ -1164,11 +1348,18 @@ main(int argc, char *argv[])
        (options & START_STOP_AMG_OPTION) || (options & START_STOP_FD_OPTION))
    {
       int  afd_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  afd_cmd_readfd;
+#endif
       char afd_cmd_fifo[MAX_PATH_LENGTH];
 
       (void)sprintf(afd_cmd_fifo, "%s%s%s",
                     p_work_dir, FIFO_DIR, AFD_CMD_FIFO);
-      if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_readfd, &afd_cmd_fd) == -1)
+#else
+      if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
+#endif
       {
          (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
                        afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
@@ -1191,8 +1382,8 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending START to %s by %s [afdcmd]\n", FD, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending START to %s by %s [afdcmd]", FD, user);
                if (send_cmd(START_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1206,8 +1397,8 @@ main(int argc, char *argv[])
          {
             if (p_afd_status->fd == ON)
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending STOP to %s by %s [afdcmd]\n", FD, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending STOP to %s by %s [afdcmd]", FD, user);
                if (send_cmd(STOP_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1231,8 +1422,8 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending START to %s by %s [afdcmd]\n", AMG, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending START to %s by %s [afdcmd]", AMG, user);
                if (send_cmd(START_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1246,8 +1437,8 @@ main(int argc, char *argv[])
          {
             if (p_afd_status->amg == ON)
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending STOP to %s by %s [afdcmd]\n", AMG, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending STOP to %s by %s [afdcmd]", AMG, user);
                if (send_cmd(STOP_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1266,8 +1457,8 @@ main(int argc, char *argv[])
          {
             if (p_afd_status->amg == ON)
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending STOP to %s by %s [afdcmd]\n", AMG, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending STOP to %s by %s [afdcmd]", AMG, user);
                if (send_cmd(STOP_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1277,8 +1468,8 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending START to %s by %s [afdcmd]\n", AMG, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending START to %s by %s [afdcmd]", AMG, user);
                if (send_cmd(START_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1292,8 +1483,8 @@ main(int argc, char *argv[])
          {
             if (p_afd_status->fd == ON)
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending STOP to %s by %s [afdcmd]\n", FD, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending STOP to %s by %s [afdcmd]", FD, user);
                if (send_cmd(STOP_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1303,8 +1494,8 @@ main(int argc, char *argv[])
             }
             else
             {
-               (void)rec(sys_log_fd, CONFIG_SIGN,
-                         "Sending START to %s by %s [afdcmd]\n", FD, user);
+               system_log(CONFIG_SIGN, NULL, 0,
+                          "Sending START to %s by %s [afdcmd]", FD, user);
                if (send_cmd(START_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1313,11 +1504,17 @@ main(int argc, char *argv[])
                }
             }
          }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(afd_cmd_readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
          if (close(afd_cmd_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN,
-                      "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
    }

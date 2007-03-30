@@ -26,12 +26,27 @@
 #define MIN_SSH_PROMPT_DELAY 1L
 #define MAX_SSH_PROMPT_DELAY 5L
 
-/* Function prototypes */
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+struct ssh_data
+       {
+          char hostname[MAX_REAL_HOSTNAME_LENGTH];
+          char user[MAX_USER_NAME_LENGTH + 1];
+          int  port;
+       };
+# endif
+#endif
+
+/* Function prototypes. */
 extern int    get_ssh_reply(int, int),
               my_siginterrupt(int, int),
-              ssh_exec(char *, int, char *, char *, char *, char *,
-                       int *, pid_t *),
+              ssh_exec(char *, int, unsigned char, char *, char *, char *,
+                       char *, int *, pid_t *),
+#ifdef WITH_SSH_FINGERPRINT
+              ssh_login(int, char *, char *);
+#else
               ssh_login(int, char *);
+#endif
 extern size_t pipe_write(int, char *, size_t);
 
 #endif /* __ssh_commondefs_h */

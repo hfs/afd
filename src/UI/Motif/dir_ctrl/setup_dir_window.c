@@ -1,7 +1,7 @@
 /*
  *  setup_dir_window.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2000 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,6 +40,7 @@ DESCR__S_M3
  ** HISTORY
  **   31.08.2000 H.Kiehl Created
  **   05.05.2002 H.Kiehl Show the number files currently in the directory.
+ **   28.09.2006 H.Kiehl Added error counter.
  **
  */
 DESCR__E_M3
@@ -74,6 +75,7 @@ extern GC                       letter_gc,
                                 label_bg_gc,
                                 red_color_letter_gc,
                                 tr_bar_gc,
+                                tu_bar_gc,
                                 fr_bar_gc,
                                 color_gc,
                                 black_line_gc,
@@ -83,11 +85,12 @@ extern int                      no_of_dirs,
                                 line_length,
                                 line_height,
                                 no_of_columns,
-                                bar_thickness_2,
+                                bar_thickness_3,
                                 x_offset_bars,
                                 x_offset_characters,
                                 x_offset_dir_full,
                                 x_offset_type;
+extern time_t                   now;
 extern unsigned int             glyph_height,
                                 glyph_width,
                                 text_offset;
@@ -162,7 +165,8 @@ setup_dir_window(char *font_name)
           (dcp.show_olog != NO_PERMISSION) ||
           (dcp.show_elog != NO_PERMISSION) ||
           (dcp.show_queue != NO_PERMISSION) ||
-          (dcp.info != NO_PERMISSION))
+          (dcp.info != NO_PERMISSION) ||
+          (dcp.view_dc != NO_PERMISSION))
       {
          XtVaSetValues(mw[LOG_W], XmNfontList, fontlist, NULL);
          if (dcp.show_slog != NO_PERMISSION)
@@ -197,6 +201,10 @@ setup_dir_window(char *font_name)
          {
             XtVaSetValues(vw[DIR_INFO_W], XmNfontList, fontlist, NULL);
          }
+         if (dcp.view_dc != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[DIR_VIEW_DC_W], XmNfontList, fontlist, NULL);
+         }
       }
 
       /* Set the font for the Setup pulldown */
@@ -229,6 +237,9 @@ setup_dir_window(char *font_name)
       XtVaSetValues(rw[ROW_11_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_12_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(rw[ROW_13_W], XmNfontList, fontlist, NULL);
+      XtVaSetValues(rw[ROW_14_W], XmNfontList, fontlist, NULL);
+      XtVaSetValues(rw[ROW_15_W], XmNfontList, fontlist, NULL);
+      XtVaSetValues(rw[ROW_16_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the Line Style pulldown */
       XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
@@ -246,6 +257,8 @@ setup_dir_window(char *font_name)
    /* bars because a font change might have occurred. */
    if (new_max_bar_length != max_bar_length)
    {
+      unsigned int new_bar_length;
+
       max_bar_length = new_max_bar_length;
 
       /* NOTE: We do not care what the line style is because the */
@@ -278,6 +291,33 @@ setup_dir_window(char *font_name)
             connect_data[i].bar_length[FILE_RATE_BAR_NO] = 0;
          }
 
+         /* Calculate new bar length for directory warn time. */
+         if (connect_data[i].warn_time < 1)
+         {
+            connect_data[i].scale = 0.0;
+            connect_data[i].bar_length[TIME_UP_BAR_NO] = 0;
+         }
+         else
+         {
+            connect_data[i].scale = max_bar_length / connect_data[i].warn_time;
+            new_bar_length = (now - connect_data[i].last_retrieval) * connect_data[i].scale;
+            if (new_bar_length > 0)
+            {
+               if (new_bar_length >= max_bar_length)
+               {
+                  connect_data[i].bar_length[TIME_UP_BAR_NO] = max_bar_length;
+               }
+               else
+               {
+                  connect_data[i].bar_length[TIME_UP_BAR_NO] = new_bar_length;
+               }
+            }
+            else
+            {
+               connect_data[i].bar_length[TIME_UP_BAR_NO] = 0;
+            }
+         }
+
          /* Calculate new bar length for file rate. */
          if (connect_data[i].average_tr > 1.0)
          {
@@ -304,7 +344,7 @@ setup_dir_window(char *font_name)
 
    text_offset       = font_struct->ascent;
    line_height       = SPACE_ABOVE_LINE + glyph_height + SPACE_BELOW_LINE;
-   bar_thickness_2   = glyph_height / 2;
+   bar_thickness_3   = glyph_height / 3;
    x_offset_dir_full = DEFAULT_FRAME_SPACE +
                        (MAX_DIR_ALIAS_LENGTH * glyph_width) +
                        DEFAULT_FRAME_SPACE;
@@ -321,12 +361,12 @@ setup_dir_window(char *font_name)
    else  if (line_style == CHARACTERS_ONLY)
          {
             x_offset_characters = line_length;
-            line_length += (32 * glyph_width) + DEFAULT_FRAME_SPACE;
+            line_length += (35 * glyph_width) + DEFAULT_FRAME_SPACE;
          }
          else
          {
             x_offset_characters = line_length;
-            x_offset_bars = line_length + (32 * glyph_width) +
+            x_offset_bars = line_length + (35 * glyph_width) +
                             DEFAULT_FRAME_SPACE;
             line_length = x_offset_bars + (int)max_bar_length +
                           DEFAULT_FRAME_SPACE;
@@ -411,6 +451,12 @@ init_gcs(void)
    tr_bar_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                          &gc_values);
    XSetFunction(display, tr_bar_gc, GXcopy);
+
+   /* GC for drawing the background for "directory time up" bar */
+   gc_values.foreground = color_pool[WARNING_ID];
+   tu_bar_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
+                         &gc_values);
+   XSetFunction(display, tu_bar_gc, GXcopy);
 
    /* GC for drawing the background for "files on input" bar */
    gc_values.foreground = color_pool[NORMAL_STATUS];

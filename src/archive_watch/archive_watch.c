@@ -1,6 +1,6 @@
 /*
  *  archive_watch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -81,6 +81,9 @@ main(int argc, char *argv[])
 {
    int            n,
                   status,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  aw_cmd_writefd,
+#endif
                   aw_cmd_fd;
    time_t         diff_time,
                   next_report_time,
@@ -137,7 +140,11 @@ main(int argc, char *argv[])
       }
    }
 
-   if ((aw_cmd_fd = coe_open(aw_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(aw_cmd_fifo, &aw_cmd_fd, &aw_cmd_writefd) == -1)
+#else
+   if ((aw_cmd_fd = coe_open(aw_cmd_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "ERROR   : Could not open fifo `%s' : %s (%s %d)\n",
                     aw_cmd_fifo, strerror(errno), __FILE__, __LINE__);

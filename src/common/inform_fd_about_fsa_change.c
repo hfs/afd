@@ -1,7 +1,7 @@
 /*
  *  inform_fd_about_fsa_change.c - Part of AFD, an automatic file
  *                                 distribution program.
- *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,6 +71,9 @@ inform_fd_about_fsa_change(void)
                   gotcha = NO,
                   loops = 0,
                   status;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int         readfd; /* Not used. */
+#endif
       char        cmd_fifo[MAX_PATH_LENGTH];
       struct stat stat_buf;
 
@@ -84,7 +87,11 @@ inform_fd_about_fsa_change(void)
             exit(INCORRECT);
          }
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(cmd_fifo, &readfd, &cmd_fd) == -1)
+#else
       if ((cmd_fd = open(cmd_fifo, O_RDWR)) == -1)
+#endif
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                    "Could not open() fifo %s : %s",
@@ -102,6 +109,13 @@ inform_fd_about_fsa_change(void)
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                    "close() error : %s", strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (close(readfd) == -1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                   "close() error : %s", strerror(errno));
+      }
+#endif
 
       /* Wait for FD to reply. */
       do

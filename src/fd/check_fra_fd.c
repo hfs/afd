@@ -195,7 +195,6 @@ check_fra_fd(void)
             exit(INCORRECT);
          }
 
-
          if ((no_of_retrieves > 0) && (ord != NULL))
          {
             int pos;
@@ -207,7 +206,7 @@ check_fra_fd(void)
                {
                   char fullname[MAX_PATH_LENGTH];
 
-                  if ((ord[i].stupid_mode == NO) && (ord[i].remove == NO))
+                  if ((ord[i].stupid_mode != YES) && (ord[i].remove == NO))
                   {
                      (void)sprintf(fullname, "%s%s%s%s/%s", p_work_dir,
                                    AFD_FILE_DIR, INCOMING_DIR, LS_DATA_DIR,

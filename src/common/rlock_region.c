@@ -1,6 +1,6 @@
 /*
  *  rlock_region.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2001 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -79,7 +79,7 @@ rlock_region(int fd, off_t offset)
 # else
               "lock_region_w(): fd=%d start=%lld length=1 file=%s line=%d",
 # endif
-              fd, offset, file, line);                                 
+              fd, (pri_off_t)offset, file, line);                                 
 #endif
 
    if (fcntl(fd, F_SETLKW, &rlock) == -1)

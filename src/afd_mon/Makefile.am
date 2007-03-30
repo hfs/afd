@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2005 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -17,15 +17,18 @@
 ##
 
 MAINTAINERCLEANFILES   = Makefile.in
-noinst_HEADERS         = mondefs.h
+CLEANFILES             = gmon.out core core.*
+noinst_HEADERS         = mondefs.h sumdefs.h
 INCLUDES               = -I.. -I../init_afd -I../afdd -I../log
 bin_PROGRAMS           = afd_mon afd_mon_status mafd msa_view topview\
-                         view_hosts mon mafdcmd
+                         view_hosts mon log_mon mafdcmd
 afd_mon_SOURCES        = afd_mon.c\
                          check_mon.c\
+                         convert_msa.c\
                          create_msa.c\
                          eval_afd_mon_db.c\
                          init_fifos_mon.c\
+                         mon_log.c\
                          start_all.c\
                          start_process.c\
                          stop_process.c
@@ -44,9 +47,17 @@ view_hosts_SOURCES     = view_hosts.c
 view_hosts_LDADD       = ../common/libafd.a
 mafdcmd_SOURCES        = mafdcmd.c
 mafdcmd_LDADD          = ../common/libafd.a
-mon_SOURCES            = mon.c\
+mon_SOURCES            = evaluate_message.c\
+                         mon.c\
+                         mon_log.c\
                          tcpcmd.c
 mon_LDADD              = ../common/libafd.a @EXTRA_SOCKET_LIBS@
+log_mon_SOURCES        = log_mon.c\
+                         mon_log.c\
+                         send_log_cmd.c\
+                         tcpcmd.c\
+                         write_afd_log.c
+log_mon_LDADD          = ../common/libafd.a @EXTRA_SOCKET_LIBS@
 
 if WITH_SETUID_PROGS
 install-exec-local:

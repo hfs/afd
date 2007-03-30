@@ -149,8 +149,8 @@ struct mon_line
           size_t         afd_alias_length;
           unsigned int   sys_log_ec;
           unsigned int   fc;
-          unsigned int   fs;
-          unsigned int   tr;
+          u_off_t        fs;
+          u_off_t        tr;
           unsigned int   fr;
           unsigned int   ec;
           time_t         last_data_time;
@@ -212,7 +212,8 @@ struct mon_control_perm
 /* Function Prototypes */
 signed char mon_window_size(int *, int *),
             resize_mon_window(void);
-void        check_afd_status(Widget),
+void        calc_mon_but_coord(int),
+            check_afd_status(Widget),
             check_mon_status(Widget),
             destroy_error_history(void),
             draw_afd_identifier(int, int, int),
@@ -221,6 +222,7 @@ void        check_afd_status(Widget),
             draw_line_status(int, signed char),
             draw_mon_bar(int, signed char, char, int, int),
             draw_mon_blank_line(int),
+            draw_mon_button_line(void),
             draw_mon_chars(int, char, int, int),
             draw_mon_label_line(void),
             draw_mon_line_status(int, signed char),

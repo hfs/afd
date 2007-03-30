@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -443,10 +443,11 @@ get_data(void)
          if (total_no_files != 0)
          {
 #if SIZEOF_TIME_T == 4
-            (void)sprintf(status_message, "Search time: %lds", end - start);
+            (void)sprintf(status_message, "Search time: %lds",
 #else
-            (void)sprintf(status_message, "Search time: %llds", end - start);
+            (void)sprintf(status_message, "Search time: %llds",
 #endif
+                          (pri_time_t)(end - start));
          }
          else
          {
@@ -455,7 +456,7 @@ get_data(void)
 #else
             (void)sprintf(status_message, "No data found. Search time: %llds",
 #endif
-                          end - start);
+                          (pri_time_t)(end - start));
          }
          SHOW_MESSAGE();
       }
@@ -774,7 +775,8 @@ check_log_updates(Widget w)
 #else
                        "malloc() error [%lld bytes] : %s (%s %d)",
 #endif
-                       diff_size, strerror(errno), __FILE__, __LINE__);
+                       (pri_off_t)diff_size, strerror(errno),
+                       __FILE__, __LINE__);
          }
          if (read(log_fd, ptr_start, diff_size) != diff_size)
          {
@@ -916,9 +918,9 @@ end_log_updates(void)
         else
         {
 #if SIZEOF_TIME_T == 4
-           (void)sprintf(ptr, "%lds", diff_time);
+           (void)sprintf(ptr, "%lds", (pri_time_t)diff_time);
 #else
-           (void)sprintf(ptr, "%llds", diff_time);
+           (void)sprintf(ptr, "%llds", (pri_time_t)diff_time);
 #endif
         }
 
@@ -1041,11 +1043,11 @@ no_criteria(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {
@@ -1246,11 +1248,11 @@ file_name_only(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {
@@ -1401,11 +1403,11 @@ file_size_only(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {
@@ -1597,11 +1599,11 @@ file_name_and_size(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {
@@ -1782,11 +1784,11 @@ recipient_only(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {
@@ -2042,11 +2044,11 @@ file_name_and_recipient(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {
@@ -2309,11 +2311,11 @@ file_size_and_recipient(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {
@@ -2625,11 +2627,11 @@ file_name_size_recipient(register char *ptr,
    }
    do
    {
-      /* Allocate memory for offset to job ID. */
-      REALLOC_OFFSET_BUFFER();
-
       for (i = 0; ((i < LINES_BUFFERED) && (ptr < ptr_end)); i++)
       {
+         /* Allocate memory for offset to job ID. */
+         REALLOC_OFFSET_BUFFER();
+
          if (((i % 200) == 0) &&
              ((time(&now) - prev_time_val) > CHECK_TIME_INTERVAL))
          {

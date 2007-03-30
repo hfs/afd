@@ -1,6 +1,6 @@
 /*
  *  dir_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -107,7 +107,7 @@ char                       dir_alias[MAX_DIR_ALIAS_LENGTH + 1],
                            label_l[NO_OF_LABELS_PER_ROW][22] =
                            {
                               "Alias directory name:",
-                              "Stupid mode         :",
+                              "Store retrieve list :",
                               "Force reread        :",
                               "Accumulate          :",
                               "Delete unknown files:",
@@ -398,10 +398,14 @@ main(int argc, char *argv[])
    {
       (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Yes");
    }
-   else
-   {
-      (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
-   }
+   else if (prev.stupid_mode == GET_ONCE_ONLY)
+        {
+           (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Once only");
+        }
+        else
+        {
+           (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
+        }
    XmTextSetString(text_wl[STUPID_MODE_POS], str_line);
    if (prev.force_reread == YES)
    {
@@ -592,10 +596,11 @@ main(int argc, char *argv[])
    else
    {
 #if SIZEOF_OFF_T == 4
-      (void)sprintf(str_line, "%*ld", DIR_INFO_LENGTH_R, prev.accumulate_size);
+      (void)sprintf(str_line, "%*ld",
 #else
-      (void)sprintf(str_line, "%*lld", DIR_INFO_LENGTH_R, prev.accumulate_size);
+      (void)sprintf(str_line, "%*lld",
 #endif
+                    DIR_INFO_LENGTH_R, (pri_off_t)prev.accumulate_size);
    }
    XmTextSetString(text_wr[ACCUMULATE_SIZE_POS], str_line);
    if (prev.report_unknown_files == YES)
@@ -639,10 +644,11 @@ main(int argc, char *argv[])
               sign_char = ' ';
            }
 #if SIZEOF_OFF_T == 4
-       (void)sprintf(str_value, "%c%ld", sign_char, prev.ignore_size);
+       (void)sprintf(str_value, "%c%ld",
 #else
-       (void)sprintf(str_value, "%c%lld", sign_char, prev.ignore_size);
+       (void)sprintf(str_value, "%c%lld",
 #endif
+                     sign_char, (pri_off_t)prev.ignore_size);
        (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_value);
    }
    XmTextSetString(text_wr[IGNORE_SIZE_POS], str_line);
@@ -724,7 +730,7 @@ main(int argc, char *argv[])
 #else
          length += sprintf(&dupcheck_label_str[length], ", timeout=%lld",
 #endif
-                           prev.dup_check_timeout);
+                           (pri_time_t)prev.dup_check_timeout);
       }
    }
    dup_check_w = XtVaCreateManagedWidget(dupcheck_label_str,
@@ -859,6 +865,20 @@ init_dir_info(int *argc, char *argv[])
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);

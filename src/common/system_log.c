@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -51,6 +51,9 @@ DESCR__E_M3
 #include <string.h>                   /* memcpy()                        */
 #include <stdarg.h>                   /* va_start(), va_end()            */
 #include <time.h>                     /* time(), localtime()             */
+#ifdef TM_IN_SYS_TIME
+# include <sys/time.h>
+#endif
 #include <sys/types.h>
 #include <unistd.h>                   /* write()                         */
 #ifdef HAVE_FCNTL_H
@@ -80,17 +83,28 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
     */
    if ((sys_log_fd == STDERR_FILENO) && (p_work_dir != NULL))
    {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  readfd;
+#endif
       char sys_log_fifo[MAX_PATH_LENGTH];
 
       (void)strcpy(sys_log_fifo, p_work_dir);
       (void)strcat(sys_log_fifo, FIFO_DIR);
       (void)strcat(sys_log_fifo, sys_log_name);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(sys_log_fifo, &readfd, &sys_log_fd) == -1)
+#else
       if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if ((make_fifo(sys_log_fifo) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                (open_fifo_rw(sys_log_fifo, &readfd, &sys_log_fd) == -1))
+#else
                 ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) == -1))
+#endif
             {
                (void)fprintf(stderr,
                              "WARNING : Could not open fifo %s : %s (%s %d)\n",
@@ -144,8 +158,12 @@ system_log(char *sign, char *file, int line, char *fmt, ...)
    if (write(sys_log_fd, buf, length) == -1)
    {
       (void)fprintf(stderr,
+#if SIZEOF_SIZE_T == 4
                     "ERROR   : Failed to write() %d bytes : %s (%s %d)\n",
-                    length, strerror(errno), __FILE__, __LINE__);
+#else
+                    "ERROR   : Failed to write() %lld bytes : %s (%s %d)\n",
+#endif
+                    (pri_size_t)length, strerror(errno), __FILE__, __LINE__);
    }
 
    return;

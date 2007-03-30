@@ -53,6 +53,9 @@ DESCR__E_M3
 
 /* External global variables */
 extern int  sys_log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+extern int  sys_log_readfd;
+#endif
 extern char *profile,
             *p_work_dir,
             user[];
@@ -80,12 +83,20 @@ config_log(char *fmt, ...)
       (void)strcpy(sys_log_fifo, p_work_dir);
       (void)strcat(sys_log_fifo, FIFO_DIR);
       (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(sys_log_fifo, &sys_log_readfd, &sys_log_fd) == -1)
+#else
       if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if ((make_fifo(sys_log_fifo) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                (open_fifo_rw(sys_log_fifo, &sys_log_readfd, &sys_log_fd) == -1))
+#else
                 ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1))
+#endif
             {
                (void)fprintf(stderr,
                              "WARNING : Could not open fifo %s : %s (%s %d)\n",

@@ -180,6 +180,9 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
+/* Define to 1 if you have the `unsetenv' function. */
+#undef HAVE_UNSETENV
+
 /* Define to 1 if you have the <util.h> header file. */
 #undef HAVE_UTIL_H
 
@@ -227,17 +230,26 @@
 /* With show exec times */
 #undef SHOW_EXEC_TIMES
 
+/* The size of a `ino_t', as computed by sizeof. */
+#undef SIZEOF_INO_T
+
 /* The size of a `int', as computed by sizeof. */
 #undef SIZEOF_INT
 
 /* The size of a `long', as computed by sizeof. */
 #undef SIZEOF_LONG
 
+/* The size of a `nlink_t', as computed by sizeof. */
+#undef SIZEOF_NLINK_T
+
 /* The size of a `off_t', as computed by sizeof. */
 #undef SIZEOF_OFF_T
 
 /* The size of a `pid_t', as computed by sizeof. */
 #undef SIZEOF_PID_T
+
+/* The size of a `size_t', as computed by sizeof. */
+#undef SIZEOF_SIZE_T
 
 /* The size of a `ssize_t', as computed by sizeof. */
 #undef SIZEOF_SSIZE_T
@@ -257,6 +269,9 @@
 /* Version number of package */
 #undef VERSION
 
+/* Without fifo RW support */
+#undef WITHOUT_FIFO_RW_SUPPORT
+
 /* With automatic creation of configuration */
 #undef WITH_AUTO_CONFIG
 
@@ -272,6 +287,9 @@
 /* With Electric fence support */
 #undef WITH_EFENCE
 
+/* With error queue support */
+#undef WITH_ERROR_QUEUE
+
 /* With eumetsat header support */
 #undef WITH_EUMETSAT_HEADERS
 
@@ -280,6 +298,9 @@
 
 /* With multiple directory definitions */
 #undef WITH_MULTI_DIR_DEFINITION
+
+/* Enable multiple directory scans */
+#undef WITH_MULTI_DIR_SCANS
 
 /* With password in message */
 #undef WITH_PASSWD_IN_MSG
@@ -298,6 +319,9 @@
 
 /* with TLS/SSL support */
 #undef WITH_SSL
+
+/* Enable delay and retry when unlink fails */
+#undef WITH_UNLINK_DELAY
 
 /* Define to 1 if the X Window System is missing or not being used. */
 #undef X_DISPLAY_MISSING

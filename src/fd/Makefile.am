@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2006 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ bin_PROGRAMS          = fd sf_ftp sf_ftp_trace sf_smtp sf_smtp_trace\
                         gf_sftp_trace
 EXTRA_PROGRAMS        = $(EXTRA_MAP_PROG) sf_http sf_http_trace
 MAINTAINERCLEANFILES  = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES            = gmon.out core core.*
 fd_SOURCES            = check_file_dir.c\
                         check_fra_fd.c\
                         check_fsa_entries.c\
@@ -291,6 +292,7 @@ gf_http_SOURCES       = eval_input_gf.c\
                         eval_recipient.c\
                         fsa_attach_pos.c\
                         get_group_list.c\
+                        get_remote_file_names_http.c\
                         gf_http.c\
                         gsf_check_fsa.c\
                         init_gf.c\

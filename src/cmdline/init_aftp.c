@@ -1,6 +1,6 @@
 /*
  *  init_aftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,6 +52,7 @@ DESCR__S_M3
  **   11.04.2004 H.Kiehl    Added option -Z.
  **   28.09.2004 H.Kiehl    Added option -C (create target dir).
  **   07.02.2005 H.Kiehl    Added DOT_VMS and DOS mode.
+ **   12.08.2006 H.Kiehl    Added option -X.
  **
  */
 DESCR__E_M3
@@ -81,7 +82,8 @@ static void usage(void);
 int
 init_aftp(int argc, char *argv[], struct data *p_db)
 {
-   int  correct = YES;                /* Was input/syntax correct?      */
+   int  correct = YES,                /* Was input/syntax correct?      */
+        set_extended_mode = NO;
    char *ptr;
 
    ptr = argv[0] + strlen(argv[0]) - 1;
@@ -156,7 +158,8 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             break;
 
          case 'a' : /* Remote file size offset for appending */
-            if ((argc == 1) || (*(argv + 1)[0] == '-'))
+            if ((argc == 1) ||
+                ((*(argv + 1)[0] == '-') && ((argv + 1)[0][1] != '2')))
             {
 #ifdef _GERMAN
                (void)fprintf(stderr, "ERROR   : Keine Spaltennummer angegeben fuer Option -a.\n");
@@ -626,6 +629,10 @@ init_aftp(int argc, char *argv[], struct data *p_db)
             p_db->ftp_mode = PASSIVE_MODE;
             break;
 
+         case 'X' : /* Set extended mode. */
+            set_extended_mode = YES;
+            break;
+
 #ifdef WITH_SSL
          case 'z' : /* SSL/TLS authentification for control connection only. */
             p_db->auth = YES;
@@ -656,6 +663,11 @@ init_aftp(int argc, char *argv[], struct data *p_db)
    {
       argc++;
       argv--;
+   }
+
+   if (set_extended_mode == YES)
+   {
+      p_db->ftp_mode |= EXTENDED_MODE;
    }
 
    if (p_db->hostname[0] == '\0')
@@ -772,20 +784,20 @@ usage(void)
    (void)fprintf(stderr, "                                       zu verschicken sind.\n");
    (void)fprintf(stderr, "  -h <Rechnername | IP Nummer>       - Rechnername oder IP Nummer zu denen die\n");
    (void)fprintf(stderr, "                                       Dateien zu verschicken sind.\n");
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    (void)fprintf(stderr, "  -k                                 - FTP Kontrolverbindung mit STAT-Befehlen\n");
    (void)fprintf(stderr, "                                       waerend eine Datei uebertragen wird,\n");
    (void)fprintf(stderr, "                                       aufrecht erhalten.\n");
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+# endif
    if (name[0] != 'r')
    {
-#ifdef WITH_READY_FILES
+# ifdef WITH_READY_FILES
       (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | RDYA | RDYB | xyz> - Verriegelungsart waehrend der\n");
       (void)fprintf(stderr, "                                       Uebertragung.\n");
-#else
+# else
       (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | xyz.>    - Verriegelungsart waehrend der\n");
       (void)fprintf(stderr, "                                       Uebertragung.\n");
-#endif
+# endif
    }
    (void)fprintf(stderr, "  -m <A | I | D>                     - FTP Uebertragungsmodus, ASCII,\n");
    (void)fprintf(stderr, "                                       Binaer (Standard) oder DOS.\n");
@@ -821,18 +833,20 @@ usage(void)
    (void)fprintf(stderr, "  -x                                 - Benutzt den FTP passive mode anstatt\n");
    (void)fprintf(stderr, "                                       von aktive mode waehrend die Daten-\n");
    (void)fprintf(stderr, "                                       verbindung aufgebaut wird.\n");
-#ifdef WITH_SSL
+   (void)fprintf(stderr, "  -X                                 - Benutzt den erweiterten FTP aktiv bzw.\n");
+   (void)fprintf(stderr, "                                       passive (-x) Modus.\n");
+# ifdef WITH_SSL
    (void)fprintf(stderr, "  -z                                 - Benutzt SSL/TLS fuer Kontrollverbindung.\n");
    (void)fprintf(stderr, "  -Z                                 - Benutzt SSL/TLS fuer Kontroll- und Daten-\n");
    (void)fprintf(stderr, "                                       verbindung.\n");
-#endif
+# endif
    (void)fprintf(stderr, "  -?                                 - Diese Hilfe.\n\n");
    (void)fprintf(stderr, "  Es werden folgende Rueckgabewerte zurueckgegeben:\n");
    (void)fprintf(stderr, "      %2d - Datei wurde erfolgreich Uebertragen.\n", TRANSFER_SUCCESS);
    (void)fprintf(stderr, "      %2d - Es konnte keine Verbindung hergestellt werden.\n", CONNECT_ERROR);
-#ifdef WITH_SSL
+# ifdef WITH_SSL
    (void)fprintf(stderr, "      %2d - SSL/TLS Authentifizierung fehl geschalgen.\n", AUTH_ERROR);
-#endif
+# endif
    (void)fprintf(stderr, "      %2d - Nutzername falsch.\n", USER_ERROR);
    (void)fprintf(stderr, "      %2d - Passwort falsch.\n", PASSWORD_ERROR);
    (void)fprintf(stderr, "      %2d - Konnte ascii/binary-modus nicht setzen.\n", TYPE_ERROR);
@@ -880,17 +894,17 @@ usage(void)
    (void)fprintf(stderr, "                                       that are to be send.\n");
    (void)fprintf(stderr, "  -h <host name | IP number>         - Hostname or IP number to which to\n");
    (void)fprintf(stderr, "                                       send the file(s).\n");
-#ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
+# ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
    (void)fprintf(stderr, "  -k                                 - Keep FTP control connection with STAT\n");
    (void)fprintf(stderr, "                                       calls alive/fresh.\n");
-#endif /* FTP_CTRL_KEEP_ALIVE_INTERVAL */
+# endif
    if (name[0] != 'r')
    {
-#ifdef WITH_READY_FILES
+# ifdef WITH_READY_FILES
       (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | RDYA | RDYB | xyz> - How to lock the file on the remote site.\n");
-#else
+# else
       (void)fprintf(stderr, "  -l <DOT | DOT_VMS | OFF | xyz.>    - How to lock the file on the remote site.\n");
-#endif
+# endif
    }
    (void)fprintf(stderr, "  -m <A | I | D>                     - FTP transfer mode, ASCII, binary or DOS.\n");
    (void)fprintf(stderr, "                                       Default is binary.\n");
@@ -926,18 +940,20 @@ usage(void)
    (void)fprintf(stderr, "                                       the reply from the remote server.\n");
    (void)fprintf(stderr, "  -x                                 - Use passive mode instead of active\n");
    (void)fprintf(stderr, "                                       mode when doing the data connection.\n");
-#ifdef WITH_SSL
+   (void)fprintf(stderr, "  -X                                 - Use extended mode active or passive\n");
+   (void)fprintf(stderr, "                                       (-x) mode.\n");
+# ifdef WITH_SSL
    (void)fprintf(stderr, "  -z                                 - Use SSL/TLS for control connection.\n");
    (void)fprintf(stderr, "  -Z                                 - Use SSL/TLS for control and data\n");
    (void)fprintf(stderr, "                                       connection.\n");
-#endif
+# endif
    (void)fprintf(stderr, "  -?                                 - Display this help and exit.\n");
    (void)fprintf(stderr, "  The following values are returned on exit:\n");
    (void)fprintf(stderr, "      %2d - File transmitted successfully.\n", TRANSFER_SUCCESS);
    (void)fprintf(stderr, "      %2d - Failed to connect.\n", CONNECT_ERROR);
-#ifdef WITH_SSL
+# ifdef WITH_SSL
    (void)fprintf(stderr, "      %2d - SSL/TLS authentification error.\n", AUTH_ERROR);
-#endif
+# endif
    (void)fprintf(stderr, "      %2d - User name wrong.\n", USER_ERROR);
    (void)fprintf(stderr, "      %2d - Wrong password.\n", PASSWORD_ERROR);
    (void)fprintf(stderr, "      %2d - Failed to set ascii/binary mode.\n", TYPE_ERROR);

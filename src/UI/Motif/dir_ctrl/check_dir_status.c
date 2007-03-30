@@ -1,7 +1,7 @@
 /*
  *  check_dir_status.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,6 +47,7 @@ DESCR__E_M3
 #include <stdio.h>               /* sprintf()                            */
 #include <string.h>              /* strcmp(), strcpy(), memcpy()         */
 #include <stdlib.h>              /* calloc(), realloc(), free()          */
+#include <time.h>                /* time()                               */
 #include <math.h>                /* log10()                              */
 #include <sys/times.h>           /* times()                              */
 #include <errno.h>
@@ -63,12 +64,13 @@ extern XtIntervalId               interval_id_dir;
 extern char                       line_style,
                                   *p_work_dir;
 extern float                      max_bar_length;
-extern int                        bar_thickness_2,
+extern int                        bar_thickness_3,
                                   glyph_width,
                                   no_of_columns,
                                   no_of_dirs,
                                   no_selected,
                                   redraw_time_line;
+extern time_t                     now;
 extern clock_t                    clktck;
 extern struct dir_line            *connect_data;
 extern struct fileretrieve_status *fra;
@@ -92,23 +94,26 @@ Widget   w;
                  prev_no_of_dirs = no_of_dirs,
                  location_where_changed,
                  new_bar_length,
-                 old_bar_length;
+                 old_bar_length,
+                 redo_warn_time_bar;
    u_off_t       bytes_received;
    unsigned int  files_received,
                  prev_dir_flag;
    time_t        delta_time,
                  end_time;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    location_where_changed = no_of_dirs + 10;
    flush = NO;
+   now = time(NULL);
 
    /*
     * See if a directory has been added or removed from the FRA.
     * If it changed resize the window.
     */
-   if (check_fra() == YES)
+   if (check_fra(NO) == YES)
    {
+      unsigned int    new_bar_length;
       size_t          new_size = no_of_dirs * sizeof(struct dir_line);
       struct dir_line *new_connect_data;
 
@@ -162,6 +167,8 @@ Widget   w;
             new_connect_data[i].bytes_in_queue = fra[i].bytes_in_queue;
             new_connect_data[i].max_process = fra[i].max_process;
             new_connect_data[i].no_of_process = fra[i].no_of_process;
+            new_connect_data[i].max_errors = fra[i].max_errors;
+            new_connect_data[i].error_counter = fra[i].error_counter;
             CREATE_FC_STRING(new_connect_data[i].str_files_in_dir,
                              new_connect_data[i].files_in_dir);
             CREATE_FS_STRING(new_connect_data[i].str_bytes_in_dir,
@@ -172,7 +179,17 @@ Widget   w;
                              new_connect_data[i].bytes_in_queue);
             CREATE_EC_STRING(new_connect_data[i].str_np,
                              new_connect_data[i].no_of_process);
+            CREATE_EC_STRING(new_connect_data[i].str_ec,
+                             new_connect_data[i].error_counter);
             new_connect_data[i].last_retrieval = fra[i].last_retrieval;
+            if (*(unsigned char *)((char *)fra - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_DIR_WARN_TIME)
+            {
+               new_connect_data[i].warn_time = 0;
+            }
+            else
+            {
+               new_connect_data[i].warn_time = fra[i].warn_time;
+            }
             new_connect_data[i].bytes_per_sec = 0;
             new_connect_data[i].prev_bytes_per_sec = 0;
             new_connect_data[i].str_tr[0] = new_connect_data[i].str_tr[1] = ' ';
@@ -191,6 +208,31 @@ Widget   w;
             new_connect_data[i].average_fr = 0.0;
             new_connect_data[i].max_average_fr = 0.0;
             new_connect_data[i].bar_length[BYTE_RATE_BAR_NO] = 0;
+            if (new_connect_data[i].warn_time < 1)
+            {
+               new_connect_data[i].scale = 0.0;
+               new_connect_data[i].bar_length[TIME_UP_BAR_NO] = 0;
+            }
+            else
+            {
+               new_connect_data[i].scale = max_bar_length / new_connect_data[i].warn_time;
+               new_bar_length = (now - new_connect_data[i].last_retrieval) * new_connect_data[i].scale;
+               if (new_bar_length > 0)
+               {
+                  if (new_bar_length >= max_bar_length)
+                  {
+                     new_connect_data[i].bar_length[TIME_UP_BAR_NO] = max_bar_length;
+                  }
+                  else
+                  {
+                     new_connect_data[i].bar_length[TIME_UP_BAR_NO] = new_bar_length;
+                  }
+               }
+               else
+               {
+                  new_connect_data[i].bar_length[TIME_UP_BAR_NO] = 0;
+               }
+            }
             new_connect_data[i].bar_length[FILE_RATE_BAR_NO] = 0;
             new_connect_data[i].start_time = times(&tmsdummy);
             new_connect_data[i].inverse = OFF;
@@ -264,12 +306,13 @@ Widget   w;
 
       /* Make sure changes are drawn!!! */
       flush = YES;
-   } /* if (check_fra() == YES) */
+   } /* if (check_fra(NO) == YES) */
 
    /* Change information for each directory if necessary. */
    for (i = 0; i < no_of_dirs; i++)
    {
       x = y = -1;
+      redo_warn_time_bar = NO;
 
       if (connect_data[i].dir_status != fra[i].dir_status)
       {
@@ -305,6 +348,37 @@ Widget   w;
               }
 
          flush = YES;
+      }
+
+      if (connect_data[i].max_errors != fra[i].max_errors)
+      {
+         connect_data[i].max_errors = fra[i].max_errors;
+      }
+
+      if (*(unsigned char *)((char *)fra - AFD_FEATURE_FLAG_OFFSET_END) & DISABLE_DIR_WARN_TIME)
+      {
+         if (connect_data[i].warn_time != 0)
+         {
+            connect_data[i].scale = 0.0;
+            connect_data[i].warn_time = 0;
+            redo_warn_time_bar = YES;
+         }
+      }
+      else
+      {
+         if (connect_data[i].warn_time != fra[i].warn_time)
+         {
+            connect_data[i].warn_time = fra[i].warn_time;
+            if (connect_data[i].warn_time < 1)
+            {
+               connect_data[i].scale = 0.0;
+            }
+            else
+            {
+               connect_data[i].scale = max_bar_length / connect_data[i].warn_time;
+            }
+            redo_warn_time_bar = YES;
+         }
       }
 
       end_time = times(&tmsdummy);
@@ -549,6 +623,25 @@ Widget   w;
                flush = YES;
             }
          }
+
+         /*
+          * Error Counter.
+          */
+         if (connect_data[i].error_counter != fra[i].error_counter)
+         {
+            connect_data[i].error_counter = fra[i].error_counter;
+            if (x == -1)
+            {
+               locate_xy(i, &x, &y);
+            }
+            CREATE_EC_STRING(connect_data[i].str_ec,
+                             connect_data[i].error_counter);
+            if (i < location_where_changed)
+            {
+               draw_dir_chars(i, DIR_ERRORS, x, y);
+               flush = YES;
+            }
+         }
       } /* if (line_style != BARS_ONLY) */
 
       /*
@@ -557,6 +650,11 @@ Widget   w;
        */
       if (line_style != CHARACTERS_ONLY)
       {
+         if (connect_data[i].last_retrieval != fra[i].last_retrieval)
+         {
+            connect_data[i].last_retrieval = fra[i].last_retrieval;
+         }
+
          if (connect_data[i].average_tr > 1.0)
          {
             if (connect_data[i].max_average_tr < 2.0)
@@ -624,6 +722,50 @@ Widget   w;
                  }
               }
 
+         if (((connect_data[i].warn_time > 0) &&
+              (connect_data[i].scale > 0.0)) ||
+             (redo_warn_time_bar == YES))
+         {
+            new_bar_length = (now - connect_data[i].last_retrieval) * connect_data[i].scale;
+            if (new_bar_length > 0)
+            {
+               if (new_bar_length >= max_bar_length)
+               {
+                  new_bar_length = max_bar_length;
+               }
+            }
+            else
+            {
+               new_bar_length = 0;
+            }
+            if (new_bar_length != connect_data[i].bar_length[TIME_UP_BAR_NO])
+            {
+               old_bar_length = connect_data[i].bar_length[TIME_UP_BAR_NO];
+               connect_data[i].bar_length[TIME_UP_BAR_NO] = new_bar_length;
+               if (i < location_where_changed)
+               {
+                  if (x == -1)
+                  {
+                     locate_xy(i, &x, &y);
+                  }
+
+                  if (old_bar_length < new_bar_length)
+                  {
+                     draw_dir_bar(i, 1, TIME_UP_BAR_NO, x, y + bar_thickness_3);
+                  }
+                  else
+                  {
+                     draw_dir_bar(i, -1, TIME_UP_BAR_NO, x, y + bar_thickness_3);
+                  }
+
+                  if (flush != YES)
+                  {
+                     flush = YUP;
+                  }
+               }
+            }
+         }
+
          /*
           * File Rate Bar
           */
@@ -661,11 +803,11 @@ Widget   w;
 
                if (old_bar_length < new_bar_length)
                {
-                  draw_dir_bar(i, 1, FILE_RATE_BAR_NO, x, y + bar_thickness_2);
+                  draw_dir_bar(i, 1, FILE_RATE_BAR_NO, x, y + bar_thickness_3 + bar_thickness_3);
                }
                else
                {
-                  draw_dir_bar(i, -1, FILE_RATE_BAR_NO, x, y + bar_thickness_2);
+                  draw_dir_bar(i, -1, FILE_RATE_BAR_NO, x, y + bar_thickness_3 + bar_thickness_3);
                }
 
                if (flush != YES)
@@ -685,7 +827,7 @@ Widget   w;
                        locate_xy(i, &x, &y);
                     }
 
-                    draw_dir_bar(i, 1, FILE_RATE_BAR_NO, x, y + bar_thickness_2);
+                    draw_dir_bar(i, 1, FILE_RATE_BAR_NO, x, y + bar_thickness_3 + bar_thickness_3);
 
                     if (flush != YES)
                     {

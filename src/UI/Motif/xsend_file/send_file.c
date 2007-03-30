@@ -1,6 +1,6 @@
 /*
  *  send_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ extern XtInputId        cmd_input_id;
 static void             read_data(XtPointer, int *, XtInputId *);
 
 
-/*############################# xexec_cmd() #############################*/
+/*############################# send_file() #############################*/
 void
 send_file(void)
 {
@@ -97,9 +97,13 @@ send_file(void)
    {
       length = sprintf(&cmd[length], "%s -c %s -m %c",
                        AFTP, url_file_name, (char)db->transfer_mode);
-      if (db->mode_flag == PASSIVE_MODE)
+      if (db->mode_flag & PASSIVE_MODE)
       {
          length += sprintf(&cmd[length], " -x");
+      }
+      if (db->mode_flag & EXTENDED_MODE)
+      {
+         length += sprintf(&cmd[length], " -X");
       }
       if (db->proxy_name[0] != '\0')
       {
@@ -119,7 +123,7 @@ send_file(void)
 #if SIZEOF_LONG == 4
            (void)fprintf(stderr, "Unknown or not implemented protocol %d\n",
 #else
-           (void)fprintf(stderr, "Unknown or not implemented protocol %lld\n",
+           (void)fprintf(stderr, "Unknown or not implemented protocol %ld\n",
 #endif
                          db->protocol);
            exit(INCORRECT);
@@ -154,10 +158,11 @@ send_file(void)
       length += sprintf(&cmd[length], " -v");
    }
 #if SIZEOF_TIME_T == 4
-   (void)sprintf(&cmd[length], " -t %ld -f %s", db->timeout, file_name_file);
+   (void)sprintf(&cmd[length], " -t %ld -f %s",
 #else
-   (void)sprintf(&cmd[length], " -t %lld -f %s", db->timeout, file_name_file);
+   (void)sprintf(&cmd[length], " -t %lld -f %s",
 #endif
+                 (pri_time_t)db->timeout, file_name_file);
 
    if (pipe(channels) == -1)
    {

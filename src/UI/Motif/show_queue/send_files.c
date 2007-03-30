@@ -1,6 +1,6 @@
 /*
  *  send_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -152,7 +152,7 @@ send_files(int no_selected, int *select_list)
 #else
    (void)sprintf(file_name_file, ".file_name_file.%lld.%d",
 #endif
-                 getpid(), counter);
+                 (pri_pid_t)getpid(), counter);
    counter++;
 
    euid = geteuid();
@@ -212,6 +212,30 @@ send_files(int no_selected, int *select_list)
             }
          }
       }
+      else if (qfl[select_list[i] - 1].queue_type == SHOW_TIME_JOBS)
+           {
+              if ((perm.send_limit > 0) &&
+                  ((user_limit + to_do) >= perm.send_limit))
+              {
+                 limit_reached++;
+              }
+              else
+              {
+                 (void)sprintf(fullname, "%s%s%s/%x/%s",
+                               p_work_dir, AFD_FILE_DIR, AFD_TIME_DIR,
+                               qfl[select_list[i] - 1].job_id,
+                               qfl[select_list[i] - 1].file_name);
+                 if (stat(fullname, &stat_buf) == -1)
+                 {
+                    not_found++;
+                 }
+                 else
+                 {
+                    (void)fprintf(fp, "%s\n", fullname);
+                    to_do++;
+                 }
+              }
+           }
       else if ((qfl[select_list[i] - 1].queue_type != SHOW_RETRIEVES) &&
                (qfl[select_list[i] - 1].queue_type != SHOW_PENDING_RETRIEVES))
            {
@@ -260,6 +284,14 @@ send_files(int no_selected, int *select_list)
                  strerror(errno), __FILE__, __LINE__);
    }
 
+   if (euid != ruid)
+   {
+      if (seteuid(ruid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       ruid, strerror(errno));
+      }
+   }
    if (to_do > 0)
    {
       char progname[20];
@@ -275,6 +307,14 @@ send_files(int no_selected, int *select_list)
    else
    {
       (void)unlink(file_name_file);
+   }
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
    }
 
    /* Show user a summary of what was done. */

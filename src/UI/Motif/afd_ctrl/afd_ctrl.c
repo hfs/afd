@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -170,6 +170,9 @@ int                        amg_flag = NO,
                            no_of_short_lines = 0,
                            short_line_length,
                            sys_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           sys_log_readfd,
+#endif
                            tv_line_length,
                            tv_no_of_columns,
                            tv_no_of_rows,
@@ -630,6 +633,20 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE : /* User is not allowed to use this program */
          {
             char *user;
@@ -880,22 +897,25 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
            {
               connect_data[i].stat_color_no = NORMAL_STATUS;
            }
-      if (fsa[i].host_status > 1) /* PAUSE_QUEUE_STAT AUTO_PAUSE_QUEUE_LOCK_STAT   */
-                                  /* AUTO_PAUSE_QUEUE_STAT DANGER_PAUSE_QUEUE_STAT */
+      if (fsa[i].host_status & PAUSE_QUEUE_STAT)
       {
-         if (fsa[i].host_status & PAUSE_QUEUE_STAT)
-         {
-            connect_data[i].status_led[0] = PAUSE_QUEUE;
-         }
-         else
-         {
-            connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
-         }
+         connect_data[i].status_led[0] = PAUSE_QUEUE;
       }
-      else
-      {
-         connect_data[i].status_led[0] = NORMAL_STATUS;
-      }
+      else if ((fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+               (fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT))
+           {
+              connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
+           }
+#ifdef WITH_ERROR_QUEUE
+      else if (fsa[i].host_status & ERROR_QUEUE_SET)
+           {
+              connect_data[i].status_led[0] = JOBS_IN_ERROR_QUEUE;
+           }
+#endif
+           else
+           {
+              connect_data[i].status_led[0] = NORMAL_STATUS;
+           }
       if (fsa[i].host_status & STOP_TRANSFER_STAT)
       {
          connect_data[i].status_led[1] = STOP_TRANSFER;
@@ -1160,10 +1180,14 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    mw[HOST_W] = XtVaCreateManagedWidget("Host",
                            xmCascadeButtonWidgetClass, *menu_w,
                            XmNfontList,                fontlist,
+#ifdef WHEN_WE_KNOW_HOW_TO_FIX_THIS
+   /* Enabling this causes on some system the following error code:        */
+   /* Illegal mnemonic character;  Could not convert X KEYSYM to a keycode */
+   /* Don't know how to fix it, so just leave it away.                     */
                            XmNmnemonic,                't',
+#endif
                            XmNsubMenuId,               pull_down_w,
                            NULL);
-
    if ((acp.ctrl_queue != NO_PERMISSION) ||
        (acp.ctrl_transfer != NO_PERMISSION) ||
        (acp.disable != NO_PERMISSION) ||
@@ -2713,7 +2737,7 @@ afd_ctrl_exit(void)
                        "Failed to kill() process %s (%lld) : %s",
 #endif
                        apps_list[i].progname,
-                       apps_list[i].pid, strerror(errno));
+                       (pri_pid_t)apps_list[i].pid, strerror(errno));
          }
       }
    }

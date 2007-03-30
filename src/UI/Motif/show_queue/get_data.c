@@ -1,6 +1,6 @@
 /*
  *  get_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -84,6 +84,7 @@ extern Widget                     appshell,
                                   summarybox_w;
 extern int                        radio_set,
                                   gt_lt_sign,
+                                  no_of_dirs,
                                   no_of_search_dirs,
                                   no_of_search_dirids,
                                   no_of_search_hosts,
@@ -121,9 +122,10 @@ static void                       get_all_input_files(void),
                                   get_input_files(void),
                                   get_output_files(void),
                                   get_retrieve_jobs(void),
+                                  get_time_jobs(void),
                                   insert_file(char *, char *, char *, char *,
                                               char, char, unsigned int, int,
-                                              unsigned int, unsigned int),
+                                              unsigned int, unsigned int, int),
                                   searching(char *),
 #ifdef _WITH_HEAPSORT
                                   sort_data(int);
@@ -131,7 +133,8 @@ static void                       get_all_input_files(void),
                                   sort_data(int, int);
 #endif
 static int                        get_job_id(char *, unsigned int *),
-                                  get_pos(unsigned int);
+                                  get_pos(unsigned int),
+                                  lookup_fra_pos(unsigned int);
 
 
 /*############################### get_data() ############################*/
@@ -263,6 +266,12 @@ get_data(void)
    XmTextSetString(summarybox_w, summary_str);
    CHECK_INTERRUPT();
 
+   if (fra_attach_passive() != SUCCESS)
+   {
+      (void)xrec(appshell, FATAL_DIALOG,
+                 "Failed to attach to FRA (%s %d)", __FILE__, __LINE__);
+   }
+
    start = time(NULL);
    limit_reached = NO;
    total_file_size = 0.0;
@@ -283,6 +292,11 @@ get_data(void)
    {
       get_retrieve_jobs();
    }
+   if (toggles_set & SHOW_TIME_JOBS)
+   {
+      get_time_jobs();
+   }
+   (void)fra_detach();
 
 #ifdef WHEN_WE_KNOW
    if ((total_no_files != 0) || (toggles_set & SHOW_RETRIEVES) ||
@@ -303,10 +317,11 @@ get_data(void)
       display_data();
       end = time(NULL);
 #if SIZEOF_TIME_T == 4
-      (void)sprintf(status_message, "Search time: %lds", end - start);
+      (void)sprintf(status_message, "Search time: %lds",
 #else
-      (void)sprintf(status_message, "Search time: %llds", end - start);
+      (void)sprintf(status_message, "Search time: %llds",
 #endif
+                    (pri_time_t)(end - start));
       SHOW_MESSAGE();
    }
    else
@@ -317,7 +332,7 @@ get_data(void)
 #else
       (void)sprintf(status_message, "No data found. Search time: %llds",
 #endif
-                    end - start);
+                    (pri_time_t)(end - start));
       SHOW_MESSAGE();
    }
 
@@ -456,8 +471,7 @@ get_output_files(void)
                            if ((no_of_search_dirs > 0) ||
                                (no_of_search_dirids > 0))
                            {
-                              int  kk;
-                              char *ptr_file;
+                              int kk;
 
                               /* Check if an input directory was specified. */
                               gotcha = NO;
@@ -473,7 +487,7 @@ get_output_files(void)
                               {
                                  for (kk = 0; kk < no_of_search_dirs; kk++)
                                  {
-                                    if (sfilter(search_dir[kk], dnb[jd[pos].dir_id_pos].dir_name, SEPARATOR_CHAR) == 0)
+                                    if (sfilter(search_dir[kk], dnb[jd[pos].dir_id_pos].dir_name, 0) == 0)
                                     {
                                        gotcha = YES;
                                        break;
@@ -483,6 +497,7 @@ get_output_files(void)
                            }
                            if (gotcha == YES)
                            {
+                              int  fra_pos;
                               char *ptr_file,
                                    queue_typ;
 
@@ -497,11 +512,12 @@ get_output_files(void)
                               {
                                  queue_typ = SHOW_UNSENT_OUTPUT;
                               }
-                              insert_file(queue_dir, ptr_file,
-                                          qb[i].msg_name, jd[pos].host_alias,
-                                          queue_typ, jd[pos].priority,
-                                          job_id, jd[pos].dir_id_pos,
-                                          jd[pos].dir_id, qb[i].files_to_send);
+                              fra_pos = lookup_fra_pos(jd[pos].dir_id);
+                              insert_file(queue_dir, ptr_file, qb[i].msg_name,
+                                          jd[pos].host_alias, queue_typ,
+                                          jd[pos].priority, job_id,
+                                          jd[pos].dir_id_pos, jd[pos].dir_id,
+                                          qb[i].files_to_send, fra_pos);
                            }
                         }
                      }
@@ -536,12 +552,6 @@ get_retrieve_jobs(void)
 {
    int fd;
    char fullname[MAX_PATH_LENGTH];
-
-   if (fra_attach_passive() != SUCCESS)
-   {
-      (void)xrec(appshell, FATAL_DIALOG,
-                 "Failed to attach to FRA (%s %d)", __FILE__, __LINE__);
-   }
 
    (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, MSG_QUEUE_FILE);
    if ((fd = open(fullname, O_RDWR)) == -1)
@@ -583,17 +593,13 @@ get_retrieve_jobs(void)
                else
                {
                   register int     i;
-                  unsigned int     job_id;
                   int              gotcha,
-                                   no_msg_queued,
-                                   pos;
-                  char             *p_queue_msg,
-                                   queue_dir[MAX_PATH_LENGTH];
+                                   no_msg_queued;
+                  char             queue_dir[MAX_PATH_LENGTH];
                   struct queue_buf *qb;
 
-                  p_queue_msg = queue_dir + sprintf(queue_dir, "%s%s%s/",
-                                                    p_work_dir, AFD_FILE_DIR,
-                                                    OUTGOING_DIR);
+                  (void)sprintf(queue_dir, "%s%s%s/",
+                                p_work_dir, AFD_FILE_DIR, OUTGOING_DIR);
 
                   no_msg_queued = *(int *)buffer;
                   buffer += AFD_WORD_OFFSET;
@@ -632,8 +638,7 @@ get_retrieve_jobs(void)
                            if ((no_of_search_dirs > 0) ||
                                (no_of_search_dirids > 0))
                            {
-                              int  kk;
-                              char *ptr_file;
+                              int kk;
 
                               /* Check if an input directory was specified. */
                               gotcha = NO;
@@ -651,7 +656,7 @@ get_retrieve_jobs(void)
                                  {
                                     if (sfilter(search_dir[kk],
                                                 fra[qb[i].pos].url,
-                                                SEPARATOR_CHAR) == 0)
+                                                0) == 0)
                                     {
                                        gotcha = YES;
                                        break;
@@ -726,6 +731,8 @@ get_retrieve_jobs(void)
                               qfl[total_no_files].priority = 0;
                               (void)strcpy(qfl[total_no_files].hostname,
                                            fra[qb[i].pos].host_alias);
+                              (void)strcpy(qfl[total_no_files].dir_alias,
+                                           fra[qb[i].pos].dir_alias);
                               qfl[total_no_files].file_name[0] = '\0';
                               qfl[total_no_files].msg_name[0] = '\0';
                               qfl[total_no_files].queue_tmp_buf_pos = -1;
@@ -753,8 +760,6 @@ get_retrieve_jobs(void)
       }
    }
    searching("Retrieve");
-
-   (void)fra_detach();
 
    return;
 }
@@ -787,7 +792,7 @@ get_input_files(void)
          {
             for (kk = 0; kk < no_of_search_dirs; kk++)
             {
-               if (sfilter(search_dir[kk], dnb[i].dir_name, SEPARATOR_CHAR) == 0)
+               if (sfilter(search_dir[kk], dnb[i].dir_name, 0) == 0)
                {
                   gotcha = YES;
                   break;
@@ -803,6 +808,9 @@ get_input_files(void)
       {
          if ((dp = opendir(dnb[i].dir_name)) != NULL)
          {
+            int fra_pos;
+
+            fra_pos = lookup_fra_pos(dnb[i].dir_id);
             while (((p_dir = readdir(dp)) != NULL) && (limit_reached == NO))
             {
                if ((p_dir->d_name[0] == '.') && (p_dir->d_name[1] != '\0') &&
@@ -842,7 +850,8 @@ get_input_files(void)
                      if (gotcha == YES)
                      {
                         insert_file(queue_dir, p_file, "\0", &p_dir->d_name[1],
-                                    SHOW_INPUT, 0, -1, i, dnb[i].dir_id, 0);
+                                    SHOW_INPUT, 0, -1, i, dnb[i].dir_id, 0,
+                                    fra_pos);
                      }
                   }
                }
@@ -850,7 +859,7 @@ get_input_files(void)
             if (closedir(dp) == -1)
             {
                (void)xrec(appshell, INFO_DIALOG,
-                          "Failed to closedir() <%s> : %s (%s %d)",
+                          "Failed to closedir() `%s' : %s (%s %d)",
                           dnb[i].dir_name, strerror(errno), __FILE__, __LINE__);
             }
          }
@@ -887,7 +896,7 @@ get_all_input_files(void)
          {
             for (kk = 0; kk < no_of_search_dirs; kk++)
             {
-               if (sfilter(search_dir[kk], dnb[i].dir_name, SEPARATOR_CHAR) == 0)
+               if (sfilter(search_dir[kk], dnb[i].dir_name, 0) == 0)
                {
                   gotcha = YES;
                   break;
@@ -930,18 +939,129 @@ get_all_input_files(void)
          }
          if (gotcha == YES)
          {
+            int  fra_pos;
             char input_dir[MAX_PATH_LENGTH],
                  *ptr_file;
 
             ptr_file = input_dir + sprintf(input_dir, "%s/",
                        dnb[i].dir_name);
-            insert_file(input_dir, ptr_file, "\0", "\0",
-                        SHOW_UNSENT_INPUT, 0, -1, i, dnb[i].dir_id, 0);
+            fra_pos = lookup_fra_pos(dnb[i].dir_id);
+            insert_file(input_dir, ptr_file, "\0", "\0", SHOW_UNSENT_INPUT,
+                        0, -1, i, dnb[i].dir_id, 0, fra_pos);
          }
       }
       searching("Unsent");
    }
    searching("Unsent");
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++++++ get_time_jobs() ++++++++++++++++++++++++++*/
+static void
+get_time_jobs(void)
+{
+   int           gotcha,
+                 pos;
+   char          fullname[MAX_PATH_LENGTH],
+                 *p_file,
+                 *p_queue;
+   DIR           *dp;
+   struct dirent *p_dir;
+   struct stat   stat_buf;
+
+   searching("Time");
+   p_queue = fullname + sprintf(fullname, "%s%s%s/",
+                                p_work_dir, AFD_FILE_DIR, AFD_TIME_DIR);
+
+   if ((dp = opendir(fullname)) != NULL)
+   {
+      while (((p_dir = readdir(dp)) != NULL) && (limit_reached == NO))
+      {
+         if (p_dir->d_name[0] != '.')
+         {
+            p_file = p_queue + sprintf(p_queue, "%s/", p_dir->d_name);
+            if ((stat(fullname, &stat_buf) != -1) &&
+                (S_ISDIR(stat_buf.st_mode)))
+            {
+               unsigned int job_id;
+
+               job_id = (unsigned int)strtol(p_dir->d_name, NULL, 16);
+               if ((pos = get_pos(job_id)) != -1)
+               {
+                  if (no_of_search_hosts == 0)
+                  {
+                     gotcha = YES;
+                  }
+                  else
+                  {
+                     register int j;
+
+                     gotcha = NO;
+                     for (j = 0; j < no_of_search_hosts; j++)
+                     {
+                        if (pmatch(search_recipient[j],
+                                   jd[pos].host_alias, NULL) == 0)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
+                  }
+               }
+
+               if (gotcha == YES)
+               {
+                  if ((no_of_search_dirs > 0) ||
+                      (no_of_search_dirids > 0))
+                  {
+                     int kk;
+
+                     /* Check if an input directory was specified. */
+                     gotcha = NO;
+                     for (kk = 0; kk < no_of_search_dirids; kk++)
+                     {
+                        if (search_dirid[kk] == dnb[jd[pos].dir_id_pos].dir_id)
+                        {
+                           gotcha = YES;
+                           break;
+                        }
+                     }
+                     if (gotcha == NO)
+                     {
+                        for (kk = 0; kk < no_of_search_dirs; kk++)
+                        {
+                           if (sfilter(search_dir[kk], dnb[jd[pos].dir_id_pos].dir_name, 0) == 0)
+                           {
+                              gotcha = YES;
+                              break;
+                           }
+                        }
+                     }
+                  }
+                  if (gotcha == YES)
+                  {
+                     int fra_pos;
+
+                     fra_pos = lookup_fra_pos(jd[pos].dir_id);
+                     insert_file(fullname, p_file, "\0", jd[pos].host_alias,
+                                 SHOW_TIME_JOBS, jd[pos].priority, job_id,
+                                 jd[pos].dir_id_pos, jd[pos].dir_id, 0,
+                                 fra_pos);
+                  }
+               }
+            }
+         }
+      }
+      if (closedir(dp) == -1)
+      {
+         (void)xrec(appshell, INFO_DIALOG,
+                    "Failed to closedir() `%s' : %s (%s %d)",
+                    fullname, strerror(errno), __FILE__, __LINE__);
+      }
+   }
+   searching("Time");
 
    return;
 }
@@ -1099,7 +1219,8 @@ insert_file(char         *queue_dir,
             unsigned int job_id,
             int          dir_id_pos,
             unsigned int dir_id,
-            unsigned int files_to_send)
+            unsigned int files_to_send,
+            int          fra_pos)
 {
    DIR         *dpfile;
    struct stat stat_buf;
@@ -1182,6 +1303,8 @@ insert_file(char         *queue_dir,
                         qfl[total_no_files].queue_type = queue_type;
                         qfl[total_no_files].priority = priority;
                         (void)strcpy(qfl[total_no_files].hostname, hostname);
+                        (void)strcpy(qfl[total_no_files].dir_alias,
+                                     fra[fra_pos].dir_alias);
                         (void)strcpy(qfl[total_no_files].file_name,
                                      dirp->d_name);
                         (void)strcpy(qfl[total_no_files].msg_name, msg_name);
@@ -1259,7 +1382,7 @@ insert_file(char         *queue_dir,
       {
          *ptr_file = '\0';
          (void)xrec(appshell, INFO_DIALOG,
-                    "Failed to closedir() <%s> : %s (%s %d)", queue_dir,
+                    "Failed to closedir() `%s' : %s (%s %d)", queue_dir,
                     strerror(errno), __FILE__, __LINE__);
       }
    }
@@ -1345,4 +1468,22 @@ searching(char *where)
    SHOW_MESSAGE();
 
    return;
+}
+
+
+/*---------------------------- lookup_fra_pos() -------------------------*/
+static int
+lookup_fra_pos(unsigned int dir_id)
+{
+   register int i;
+
+   for (i = 0; i < no_of_dirs; i++)
+   {
+      if (fra[i].dir_id == dir_id)
+      {
+         return(i);
+      }
+   }
+
+   return(INCORRECT);
 }

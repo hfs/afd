@@ -1,7 +1,7 @@
 /*
  *  eval_dir_options.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,18 +46,22 @@ DESCR__S_M3
  **        ignore file time [=|>|<] <decimal number>
  **        important dir
  **        time * * * * *
+ **        keep connected <value in seconds>
+ **        do not get dir list
  **        do not remove
- **        store remote list
+ **        store retrieve list [once]
  **        priority <value>                      [DEFAULT 9]
  **        force rereads
  **        max process <value>                   [DEFAULT 10]
  **        max files <value>                     [DEFAULT ?]
  **        max size <value>                      [DEFAULT ?]
  **        wait for <file name|pattern>
+ **        warn time <value in seconds>
  **        accumulate <value>
  **        accumulate size <value>
  **        dupcheck[ <timeout in secs>[ <check type>[ <action>[ <CRC type>]]]]
  **        accept dot files
+ **        inotify <value>                       [DEFAULT 0]
  **
  **   For the string old_dir_options it is possible to define the
  **   following values:
@@ -90,6 +94,10 @@ DESCR__S_M3
  **   28.11.2004 H.Kiehl Added "delete old locked files" option.
  **   07.06.2005 H.Kiehl Added "dupcheck" option.
  **   30.06.2006 H.Kiehl Added "accept dot files" option.
+ **   19.08.2006 H.Kiehl Added "do not get dir list" option.
+ **   10.11.2006 H.Kiehl Added "warn time" option.
+ **   13.11.2006 H.Kiehl Added "keep connected" option.
+ **   24.02.2007 H.Kiehl Added inotify support.
  **
  */
 DESCR__E_M3
@@ -102,16 +110,20 @@ DESCR__E_M3
 #include <sys/stat.h>             /* fstat()                             */
 #include <unistd.h>               /* read(), close(), setuid()           */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                /* O_RDONLY, etc                       */
+# include <fcntl.h>               /* O_RDONLY, etc                       */
 #endif
 #include <errno.h>
 #include "amgdefs.h"
 
 /* External global variables */
 extern int             default_delete_files_flag,
+#ifdef WITH_INOTIFY
+                       default_inotify_flag,
+#endif
                        default_old_file_time,
                        max_process_per_dir;
 extern unsigned int    max_copied_files;
+extern time_t          default_warn_time;
 extern off_t           max_copied_file_size;
 extern struct dir_data *dd;
 
@@ -123,7 +135,7 @@ extern struct dir_data *dd;
 #define TIME_FLAG                        32
 #define MAX_PROCESS_FLAG                 64
 #define DO_NOT_REMOVE_FLAG               128
-#define STORE_REMOTE_LIST_FLAG           256
+#define STORE_RETRIEVE_LIST_FLAG         256
 #define DEL_QUEUED_FILES_FLAG            512
 #define DONT_DEL_UNKNOWN_FILES_FLAG      1024
 #define REP_UNKNOWN_FILES_FLAG           2048
@@ -141,6 +153,12 @@ extern struct dir_data *dd;
 # define DUPCHECK_FLAG                   4194304
 #endif
 #define ACCEPT_DOT_FILES_FLAG            8388608
+#define DO_NOT_GET_DIR_LIST_FLAG         16777216
+#define DIR_WARN_TIME_FLAG               33554432
+#define KEEP_CONNECTED_FLAG              67108864
+#ifdef WITH_INOTIFY
+# define INOTIFY_FLAG                    134217728
+#endif
 
 
 /*########################## eval_dir_options() #########################*/
@@ -193,6 +211,13 @@ eval_dir_options(int  dir_pos,
    dd[dir_pos].dup_check_timeout = 0L;
 #endif
    dd[dir_pos].accept_dot_files = NO;
+   dd[dir_pos].do_not_get_dir_list = NO;
+   dd[dir_pos].max_errors = 10;
+   dd[dir_pos].warn_time = default_warn_time;
+   dd[dir_pos].keep_connected = DEFAULT_KEEP_CONNECTED_TIME;
+#ifdef WITH_INOTIFY
+   dd[dir_pos].inotify_flag = default_inotify_flag;
+#endif
 
    /*
     * First evaluate the old directory option so we
@@ -338,6 +363,51 @@ eval_dir_options(int  dir_pos,
             dd[dir_pos].in_dc_flag |= UNKNOWN_FILES_IDC;
          }
       }
+#ifdef WITH_INOTIFY
+      else if (((used & INOTIFY_FLAG) == 0) &&
+               (strncmp(ptr, INOTIFY_FLAG_ID, INOTIFY_FLAG_ID_LENGTH) == 0))
+           {
+              int  length = 0;
+              char number[MAX_INT_LENGTH + 1];
+
+              used |= INOTIFY_FLAG;
+              ptr += INOTIFY_FLAG_ID_LENGTH;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+              {
+                 number[length] = *ptr;
+                 ptr++; length++;
+              }
+              if ((length > 0) && (length != MAX_INT_LENGTH))
+              {
+                 number[length] = '\0';
+                 dd[dir_pos].inotify_flag = (unsigned int)atoi(number);
+                 if (dd[dir_pos].inotify_flag > (INOTIFY_RENAME_FLAG | INOTIFY_CLOSE_FLAG))
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                              "Incorrect parameter %u for directory option `%s' for the %d directory entry. Resetting to %u.",
+                              dd[dir_pos].inotify_flag, INOTIFY_FLAG_ID,
+                              dir_pos, default_inotify_flag);
+                    dd[dir_pos].inotify_flag = default_inotify_flag;
+                 }
+                 else
+                 {
+                    dd[dir_pos].in_dc_flag |= INOTIFY_FLAG_IDC;
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+              }
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+#endif
       else if (((used & OLD_FILE_TIME_FLAG) == 0) &&
                (strncmp(ptr, OLD_FILE_TIME_ID, OLD_FILE_TIME_ID_LENGTH) == 0))
            {
@@ -506,16 +576,57 @@ eval_dir_options(int  dir_pos,
               }
               dd[dir_pos].remove = NO;
            }
-      else if (((used & STORE_REMOTE_LIST_FLAG) == 0) &&
-               (strncmp(ptr, STORE_REMOTE_LIST, STORE_REMOTE_LIST_LENGTH) == 0))
+      else if (((used & STORE_RETRIEVE_LIST_FLAG) == 0) &&
+               (strncmp(ptr, STORE_RETRIEVE_LIST_ID, STORE_RETRIEVE_LIST_ID_LENGTH) == 0))
            {
-              used |= STORE_REMOTE_LIST_FLAG;
-              ptr += STORE_REMOTE_LIST_LENGTH;
+              used |= STORE_RETRIEVE_LIST_FLAG;
+              ptr += STORE_RETRIEVE_LIST_ID_LENGTH;
+              while (*ptr == ' ')
+              {
+                 ptr++;
+              }
+              if ((*ptr == 'o') && (*(ptr + 1) == 'n') &&
+                  (*(ptr + 2) == 'c') && (*(ptr + 3) == 'e') &&
+                  ((*(ptr + 4) == '\n') || (*(ptr + 4) == '\0')))
+              {
+                 dd[dir_pos].stupid_mode = GET_ONCE_ONLY;
+                 ptr += 4;
+              }
+              else
+              {
+                 dd[dir_pos].stupid_mode = NO;
+              }
               while ((*ptr != '\n') && (*ptr != '\0'))
               {
                  ptr++;
               }
-              dd[dir_pos].stupid_mode = NO;
+           }
+      else if (((used & STORE_RETRIEVE_LIST_FLAG) == 0) &&
+               (strncmp(ptr, STORE_REMOTE_LIST, STORE_REMOTE_LIST_LENGTH) == 0))
+           {
+              used |= STORE_RETRIEVE_LIST_FLAG;
+              ptr += STORE_REMOTE_LIST_LENGTH;
+              while (*ptr == ' ')
+              {
+                 ptr++;
+              }
+              if ((*ptr == 'o') && (*(ptr + 1) == 'n') &&
+                  (*(ptr + 2) == 'c') && (*(ptr + 3) == 'e') &&
+                  ((*(ptr + 4) == '\n') || (*(ptr + 4) == '\0')))
+              {
+                 dd[dir_pos].stupid_mode = GET_ONCE_ONLY;
+                 ptr += 4;
+              }
+              else
+              {
+                 dd[dir_pos].stupid_mode = NO;
+              }
+              system_log(WARN_SIGN, __FILE__, __LINE__,
+                         "The directory option 'store remote list' is depreciated! Please use 'store retrieve list' instead.");
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
            }
       else if (((used & DEL_QUEUED_FILES_FLAG) == 0) &&
                (strncmp(ptr, DEL_QUEUED_FILES_ID, DEL_QUEUED_FILES_ID_LENGTH) == 0))
@@ -638,6 +749,95 @@ eval_dir_options(int  dir_pos,
                  ptr++;
               }
               dd[dir_pos].accept_dot_files = YES;
+           }
+      else if (((used & DO_NOT_GET_DIR_LIST_FLAG) == 0) &&
+               (strncmp(ptr, DO_NOT_GET_DIR_LIST_ID, DO_NOT_GET_DIR_LIST_ID_LENGTH) == 0))
+           {
+              used |= DO_NOT_GET_DIR_LIST_FLAG;
+              ptr += DO_NOT_GET_DIR_LIST_ID_LENGTH;
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+              dd[dir_pos].do_not_get_dir_list = YES;
+           }
+      else if (((used & DIR_WARN_TIME_FLAG) == 0) &&
+               (strncmp(ptr, DIR_WARN_TIME_ID, DIR_WARN_TIME_ID_LENGTH) == 0))
+           {
+              int  length = 0;
+              char number[MAX_LONG_LENGTH + 1];
+
+              used |= DIR_WARN_TIME_FLAG;
+              ptr += DIR_WARN_TIME_ID_LENGTH;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              while ((isdigit((int)(*ptr))) && (length < MAX_LONG_LENGTH))
+              {
+                 number[length] = *ptr;
+                 ptr++; length++;
+              }
+              if ((length > 0) && (length != MAX_LONG_LENGTH))
+              {
+                 number[length] = '\0';
+                 dd[dir_pos].warn_time = (time_t)atol(number);
+                 if (dd[dir_pos].warn_time < 0)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_TIME_T == 4
+                               "A value less then 0 for directory option `%s' is no possible, setting default %ld.",
+#else
+                               "A value less then 0 for directory option `%s' is no possible, setting default %lld.",
+#endif
+                               DIR_WARN_TIME_ID, (pri_time_t)default_warn_time);
+                    dd[dir_pos].warn_time = default_warn_time;
+                 }
+                 else
+                 {
+                    dd[dir_pos].in_dc_flag |= WARN_TIME_IDC;
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+              }
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
+           }
+      else if (((used & KEEP_CONNECTED_FLAG) == 0) &&
+               (strncmp(ptr, KEEP_CONNECTED_ID, KEEP_CONNECTED_ID_LENGTH) == 0))
+           {
+              int  length = 0;
+              char number[MAX_INT_LENGTH + 1];
+
+              used |= KEEP_CONNECTED_FLAG;
+              ptr += KEEP_CONNECTED_ID_LENGTH;
+              while ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 ptr++;
+              }
+              while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+              {
+                 number[length] = *ptr;
+                 ptr++; length++;
+              }
+              if ((length > 0) && (length != MAX_INT_LENGTH))
+              {
+                 number[length] = '\0';
+                 dd[dir_pos].keep_connected = (unsigned int)atoi(number);
+                 dd[dir_pos].in_dc_flag |= KEEP_CONNECTED_IDC;
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+              }
+              while ((*ptr != '\n') && (*ptr != '\0'))
+              {
+                 ptr++;
+              }
            }
       else if (((used & WAIT_FOR_FILENAME_FLAG) == 0) &&
                (strncmp(ptr, WAIT_FOR_FILENAME_ID, WAIT_FOR_FILENAME_ID_LENGTH) == 0))

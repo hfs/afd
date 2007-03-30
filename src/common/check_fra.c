@@ -1,6 +1,6 @@
 /*
  *  check_fra.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000, 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   check_fra - checks if FRA has been updated
  **
  ** SYNOPSIS
- **   int check_fra(void)
+ **   int check_fra(int passive)
  **
  ** DESCRIPTION
  **   This function checks if the FRA (Fileretrieve Status Area)
@@ -43,6 +43,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   10.08.2000 H.Kiehl Created
+ **   30.07.2006 H.Kiehl Option to only attach in read only mode (passive).
  **
  */
 DESCR__E_M3
@@ -68,7 +69,7 @@ extern struct fileretrieve_status *fra;
 
 /*############################ check_fra() ##############################*/
 int
-check_fra(void)
+check_fra(int passive)
 {
    if (fra != NULL)
    {
@@ -95,11 +96,23 @@ check_fra(void)
          }
 #endif
 
-         if (fra_attach() < 0)
+         if (passive == YES)
          {
-            system_log(ERROR_SIGN, __FILE__, __LINE__,
-                       "Failed to attach to FRA.");
-            exit(INCORRECT);
+            if (fra_attach_passive() < 0)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Passive attach to FRA failed.");
+               exit(INCORRECT);
+            }
+         }
+         else
+         {
+            if (fra_attach() < 0)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Failed to attach to FRA.");
+               exit(INCORRECT);
+            }
          }
 
          return(YES);

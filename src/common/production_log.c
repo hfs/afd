@@ -1,6 +1,6 @@
 /*
  *  production_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,7 +72,7 @@ DESCR__E_M3
 #ifdef _PRODUCTION_LOG
 extern int  production_log_fd;
 extern char *p_work_dir;
-#endif /* _PRODUCTION_LOG */
+#endif
 
 
 /*########################## production_log() ###########################*/
@@ -90,12 +90,19 @@ production_log(time_t         creation_time,
 
    if ((production_log_fd == STDERR_FILENO) && (p_work_dir != NULL))
    {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      int  readfd;
+#endif
       char production_log_fifo[MAX_PATH_LENGTH];
 
       (void)strcpy(production_log_fifo, p_work_dir);
       (void)strcat(production_log_fifo, FIFO_DIR);
       (void)strcat(production_log_fifo, PRODUCTION_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(production_log_fifo, &readfd, &production_log_fd) == -1)
+#else
       if ((production_log_fd = coe_open(production_log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
@@ -105,7 +112,11 @@ production_log(time_t         creation_time,
             }
             else
             {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (open_fifo_rw(production_log_fifo, &readfd, &production_log_fd) == -1)
+#else
                if ((production_log_fd = coe_open(production_log_fifo, O_RDWR)) == -1)
+#endif
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Could not open fifo %s : %s",
@@ -125,8 +136,12 @@ production_log(time_t         creation_time,
    }
 
    length = sizeof(short);
-   length += sprintf(&production_buffer[length], "%x_%x_%x%c",
-                     creation_time, unique_number,
+#if SIZEOF_TIME_T == 4
+   length += sprintf(&production_buffer[length], "%lx_%x_%x%c",
+#else
+   length += sprintf(&production_buffer[length], "%llx_%x_%x%c",
+#endif
+                     (pri_time_t)creation_time, unique_number,
                      split_job_counter, SEPARATOR_CHAR);
    va_start(ap, fmt);
    length += vsprintf(&production_buffer[length], fmt, ap) + 1;

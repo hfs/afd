@@ -1,6 +1,6 @@
 /*
  *  system_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -45,8 +45,7 @@ DESCR__E_M1
 
 #include <stdio.h>                 /* fprintf(), fclose(), stderr,       */
                                    /* strerror()                         */
-#include <string.h>                /* strcmp(), strcpy(), strcat(),      */
-                                   /* strlen()                           */
+#include <string.h>                /* strcmp(), strcpy(), strcat()       */
 #include <stdlib.h>                /* getenv(), exit(), abort(), malloc()*/
 #include <unistd.h>                /* fpathconf(), STDERR_FILENO         */
 #include <signal.h>                /* signal()                           */
@@ -84,6 +83,9 @@ main(int argc, char *argv[])
    int         log_number = 0,
                log_stat = START,
                max_system_log_files = MAX_SYSTEM_LOG_FILES;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int         writefd;
+#endif
    char        *p_end = NULL,
                work_dir[MAX_PATH_LENGTH],
                log_file[MAX_PATH_LENGTH],
@@ -117,7 +119,11 @@ main(int argc, char *argv[])
       (void)strcpy(system_log_fifo, work_dir);
       (void)strcat(system_log_fifo, FIFO_DIR);
       (void)strcat(system_log_fifo, SYSTEM_LOG_FIFO);
-      if ((sys_log_fd = open(system_log_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(system_log_fifo, &sys_log_fd, &writefd) == -1)
+#else
+      if ((sys_log_fd = open(system_log_fifo, O_RDWR)) == -1)
+#endif
       {
          (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
                        system_log_fifo, strerror(errno), __FILE__, __LINE__);
@@ -165,7 +171,7 @@ main(int argc, char *argv[])
    p_log_fifo = &p_afd_status->sys_log_fifo[0];
    p_log_his = &p_afd_status->sys_log_history[0];
    get_log_number(&log_number, (max_system_log_files - 1),
-                  SYSTEM_LOG_NAME, strlen(SYSTEM_LOG_NAME));
+                  SYSTEM_LOG_NAME, SYSTEM_LOG_NAME_LENGTH, NULL);
    (void)sprintf(current_log_file, "%s%s/%s0",
                  p_work_dir, LOG_DIR, SYSTEM_LOG_NAME);
    p_end = log_file;
@@ -188,7 +194,7 @@ main(int argc, char *argv[])
             {
                log_number++;
             }
-            reshuffel_log_files(log_number, log_file, p_end);
+            reshuffel_log_files(log_number, log_file, p_end, 0, 0);
             total_length = 0;
          }
          else

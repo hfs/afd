@@ -1,6 +1,6 @@
 /*
  *  bin_file_chopper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -36,6 +36,7 @@ DESCR__S_M3
  **                        unsigned int   split_job_counter,
  **                        char           *extract_id,
  **                        char           *p_file_name)
+ **   int bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
  **
  ** DESCRIPTION
  **   The function bin_file_chopper reads a binary WMO bulletin file,
@@ -51,8 +52,9 @@ DESCR__S_M3
  **
  ** RETURN VALUES
  **   Returns INCORRECT when it fails to read any valid data from the
- **   file. On success SUCCESS will be returned and the number of files
- **   that have been created and the sum of their size.
+ **   file. On success SUCCESS will be returned and for the function
+ **   bin_file_chopper() the number of files that have been created and
+ **   the sum of their size.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -63,6 +65,7 @@ DESCR__S_M3
  **                      length indicator to find end.
  **   18.11.2002 H.Kiehl WMO header file names.
  **   03.10.2004 H.Kiehl Added production log.
+ **   20.07.2006 H.Kiehl Added bin_file_convert().
  **
  */
 DESCR__E_M3
@@ -76,32 +79,33 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include "amgdefs.h"
 
 #define DATA_TYPES 3
 
 /* Global local variables */
-static int  counter_fd,
-            id_length[DATA_TYPES] = { 4, 4, 4 },
-            end_id_length[DATA_TYPES] = { 4, 4, 4 };
-static char bul_format[DATA_TYPES][5] =
-            {
-               "GRIB",
-               "BUFR",
-               "BLOK"
-            },
-            end_id[DATA_TYPES][5] =
-            {
-               "7777",
-               "7777",
-               "7777"
-            };
+static int   counter_fd,
+             id_length[DATA_TYPES] = { 4, 4, 4 },
+             end_id_length[DATA_TYPES] = { 4, 4, 4 };
+static char  bul_format[DATA_TYPES][5] =
+             {
+                "GRIB",
+                "BUFR",
+                "BLOK"
+             },
+             end_id[DATA_TYPES][5] =
+             {
+                "7777",
+                "7777",
+                "7777"
+             };
 
 /* External global variables */
-extern char *p_work_dir;
+extern char  *p_work_dir;
 
 /* Local functions */
-static char *bin_search_start(char *, int, int *, size_t *);
-static int  bin_search_end(char *, char *, size_t);
+static char  *bin_search_start(char *, int, int *, off_t *);
+static off_t bin_search_end(char *, char *, off_t);
 
 
 /*########################## bin_file_chopper() #########################*/
@@ -123,9 +127,9 @@ bin_file_chopper(char           *bin_file,
    int         i,
                fd,
                first_time = YES,
-               data_length = 0,
                counter;     /* counter to keep file name unique          */
-   size_t      length,
+   off_t       data_length = 0,
+               length,
                total_length;
    time_t      tvalue;
    mode_t      file_mode;
@@ -371,8 +375,8 @@ bin_file_chopper(char           *bin_file,
             }
             else
             {
-               length = strftime(date_str, sizeof(date_str) + 1, "%Y%m%d%H%M%S",
-                                 gmtime(&tvalue));
+               length = strftime(date_str, sizeof(date_str) + 1,
+                                 "%Y%m%d%H%M%S", gmtime(&tvalue));
                date_str[length] = '\0';
             }
             (void)sprintf(p_new_file, "%s_%s_%s_%d", bul_format[i],
@@ -392,7 +396,7 @@ bin_file_chopper(char           *bin_file,
             return(INCORRECT);
          }
 
-         /* Add data type and end identifier to file */
+         /* Add data type and end identifier to file. */
          ptr -= id_length[i];
          if (message_length == 0)
          {
@@ -413,6 +417,7 @@ bin_file_chopper(char           *bin_file,
             (void)close(counter_fd);
             return(INCORRECT);
          }
+
          if (close(fd) == -1)
          {
             receive_log(DEBUG_SIGN, __FILE__, __LINE__, tvalue,
@@ -426,6 +431,7 @@ bin_file_chopper(char           *bin_file,
                            p_file_name, p_new_file, extract_id);
          }
 #endif
+
          *file_size += data_length;
          (*files_to_send)++;
          length = data_length;
@@ -497,17 +503,204 @@ bin_file_chopper(char           *bin_file,
 }
 
 
+/*########################## bin_file_convert() #########################*/
+int
+bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
+{
+   int   first_time = YES,
+         i;
+   off_t data_length = 0,
+         length;
+   char  *buffer,
+         *ptr,
+         length_indicator[14];
+
+   buffer = src_ptr;
+   while (total_length > 9)
+   {
+      if ((ptr = bin_search_start(buffer, total_length, &i, &total_length)) != NULL)
+      {
+         unsigned int message_length = 0;
+
+         /*
+          * When data type is GRIB and it is still using edition
+          * 0 we cannot use the length indicator.
+          */
+         if ((i == 0) && (*(ptr + 3) == 0))
+         {
+            /*
+             * Let's look for the end. If we don't find an end marker
+             * try get the next data type. Maybe this is not a good
+             * idea and it would be better to discard this file.
+             * Experience will show which is the better solution.
+             */
+            if ((data_length = bin_search_end(end_id[i], ptr, total_length)) == 0)
+            {
+#ifdef _END_DIFFER
+               /*
+                * Since we did not find a valid end_marker, it does not
+                * mean that all data in this file is incorrect. Ignore
+                * this bulletin and try search for the next data type
+                * identifier. Since we have no clue where this might start
+                * we have to extend the search across the whole file.
+                */
+               buffer = ptr;
+               continue;
+#else
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                           "Failed to extract data.");
+               return(INCORRECT);
+#endif
+            }
+         }
+         else /* When GRIB it has to be at least edition 1 */
+         {
+            /*
+             * Determine length by reading byte 4 - 6.
+             */
+            message_length = 0;
+            message_length |= (unsigned char)*ptr;
+            message_length <<= 8;
+            message_length |= (unsigned char)*(ptr + 1);
+            message_length <<= 8;
+            message_length |= (unsigned char)*(ptr + 2);
+
+            if (message_length > (total_length + id_length[i]))
+            {
+               if (first_time == YES)
+               {
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                              "Hey! Whats this? Message length (%u) > then total length (%u)",
+                              message_length, total_length + id_length[i]);
+                  first_time = NO;
+               }
+               buffer = ptr;
+               continue;
+            }
+            else
+            {
+               char *tmp_ptr = ptr - id_length[i] +
+                               message_length -
+                               end_id_length[i];
+
+               if (memcmp(tmp_ptr, end_id[i], end_id_length[i]) != 0)
+               {
+                  receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                              "Hey! Whats this? End locator not where it should be!");
+                  buffer = ptr;
+                  continue;
+               }
+            }
+         }
+
+         /* Add data type and end identifier to file. */
+         ptr -= id_length[i];
+         if (message_length == 0)
+         {
+            data_length = data_length + id_length[i] + end_id_length[i];
+         }
+         else
+         {
+            data_length = message_length;
+         }
+
+#if SIZEOF_OFF_T == 4
+         (void)sprintf(length_indicator, "%08ld00",
+#else
+         (void)sprintf(length_indicator, "%08lld00",
+#endif
+                       (pri_off_t)(data_length + 8));
+         length_indicator[10] = 1;
+         length_indicator[11] = 13;
+         length_indicator[12] = 13;
+         length_indicator[13] = 10;
+         if (write(to_fd, length_indicator, 14) != 14)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "write() error : %s", strerror(errno));
+            return(INCORRECT);
+         }
+
+         /* Write message body. */
+         if (write(to_fd, ptr, data_length) != data_length)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "write() error : %s", strerror(errno));
+            return(INCORRECT);
+         }
+
+         length_indicator[0] = 13;
+         length_indicator[1] = 13;
+         length_indicator[2] = 10;
+         length_indicator[3] = 3;
+         if (write(to_fd, length_indicator, 4) != 4)
+         {
+            receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
+                        "write() error : %s", strerror(errno));
+            return(INCORRECT);
+         }
+
+         length = data_length;
+/*         length = data_length + end_id_length[i]; */
+         if (data_length > total_length)
+         {
+            if ((data_length - total_length) > 5)
+            {
+               receive_log(DEBUG_SIGN, __FILE__, __LINE__, 0L,
+                           "Hmmm. data_length (%d) > total_length (%u)?",
+                           data_length, total_length);
+            }
+            total_length = 0;
+         }
+         else
+         {
+/*            total_length -= data_length; */
+            total_length -= (data_length - end_id_length[i]);
+         }
+         if (message_length != 0)
+         {
+            int rest;
+
+            if ((rest = (message_length % 4)) == 0)
+            {
+               buffer = ptr + length;
+            }
+            else
+            {
+               buffer = ptr + length - rest;
+               total_length += rest;
+            }
+         }
+         else
+         {
+            buffer = ptr + length;
+         }
+      }
+      else
+      {
+         /*
+          * Since we did not find a valid data type identifier, lets
+          * forget it.
+          */
+         break;
+      }
+   } /* while (total_length > 9) */
+
+   return(SUCCESS);
+}
+
+
 /*+++++++++++++++++++++++++ bin_search_start() ++++++++++++++++++++++++++*/
 static char *
-bin_search_start(char   *search_text,
-                 int    search_length,
-                 int    *i,
-                 size_t *total_length)
+bin_search_start(char  *search_text,
+                 int   search_length,
+                 int   *i,
+                 off_t *total_length)
 {
-   int    hit[DATA_TYPES] = { 0, 0, 0 },
-          count[DATA_TYPES] = { 0, 0, 0 },
-          counter = 0;
-   size_t tmp_length = *total_length;
+   int   hit[DATA_TYPES] = { 0, 0, 0 },
+         count[DATA_TYPES] = { 0, 0, 0 },
+         counter = 0;
+   off_t tmp_length = *total_length;
 
    while (counter != search_length)
    {
@@ -538,10 +731,8 @@ bin_search_start(char   *search_text,
 
 
 /*++++++++++++++++++++++++++ bin_search_end() +++++++++++++++++++++++++++*/
-static int
-bin_search_end(char   *search_string,
-               char   *search_text,
-               size_t total_length)
+static off_t
+bin_search_end(char *search_string, char *search_text, off_t total_length)
 {
    int        hit = 0;
    static int counter;

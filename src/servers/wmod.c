@@ -76,6 +76,10 @@ int                        fsa_fd = -1,
                            no_of_hosts = 0,
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag = OFF,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           transfer_log_readfd,
+                           trans_db_log_readfd,
+#endif
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO;
 char                       alias_name[MAX_HOSTNAME_LENGTH + 1],
@@ -304,12 +308,22 @@ main(int argc, char *argv[])
       (void)strcpy(buffer, p_work_dir);
       (void)strcat(buffer, FIFO_DIR);
       (void)strcat(buffer, TRANSFER_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(buffer, &transfer_log_readfd,
+                       &transfer_log_fd) == -1)
+#else
       if ((transfer_log_fd = open(buffer, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if ((make_fifo(buffer) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                (open_fifo_rw(buffer, &transfer_log_readfd,
+                              &transfer_log_fd) == -1))
+#else
                 ((transfer_log_fd = open(buffer, O_RDWR)) == -1))
+#endif
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Could not open fifo %s : %s",

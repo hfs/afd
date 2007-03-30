@@ -65,6 +65,7 @@ DESCR__E_M3
 #include <sys/stat.h>         /* fstat()                                 */
 #include <fcntl.h>
 #include <errno.h>
+#include "amgdefs.h"
 
 
 /*############################# wmo2ascii() #############################*/

@@ -152,7 +152,14 @@ get_permissions(char **perm_buffer, char *fake_user)
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Failed to fstat() permission file `%s' : %s",
                        afd_user_file, strerror(errno));
-            ret = NONE;
+            if (errno == EACCES)
+            {
+               ret = NO_ACCESS;
+            }
+            else
+            {
+               ret = NONE;
+            }
          }
       }
 
@@ -174,7 +181,14 @@ get_permissions(char **perm_buffer, char *fake_user)
       }
       else
       {
-         ret = NONE;
+         if (errno == EACCES)
+         {
+            ret = NO_ACCESS;
+         }
+         else
+         {
+            ret = NONE;
+         }
       }
    }
 

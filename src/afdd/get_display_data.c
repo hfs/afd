@@ -1,6 +1,6 @@
 /*
  *  get_display_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -58,7 +58,8 @@ DESCR__E_M3
 #include "afdddefs.h"
 
 /* External global variables */
-extern int  sys_log_fd;
+extern int  cmd_sd,
+            sys_log_fd;
 extern char *p_work_dir;
 extern FILE *p_data;
 
@@ -69,8 +70,7 @@ get_display_data(char *search_file,
                  char *search_string,
 		 int  no_of_lines,
 		 int  show_time,
-		 int  file_no,
-		 int  to_fd)
+		 int  file_no)
 {
    int         from_fd,
 	       length;
@@ -132,7 +132,7 @@ get_display_data(char *search_file,
          return(INCORRECT);
       }
 
-      if (write(to_fd, buffer, hunk) != hunk)
+      if (write(cmd_sd, buffer, hunk) != hunk)
       {
          (void)fprintf(p_data, "520 write() error : %s (%s %d)\r\n",
                        strerror(errno), __FILE__, __LINE__);

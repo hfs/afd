@@ -1,6 +1,6 @@
 /*
  *  append.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -147,7 +147,7 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
 #else
          (void)sprintf(file_and_date_str, "%s|%lld\n",
 #endif
-                       file_name, stat_buf.st_mtime);
+                       file_name, (pri_time_t)stat_buf.st_mtime);
 
          /* Now check if the file name is already in the list. */
          do
@@ -177,10 +177,11 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
                   }
                   tmp_char_2 = *end_ptr_2;
 #if SIZEOF_TIME_T == 4
-                  w_length = sprintf(end_ptr + 1, "%ld", stat_buf.st_mtime);
+                  w_length = sprintf(end_ptr + 1, "%ld",
 #else
-                  w_length = sprintf(end_ptr + 1, "%lld", stat_buf.st_mtime);
+                  w_length = sprintf(end_ptr + 1, "%lld",
 #endif
+                                     (pri_time_t)stat_buf.st_mtime);
                   if (w_length > r_length)
                   {
                      if (w_length > r_length)
@@ -271,9 +272,9 @@ log_append(struct job *p_db, char *file_name, char *source_file_name)
    /* Append the file name. */
    *(ptr++) = ' ';
 #if SIZEOF_TIME_T == 4
-   ptr += sprintf(ptr, "%s|%ld\n", file_name, stat_buf.st_mtime);
+   ptr += sprintf(ptr, "%s|%ld\n", file_name, (pri_time_t)stat_buf.st_mtime);
 #else
-   ptr += sprintf(ptr, "%s|%lld\n", file_name, stat_buf.st_mtime);
+   ptr += sprintf(ptr, "%s|%lld\n", file_name, (pri_time_t)stat_buf.st_mtime);
 #endif
    *ptr = '\0';
    buf_size = strlen(buffer);
@@ -388,9 +389,9 @@ remove_append(unsigned int job_id, char *file_name)
       return;
    }
 #if SIZEOF_TIME_T == 4
-   (void)sprintf(search_str, "%s|%ld", file_name, file_date);
+   (void)sprintf(search_str, "%s|%ld", file_name, (pri_time_t)file_date);
 #else
-   (void)sprintf(search_str, "%s|%lld", file_name, file_date);
+   (void)sprintf(search_str, "%s|%lld", file_name, (pri_time_t)file_date);
 #endif
 
    /* Locate the file name */

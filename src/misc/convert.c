@@ -47,6 +47,10 @@ DESCR__S_M3
  **                   to the new file.
  **     sohetx2wmo0 - same as above only that here the SOH and ETX will be
  **                   copied to the new file.
+ **     mrz2wmo     - Converts GRIB, BUFR and BLOK files to files with
+ **                   8 byte ascii length and 2 bytes type indicator plus
+ **                   <SOH><CR><CR><LF> at start and <CR><CR><LF><ETX> to
+ **                   the end, for the individual fields.
  **
  **   The original file will be overwritten with the new format.
  **
@@ -62,6 +66,7 @@ DESCR__S_M3
  **   30.09.2003 H.Kiehl Created
  **   10.05.2005 H.Kiehl Don't just check for SOH and ETX, check for
  **                      <SOH><CR><CR><LF> and <CR><CR><LF><ETX>.
+ **   20.07.2006 H.Kiehl Added mrz2wmo.
  **
  */
 DESCR__E_M3
@@ -467,6 +472,15 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
                   }
                }
             } while ((ptr - src_ptr + 1) < stat_buf.st_size);
+         }
+         break;
+
+      case MRZ2WMO :
+         if (bin_file_convert(src_ptr, stat_buf.st_size, to_fd) < 0)
+         {
+            receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
+                        "Failed to convert MRZ file %s to WMO-format.",
+                        file_name);
          }
          break;
 

@@ -1,6 +1,6 @@
 /*
  *  create_fsa.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -734,7 +734,14 @@ create_fsa(void)
             fsa[i].debug                  = old_fsa[host_pos].debug;
             fsa[i].special_flag           = old_fsa[host_pos].special_flag;
             fsa[i].original_toggle_pos    = old_fsa[host_pos].original_toggle_pos;
-            fsa[i].host_id                = old_fsa[host_pos].host_id;
+            if (old_fsa[host_pos].host_id == 0)
+            {
+               fsa[i].host_id             = get_str_checksum(fsa[i].host_alias);
+            }
+            else
+            {
+               fsa[i].host_id             = old_fsa[host_pos].host_id;
+            }
             fsa[i].mc_ct_rate_limit       = old_fsa[host_pos].mc_ct_rate_limit;
             fsa[i].mc_nack_counter        = old_fsa[host_pos].mc_nack_counter;
             if (fsa[i].active_transfers > 1)
@@ -1093,8 +1100,8 @@ create_fsa(void)
       }
 
       /* Copy configuration information from the old FSA. */
-      ptr = (char *)fsa - AFD_WORD_OFFSET + 5;
-      *ptr = *((char *)old_fsa - AFD_WORD_OFFSET + 5);
+      ptr = (char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
+      *ptr = *((char *)old_fsa - AFD_FEATURE_FLAG_OFFSET_END);
    }
 
    /* Reposition fsa pointer after no_of_hosts */

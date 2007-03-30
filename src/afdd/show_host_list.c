@@ -1,6 +1,6 @@
 /*
  *  show_host_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 DESCR__S_M3
 /*
  ** NAME
- **   show_host_list - handles a TCP request
+ **   show_host_list - Shows the current hosts that are being served
  **
  ** SYNOPSIS
  **   void show_host_list(FILE *p_data)
@@ -49,8 +49,7 @@ DESCR__E_M3
 #include "afdddefs.h"
 
 /* External global variables */
-extern int                        sys_log_fd,
-                                  no_of_hosts;
+extern int                        no_of_hosts;
 extern unsigned char              **old_error_history;
 extern struct filetransfer_status *fsa;
 

@@ -1,6 +1,6 @@
 /*
  *  get_hostname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -32,12 +32,17 @@ DESCR__S_M3
  **   This function returns the hostname from the recipient string
  **   'recipient'. This string has the following format:
  **
- **        <sheme>://<user>:<password>@<host>:<port>/<url-path>
+ **     <sheme>://<user>[;fingerprint=]:<password>@<host>:<port>/<url-path>
  **
  ** RETURN VALUES
  **   Returns INCORRECT if it is not able to extract the hostname.
  **   Otherwise it will return SUCCESS and the hostname is stored in
  **   real_hostname.
+ **
+ ** SEE ALSO
+ **   fd/eval_recipient.c, common/create_message.c, fd/get_job_data.c,
+ **   amg/store_passwd.c, fd/init_msg_buffer.c, tools/get_dc_data.c,
+ **   tools/set_pw.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -98,6 +103,27 @@ get_hostname(char *recipient, char *real_hostname)
       }
       ptr++;
    }
+
+#ifdef WITH_SSH_FINGERPRINT
+   /* Check if we have stopped at fingerprint. This we do not want. */
+   if (*ptr == ';')
+   {
+      char *tmp_ptr = ptr + 1;
+
+      while ((*tmp_ptr != '\0') && (*tmp_ptr != '@') && (*tmp_ptr != ';'))
+      {
+         if (*tmp_ptr == '\\')
+         {
+            tmp_ptr++;
+         }
+         tmp_ptr++;
+      }
+      if ((*tmp_ptr == '@') || (*tmp_ptr == ';'))
+      {
+         ptr = tmp_ptr;
+      }
+   }
+#endif
 
    if (*ptr == '@')
    {

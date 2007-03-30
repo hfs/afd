@@ -1,6 +1,6 @@
 /*
  *  gf_sftp.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,6 +75,10 @@ int                        exitflag = IS_FAULTY_VAR,
                            rl_fd = -1,
                            trans_db_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           trans_db_log_readfd,
+                           transfer_log_readfd,
+#endif
                            sys_log_fd = STDERR_FILENO,
                            timeout_flag;
 #ifdef HAVE_MMAP
@@ -207,8 +211,12 @@ main(int argc, char *argv[])
                    db.hostname, db.port);
    }
 
-   /* Connect to remote SFTP-server */
-   if ((status = sftp_connect(db.hostname, db.port, db.user,
+   /* Connect to remote SFTP-server. */
+#ifdef WITH_SSH_FINGERPRINT
+   if ((status = sftp_connect(db.hostname, db.port, db.ssh_protocol, db.user, db.ssh_fingerprint,
+#else
+   if ((status = sftp_connect(db.hostname, db.port, db.ssh_protocol, db.user,
+#endif
                               db.password, fsa->debug)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -229,8 +237,7 @@ main(int argc, char *argv[])
    /* Change directory if necessary */
    if (db.target_dir[0] != '\0')
    {
-      if ((status = sftp_cd(db.target_dir,
-                            ((db.special_flag & CREATE_TARGET_DIR) ? YES : NO))) != SUCCESS)
+      if ((status = sftp_cd(db.target_dir, NO)) != SUCCESS)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                    "Failed to change/create directory to `%s' (%d).",
@@ -289,8 +296,6 @@ main(int argc, char *argv[])
          lock_region_w(fsa_fd, db.lock_offset + LOCK_TFC);
 #endif
          fsa->total_file_counter += files_to_retrieve;
-
-         /* Total file size */
          fsa->total_file_size += file_size_to_retrieve;
 #ifdef LOCK_DEBUG
          unlock_region(fsa_fd, db.lock_offset + LOCK_TFC, __FILE__, __LINE__);
@@ -588,7 +593,8 @@ main(int argc, char *argv[])
 #else
                                   "File size of file %s changed from %lld to %lld when it was retrieved.",
 #endif
-                                  rl[i].file_name, rl[i].size, bytes_done + offset);
+                                  rl[i].file_name, (pri_off_t)rl[i].size,
+                                  (pri_off_t)(bytes_done + offset));
                         fsa->total_file_size += (bytes_done + offset - rl[i].size);
                         rl[i].size = bytes_done + offset;
                      }
@@ -609,7 +615,8 @@ main(int argc, char *argv[])
 #else
                                    "Total file size for host <%s> overflowed. Correcting to %lld.",
 #endif
-                                   fsa->host_dsp_name, fsa->total_file_size);
+                                   fsa->host_dsp_name,
+                                   (pri_off_t)fsa->total_file_size);
                      }
                      else if ((fsa->total_file_counter == 0) &&
                               (fsa->total_file_size > 0))
@@ -633,9 +640,35 @@ main(int argc, char *argv[])
                   unlock_region(fsa_fd, db.lock_offset + LOCK_TFC);
 #endif
 
+                  if (fra[db.fra_pos].error_counter > 0)
+                  {
+                     lock_region_w(fra_fd,
+#ifdef LOCK_DEBUG
+                                   (char *)&fra[db.fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
+#else
+                                   (char *)&fra[db.fra_pos].error_counter - (char *)fra);
+#endif
+                     fra[db.fra_pos].error_counter = 0;
+                     if (fra[db.fra_pos].dir_flag & DIR_ERROR_SET)
+                     {
+                        fra[db.fra_pos].dir_flag ^= DIR_ERROR_SET;
+                        SET_DIR_STATUS(fra[db.fra_pos].dir_flag,
+                                       fra[db.fra_pos].dir_status);
+                     }
+                     unlock_region(fra_fd,
+#ifdef LOCK_DEBUG
+                                   (char *)&fra[db.fra_pos].error_counter - (char *)fra, __FILE__, __LINE__);
+#else
+                                   (char *)&fra[db.fra_pos].error_counter - (char *)fra);
+#endif
+                  }
+
                   if (fsa->error_counter > 0)
                   {
                      int  fd, j;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     int  readfd;
+#endif
                      char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
 #ifdef LOCK_DEBUG
@@ -648,7 +681,11 @@ main(int argc, char *argv[])
                      /* Wake up FD! */
                      (void)sprintf(fd_wake_up_fifo, "%s%s%s", p_work_dir,
                                    FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                     if (open_fifo_rw(fd_wake_up_fifo, &readfd, &fd) == -1)
+#else
                      if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
+#endif
                      {
                         system_log(WARN_SIGN, __FILE__, __LINE__,
                                    "Failed to open() FIFO `%s' : %s",
@@ -664,6 +701,14 @@ main(int argc, char *argv[])
                                       "Failed to write() to FIFO `%s' : %s",
                                       fd_wake_up_fifo, strerror(errno));
                         }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        if (close(readfd) == -1)
+                        {
+                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                      "Failed to close() FIFO `%s' (read) : %s",
+                                      fd_wake_up_fifo, strerror(errno));
+                        }
+#endif
                         if (close(fd) == -1)
                         {
                            system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -693,7 +738,7 @@ main(int argc, char *argv[])
 #endif
 
                      /*
-                      * Since we have successfully transmitted a file, no need to
+                      * Since we have successfully retrieved a file, no need to
                       * have the queue stopped anymore.
                       */
                      if (fsa->host_status & AUTO_PAUSE_QUEUE_STAT)
@@ -722,7 +767,8 @@ main(int argc, char *argv[])
 #else
                                "File size of file %s changed from %lld to %lld when it was retrieved.",
 #endif
-                               rl[i].file_name, rl[i].size, bytes_done + offset);
+                               rl[i].file_name, (pri_off_t)rl[i].size,
+                               (pri_off_t)(bytes_done + offset));
                      rl[i].size = bytes_done + offset;
                   }
                }
@@ -769,7 +815,7 @@ main(int argc, char *argv[])
    sftp_quit();
    if (fsa->debug > NORMAL_MODE)
    {
-      trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str, "Logged out.");
+      trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL, "Logged out.");
    }
 
    exitflag = 0;
@@ -782,6 +828,9 @@ static void
 gf_sftp_exit(void)
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
    if ((fsa != NULL) && (db.fsa_pos >= 0))
@@ -791,7 +840,7 @@ gf_sftp_exit(void)
 #else
       trans_log(INFO_SIGN, NULL, 0, NULL, "%lld Bytes retrieved in %d file(s).",
 #endif
-                fsa->job_status[(int)db.job_no].file_size_done,
+                (pri_off_t)fsa->job_status[(int)db.job_no].file_size_done,
                 fsa->job_status[(int)db.job_no].no_of_files_done);
       reset_fsa((struct job *)&db, exitflag);
    }
@@ -799,7 +848,11 @@ gf_sftp_exit(void)
    (void)strcpy(sf_fin_fifo, p_work_dir);
    (void)strcat(sf_fin_fifo, FIFO_DIR);
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo `%s' : %s",
@@ -821,6 +874,9 @@ gf_sftp_exit(void)
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)close(readfd);
+#endif
       (void)close(fd);
    }
    if (sys_log_fd != STDERR_FILENO)

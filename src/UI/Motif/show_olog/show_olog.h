@@ -51,11 +51,6 @@
 #define GOT_JOB_ID_USER_ONLY     -4
 #define GOT_JOB_ID_PRIORITY_ONLY -5
 
-#define F_KILOBYTE               1024.0
-#define F_MEGABYTE               1048576.0
-#define F_GIGABYTE               1073741824.0
-#define F_TERABYTE               1099511627776.0
-
 #define FTP_ID_STR               "FTP  "
 #define FILE_ID_STR              "FILE "
 #define SMTP_ID_STR              "SMTP "

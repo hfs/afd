@@ -1,6 +1,6 @@
 /*
  *  pmatch.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -53,7 +53,10 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>                    /* strncmp()                      */
 #include <stdlib.h>                    /* malloc()                       */
+#include <ctype.h>                     /* isdigit()                      */
 #include <time.h>                      /* time()                         */
+#include <unistd.h>                    /* gethostname()                  */
+
 
 /* Local variables. */
 static char *tmp_filter = NULL;
@@ -379,9 +382,9 @@ expand_filter(char *orig_filter, time_t check_time)
                      break;
                   case 'U': /* Unix time. */
 #if SIZEOF_TIME_T == 4
-                     wptr += sprintf(wptr, "%ld", time_buf);
+                     wptr += sprintf(wptr, "%ld", (pri_time_t)time_buf);
 #else
-                     wptr += sprintf(wptr, "%lld", time_buf);
+                     wptr += sprintf(wptr, "%lld", (pri_time_t)time_buf);
 #endif
                      break;
                   default :

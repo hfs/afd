@@ -1,6 +1,6 @@
 /*
  *  shutdown_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -56,7 +56,6 @@ DESCR__E_M3
 #include "version.h"
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir;
 
 
@@ -66,6 +65,10 @@ shutdown_mon(int silent_shutdown, char *fake_user)
 {
    int            mon_cmd_fd,
                   mon_resp_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  mon_cmd_writefd,
+                  mon_resp_writefd,
+#endif
                   status;
    fd_set         rset;
    char           buffer[DEFAULT_BUFFER_SIZE],
@@ -81,13 +84,21 @@ shutdown_mon(int silent_shutdown, char *fake_user)
    (void)strcat(mon_resp_fifo, MON_RESP_FIFO);
    (void)strcat(mon_cmd_fifo, MON_CMD_FIFO);
 
-   if ((mon_cmd_fd = open(mon_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(mon_cmd_fifo, &mon_cmd_fd, &mon_cmd_writefd) == -1)
+#else
+   if ((mon_cmd_fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
                     mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((mon_resp_fd = open(mon_resp_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(mon_resp_fifo, &mon_resp_fd, &mon_resp_writefd) == -1)
+#else
+   if ((mon_resp_fd = open(mon_resp_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
                     mon_resp_fifo, strerror(errno), __FILE__, __LINE__);
@@ -96,11 +107,15 @@ shutdown_mon(int silent_shutdown, char *fake_user)
 
    /* Tell user what we are doing */
    get_user(user, fake_user);
-   (void)rec(sys_log_fd, WARN_SIGN, "Starting %s shutdown (%s) ...\n",
-             AFD_MON, user);
+   system_log(CONFIG_SIGN, NULL, 0,
+              "Starting %s shutdown (%s) ...", AFD_MON, user);
 
    /* Send SHUTDOWN command */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (send_cmd(SHUTDOWN, mon_cmd_writefd) < 0)
+#else
    if (send_cmd(SHUTDOWN, mon_cmd_fd) < 0)
+#endif
    {
       (void)fprintf(stderr,
                     "ERROR   : Failed to send stop command to %s : %s (%s %d)\n",
@@ -185,7 +200,7 @@ shutdown_mon(int silent_shutdown, char *fake_user)
               else if (buffer[0] == ACKN)
                    {
                       /* Tell user we are done */
-                      (void)rec(sys_log_fd, INFO_SIGN, "Done!\n");
+                      system_log(CONFIG_SIGN, NULL, 0, "Done!");
                    }
                    else
                    {
@@ -197,14 +212,14 @@ shutdown_mon(int silent_shutdown, char *fake_user)
         }
    else if (status < 0)
         {
-           (void)rec(sys_log_fd, FATAL_SIGN, "Select error : %s (%s %d)\n",
-                     strerror(errno), __FILE__, __LINE__);
+           (void)fprintf(stderr, "select() error : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
            exit(INCORRECT);
         }
         else
         {
-           (void)rec(sys_log_fd, FATAL_SIGN, "Unknown condition. (%s %d)\n",
-                     __FILE__, __LINE__);
+           (void)fprintf(stderr, "Unknown condition. (%s %d)\n",
+                         __FILE__, __LINE__);
            exit(INCORRECT);
         }
 

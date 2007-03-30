@@ -1,6 +1,6 @@
 /*
  *  xsend_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   24.01.2005 H.Kiehl Created
+ **   12.08.2006 H.Kiehl Added extended active/passive mode option.
  **
  */
 DESCR__E_M1
@@ -953,9 +954,6 @@ main(int argc, char *argv[])
                         XmNrightAttachment, XmATTACH_FORM,
                         NULL);
 
-   /*---------------------------------------------------------------*/
-   /*                  Debug + Passive toggle box                   */
-   /*---------------------------------------------------------------*/
    buttonbox_w = XtVaCreateWidget("debug_togglebox",
                         xmRowColumnWidgetClass, optionbox_w,
                         XmNorientation,         XmHORIZONTAL,
@@ -966,7 +964,7 @@ main(int argc, char *argv[])
                         XmNbottomAttachment,    XmATTACH_FORM,
                         XmNresizable,           False,
                         NULL);
-   button_w = XtVaCreateManagedWidget("Debug ",
+   button_w = XtVaCreateManagedWidget("Debug",
                         xmToggleButtonGadgetClass, buttonbox_w,
                         XmNfontList,               fontlist,
                         XmNset,                    False,
@@ -976,7 +974,24 @@ main(int argc, char *argv[])
    db->debug = NO;
    XtManageChild(buttonbox_w);
 
-   active_passive_w = XtVaCreateWidget("passive_togglebox",
+   /*---------------------------------------------------------------*/
+   /*                      Vertical Separator                       */
+   /*---------------------------------------------------------------*/
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       buttonbox_w);
+   argcount++;
+   separator_w = XmCreateSeparator(optionbox_w, "separator", args, argcount);
+   XtManageChild(separator_w);
+
+   active_passive_w = XtVaCreateWidget("eap_togglebox",
                         xmRowColumnWidgetClass, optionbox_w,
                         XmNorientation,         XmHORIZONTAL,
                         XmNpacking,             XmPACK_TIGHT,
@@ -984,22 +999,70 @@ main(int argc, char *argv[])
                         XmNtopAttachment,       XmATTACH_FORM,
                         XmNbottomAttachment,    XmATTACH_FORM,
                         XmNleftAttachment,      XmATTACH_WIDGET,
-                        XmNleftWidget,          buttonbox_w,
+                        XmNleftWidget,          separator_w,
                         XmNresizable,           False,
                         NULL);
-   button_w = XtVaCreateManagedWidget("Passive ",
+   button_w = XtVaCreateManagedWidget("Extended",
                         xmToggleButtonGadgetClass, active_passive_w,
                         XmNfontList,               fontlist,
                         XmNset,                    False,
                         NULL);
    XtAddCallback(button_w, XmNvalueChangedCallback,
-                 (XtCallbackProc)passive_toggle, NULL);
-   db->mode_flag = ACTIVE_MODE;
+                 (XtCallbackProc)extended_toggle, NULL);
+
+   /* Active or passive mode. */
+   argcount = 0;
+   XtSetArg(args[argcount], XmNtopAttachment,  XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment, XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,     button_w);
+   argcount++;
+   XtSetArg(args[argcount], XmNorientation,    XmHORIZONTAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNpacking,        XmPACK_TIGHT);
+   argcount++;
+   XtSetArg(args[argcount], XmNnumColumns,     1);
+   argcount++;
+   button_w = XmCreateRadioBox(optionbox_w, "radiobox", args, argcount);
+   radio_w = XtVaCreateManagedWidget("Active",
+                        xmToggleButtonGadgetClass, button_w,
+                        XmNfontList,               fontlist,
+                        XmNset,                    True,
+                        NULL);
+   XtAddCallback(radio_w, XmNdisarmCallback,
+                 (XtCallbackProc)active_passive_radio, (XtPointer)SET_ACTIVE);
+   radio_w = XtVaCreateManagedWidget("Passive",
+                        xmToggleButtonGadgetClass, button_w,
+                        XmNfontList,               fontlist,
+                        XmNset,                    False,
+                        NULL);
+   XtAddCallback(radio_w, XmNdisarmCallback,
+                 (XtCallbackProc)active_passive_radio, (XtPointer)SET_PASSIVE);
+   XtManageChild(button_w);
    XtManageChild(active_passive_w);
+   db->mode_flag = ACTIVE_MODE;
    if (db->protocol != FTP)
    {
       XtSetSensitive(active_passive_w, False);
    }
+
+   /*---------------------------------------------------------------*/
+   /*                      Vertical Separator                       */
+   /*---------------------------------------------------------------*/
+   argcount = 0;
+   XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
+   argcount++;
+   XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+   argcount++;
+   XtSetArg(args[argcount], XmNleftWidget,       active_passive_w);
+   argcount++;
+   separator_w = XmCreateSeparator(optionbox_w, "separator", args, argcount);
+   XtManageChild(separator_w);
 
    attach_file_w = XtVaCreateWidget("attach_file_togglebox",
                         xmRowColumnWidgetClass, optionbox_w,
@@ -1009,7 +1072,7 @@ main(int argc, char *argv[])
                         XmNtopAttachment,       XmATTACH_FORM,
                         XmNbottomAttachment,    XmATTACH_FORM,
                         XmNleftAttachment,      XmATTACH_WIDGET,
-                        XmNleftWidget,          active_passive_w,
+                        XmNleftWidget,          separator_w,
                         XmNresizable,           False,
                         NULL);
    button_w = XtVaCreateManagedWidget("Attach file ",
@@ -1103,10 +1166,11 @@ main(int argc, char *argv[])
       char str_line[MAX_TIMEOUT_DIGITS + 1];
 
 #if SIZEOF_TIME_T == 4
-      (void)sprintf(str_line, "%*ld", MAX_TIMEOUT_DIGITS, db->timeout);
+      (void)sprintf(str_line, "%*ld", MAX_TIMEOUT_DIGITS,
 #else
-      (void)sprintf(str_line, "%*lld", MAX_TIMEOUT_DIGITS, db->timeout);
+      (void)sprintf(str_line, "%*lld", MAX_TIMEOUT_DIGITS,
 #endif
+                    (pri_time_t)db->timeout);
       XmTextSetString(timeout_w, str_line);
    }
    wpr_position = 0;

@@ -1,6 +1,6 @@
 /*
  *  archive_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -309,8 +309,12 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
          system_log(DEBUG_SIGN, __FILE__, __LINE__,
                     "Hmm, `%s' this does not look like a message.",
                     p_db->msg_name);
-         (void)sprintf(ptr, "%x_%x_%x_%s",
-                       p_db->creation_time, p_db->unique_number,
+#if SIZEOF_TIME_T == 4
+         (void)sprintf(ptr, "%lx_%x_%x_%s",
+#else
+         (void)sprintf(ptr, "%llx_%x_%x_%s",
+#endif
+                       (pri_time_t)p_db->creation_time, p_db->unique_number,
                        p_db->split_job_counter, filename);
       }
    }
@@ -319,8 +323,12 @@ archive_file(char       *file_path,  /* Original path of file to archive.*/
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "Hmm, `%s' this does not look like a message.",
                  p_db->msg_name);
-      (void)sprintf(ptr, "%x_%x_%x_%s",
-                    p_db->creation_time, p_db->unique_number,
+#if SIZEOF_TIME_T == 4
+      (void)sprintf(ptr, "%lx_%x_%x_%s",
+#else
+      (void)sprintf(ptr, "%llx_%x_%x_%s",
+#endif
+                    (pri_time_t)p_db->creation_time, p_db->unique_number,
                     p_db->split_job_counter, filename);
    }
 #endif
@@ -458,9 +466,13 @@ create_archive_dir(char         *p_path,
                    char         *msg_name)
 {
    archive_start_time = time(NULL);
-   (void)sprintf(msg_name, "%x_%x",
-                 ((archive_start_time + (archive_time * ARCHIVE_UNIT)) /
-                  ARCHIVE_STEP_TIME) * ARCHIVE_STEP_TIME,
+#if SIZEOF_TIME_T == 4
+   (void)sprintf(msg_name, "%lx_%x",
+#else
+   (void)sprintf(msg_name, "%llx_%x",
+#endif
+                 (pri_time_t)(((archive_start_time + (archive_time * ARCHIVE_UNIT)) /
+                  ARCHIVE_STEP_TIME) * ARCHIVE_STEP_TIME),
                  job_id);
 
    return(mkdir(p_path, DIR_MODE));

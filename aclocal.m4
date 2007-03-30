@@ -860,6 +860,9 @@ AC_SUBST([am__tar])
 AC_SUBST([am__untar])
 ]) # _AM_PROG_TAR
 
+m4_include([ac-tools/ax_check_compiler_flags.m4])
+m4_include([ac-tools/ax_gcc_archflag.m4])
+m4_include([ac-tools/ax_gcc_x86_cpuid.m4])
 m4_include([ac-tools/etr_socket_nsl.m4])
 m4_include([ac-tools/motif.m4])
 m4_include([ac-tools/motif_version.m4])

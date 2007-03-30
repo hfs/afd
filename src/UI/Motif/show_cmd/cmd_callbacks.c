@@ -1,6 +1,6 @@
 /*
  *  cmd_callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,7 +85,8 @@ close_button(Widget w, XtPointer client_data, XtPointer call_data)
 #else
                        "Failed to kill() process %lld : %s (%s %d)\n",
 #endif
-                       cmd_pid, strerror(errno), __FILE__, __LINE__);
+                       (pri_pid_t)cmd_pid, strerror(errno),
+                       __FILE__, __LINE__);
       }
    }
 
@@ -137,7 +138,7 @@ kill_child(Widget w)
 #else
                        "Failed to kill() process %lld : %s (%s %d)\n",
 #endif
-                       cmd_pid, strerror(errno), __FILE__, __LINE__);
+                       (pri_pid_t)cmd_pid, strerror(errno), __FILE__, __LINE__);
       }
       else
       {

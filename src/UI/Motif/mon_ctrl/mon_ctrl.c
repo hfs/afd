@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -156,6 +156,10 @@ int                     bar_thickness_3,
                         no_of_jobs_selected,
 			no_of_short_lines, /* Not yet used. */
                         sys_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                        mon_log_readfd,
+                        sys_log_readfd,
+#endif
                         window_width,
                         window_height,
                         x_center_log_status,
@@ -563,6 +567,20 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    check_fake_user(argc, argv, MON_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE : /* User is not allowed to use this program */
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -633,7 +651,11 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
          exit(INCORRECT);
       }
    }
-   if ((mon_log_fd = coe_open(mon_log_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(mon_log_fifo, &mon_log_readfd, &mon_log_fd) == -1)
+#else
+   if ((mon_log_fd = coe_open(mon_log_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "Could not coe_open() fifo %s : %s (%s %d)\n",
                     mon_log_fifo, strerror(errno), __FILE__, __LINE__);
@@ -2328,7 +2350,7 @@ mon_ctrl_exit(void)
 #else
                        "Failed to kill() process %s (%lld) : %s",
 #endif
-                       apps_list[i].progname, apps_list[i].pid,
+                       apps_list[i].progname, (pri_pid_t)apps_list[i].pid,
                        strerror(errno));
          }
       }

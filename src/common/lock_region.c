@@ -1,6 +1,6 @@
 /*
  *  lock_region.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -79,7 +79,7 @@ lock_region(int fd, off_t offset)
 # else
               "lock_region(): fd=%d start=%lld length=1 file=%s line=%d",
 # endif
-              fd, offset, file, line);                                 
+              fd, (pri_off_t)offset, file, line);                                 
 #endif
 
    if (fcntl(fd, F_SETLK, &wlock) == -1)

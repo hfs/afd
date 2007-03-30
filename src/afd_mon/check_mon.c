@@ -1,6 +1,6 @@
 /*
  *  check_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -65,7 +65,6 @@ DESCR__E_M3
 static struct stat stat_buf;
 
 /* External global variables */
-extern int  sys_log_fd;
 extern char *p_work_dir,
             mon_active_file[],
             mon_cmd_fifo[],
@@ -79,7 +78,11 @@ static void kill_jobs(void);
 int
 check_mon(long wait_time)
 {
-   int            read_fd,
+   int            readfd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  writefd,
+                  mon_cmd_readfd,
+#endif
                   mon_cmd_fd,
                   n,
                   status;
@@ -99,11 +102,15 @@ check_mon(long wait_time)
        * when it crashed really hard that it had no time to
        * remove this file.
        */
-      if ((mon_cmd_fd = open(mon_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(mon_cmd_fifo, &mon_cmd_readfd, &mon_cmd_fd) == -1)
+#else
+      if ((mon_cmd_fd = open(mon_cmd_fifo, O_RDWR)) == -1)
+#endif
       {
-         (void)rec(sys_log_fd, ERROR_SIGN,
-                   "Failed to open() `%s' : %s (%s %d)\n",
-                   mon_cmd_fifo, strerror(errno), __FILE__, __LINE__);
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open() `%s' : %s",
+                    mon_cmd_fifo, strerror(errno));
          /* Now we have no way to determine if another */
          /* AFD is still running. Lets kill ALL jobs   */
          /* which appear in the 'mon_active_file'.     */
@@ -111,29 +118,58 @@ check_mon(long wait_time)
       }
       else
       {
-         if ((stat(probe_only_fifo, &stat_buf_fifo) < 0) ||
+         int val,
+             tmp_val;
+
+         if ((stat(probe_only_fifo, &stat_buf_fifo) == -1) ||
              (!S_ISFIFO(stat_buf_fifo.st_mode)))
          {
             if (make_fifo(probe_only_fifo) < 0)
             {
-               (void)rec(sys_log_fd, FATAL_SIGN,
-                         "Could not create fifo %s. (%s %d)\n",
-                         probe_only_fifo, __FILE__, __LINE__);
+               system_log(FATAL_SIGN, __FILE__, __LINE__,
+                          "Could not create fifo %s.", probe_only_fifo);
                exit(INCORRECT);
             }
          }
-         if ((read_fd = open(probe_only_fifo, (O_RDONLY | O_NONBLOCK))) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(probe_only_fifo, &readfd, &writefd) == -1)
+#else
+         if ((readfd = open(probe_only_fifo, O_RDWR)) == -1)
+#endif
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not open fifo %s : %s (%s %d)\n",
-                      probe_only_fifo, strerror(errno), __FILE__, __LINE__);
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Could not open fifo %s : %s",
+                       probe_only_fifo, strerror(errno));
+            exit(INCORRECT);
+         }
+         if ((val = fcntl(readfd, F_GETFL, 0)) == -1)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to get file status flag with fcntl() : %s",
+                       strerror(errno));
+            exit(INCORRECT);
+         }
+         tmp_val = val;
+         val |= O_NONBLOCK;
+         if (fcntl(readfd, F_SETFL, val) == -1)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to set file status flag with fcntl() : %s",
+                       strerror(errno));
             exit(INCORRECT);
          }
 
          /* Make sure there is no garbage in the fifo. */
-         while (read(read_fd, buffer, 1) > 0)
+         while (read(readfd, buffer, 1) > 0)
          {
             ;
+         }
+         if (fcntl(readfd, F_SETFL, tmp_val) == -1)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to set file status flag with fcntl() : %s",
+                       strerror(errno));
+            exit(INCORRECT);
          }
 #ifdef _FIFO_DEBUG
          cmd[0] = IS_ALIVE; cmd[1] = '\0';
@@ -141,9 +177,8 @@ check_mon(long wait_time)
 #endif
          if (send_cmd(IS_ALIVE, mon_cmd_fd) < 0)
          {
-            (void)rec(sys_log_fd, WARN_SIGN,
-                      "Was not able to send command via fifo. (%s %d)\n",
-                      __FILE__, __LINE__);
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Was not able to send command via fifo.");
             exit(INCORRECT);
          }
 
@@ -151,12 +186,12 @@ check_mon(long wait_time)
          /* listen on another fifo. If we listen on the */
          /* same fifo we might read our own request.    */
          FD_ZERO(&rset);
-         FD_SET(read_fd, &rset);
+         FD_SET(readfd, &rset);
          timeout.tv_usec = 0L;
          timeout.tv_sec = wait_time;
 
          /* Wait for message x seconds and then continue. */
-         status = select(read_fd + 1, &rset, NULL, NULL, &timeout);
+         status = select(readfd + 1, &rset, NULL, NULL, &timeout);
 
          if (status == 0)
          {
@@ -166,72 +201,91 @@ check_mon(long wait_time)
             /* have survived the crash.                     */
             kill_jobs();
          }
-         else if (FD_ISSET(read_fd, &rset))
+         else if (FD_ISSET(readfd, &rset))
               {
                  /* Ahhh! Another AFD_MON is working here. */
                  /* Lets quickly vanish before someone */
                  /* notice our presence.               */
-                 if ((n = read(read_fd, buffer, 1)) > 0)
+                 if ((n = read(readfd, buffer, 1)) > 0)
                  {
 #ifdef _FIFO_DEBUG
                     show_fifo_data('R', "probe_only", buffer, 1, __FILE__, __LINE__);
 #endif
                     if (buffer[0] == ACKN)
                     {
-                       if (close(read_fd) == -1)
+                       if (close(readfd) == -1)
                        {
-                          (void)rec(sys_log_fd, DEBUG_SIGN,
-                                    "close() error : %s (%s %d)\n",
-                                    strerror(errno), __FILE__, __LINE__);
+                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                     "close() error : %s", strerror(errno));
                        }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                       if (close(writefd) == -1)
+                       {
+                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                     "close() error : %s", strerror(errno));
+                       }
+                       if (close(mon_cmd_readfd) == -1)
+                       {
+                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                     "close() error : %s", strerror(errno));
+                       }
+#endif
                        if (close(mon_cmd_fd) == -1)
                        {
-                          (void)rec(sys_log_fd, DEBUG_SIGN,
-                                    "close() error : %s (%s %d)\n",
-                                    strerror(errno), __FILE__, __LINE__);
+                          system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                     "close() error : %s", strerror(errno));
                        }
                        return(1);
                     }
                     else
                     {
-                       (void)rec(sys_log_fd, ERROR_SIGN,
-                                 "Reading garbage from fifo %s. (%s %d)\n",
-                                 probe_only_fifo,  __FILE__, __LINE__);
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Reading garbage from fifo %s.",
+                                  probe_only_fifo);
                        exit(INCORRECT);
                     }
                  }
                  else if (n < 0)
                       {
-                         (void)rec(sys_log_fd, ERROR_SIGN,
-                                   "read() error : %s (%s %d)\n",
-                                   strerror(errno),  __FILE__, __LINE__);
+                         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                    "read() error : %s", strerror(errno));
                          exit(INCORRECT);
                       }
               }
          else if (status < 0)
               {
-                 (void)rec(sys_log_fd, FATAL_SIGN,
-                           "Select error : %s (%s %d)\n",
-                           strerror(errno),  __FILE__, __LINE__);
+                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                            "select() error : %s", strerror(errno));
                  exit(INCORRECT);
               }
               else
               {
-                 (void)rec(sys_log_fd, FATAL_SIGN,
-                           "Unknown condition. Maybe you can tell what's going on here. (%s %d)\n",
-                           __FILE__, __LINE__);
+                 system_log(FATAL_SIGN, __FILE__, __LINE__,
+                            "Unknown condition. Maybe you can tell what's going on here.");
                  exit(INCORRECT);
               }
 
-         if (close(read_fd) == -1)
+         if (close(readfd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (close(writefd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+         if (close(mon_cmd_readfd) == -1)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+#endif
          if (close(mon_cmd_fd) == -1)
          {
-            (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                      strerror(errno), __FILE__, __LINE__);
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
          }
       }
    }
@@ -254,28 +308,28 @@ kill_jobs(void)
 
    if ((read_fd = open(mon_active_file, O_RDWR)) < 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "Failed to open %s : %s (%s %d)\n",
-                mon_active_file, strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Failed to open %s : %s", mon_active_file, strerror(errno));
       exit(INCORRECT);
    }
 
    if ((buffer = calloc(stat_buf.st_size, sizeof(char))) == NULL)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "calloc() error : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "calloc() error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
    if (read(read_fd, buffer, stat_buf.st_size) != stat_buf.st_size)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN, "read() error : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "read() error : %s", strerror(errno));
       exit(INCORRECT);
    }
    if (close(read_fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN, "close() error : %s (%s %d)\n",
-                strerror(errno),  __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    /* Kill the log processes. */
@@ -297,6 +351,11 @@ kill_jobs(void)
    ptr += sizeof(pid_t);
    for (i = 0; i < no_of_process; i++)
    {
+      if (*(pid_t *)ptr > 0)
+      {
+         (void)kill(*(pid_t *)ptr, SIGINT);
+      }
+      ptr += sizeof(pid_t);
       if (*(pid_t *)ptr > 0)
       {
          (void)kill(*(pid_t *)ptr, SIGINT);

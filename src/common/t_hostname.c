@@ -1,7 +1,7 @@
 /*
  *  t_hostname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -45,25 +45,21 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <stdio.h>            /* NULL                                    */
-
 
 /*############################# t_hostname() ############################*/
 void
 t_hostname(char *hostname, char *trunc_hostname)
 {
-   int  i = 0;
-   char *ptr;
+   register int i = 0;
 
-   ptr = hostname;
-   while ((*ptr != '\0') &&
-          (*ptr != '\n') &&
-          (*ptr != ':') &&
-          (*ptr != '.') &&
+   while ((hostname[i] != '\0') &&
+          (hostname[i] != '\n') &&
+          (hostname[i] != ':') &&
+          (hostname[i] != '.') &&
           (i != MAX_HOSTNAME_LENGTH))
    {
-      trunc_hostname[i] = *ptr;
-      i++; ptr++;
+      trunc_hostname[i] = hostname[i];
+      i++;
    }
    trunc_hostname[i] = '\0';
 

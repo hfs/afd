@@ -1,6 +1,6 @@
 /*
  *  tcpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,24 +26,11 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int  tcp_connect(char *hostname, int port)
- **   int  tcp_cmd(char *cmd)
  **   int  tcp_quit(void)
  **
  ** DESCRIPTION
  **   tcpcmd provides a set of commands to communicate with an TCP
  **   server via BSD sockets.
- **   The procedure to send commands to another TCP server is as
- **   follows:
- **          tcp_connect()
- **             |
- **             +<---------+
- **             |          |
- **             V          |
- **          tcp_cmd()-----+
- **             |
- **             V
- **          tcp_quit()
- **
  **
  ** RETURN VALUES
  **   Returns SUCCESS when successful. When an error has occurred
@@ -82,27 +69,23 @@ DESCR__E_M3
 
 
 /* External global variables */
-extern int                    afd_no,
-                              timeout_flag;
-extern char                   msg_str[];
+extern int                timeout_flag;
+extern char               msg_str[];
 #ifdef LINUX
-extern char                   *h_errlist[];  /* for gethostbyname()      */
-extern int                    h_nerr;        /* for gethostbyname()      */
+extern char               *h_errlist[];  /* for gethostbyname()      */
+extern int                h_nerr;        /* for gethostbyname()      */
 #endif
-extern int                    sock_fd,
-                              sys_log_fd,
-                              mon_log_fd;
-extern long                   tcp_timeout;
-extern struct mon_status_area *msa;
+extern int                sock_fd;
+extern long               tcp_timeout;
+extern FILE               *p_control;
 
 /* Local global variables */
-static FILE                   *p_control;
-static struct sockaddr_in     ctrl;
-static struct timeval         timeout;
+static struct sockaddr_in ctrl;
+static struct timeval     timeout;
 
 /* Local functions */
-static int                    get_reply(void),
-                              check_reply(int, ...);
+static int                get_reply(void),
+                          check_reply(int, ...);
 
 
 /*########################## tcp_connect() ##############################*/
@@ -126,38 +109,31 @@ tcp_connect(char *hostname, int port)
 #if !defined (_HPUX) && !defined (_SCO)
          if (h_errno != 0)
 	 {
-#ifdef LINUX
+# ifdef LINUX
 	    if ((h_errno > 0) && (h_errno < h_nerr))
 	    {
-               (void)rec(mon_log_fd, ERROR_SIGN,
-                         "%-*s: Failed to gethostbyname() %s : %s (%s %d)\n",
-                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                         hostname, h_errlist[h_errno],
-                         __FILE__, __LINE__);
+               mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                       "Failed to gethostbyname() %s : %s",
+                       hostname, h_errlist[h_errno]);
 	    }
 	    else
 	    {
-               (void)rec(mon_log_fd, ERROR_SIGN,
-                         "%-*s: Failed to gethostbyname() %s (h_errno = %d) : %s (%s %d)\n",
-                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                         hostname, h_errno, strerror(errno),
-                         __FILE__, __LINE__);
+               mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                       "Failed to gethostbyname() %s (h_errno = %d) : %s",
+                       hostname, h_errno, strerror(errno));
 	    }
-#else
-            (void)rec(mon_log_fd, ERROR_SIGN,
-                      "%-*s: Failed to gethostbyname() %s (h_errno = %d) : %s (%s %d)\n",
-                      MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                      hostname, h_errno, strerror(errno),
-                      __FILE__, __LINE__);
-#endif
+# else
+            mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                    "Failed to gethostbyname() %s (h_errno = %d) : %s",
+                    hostname, h_errno, strerror(errno));
+# endif
 	 }
 	 else
 	 {
 #endif /* !_HPUX && !_SCO */
-            (void)rec(mon_log_fd, ERROR_SIGN,
-                      "%-*s: Failed to gethostbyname() %s : %s (%s %d)\n",
-                      MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                      hostname, strerror(errno), __FILE__, __LINE__);
+            mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                    "Failed to gethostbyname() %s : %s",
+                    hostname, strerror(errno));
 #if !defined (_HPUX) && !defined (_SCO)
 	 }
 #endif
@@ -171,10 +147,8 @@ tcp_connect(char *hostname, int port)
 
    if ((sock_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
-      (void)rec(mon_log_fd, ERROR_SIGN,
-                "%-*s: socket() error : %s (%s %d)\n",
-                MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                strerror(errno), __FILE__, __LINE__);
+      mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+              "socket() error : %s", strerror(errno));
       return(INCORRECT);
    }
 
@@ -185,36 +159,30 @@ tcp_connect(char *hostname, int port)
    {
       if (p_host == NULL)
       {
-         (void)rec(mon_log_fd, ERROR_SIGN,
-                   "%-*s: Failed to connect() to %s : %s (%s %d)\n",
-                   MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                   hostname, strerror(errno), __FILE__, __LINE__);
+         mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                 "Failed to connect() to %s : %s", hostname, strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
       p_host->h_addr_list++;
       if (p_host->h_addr_list[0] == NULL)
       {
-         (void)rec(mon_log_fd, ERROR_SIGN,
-                   "%-*s: Failed to connect() to %s. Have tried all hosts in h_addr_list. (%s %d)\n",
-                   MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                   hostname, __FILE__, __LINE__);
+         mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                 "Failed to connect() to %s. Have tried all hosts in h_addr_list.",
+                 hostname);
          (void)close(sock_fd);
          return(INCORRECT);
       }
       memcpy((char *)&sin.sin_addr, p_host->h_addr_list[0], p_host->h_length);
       if (close(sock_fd) == -1)
       {
-         (void)rec(sys_log_fd, DEBUG_SIGN,
-                   "close() error : %s (%s %d)\n",
-                   strerror(errno), __FILE__, __LINE__);
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
+                 "close() error : %s", strerror(errno));
       }
       if ((sock_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
-         (void)rec(mon_log_fd, ERROR_SIGN,
-                   "%-*s: socket() error : %s (%s %d)\n",
-                   MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                   strerror(errno), __FILE__, __LINE__);
+         mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                 "socket() error : %s", strerror(errno));
          (void)close(sock_fd);
          return(INCORRECT);
       }
@@ -222,10 +190,8 @@ tcp_connect(char *hostname, int port)
 #else
    if (connect(sock_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
    {
-      (void)rec(mon_log_fd, ERROR_SIGN,
-                "%-*s: Failed to connect() to %s : %s (%s %d)\n",
-                MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                hostname, strerror(errno), __FILE__, __LINE__);
+      mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+              "Failed to connect() to %s : %s", hostname, strerror(errno));
       (void)close(sock_fd);
       return(INCORRECT);
    }
@@ -234,20 +200,16 @@ tcp_connect(char *hostname, int port)
    length = sizeof(ctrl);
    if (getsockname(sock_fd, (struct sockaddr *)&ctrl, &length) < 0)
    {
-      (void)rec(mon_log_fd, ERROR_SIGN,
-                "%-*s: getsockname() error : %s (%s %d)\n",
-                MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                strerror(errno), __FILE__, __LINE__);
+      mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+              "getsockname() error : %s", strerror(errno));
       (void)close(sock_fd);
       return(INCORRECT);
    }
 
    if ((p_control = fdopen(sock_fd, "r+")) == NULL)
    {
-      (void)rec(mon_log_fd, ERROR_SIGN,
-                "%-*s: fdopen() control error : %s (%s %d)\n",
-                MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                strerror(errno), __FILE__, __LINE__);
+      mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+              "fdopen() control error : %s", strerror(errno));
       (void)close(sock_fd);
       return(INCORRECT);
    }
@@ -269,37 +231,6 @@ tcp_connect(char *hostname, int port)
 }
 
 
-/*############################## tcp_cmd() ##############################*/
-int
-tcp_cmd(char *cmd)
-{
-   int bytes_buffered;
-
-   (void)fprintf(p_control, "%s\r\n", cmd);
-   (void)fflush(p_control);
-
-   if (read_msg() == INCORRECT)
-   {
-      return(INCORRECT);
-   }
-   if ((msg_str[0] == '2') && (msg_str[1] == '1') &&
-       (msg_str[2] == '1') && (msg_str[3] == '-'))
-   {
-      if ((bytes_buffered = read_msg()) == INCORRECT)
-      {
-         return(INCORRECT);
-      }
-   }
-   else
-   {
-      return(((msg_str[0] - '0') * 100) + ((msg_str[1] - '0') * 10) +
-             (msg_str[2] - '0'));
-   }
-
-   return(bytes_buffered);
-}
-
-
 /*############################## tcp_quit() #############################*/
 int
 tcp_quit(void)
@@ -311,10 +242,8 @@ tcp_quit(void)
       (void)fprintf(p_control, "QUIT\r\n");
       if (fflush(p_control) == EOF)
       {
-         (void)rec(mon_log_fd, WARN_SIGN,
-                   "%-*s: Failed to fflush() connection : %s (%s %d)\n",
-                   MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                   strerror(errno), __FILE__, __LINE__);
+         mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, NULL,
+                 "Failed to fflush() connection : %s", strerror(errno));
       }
 
       /*
@@ -346,18 +275,14 @@ tcp_quit(void)
       {
          if (shutdown(sock_fd, 1) < 0)
          {
-            (void)rec(mon_log_fd, DEBUG_SIGN,
-                      "%-*s: shutdown() error : %s (%s %d)\n",
-                      MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                      strerror(errno), __FILE__, __LINE__);
+            mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
+                    "shutdown() error : %s", strerror(errno));
          }
       }
       if (fclose(p_control) == EOF)
       {
-         (void)rec(mon_log_fd, DEBUG_SIGN,
-                   "%-*s: fclose() error : %s (%s %d)\n",
-                   MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                   strerror(errno), __FILE__, __LINE__);
+         mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
+                 "fclose() error : %s", strerror(errno));
       }
       p_control = NULL;
    }
@@ -441,17 +366,14 @@ read_msg(void)
                  {
                     if (bytes_read == 0)
                     {
-                       (void)rec(mon_log_fd, ERROR_SIGN,
-                                 "%-*s: Remote hang up. (%s %d)\n",
-                                 MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                 __FILE__, __LINE__);
+                       mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                               "Remote hang up.");
                     }
                     else
                     {
-                       (void)rec(mon_log_fd, ERROR_SIGN,
-                                 "%-*s: read() error (after reading %d Bytes) : %s (%s %d)\n",
-                                 MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                 bytes_buffered, strerror(errno), __FILE__, __LINE__);
+                       mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                               "read() error (after reading %d Bytes) : %s",
+                               bytes_buffered, strerror(errno));
                     }
                     bytes_read = 0;
                     return(INCORRECT);
@@ -461,17 +383,14 @@ read_msg(void)
               }
          else if (status < 0)
               {
-                 (void)rec(mon_log_fd, ERROR_SIGN,
-                           "%-*s: select() error : %s (%s %d)\n",
-                           MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                           strerror(errno), __FILE__, __LINE__);
+                 mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                         "select() error : %s", strerror(errno));
                  exit(INCORRECT);
               }
               else
               {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Unknown condition. (%s %d)\n",
-                           __FILE__, __LINE__);
+                 mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                         "Unknown condition.");
                  exit(INCORRECT);
               }
       }

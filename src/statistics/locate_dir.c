@@ -1,6 +1,6 @@
 /*
  *  locate_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ locate_dir(struct afdistat *ptr,
            char            *dir,
            int             no_of_dirs)
 {
-   static int position;
+   int position;
 
    for (position = 0; position < no_of_dirs; position++)
    {
@@ -79,7 +79,7 @@ locate_dir_year(struct afd_year_istat *ptr,
                 char                  *dir,
                 int                   no_of_dirs)
 {
-   static int position;
+   int position;
 
    for (position = 0; position < no_of_dirs; position++)
    {

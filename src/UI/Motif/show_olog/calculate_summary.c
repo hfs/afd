@@ -1,7 +1,7 @@
 /*
  *  calculate_summary.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1998 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -179,11 +179,23 @@ calculate_summary(char         *summary_str,
                              "%.2f GB/s %.2f Files/%c)",
                              average / F_GIGABYTE, file_rate, file_rate_unit);
         }
-        else
+   else if (average < F_PETABYTE)
         {
            length += sprintf((p_summary_str + length),
                              "%.2f TB/s %.2f Files/%c)",
                              average / F_TERABYTE, file_rate, file_rate_unit);
+        }
+   else if (average < F_EXABYTE)
+        {
+           length += sprintf((p_summary_str + length),
+                             "%.2f PB/s %.2f Files/%c)",
+                             average / F_PETABYTE, file_rate, file_rate_unit);
+        }
+        else
+        {
+           length += sprintf((p_summary_str + length),
+                             "%.2f EB/s %.2f Files/%c)",
+                             average / F_EXABYTE, file_rate, file_rate_unit);
         }
    *(p_summary_str + length) = ' ';
    p_summary_str += 16 + file_name_length + 1 +
@@ -194,23 +206,27 @@ calculate_summary(char         *summary_str,
    }
    else if (file_size < F_MEGABYTE)
         {
-           length = sprintf(p_summary_str, "%7.2f KB ",
-                            file_size / F_KILOBYTE);
+           length = sprintf(p_summary_str, "%7.2f KB ", file_size / F_KILOBYTE);
         }
    else if (file_size < F_GIGABYTE)
         {
-           length = sprintf(p_summary_str, "%7.2f MB ",
-                            file_size / F_MEGABYTE);
+           length = sprintf(p_summary_str, "%7.2f MB ", file_size / F_MEGABYTE);
         }
    else if (file_size < F_TERABYTE)
         {
-           length = sprintf(p_summary_str, "%7.2f GB ",
-                            file_size / F_GIGABYTE);
+           length = sprintf(p_summary_str, "%7.2f GB ", file_size / F_GIGABYTE);
+        }
+   else if (file_size < F_PETABYTE)
+        {
+           length = sprintf(p_summary_str, "%7.2f TB ", file_size / F_TERABYTE);
+        }
+   else if (file_size < F_EXABYTE)
+        {
+           length = sprintf(p_summary_str, "%7.2f PB ", file_size / F_PETABYTE);
         }
         else
         {
-           length = sprintf(p_summary_str, "%7.2f TB ",
-                            file_size / F_TERABYTE);
+           length = sprintf(p_summary_str, "%7.2f EB ", file_size / F_EXABYTE);
         }
    average = trans_time;
    hours = average / 3600;

@@ -1,6 +1,6 @@
 /*
  *  get_dir_options.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,10 @@ DESCR__S_M3
  **   03.09.2004 H.Kiehl Added "ignore size" and "ignore file time" options.
  **   17.08.2005 H.Kiehl Move this function to common section
  **                      (from Motif/common).
+ **   20.12.2006 H.Kiehl Added dupcheck option filename without last
+ **                      suffix.
+ **   16.02.2007 H.Kiehl Added 'warn time' option.
+ **   24.02.2007 H.Kiehl Added 'inotify' option.
  **
  */
 DESCR__E_M3
@@ -133,6 +137,32 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             d_o->no_of_dir_options++;
          }
 #endif
+         if ((fra[i].in_dc_flag & WARN_TIME_IDC) &&
+             (fra[i].warn_time != DEFAULT_DIR_WARN_TIME))
+         {
+#if SIZEOF_TIME_T == 4
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %ld",
+#else
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
+#endif
+                          DIR_WARN_TIME_ID, (pri_time_t)fra[i].warn_time);
+            d_o->no_of_dir_options++;
+         }
+         if ((fra[i].in_dc_flag & KEEP_CONNECTED_IDC) &&
+             (fra[i].keep_connected != DEFAULT_KEEP_CONNECTED_TIME))
+         {
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %u",
+                          KEEP_CONNECTED_ID, fra[i].keep_connected);
+            d_o->no_of_dir_options++;
+         }
+#ifdef WITH_INOTIFY
+         if (fra[i].in_dc_flag & INOTIFY_FLAG_IDC)
+         {
+            (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %u",
+                          INOTIFY_FLAG_ID, fra[i].inotify_flag);
+            d_o->no_of_dir_options++;
+         }
+#endif
          if (fra[i].max_process != MAX_PROCESS_PER_DIR)
          {
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
@@ -154,7 +184,8 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 #else
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
 #endif
-                         MAX_SIZE_ID, fra[i].max_copied_file_size / 1024);
+                         MAX_SIZE_ID,
+                         (pri_off_t)(fra[i].max_copied_file_size / 1024));
             d_o->no_of_dir_options++;
          }
          if (fra[i].ignore_size != 0)
@@ -180,7 +211,7 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 #else
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
 #endif
-                             IGNORE_SIZE_ID, fra[i].ignore_size);
+                             IGNORE_SIZE_ID, (pri_off_t)fra[i].ignore_size);
             }
             else
             {
@@ -189,7 +220,8 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 #else
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %c%lld",
 #endif
-                             IGNORE_SIZE_ID, gt_lt_sign, fra[i].ignore_size);
+                             IGNORE_SIZE_ID, gt_lt_sign,
+                             (pri_off_t)fra[i].ignore_size);
             }
             d_o->no_of_dir_options++;
          }
@@ -218,15 +250,23 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 #else
             (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %lld",
 #endif
-                          ACCUMULATE_SIZE_ID, fra[i].accumulate_size);
+                          ACCUMULATE_SIZE_ID,
+                          (pri_off_t)fra[i].accumulate_size);
             d_o->no_of_dir_options++;
          }
          if (fra[i].stupid_mode == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
-                         STORE_REMOTE_LIST);
+                         STORE_RETRIEVE_LIST_ID);
             d_o->no_of_dir_options++;
          }
+         else if (fra[i].stupid_mode == GET_ONCE_ONLY)
+              {
+                 (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
+                              STORE_RETRIEVE_LIST_ID);
+                 (void)strcat(d_o->aoptions[d_o->no_of_dir_options], " once");
+                 d_o->no_of_dir_options++;
+              }
          if (fra[i].remove == NO)
          {
             (void)strcpy(d_o->aoptions[d_o->no_of_dir_options],
@@ -454,9 +494,22 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 # else
                                 "%s %lld %d",
 # endif
-                                DUPCHECK_ID, fra[i].dup_check_timeout,
+                                DUPCHECK_ID,
+                                (pri_time_t)fra[i].dup_check_timeout,
                                 DC_FILENAME_ONLY_BIT);
             }
+            else if (fra[i].dup_check_flag & DC_NAME_NO_SUFFIX)
+                 {
+                    length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
+# if SIZEOF_TIME_T == 4
+                                     "%s %ld %d",
+# else
+                                     "%s %lld %d",
+# endif
+                                     DUPCHECK_ID,
+                                     (pri_time_t)fra[i].dup_check_timeout,
+                                     DC_NAME_NO_SUFFIX_BIT);
+                 }
             else if (fra[i].dup_check_flag & DC_FILE_CONTENT)
                  {
                     length = sprintf(d_o->aoptions[d_o->no_of_dir_options],
@@ -465,7 +518,8 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 # else
                                      "%s %lld %d",
 # endif
-                                     DUPCHECK_ID, fra[i].dup_check_timeout,
+                                     DUPCHECK_ID,
+                                     (pri_time_t)fra[i].dup_check_timeout,
                                      DC_FILE_CONTENT_BIT);
                  }
                  else
@@ -476,7 +530,8 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
 # else
                                      "%s %lld %d",
 # endif
-                                     DUPCHECK_ID, fra[i].dup_check_timeout,
+                                     DUPCHECK_ID,
+                                     (pri_time_t)fra[i].dup_check_timeout,
                                      DC_FILE_CONT_NAME_BIT);
                  }
             if (fra[i].dup_check_flag & DC_DELETE)

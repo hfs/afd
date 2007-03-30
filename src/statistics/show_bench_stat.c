@@ -1,6 +1,6 @@
 /*
  *  show_bench_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -324,10 +324,22 @@ display_data(double nfs, double nbs, double nc, double ne,
              double fps, double bps)
 {
    (void)fprintf(stdout, "%11.0f   ", nfs);
-   if (nbs >= F_GIGABYTE)
+   if (nbs >= F_EXABYTE)
    {
-      (void)fprintf(stdout, "%7.2f GB", nbs / F_GIGABYTE);
+      (void)fprintf(stdout, "%7.2f EB", nbs / F_EXABYTE);
    }
+   else if (nbs >= F_PETABYTE)
+        {
+           (void)fprintf(stdout, "%7.2f PB", nbs / F_PETABYTE);
+        }
+   else if (nbs >= F_TERABYTE)
+        {
+           (void)fprintf(stdout, "%7.2f TB", nbs / F_TERABYTE);
+        }
+   else if (nbs >= F_GIGABYTE)
+        {
+           (void)fprintf(stdout, "%7.2f GB", nbs / F_GIGABYTE);
+        }
    else if (nbs >= F_MEGABYTE)
         {
            (void)fprintf(stdout, "%7.2f MB", nbs / F_MEGABYTE);
@@ -342,11 +354,26 @@ display_data(double nfs, double nbs, double nc, double ne,
         }
    (void)fprintf(stdout, "%8.0f", nc);
    (void)fprintf(stdout, "%6.0f", ne);
-   if (bps >= F_GIGABYTE)
+   if (bps >= F_EXABYTE)
    {
-      (void)fprintf(stdout, "  => %8.2f fps %8.2f GB/s\n",
-                    fps, bps / F_GIGABYTE);
+      (void)fprintf(stdout, "  => %8.2f fps %8.2f EB/s\n",
+                    fps, bps / F_EXABYTE);
    }
+   else if (bps >= F_PETABYTE)
+        {
+           (void)fprintf(stdout, "  => %8.2f fps %8.2f PB/s\n",
+                         fps, bps / F_PETABYTE);
+        }
+   else if (bps >= F_TERABYTE)
+        {
+           (void)fprintf(stdout, "  => %8.2f fps %8.2f TB/s\n",
+                         fps, bps / F_TERABYTE);
+        }
+   else if (bps >= F_GIGABYTE)
+        {
+           (void)fprintf(stdout, "  => %8.2f fps %8.2f GB/s\n",
+                         fps, bps / F_GIGABYTE);
+        }
    else if (bps >= F_MEGABYTE)
         {
            (void)fprintf(stdout, "  => %8.2f fps %8.2f MB/s\n",

@@ -78,10 +78,12 @@
 #define NO_OF_DIR_PROCESS              4
 #define FILE_RATE                      5
 #define BYTE_RATE                      6
+#define DIR_ERRORS                     7
 
 /* Bar types. */
 #define FILE_RATE_BAR_NO               0
-#define BYTE_RATE_BAR_NO               1
+#define TIME_UP_BAR_NO                 1
+#define BYTE_RATE_BAR_NO               2
 
 struct dir_line 
        {
@@ -94,11 +96,15 @@ struct dir_line
           char          str_np[3];
           char          str_fr[5];
           char          str_tr[5];
+          char          str_ec[3];
           int           max_process;
           int           no_of_process;
-          unsigned int  bytes_per_sec;
-          unsigned int  prev_bytes_per_sec;
+          int           max_errors;
+          unsigned int  error_counter;
+          off_t         bytes_per_sec;
+          off_t         prev_bytes_per_sec;
           float         files_per_sec;
+          float         scale;
           float         prev_files_per_sec;
           u_off_t       bytes_received;
           unsigned int  files_received;
@@ -108,12 +114,13 @@ struct dir_line
           off_t         bytes_in_dir;
           off_t         bytes_in_queue;
           time_t        last_retrieval;
+          time_t        warn_time;
           unsigned char dir_status;
           double        average_tr;         /* Average byte rate.    */
           double        max_average_tr;     /* Max byte rate         */
           double        average_fr;         /* Average file rate.    */
           double        max_average_fr;     /* Max file rate         */
-          unsigned int  bar_length[2];
+          unsigned int  bar_length[3];
           clock_t       start_time;
           unsigned char inverse;
           unsigned char expose_flag;

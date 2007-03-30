@@ -1,6 +1,6 @@
 /*
  *  init_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -94,6 +94,13 @@ int                        sys_log_fd = STDERR_FILENO,
                            fd_cmd_fd,
                            afd_active_fd,
                            probe_only_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           afd_cmd_writefd,
+                           afd_resp_readfd,
+                           amg_cmd_readfd,
+                           fd_cmd_readfd,
+                           probe_only_readfd,
+#endif
                            probe_only = 1,
                            no_of_dirs = 0,
                            no_of_hosts = 0,
@@ -674,6 +681,9 @@ main(int argc, char *argv[])
          system_log(DEBUG_SIGN, NULL, 0, "Max FD queue length : %10u",
                     p_afd_status->max_queue_length);
          p_afd_status->max_queue_length = 0;
+         system_log(DEBUG_SIGN, NULL, 0,
+                    "Directories scanned : %u", p_afd_status->dir_scans);
+         p_afd_status->dir_scans = 0;
          bd_time = localtime(&now);
          if (bd_time->tm_mon != current_month)
          {
@@ -840,14 +850,6 @@ main(int argc, char *argv[])
                                   "Started input queue for host <%s>, that was stopped due to too many jobs in the input queue.",
                                   fsa[i].host_alias);
                     }
-               if ((fsa[i].total_file_counter == 0) &&
-                   (fsa[i].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT))
-               {
-                  fsa[i].host_status ^= AUTO_PAUSE_QUEUE_LOCK_STAT;
-                  system_log(INFO_SIGN, __FILE__, __LINE__,
-                             "Started input queue for host <%s>, that was locked automatically.",
-                             fsa[i].host_alias);
-               }
             }
          } /* if (fsa != NULL) */
       }
@@ -936,7 +938,7 @@ main(int argc, char *argv[])
                                                             "Premature end of process %s (PID=%lld), while waiting for AMG.",
 #endif
                                                             proc_table[k].proc_name,
-                                                            proc_table[k].pid);
+                                                            (pri_pid_t)proc_table[k].pid);
                                                  proc_table[k].pid = 0;
                                                  gotcha = YES;
                                                  break;
@@ -1001,7 +1003,7 @@ main(int argc, char *argv[])
                                                             "Premature end of process %s (PID=%lld), while waiting for FD.",
 #endif
                                                             proc_table[k].proc_name,
-                                                            proc_table[k].pid);
+                                                            (pri_pid_t)proc_table[k].pid);
                                                  proc_table[k].pid = 0;
                                                  gotcha = YES;
                                                  break;
@@ -1618,7 +1620,7 @@ zombie_check(void)
                        (void)sprintf(new_core_file, "%s.%s.%lld.%d",
 # endif
                                      core_file, proc_table[i].proc_name,
-                                     time(NULL), no_of_saved_cores);
+                                     (pri_time_t)time(NULL), no_of_saved_cores);
                        if (rename(core_file, new_core_file) == -1)
                        {
                           system_log(DEBUG_SIGN, __FILE__, __LINE__,

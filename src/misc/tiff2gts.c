@@ -56,6 +56,7 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
+#include "amgdefs.h"
 
 #define OFFSET_START    8
 #define OFFSET_END      12

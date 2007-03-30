@@ -1,6 +1,6 @@
 /*
  *  create_url_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -74,9 +74,9 @@ create_url_file(void)
       }
    }
 #if SIZEOF_PID_T == 4
-   (void)sprintf(url_file_name, ".xsend_file_url.%d", getpid());
+   (void)sprintf(url_file_name, ".xsend_file_url.%d", (pri_pid_t)getpid());
 #else
-   (void)sprintf(url_file_name, ".xsend_file_url.%lld", getpid());
+   (void)sprintf(url_file_name, ".xsend_file_url.%lld", (pri_pid_t)getpid());
 #endif
 
    if ((fd = open(url_file_name, (O_WRONLY | O_CREAT | O_TRUNC),
@@ -136,7 +136,7 @@ create_url_file(void)
 #if SIZEOF_LONG == 4
               (void)fprintf(stderr, "Unknown protocol %d. (%s %d)\n",
 #else
-              (void)fprintf(stderr, "Unknown protocol %lld. (%s %d)\n",
+              (void)fprintf(stderr, "Unknown protocol %ld. (%s %d)\n",
 #endif
                             db->protocol, __FILE__, __LINE__);
               exit(INCORRECT);

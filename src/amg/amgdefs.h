@@ -1,6 +1,6 @@
 /*
  *  amgdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -68,57 +68,78 @@
                                         /* dir_name_buf structure.       */
 #define JOB_ID_DATA_STEP_SIZE      50   /* Buffers allocated for the     */
                                         /* job_id_data structure.        */
-#define TIME_JOB_STEP_SIZE         1
+#define TIME_JOB_STEP_SIZE         10
+#define FILE_NAME_STEP_SIZE        20
 
 /* Definitions of identifiers in options */
 #define TIME_NO_COLLECT_ID         "time no collect"
 #define TIME_NO_COLLECT_ID_LENGTH  (sizeof(TIME_NO_COLLECT_ID) - 1)
+#define TIME_NO_COLLECT_ID_FLAG    8
 /* NOTE: TIME_ID has already been defined in afddefs.h for [dir options]. */
+#define TIME_ID_FLAG               4
 #define PRIORITY_ID                "priority"
 #define PRIORITY_ID_LENGTH         (sizeof(PRIORITY_ID) - 1)
 #define RENAME_ID                  "rename"
 #define RENAME_ID_LENGTH           (sizeof(RENAME_ID) - 1)
+#define RENAME_ID_FLAG             1
 #define EXEC_ID                    "exec"
 #define EXEC_ID_LENGTH             (sizeof(EXEC_ID) - 1)
+#define EXEC_ID_FLAG               2
 #define BASENAME_ID                "basename" /* If we want to send only */
                                               /* the basename of the     */
                                               /* file.                   */
 #define BASENAME_ID_LENGTH         (sizeof(BASENAME_ID) - 1)
+#define BASENAME_ID_FLAG           16
 #define EXTENSION_ID               "extension"/* If we want to send      */
                                               /* files without extension.*/
 #define EXTENSION_ID_LENGTH        (sizeof(EXTENSION_ID) - 1)
+#define EXTENSION_ID_FLAG          32
 #define ADD_PREFIX_ID              "prefix add"
 #define ADD_PREFIX_ID_LENGTH       (sizeof(ADD_PREFIX_ID) - 1)
+#define ADD_PREFIX_ID_FLAG         64
 #define DEL_PREFIX_ID              "prefix del"
 #define DEL_PREFIX_ID_LENGTH       (sizeof(DEL_PREFIX_ID) - 1)
+#define DEL_PREFIX_ID_FLAG         128
 #define TOUPPER_ID                 "toupper"
 #define TOUPPER_ID_LENGTH          (sizeof(TOUPPER_ID) - 1)
+#define TOUPPER_ID_FLAG            256
 #define TOLOWER_ID                 "tolower"
 #define TOLOWER_ID_LENGTH          (sizeof(TOLOWER_ID) - 1)
+#define TOLOWER_ID_FLAG            512
 #define FAX2GTS_ID                 "fax2gts"
 #define FAX2GTS_ID_LENGTH          (sizeof(FAX2GTS_ID) - 1)
+#define FAX2GTS_ID_FLAG            1024
 #define TIFF2GTS_ID                "tiff2gts"
 #define TIFF2GTS_ID_LENGTH         (sizeof(TIFF2GTS_ID) - 1)
+#define TIFF2GTS_ID_FLAG           2048
 #define GTS2TIFF_ID                "gts2tiff"
 #define GTS2TIFF_ID_LENGTH         (sizeof(GTS2TIFF_ID) - 1)
+#define GTS2TIFF_ID_FLAG           4096
 #define GRIB2WMO_ID                "grib2wmo"
 #define GRIB2WMO_ID_LENGTH         (sizeof(GRIB2WMO_ID) - 1)
+#define GRIB2WMO_ID_FLAG           8192
 #define EXTRACT_ID                 "extract"
 #define EXTRACT_ID_LENGTH          (sizeof(EXTRACT_ID) - 1)
+#define EXTRACT_ID_FLAG            16384
 #define ASSEMBLE_ID                "assemble"
 #define ASSEMBLE_ID_LENGTH         (sizeof(ASSEMBLE_ID) - 1)
+#define ASSEMBLE_ID_FLAG           32768
 #define WMO2ASCII_ID               "wmo2ascii"
 #define WMO2ASCII_ID_LENGTH        (sizeof(WMO2ASCII_ID) - 1)
+#define WMO2ASCII_ID_FLAG          65536
 #define DELETE_ID                  "delete"
 #define DELETE_ID_LENGTH           (sizeof(DELETE_ID) - 1)
+#define DELETE_ID_FLAG             131072
 #define CONVERT_ID                 "convert"
 #define CONVERT_ID_LENGTH          (sizeof(CONVERT_ID) - 1)
+#define CONVERT_ID_FLAG            262144
 #ifdef _WITH_AFW2WMO
-#define AFW2WMO_ID                 "afw2wmo"
-#define AFW2WMO_ID_LENGTH          (sizeof(AFW2WMO_ID) - 1)
-#define LOCAL_OPTION_POOL_SIZE     20
+# define AFW2WMO_ID                "afw2wmo"
+# define AFW2WMO_ID_LENGTH         (sizeof(AFW2WMO_ID) - 1)
+# define AFW2WMO_ID_FLAG           524288
+# define LOCAL_OPTION_POOL_SIZE    20
 #else
-#define LOCAL_OPTION_POOL_SIZE     19
+# define LOCAL_OPTION_POOL_SIZE    19
 #endif
 
 /* Definitions for types of time options. */
@@ -132,7 +153,7 @@
                                          /* will NOT be stored and will  */
                                          /* be deleted!                  */
 
-/* Definitions for assembling, converting and extracting WMO bulletins/files */
+/* Definitions for assembling, converting and extracting WMO bulletins/files. */
 #define TWO_BYTE                   1
 #define FOUR_BYTE_LBF              2
 #define FOUR_BYTE_HBF              3
@@ -147,8 +168,15 @@
 #define SOHETX                     12
 #define ONLY_WMO                   13
 #define SOHETXWMO                  14
+#define MRZ2WMO                    15
 
-/* Definition of fifos for the AMG to communicate */
+/* Definitions for the different extract options. */
+#define EXTRACT_ADD_SOH_ETX        1
+#define EXTRACT_ADD_CRC_CHECKSUM   2
+#define EXTRACT_ADD_UNIQUE_NUMBER  4
+#define DEFAULT_EXTRACT_OPTIONS    (EXTRACT_ADD_SOH_ETX | EXTRACT_ADD_CRC_CHECKSUM)
+
+/* Definition of fifos for the AMG to communicate. */
 /* with the above jobs.                           */
 #define DC_CMD_FIFO                "/dc_cmd.fifo"
 #define DC_RESP_FIFO               "/dc_resp.fifo"
@@ -160,8 +188,8 @@
 /* Return values for function eval_dir_config() */
 #define NO_VALID_ENTRIES           -2
 
-/* Miscellaneous definitions */
-#define PTR_BUF_SIZE               10         /* The initial size of the */
+/* Miscellaneous definitions. */
+#define PTR_BUF_SIZE               50         /* The initial size of the */
                                               /* pointer array and the   */
                                               /* step size by which it   */
                                               /* can increase. This      */
@@ -204,7 +232,39 @@ struct data_t
 
 /* Structure holding pointers to all relevant information */
 /* in the global shared memory regions.                   */
+#define PRIORITY_PTR_POS            0
+#define DIRECTORY_PTR_POS           1
+#define ALIAS_NAME_PTR_POS          2
+#define NO_OF_FILES_PTR_POS         3
+#define FILE_PTR_POS                4
+#define NO_LOCAL_OPTIONS_PTR_POS    5
+#define LOCAL_OPTIONS_PTR_POS       6
+#define LOCAL_OPTIONS_FLAG_PTR_POS  7
+#define NO_STD_OPTIONS_PTR_POS      8
+#define STD_OPTIONS_PTR_POS         9
+#define RECIPIENT_PTR_POS           10
+#define DIR_CONFIG_ID_PTR_POS       11
 #ifdef WITH_MULTI_DIR_DEFINITION
+# define OFFSET_TO_SAME_DIR_PTR_POS 12
+struct p_array
+       {
+          long   ptr[13];  /* Pointer offdet to the following            */
+                           /* information:                               */
+                           /*    0  - priority              char x       */
+                           /*    1  - directory             char x[]\0   */
+                           /*    2  - alias name            char x[]\0   */
+                           /*    3  - no. of files          char x[]\0   */
+                           /*    4  - file                  char x[]\0   */
+                           /*    5  - no. loc. options      char x[]\0   */
+                           /*    6  - loc. options          char x[][]\0 */
+                           /*    7  - local options flag    char x[]\0   */
+                           /*    8  - no. std. options      char x[]\0   */
+                           /*    9  - std. options          char x[][]\0 */
+                           /*   10  - recipient             char x[]\0   */
+                           /*   11  - DIR_CONFIG ID         char x[]\0   */
+                           /*   12  - offset to same dir    char x[]\0   */
+       };
+#else
 struct p_array
        {
           long   ptr[12];  /* Pointer offdet to the following            */
@@ -216,28 +276,11 @@ struct p_array
                            /*    4  - file                  char x[]\0   */
                            /*    5  - no. loc. options      char x[]\0   */
                            /*    6  - loc. options          char x[][]\0 */
-                           /*    7  - no. std. options      char x[]\0   */
-                           /*    8  - std. options          char x[][]\0 */
-                           /*    9  - recipient             char x[]\0   */
-                           /*   10  - DIR_CONFIG ID         char x[]\0   */
-                           /*   11  - offset to same dir    char x[]\0   */
-       };
-#else
-struct p_array
-       {
-          long   ptr[11];  /* Pointer offdet to the following            */
-                           /* information:                               */
-                           /*    0  - priority              char x       */
-                           /*    1  - directory             char x[]\0   */
-                           /*    2  - alias name            char x[]\0   */
-                           /*    3  - no. of files          char x[]\0   */
-                           /*    4  - file                  char x[]\0   */
-                           /*    5  - no. loc. options      char x[]\0   */
-                           /*    6  - loc. options          char x[][]\0 */
-                           /*    7  - no. std. options      char x[]\0   */
-                           /*    8  - std. options          char x[][]\0 */
-                           /*    9  - recipient             char x[]\0   */
-                           /*   10  - DIR_CONFIG ID         char x[]\0   */
+                           /*    7  - local options flag    char x[]\0   */
+                           /*    8  - no. std. options      char x[]\0   */
+                           /*    9  - std. options          char x[][]\0 */
+                           /*   10  - recipient             char x[]\0   */
+                           /*   11  - DIR_CONFIG ID         char x[]\0   */
        };
 #endif
 
@@ -330,6 +373,14 @@ struct dir_data
                                             /* files starting with a     */
                                             /* leading dot. Default is   */
                                             /* NO.                       */
+          unsigned char do_not_get_dir_list;/* The directory should not  */
+                                            /* be scanned, instead look  */
+                                            /* for the exact files from  */
+                                            /* [files] entry. This is    */
+                                            /* currently only usefull for*/
+                                            /* HTTP, where directory     */
+                                            /* listing is not supported  */
+                                            /* or wanted.                */
           unsigned char time_option;        /* Flag to indicate if the   */
                                             /* time option is used.      */
           char          priority;           /* Priority for this         */
@@ -374,6 +425,9 @@ struct dir_data
                                             /*+---+---------------------+*/
                                             /*| * | Rest not used.      |*/
                                             /*+---+---------------------+*/
+          unsigned int  keep_connected;     /* After all files have been */
+                                            /* retrieved, the time to    */
+                                            /* stay connected.           */
 #ifdef WITH_DUP_CHECK
           unsigned int  dup_check_flag;     /* Flag storing the type of  */
                                             /* check that is to be done  */
@@ -402,12 +456,17 @@ struct dir_data
                                             /* in the directory name     */
                                             /* buffer.                   */
           int           max_process;
+          int           max_errors;         /* Max errors before we ring */
+                                            /* the alarm bells.          */
 #ifdef WITH_DUP_CHECK
           time_t        dup_check_timeout;  /* When the stored CRC for   */
                                             /* duplicate checks are no   */
                                             /* longer valid. Value is in */
                                             /* seconds.                  */
 #endif
+          time_t        warn_time;          /* Time when to warn that the*/
+                                            /* directory has not received*/
+                                            /* any data.                 */
           off_t         max_copied_file_size; /* The maximum number of   */
                                             /* bytes that we copy in one */
                                             /* go.                       */
@@ -441,6 +500,8 @@ struct instant_db
                                        /* reading the DIR_CONFIG file.   */
           unsigned int  dir_config_id; /* To find out from which         */
                                        /* DIR_CONFIG this job comes.     */
+          unsigned int  loptions_flag; /* Flag showing which local       */
+                                       /* options are set.               */
           char          str_job_id[MAX_INT_LENGTH];
           char          *dir;          /* Directory that has to be       */
                                        /* monitored.                     */
@@ -455,8 +516,8 @@ struct instant_db
                                        /* SEND_NO_COLLECT_TIME and       */
                                        /* NO_TIME.                       */
           time_t        next_start_time;
-          struct bd_time_entry te;
-          char          priority;      /* Priority of job.               */
+          struct bd_time_entry *te;
+          unsigned int  no_of_time_entries;
           unsigned int  file_mask_id;  /* CRC-32 checksum of file masks. */
           int           no_of_files;   /* Number of files to be send.    */
           int           fbl;           /* File mask buffer length.       */
@@ -485,6 +546,7 @@ struct instant_db
                                        /* FSA.                           */
           int           fra_pos;       /* Location of this job in the    */
                                        /* FRA.                           */
+          char          priority;      /* Priority of job.               */
        };
 
 /* Structure that holds all file information for one directory */
@@ -508,12 +570,16 @@ struct directory_entry
                                              /* input log.               */
           int                    nfg;        /* Number of file groups    */
           int                    fra_pos;
-          time_t                 mod_time;
+          int                    rl_fd;      /* Retrieve list file       */
+                                             /* descriptor.              */
+          off_t                  rl_size;    /* Size of retrieve list.   */
           time_t                 search_time;/* Used when a new file     */
                                              /* arrives and we already   */
                                              /* have checked the         */
                                              /* directory and it is      */
                                              /* still the same second.   */
+          int                    *no_of_listed_files;
+          struct retrieve_list   *rl;
           struct file_mask_entry *fme;
           char                   flag;       /* Flag to if all files in  */
                                              /* this directory are to be */
@@ -558,6 +624,7 @@ struct fork_job_data
 
 /* Function prototypes */
 extern int    amg_zombie_check(pid_t *, int),
+              check_list(struct directory_entry *, char *, struct stat *),
               com(char),
               convert(char *, char *, int, off_t *),
 #ifdef _WITH_PTHREAD
@@ -585,20 +652,18 @@ extern int    amg_zombie_check(pid_t *, int),
               create_db(void),
               eval_dir_config(off_t),
               eval_time_str(char *, struct bd_time_entry *),
-              handle_options(int, char *, unsigned int,
-#ifdef _DELETE_LOG
-                             char *,
-#endif
+              handle_options(int,
 #ifdef _PRODUCTION_LOG
                              time_t, unsigned short, unsigned int,
 #endif
                              char *, int *, off_t *),
-              in_time(time_t, struct bd_time_entry *),
+              in_time(time_t, unsigned int, struct bd_time_entry *),
               lookup_dir_id(char *, char *),
               lookup_fra_pos(char *),
               rename_files(char *, char *, int, struct instant_db *, time_t *,
                            int, unsigned int *, char *, off_t *);
 extern pid_t  make_process_amg(char *, char *, int, int);
+extern off_t  fax2gts(char *, char *);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *, int *),
               *convert_fsa(int, char *, off_t *, int, unsigned char,
                            unsigned char),
@@ -622,6 +687,7 @@ extern void   check_old_time_jobs(int),
               lookup_file_mask_id(struct instant_db *, int),
               lookup_job_id(struct instant_db *, unsigned int *),
               receive_log(char *, char *, int, time_t, char *, ...),
+              remove_old_ls_data_files(void),
               remove_pool_directory(char *, unsigned int),
 #ifdef _DELETE_LOG
               remove_time_dir(char *, unsigned int, int),
@@ -632,6 +698,7 @@ extern void   check_old_time_jobs(int),
                                 int, int, struct host_list *),
               reread_host_config(time_t *, int *, int *, size_t *,
                                  struct host_list **, int),
+              rm_removed_files(struct directory_entry *),
               search_old_files(time_t),
               send_message(char *, char *, unsigned int, unsigned short,
                            time_t, int,

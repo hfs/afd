@@ -1,6 +1,6 @@
 /*
  *  output_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -110,6 +110,9 @@ extern struct job db;
 /*########################### output_log_ptrs() #########################*/
 void
 output_log_ptrs(int            *ol_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                int            *ol_readfd,
+#endif
                 unsigned int   **ol_job_number,
                 char           **ol_data,
                 char           **ol_file_name,
@@ -128,7 +131,11 @@ output_log_ptrs(int            *ol_fd,
    (void)strcpy(output_log_fifo, p_work_dir);
    (void)strcat(output_log_fifo, FIFO_DIR);
    (void)strcat(output_log_fifo, OUTPUT_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(output_log_fifo, ol_readfd, ol_fd) == -1)
+#else
    if ((*ol_fd = coe_open(output_log_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s",

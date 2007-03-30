@@ -38,6 +38,11 @@ DESCR__S_M3
  ** RETURN VALUES
  **   None.
  **
+ ** SEE ALSO
+ **   common/get_hostname.c, common/create_message.c, fd/get_job_data.c,
+ **   fd/eval_recipient.c, amg/store_passwd.c, tools/get_dc_data.c,
+ **   tools/set_pw.c
+ **
  ** AUTHOR
  **   H.Kiehl
  **
@@ -336,7 +341,7 @@ stat_again:
               "stat_buf.st_size = %d|no_of_job_ids = %d|struct size = %d|total plus word offset = %d",
               stat_buf.st_size, *no_of_job_ids, sizeof(struct job_id_data),
               (*no_of_job_ids * sizeof(struct job_id_data)) + AFD_WORD_OFFSET);
-#endif /* DEBUG */
+#endif
    jid_struct_size = stat_buf.st_size;
 
    /* Read and store current message list. */
@@ -518,7 +523,7 @@ stat_again:
                               * set gotcha so it does not delete this
                               * job, so show_olog can still resend files.
                               */
-                             gotcha = YES;
+                             gotcha = NEITHER;
                           }
 #endif
                      break;
@@ -528,6 +533,19 @@ stat_again:
                /*
                 * Yup, we can remove this job.
                 */
+#ifdef WITH_ERROR_QUEUE
+               if ((gotcha == NO) || (gotcha == NEITHER))
+               {
+                  if ((i < *no_msg_cached) && (mdb[i].in_current_fsa == YES))
+                  {
+                     if (fsa[mdb[i].fsa_pos].host_status & ERROR_QUEUE_SET)
+                     {
+                        (void)remove_from_error_queue(job_id,
+                                                      &fsa[mdb[i].fsa_pos]);
+                     }
+                  }
+               }
+#endif
                if (gotcha == NO)
                {
                   if (i == *no_msg_cached)
@@ -592,7 +610,8 @@ stat_again:
                {
                   int new_pos;
 
-                  if ((new_pos = get_host_position(fsa, mdb[i].host_name, no_of_hosts)) == INCORRECT)
+                  if ((new_pos = get_host_position(fsa, mdb[i].host_name,
+                                                   no_of_hosts)) == INCORRECT)
                   {
                      if (remove_flag == NO)
                      {
@@ -643,6 +662,16 @@ stat_again:
 
             if (remove_flag == YES)
             {
+#ifdef WITH_ERROR_QUEUE
+               if (mdb[i].fsa_pos != -1)
+               {
+                  if (fsa[mdb[i].fsa_pos].host_status & ERROR_QUEUE_SET)
+                  {
+                     (void)remove_from_error_queue(mdb[i].job_id,
+                                                   &fsa[mdb[i].fsa_pos]);
+                  }
+               }
+#endif
                (void)sprintf(p_msg_dir, "%x", mdb[i].job_id);
                if (list_job_to_remove(i, jd_fd, jd, mdb[i].job_id) == SUCCESS)
                {
@@ -1158,7 +1187,7 @@ list_job_to_remove(int                cache_pos,
    } /* if (dir_id_pos != -1) */
 
    /*
-    * Store the file mask we might want to remove.
+    * Store the file mask ID we might want to remove.
     */
    if (remove_file_mask == YES)
    {
@@ -1327,8 +1356,12 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                 (*ptr != '\0'))
             {
                uh_name_length = 0;
-               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                      (uh_name_length < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+               while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+               while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                      (*ptr != '\0') && (uh_name_length < MAX_USER_NAME_LENGTH))
                {
                   if (*ptr == '\\')
                   {
@@ -1337,8 +1370,13 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                   rpl[pwb_to_remove][uh_name_length] = *ptr;
                   ptr++; uh_name_length++;
                }
+#ifdef WITH_SSH_FINGERPRINT
+               if ((*ptr == ':') || (*ptr == ';'))
+#else
                if (*ptr == ':')
+#endif
                {
+                  ptr++;
                   while ((*ptr != '@') && (*ptr != '\0'))
                   {
                      if (*ptr == '\\')
@@ -1458,8 +1496,12 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
             if ((*ptr != MAIL_GROUP_IDENTIFIER) && (*ptr != '\0'))
             {
                uh_name_length = 0;
-               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                      (uh_name_length < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+               while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+               while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                      (*ptr != '\0') && (uh_name_length < MAX_USER_NAME_LENGTH))
                {
                   if (*ptr == '\\')
                   {
@@ -1468,8 +1510,13 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                   uh_name[uh_name_length] = *ptr;
                   ptr++; uh_name_length++;
                }
+#ifdef WITH_SSH_FINGERPRINT
+               if ((*ptr == ':') || (*ptr == ';'))
+#else
                if (*ptr == ':')
+#endif
                {
+                  ptr++;
                   while ((*ptr != '@') && (*ptr != '\0'))
                   {
                      if (*ptr == '\\')
@@ -1885,7 +1932,7 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                                  system_log(WARN_SIGN, __FILE__, __LINE__,
                                             "The number of file mask is to large %d, changing to %d.",
                                             *no_of_file_mask_ids, k);
-                                 *no_of_file_mask_ids = i;
+                                 *no_of_file_mask_ids = k;
                               }
                               else if ((ptr - fmd) > (original_size - size_removed))
                                    {

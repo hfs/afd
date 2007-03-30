@@ -1,6 +1,6 @@
 /*
  *  update_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -67,12 +67,13 @@ const char        *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-   int         db_update_fd;
-   char        db_update_fifo[MAX_PATH_LENGTH],
-               sys_log_fifo[MAX_PATH_LENGTH],
-               user[MAX_FULL_USER_ID_LENGTH],
-               work_dir[MAX_PATH_LENGTH];
-   struct stat stat_buf;
+   int  db_update_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  db_update_readfd;
+#endif
+   char db_update_fifo[MAX_PATH_LENGTH],
+        user[MAX_FULL_USER_ID_LENGTH],
+        work_dir[MAX_PATH_LENGTH];
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -101,36 +102,15 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* If the process AFD has not yet created the */
-   /* system log fifo create it now.             */
-   (void)sprintf(sys_log_fifo, "%s%s%s",
-                 p_work_dir, FIFO_DIR, SYSTEM_LOG_FIFO);
-   if ((stat(sys_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
-   {
-      if (make_fifo(sys_log_fifo) < 0)
-      {
-         (void)fprintf(stderr,
-                       "ERROR   : Could not create fifo %s. (%s %d)\n",
-                       sys_log_fifo, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
-
-   /* Open system log fifo */
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
-   {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
    (void)sprintf(db_update_fifo, "%s%s%s",
                  p_work_dir, FIFO_DIR, DB_UPDATE_FIFO);
-   if ((db_update_fd = open(db_update_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(db_update_fifo, &db_update_readfd, &db_update_fd) == -1)
+#else
+   if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
+#endif
    {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open fifo %s : %s (%s %d)",
+      (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)",
                     db_update_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -138,9 +118,8 @@ main(int argc, char *argv[])
    get_user(user, "");
    if (strcmp((argv[0] + strlen(argv[0]) - 3), "udc") == 0)
    {
-      (void)rec(sys_log_fd, INFO_SIGN,
-                "Rereading DIR_CONFIG initiated by %s [%s]\n",
-                user, argv[0]);
+      system_log(CONFIG_SIGN, NULL, 0,
+                 "Rereading DIR_CONFIG initiated by %s [%s]", user, argv[0]);
       if (send_cmd(REREAD_DIR_CONFIG, db_update_fd) < 0)
       {
          (void)fprintf(stderr,
@@ -151,9 +130,9 @@ main(int argc, char *argv[])
    }
    else
    {
-      (void)rec(sys_log_fd, INFO_SIGN,
-                "Rereading HOST_CONFIG initiated by %s [%s]\n",
-                user, argv[0]);
+      system_log(CONFIG_SIGN, NULL, 0,
+                 "Rereading HOST_CONFIG initiated by %s [%s]",
+                 user, argv[0]);
       if (send_cmd(REREAD_HOST_CONFIG, db_update_fd) < 0)
       {
          (void)fprintf(stderr,
@@ -162,11 +141,17 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (close(db_update_readfd) == -1)
+   {
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
+   }
+#endif
    if (close(db_update_fd) == -1)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "close() error : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                 "close() error : %s", strerror(errno));
    }
 
    exit(SUCCESS);

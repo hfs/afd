@@ -1,6 +1,6 @@
 /*
  *  shutdown_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -63,6 +63,10 @@ void
 shutdown_afd(char *fake_user)
 {
    int            afd_cmd_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  afd_cmd_readfd,
+                  afd_resp_writefd,
+#endif
                   afd_resp_fd,
                   status,
                   val;
@@ -80,13 +84,21 @@ shutdown_afd(char *fake_user)
    (void)strcat(afd_resp_fifo, AFD_RESP_FIFO);
    (void)strcat(afd_cmd_fifo, AFD_CMD_FIFO);
 
-   if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_readfd, &afd_cmd_fd) == -1)
+#else
+   if ((afd_cmd_fd = open(afd_cmd_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
                     afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((afd_resp_fd = open(afd_resp_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(afd_resp_fifo, &afd_resp_fd, &afd_resp_writefd) == -1)
+#else
+   if ((afd_resp_fd = open(afd_resp_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
                     afd_resp_fifo, strerror(errno), __FILE__, __LINE__);
@@ -129,7 +141,11 @@ shutdown_afd(char *fake_user)
        * the shutdown command, it is necessary to remove this command
        * from the FIFO.
        */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if ((val = fcntl(afd_cmd_readfd, F_GETFL, 0)) == -1)
+#else
       if ((val = fcntl(afd_cmd_fd, F_GETFL, 0)) == -1)
+#endif
       {
          (void)fprintf(stderr,
                        "ERROR   : Failed to get file status flag : %s (%s %d)\n",
@@ -137,14 +153,22 @@ shutdown_afd(char *fake_user)
          exit(INCORRECT);
       }
       val |= O_NONBLOCK;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (fcntl(afd_cmd_readfd, F_SETFL, val) == -1)
+#else
       if (fcntl(afd_cmd_fd, F_SETFL, val) == -1)
+#endif
       {
          (void)fprintf(stderr,
                        "ERROR   : Failed to set file status flag : %s (%s %d)\n",
                        strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)read(afd_cmd_readfd, buffer, DEFAULT_BUFFER_SIZE);
+#else
       (void)read(afd_cmd_fd, buffer, DEFAULT_BUFFER_SIZE);
+#endif
 
       /*
        * Telling the user we failed to do a shutdown is not of

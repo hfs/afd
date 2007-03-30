@@ -1,6 +1,6 @@
 /*
  *  remove_job_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -70,7 +70,7 @@ remove_job_files(char         *del_dir,
                  unsigned int job_id,
                  char         reason)
 #else
-remove_files(char *del_dir, int fsa_pos)
+remove_job_files(char *del_dir, int fsa_pos)
 #endif
 {
    int           number_deleted = 0;
@@ -139,7 +139,7 @@ remove_files(char *del_dir, int fsa_pos)
                {
                   (void)sprintf(dl.host_name, "%-*s %x",
                                 MAX_HOSTNAME_LENGTH,
-                                fsa[fsa_pos].host_dsp_name,
+                                fsa[fsa_pos].host_alias,
                                 reason);
                }
                else
@@ -185,8 +185,18 @@ remove_files(char *del_dir, int fsa_pos)
    }
    if (rmdir(del_dir) == -1)
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Could not rmdir() `%s' : %s", del_dir, strerror(errno));
+      if ((errno == ENOTEMPTY) || (errno == EEXIST))
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "Failed to rmdir() `%s' because there is still data in it, deleting everything in this directory.",
+                    del_dir);
+         (void)rec_rmdir(del_dir);
+      }
+      else
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Could not rmdir() `%s' : %s", del_dir, strerror(errno));
+      }
    }
 
    if ((number_deleted > 0) && (fsa_pos != -1))

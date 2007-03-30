@@ -127,11 +127,21 @@ check_paused_dir(struct directory_entry *p_de,
       for (j = *dest_count; j < p_de->fme[i].dest_count; j++)
       {
          /* Is queue stopped? (ie PAUSE_QUEUE_STAT, AUTO_PAUSE_QUEUE_STAT */
-         /* or AUTO_PAUSE_QUEUE_LOCK_STAT is set)                         */
-         if (((fsa[db[p_de->fme[i].pos[j]].position].host_status < 2) ||
+         /* or DANGER_PAUSE_QUEUE_STAT is set)                            */
+         if ((db[p_de->fme[i].pos[j]].dup_paused_dir == NO) &&
+             ((((fsa[db[p_de->fme[i].pos[j]].position].host_status & PAUSE_QUEUE_STAT) == 0) &&
+               ((fsa[db[p_de->fme[i].pos[j]].position].host_status & AUTO_PAUSE_QUEUE_STAT) == 0) &&
+#ifdef WITH_ERROR_QUEUE
+               ((fsa[db[p_de->fme[i].pos[j]].position].host_status & ERROR_QUEUE_SET) == 0) &&
+#endif
+               ((fsa[db[p_de->fme[i].pos[j]].position].host_status & DANGER_PAUSE_QUEUE_STAT) == 0)) ||
               ((fsa[db[p_de->fme[i].pos[j]].position].special_flag & HOST_DISABLED) &&
-               (fsa[db[p_de->fme[i].pos[j]].position].host_status >= 2))) &&
-             (db[p_de->fme[i].pos[j]].dup_paused_dir == NO))
+               ((fsa[db[p_de->fme[i].pos[j]].position].host_status & PAUSE_QUEUE_STAT) ||
+#ifdef WITH_ERROR_QUEUE
+                (fsa[db[p_de->fme[i].pos[j]].position].host_status & ERROR_QUEUE_SET) ||
+#endif
+                (fsa[db[p_de->fme[i].pos[j]].position].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+                (fsa[db[p_de->fme[i].pos[j]].position].host_status & DANGER_PAUSE_QUEUE_STAT)))))
          {
             struct stat stat_buf;
 
@@ -141,6 +151,13 @@ check_paused_dir(struct directory_entry *p_de,
                {
                   if (fsa[db[p_de->fme[i].pos[j]].position].special_flag & HOST_DISABLED)
                   {
+#ifdef WITH_ERROR_QUEUE
+                     if (fsa[db[p_de->fme[i].pos[j]].position].host_status & ERROR_QUEUE_SET)
+                     {
+                        (void)remove_from_error_queue(db[p_de->fme[i].pos[j]].job_id,
+                                                      &fsa[db[p_de->fme[i].pos[j]].position]);
+                     }
+#endif
                      if (remove_paused_dir(db[p_de->fme[i].pos[j]].paused_dir,
                                            p_de->fra_pos) < 0)
                      {
@@ -162,7 +179,12 @@ check_paused_dir(struct directory_entry *p_de,
          else
          {
             if ((pdf != NULL) &&
-                (fsa[db[p_de->fme[i].pos[j]].position].host_status >= 2))
+                ((fsa[db[p_de->fme[i].pos[j]].position].host_status & PAUSE_QUEUE_STAT) ||
+                 (fsa[db[p_de->fme[i].pos[j]].position].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+#ifdef WITH_ERROR_QUEUE
+                 (fsa[db[p_de->fme[i].pos[j]].position].host_status & ERROR_QUEUE_SET) ||
+#endif
+                 (fsa[db[p_de->fme[i].pos[j]].position].host_status & DANGER_PAUSE_QUEUE_STAT)))
             {
                *pdf = YES;
             }

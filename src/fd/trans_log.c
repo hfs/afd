@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,6 +61,9 @@ DESCR__E_M3
 
 extern int                        timeout_flag,
                                   trans_db_log_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                  trans_db_log_readfd,
+#endif
                                   transfer_log_fd;
 extern long                       transfer_timeout;
 extern char                       *p_work_dir,
@@ -102,7 +105,7 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    buf[14] = sign[2];
    buf[15] = ' ';
 
-   while (*ptr != '\0')
+   while ((*ptr != '\0') && ((length - HOSTNAME_OFFSET) < MAX_HOSTNAME_LENGTH))
    {
       buf[length] = *ptr;
       ptr++; length++;
@@ -217,12 +220,22 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
          (void)strcpy(trans_db_log_fifo, p_work_dir);
          (void)strcat(trans_db_log_fifo, FIFO_DIR);
          (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(trans_db_log_fifo, &trans_db_log_readfd,
+                          &trans_db_log_fd) == -1)
+#else
          if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1)
+#endif
          {
             if (errno == ENOENT)
             {
                if ((make_fifo(trans_db_log_fifo) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                   (open_fifo_rw(trans_db_log_fifo, &trans_db_log_readfd,
+                                 &trans_db_log_fd) == -1))
+#else
                    ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1))
+#endif
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Could not open fifo <%s> : %s",

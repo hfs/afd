@@ -21,4 +21,5 @@ endif
 
 noinst_HEADERS       = afdsetup.h version.h
 MAINTAINERCLEANFILES = Makefile.in
+CLEANFILES           = core core.*
 SUBDIRS              = $(OTHER_DIRS)

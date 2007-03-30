@@ -59,6 +59,9 @@ DESCR__E_M3
 #include "fddefs.h"
 
 extern int    trans_db_log_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+extern int    trans_db_log_readfd;
+#endif
 extern char   *p_work_dir,
               tr_hostname[];
 extern struct job db;
@@ -84,12 +87,22 @@ trans_db_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
       (void)strcpy(trans_db_log_fifo, p_work_dir);
       (void)strcat(trans_db_log_fifo, FIFO_DIR);
       (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(trans_db_log_fifo, &trans_db_log_readfd,
+                       &trans_db_log_fd) == -1)
+#else
       if ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1)
+#endif
       {
          if (errno == ENOENT)
          {
             if ((make_fifo(trans_db_log_fifo) == SUCCESS) &&
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                (open_fifo_rw(trans_db_log_fifo, &trans_db_log_readfd,
+                              &trans_db_log_fd) == -1))
+#else
                 ((trans_db_log_fd = open(trans_db_log_fifo, O_RDWR)) == -1))
+#endif
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Could not open fifo `%s' : %s",

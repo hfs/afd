@@ -1,6 +1,6 @@
 /*
  *  check_create_path.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,10 @@ DESCR__S_M3
  **   check_create_path - checks if the path exists, if not it is created
  **
  ** SYNOPSIS
- **   int check_create_path(char *path, mode_t permissions)
+ **   int check_create_path(char   *path,
+ **                         mode_t permissions,
+ **                         char   **error_ptr,
+ **                         int    create_dir)
  **
  ** DESCRIPTION
  **   The function check_create_path() checks if the given path exists
@@ -46,6 +49,11 @@ DESCR__S_M3
  **
  ** HISTORY
  **   01.03.2004 H.Kiehl Created.
+ **   31.10.2006 H.Kiehl Fully restore original diretory and instead return
+ **                      position in directory name where we think it is
+ **                      wrong.
+ **   17.11.2006 H.Kiehl Additional parameter to control creation of
+ **                      directory.
  **
  */
 DESCR__E_M3
@@ -60,13 +68,17 @@ DESCR__E_M3
 
 /*######################## check_create_path() ##########################*/
 int
-check_create_path(char *path, mode_t permissions)
+check_create_path(char   *path,
+                  mode_t permissions,
+                  char   **error_ptr,
+                  int    create_dir)
 {
    int ret = SUCCESS;
 
+   *error_ptr = NULL;
    if (eaccess(path, R_OK | W_OK | X_OK) < 0)
    {
-      if (errno == ENOENT)
+      if ((errno == ENOENT) && (create_dir == YES))
       {
          int   ii = 0,
                new_size,
@@ -110,6 +122,13 @@ check_create_path(char *path, mode_t permissions)
 
          if ((error_condition < 0) && (errno != ENOENT))
          {
+            int i;
+
+            *error_ptr = dir_ptr[ii - 1];
+            for (i = 0; i < ii; i++)
+            {
+               *dir_ptr[i] = '/';
+            }
             if (dir_ptr != NULL)
             {
                free(dir_ptr);
@@ -123,6 +142,17 @@ check_create_path(char *path, mode_t permissions)
 
             if (stat(path, &stat_buf) == -1)
             {
+               int i;
+
+               *error_ptr = dir_ptr[ii - 1];
+               for (i = 0; i < ii; i++)
+               {
+                  *dir_ptr[i] = '/';
+               }
+               if (dir_ptr != NULL)
+               {
+                  free(dir_ptr);
+               }
                return(STAT_ERROR);
             }
             permissions = stat_buf.st_mode;
@@ -137,16 +167,32 @@ check_create_path(char *path, mode_t permissions)
          for (ii = (dir_counter - 1); ii >= 0; ii--)
          {
             *dir_ptr[ii] = '/';
-            if (mkdir(path, permissions) == -1)
+            if (failed_to_create_dir == NO)
             {
-               failed_to_create_dir = YES;
-               break;
-            }
-            if (do_chown == YES)
-            {
-               if (chown(path, owner, group) == -1)
+               if ((mkdir(path, permissions) == -1) && (errno != EEXIST))
                {
-                  ret = CHOWN_ERROR;
+                  failed_to_create_dir = YES;
+               }
+               else
+               {
+                  if (do_chown == YES)
+                  {
+                     if (chown(path, owner, group) == -1)
+                     {
+                        ret = CHOWN_ERROR;
+                     }
+                     else
+                     {
+                        ret = SUCCESS;
+                     }
+                  }
+               }
+            }
+            else
+            {
+               if (*error_ptr == NULL)
+               {
+                  *error_ptr = dir_ptr[ii];
                }
             }
          }

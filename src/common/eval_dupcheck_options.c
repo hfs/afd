@@ -1,7 +1,7 @@
 /*
  *  eval_dupcheck_options.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,7 @@ DESCR__S_M3
  **                         1 - Filename only. (default)
  **                         2 - File content.
  **                         3 - Filename and file content.
+ **                         4 - Filname without last suffix.
  **        <action>     - What action is to be taken when we find a
  **                       duplicate. The following values are possible:
  **                        24 - Delete. (default)
@@ -65,6 +66,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   14.06.2005 H.Kiehl Created
+ **   20.12.2006 H.Kiehl Added option filename without last suffix.
  **
  */
 DESCR__E_M3
@@ -114,6 +116,10 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
          {
             *flag = DC_FILENAME_ONLY;
          }
+         else if (val == DC_NAME_NO_SUFFIX_BIT)
+              {
+                 *flag = DC_NAME_NO_SUFFIX;
+              }
          else if (val == DC_FILE_CONTENT_BIT)
               {
                  *flag = DC_FILE_CONTENT;

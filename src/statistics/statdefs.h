@@ -20,11 +20,6 @@
 #ifndef __statdefs_h
 #define __statdefs_h
 
-#define F_KILOBYTE                               1024.0
-#define F_MEGABYTE                            1048576.0
-#define F_GIGABYTE                         1073741824.0
-#define F_TERABYTE                      1099511627776.0
-
 #define STAT_RESCAN_TIME                              5
 #define DAYS_PER_YEAR                               366
 #define HOURS_PER_DAY                                24
@@ -123,7 +118,7 @@ struct afd_year_istat
 
 extern void eval_input_as(int, char **, char *, char *, char *),
             eval_input_ss(int, char **, char *, int *, int *, int *, int *,
-                          int *, int *, int *, int *, int *, int *),
+                          int *, int *, int *, int *, int *, int *, int *, int),
             read_afd_istat_db(int),
             read_afd_stat_db(int),
             save_old_input_year(int),

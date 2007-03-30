@@ -1,6 +1,6 @@
 /*
  *  show_summary_stat.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -36,6 +36,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   22.08.1998 H.Kiehl Created
+ **   30.07.2006 H.Kiehl Send totals of what AFD did on input and output.
  **
  */
 DESCR__E_M3
@@ -50,10 +51,12 @@ DESCR__E_M3
 
 /* External global variables */
 extern int                        host_config_counter,
+                                  no_of_dirs,
                                   no_of_hosts,
                                   sys_log_fd;
 extern clock_t                    clktck;
 extern struct filetransfer_status *fsa;
+extern struct fileretrieve_status *fra;
 extern struct afd_status          *p_afd_status;
 
 
@@ -62,10 +65,13 @@ void
 show_summary_stat(FILE *p_data)
 {
    int            error_hosts = 0,
-                  i,
-                  j;
-   unsigned int   files_to_be_send = 0,
+                  i;
+   unsigned int   connections = 0,
+                  errors = 0,
+                  files_received = 0,
+                  files_to_be_send = 0,
                   total_errors = 0;
+   u_off_t        bytes_received = 0;
    off_t          bytes_to_be_send = 0;
    double         bytes_send = 0.0,
                   elapsed_time,
@@ -81,13 +87,7 @@ show_summary_stat(FILE *p_data)
    {
       files_to_be_send += fsa[i].total_file_counter;
       bytes_to_be_send += fsa[i].total_file_size;
-      if ((fsa[i].protocol & LOC_FLAG) == 0)
-      {
-         for (j = 0; j < fsa[i].allowed_transfers; j++)
-         {
-            bytes_send += (double)fsa[i].job_status[j].bytes_send;
-         }
-      }
+      bytes_send += (double)fsa[i].bytes_send;
       files_send += (double)fsa[i].file_counter_done;
       if (fsa[i].error_counter >= fsa[i].max_errors)
       {
@@ -95,8 +95,10 @@ show_summary_stat(FILE *p_data)
       }
       else
       {
-         total_errors += fsa[i].error_counter;
+         errors += fsa[i].error_counter;
       }
+      connections += fsa[i].connections;
+      total_errors += fsa[i].total_errors;
    }
    if (prev_bytes_send > bytes_send)
    {
@@ -117,6 +119,12 @@ show_summary_stat(FILE *p_data)
       delta_files_send = files_send - prev_files_send;
    }
 
+   for (i = 0; i < no_of_dirs; i++)
+   {
+      files_received += fra[i].files_received;
+      bytes_received += fra[i].bytes_received;
+   }
+
    (void)fprintf(p_data, "211- AFD status summary:\r\n");
    (void)fflush(p_data);
 
@@ -134,16 +142,26 @@ show_summary_stat(FILE *p_data)
       }
    }
 #if SIZEOF_OFF_T == 4
-   (void)fprintf(p_data, "IS %u %ld %u %u %u %d %d %u\r\n",
+# if SIZEOF_NLINK_T > 4
+   (void)fprintf(p_data, "IS %u %ld %u %u %u %d %d %lld %.0f %.0f %u %u %u %lu\r\n",
+# else
+   (void)fprintf(p_data, "IS %u %ld %u %u %u %d %d %d %.0f %.0f %u %u %u %lu\r\n",
+# endif
 #else
-   (void)fprintf(p_data, "IS %u %lld %u %u %u %d %d %u\r\n",
+# if SIZEOF_NLINK_T > 4
+   (void)fprintf(p_data, "IS %u %lld %u %u %u %d %d %lld %.0f %.0f %u %u %u %llu\r\n",
+# else
+   (void)fprintf(p_data, "IS %u %lld %u %u %u %d %d %d %.0f %.0f %u %u %u %llu\r\n",
+# endif
 #endif
-                 files_to_be_send, bytes_to_be_send,
+                 files_to_be_send, (pri_off_t)bytes_to_be_send,
                  (unsigned int)(delta_bytes_send / elapsed_time),
                  (unsigned int)(delta_files_send / elapsed_time),
-                 total_errors, error_hosts,
+                 errors, error_hosts,
                  p_afd_status->no_of_transfers,
-                 p_afd_status->jobs_in_queue);
+                 (pri_nlink_t)p_afd_status->jobs_in_queue,
+                 files_send, bytes_send, connections, total_errors,
+                 files_received, bytes_received);
    start_time = times(&tmsdummy);
    prev_bytes_send = bytes_send;
    prev_files_send = files_send;

@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -17,6 +17,7 @@
 ##
 
 MAINTAINERCLEANFILES = Makefile.in
+CLEANFILES           = gmon.out core core.*
 EXTRA_PROGRAMS       = tfilter1 tfilter2 tfilter3
 tfilter1_SOURCES     = tfilter.c\
                        filter1.c

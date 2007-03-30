@@ -11,7 +11,7 @@ allow one to change the ordering of the host names in the afd_ctrl
 dialog by simply dragging and dropping a selected host name. It is
 only possible to have one of this dialog open at the same time.
 </p>
-<center><img src="../images/edit_hc_numbered.png" alt="[labeled picture of edit_hc dialog]"></center>
+<center><img src="../images/edit_hc_labeled.gif" alt="[labeled picture of edit_hc dialog]"></center>
 <center>
 <table border>
 <tr>
@@ -34,7 +34,7 @@ only possible to have one of this dialog open at the same time.
        it is possible to have two addresses for a single host. The
        second host is always regarded as the secondary host. The user
        may can change to the secondary host or main host by pressing
-       the <a href="afd_ctrl.html#Switch host">Switch host button</a>.
+       the <a href="afd_ctrl.html#Switch_host">Switch host button</a>.
        In the Host 1 and Host 2 fields characters can be entered that
        distinguish the two hosts from each other. The character will
        be appended to the end of the alias host name.</td>
@@ -69,15 +69,18 @@ only possible to have one of this dialog open at the same time.
        </tr>
        <tr>
           <td><a name="successful_retries">Successful retries</a></td>
-          <td>This is only used when there is a secondary host and
-              automatic switch over is active. It is the number of
-              successful transfers to the secondary host, before it tries
-              to switch back to the main host to see if it is alive
-              again.</td>
+          <td>This is only used when there is a secondary host and automatic
+              switch over is active. It is the number of successful transfers
+              to the secondary host, before it tries to switch back to the
+              main host to see if it is alive again. If this is set to 0
+              it will NOT automatically switch back to the original host
+              after a failover.</td>
        </tr>
        <tr>
           <td>Keep connected</td>
-          <td>Not yet implemented.</td>
+          <td>The number of seconds that the connection should be kept
+              open after a directory listing or sending files. This currently
+              only works for retrieving jobs.</td>
        </tr>
        </table>
    </td>
@@ -120,15 +123,19 @@ only possible to have one of this dialog open at the same time.
               are possible:
               <table border align=center>
               <tr>
-                 <td>Filename</td>
+                 <td>Name</td>
                  <td>Perform check only on the filename.</td>
               </tr>
               <tr>
-                 <td>File content</td>
+                 <td>Name no suffix</td>
+                 <td>Perform check only on the filename without last suffix.</td>
+              </tr>
+              <tr>
+                 <td>Content</td>
                  <td>Creates the checksum on the file content only.</td>
               </tr>
               <tr>
-                 <td>File name + content</td>
+                 <td>Name + content</td>
                  <td>Creates checksum from file name and content.</td>
               </tr>
               </table>
@@ -218,9 +225,13 @@ only possible to have one of this dialog open at the same time.
        <tr>
           <td>FTP Mode</td>
           <td>The mode to use when transfering or receiving files. Can
-              be either active or passive. If you experience problems
-              with the data connection you might try passive, since
-              firewalls only allow passive connections.</td>
+              be either active, passive, extended active or extended
+              pasive. If you experience problems with the data connection
+              you might try passive, since firewalls only allow passive
+              connections. When using passive (NOT extended passive) it
+              is possible to enable redirecting of the data part to
+              another system. This is however very uncommon and should
+              best be left disabled.</td>
        </tr>
        <tr>
           <td>Set idle time</td>
@@ -251,11 +262,20 @@ only possible to have one of this dialog open at the same time.
        <tr>
           <td><a name="ignore_type_i">Ignore type I</a></td>
           <td>By default AFD will always send a type I command for
-              binary mode during connection initialization. Since most
+              binary mode during connection initialization. Since some
               FTP-servers have this set by default, it is not required
-              to send this. Note that this option is very <b>dangerous</b>
-              and only works with few FTP-servers (vsftpd), since it
-              can easily corrupt data.</td>
+              to send this. Note however that this option is very
+              <b>dangerous</b> and only works with few FTP-servers (vsftpd),
+              it can easily corrupt data, because some FTP-servers use
+              ASCII mode as default.</td>
+       </tr>
+       <tr>
+          <td><a name="allow_burst">Allow burst</a></td>
+          <td>AFD by default tries to append a new job to an existing
+              sending job, to reduce the number of connections and the
+              overall latency. It can however happen that some servers
+              have problems with this. So with this option it is possible
+              to disable bursting.</td>
        </tr>
        </table>
    </td>
@@ -292,11 +312,11 @@ only possible to have one of this dialog open at the same time.
 <hr size=3 noshade>
 <table width=100%>
 <tr>
-   <td width=90%><small><address>
-   Copyright &copy; 1997 - 2006 by H.Kiehl<br>
+   <td width=90%><address><small>
+   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 09.04.2006
-   </address></small></td>
+   Last updated: 24.03.2007
+   </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
    <!-- Insert site specific logo -->

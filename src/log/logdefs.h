@@ -1,6 +1,6 @@
 /*
  *  logdefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,20 +22,23 @@
 
 #define MAX_SYSTEM_LOG_FILES              4            /* Must be > 1!   */
 #ifdef LOCK_DEBUG
-#define MAX_SYS_LOGFILE_SIZE              41943040
+# define MAX_SYS_LOGFILE_SIZE             41943040
 #else
-#define MAX_SYS_LOGFILE_SIZE              2097152
+# define MAX_SYS_LOGFILE_SIZE             2097152
 #endif
 #define SYSTEM_LOG_RESCAN_TIME            10
 #define SYSTEM_LOG_NAME                   "SYSTEM_LOG."
+#define SYSTEM_LOG_NAME_LENGTH            (sizeof(SYSTEM_LOG_NAME) - 1)
 #define SYSTEM_LOG_NAME_ALL               "SYSTEM_LOG.*"
 #define MAX_SYSTEM_LOG_FILES_DEF          "MAX_SYSTEM_LOG_FILES"
 #define MAX_RECEIVE_LOG_FILES             7            /* Must be > 1!   */
 #define RECEIVE_LOG_NAME                  "RECEIVE_LOG."
+#define RECEIVE_LOG_NAME_LENGTH           (sizeof(RECEIVE_LOG_NAME) - 1)
 #define RECEIVE_LOG_NAME_ALL              "RECEIVE_LOG.*"
 #define MAX_RECEIVE_LOG_FILES_DEF         "MAX_RECEIVE_LOG_FILES"
 #define MAX_TRANSFER_LOG_FILES            7            /* Must be > 1!   */
 #define TRANSFER_LOG_NAME                 "TRANSFER_LOG."
+#define TRANSFER_LOG_NAME_LENGTH          (sizeof(TRANSFER_LOG_NAME) - 1)
 #define TRANSFER_LOG_NAME_ALL             "TRANSFER_LOG.*"
 #define MAX_TRANSFER_LOG_FILES_DEF        "MAX_TRANSFER_LOG_FILES"
 #define MAX_TRANS_DB_LOG_FILES            3            /* Must be > 1!   */
@@ -43,16 +46,19 @@
 #define MAX_TRANS_DB_LOG_FILES_DEF        "MAX_TRANS_DB_LOG_FILES"
 #define TRANS_DB_LOG_RESCAN_TIME          10
 #define TRANS_DB_LOG_NAME                 "TRANS_DB_LOG."
+#define TRANS_DB_LOG_NAME_LENGTH          (sizeof(TRANS_DB_LOG_NAME) - 1)
 #define TRANS_DB_LOG_NAME_ALL             "TRANS_DB_LOG.*"
 
 /* Definitions for the log process of afd_monitor. */
 #define MAX_MON_SYS_LOG_FILES             4            /* Must be > 1!   */
 #define MON_SYS_LOG_RESCAN_TIME           5
 #define MON_SYS_LOG_NAME                  "MON_SYS_LOG."
+#define MON_SYS_LOG_NAME_LENGTH           (sizeof(MON_SYS_LOG_NAME) - 1)
 #define MON_SYS_LOG_NAME_ALL              "MON_SYS_LOG.*"
 #define MAX_MON_SYS_LOG_FILES_DEF         "MAX_MON_SYS_LOG_FILES"
 #define MAX_MON_LOG_FILES                 14           /* Must be > 1!   */
 #define MON_LOG_NAME                      "MONITOR_LOG."
+#define MON_LOG_NAME_LENGTH               (sizeof(MON_LOG_NAME) - 1)
 #define MON_LOG_NAME_ALL                  "MONITOR_LOG.*"
 #define MAX_MON_LOG_FILES_DEF             "MAX_MON_LOG_FILES"
 
@@ -73,31 +79,53 @@
  *-----------------------------------------------------------------------*/
 #ifdef _INPUT_LOG
 /* Definitions for input logging */
-#define MAX_INPUT_LOG_FILES               7
-#define INPUT_BUFFER_FILE                 "INPUT_LOG."
-#define INPUT_BUFFER_FILE_ALL             "INPUT_LOG.*"
-#define MAX_INPUT_LOG_FILES_DEF           "MAX_INPUT_LOG_FILES"
+# define MAX_INPUT_LOG_FILES              7
+# define INPUT_BUFFER_FILE                "INPUT_LOG."
+# define INPUT_BUFFER_FILE_LENGTH         (sizeof(INPUT_BUFFER_FILE) - 1)
+# define INPUT_BUFFER_FILE_ALL            "INPUT_LOG.*"
+# define MAX_INPUT_LOG_FILES_DEF          "MAX_INPUT_LOG_FILES"
 #endif
 #ifdef _OUTPUT_LOG
 /* Definitions for output logging */
-#define MAX_OUTPUT_LOG_FILES              7
-#define OUTPUT_BUFFER_FILE                "OUTPUT_LOG."
-#define OUTPUT_BUFFER_FILE_ALL            "OUTPUT_LOG.*"
-#define MAX_OUTPUT_LOG_FILES_DEF          "MAX_OUTPUT_LOG_FILES"
+# define MAX_OUTPUT_LOG_FILES             7
+# define OUTPUT_BUFFER_FILE               "OUTPUT_LOG."
+# define OUTPUT_BUFFER_FILE_LENGTH        (sizeof(OUTPUT_BUFFER_FILE) - 1)
+# define OUTPUT_BUFFER_FILE_ALL           "OUTPUT_LOG.*"
+# define MAX_OUTPUT_LOG_FILES_DEF         "MAX_OUTPUT_LOG_FILES"
 #endif
 #ifdef _DELETE_LOG
 /* Definitions for delete logging */
-#define MAX_DELETE_LOG_FILES              7
-#define DELETE_BUFFER_FILE                "DELETE_LOG."
-#define DELETE_BUFFER_FILE_ALL            "DELETE_LOG.*"
-#define MAX_DELETE_LOG_FILES_DEF          "MAX_DELETE_LOG_FILES"
+# define MAX_DELETE_LOG_FILES             7
+# define DELETE_BUFFER_FILE               "DELETE_LOG."
+# define DELETE_BUFFER_FILE_LENGTH        (sizeof(DELETE_BUFFER_FILE) - 1)
+# define DELETE_BUFFER_FILE_ALL           "DELETE_LOG.*"
+# define MAX_DELETE_LOG_FILES_DEF         "MAX_DELETE_LOG_FILES"
 #endif
 #ifdef _PRODUCTION_LOG
-#define MAX_PRODUCTION_LOG_FILES          7
-#define PRODUCTION_BUFFER_FILE            "PRODUCTION_LOG."
-#define PRODUCTION_BUFFER_FILE_ALL        "PRODUCTION_LOG.*"
-#define MAX_PRODUCTION_LOG_FILES_DEF      "MAX_PRODUCTION_LOG_FILES"
+# define MAX_PRODUCTION_LOG_FILES         7
+# define PRODUCTION_BUFFER_FILE           "PRODUCTION_LOG."
+# define PRODUCTION_BUFFER_FILE_LENGTH    (sizeof(PRODUCTION_BUFFER_FILE) - 1)
+# define PRODUCTION_BUFFER_FILE_ALL       "PRODUCTION_LOG.*"
+# define MAX_PRODUCTION_LOG_FILES_DEF     "MAX_PRODUCTION_LOG_FILES"
 #endif
+#define MAX_LOG_NAME_LENGTH               15 /* Max length of:         */
+                                             /* SYSTEM_LOG_NAME        */
+                                             /* RECEIVE_LOG_NAME       */
+                                             /* TRANSFER_LOG_NAME      */
+                                             /* TRANS_DB_LOG_NAME      */
+                                             /* INPUT_BUFFER_FILE      */
+                                             /* OUTPUT_BUFFER_FILE     */
+                                             /* DELETE_BUFFER_FILE     */
+                                             /* PRODUCTION_BUFFER_FILE */
+#define MAX_LOG_DEF_NAME_LENGTH           24 /* Max length of:               */
+                                             /* MAX_SYSTEM_LOG_FILES_DEF     */
+                                             /* MAX_RECEIVE_LOG_FILES_DEF    */
+                                             /* MAX_TRANSFER_LOG_FILES_DEF   */
+                                             /* MAX_TRANS_DB_LOG_FILES_DEF   */
+                                             /* MAX_INPUT_LOG_FILES_DEF      */
+                                             /* MAX_OUTPUT_LOG_FILES_DEF     */
+                                             /* MAX_DELETE_LOG_FILES_DEF     */
+                                             /* MAX_PRODUCTION_LOG_FILES_DEF */
 
 /* Function prototypes. */
 extern int  fprint_dup_msg(FILE *, int, char *, char *, int, time_t),

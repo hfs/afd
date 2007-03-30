@@ -1,6 +1,6 @@
 /*
  *  create_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -129,10 +129,11 @@ create_name(char           *p_path,     /* Path where the new directory  */
       if (priority == NO_PRIORITY)
       {
 #if SIZEOF_TIME_T == 4
-         (void)sprintf(msg_name, "%lx_%x_%x_%x", time_val, *unique_number,
+         (void)sprintf(msg_name, "%lx_%x_%x_%x",
 #else
-         (void)sprintf(msg_name, "%llx_%x_%x_%x", time_val, *unique_number,
+         (void)sprintf(msg_name, "%llx_%x_%x_%x",
 #endif
+                       (pri_time_t)time_val, *unique_number,
                        *split_job_counter, id); /* NOTE: dir ID is inserted here! */
       }
       else
@@ -145,11 +146,12 @@ create_name(char           *p_path,     /* Path where the new directory  */
             return(INCORRECT);
          }
 #if SIZEOF_TIME_T == 4
-         (void)sprintf(msg_name, "%x/%x/%lx_%x_%x", id, dir_no,
+         (void)sprintf(msg_name, "%x/%x/%lx_%x_%x",
 #else
-         (void)sprintf(msg_name, "%x/%x/%llx_%x_%x", id, dir_no,
+         (void)sprintf(msg_name, "%x/%x/%llx_%x_%x",
 #endif
-                       time_val, *unique_number, *split_job_counter);
+                       id, dir_no, (pri_time_t)time_val, *unique_number,
+                       *split_job_counter);
       }
       (void)strcpy(ptr, msg_name);
       if (mkdir(tmpname, DIR_MODE) == -1)

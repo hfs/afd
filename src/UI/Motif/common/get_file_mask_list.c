@@ -1,7 +1,7 @@
 /*
  *  get_file_mask_list.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -107,7 +107,7 @@ get_file_mask_list(unsigned int file_mask_id,
 #else
                           "Failed to malloc() %lld : %s (%s %d)",
 #endif
-                          stat_buf.st_size, strerror(errno),
+                          (pri_off_t)stat_buf.st_size, strerror(errno),
                           __FILE__, __LINE__);
             }
             else
@@ -120,15 +120,16 @@ get_file_mask_list(unsigned int file_mask_id,
 #else
                              "Failed to read() %lld bytes from %s : %s (%s %d)",
 #endif
-                             stat_buf.st_size, fmd_file_name, strerror(errno),
-                             __FILE__, __LINE__);
+                             (pri_off_t)stat_buf.st_size, fmd_file_name,
+                             strerror(errno), __FILE__, __LINE__);
                }
                else
                {
                   int  fml_offset,
                        i,
                        mask_offset,
-                       *no_of_file_mask_ids;
+                       *no_of_file_mask_ids,
+                       shift_length;
                   char *ptr = buffer;
 
                   no_of_file_mask_ids = (int *)ptr;
@@ -157,8 +158,24 @@ get_file_mask_list(unsigned int file_mask_id,
                         }
                         break;
                      }
-                     ptr += (mask_offset + *(int *)(ptr + fml_offset) +
-                             sizeof(char) + *(ptr + mask_offset - 1));
+                     shift_length = mask_offset + *(int *)(ptr + fml_offset) +
+                                    sizeof(char) + *(ptr + mask_offset - 1);
+                     if ((ptr + shift_length + fml_offset + sizeof(int) + sizeof(int)) > (buffer + stat_buf.st_size))
+                     {
+                        system_log(DEBUG_SIGN, __FILE__, __LINE__,
+#if SIZEOF_OFF_T == 4
+                                   "Hmm, buffer overflow by %d bytes! This filemask (%s (%ld)) is not correct.",
+#else
+                                   "Hmm, buffer overflow by %d bytes! This filemask (%s (%lld)) is not correct.",
+#endif
+                                   (ptr + shift_length + fml_offset + sizeof(int) + sizeof(int)) - (buffer + stat_buf.st_size),
+                                   fmd_file_name, (pri_off_t)stat_buf.st_size);
+                        break;
+                     }
+                     else
+                     {
+                        ptr += shift_length;
+                     }
                   }
                }
                free(buffer);

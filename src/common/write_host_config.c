@@ -1,7 +1,7 @@
 /*
  *  write_host_config.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -160,53 +160,53 @@ DESCR__E_M3
 #define HOST_CONFIG_TEXT_PART2 "#\n\
 # The meaning of each is outlined in more detail below:\n\
 #\n\
-#  Alias hostname         - This is the host name that is being displayed\n\
-#                           in the afd_ctrl window and is used in the log\n\
-#                           files. It may only be 8 (MAX_HOSTNAME_LENGTH)\n\
-#                           characters long.\n\
-#                           DEFAULT: None (Empty)\n\
-#  Real hostname 1        - The real host name or IP number of the primary\n\
-#                           host.\n\
-#  Real hostname 2        - The real host name or IP number of the secondary\n\
-#                           host.\n\
-#  Host toggle            - Host switching information. This string holds the\n\
-#                           toggling character to be displayed for the\n\
-#                           primary and secondary host. The two characters\n\
-#                           must be put in either curly brackets {} for\n\
-#                           automatic host switching or square brackets []\n\
-#                           host switching by the user.\n\
-#  Proxy name             - If the remote host can only be reached via a\n\
-#                           proxy, specify the name of the proxy here.\n\
-#                           DEFAULT: None (Empty)\n\
-#  Allowed transfers      - The maximum number of parallel transfers for\n\
-#                           this host.\n\
-#                           DEFAULT: 2\n\
-#  Max. errors            - If max. errors is reached the destination\n\
-#                           identifier turns 'red'. If error retries\n\
-#                           reaches twice max. errors the queue of this\n\
-#                           host will be paused.\n\
-#  Retry interval         - If an error occurs, this is the delay (in\n\
-#                           seconds) before another transfer is initiated.\n\
-#  Transfer block size    - The size of the blocks being used to send\n\
-#                           files to the remote host (in Bytes).\n\
-#                           DEFAULT: 1024\n\
-#  Successful retries     - This is only used when there is a secondary\n\
-#                           host and automatic switch over is active.\n\
-#                           It is the number of successful transfers to\n\
-#                           the secondary host, before it tries to switch\n\
-#                           back to the main host to see if it is alive\n\
-#                           again.\n\
-#  File size offset       - When transmitting large files and the transfer\n\
-#                           gets interrupted, the AFD can append a file\n\
-#                           on the remote site. For this it needs to know\n\
-#                           the file size on the remote site. And to get\n\
-#                           the size it does a dir 'filename' at the remote\n\
-#                           site. Due to different replies of the FTP\n\
-#                           servers, the position of the file size is\n\
-#                           needed. You can easily determine this value\n\
-#                           simply doing an FTP to the remote site and\n\
-#                           a dir and count the spaces to the file size.\n\
-#                           For example:\n\
+# Alias hostname         - This is the host name that is being displayed\n\
+#                          in the afd_ctrl window and is used in the log\n\
+#                          files. It may only be 8 (MAX_HOSTNAME_LENGTH)\n\
+#                          characters long.\n\
+#                          DEFAULT: None (Empty)\n\
+# Real hostname 1        - The real host name or IP number of the primary\n\
+#                          host.\n\
+# Real hostname 2        - The real host name or IP number of the secondary\n\
+#                          host.\n\
+# Host toggle            - Host switching information. This string holds the\n\
+#                          toggling character to be displayed for the\n\
+#                          primary and secondary host. The two characters\n\
+#                          must be put in either curly brackets {} for\n\
+#                          automatic host switching or square brackets []\n\
+#                          host switching by the user.\n\
+# Proxy name             - If the remote host can only be reached via a\n\
+#                          proxy, specify the name of the proxy here.\n\
+#                          DEFAULT: None (Empty)\n\
+# Allowed transfers      - The maximum number of parallel transfers for\n\
+#                          this host.\n\
+#                          DEFAULT: 2\n\
+# Max. errors            - If max. errors is reached the destination\n\
+#                          identifier turns 'red'. If error retries\n\
+#                          reaches twice max. errors the queue of this\n\
+#                          host will be paused.\n\
+# Retry interval         - If an error occurs, this is the delay (in\n\
+#                          seconds) before another transfer is initiated.\n\
+# Transfer block size    - The size of the blocks being used to send\n\
+#                          files to the remote host (in Bytes).\n\
+#                          DEFAULT: 1024\n\
+# Successful retries     - This is only used when there is a secondary\n\
+#                          host and automatic switch over is active.\n\
+#                          It is the number of successful transfers to\n\
+#                          the secondary host, before it tries to switch\n\
+#                          back to the main host to see if it is alive\n\
+#                          again.\n\
+# File size offset       - When transmitting large files and the transfer\n\
+#                          gets interrupted, the AFD can append a file\n\
+#                          on the remote site. For this it needs to know\n\
+#                          the file size on the remote site. And to get\n\
+#                          the size it does a dir 'filename' at the remote\n\
+#                          site. Due to different replies of the FTP\n\
+#                          servers, the position of the file size is\n\
+#                          needed. You can easily determine this value\n\
+#                          simply doing an FTP to the remote site and\n\
+#                          a dir and count the spaces to the file size.\n\
+#                          For example:\n\
 #\n\
 #             -rw-r--r--   1 afd      mts-soft   14971 Jan  3 17:16\n\
 #                       ^^^ ^   ^^^^^^        ^^^\n\
@@ -214,78 +214,85 @@ DESCR__E_M3
 #                        |  |     |            |\n\
 #                        1  2     3            4\n\
 #\n\
-#                           You may also put a -2 here, then AFD will try\n\
-#                           to use the FTP SIZE command to get the size of\n\
-#                           the remote file.\n\
-#                           DEFAULT: -1 (Disabled)\n\
+#                          You may also put a -2 here, then AFD will try\n\
+#                          to use the FTP SIZE command to get the size of\n\
+#                          the remote file.\n\
+#                          DEFAULT: -1 (Disabled)\n\
 #\n\
-#  Transfer timeout       - The time how long the AFD should wait for a\n\
-#                           reply from the remote site.\n\
-#                           DEFAULT: 120\n\
-#  Number of no bursts    - This option applies only to FTP transfers.\n\
-#                           A burst is when a new job is appended to a\n\
-#                           transferring job. It can happen that jobs\n\
-#                           get constantly appended while other jobs\n\
-#                           with a higher priority have to wait. Therefor\n\
-#                           it is possible to state the number of\n\
-#                           connections that may NOT burst.\n\
-#                           DEFAULT: 0\n\
-#  Host status            - This indicates the status of the host, currently\n\
-#                           only bits number 1, 2, 6 and 7 can be set. The\n\
-#                           meaning is as follows (the values in brackets\n\
-#                           are the integer values that may be set):\n\
-#                           1 (1)  - If set transfer is stopped for this host.\n\
-#                           2 (2)  - If set queue is stopped for this host.\n\
-#                           3 (4)  - If set host is NOT in DIR_CONFIG.\n\
-#                           6 (32) - If set this host is disabled.\n\
-#                           7 (64) - If set and host switching is used\n\
+# Transfer timeout       - The time how long the AFD should wait for a\n\
+#                          reply from the remote site.\n\
+#                          DEFAULT: 120\n\
+# Number of no bursts    - This option applies only to FTP transfers.\n\
+#                          A burst is when a new job is appended to a\n\
+#                          transferring job. It can happen that jobs\n\
+#                          get constantly appended while other jobs\n\
+#                          with a higher priority have to wait. Therefor\n\
+#                          it is possible to state the number of\n\
+#                          connections that may NOT burst.\n\
+#                          DEFAULT: 0\n\
+# Host status            - This indicates the status of the host, currently\n\
+#                          only bits number 1, 2, 3, 6 and 7 can be set. The\n\
+#                          meaning is as follows (the values in brackets\n\
+#                          are the integer values that may be set):\n\
+#                          1 (1)   - If set transfer is stopped for this host.\n\
+#                          2 (2)   - If set queue is stopped for this host.\n\
+#                          3 (4)   - If set host is NOT in DIR_CONFIG.\n\
+#                          6 (32)  - If set this host is disabled.\n\
+#                          7 (64)  - If set and host switching is used\n\
 #                                    this tells that host two is active.\n\
-#                           DEFAULT: 0\n\
-#  Protocol options       - To set some protocol specific features for\n\
-#                           this host. The following bits can be set (again\n\
-#                           the values in bracket are the integer values\n\
-#                           that can be set):\n\
-#                           1 (1)  - FTP passive mode\n\
-#                           2 (2)  - Set FTP idle time to transfer timeout\n\
-#                           3 (4)  - Send STAT command to keep control\n\
+#                          DEFAULT: 0\n\
+# Protocol options       - To set some protocol specific features for\n\
+#                          this host. The following bits can be set (again\n\
+#                          the values in bracket are the integer values\n\
+#                          that can be set):\n\
+#                          1 (1)   - FTP passive mode\n\
+#                          2 (2)   - Set FTP idle time to transfer timeout\n\
+#                          3 (4)   - Send STAT command to keep control\n\
 #                                    connection alive.\n\
-#                           4 (8)  - Combine RNFR and RNTO to one command.\n\
-#                           5 (16) - Do not do a cd, always use absolute path.\n\
-#                           6 (32) - Do not send TYPE I command.\n\
-#                           DEFAULT: 0\n\
-#  Transfer rate limit    - The maximum number of kilobytes that may be\n\
-#                           transfered per second.\n\
-#                           DEFAULT: 0 (Disabled)\n\
-#  TTL                    - The time-to-live for outgoing multicasts.\n\
-#  Socket send buffer     - How large the socket send buffer should be in\n\
-#                           bytes. If this is zero it will leave it unchanged\n\
-#                           ie. it will leave the system default.\n\
-#                           DEFAULT: 0\n\
-#  Socket receive buffer  - How large the socket receive buffer should be in\n\
-#                           bytes. If this is zero it will leave it unchanged\n\
-#                           ie. it will leave the system default.\n\
-#                           DEFAULT: 0\n"
+#                          4 (8)   - Combine RNFR and RNTO to one command.\n\
+#                          5 (16)  - Do not do a cd, always use absolute path.\n\
+#                          6 (32)  - Do not send TYPE I command.\n\
+#                          7 (64)  - Use extended active or extended passive\n\
+#                                    mode.\n\
+#                          8 (128) - If set bursting is disabled.\n\
+#                          9 (256) - If set FTP passive mode allows to be\n\
+#                                    redirected to another address.\n\
+#                          DEFAULT: 0\n\
+# Transfer rate limit    - The maximum number of kilobytes that may be\n\
+#                          transfered per second.\n\
+#                          DEFAULT: 0 (Disabled)\n\
+# TTL                    - The time-to-live for outgoing multicasts.\n\
+# Socket send buffer     - How large the socket send buffer should be in\n\
+#                          bytes. If this is zero it will leave it unchanged\n\
+#                          ie. it will leave the system default.\n\
+#                          DEFAULT: 0\n\
+# Socket receive buffer  - How large the socket receive buffer should be in\n\
+#                          bytes. If this is zero it will leave it unchanged\n\
+#                          ie. it will leave the system default.\n\
+#                          DEFAULT: 0\n"
 
 #ifdef WITH_DUP_CHECK
-#define HOST_CONFIG_TEXT_PART3 "#  Duplicate check timeout- Check for duplicates if the value is bigger then 0.\n\
-#                           The unit is seconds and is the time how long the\n\
-#                           CRC is to be stored.\n\
-#                           DEFAULT: 0 (Disabled)\n\
-#  Duplicate check flag   - This flag specifies how to determine the checksum,\n\
-#                           which CRC to use and what action should be taken\n\
-#                           when we find a duplicate. The bits have the\n\
-#                           following meaning:\n\
-#                           1 (1)        - Only do CRC checksum for filename.\n\
-#                           2 (2)        - Only do CRC checksum for file content.\n\
-#                           3 (4)        - Cecksum for filename and content.\n\
-#                           16(32768)    - Do a CRC32 checksum.\n\
-#                           24(8388608)  - Delete the file.\n\
-#                           25(16777216) - Store the duplicate file.\n\
-#                           26(33554432) - Warn in SYSTEM_LOG.\n\
-#                           DEFAULT: 0\n\
-#  Keep connected         - Keep connection for the given number of seconds\n\
-#                           after all files have been transmitted.\n\
-#                           DEFAULT: 0\n\
+#define HOST_CONFIG_TEXT_PART3 "# Duplicate check timeout- Check for duplicates if the value is bigger then 0.\n\
+#                          The unit is seconds and is the time how long the\n\
+#                          CRC is to be stored.\n\
+#                          DEFAULT: 0 (Disabled)\n\
+# Duplicate check flag   - This flag specifies how to determine the checksum,\n\
+#                          which CRC to use and what action should be taken\n\
+#                          when we find a duplicate. The bits have the\n\
+#                          following meaning:\n\
+#                          1 (1)        - Only do CRC checksum for filename.\n\
+#                          2 (2)        - Only do CRC checksum for file content.\n\
+#                          3 (4)        - Cecksum for filename and content.\n\
+#                          4 (8)        - Checksum of filename without last suffix.\n\
+#                          16(32768)    - Do a CRC32 checksum.\n\
+#                          24(8388608)  - Delete the file.\n\
+#                          25(16777216) - Store the duplicate file.\n\
+#                          26(33554432) - Warn in SYSTEM_LOG.\n\
+#                          DEFAULT: 0\n\
+# Keep connected         - Keep connection for the given number of seconds\n\
+#                          after all files have been transmitted or some\n\
+#                          data was retrieved.\n\
+#                          DEFAULT: 0\n\
 #\n\
 # Example entry:\n\
 #  idefix:192.168.1.24:192.168.1.25:[12]::5:10:300:4096:10:-2:20:0:0:0:0:0:0:0:0:0:0\n\n"

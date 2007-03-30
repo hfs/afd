@@ -1,6 +1,6 @@
 /*
  *  check_file_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -357,7 +357,8 @@ check_jobs(int force_check)
 #else
                                                                     "Message `%s' not in queue, adding message (%d files %lld bytes).",
 #endif
-                                                                    ptr, file_counter, size_counter);
+                                                                    ptr, file_counter,
+                                                                    (pri_off_t)size_counter);
                                                          add_message_to_queue(ptr, file_counter, size_counter, job_id, jd_pos);
                                                       }
                                                       else
@@ -367,9 +368,20 @@ check_jobs(int force_check)
                                                           */
                                                          if (rmdir(file_dir) == -1)
                                                          {
-                                                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                                                       "Failed to rmdir() `%s' : %s",
-                                                                       file_dir, strerror(errno));
+                                                            if ((errno == ENOTEMPTY) ||
+                                                                (errno == EEXIST))
+                                                            {
+                                                               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                                          "Failed to rmdir() `%s' because there is still data in it, deleting everything in this directory.",
+                                                                          file_dir);
+                                                               (void)rec_rmdir(file_dir);
+                                                            }
+                                                            else
+                                                            {
+                                                               system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                                          "Failed to rmdir() `%s' : %s",
+                                                                          file_dir, strerror(errno));
+                                                            }
                                                          }
                                                          else
                                                          {

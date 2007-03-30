@@ -79,6 +79,7 @@ DESCR__E_M3
 #include <stdlib.h>             /* malloc(), free()                      */
 #include <ctype.h>              /* isalpha(), isdigit()                  */
 #include <errno.h>
+#include "amgdefs.h"
 
 #ifdef _WITH_AFW2WMO
 /* Local function prototypes */
@@ -655,7 +656,7 @@ show_error(char *is, char *expect)
    length = (MAX_INT_LENGTH + 2) * show_length;
    if ((tmp_buf = malloc(length + 1)) == NULL)
    {
-      receive_log(ERROR_SIGN, __FILE__, __LINE__,
+      receive_log(ERROR_SIGN, __FILE__, __LINE__, 0L,
                   "afw2wmo(): malloc() error : %s", strerror(errno));
       exit(INCORRECT);
    }

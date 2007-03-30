@@ -1,6 +1,6 @@
 /*
  *  test_in_time.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   test_in_time -
  **
  ** SYNOPSIS
- **   test_in_time <crontab like time entry> [<unix time>]
+ **   test_in_time <crontab like time entry 1> [<crontab like time entry n>]
  **
  ** DESCRIPTION
  **
@@ -36,18 +36,22 @@ DESCR__S_M3
  **
  ** HISTORY
  **   12.05.2001 H.Kiehl Created
+ **   13.11.2006 H.Kiehl Allow for multiple time entries.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 #include "amgdefs.h"
 
 /* Global variables */
 int        sys_log_fd = STDERR_FILENO;
+char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
 
 
@@ -55,29 +59,42 @@ const char *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
+   int                  i;
+   size_t               new_size;
    time_t               current_time;
-   struct bd_time_entry te;
+   char                 str_time[32];
+   struct bd_time_entry *te;
 
-   if ((argc != 2) && (argc != 3))
+   if (get_arg(&argc, argv, "-f", str_time, 32) == SUCCESS)
    {
-      (void)fprintf(stderr, "Usage: %s <crontab like time entry> [<unix time>]\n",
-                    argv[0]);
-      exit(INCORRECT);
-   }
-   if (argc == 2)
-   {
-      current_time = time(NULL);
+      current_time = atol(str_time);
    }
    else
    {
-      current_time = atol(argv[2]);
+      current_time = time(NULL);
    }
-
-   if (eval_time_str(argv[1], &te) == INCORRECT)
+   if (argc < 2)
    {
+      (void)fprintf(stderr, "Usage: %s [-f <current unix time>] <crontab like time entry 1> [<crontab like time entry n>]\n",
+                    argv[0]);
       exit(INCORRECT);
    }
-   if (in_time(current_time, &te) == YES)
+
+   new_size = (argc - 1) * sizeof(struct bd_time_entry);
+   if ((te = malloc(new_size)) == NULL)
+   {
+      (void)fprintf(stderr, "Failed to malloc() %d bytes : %s",
+                    new_size, strerror(errno));
+      exit(INCORRECT);
+   }
+   for (i = 0; i < (argc - 1); i++)
+   {
+      if (eval_time_str(argv[i + 1], &te[i]) == INCORRECT)
+      {
+         exit(INCORRECT);
+      }
+   }
+   if (in_time(current_time, (argc - 1), te) == YES)
    {
       (void)fprintf(stdout, "IS in time : %s", ctime(&current_time));
    }

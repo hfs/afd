@@ -26,9 +26,9 @@ DESCR__S_M3
  **   fax2gts - changes FAX files to GTS T4 files
  **
  ** SYNOPSIS
- **   int fax2gts(char *path, char *filename)
- **         path     - path where the FAX file can be found
- **         filename - file name of the FAX file
+ **   off_t fax2gts(char *path, char *filename)
+ **            path     - path where the FAX file can be found
+ **            filename - file name of the FAX file
  **
  ** DESCRIPTION
  **   Inserts a WMO-bulletin header.
@@ -55,9 +55,7 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
-
-/* Function prototypes */
-static void byte_swap(char *);
+#include "amgdefs.h"
 
 
 /*############################## fax2gts() ##############################*/

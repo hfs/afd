@@ -46,7 +46,6 @@ DESCR__E_M3
 
 #include <string.h>
 #include <stdlib.h>
-#include <sys/stat.h>
 #include <unistd.h>
 #include <errno.h>
 #include "fddefs.h"
@@ -71,8 +70,7 @@ check_queue_space(void)
                  MSG_QUE_BUF_SIZE * sizeof(struct queue_buf)) +
                  AFD_WORD_OFFSET;
       ptr = (char *)qb - AFD_WORD_OFFSET;
-      if ((ptr = mmap_resize(qb_fd, ptr,
-                             new_size)) == (caddr_t) -1)
+      if ((ptr = mmap_resize(qb_fd, ptr, new_size)) == (caddr_t) -1)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "mmap() error : %s", strerror(errno));

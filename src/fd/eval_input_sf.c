@@ -1,6 +1,6 @@
 /*
  *  eval_input_sf.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -233,8 +233,13 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                                        if ((p_db->from = malloc(length)) == NULL)
                                        {
                                           (void)fprintf(stderr,
+#if SIZEOF_SIZE_T == 4
                                                         "ERROR   : Failed to malloc() %d bytes : %s",
-                                                        length, strerror(errno));
+#else
+                                                        "ERROR   : Failed to malloc() %lld bytes : %s",
+#endif
+                                                        (pri_size_t)length,
+                                                        strerror(errno));
                                           ret = ALLOC_ERROR;
                                        }
                                        else
@@ -343,7 +348,7 @@ eval_input_sf(int argc, char *argv[], struct job *p_db)
                               }
                            }
                         }
-                        if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET) & ENABLE_CREATE_TARGET_DIR)
+                        if (*(unsigned char *)((char *)p_no_of_hosts + AFD_FEATURE_FLAG_OFFSET_START) & ENABLE_CREATE_TARGET_DIR)
                         {
                            p_db->special_flag |= CREATE_TARGET_DIR;
                         }

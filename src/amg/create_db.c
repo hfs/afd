@@ -1,6 +1,6 @@
 /*
  *  create_db.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,16 +85,11 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        no_fork_jobs,
                                   no_of_hosts,
                                   no_of_local_dirs,
                                   no_of_time_jobs,
-#ifdef _TEST_FILE_TABLE
-                                  no_of_local_dirs,/* No. of directories */
-                                                   /* in DIR_CONFIG file */
-                                                   /* that are local.    */
-#endif /* _TEST_FILE_TABLE */
                                   *time_job_list;
 extern unsigned int               default_age_limit;
 extern off_t                      amg_data_size;
@@ -108,7 +103,7 @@ extern struct afd_status          *p_afd_status;
 extern struct filetransfer_status *fsa;
 extern struct fileretrieve_status *fra;
 
-/* Global variables */
+/* Global variables. */
 int                               dnb_fd,
                                   fmd_fd = -1, /* File Mask Database fd  */
                                   jd_fd,
@@ -119,7 +114,7 @@ int                               dnb_fd,
 off_t                             fmd_size = 0;
 char                              *fmd,
 #ifdef WITH_GOTCHA_LIST
-                                  *gotcha,
+                                  *gotcha = NULL,
 #endif
                                   msg_dir[MAX_PATH_LENGTH],
                                   *p_msg_dir;
@@ -151,6 +146,7 @@ create_db(void)
 #ifdef WITH_MULTI_DIR_DEFINITION
                    original_i = -1,
 #endif
+                   show_one_job_no_link,
                    size,
                    dir_counter = 0,
                    no_of_jobs;
@@ -167,20 +163,105 @@ create_db(void)
    struct p_array  *p_ptr;
    struct stat     stat_buf;
 
+   /* Check if we need to free some data. */
    if (fjd != NULL)
    {
       free(fjd);
       fjd = NULL;
       no_fork_jobs = 0;
    }
+   if (db != NULL)
+   {
+      if (p_mmap != NULL)
+      {
+         ptr = p_mmap;
+         no_of_jobs = *(int *)ptr;
+      }
+      else
+      {
+         no_of_jobs = 0;
+      }
+      for (i = 0; i < no_of_jobs; i++)
+      {
+         if (db[i].te != NULL)
+         {
+            free(db[i].te);
+            db[i].te = NULL;
+         }
+      }
+      free(db);
+      db = NULL;
 
-   /* Set flag to indicate that we are writting in JID structure */
+      /* Lets just assume that when db was allocated that the data */
+      /* in struct directory_entry is also still allocated.        */
+      for (i = 0; i < no_of_local_dirs; i++)
+      {
+         for (j = 0; j < de[i].nfg; j++)
+         {
+            free(de[i].fme[j].pos);
+            de[i].fme[j].pos = NULL;
+            free(de[i].fme[j].file_mask);
+            de[i].fme[j].file_mask = NULL;
+         }
+         free(de[i].fme);
+         de[i].fme = NULL;
+         de[i].nfg = 0;
+         if (de[i].paused_dir != NULL)
+         {
+            free(de[i].paused_dir);
+            de[i].paused_dir = NULL;
+         }
+         if (de[i].rl_fd != -1)
+         {
+            if (close(de[i].rl_fd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Failed to close() retrieve list file for directory ID %x: %s",
+                          de[i].dir_id, strerror(errno));
+            }
+            de[i].rl_fd = -1;
+         }
+         if (de[i].rl != NULL)
+         {
+            ptr = (char *)de[i].rl - AFD_WORD_OFFSET;
+            if (munmap(ptr, de[i].rl_size) == -1)
+            {
+               system_log(WARN_SIGN, __FILE__, __LINE__,
+                          "Failed to munmap() from retrieve list file for directory ID %x: %s",
+                          de[i].dir_id, strerror(errno));
+            }
+            de[i].rl = NULL;
+         }
+      }
+   }
+   if (p_mmap != NULL)
+   {
+#ifdef HAVE_MMAP
+      if (munmap(p_mmap, amg_data_size) == -1)
+#else
+      if (munmap_emu((void *)p_mmap) == -1)
+#endif
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to munmap() from %s : %s",
+                    AMG_DATA_FILE, strerror(errno));
+      }
+      p_mmap = NULL;
+
+      show_one_job_no_link = NO;
+   }
+   else
+   {
+      show_one_job_no_link = YES;
+   }
+
+   /* Set flag to indicate that we are writting in JID structure. */
    if ((p_afd_status->amg_jobs & WRITTING_JID_STRUCT) == 0)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
    }
 
-   /* Get device number for working directory */
+   /* Get device number for working directory. */
    if (stat(afd_file_dir, &stat_buf) == -1)
    {
       p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
@@ -306,7 +387,7 @@ create_db(void)
       time_job_list = NULL;
    }
 
-   /* Create and copy pointer array */
+   /* Create and copy pointer array. */
    size = no_of_jobs * sizeof(struct p_array);
    if ((tmp_ptr = calloc(no_of_jobs, sizeof(struct p_array))) == NULL)
    {
@@ -326,8 +407,8 @@ create_db(void)
    de[0].nfg         = 0;
    de[0].fme         = NULL;
    de[0].flag        = 0;
-   de[0].dir         = p_ptr[0].ptr[1] + p_offset;
-   de[0].alias       = p_ptr[0].ptr[2] + p_offset;
+   de[0].dir         = p_ptr[0].ptr[DIRECTORY_PTR_POS] + p_offset;
+   de[0].alias       = p_ptr[0].ptr[ALIAS_NAME_PTR_POS] + p_offset;
    if ((de[0].fra_pos = lookup_fra_pos(de[0].alias)) == INCORRECT)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -336,7 +417,6 @@ create_db(void)
       exit(INCORRECT);
    }
    de[0].dir_id      = fra[de[0].fra_pos].dir_id;
-   de[0].mod_time    = -1;
    de[0].search_time = 0;
    if (fra[de[0].fra_pos].fsa_pos != -1)
    {
@@ -360,17 +440,9 @@ create_db(void)
    }
    if (stat(de[0].dir, &stat_buf) < 0)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to stat() `%s' : %s", de[0].dir, strerror(errno));
-      p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-      if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-      {
-         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-      }
-      free(db); free(de);
-      free(tmp_ptr);
-      unmap_data(jd_fd, (void *)&jd);
-      exit(INCORRECT);
+      stat_buf.st_dev = ldv + 1;
    }
    if (stat_buf.st_dev != ldv)
    {
@@ -381,7 +453,7 @@ create_db(void)
       de[0].flag |= IN_SAME_FILESYSTEM;
    }
    if (((no_of_jobs - 1) == 0) ||
-       (de[0].dir != (p_ptr[1].ptr[1] + p_offset)))
+       (de[0].dir != (p_ptr[1].ptr[DIRECTORY_PTR_POS] + p_offset)))
    {
       de[0].flag |= RENAME_ONE_JOB_ONLY;
       one_job_only_dir++;
@@ -391,34 +463,32 @@ create_db(void)
    for (i = 0; i < no_of_jobs; i++)
    {
 #ifdef WITH_MULTI_DIR_DEFINITION
-      if (*(p_ptr[i].ptr[11] + p_offset) == 1)
+      if (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == 1)
       {
          continue;
       }
       else if ((original_i != -1) &&
-               (*(p_ptr[i].ptr[11] + p_offset) == '\0'))
+               (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == '\0'))
            {
-              *(p_ptr[i].ptr[11] + p_offset) = 1;
+              *(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) = 1;
            }
 #endif
       exec_flag = 0;
 
       /* Store DIR_CONFIG ID. */
-      db[i].dir_config_id = (unsigned int)strtoul(p_ptr[i].ptr[10] + p_offset, NULL, 16);
+      db[i].dir_config_id = (unsigned int)strtoul(p_ptr[i].ptr[DIR_CONFIG_ID_PTR_POS] + p_offset, NULL, 16);
 
-      /* Store directory pointer */
-      db[i].dir = p_ptr[i].ptr[1] + p_offset;
+      /* Store directory pointer. */
+      db[i].dir = p_ptr[i].ptr[DIRECTORY_PTR_POS] + p_offset;
 
-      /* Store priority */
-      db[i].priority = *(p_ptr[i].ptr[0] + p_offset);
+      /* Store priority. */
+      db[i].priority = *(p_ptr[i].ptr[PRIORITY_PTR_POS] + p_offset);
 
-      /* Store number of files to be send */
-      db[i].no_of_files = atoi(p_ptr[i].ptr[3] + p_offset);
+      /* Store number of files to be send. */
+      db[i].no_of_files = atoi(p_ptr[i].ptr[NO_OF_FILES_PTR_POS] + p_offset);
 
-      /* Store pointer to first file (filter) */
-      db[i].files = p_ptr[i].ptr[4] + p_offset;
-
-      db[i].fra_pos = de[dir_counter].fra_pos;
+      /* Store pointer to first file (filter). */
+      db[i].files = p_ptr[i].ptr[FILE_PTR_POS] + p_offset;
 
       /*
        * Store all file names of one directory into one array. This
@@ -459,7 +529,7 @@ create_db(void)
             exit(INCORRECT);
          }
          de[dir_counter].dir           = db[i].dir;
-         de[dir_counter].alias         = p_ptr[i].ptr[2] + p_offset;
+         de[dir_counter].alias         = p_ptr[i].ptr[ALIAS_NAME_PTR_POS] + p_offset;
          if ((de[dir_counter].fra_pos = lookup_fra_pos(de[dir_counter].alias)) == INCORRECT)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -471,7 +541,6 @@ create_db(void)
          de[dir_counter].nfg           = 0;
          de[dir_counter].fme           = NULL;
          de[dir_counter].flag          = 0;
-         de[dir_counter].mod_time      = -1;
          de[dir_counter].search_time   = 0;
          if (fra[de[dir_counter].fra_pos].fsa_pos != -1)
          {
@@ -496,18 +565,10 @@ create_db(void)
          }
          if (stat(db[i].dir, &stat_buf) < 0)
          {
-            system_log(FATAL_SIGN, __FILE__, __LINE__,
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to stat() `%s' : %s",
                        db[i].dir, strerror(errno));
-            p_afd_status->amg_jobs ^= WRITTING_JID_STRUCT;
-            if (p_afd_status->amg_jobs & REREADING_DIR_CONFIG)
-            {
-               p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-            }
-            free(db); free(de);
-            free(tmp_ptr);
-            unmap_data(jd_fd, (void *)&jd);
-            exit(INCORRECT);
+            stat_buf.st_dev = ldv + 1;
          }
          if (stat_buf.st_dev != ldv)
          {
@@ -518,12 +579,13 @@ create_db(void)
             de[dir_counter].flag |= IN_SAME_FILESYSTEM;
          }
          if ((i == (no_of_jobs - 1)) ||
-             (db[i].dir != (p_ptr[i + 1].ptr[1] + p_offset)))
+             (db[i].dir != (p_ptr[i + 1].ptr[DIRECTORY_PTR_POS] + p_offset)))
          {
             de[dir_counter].flag |= RENAME_ONE_JOB_ONLY;
             one_job_only_dir++;
          }
       }
+      db[i].fra_pos = de[dir_counter].fra_pos;
       db[i].dir_id = de[dir_counter].dir_id;
 
       /*
@@ -623,7 +685,7 @@ create_db(void)
          {
             size_t new_size;
 
-            /* Calculate new size of file group buffer */
+            /* Calculate new size of file group buffer. */
              new_size = ((de[dir_counter].fme[de[dir_counter].nfg].dest_count / POS_STEP_SIZE) + 1) *
                         POS_STEP_SIZE * sizeof(int);
 
@@ -651,7 +713,7 @@ create_db(void)
               {
                  size_t new_size;
 
-                 /* Calculate new size of file group buffer */
+                 /* Calculate new size of file group buffer. */
                   new_size = ((de[dir_counter].fme[de[dir_counter].nfg - 1].dest_count / POS_STEP_SIZE) + 1) *
                              POS_STEP_SIZE * sizeof(int);
 
@@ -675,15 +737,18 @@ create_db(void)
               db[i].fbl = db[i - 1].fbl;
            }
 
-      /* Store number of local options */
-      db[i].no_of_loptions = atoi(p_ptr[i].ptr[5] + p_offset);
+      /* Store number of local options. */
+      db[i].no_of_loptions = atoi(p_ptr[i].ptr[NO_LOCAL_OPTIONS_PTR_POS] + p_offset);
       db[i].next_start_time = 0;
       db[i].time_option_type = NO_TIME;
+      db[i].no_of_time_entries = 0;
+      db[i].te = NULL;
 
       /* Store pointer to first local option. */
       if (db[i].no_of_loptions > 0)
       {
-         db[i].loptions = p_ptr[i].ptr[6] + p_offset;
+         db[i].loptions = p_ptr[i].ptr[LOCAL_OPTIONS_PTR_POS] + p_offset;
+         db[i].loptions_flag = (unsigned int)strtoul(p_ptr[i].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] + p_offset, NULL, 16);
 
          /*
           * Because extracting bulletins from files can take quit a
@@ -693,75 +758,112 @@ create_db(void)
          p_loptions = db[i].loptions;
          for (j = 0; j < db[i].no_of_loptions; j++)
          {
-            if (strncmp(p_loptions, DELETE_ID, DELETE_ID_LENGTH) == 0)
+            if (db[i].loptions_flag & DELETE_ID_FLAG)
             {
                db[i].lfs = DELETE_ALL_FILES;
                break;
             }
-            if (strncmp(p_loptions, EXEC_ID, EXEC_ID_LENGTH) == 0)
+            if ((db[i].loptions_flag & EXEC_ID_FLAG) &&
+                (strncmp(p_loptions, EXEC_ID, EXEC_ID_LENGTH) == 0))
             {
                db[i].lfs |= GO_PARALLEL;
                db[i].lfs |= DO_NOT_LINK_FILES;
                exec_flag = 1;
                exec_flag_dir = 1;
             }
-            /*
-             * NOTE: TIME_NO_COLLECT_ID option __must__ be checked before
-             *       TIME_ID. Since both start with time and TIME_ID only
-             *       consists only of the word time.
-             */
-            else if (strncmp(p_loptions, TIME_NO_COLLECT_ID,
-                             TIME_NO_COLLECT_ID_LENGTH) == 0)
+            else if ((db[i].loptions_flag & TIME_NO_COLLECT_ID_FLAG) &&
+                     (strncmp(p_loptions, TIME_NO_COLLECT_ID,
+                              TIME_NO_COLLECT_ID_LENGTH) == 0))
                  {
-                    char *ptr = p_loptions + TIME_NO_COLLECT_ID_LENGTH;
+                    char                 *ptr = p_loptions + TIME_NO_COLLECT_ID_LENGTH;
+                    struct bd_time_entry te;
 
                     while ((*ptr == ' ') || (*ptr == '\t'))
                     {
                        ptr++;
                     }
-                    if (eval_time_str(ptr, &db[i].te) == SUCCESS)
+                    if (eval_time_str(ptr, &te) == SUCCESS)
                     {
-                       db[i].time_option_type = SEND_NO_COLLECT_TIME;
+                       int new_size;
+
+                       new_size = (db[i].no_of_time_entries + 1) *
+                                  sizeof(struct bd_time_entry);
+                       if ((db[i].te = realloc(db[i].te, new_size)) == NULL)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "Failed to realloc() %d bytes : %s",
+                                     new_size, strerror(errno));
+                       }
+                       else
+                       {
+                          db[i].time_option_type = SEND_NO_COLLECT_TIME;
+                          (void)memcpy(&db[i].te[db[i].no_of_time_entries],
+                                       &te, sizeof(struct bd_time_entry));
+                          db[i].no_of_time_entries++;
+                       }
                     }
                     else
                     {
                        system_log(ERROR_SIGN, __FILE__, __LINE__, "%s", ptr);
                     }
                  }
-            else if (strncmp(p_loptions, TIME_ID, TIME_ID_LENGTH) == 0)
+            else if ((db[i].loptions_flag & TIME_ID_FLAG) &&
+                     (strncmp(p_loptions, TIME_ID, TIME_ID_LENGTH) == 0))
                  {
-                    char *ptr = p_loptions + TIME_ID_LENGTH;
+                    char                 *ptr = p_loptions + TIME_ID_LENGTH;
+                    struct bd_time_entry te;
 
                     while ((*ptr == ' ') || (*ptr == '\t'))
                     {
                        ptr++;
                     }
-                    if (eval_time_str(ptr, &db[i].te) == SUCCESS)
+                    if (eval_time_str(ptr, &te) == SUCCESS)
                     {
-                       db[i].next_start_time = calc_next_time(&db[i].te,
-                                                              time(NULL));
-                       db[i].time_option_type = SEND_COLLECT_TIME;
+                       int new_size;
+
+                       new_size = (db[i].no_of_time_entries + 1) *
+                                  sizeof(struct bd_time_entry);
+                       if ((db[i].te = realloc(db[i].te, new_size)) == NULL)
+                       {
+                          system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                     "Failed to realloc() %d bytes : %s",
+                                     new_size, strerror(errno));
+                       }
+                       else
+                       {
+                          (void)memcpy(&db[i].te[db[i].no_of_time_entries],
+                                       &te, sizeof(struct bd_time_entry));
+                          db[i].no_of_time_entries++;
+                          db[i].next_start_time = calc_next_time_array(db[i].no_of_time_entries,
+                                                                       db[i].te,
+                                                                       time(NULL));
+                          db[i].time_option_type = SEND_COLLECT_TIME;
+                       }
                     }
                     else
                     {
                        system_log(ERROR_SIGN, __FILE__, __LINE__, "%s", ptr);
                     }
                  }
-            else if (strncmp(p_loptions, GTS2TIFF_ID, GTS2TIFF_ID_LENGTH) == 0)
+            else if ((db[i].loptions_flag & GTS2TIFF_ID_FLAG) &&
+                     (strncmp(p_loptions, GTS2TIFF_ID, GTS2TIFF_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= GO_PARALLEL;
                  }
-            else if (strncmp(p_loptions, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0)
+            else if ((db[i].loptions_flag & GRIB2WMO_ID_FLAG) &&
+                     (strncmp(p_loptions, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= GO_PARALLEL;
                  }
 #ifdef _WITH_AFW2WMO
-            else if (strncmp(p_loptions, AFW2WMO_ID, AFW2WMO_ID_LENGTH) == 0)
+            else if ((db[i].loptions_flag & AFW2WMO_ID_FLAG) &&
+                     (strncmp(p_loptions, AFW2WMO_ID, AFW2WMO_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= DO_NOT_LINK_FILES;
                  }
-#endif /* _WITH_AFW2WMO */
-            else if (strncmp(p_loptions, EXTRACT_ID, EXTRACT_ID_LENGTH) == 0)
+#endif
+            else if ((db[i].loptions_flag & EXTRACT_ID_FLAG) &&
+                     (strncmp(p_loptions, EXTRACT_ID, EXTRACT_ID_LENGTH) == 0))
                  {
                     db[i].lfs |= GO_PARALLEL;
                     db[i].lfs |= SPLIT_FILE_LIST;
@@ -771,6 +873,7 @@ create_db(void)
       }
       else
       {
+         db[i].loptions_flag = 0;
          db[i].loptions = NULL;
       }
 
@@ -790,14 +893,14 @@ create_db(void)
       }
 
       /* Store number of standard options. */
-      db[i].no_of_soptions = atoi(p_ptr[i].ptr[7] + p_offset);
+      db[i].no_of_soptions = atoi(p_ptr[i].ptr[NO_STD_OPTIONS_PTR_POS] + p_offset);
 
       /* Store pointer to first local option and age limit. */
       if (db[i].no_of_soptions > 0)
       {
          char *sptr;
 
-         db[i].soptions = p_ptr[i].ptr[8] + p_offset;
+         db[i].soptions = p_ptr[i].ptr[STD_OPTIONS_PTR_POS] + p_offset;
          if ((sptr = posi(db[i].soptions, AGE_LIMIT_ID)) != NULL)
          {
             int  count = 0;
@@ -836,7 +939,7 @@ create_db(void)
       }
 
       /* Store pointer to recipient. */
-      db[i].recipient = p_ptr[i].ptr[9] + p_offset;
+      db[i].recipient = p_ptr[i].ptr[RECIPIENT_PTR_POS] + p_offset;
 
       /* Extract hostname and position in FSA for each recipient. */
       if (get_hostname(db[i].recipient, real_hostname) == INCORRECT)
@@ -1050,16 +1153,16 @@ create_db(void)
          no_fork_jobs++;
       }
 #ifdef WITH_MULTI_DIR_DEFINITION
-      if ((*(p_ptr[i].ptr[11] + p_offset) != '\0') &&
-          (*(p_ptr[i].ptr[11] + p_offset) != 1))
+      if ((*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) != '\0') &&
+          (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) != 1))
       {
          int tmp_original_i = original_i;
 
          original_i = i;
-         i = atoi(p_ptr[i].ptr[11] + p_offset) - 1;
+         i = atoi(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) - 1;
          if (tmp_original_i != -1)
          {
-            *(p_ptr[i].ptr[11] + p_offset) = 1;
+            *(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) = 1;
          }
       }
       else
@@ -1074,6 +1177,21 @@ create_db(void)
       }
 #endif
    } /* for (i = 0; i < no_of_jobs; i++)  */
+
+#ifdef WITH_MULTI_DIR_DEFINITION
+   /*
+    * NOTE: We need to reset our jump back marks (1), otherwise when
+    *       this function is called again (changing alias order with edit_hc)
+    *       will fall over those jump marks!
+    */
+   for (i = 0; i < no_of_jobs; i++)
+   {
+      if (*(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == 1)
+      {
+         *(p_ptr[i].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) = '\0';
+      }
+   }
+#endif
 
    if ((de[dir_counter].flag & DELETE_ALL_FILES) ||
        ((de[dir_counter].flag & IN_SAME_FILESYSTEM) && (exec_flag_dir == 0)))
@@ -1114,13 +1232,14 @@ create_db(void)
    /* Write job list file. */
    write_current_msg_list(no_of_jobs);
 
-   /* Remove old time job directories */
+   /* Remove old time job directories. */
    check_old_time_jobs(no_of_jobs);
 
-   /* Free all memory */
+   /* Free all memory. */
    free(tmp_ptr);
 #ifdef WITH_GOTCHA_LIST
    free(gotcha);
+   gotcha = NULL;
 #endif
    unmap_data(dnb_fd, (void *)&dnb);
    unmap_data(jd_fd, (void *)&jd);
@@ -1140,29 +1259,32 @@ create_db(void)
       p_afd_status->start_time = time(NULL);
    }
 
-   if (one_job_only_dir > 1)
+   if (show_one_job_no_link == YES)
    {
-      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                 "%d directories with only one job and no need for linking.",
-                 one_job_only_dir);
-   }
-   else if (one_job_only_dir == 1)
-        {
-           system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                      "One directory with only one job.");
-        }
+      if (one_job_only_dir > 1)
+      {
+         system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                    "%d directories with only one job and no need for linking.",
+                    one_job_only_dir);
+      }
+      else if (one_job_only_dir == 1)
+           {
+              system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                         "One directory with only one job.");
+           }
 
-   if (not_in_same_file_system > 1)
-   {
-      system_log(INFO_SIGN, __FILE__, __LINE__,
-                 "%d directories not in the same filesystem as AFD.",
-                 not_in_same_file_system);
+      if (not_in_same_file_system > 1)
+      {
+         system_log(INFO_SIGN, __FILE__, __LINE__,
+                    "%d directories not in the same filesystem as AFD.",
+                    not_in_same_file_system);
+      }
+      else if (not_in_same_file_system == 1)
+           {
+              system_log(INFO_SIGN, __FILE__, __LINE__,
+                         "One directory not in the same filesystem as AFD.");
+           }
    }
-   else if (not_in_same_file_system == 1)
-        {
-           system_log(INFO_SIGN, __FILE__, __LINE__,
-                      "One directory not in the same filesystem as AFD.");
-        }
 
 #ifdef _TEST_FILE_TABLE
    for (i = 0; i < no_of_local_dirs; i++)

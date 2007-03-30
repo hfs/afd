@@ -39,12 +39,16 @@ build_triplet = @build@
 host_triplet = @host@
 bin_PROGRAMS = afd_mon$(EXEEXT) afd_mon_status$(EXEEXT) mafd$(EXEEXT) \
 	msa_view$(EXEEXT) topview$(EXEEXT) view_hosts$(EXEEXT) \
-	mon$(EXEEXT) mafdcmd$(EXEEXT)
+	mon$(EXEEXT) log_mon$(EXEEXT) mafdcmd$(EXEEXT)
 subdir = src/afd_mon
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
+am__aclocal_m4_deps =  \
+	$(top_srcdir)/ac-tools/ax_check_compiler_flags.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_archflag.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_x86_cpuid.m4 \
+	$(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
@@ -60,14 +64,20 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am_afd_mon_OBJECTS = afd_mon.$(OBJEXT) check_mon.$(OBJEXT) \
-	create_msa.$(OBJEXT) eval_afd_mon_db.$(OBJEXT) \
-	init_fifos_mon.$(OBJEXT) start_all.$(OBJEXT) \
-	start_process.$(OBJEXT) stop_process.$(OBJEXT)
+	convert_msa.$(OBJEXT) create_msa.$(OBJEXT) \
+	eval_afd_mon_db.$(OBJEXT) init_fifos_mon.$(OBJEXT) \
+	mon_log.$(OBJEXT) start_all.$(OBJEXT) start_process.$(OBJEXT) \
+	stop_process.$(OBJEXT)
 afd_mon_OBJECTS = $(am_afd_mon_OBJECTS)
 afd_mon_DEPENDENCIES = ../common/libafd.a
 am_afd_mon_status_OBJECTS = afd_mon_status.$(OBJEXT)
 afd_mon_status_OBJECTS = $(am_afd_mon_status_OBJECTS)
 afd_mon_status_DEPENDENCIES = ../common/libafd.a
+am_log_mon_OBJECTS = log_mon.$(OBJEXT) mon_log.$(OBJEXT) \
+	send_log_cmd.$(OBJEXT) tcpcmd.$(OBJEXT) \
+	write_afd_log.$(OBJEXT)
+log_mon_OBJECTS = $(am_log_mon_OBJECTS)
+log_mon_DEPENDENCIES = ../common/libafd.a
 am_mafd_OBJECTS = check_mon.$(OBJEXT) mafd.$(OBJEXT) \
 	shutdown_mon.$(OBJEXT)
 mafd_OBJECTS = $(am_mafd_OBJECTS)
@@ -75,7 +85,8 @@ mafd_DEPENDENCIES = ../common/libafd.a
 am_mafdcmd_OBJECTS = mafdcmd.$(OBJEXT)
 mafdcmd_OBJECTS = $(am_mafdcmd_OBJECTS)
 mafdcmd_DEPENDENCIES = ../common/libafd.a
-am_mon_OBJECTS = mon.$(OBJEXT) tcpcmd.$(OBJEXT)
+am_mon_OBJECTS = evaluate_message.$(OBJEXT) mon.$(OBJEXT) \
+	mon_log.$(OBJEXT) tcpcmd.$(OBJEXT)
 mon_OBJECTS = $(am_mon_OBJECTS)
 mon_DEPENDENCIES = ../common/libafd.a
 am_msa_view_OBJECTS = msa_view.$(OBJEXT)
@@ -94,12 +105,14 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(afd_mon_SOURCES) $(afd_mon_status_SOURCES) $(mafd_SOURCES) \
-	$(mafdcmd_SOURCES) $(mon_SOURCES) $(msa_view_SOURCES) \
-	$(topview_SOURCES) $(view_hosts_SOURCES)
+SOURCES = $(afd_mon_SOURCES) $(afd_mon_status_SOURCES) \
+	$(log_mon_SOURCES) $(mafd_SOURCES) $(mafdcmd_SOURCES) \
+	$(mon_SOURCES) $(msa_view_SOURCES) $(topview_SOURCES) \
+	$(view_hosts_SOURCES)
 DIST_SOURCES = $(afd_mon_SOURCES) $(afd_mon_status_SOURCES) \
-	$(mafd_SOURCES) $(mafdcmd_SOURCES) $(mon_SOURCES) \
-	$(msa_view_SOURCES) $(topview_SOURCES) $(view_hosts_SOURCES)
+	$(log_mon_SOURCES) $(mafd_SOURCES) $(mafdcmd_SOURCES) \
+	$(mon_SOURCES) $(msa_view_SOURCES) $(topview_SOURCES) \
+	$(view_hosts_SOURCES)
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -139,6 +152,8 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
+ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
@@ -165,6 +180,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
 RPM = @RPM@
@@ -184,6 +200,8 @@ WITH_AFD_MON_ONLY_TRUE = @WITH_AFD_MON_ONLY_TRUE@
 WITH_AFD_MON_TRUE = @WITH_AFD_MON_TRUE@
 WITH_DELETE_LOG_FALSE = @WITH_DELETE_LOG_FALSE@
 WITH_DELETE_LOG_TRUE = @WITH_DELETE_LOG_TRUE@
+WITH_FIFO_RW_SUPPORT_FALSE = @WITH_FIFO_RW_SUPPORT_FALSE@
+WITH_FIFO_RW_SUPPORT_TRUE = @WITH_FIFO_RW_SUPPORT_TRUE@
 WITH_GTK_FALSE = @WITH_GTK_FALSE@
 WITH_GTK_TRUE = @WITH_GTK_TRUE@
 WITH_INPUT_LOG_FALSE = @WITH_INPUT_LOG_FALSE@
@@ -250,13 +268,16 @@ sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 MAINTAINERCLEANFILES = Makefile.in
-noinst_HEADERS = mondefs.h
+CLEANFILES = gmon.out core core.*
+noinst_HEADERS = mondefs.h sumdefs.h
 INCLUDES = -I.. -I../init_afd -I../afdd -I../log
 afd_mon_SOURCES = afd_mon.c\
                          check_mon.c\
+                         convert_msa.c\
                          create_msa.c\
                          eval_afd_mon_db.c\
                          init_fifos_mon.c\
+                         mon_log.c\
                          start_all.c\
                          start_process.c\
                          stop_process.c
@@ -277,10 +298,19 @@ view_hosts_SOURCES = view_hosts.c
 view_hosts_LDADD = ../common/libafd.a
 mafdcmd_SOURCES = mafdcmd.c
 mafdcmd_LDADD = ../common/libafd.a
-mon_SOURCES = mon.c\
+mon_SOURCES = evaluate_message.c\
+                         mon.c\
+                         mon_log.c\
                          tcpcmd.c
 
 mon_LDADD = ../common/libafd.a @EXTRA_SOCKET_LIBS@
+log_mon_SOURCES = log_mon.c\
+                         mon_log.c\
+                         send_log_cmd.c\
+                         tcpcmd.c\
+                         write_afd_log.c
+
+log_mon_LDADD = ../common/libafd.a @EXTRA_SOCKET_LIBS@
 all: all-am
 
 .SUFFIXES:
@@ -343,6 +373,9 @@ afd_mon$(EXEEXT): $(afd_mon_OBJECTS) $(afd_mon_DEPENDENCIES)
 afd_mon_status$(EXEEXT): $(afd_mon_status_OBJECTS) $(afd_mon_status_DEPENDENCIES) 
 	@rm -f afd_mon_status$(EXEEXT)
 	$(LINK) $(afd_mon_status_LDFLAGS) $(afd_mon_status_OBJECTS) $(afd_mon_status_LDADD) $(LIBS)
+log_mon$(EXEEXT): $(log_mon_OBJECTS) $(log_mon_DEPENDENCIES) 
+	@rm -f log_mon$(EXEEXT)
+	$(LINK) $(log_mon_LDFLAGS) $(log_mon_OBJECTS) $(log_mon_LDADD) $(LIBS)
 mafd$(EXEEXT): $(mafd_OBJECTS) $(mafd_DEPENDENCIES) 
 	@rm -f mafd$(EXEEXT)
 	$(LINK) $(mafd_LDFLAGS) $(mafd_OBJECTS) $(mafd_LDADD) $(LIBS)
@@ -371,13 +404,18 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afd_mon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afd_mon_status.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_mon.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/convert_msa.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/create_msa.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_afd_mon_db.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/evaluate_message.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_fifos_mon.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/log_mon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mafd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mafdcmd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mon.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mon_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/msa_view.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/send_log_cmd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shutdown_mon.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/start_all.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/start_process.Po@am__quote@
@@ -385,6 +423,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tcpcmd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/topview.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/view_hosts.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/write_afd_log.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -500,6 +539,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)

@@ -1,6 +1,6 @@
 /*
  *  mafd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,17 +26,19 @@ DESCR__S_M1
  **
  ** SYNOPSIS
  **   mafd [options]
- **          -a          only start AFD_MON
- **          -c          only check if AFD_MON is active
- **          -C          check if AFD_MON is active, if not start it
- **          -d          only start mon_ctrl dialog
- **          -i          initialize AFD_MON, by deleting fifodir
- **          -I          initialize AFD_MON, by deleting everything except
- **                      for the etc directory
- **          -s          shutdown AFD_MON
- **          -S          silent AFD_MON shutdown
- **          -u[ <user>] fake user
- **          --version   Current version
+ **          -a            only start AFD_MON
+ **          -c            only check if AFD_MON is active
+ **          -C            check if AFD_MON is active, if not start it
+ **          -d            only start mon_ctrl dialog
+ **          -i            initialize AFD_MON, by deleting fifodir
+ **          -I            initialize AFD_MON, by deleting everything except
+ **                        for the etc directory
+ **          -s            shutdown AFD_MON
+ **          -S            silent AFD_MON shutdown
+ **          -u[ <user>]   fake user
+ **          -w <work dir> AFD_MON working directory
+ **          -v            Just print the version number.
+ **          --version     Current version
  **
  ** DESCRIPTION
  **   This program controls the startup or shutdown procedure of
@@ -114,7 +116,10 @@ main(int argc, char *argv[])
                   initialize_perm,
                   mon_ctrl_perm,
                   n,
-                  read_fd,
+                  readfd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  writefd,
+#endif
                   shutdown_perm,
                   start_up,
                   startup_perm,
@@ -133,6 +138,12 @@ main(int argc, char *argv[])
                   stat_buf_fifo;
 
    CHECK_FOR_VERSION(argc, argv);
+   if ((argc > 1) &&
+       (argv[1][0] == '-') && (argv[1][1] == 'v') && (argv[1][2] == '\0'))
+   {
+      (void)fprintf(stdout, "%s\n", PACKAGE_VERSION);
+      exit(SUCCESS);
+   }
 
    if (get_mon_path(&argc, argv, work_dir) < 0)
    {
@@ -143,6 +154,20 @@ main(int argc, char *argv[])
    check_fake_user(&argc, argv, MON_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
+      case NO_ACCESS : /* Cannot access afd.users file. */
+         {
+            char afd_user_file[MAX_PATH_LENGTH];
+
+            (void)strcpy(afd_user_file, p_work_dir);
+            (void)strcat(afd_user_file, ETC_DIR);
+            (void)strcat(afd_user_file, AFD_USER_FILE);
+
+            (void)fprintf(stderr,
+                          "Failed to access `%s', unable to determine users permissions.\n",
+                          afd_user_file);
+         }
+         exit(INCORRECT);
+
       case NONE :
          (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
          exit(INCORRECT);
@@ -294,7 +319,8 @@ main(int argc, char *argv[])
                  start_up = SILENT_SHUTDOWN_ONLY;
               }
          else if ((strcmp(argv[1], "-h") == 0) ||
-                  (strcmp(argv[1], "-?") == 0)) /* Show usage */
+                  (strcmp(argv[1], "-?") == 0) ||
+                  (strcmp(argv[1], "--help") == 0)) /* Show usage */
               {
                  usage(argv[0]);
                  exit(0);
@@ -368,22 +394,15 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
    }
-   if ((sys_log_fd = coe_open(sys_log_fifo, O_RDWR)) == -1)
-   {
-      (void)fprintf(stderr, "ERROR   : Could not open fifo %s : %s (%s %d)\n",
-                    sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
 
    if ((start_up == SHUTDOWN_ONLY) || (start_up == SILENT_SHUTDOWN_ONLY))
    {
-      int   n,
-            read_fd;
+      int   n;
       pid_t ia_pid;
 
       /* First get the pid of init_afd before we send the */
       /* shutdown command.                                */
-      if ((read_fd = coe_open(mon_active_file, O_RDONLY)) == -1)
+      if ((readfd = coe_open(mon_active_file, O_RDONLY)) == -1)
       {
          if (errno != ENOENT)
          {
@@ -400,7 +419,7 @@ main(int argc, char *argv[])
          }
          exit(INCORRECT);
       }
-      if ((n = read(read_fd, &ia_pid, sizeof(pid_t))) != sizeof(pid_t))
+      if ((n = read(readfd, &ia_pid, sizeof(pid_t))) != sizeof(pid_t))
       {
          if (n == 0)
          {
@@ -415,7 +434,7 @@ main(int argc, char *argv[])
          }
          exit(INCORRECT);
       }
-      (void)close(read_fd);
+      (void)close(readfd);
 
       if (start_up == SHUTDOWN_ONLY)
       {
@@ -458,16 +477,16 @@ main(int argc, char *argv[])
 
            (void)strcpy(exec_cmd, AFD_MON);
            get_user(user, fake_user);
-           (void)rec(sys_log_fd, WARN_SIGN,
-                     "AFD_MON startup initiated by %s\n", user);
+           system_log(INFO_SIGN, NULL, 0,
+                      "AFD_MON startup initiated by %s", user);
            switch (fork())
            {
               case -1 :
 
                  /* Could not generate process */
-                 (void)rec(sys_log_fd, FATAL_SIGN,
-                           "Could not create a new process : %s (%s %d)\n",
-                           strerror(errno),  __FILE__, __LINE__);
+                 (void)fprintf(stderr,
+                               "Could not create a new process : %s (%s %d)\n",
+                               strerror(errno),  __FILE__, __LINE__);
                  break;
 
               case  0 :
@@ -510,15 +529,15 @@ main(int argc, char *argv[])
 
                    (void)strcpy(exec_cmd, AFD_MON);
                    get_user(user, fake_user);
-                   (void)rec(sys_log_fd, WARN_SIGN,
-                             "Hmm. AFD_MON is NOT running! Startup initiated by %s\n",
-                             user);
+                   system_log(INFO_SIGN, NULL, 0,
+                              "Hmm. AFD_MON is NOT running! Startup initiated by %s",
+                              user);
                    switch (fork())
                    {
                       case -1 : /* Could not generate process */
-                         (void)rec(sys_log_fd, FATAL_SIGN,
-                                   "Could not create a new process : %s (%s %d)\n",
-                                   strerror(errno),  __FILE__, __LINE__);
+                         (void)fprintf(stderr,
+                                       "Could not create a new process : %s (%s %d)\n",
+                                       strerror(errno),  __FILE__, __LINE__);
                          break;
 
                       case  0 : /* Child process */
@@ -527,7 +546,8 @@ main(int argc, char *argv[])
                          {
                             (void)fprintf(stderr,
                                           "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                                          exec_cmd, strerror(errno), __FILE__, __LINE__);
+                                          exec_cmd, strerror(errno),
+                                          __FILE__, __LINE__);
                             exit(1);
                          }
                          exit(0);
@@ -564,6 +584,8 @@ main(int argc, char *argv[])
               {
                  offset = sprintf(dirs, "%s%s", p_work_dir, LOG_DIR);
                  delete_log_files(dirs, offset);
+                 (void)sprintf(dirs, "%s%s", p_work_dir, RLOG_DIR);
+                 (void)rec_rmdir(dirs);
               }
               exit(SUCCESS);
            }
@@ -618,31 +640,34 @@ main(int argc, char *argv[])
       {
          if (make_fifo(probe_only_fifo) < 0)
          {
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not create fifo %s. (%s %d)\n",
-                      probe_only_fifo, __FILE__, __LINE__);
+            (void)fprintf(stderr,
+                          "Could not create fifo %s. (%s %d)\n",
+                          probe_only_fifo, __FILE__, __LINE__);
             exit(INCORRECT);
          }
       }
-      if ((read_fd = coe_open(probe_only_fifo, O_RDWR)) == -1)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(probe_only_fifo, &readfd, &writefd) == -1)
+#else
+      if ((readfd = coe_open(probe_only_fifo, O_RDWR)) == -1)
+#endif
       {
-         (void)rec(sys_log_fd, FATAL_SIGN,
-                   "Could not open fifo %s : %s (%s %d)\n",
-                   probe_only_fifo, strerror(errno), __FILE__, __LINE__);
+         (void)fprintf(stderr, "Could not open fifo %s : %s (%s %d)\n",
+                       probe_only_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
 
       /* Start AFD_MON */
       (void)strcpy(exec_cmd, AFD_MON);
       get_user(user, fake_user);
-      (void)rec(sys_log_fd, WARN_SIGN,
-                "AFD_MON automatic startup initiated by %s\n", user);
+      system_log(INFO_SIGN, NULL, 0,
+                 "AFD_MON automatic startup initiated by %s", user);
       switch (fork())
       {
          case -1 : /* Could not generate process */
-            (void)rec(sys_log_fd, FATAL_SIGN,
-                      "Could not create a new process : %s (%s %d)\n",
-                      strerror(errno),  __FILE__, __LINE__);
+            (void)fprintf(stderr,
+                          "Could not create a new process : %s (%s %d)\n",
+                          strerror(errno),  __FILE__, __LINE__);
             break;
 
          case  0 : /* Child process */
@@ -663,74 +688,81 @@ main(int argc, char *argv[])
       /* Now lets wait for the AFD_MON to have finished */
       /* creating MSA (Monitor Status Area).            */
       FD_ZERO(&rset);
-      FD_SET(read_fd, &rset);
+      FD_SET(readfd, &rset);
       timeout.tv_usec = 0;
       timeout.tv_sec = 20;
 
       /* Wait for message x seconds and then continue. */
-      status = select(read_fd + 1, &rset, NULL, NULL, &timeout);
+      status = select(readfd + 1, &rset, NULL, NULL, &timeout);
 
       if (status == 0)
       {
          /* No answer from the other AFD_MON. Lets assume it */
          /* not able to startup properly.                    */
-         (void)rec(sys_log_fd, FATAL_SIGN, "%s does not reply. (%s %d)\n",
-                   AFD_MON, __FILE__, __LINE__);
+         (void)fprintf(stderr, "%s does not reply. (%s %d)\n",
+                       AFD_MON, __FILE__, __LINE__);
          exit(INCORRECT);
       }
-      else if (FD_ISSET(read_fd, &rset))
+      else if (FD_ISSET(readfd, &rset))
            {
               /* Ahhh! Now we can start mon_ctrl */
-              if ((n = read(read_fd, buffer, 1)) > 0)
+              if ((n = read(readfd, buffer, 1)) > 0)
               {
                  if (buffer[0] == ACKN)
                  {
                     /* Unlock, so other users don't get blocked */
                     (void)close(fd);
 
-                    (void)close(read_fd);
+                    (void)close(readfd);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                    (void)close(writefd);
+#endif
 
                     (void)strcpy(exec_cmd, MON_CTRL);
                     if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
                                (char *) 0) == -1)
                     {
-                       (void)fprintf(stderr, "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                                     exec_cmd, strerror(errno), __FILE__, __LINE__);
+                       (void)fprintf(stderr,
+                                     "ERROR   : Failed to execute %s : %s (%s %d)\n",
+                                     exec_cmd, strerror(errno),
+                                     __FILE__, __LINE__);
                        exit(1);
                     }
                  }
                  else
                  {
-                    (void)rec(sys_log_fd, FATAL_SIGN,
-                              "Reading garbage from fifo %s. (%s %d)\n",
-                              probe_only_fifo,  __FILE__, __LINE__);
+                    (void)fprintf(stderr,
+                                  "Reading garbage from fifo %s. (%s %d)\n",
+                                  probe_only_fifo,  __FILE__, __LINE__);
                     exit(INCORRECT);
                  }
               }
               else if (n < 0)
                    {
-                      (void)rec(sys_log_fd, FATAL_SIGN,
-                                "read() error : %s (%s %d)\n",
-                                strerror(errno),  __FILE__, __LINE__);
+                      (void)fprintf(stderr, "read() error : %s (%s %d)\n",
+                                    strerror(errno),  __FILE__, __LINE__);
                       exit(INCORRECT);
                    }
            }
            else if (status < 0)
                 {
-                   (void)rec(sys_log_fd, FATAL_SIGN,
-                             "Select error : %s (%s %d)\n",
-                             strerror(errno),  __FILE__, __LINE__);
+                   (void)fprintf(stderr,
+                                 "Select error : %s (%s %d)\n",
+                                 strerror(errno),  __FILE__, __LINE__);
                    exit(INCORRECT);
                 }
                 else
                 {
-                   (void)rec(sys_log_fd, FATAL_SIGN,
-                             "Unknown condition. Maybe you can tell what's going on here. (%s %d)\n",
-                             __FILE__, __LINE__);
+                   (void)fprintf(stderr,
+                                 "Unknown condition. Maybe you can tell what's going on here. (%s %d)\n",
+                                 __FILE__, __LINE__);
                    exit(INCORRECT);
                 }
 
-      (void)close(read_fd);
+      (void)close(readfd);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)close(writefd);
+#endif
    }
 
    exit(0);
@@ -771,6 +803,7 @@ delete_fifodir_files(char *fifodir, int offset)
         {
            MON_STATUS_FILE_ALL,
            RETRY_MON_FIFO_ALL,
+           ADL_FILE_NAME_ALL,
            AHL_FILE_NAME_ALL
         };
 
@@ -845,7 +878,7 @@ delete_log_files(char *logdir, int offset)
 static void
 usage(char *progname)
 {
-   (void)fprintf(stderr, "USAGE: %s [-w <AFD_MON working dir>] [option]\n", progname);
+   (void)fprintf(stderr, "Usage: %s [-w <AFD_MON working dir>] [-u[ <user>]] [option]\n", progname);
    (void)fprintf(stderr, "              -a          only start AFD_MON\n");
    (void)fprintf(stderr, "              -c          only check if AFD_MON is active\n");
    (void)fprintf(stderr, "              -C          check if AFD_MON is active, if not start it\n");
@@ -854,7 +887,8 @@ usage(char *progname)
    (void)fprintf(stderr, "              -I          initialize AFD_MON, by deleting everything\n");
    (void)fprintf(stderr, "              -s          shutdown AFD_MON\n");
    (void)fprintf(stderr, "              -S          silent AFD_MON shutdown\n");
-   (void)fprintf(stderr, "              -u[ <user>] fake user\n");
+   (void)fprintf(stderr, "              --help      Prints out this syntax\n");
+   (void)fprintf(stderr, "              -v          Just print version number\n");
    (void)fprintf(stderr, "              --version   Show current version\n");
 
    return;

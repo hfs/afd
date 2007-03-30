@@ -1,6 +1,6 @@
 /*
  *  send_message.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -162,11 +162,7 @@ send_message(char           *outgoing_file_dir,
    {
       if (db[position].no_of_loptions > 0)
       {
-         if (handle_options(db[position].no_of_loptions, db[position].loptions,
-                            db[position].job_id,
-#ifdef _DELETE_LOG
-                            db[position].host_alias,
-#endif
+         if (handle_options(position,
 #ifdef _PRODUCTION_LOG
                             creation_time, unique_number, split_job_counter,
 #endif

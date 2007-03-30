@@ -1,6 +1,6 @@
 /*
  *  handle_request.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,10 @@ DESCR__S_M3
  **   handle_request - handles a TCP request
  **
  ** SYNOPSIS
- **   void handle_request(int sd, int pos)
+ **   void handle_request(int  cmd_sd,
+ **                       int  pos,
+ **                       int  trusted_ip_pos,
+ **                       char *remote_ip_str)
  **
  ** DESCRIPTION
  **   Handles all request from remote user in a loop. If user is inactive
@@ -44,10 +47,9 @@ DESCR__E_M3
 
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>           /* memset()                                */
-#include <stdlib.h>           /* atoi()                                  */
+#include <stdlib.h>           /* atoi(), strtoul()                       */
 #include <time.h>             /* time()                                  */
 #include <ctype.h>            /* toupper()                               */
-#include <signal.h>           /* signal()                                */
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>           /* close()                                 */
@@ -60,28 +62,44 @@ DESCR__E_M3
 #include "version.h"
 #include "logdefs.h"
 
+/* #define DEBUG_LOG_CMD */
+
 /* Global variables. */
-int                        no_of_hosts,
+int                        cmd_sd,
+                           fra_fd = -1,
+                           fra_id,
                            fsa_fd = -1,
                            fsa_id,
-                           host_config_counter;
+                           host_config_counter,
+                           in_log_child = NO,
+                           no_of_dirs,
+                           no_of_hosts;
 #ifdef HAVE_MMAP
-off_t                      fsa_size;
+off_t                      fra_size,
+                           fsa_size;
 #endif
+char                       *line_buffer = NULL,
+                           log_dir[MAX_PATH_LENGTH],
+                           *log_buffer = NULL,
+                           *p_log_dir;
 unsigned char              **old_error_history;
 FILE                       *p_data = NULL;
 struct filetransfer_status *fsa;
-
+struct fileretrieve_status *fra;
 
 
 /* External global variables. */
+extern int                 *ip_log_defs,
+                           log_defs;
 extern char                afd_name[],
                            hostname[],
                            *p_work_dir,
                            *p_work_dir_end;
+extern struct logdata      ld[];
 
 /* Local global variables. */
 static int                 report_changes = NO;
+static char                *p_remote_ip;
 
 /*  Local function prototypes. */
 static void                report_shutdown(void);
@@ -89,12 +107,16 @@ static void                report_shutdown(void);
 
 /*########################### handle_request() ##########################*/
 void
-handle_request(int sd, int pos)
+handle_request(int  sock_sd,
+               int  pos,
+               int  trusted_ip_pos,
+               char *remote_ip_str)
 {
    register int   i,
                   j;
    int            nbytes,
                   status;
+   long           log_interval;
    time_t         last,
                   last_time_read,
                   now,
@@ -103,14 +125,15 @@ handle_request(int sd, int pos)
    fd_set         rset;
    struct timeval timeout;
 
-   if ((p_data = fdopen(sd, "r+")) == NULL)
+   cmd_sd = sock_sd;
+   if ((p_data = fdopen(cmd_sd, "r+")) == NULL)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "fdopen() control error : %s", strerror(errno));
       exit(INCORRECT);
    }
 
-   if (fsa_attach() < 0)
+   if (fsa_attach_passive() < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FSA.");
       exit(INCORRECT);
@@ -124,6 +147,11 @@ handle_request(int sd, int pos)
       (void)memcpy(old_error_history[i], fsa[i].error_history,
                    ERROR_HISTORY_LENGTH);
    }
+   if (fra_attach_passive() < 0)
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FRA.");
+      exit(INCORRECT);
+   }
 
    if (atexit(report_shutdown) != 0)
    {
@@ -136,6 +164,8 @@ handle_request(int sd, int pos)
    (void)fprintf(p_data, "220 %s AFD server %s (Version %s) ready.\r\n",
                  hostname, afd_name, PACKAGE_VERSION);
    (void)fflush(p_data);
+
+   p_remote_ip = remote_ip_str;
 
    /*
     * Handle all request until the remote user has entered QUIT_CMD or
@@ -163,25 +193,32 @@ handle_request(int sd, int pos)
       }
       else
       {
-         timeout.tv_sec = AFDD_CMD_TIMEOUT;
+         if (in_log_child == YES)
+         {
+            timeout.tv_sec = log_interval;
+         }
+         else
+         {
+            timeout.tv_sec = AFDD_CMD_TIMEOUT;
+         }
       }
 
-      if ((now - last_time_read) > AFDD_CMD_TIMEOUT)
+      if ((in_log_child == NO) && ((now - last_time_read) > AFDD_CMD_TIMEOUT))
       {
          (void)fprintf(p_data,
                        "421 Timeout (%d seconds): closing connection.\r\n",
                        AFDD_CMD_TIMEOUT);
          break;
       }
-      FD_SET(sd, &rset);
+      FD_SET(cmd_sd, &rset);
       timeout.tv_usec = 0;
 
       /* Wait for message x seconds and then continue. */
-      status = select(sd + 1, &rset, NULL, NULL, &timeout);
+      status = select(cmd_sd + 1, &rset, NULL, NULL, &timeout);
 
-      if (FD_ISSET(sd, &rset))
+      if (FD_ISSET(cmd_sd, &rset))
       {
-         if ((nbytes = read(sd, cmd, 1024)) <= 0)
+         if ((nbytes = read(cmd_sd, cmd, 1024)) <= 0)
          {
             if (nbytes == 0)
             {
@@ -210,7 +247,7 @@ handle_request(int sd, int pos)
          }
          last_time_read = time(NULL);
       }
-      else if ((status == 0) && (report_changes == YES))
+      else if (status == 0)
            {
               if (report_changes == YES)
               {
@@ -220,13 +257,17 @@ handle_request(int sd, int pos)
                   */
                  check_changes(p_data);
               }
-              else
-              {
-                 (void)fprintf(p_data,
-                               "421 Timeout (%d seconds): closing connection.\r\n",
-                               AFDD_CMD_TIMEOUT);
-                 break;
-              }
+              else if (in_log_child == YES)
+                   {
+                      log_interval = check_logs();
+                   }
+                   else
+                   {
+                      (void)fprintf(p_data,
+                                    "421 Timeout (%d seconds): closing connection.\r\n",
+                                    AFDD_CMD_TIMEOUT);
+                      break;
+                   }
            }
 
       if (nbytes > 0)
@@ -247,9 +288,9 @@ handle_request(int sd, int pos)
               {
                  (void)fprintf(p_data,
                                "214- The following commands are recognized (* =>'s unimplemented).\r\n\
-   *AFDSTAT *DISC    HELP     ILOG     *INFO    *LDB     LRF      OLOG\r\n\
-   *PROC    QUIT     SLOG     STAT     TDLOG    TLOG     *TRACEF  *TRACEI\r\n\
-   *TRACEO  SSTAT\r\n\
+   *AFDSTAT *DISC    HELP     ILOG     *INFO    *LDB     LOG      LRF\r\n\
+   OLOG     *PROC    QUIT     SLOG     STAT     TDLOG    TLOG     *TRACEF\r\n\
+   *TRACEI *TRACEO  SSTAT\r\n\
 214 Direct comments to %s\r\n",
                                   AFD_MAINTAINER);
               }
@@ -335,6 +376,11 @@ handle_request(int sd, int pos)
                       {
                          (void)fprintf(p_data, "%s\r\n", AFDSTAT_SYNTAX);
                       }
+                 else if (strcmp(&cmd[5], LOG_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", LOG_SYNTAX);
+                         (void)fprintf(p_data, "%s\r\n", LOG_TYPES_SYNTAX);
+                      }
                       else
                       {
                          *(cmd + nbytes - 2) = '\0';
@@ -343,26 +389,11 @@ handle_request(int sd, int pos)
                                        &cmd[5]);
                       }
               }
-              else if (strncmp(cmd, TRACEI_CMD, strlen(TRACEI_CMD)) == 0)
-                   {
-                      (void)fprintf(p_data,
-                                    "502 Service not implemented. See help for commands.\r\n");
-                   }
-              else if (strncmp(cmd, TRACEO_CMD, strlen(TRACEO_CMD)) == 0)
-                   {
-                      (void)fprintf(p_data,
-                                    "502 Service not implemented. See help for commands.\r\n");
-                   }
-              else if (strncmp(cmd, TRACEF_CMD, strlen(TRACEF_CMD)) == 0)
-                   {
-                      (void)fprintf(p_data,
-                                    "502 Service not implemented. See help for commands.\r\n");
-                   }
-              else if ((strncmp(cmd, ILOG_CMD, (sizeof(ILOG_CMD) - 1)) == 0) ||
-                       (strncmp(cmd, OLOG_CMD, (sizeof(OLOG_CMD) - 1)) == 0) ||
-                       (strncmp(cmd, SLOG_CMD, (sizeof(SLOG_CMD) - 1)) == 0) ||
-                       (strncmp(cmd, TLOG_CMD, (sizeof(TLOG_CMD) - 1)) == 0) ||
-                       (strncmp(cmd, TDLOG_CMD, (sizeof(TDLOG_CMD) - 1)) == 0))
+              else if ((strncmp(cmd, ILOG_CMD, ILOG_CMD_LENGTH) == 0) ||
+                       (strncmp(cmd, OLOG_CMD, OLOG_CMD_LENGTH) == 0) ||
+                       (strncmp(cmd, SLOG_CMD, SLOG_CMD_LENGTH) == 0) ||
+                       (strncmp(cmd, TLOG_CMD, TLOG_CMD_LENGTH) == 0) ||
+                       (strncmp(cmd, TDLOG_CMD, TDLOG_CMD_LENGTH) == 0))
                    {
                       char search_file[MAX_PATH_LENGTH];
 
@@ -385,12 +416,12 @@ handle_request(int sd, int pos)
                          case 'I' : /* Input log */
                             (void)strcat(search_file, INPUT_BUFFER_FILE);
                             break;
-#endif /* _INPUT_LOG */
+#endif
 #ifdef _OUTPUT_LOG
                          case 'O' : /* Output log */
                             (void)strcat(search_file, OUTPUT_BUFFER_FILE);
                             break;
-#endif /* _OUTPUT_LOG */
+#endif
                          case 'S' : /* System log */
                             (void)strcat(search_file, SYSTEM_LOG_NAME);
                             break;
@@ -496,7 +527,7 @@ handle_request(int sd, int pos)
                             if (faulty == NO)
                             {
                                get_display_data(search_file, NULL, lines,
-                                                show_time, file_no, sd);
+                                                show_time, file_no);
                             }
                          }
                          else if (isascii(cmd[i + 1]))
@@ -597,8 +628,7 @@ handle_request(int sd, int pos)
                                                            search_string,
                                                            lines,
                                                            show_time,
-                                                           file_no,
-                                                           sd);
+                                                           file_no);
                                        }
                                     }
                                     else
@@ -623,8 +653,7 @@ handle_request(int sd, int pos)
                               get_display_data(search_file, NULL,
                                                EVERYTHING,
                                                EVERYTHING,
-                                               DEFAULT_FILE_NO,
-                                               sd);
+                                               DEFAULT_FILE_NO);
                            }
                            else
                            {
@@ -634,46 +663,500 @@ handle_request(int sd, int pos)
                                              cmd);
                            }
                    }
-              else if (strncmp(cmd, PROC_CMD, strlen(PROC_CMD)) == 0)
-                   {
-                      (void)fprintf(p_data,
-                                    "502 Service not implemented. See help for commands.\r\n");
-                   }
-              else if (strncmp(cmd, DISC_CMD, strlen(DISC_CMD)) == 0)
-                   {
-                      (void)fprintf(p_data,
-                                    "502 Service not implemented. See help for commands.\r\n");
-                   }
-              else if (strncmp(cmd, STAT_CMD, strlen(STAT_CMD)) == 0)
+              else if (strncmp(cmd, STAT_CMD, STAT_CMD_LENGTH) == 0)
                    {
                       show_summary_stat(p_data);
                    }
-              else if (strncmp(cmd, START_STAT_CMD, strlen(START_STAT_CMD)) == 0)
+              else if (strncmp(cmd, START_STAT_CMD, START_STAT_CMD_LENGTH) == 0)
                    {
                       show_summary_stat(p_data);
                       show_host_list(p_data);
-                      (void)fprintf(p_data, "WD %s\r\nAV %s\r\n",
-                                    p_work_dir, PACKAGE_VERSION);
+                      show_dir_list(p_data);
+                      (void)fprintf(p_data, "LC %d\r\nWD %s\r\nAV %s\r\n",
+                                    ip_log_defs[trusted_ip_pos], p_work_dir,
+                                    PACKAGE_VERSION);
                       report_changes = YES;
                    }
-              else if (strncmp(cmd, LDB_CMD, strlen(LDB_CMD)) == 0)
-                   {
-                      (void)fprintf(p_data,
-                                    "502 Service not implemented. See help for commands.\r\n");
-                   }
-              else if (strncmp(cmd, LRF_CMD, strlen(LRF_CMD)) == 0)
+              else if (strncmp(cmd, LRF_CMD, LRF_CMD_LENGTH) == 0)
                    {
                       (void)sprintf(p_work_dir_end, "%s%s",
                                     ETC_DIR, RENAME_RULE_FILE);
                       display_file(p_data);
                       *p_work_dir_end = '\0';
                    }
-              else if (strncmp(cmd, INFO_CMD, strlen(INFO_CMD)) == 0)
+              else if (strncmp(cmd, LOG_CMD, LOG_CMD_LENGTH) == 0)
+                   {
+                      int  complete_failure = NO,
+                           tmp_log_defs;
+                      char *log_type_ptr,
+                            *ptr;
+#ifdef DEBUG_LOG_CMD
+                      int  cmd_buffer_length;
+                      char cmd_buffer[3 + 1 + 2 + 1 + (NO_OF_LOGS * (MAX_INT_LENGTH + 1 + MAX_LONG_LONG_LENGTH + 1 + MAX_LONG_LONG_LENGTH + 1))];
+#endif
+
+                      tmp_log_defs = log_defs;
+                      log_defs = 0;
+#ifdef DEBUG_LOG_CMD
+                      (void)strcpy(cmd_buffer, LOG_CMD);
+                      cmd_buffer_length = LOG_CMD_LENGTH;
+#endif
+                      ptr = cmd + LOG_CMD_LENGTH;
+                      do
+                      {
+                         if ((*(ptr + 1) == 'L') && (*(ptr + 3) == ' '))
+                         {
+                            char *p_start;
+
+                            log_type_ptr = ptr + 2;
+                            ptr += 4;
+                            p_start = ptr;
+                            while (isdigit((int)(*ptr)))
+                            {
+                               ptr++;
+                            }
+                            if (*ptr == ' ')
+                            {
+                               *ptr = '\0';
+                               ptr++;
+                               ld[DUM_LOG_POS].options = (unsigned int)strtoul(p_start, NULL, 10);
+
+                               p_start = ptr;
+                               while (isdigit((int)(*ptr)))
+                               {
+                                  ptr++;
+                               }
+                               if (*ptr == ' ')
+                               {
+                                  *ptr = '\0';
+                                  ptr++;
+#ifdef HAVE_STRTOULL
+# if SIZEOF_INO_T == 4
+                                  ld[DUM_LOG_POS].current_log_inode = (ino_t)strtoul(p_start, NULL, 10);
+# else
+                                  ld[DUM_LOG_POS].current_log_inode = (ino_t)strtoull(p_start, NULL, 10);
+# endif
+#else
+                                  ld[DUM_LOG_POS].current_log_inode = (ino_t)strtoul(p_start, NULL, 10);
+#endif
+
+                                  p_start = ptr;
+                                  while (isdigit((int)(*ptr)))
+                                  {
+                                     ptr++;
+                                  }
+                                  if ((*ptr == ' ') ||
+                                      ((*ptr == '\r') && (*(ptr + 1) == '\n')))
+                                  {
+                                     int end_reached;
+
+                                     if ((*ptr == ' ') && (*(ptr + 1) == 'L'))
+                                     {
+                                        end_reached = NO;
+                                     }
+                                     else
+                                     {
+                                        end_reached = YES;
+                                     }
+                                     *ptr = '\0';
+#ifdef HAVE_STRTOULL
+# if SIZEOF_OFF_T == 4
+                                     ld[DUM_LOG_POS].offset = (off_t)strtoul(p_start, NULL, 10);
+# else
+                                     ld[DUM_LOG_POS].offset = (off_t)strtoull(p_start, NULL, 10);
+# endif
+#else
+                                     ld[DUM_LOG_POS].offset = (off_t)strtoul(p_start, NULL, 10);
+#endif
+                                     ld[DUM_LOG_POS].flag = 0;
+                                     if (end_reached == NO)
+                                     {
+                                        *ptr = ' ';
+                                     }
+                                  }
+                               }
+                            }
+#ifdef DEBUG_LOG_CMD
+                            cmd_buffer_length += sprintf(&cmd_buffer[cmd_buffer_length],
+# if SIZEOF_INO_T == 4
+#  if SIZEOF_OFF_T == 4
+                                       " L%c %u %ld %ld",
+#  else
+                                       " L%c %u %ld %lld",
+#  endif
+# else
+#  if SIZEOF_OFF_T == 4
+                                       " L%c %u %lld %ld",
+#  else
+                                       " L%c %u %lld %lld",
+#  endif
+# endif
+                                       *log_type_ptr, ld[DUM_LOG_POS].options,
+                                       (pri_ino_t)ld[DUM_LOG_POS].current_log_inode,
+                                       (pri_off_t)ld[DUM_LOG_POS].offset);
+#endif
+                            switch (*log_type_ptr)
+                            {
+                               case 'S' : /* System Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_SYSTEM_LOG)
+                                  {
+                                     ld[SYS_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[SYS_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[SYS_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[SYS_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[SYS_LOG_POS].log_name, SYSTEM_LOG_NAME);
+                                     ld[SYS_LOG_POS].log_name_length = SYSTEM_LOG_NAME_LENGTH;
+                                     ld[SYS_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[SYS_LOG_POS].log_data_cmd[1] = 'S';
+                                     ld[SYS_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[SYS_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[SYS_LOG_POS].log_inode_cmd[1] = 'S';
+                                     ld[SYS_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[SYS_LOG_POS].log_flag = AFDD_SYSTEM_LOG;
+                                     ld[SYS_LOG_POS].fp = NULL;
+                                     ld[SYS_LOG_POS].current_log_no = 0;
+                                     ld[SYS_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_SYSTEM_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_SYSTEM_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip, SYSTEM_LOG_NAME);
+                                  }
+                                  break;
+                               case 'R' : /* Retrieve Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_RECEIVE_LOG)
+                                  {
+                                     ld[REC_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[REC_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[REC_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[REC_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[REC_LOG_POS].log_name, RECEIVE_LOG_NAME);
+                                     ld[REC_LOG_POS].log_name_length = RECEIVE_LOG_NAME_LENGTH;
+                                     ld[REC_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[REC_LOG_POS].log_data_cmd[1] = 'R';
+                                     ld[REC_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[REC_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[REC_LOG_POS].log_inode_cmd[1] = 'R';
+                                     ld[REC_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[REC_LOG_POS].log_flag = AFDD_RECEIVE_LOG;
+                                     ld[REC_LOG_POS].fp = NULL;
+                                     ld[REC_LOG_POS].current_log_no = 0;
+                                     ld[REC_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_RECEIVE_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_RECEIVE_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip, RECEIVE_LOG_NAME);
+                                  }
+                                  break;
+                               case 'T' : /* Transfer Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_TRANSFER_LOG)
+                                  {
+                                     ld[TRA_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[TRA_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[TRA_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[TRA_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[TRA_LOG_POS].log_name, TRANSFER_LOG_NAME);
+                                     ld[TRA_LOG_POS].log_name_length = TRANSFER_LOG_NAME_LENGTH;
+                                     ld[TRA_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[TRA_LOG_POS].log_data_cmd[1] = 'T';
+                                     ld[TRA_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[TRA_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[TRA_LOG_POS].log_inode_cmd[1] = 'T';
+                                     ld[TRA_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[TRA_LOG_POS].log_flag = AFDD_TRANSFER_LOG;
+                                     ld[TRA_LOG_POS].fp = NULL;
+                                     ld[TRA_LOG_POS].current_log_no = 0;
+                                     ld[TRA_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_TRANSFER_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_TRANSFER_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip, TRANSFER_LOG_NAME);
+                                  }
+                                  break;
+                               case 'B' : /* Transfer Debug Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_TRANSFER_DEBUG_LOG)
+                                  {
+                                     ld[TDB_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[TDB_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[TDB_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[TDB_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[TDB_LOG_POS].log_name, TRANS_DB_LOG_NAME);
+                                     ld[TDB_LOG_POS].log_name_length = TRANS_DB_LOG_NAME_LENGTH;
+                                     ld[TDB_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[TDB_LOG_POS].log_data_cmd[1] = 'B';
+                                     ld[TDB_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[TDB_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[TDB_LOG_POS].log_inode_cmd[1] = 'B';
+                                     ld[TDB_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[TDB_LOG_POS].log_flag = AFDD_TRANSFER_DEBUG_LOG;
+                                     ld[TDB_LOG_POS].fp = NULL;
+                                     ld[TDB_LOG_POS].current_log_no = 0;
+                                     ld[TDB_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_TRANSFER_DEBUG_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_TRANSFER_DEBUG_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip, TRANS_DB_LOG_NAME);
+                                  }
+                                  break;
+#ifdef _INPUT_LOG
+                               case 'I' : /* INPUT Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_INPUT_LOG)
+                                  {
+                                     ld[INP_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[INP_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[INP_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[INP_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[INP_LOG_POS].log_name, INPUT_BUFFER_FILE);
+                                     ld[INP_LOG_POS].log_name_length = INPUT_BUFFER_FILE_LENGTH;
+                                     ld[INP_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[INP_LOG_POS].log_data_cmd[1] = 'I';
+                                     ld[INP_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[INP_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[INP_LOG_POS].log_inode_cmd[1] = 'I';
+                                     ld[INP_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[INP_LOG_POS].log_flag = AFDD_INPUT_LOG;
+                                     ld[INP_LOG_POS].fp = NULL;
+                                     ld[INP_LOG_POS].current_log_no = 0;
+                                     ld[INP_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_INPUT_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_INPUT_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip,
+                                                INPUT_BUFFER_FILE);
+                                  }
+                                  break;
+#endif
+#ifdef _PRODUCTION_LOG
+                               case 'P' : /* Production Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_PRODUCTION_LOG)
+                                  {
+                                     ld[PRO_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[PRO_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[PRO_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[PRO_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[PRO_LOG_POS].log_name, PRODUCTION_BUFFER_FILE);
+                                     ld[PRO_LOG_POS].log_name_length = PRODUCTION_BUFFER_FILE_LENGTH;
+                                     ld[PRO_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[PRO_LOG_POS].log_data_cmd[1] = 'P';
+                                     ld[PRO_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[PRO_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[PRO_LOG_POS].log_inode_cmd[1] = 'P';
+                                     ld[PRO_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[PRO_LOG_POS].log_flag = AFDD_PRODUCTION_LOG;
+                                     ld[PRO_LOG_POS].fp = NULL;
+                                     ld[PRO_LOG_POS].current_log_no = 0;
+                                     ld[PRO_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_PRODUCTION_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_PRODUCTION_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip,
+                                                PRODUCTION_BUFFER_FILE);
+                                  }
+                                  break;
+#endif
+#ifdef _OUTPUT_LOG
+                               case 'O' : /* Output Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_OUTPUT_LOG)
+                                  {
+                                     ld[OUT_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[OUT_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[OUT_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[OUT_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[OUT_LOG_POS].log_name, OUTPUT_BUFFER_FILE);
+                                     ld[OUT_LOG_POS].log_name_length = OUTPUT_BUFFER_FILE_LENGTH;
+                                     ld[OUT_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[OUT_LOG_POS].log_data_cmd[1] = 'O';
+                                     ld[OUT_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[OUT_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[OUT_LOG_POS].log_inode_cmd[1] = 'O';
+                                     ld[OUT_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[OUT_LOG_POS].log_flag = AFDD_OUTPUT_LOG;
+                                     ld[OUT_LOG_POS].fp = NULL;
+                                     ld[OUT_LOG_POS].current_log_no = 0;
+                                     ld[OUT_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_OUTPUT_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_OUTPUT_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip,
+                                                OUTPUT_BUFFER_FILE);
+                                  }
+                                  break;
+#endif
+#ifdef _DELETE_LOG
+                               case 'D' : /* Delete Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_DELETE_LOG)
+                                  {
+                                     ld[DEL_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[DEL_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[DEL_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[DEL_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[DEL_LOG_POS].log_name, DELETE_BUFFER_FILE);
+                                     ld[DEL_LOG_POS].log_name_length = DELETE_BUFFER_FILE_LENGTH;
+                                     ld[DEL_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[DEL_LOG_POS].log_data_cmd[1] = 'D';
+                                     ld[DEL_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[DEL_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[DEL_LOG_POS].log_inode_cmd[1] = 'D';
+                                     ld[DEL_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[DEL_LOG_POS].log_flag = AFDD_DELETE_LOG;
+                                     ld[DEL_LOG_POS].fp = NULL;
+                                     ld[DEL_LOG_POS].current_log_no = 0;
+                                     ld[DEL_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_DELETE_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_DELETE_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip,
+                                                DELETE_BUFFER_FILE);
+                                  }
+                                  break;
+#endif
+                               default  : /* Unknown, lets just ignore it. */
+                                  (void)fprintf(p_data, "501- Unknown log type\n\n");
+                                  break;
+                            }
+                         }
+                         else
+                         {
+                            /* Unknown message type. We are unable to */
+                            /* determine the end, so lets discard the */
+                            /* complete message.                      */
+                            (void)fprintf(p_data, "501- Unknown log type\r\n");
+                            log_defs = 0;
+                            complete_failure = YES;
+                         }
+                      } while (*ptr == ' ');
+
+                      if (complete_failure == YES)
+                      {
+                         log_defs = tmp_log_defs;
+                      }
+                      else
+                      {
+                         (void)fprintf(p_data, "211- Command success (%u)\r\n",
+                                       log_defs);
+                         in_log_child = YES;
+                         log_interval = 0;
+                         if (line_buffer == NULL)
+                         {
+                            if ((line_buffer = malloc(MAX_LOG_DATA_BUFFER)) == NULL)
+                            {
+                               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                          "Failed to malloc() %d bytes : %s",
+                                          MAX_LOG_DATA_BUFFER, strerror(errno));
+                               exit(INCORRECT);
+                            }
+                         }
+                         if (log_buffer == NULL)
+                         {
+                            if ((log_buffer = malloc(MAX_LOG_DATA_BUFFER)) == NULL)
+                            {
+                               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                          "Failed to malloc() %d bytes : %s",
+                                          MAX_LOG_DATA_BUFFER, strerror(errno));
+                               exit(INCORRECT);
+                            }
+                         }
+                         p_log_dir = log_dir + sprintf(log_dir, "%s%s/",
+                                                       p_work_dir, LOG_DIR);
+#ifdef DEBUG_LOG_CMD
+                         if (cmd_buffer_length > LOG_CMD_LENGTH)
+                         {
+                            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                       "R-> %s", cmd_buffer);
+                         }
+#endif
+                         /*
+                          * Since we are from now on only handling log
+                          * data lets release those resources we no longer
+                          * need.
+                          */
+                         (void)fsa_detach(NO);
+                         (void)fra_detach();
+                      }
+                   }
+              else if (strncmp(cmd, TRACEI_CMD, TRACEI_CMD_LENGTH) == 0)
                    {
                       (void)fprintf(p_data,
                                     "502 Service not implemented. See help for commands.\r\n");
                    }
-              else if (strncmp(cmd, AFDSTAT_CMD, strlen(AFDSTAT_CMD)) == 0)
+              else if (strncmp(cmd, TRACEO_CMD, TRACEO_CMD_LENGTH) == 0)
+                   {
+                      (void)fprintf(p_data,
+                                    "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if (strncmp(cmd, TRACEF_CMD, TRACEF_CMD_LENGTH) == 0)
+                   {
+                      (void)fprintf(p_data,
+                                    "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if (strncmp(cmd, PROC_CMD, PROC_CMD_LENGTH) == 0)
+                   {
+                      (void)fprintf(p_data,
+                                    "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if (strncmp(cmd, DISC_CMD, DISC_CMD_LENGTH) == 0)
+                   {
+                      (void)fprintf(p_data,
+                                    "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if (strncmp(cmd, LDB_CMD, LDB_CMD_LENGTH) == 0)
+                   {
+                      (void)fprintf(p_data,
+                                    "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if (strncmp(cmd, INFO_CMD, INFO_CMD_LENGTH) == 0)
+                   {
+                      (void)fprintf(p_data,
+                                    "502 Service not implemented. See help for commands.\r\n");
+                   }
+              else if (strncmp(cmd, AFDSTAT_CMD, AFDSTAT_CMD_LENGTH) == 0)
                    {
                       (void)fprintf(p_data,
                                     "502 Service not implemented. See help for commands.\r\n");
@@ -704,22 +1187,25 @@ handle_request(int sd, int pos)
 static void
 report_shutdown(void)
 {
-   if (p_data != NULL)
+   if (in_log_child == NO)
    {
-      if (report_changes == YES)
+      if (p_data != NULL)
       {
-         show_summary_stat(p_data);
-         check_changes(p_data);
-      }
-      (void)fprintf(p_data, "%s\r\n", AFDD_SHUTDOWN_MESSAGE);
-      (void)fflush(p_data);
+         if (report_changes == YES)
+         {
+            show_summary_stat(p_data);
+            check_changes(p_data);
+         }
+         (void)fprintf(p_data, "%s\r\n", AFDD_SHUTDOWN_MESSAGE);
+         (void)fflush(p_data);
 
-      if (fclose(p_data) == EOF)
-      {
-         system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                    "fclose() error : %s", strerror(errno));
+         if (fclose(p_data) == EOF)
+         {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "fclose() error : %s", strerror(errno));
+         }
+         p_data = NULL;
       }
-      p_data = NULL;
    }
 
    return;

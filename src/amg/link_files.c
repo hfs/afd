@@ -1,6 +1,6 @@
 /*
  *  link_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -162,7 +162,8 @@ link_files(char                   *src_file_path,
 #else
                                       "%s >%lld (%s %d)", DIR_CHECK,
 #endif
-                                      diff_time, __FILE__, __LINE__);
+                                      (pri_time_t)diff_time, 
+                                      __FILE__, __LINE__);
                if (write(dl.fd, dl.data, dl_real_size) != dl_real_size)
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -266,8 +267,13 @@ link_files(char                   *src_file_path,
                      {
                         p_dest_end--;
                      }
-                     (void)sprintf(unique_name, "%x/%x/%x_%x_%x",
-                                   p_db->job_id, dir_no, *creation_time,
+#if SIZEOF_TIME_T == 4
+                     (void)sprintf(unique_name, "%x/%x/%lx_%x_%x",
+#else
+                     (void)sprintf(unique_name, "%x/%x/%llx_%x_%x",
+#endif
+                                   p_db->job_id, dir_no,
+                                   (pri_time_t)*creation_time,
                                    unique_number, *split_job_counter);
                      p_dest = p_dest_end +
                               sprintf(p_dest_end, "/%s/", unique_name);
@@ -413,12 +419,12 @@ link_files(char                   *src_file_path,
                if (retstat != -1)
                {
 #ifndef _WITH_PTHREAD
-                  if ((files_linked % 10) == 0)
+                  if ((files_linked % FILE_NAME_STEP_SIZE) == 0)
                   {
                      size_t new_size;
 
                      /* Calculate new size of file name buffer */
-                     new_size = ((files_linked / 10) + 1) * 10 * MAX_FILENAME_LENGTH;
+                     new_size = ((files_linked / FILE_NAME_STEP_SIZE) + 1) * FILE_NAME_STEP_SIZE * MAX_FILENAME_LENGTH;
 
                      /* Increase the space for the file name buffer */
                      if ((file_name_buffer = realloc(file_name_buffer, new_size)) == NULL)

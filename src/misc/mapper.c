@@ -1,7 +1,7 @@
 /*
  *  mapper.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,6 +75,9 @@ DESCR__E_M1
 /* Global variables */
 char        request_fifo[MAX_PATH_LENGTH];
 int         count = 0,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            sys_log_readfd,
+#endif
             sys_log_fd = STDERR_FILENO;
 struct map  region[MAX_MAPPED_REGIONS];
 const char  *sys_log_name = SYSTEM_LOG_FIFO;
@@ -97,6 +100,9 @@ main(int argc, char *argv[])
                   status,
                   fd,
                   read_fd1,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  write_fd1,
+#endif
                   write_fd,
                   shmid,
                   posi,
@@ -139,7 +145,11 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
    }
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(sys_log_fifo, &sys_log_readfd, &sys_log_fd) == -1)
+#else
+   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "Could not open fifo %s : %s (%s %d)\n",
                 sys_log_fifo, strerror(errno), __FILE__, __LINE__);
@@ -154,7 +164,11 @@ main(int argc, char *argv[])
                 request_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
-   if ((read_fd1 = open(request_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(request_fifo, &read_fd1, &write_fd1) == -1)
+#else
+   if ((read_fd1 = open(request_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)rec(sys_log_fd, FATAL_SIGN, "Failed to open() %s : %s (%s %d)\n",
                 request_fifo, strerror(errno), __FILE__, __LINE__);
@@ -275,7 +289,7 @@ main(int argc, char *argv[])
 #endif
 
                        /* Open fifo to answer client */
-                       if ((write_fd = open(fifoname, 1)) < 0)
+                       if ((write_fd = open(fifoname, O_WRONLY)) < 0)
                        {
                           (void)rec(sys_log_fd, FATAL_SIGN, "Failed to open() %s : %s (%s %d)\n",
                                     fifoname, strerror(errno), __FILE__, __LINE__);

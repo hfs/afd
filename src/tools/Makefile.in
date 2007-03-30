@@ -53,11 +53,16 @@ EXTRA_PROGRAMS = bfc$(EXEEXT) binfc$(EXEEXT) byte_order$(EXEEXT) \
 	force_archive_check$(EXEEXT) get_full_date$(EXEEXT) \
 	get_file_size$(EXEEXT) gts2tiff$(EXEEXT) linger$(EXEEXT) \
 	rdu$(EXEEXT) sysconf$(EXEEXT) tiff_sniffer$(EXEEXT) \
-	watch_dir$(EXEEXT) fra_version$(EXEEXT)
+	watch_dir$(EXEEXT) fra_version$(EXEEXT) \
+	convert_ls_data$(EXEEXT) view_error_queue$(EXEEXT)
 subdir = src/tools
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
+am__aclocal_m4_deps =  \
+	$(top_srcdir)/ac-tools/ax_check_compiler_flags.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_archflag.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_x86_cpuid.m4 \
+	$(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
@@ -102,6 +107,9 @@ convert_fsa_DEPENDENCIES = ../common/libafd.a
 am_convert_jid_OBJECTS = convert_jid.$(OBJEXT)
 convert_jid_OBJECTS = $(am_convert_jid_OBJECTS)
 convert_jid_DEPENDENCIES = ../common/libafd.a
+am_convert_ls_data_OBJECTS = convert_ls_data.$(OBJEXT)
+convert_ls_data_OBJECTS = $(am_convert_ls_data_OBJECTS)
+convert_ls_data_DEPENDENCIES = ../common/libafd.a
 am_convert_stat_OBJECTS = convert_stat.$(OBJEXT)
 convert_stat_OBJECTS = $(am_convert_stat_OBJECTS)
 convert_stat_DEPENDENCIES = ../common/libafd.a
@@ -204,6 +212,9 @@ tiff_sniffer_LDADD = $(LDADD)
 am_udc_OBJECTS = update_db.$(OBJEXT)
 udc_OBJECTS = $(am_udc_OBJECTS)
 udc_DEPENDENCIES = ../common/libafd.a
+am_view_error_queue_OBJECTS = view_error_queue.$(OBJEXT)
+view_error_queue_OBJECTS = $(am_view_error_queue_OBJECTS)
+view_error_queue_DEPENDENCIES = ../common/libafd.a
 am_view_ls_data_OBJECTS = view_ls_data.$(OBJEXT)
 view_ls_data_OBJECTS = $(am_view_ls_data_OBJECTS)
 view_ls_data_LDADD = $(LDADD)
@@ -220,26 +231,7 @@ LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(afd_status_SOURCES) $(afdcfg_SOURCES) $(afdcmd_SOURCES) \
 	$(bfc_SOURCES) $(binfc_SOURCES) $(byte_order_SOURCES) \
 	$(cache_spy_SOURCES) $(convert_fsa_SOURCES) \
-	$(convert_jid_SOURCES) $(convert_stat_SOURCES) \
-	$(count_burst_SOURCES) $(current_job_list_spy_SOURCES) \
-	$(dc_id_spy_SOURCES) $(del_cache_SOURCES) $(dir_spy_SOURCES) \
-	$(dup_spy_SOURCES) $(file_dir_check_SOURCES) \
-	$(file_mask_list_spy_SOURCES) $(force_archive_check_SOURCES) \
-	$(fra_version_SOURCES) $(fra_view_SOURCES) $(fsa_edit_SOURCES) \
-	$(fsa_view_SOURCES) $(gen_file_SOURCES) $(get_counter_SOURCES) \
-	$(get_dc_data_SOURCES) $(get_file_size_SOURCES) \
-	$(get_full_date_SOURCES) $(get_hostname_SOURCES) \
-	$(grib2wmo_SOURCES) $(gts2tiff_SOURCES) \
-	$(job_list_spy_SOURCES) $(linger_SOURCES) $(queue_spy_SOURCES) \
-	$(rdu_SOURCES) $(reset_fsa_SOURCES) $(rm_job_SOURCES) \
-	$(set_counter_SOURCES) $(set_pw_SOURCES) \
-	$(show_exec_stat_SOURCES) $(sysconf_SOURCES) \
-	$(tiff_sniffer_SOURCES) $(udc_SOURCES) $(view_ls_data_SOURCES) \
-	$(watch_dir_SOURCES)
-DIST_SOURCES = $(afd_status_SOURCES) $(afdcfg_SOURCES) \
-	$(afdcmd_SOURCES) $(bfc_SOURCES) $(binfc_SOURCES) \
-	$(byte_order_SOURCES) $(cache_spy_SOURCES) \
-	$(convert_fsa_SOURCES) $(convert_jid_SOURCES) \
+	$(convert_jid_SOURCES) $(convert_ls_data_SOURCES) \
 	$(convert_stat_SOURCES) $(count_burst_SOURCES) \
 	$(current_job_list_spy_SOURCES) $(dc_id_spy_SOURCES) \
 	$(del_cache_SOURCES) $(dir_spy_SOURCES) $(dup_spy_SOURCES) \
@@ -254,7 +246,29 @@ DIST_SOURCES = $(afd_status_SOURCES) $(afdcfg_SOURCES) \
 	$(rdu_SOURCES) $(reset_fsa_SOURCES) $(rm_job_SOURCES) \
 	$(set_counter_SOURCES) $(set_pw_SOURCES) \
 	$(show_exec_stat_SOURCES) $(sysconf_SOURCES) \
-	$(tiff_sniffer_SOURCES) $(udc_SOURCES) $(view_ls_data_SOURCES) \
+	$(tiff_sniffer_SOURCES) $(udc_SOURCES) \
+	$(view_error_queue_SOURCES) $(view_ls_data_SOURCES) \
+	$(watch_dir_SOURCES)
+DIST_SOURCES = $(afd_status_SOURCES) $(afdcfg_SOURCES) \
+	$(afdcmd_SOURCES) $(bfc_SOURCES) $(binfc_SOURCES) \
+	$(byte_order_SOURCES) $(cache_spy_SOURCES) \
+	$(convert_fsa_SOURCES) $(convert_jid_SOURCES) \
+	$(convert_ls_data_SOURCES) $(convert_stat_SOURCES) \
+	$(count_burst_SOURCES) $(current_job_list_spy_SOURCES) \
+	$(dc_id_spy_SOURCES) $(del_cache_SOURCES) $(dir_spy_SOURCES) \
+	$(dup_spy_SOURCES) $(file_dir_check_SOURCES) \
+	$(file_mask_list_spy_SOURCES) $(force_archive_check_SOURCES) \
+	$(fra_version_SOURCES) $(fra_view_SOURCES) $(fsa_edit_SOURCES) \
+	$(fsa_view_SOURCES) $(gen_file_SOURCES) $(get_counter_SOURCES) \
+	$(get_dc_data_SOURCES) $(get_file_size_SOURCES) \
+	$(get_full_date_SOURCES) $(get_hostname_SOURCES) \
+	$(grib2wmo_SOURCES) $(gts2tiff_SOURCES) \
+	$(job_list_spy_SOURCES) $(linger_SOURCES) $(queue_spy_SOURCES) \
+	$(rdu_SOURCES) $(reset_fsa_SOURCES) $(rm_job_SOURCES) \
+	$(set_counter_SOURCES) $(set_pw_SOURCES) \
+	$(show_exec_stat_SOURCES) $(sysconf_SOURCES) \
+	$(tiff_sniffer_SOURCES) $(udc_SOURCES) \
+	$(view_error_queue_SOURCES) $(view_ls_data_SOURCES) \
 	$(watch_dir_SOURCES)
 ETAGS = etags
 CTAGS = ctags
@@ -294,6 +308,8 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
+ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
@@ -320,6 +336,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
 RPM = @RPM@
@@ -339,6 +356,8 @@ WITH_AFD_MON_ONLY_TRUE = @WITH_AFD_MON_ONLY_TRUE@
 WITH_AFD_MON_TRUE = @WITH_AFD_MON_TRUE@
 WITH_DELETE_LOG_FALSE = @WITH_DELETE_LOG_FALSE@
 WITH_DELETE_LOG_TRUE = @WITH_DELETE_LOG_TRUE@
+WITH_FIFO_RW_SUPPORT_FALSE = @WITH_FIFO_RW_SUPPORT_FALSE@
+WITH_FIFO_RW_SUPPORT_TRUE = @WITH_FIFO_RW_SUPPORT_TRUE@
 WITH_GTK_FALSE = @WITH_GTK_FALSE@
 WITH_GTK_TRUE = @WITH_GTK_TRUE@
 WITH_INPUT_LOG_FALSE = @WITH_INPUT_LOG_FALSE@
@@ -412,6 +431,7 @@ INCLUDES = -I.. -I../init_afd -I../amg -I../fd\
                                -I../statistics
 
 MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES = gmon.out core core.*
 afdcmd_SOURCES = afdcmd.c
 afdcmd_LDADD = ../common/libafd.a
 afdcfg_SOURCES = afdcfg.c
@@ -429,6 +449,8 @@ convert_fsa_SOURCES = convert_fsa.c
 convert_fsa_LDADD = ../common/libafd.a
 convert_jid_SOURCES = convert_jid.c
 convert_jid_LDADD = ../common/libafd.a
+convert_ls_data_SOURCES = convert_ls_data.c
+convert_ls_data_LDADD = ../common/libafd.a
 convert_stat_SOURCES = convert_stat.c
 convert_stat_LDADD = ../common/libafd.a
 count_burst_SOURCES = count_burst.c
@@ -494,6 +516,8 @@ sysconf_LDADD = ../common/libafd.a
 tiff_sniffer_SOURCES = tiff_sniffer.c
 udc_SOURCES = update_db.c
 udc_LDADD = ../common/libafd.a
+view_error_queue_SOURCES = view_error_queue.c
+view_error_queue_LDADD = ../common/libafd.a
 view_ls_data_SOURCES = view_ls_data.c
 watch_dir_SOURCES = watch_dir.c
 watch_dir_LDADD = ../common/libafd.a
@@ -603,6 +627,9 @@ convert_fsa$(EXEEXT): $(convert_fsa_OBJECTS) $(convert_fsa_DEPENDENCIES)
 convert_jid$(EXEEXT): $(convert_jid_OBJECTS) $(convert_jid_DEPENDENCIES) 
 	@rm -f convert_jid$(EXEEXT)
 	$(LINK) $(convert_jid_LDFLAGS) $(convert_jid_OBJECTS) $(convert_jid_LDADD) $(LIBS)
+convert_ls_data$(EXEEXT): $(convert_ls_data_OBJECTS) $(convert_ls_data_DEPENDENCIES) 
+	@rm -f convert_ls_data$(EXEEXT)
+	$(LINK) $(convert_ls_data_LDFLAGS) $(convert_ls_data_OBJECTS) $(convert_ls_data_LDADD) $(LIBS)
 convert_stat$(EXEEXT): $(convert_stat_OBJECTS) $(convert_stat_DEPENDENCIES) 
 	@rm -f convert_stat$(EXEEXT)
 	$(LINK) $(convert_stat_LDFLAGS) $(convert_stat_OBJECTS) $(convert_stat_LDADD) $(LIBS)
@@ -705,6 +732,9 @@ tiff_sniffer$(EXEEXT): $(tiff_sniffer_OBJECTS) $(tiff_sniffer_DEPENDENCIES)
 udc$(EXEEXT): $(udc_OBJECTS) $(udc_DEPENDENCIES) 
 	@rm -f udc$(EXEEXT)
 	$(LINK) $(udc_LDFLAGS) $(udc_OBJECTS) $(udc_LDADD) $(LIBS)
+view_error_queue$(EXEEXT): $(view_error_queue_OBJECTS) $(view_error_queue_DEPENDENCIES) 
+	@rm -f view_error_queue$(EXEEXT)
+	$(LINK) $(view_error_queue_LDFLAGS) $(view_error_queue_OBJECTS) $(view_error_queue_LDADD) $(LIBS)
 view_ls_data$(EXEEXT): $(view_ls_data_OBJECTS) $(view_ls_data_DEPENDENCIES) 
 	@rm -f view_ls_data$(EXEEXT)
 	$(LINK) $(view_ls_data_LDFLAGS) $(view_ls_data_OBJECTS) $(view_ls_data_LDADD) $(LIBS)
@@ -727,6 +757,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cache_spy.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/convert_fsa.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/convert_jid.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/convert_ls_data.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/convert_stat.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/count_burst.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/current_job_list_spy.Po@am__quote@
@@ -762,6 +793,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/sysconf.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/tiff_sniffer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/update_db.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/view_error_queue.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/view_ls_data.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/watch_dir.Po@am__quote@
 
@@ -879,6 +911,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -958,6 +991,7 @@ uninstall-am: uninstall-binPROGRAMS uninstall-info-am uninstall-local \
 @WITH_SETUID_PROGS_TRUE@	then \
 @WITH_SETUID_PROGS_TRUE@		chmod 4755 $(DESTDIR)$(bindir)/afdcmd ; \
 @WITH_SETUID_PROGS_TRUE@		chmod 4755 $(DESTDIR)$(bindir)/udc ; \
+@WITH_SETUID_PROGS_TRUE@		chmod 4755 $(DESTDIR)$(bindir)/get_dc_data ; \
 @WITH_SETUID_PROGS_TRUE@	fi
 @WITH_SETUID_PROGS_TRUE@	cd $(DESTDIR)$(bindir) && rm -f uhc
 @WITH_SETUID_PROGS_TRUE@	cd $(DESTDIR)$(bindir) && ln -s udc uhc

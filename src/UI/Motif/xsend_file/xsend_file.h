@@ -30,6 +30,8 @@
 #define SET_LOCK_OFF            5
 #define SET_LOCK_DOT_VMS        6
 #define SET_LOCK_PREFIX         7
+#define SET_ACTIVE              8
+#define SET_PASSIVE             9
 #define HOSTNAME_NO_ENTER       20
 #define HOSTNAME_ENTER          21
 #define USER_NO_ENTER           22
@@ -84,9 +86,10 @@ extern void attach_file_toggle(Widget, XtPointer, XtPointer),
             create_url_file(void),
             debug_toggle(Widget, XtPointer, XtPointer),
             enter_passwd(Widget, XtPointer, XtPointer),
+            active_passive_radio(Widget, XtPointer, XtPointer),
             lock_radio(Widget, XtPointer, XtPointer),
             mode_radio(Widget, XtPointer, XtPointer),
-            passive_toggle(Widget, XtPointer, XtPointer),
+            extended_toggle(Widget, XtPointer, XtPointer),
             protocol_toggled(Widget, XtPointer, XtPointer),
             send_button(Widget, XtPointer, XtPointer),
             send_file(void),

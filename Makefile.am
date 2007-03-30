@@ -9,6 +9,7 @@ MAINTAINERCLEANFILES = Makefile.in aclocal.m4 configure ac-tools/config.guess\
                        $(PACKAGE)-$(VERSION).tar.bz2\
                        afd.spec\
                        errors
+CLEANFILES           = core core.*
 SUBDIRS              = src scripts etc
 EXTRA_DIST           = ac-tools doc scripts afd.spec.in COPYING CREDITS\
                        Changelog FAQ KNOWN-BUGS README.configure THANKS TODO\

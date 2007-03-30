@@ -180,6 +180,7 @@
 #define SSH_FX_FILE_CORRUPT                 28         /* 6+      */
 #define SSH_FX_OWNER_INVALID                29         /* 6+      */
 #define SSH_FX_GROUP_INVALID                30         /* 6+      */
+#define SSH_FX_NO_MATCHING_BYTE_RANGE_LOCK  31         /* 6+      */
 
 /* Storage for whats returned in SSH_FXP_NAME reply. */
 struct name_list
@@ -223,7 +224,11 @@ struct sftp_connect_data
 /* Function prototypes */
 extern unsigned int sftp_version(void);
 extern int          sftp_cd(char *, int),
-                    sftp_connect(char *, int, char *, char *, char),
+#ifdef WITH_SSH_FINGERPRINT
+                    sftp_connect(char *, int, unsigned char, char *, char *, char *, char),
+#else
+                    sftp_connect(char *, int, unsigned char, char *, char *, char),
+#endif
                     sftp_close_dir(void),
                     sftp_close_file(void),
                     sftp_dele(char *),
@@ -234,6 +239,7 @@ extern int          sftp_cd(char *, int),
                     sftp_open_file(int, char *, off_t, mode_t *, int, int *, char),
                     sftp_pwd(void),
                     sftp_read(char *, int),
+                    sftp_readdir(char *, struct stat *),
                     sftp_stat(char *, struct stat *),
                     sftp_write(char *, int);
 extern void         sftp_quit(void);

@@ -1,6 +1,6 @@
 /*
  *  smtpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,6 +101,9 @@ DESCR__S_M3
  **                      occured in smtp_quit().
  **   25.12.2003 H.Kiehl Added traceing.
  **   10.01.2004 H.Kiehl Remove function check_reply().
+ **   27.09.2006 H.Kiehl Function smtp_write() now handles the case
+ **                      correctly when a line starts with a leading
+ **                      dot '.'.
  **
  */
 DESCR__E_M3
@@ -349,6 +352,16 @@ smtp_open(void)
 
 
 /*############################# smtp_write() ############################*/
+/*                              ------------                             */
+/* If buffer is not NULL, this function converts a '\n' only to a '\r'   */
+/* '\n' and adds another dot '.' if a dot is at the beginning of the     */
+/* line. Note that this works correctly the caller needs to allocate at  */
+/* least twice the amount of memory as that specified in size. This      */
+/* function does NOT check this. Also note that the first byte in buffer */
+/* will always contain the last character of the previous block. So when */
+/* function smtp_write() is used to send the mail body, buffer[0] must   */
+/* be initialized by the caller to '\n' only for the first block send.   */
+/*#######################################################################*/
 int
 smtp_write(char *block, char *buffer, int size)
 {
@@ -393,10 +406,17 @@ smtp_write(char *block, char *buffer, int size)
                        buffer[count++] = '\n';
                     }
                  }
-                 else
-                 {
-                    buffer[count++] = *ptr;
-                 }
+                 else if ((*ptr == '.') &&
+                          (((i > 0) && (*(ptr - 1) == '\n')) ||
+                           ((i == 0) && (buffer[0] == '\n'))))
+                      {
+                         buffer[count++] = '.';
+                         buffer[count++] = '.';
+                      }
+                      else
+                      {
+                         buffer[count++] = *ptr;
+                      }
                  ptr++;
               }
               if (i > 0)
@@ -491,42 +511,49 @@ smtp_write_iso8859(char *block, char *buffer, int size)
                     buffer[count++] = '\n';
                  }
               }
-              else
-              {
-                 if (*ptr == 129) /* ue */
-                 {
-                    buffer[count] = (char)(252);
-                 }
-                 else if (*ptr == 132) /* ae */
+              else if ((*ptr == '.') &&
+                       (((i > 0) && (*(ptr - 1) == '\n')) ||
+                        ((i == 0) && (buffer[0] == '\n'))))
+                   {
+                      buffer[count++] = '.';
+                      buffer[count++] = '.';
+                   }
+                   else
+                   {
+                      if (*ptr == 129) /* ue */
                       {
-                         buffer[count] = (char)(228);
+                         buffer[count] = (char)(252);
                       }
-                 else if (*ptr == 142) /* AE */
-                      {
-                         buffer[count] = (char)(196);
-                      }
-                 else if (*ptr == 148) /* oe */
-                      {
-                         buffer[count] = (char)(246);
-                      }
-                 else if (*ptr == 153) /* OE */
-                      {
-                         buffer[count] = (char)(214);
-                      }
-                 else if (*ptr == 154) /* UE */
-                      {
-                         buffer[count] = (char)(220);
-                      }
-                 else if (*ptr == 225) /* ss */
-                      {
-                         buffer[count] = (char)(223);
-                      }
-                      else
-                      {
-                         buffer[count] = *ptr;
-                      }
-                 count++;
-              }
+                      else if (*ptr == 132) /* ae */
+                           {
+                              buffer[count] = (char)(228);
+                           }
+                      else if (*ptr == 142) /* AE */
+                           {
+                              buffer[count] = (char)(196);
+                           }
+                      else if (*ptr == 148) /* oe */
+                           {
+                              buffer[count] = (char)(246);
+                           }
+                      else if (*ptr == 153) /* OE */
+                           {
+                              buffer[count] = (char)(214);
+                           }
+                      else if (*ptr == 154) /* UE */
+                           {
+                              buffer[count] = (char)(220);
+                           }
+                      else if (*ptr == 225) /* ss */
+                           {
+                              buffer[count] = (char)(223);
+                           }
+                           else
+                           {
+                              buffer[count] = *ptr;
+                           }
+                      count++;
+                   }
               ptr++;
            }
            if (i > 0)

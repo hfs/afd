@@ -1,6 +1,6 @@
 /*
  *  sf_http.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -87,13 +87,16 @@ int                        counter_fd = -1,     /* NOT USED */
                            no_of_hosts,    /* This variable is not used */
                                            /* in this module.           */
                            *p_no_of_hosts = NULL,
-                           trans_rule_pos, /* Not used [init_sf()]      */
-                           user_rule_pos,  /* Not used [init_sf()]      */
                            fsa_id,
                            fsa_fd = -1,
                            sys_log_fd = STDERR_FILENO,
                            transfer_log_fd = STDERR_FILENO,
                            trans_db_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                           trans_db_log_readfd,
+                           transfer_log_readfd,
+#endif
+                           trans_rename_blocked = NO,
                            amg_flag = NO,
                            timeout_flag;
 #ifdef _WITH_BURST_2
@@ -146,6 +149,9 @@ main(int argc, char *argv[])
    clock_t          clktck;
 #ifdef _OUTPUT_LOG
    int              ol_fd = -1;
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+   int              ol_readfd = -1;
+# endif
    unsigned int     *ol_job_number;
    char             *ol_data = NULL,
                     *ol_file_name;
@@ -241,6 +247,9 @@ main(int argc, char *argv[])
    if (db.output_log == YES)
    {
       output_log_ptrs(&ol_fd,                /* File descriptor to fifo */
+# ifdef WITHOUT_FIFO_RW_SUPPORT
+                      &ol_readfd,
+# endif
                       &ol_job_number,
                       &ol_data,              /* Pointer to buffer       */
                       &ol_file_name,
@@ -258,21 +267,40 @@ main(int argc, char *argv[])
    timeout_flag = OFF;
 
    /* Now determine the real hostname. */
-   if (db.toggle_host == YES)
+   if (fsa->real_hostname[1][0] == '\0')
    {
-      if (fsa->host_toggle == HOST_ONE)
-      {
-         (void)strcpy(db.hostname, fsa->real_hostname[HOST_TWO - 1]);
-      }
-      else
-      {
-         (void)strcpy(db.hostname, fsa->real_hostname[HOST_ONE - 1]);
-      }
+      (void)strcpy(db.hostname, fsa->real_hostname[0]);
    }
    else
    {
-      (void)strcpy(db.hostname,
-                   fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
+      int current_toggle;
+
+      if (db.toggle_host == YES)
+      {
+         if (fsa->host_toggle == HOST_ONE)
+         {
+            (void)strcpy(db.hostname, fsa->real_hostname[HOST_TWO - 1]);
+            current_toggle = HOST_TWO;
+         }
+         else
+         {
+            (void)strcpy(db.hostname, fsa->real_hostname[HOST_ONE - 1]);
+            current_toggle = HOST_ONE;
+         }
+      }
+      else
+      {
+         current_toggle = (int)fsa->host_toggle;
+         (void)strcpy(db.hostname, fsa->real_hostname[(current_toggle - 1)]);
+      }
+      if (((db.special_flag & TRANS_RENAME_PRIMARY_ONLY) &&
+           (current_toggle == HOST_TWO)) ||
+          ((db.special_flag & TRANS_RENAME_SECONDARY_ONLY) &&
+           (current_toggle == HOST_ONE)))
+      {
+         trans_rename_blocked = YES;
+         db.trans_rename_rule[0] = '\0';
+      }
    }
 
    /* Connect to remote HTTP-server. */
@@ -362,7 +390,11 @@ main(int argc, char *argv[])
 # ifdef _OUTPUT_LOG
          if ((db.output_log == YES) && (ol_data == NULL))
          {
+#  ifdef WITHOUT_FIFO_RW_SUPPORT
+            output_log_ptrs(&ol_fd, &ol_readfd, &ol_job_number, &ol_data, &ol_file_name,
+#  else
             output_log_ptrs(&ol_fd, &ol_job_number, &ol_data, &ol_file_name,
+#  endif
                             &ol_file_name_length, &ol_archive_name_length,
                             &ol_file_size, &ol_unl, &ol_size, &ol_transfer_time,
                             db.host_alias, HTTP);
@@ -371,7 +403,7 @@ main(int argc, char *argv[])
       }
 #endif
 
-      /* Send all files */
+      /* Send all files. */
       p_file_name_buffer = file_name_buffer;
       p_file_size_buffer = file_size_buffer;
       for (files_send = 0; files_send < files_to_send; files_send++)
@@ -380,9 +412,10 @@ main(int argc, char *argv[])
 
          if (*p_file_size_buffer > 0)
          {
-            int end_length = 0,
-                header_length = 0,
-                length_type_indicator = 10;
+            int   end_length = 0,
+                  header_length = 0,
+                  length_type_indicator = 10;
+            off_t file_size;
 
             (void)gsf_check_fsa();
             if (db.fsa_pos != INCORRECT)
@@ -390,6 +423,59 @@ main(int argc, char *argv[])
                fsa->job_status[(int)db.job_no].file_size_in_use = *p_file_size_buffer;
                (void)strcpy(fsa->job_status[(int)db.job_no].file_name_in_use,
                             p_file_name_buffer);
+            }
+
+            if (db.special_flag & FILE_NAME_IS_HEADER)
+            {
+               int  header_length = 0;
+               char *ptr = p_file_name_buffer;
+
+               for (;;)
+               {
+                  while ((*ptr != '_') && (*ptr != '-') && (*ptr != ' ') &&
+                         (*ptr != '\0') && (*ptr != '.') && (*ptr != ';'))
+                  {
+                     header_length++; ptr++;
+                  }
+                  if ((*ptr == '\0') || (*ptr == '.') || (*ptr == ';'))
+                  {
+                     break;
+                  }
+                  else
+                  {
+                     header_length++; ptr++;
+                  }
+               } /* for (;;) */
+
+               if (wmo_counter_fd > 0)
+               {
+                  file_size = 4 + 6 + header_length + *p_file_size_buffer + 4;
+               }
+               else
+               {
+                  file_size = 4 + header_length + *p_file_size_buffer + 4;
+               }
+            }
+            else
+            {
+               file_size = *p_file_size_buffer;
+            }
+            if ((status = http_put(db.hostname, db.target_dir,
+                                   p_file_name_buffer, file_size)) != SUCCESS)
+            {
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
+                         "Failed to open remote file `%s' (%d).",
+                         p_file_name_buffer, status);
+               http_quit();
+               exit(eval_timeout(OPEN_REMOTE_ERROR));
+            }
+            else
+            {
+               if (fsa->debug > NORMAL_MODE)
+               {
+                  trans_db_log(INFO_SIGN, __FILE__, __LINE__, NULL,
+                               "Open remote file `%s'.", p_file_name_buffer);
+               }
             }
 
             /* Open local file */
@@ -476,13 +562,13 @@ main(int argc, char *argv[])
 
                for (;;)
                {
-                  while ((*ptr != '_') && (*ptr != '-') &&
-                         (*ptr != ' ') && (*ptr != '\0') && (*ptr != ';'))
+                  while ((*ptr != '_') && (*ptr != '-') && (*ptr != ' ') &&
+                         (*ptr != '\0') && (*ptr != '.') && (*ptr != ';'))
                   {
                      buffer[length_type_indicator + header_length] = *ptr;
                      header_length++; ptr++;
                   }
-                  if ((*ptr == '\0') || (*ptr == ';'))
+                  if ((*ptr == '\0') || (*ptr == '.') || (*ptr == ';'))
                   {
                      break;
                   }
@@ -742,7 +828,8 @@ main(int argc, char *argv[])
 # else
                              "Total file size for host %s overflowed. Correcting to %lld.",
 # endif
-                             fsa->host_dsp_name, fsa->total_file_size);
+                             fsa->host_dsp_name,
+                             (pri_off_t)fsa->total_file_size);
                }
                else if ((fsa->total_file_counter == 0) &&
                         (fsa->total_file_size > 0))
@@ -906,6 +993,9 @@ main(int argc, char *argv[])
          if ((*p_file_size_buffer > 0) && (fsa->error_counter > 0))
          {
             int  fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                 readfd,
+#endif
                  j;
             char fd_wake_up_fifo[MAX_PATH_LENGTH];
 
@@ -921,7 +1011,11 @@ main(int argc, char *argv[])
              */
             (void)sprintf(fd_wake_up_fifo, "%s%s%s", p_work_dir,
                           FIFO_DIR, FD_WAKE_UP_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(fd_wake_up_fifo, &readfd, &fd) == -1)
+#else
             if ((fd = open(fd_wake_up_fifo, O_RDWR)) == -1)
+#endif
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           "Failed to open() FIFO %s : %s",
@@ -935,6 +1029,14 @@ main(int argc, char *argv[])
                              "Failed to write() to FIFO %s : %s",
                              fd_wake_up_fifo, strerror(errno));
                }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               if (close(readfd) == -1)
+               {
+                  system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                             "Failed to close() FIFO %s (read) : %s",
+                             fd_wake_up_fifo, strerror(errno));
+               }
+#endif
                if (close(fd) == -1)
                {
                   system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -976,6 +1078,12 @@ main(int argc, char *argv[])
                           fsa->host_alias);
             }
          } /* if (fsa->error_counter > 0) */
+#ifdef WITH_ERROR_QUEUE
+         if (db.special_flag & IN_ERROR_QUEUE)
+         {
+            remove_from_error_queue(db.job_id, fsa);
+         }
+#endif
 
          p_file_name_buffer += MAX_FILENAME_LENGTH;
          p_file_size_buffer++;
@@ -1042,6 +1150,9 @@ static void
 sf_http_exit(void)
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char sf_fin_fifo[MAX_PATH_LENGTH];
 
    if ((fsa != NULL) && (db.fsa_pos >= 0))
@@ -1092,7 +1203,11 @@ sf_http_exit(void)
    (void)strcpy(sf_fin_fifo, p_work_dir);
    (void)strcat(sf_fin_fifo, FIFO_DIR);
    (void)strcat(sf_fin_fifo, SF_FIN_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(sf_fin_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(sf_fin_fifo, O_RDWR)) == -1)
+#endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Could not open fifo %s : %s", sf_fin_fifo, strerror(errno));
@@ -1111,6 +1226,9 @@ sf_http_exit(void)
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "write() error : %s", strerror(errno));
       }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      (void)close(readfd);
+#endif
       (void)close(fd);
    }
    if (sys_log_fd != STDERR_FILENO)

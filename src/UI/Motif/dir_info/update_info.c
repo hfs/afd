@@ -1,6 +1,6 @@
 /*
  *  update_info.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -91,7 +91,7 @@ Widget w;
                tmp_str_line[MAX_INFO_STRING_LENGTH];
 
    /* Check if FRA changed */
-   if (check_fra() == YES)
+   if (check_fra(NO) == YES)
    {
       int i;
 
@@ -140,10 +140,14 @@ Widget w;
       {
          (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Yes");
       }
-      else
-      {
-         (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
-      }
+      else if (prev.stupid_mode == GET_ONCE_ONLY)
+           {
+              (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "Once only");
+           }
+           else
+           {
+              (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, "No");
+           }
       XmTextSetString(text_wl[STUPID_MODE_POS], str_line);
       flush = YES;
    }
@@ -258,10 +262,11 @@ Widget w;
    {
       prev.bytes_received = fra[fra_pos].bytes_received;
 #if SIZEOF_OFF_T == 4
-      (void)sprintf(str_line, "%*lu", DIR_INFO_LENGTH_L, prev.bytes_received);
+      (void)sprintf(str_line, "%*lu",
 #else
-      (void)sprintf(str_line, "%*llu", DIR_INFO_LENGTH_L, prev.bytes_received);
+      (void)sprintf(str_line, "%*llu",
 #endif
+                    DIR_INFO_LENGTH_L, (pri_off_t)prev.bytes_received);
       XmTextSetString(text_wl[BYTES_RECEIVED_POS], str_line);
       flush = YES;
    }
@@ -329,7 +334,7 @@ Widget w;
 #else
          (void)sprintf(str_line, "%*lld",
 #endif
-                       DIR_INFO_LENGTH_R, prev.accumulate_size);
+                       DIR_INFO_LENGTH_R, (pri_off_t)prev.accumulate_size);
       }
       XmTextSetString(text_wr[ACCUMULATE_SIZE_POS], str_line);
       flush = YES;
@@ -373,10 +378,11 @@ Widget w;
                  sign_char = ' ';
               }
 #if SIZEOF_OFF_T == 4
-         (void)sprintf(str_value, "%c%ld", sign_char, prev.ignore_size);
+         (void)sprintf(str_value, "%c%ld",
 #else
-         (void)sprintf(str_value, "%c%lld", sign_char, prev.ignore_size);
+         (void)sprintf(str_value, "%c%lld",
 #endif
+                       sign_char, (pri_off_t)prev.ignore_size);
          (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_R, str_value);
       }
       XmTextSetString(text_wr[IGNORE_SIZE_POS], str_line);
@@ -496,7 +502,7 @@ Widget w;
 #else
             length += sprintf(&dupcheck_label_str[length], ", timeout=%lld",
 #endif
-                              prev.dup_check_timeout);
+                              (pri_time_t)prev.dup_check_timeout);
          }
       }
       text = XmStringCreateLocalized(dupcheck_label_str);

@@ -35,7 +35,7 @@ DESCR__S_M1
  ** DESCRIPTION
  **   When there is a change in the structure filetransfer_status (FSA)
  **   This function converts an old FSA to the new one. This one
- **   is currently for converting Version 0 to 1.
+ **   is currently for converting Version 0, 1 and 2.
  **
  ** RETURN VALUES
  **   None.

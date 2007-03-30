@@ -25,8 +25,9 @@ DESCR__S_M3
  **   ssh_common - functions that can be used for SSH protocol
  **
  ** SYNOPSIS
- **   int     ssh_exec(char *host, int port, char *user, char *passwd,
- **                    char *cmd, char *subsystem, int *fd, pid_t *child_pid)
+ **   int     ssh_exec(char *host, int port, unsigned char ssh_protocol,
+ **                    char *user, char *passwd, char *cmd, char *subsystem,
+ **                    int *fd, pid_t *child_pid)
  **   int     ssh_login(int data_fd, char *passwd)
  **   size_t  pipe_write(int fd, char *buf, size_t count)
  **   int     get_ssh_reply(int fd, int check_reply)
@@ -43,6 +44,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   01.01.2006 H.Kiehl Created
+ **   23.07.2006 H.Kiehl Added host fingerprint check.
  */
 DESCR__E_M3
 
@@ -51,12 +53,19 @@ DESCR__E_M3
 #include <string.h>       /* memcpy(), strerror()                        */
 #include <stdlib.h>       /* malloc(), free()                            */
 #include <sys/types.h>    /* fd_set                                      */
+#include <setjmp.h>       /* setjmp(), longjmp()                         */
 #include <signal.h>       /* kill()                                      */
 #ifdef HAVE_SYS_SOCKET_H
 # include <sys/socket.h>
 #endif
 #include <sys/time.h>     /* struct timeval                              */
 #include <sys/stat.h>     /* S_ISUID, S_ISGID, etc                       */
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+#  include <sys/mman.h>   /* mmap(), msync(), munmap()                   */
+#  include <pwd.h>        /* getpwuid()                                  */
+# endif
+#endif
 #ifdef HAVE_PTY_H
 # include <pty.h>
 #endif
@@ -75,23 +84,34 @@ DESCR__E_M3
 
 
 /* External global variables. */
-extern int    timeout_flag;
-extern char   msg_str[];
-extern long   transfer_timeout;
+extern int             timeout_flag;
+extern char            msg_str[];
+extern long            transfer_timeout;
 
 /* Local global variables. */
-static int    fdm;
-static pid_t  data_pid;
+static int             fdm;
+static pid_t           ssh_data_pid;
+static jmp_buf         env_alrm;
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+static struct ssh_data sd;
+# endif
+#endif
 
 /* Local function prototypes. */
-static int    get_passwd_reply(int),
-              ptym_open(char *),
-              ptys_open(char *),
-              tty_raw(int);
-#ifdef WITH_TRACE
-static size_t pipe_write_np(int, char *, size_t);
+static int             get_passwd_reply(int),
+                       ptym_open(char *),
+                       ptys_open(char *),
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+                       remove_from_knownhosts(char *),
+# endif
 #endif
-static void   sig_ignore_handler(int);
+                       tty_raw(int);
+#ifdef WITH_TRACE
+static size_t          pipe_write_np(int, char *, size_t);
+#endif
+static void            sig_handler(int);
 
 #define NO_PROMPT 0
 
@@ -100,20 +120,20 @@ static void   sig_ignore_handler(int);
 
 /*############################## ssh_exec() #############################*/
 int
-ssh_exec(char  *host,
-         int   port,
-         char  *user,
-         char  *passwd,
-         char  *cmd,
-         char  *subsystem,
-         int   *fd,
-         pid_t *child_pid)
+ssh_exec(char          *host,
+         int           port,
+         unsigned char ssh_protocol,
+         char          *user,
+         char          *passwd,
+         char          *cmd,
+         char          *subsystem,
+         int           *fd,
+         pid_t         *child_pid)
 {
    int  status;
    char pts_name[MAX_PATH_LENGTH],
         *identityFilePath = NULL, /* To store the identity part. */
         *passwdBeg = NULL,
-        *passwdEnd,
         *idBeg = NULL,
         *idEnd,
         *ptr;
@@ -147,21 +167,10 @@ ssh_exec(char  *host,
          idEnd = passwdBeg - 4;
       }
 
-      /* Locate password end tag. */
-      if (idBeg < passwdBeg)  /* Pwd is after Id. */
-      {
-         passwdEnd = passwdBeg + (strlen(passwdBeg) - 1);
-      }
-      else  /* Pwd ends with Id. */
-      {
-         passwdEnd = idBeg - 4;
-      }
-
       /* Last case, we have no tag. We should have a password alone. */
       if (!passwdBeg && !idBeg)
       {
          passwdBeg = passwd;
-         passwdEnd = passwdBeg + (strlen(passwdBeg) - 1);
       }
 
       if (idBeg)
@@ -183,7 +192,7 @@ ssh_exec(char  *host,
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL, "ptym_open() error");
       status = INCORRECT;
-      data_pid = 0;
+      ssh_data_pid = 0;
    }
    else
    {
@@ -199,7 +208,7 @@ ssh_exec(char  *host,
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                    "socketpair() error : %s", strerror(errno));
          status = INCORRECT;
-         data_pid = 0;
+         ssh_data_pid = 0;
       }
       else
       {
@@ -210,7 +219,7 @@ ssh_exec(char  *host,
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "pipe() error : %s", strerror(errno));
             status = INCORRECT;
-            data_pid = 0;
+            ssh_data_pid = 0;
          }
          else
          {
@@ -218,8 +227,9 @@ ssh_exec(char  *host,
             {
                char *args[17],
                     dummy,
+                    str_protocol[1 + 3 + 1],
                     str_port[MAX_INT_LENGTH];
-               int  argcount = 0,
+               int  argcount,
                     fds;
 #ifdef WITH_TRACE
                int  i,
@@ -253,8 +263,14 @@ ssh_exec(char  *host,
                   (void)close(fds);
                }
 
-               args[argcount] = SSH_COMMAND;
-               argcount++;
+               args[0] = SSH_COMMAND;
+               argcount = 1;
+               if (ssh_protocol != 0)
+               {
+                  args[argcount] = str_protocol;
+                  argcount++;
+                  (void)sprintf(str_protocol, "-%d", (int)ssh_protocol);
+               }
                args[argcount] = "-x";
                argcount++;
                args[argcount] = "-oFallBackToRsh no";
@@ -344,7 +360,7 @@ ssh_exec(char  *host,
                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
                                  "tty_raw() failed in parent!");
                     }
-                    data_pid = *child_pid;
+                    ssh_data_pid = *child_pid;
 
                     status = SUCCESS;
                  }
@@ -352,7 +368,7 @@ ssh_exec(char  *host,
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                               "fork() error : %s", strerror(errno));
-                    data_pid = 0;
+                    ssh_data_pid = 0;
                     status = INCORRECT;
                  }
          }
@@ -363,13 +379,24 @@ ssh_exec(char  *host,
    {
       (void)free(identityFilePath);
    }
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+   (void)strcpy(sd.hostname, host);
+   (void)strcpy(sd.user, user);
+   sd.port = port;
+# endif
+#endif
    return(status);
 }
 
 
 /*############################ ssh_login() ##############################*/
 int
+#ifdef WITH_SSH_FINGERPRINT
+ssh_login(int data_fd, char *passwd, char *fingerprint)
+#else
 ssh_login(int data_fd, char *passwd)
+#endif
 {
    int            eio_loops = 0,
                   max_fd,
@@ -378,7 +405,6 @@ ssh_login(int data_fd, char *passwd)
                   *passwdBeg = NULL,
                   *passwdEnd,
                   *idBeg = NULL,
-                  *idEnd,
                   *ptr;
    fd_set         eset,
                   rset;
@@ -401,16 +427,6 @@ ssh_login(int data_fd, char *passwd)
       if ((ptr = strstr(passwd, "<p>")))
       {
          passwdBeg = ptr + 3;
-      }
-
-      /* Locate identity end tag. */
-      if (passwdBeg < idBeg)  /* Id is after Pwd. */
-      {
-         idEnd = idBeg + (strlen(idBeg) - 1);
-      }
-      else  /* Id ends with Pwd. */
-      {
-         idEnd = passwdBeg - 4;
       }
 
       /* Locate password end tag. */
@@ -486,29 +502,46 @@ ssh_login(int data_fd, char *passwd)
                }
           else if (FD_ISSET(fdm, &rset))
                {
-                  signal(SIGALRM, sig_ignore_handler);
-                  my_siginterrupt(SIGALRM, 1);
-                  alarm(transfer_timeout);
+                  int tmp_errno;
+
+                  if (signal(SIGALRM, sig_handler) == SIG_ERR)
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               "ssh_login(): Failed to set signal handler : %s",
+                               strerror(errno));
+                     status = INCORRECT;
+                     break;
+                  }
+                  if (setjmp(env_alrm) != 0)
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               "ssh_login(): read() timeout (%ld)",
+                               transfer_timeout);
+                     timeout_flag = ON;
+                     status = INCORRECT;
+                     break;
+                  }
+                  (void)alarm(transfer_timeout);
                   status = read(fdm, msg_str, MAX_RET_MSG_LENGTH);
-                  alarm(0);
-                  signal(SIGALRM, SIG_DFL);
+                  tmp_errno = errno;
+                  (void)alarm(0);
 
                   if (status < 0)
                   {
-                     if ((errno == EIO) && (eio_loops < 10))
+                     if ((tmp_errno == EIO) && (eio_loops < 10))
                      {
                         if (eio_loops == 0)
                         {
                            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
                                      "Hit an Input/Output error, assuming child was not up. Retrying.");
                         }
-                        (void)my_usleep(10000L);
+                        (void)my_usleep(200000L);
                         eio_loops++;
                         continue;
                      }
                      else
                      {
-                        if ((errno == EIO) && (eio_loops > 0))
+                        if ((tmp_errno == EIO) && (eio_loops > 0))
                         {
                            trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
                                      "Hit an Input/Output error, even after retrying %d times.",
@@ -519,7 +552,7 @@ ssh_login(int data_fd, char *passwd)
                            timeout_flag = CON_RESET;
                         }
                         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                  "read() error : %s", strerror(errno));
+                                  "read() error : %s", strerror(tmp_errno));
                         status = INCORRECT;
                      }
                   }
@@ -584,6 +617,7 @@ ssh_login(int data_fd, char *passwd)
                                        trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                                                  "Failed to enter passwd.");
                                        status = INCORRECT;
+                                       msg_str[0] = '\0';
                                     }
                                  }
                               }
@@ -595,8 +629,18 @@ ssh_login(int data_fd, char *passwd)
                               trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                                         "ssh is asking for password (or passphrase) and none is provided. Bailing out!");
                               status = INCORRECT;
+                              msg_str[0] = '\0';
                            }
                         }
+                        else if ((status == 1) &&
+                                 ((msg_str[0] == '\n') || (msg_str[0] == ' ')))
+                             {
+                                status = SUCCESS;
+#ifdef WITH_EFENCE
+                                sleep(1);
+                                continue;
+#endif
+                             }
                         /*
                          * It's not asking for a password. Three cases :
                          * 1) We're using a private key (Identity file)
@@ -607,37 +651,96 @@ ssh_login(int data_fd, char *passwd)
                          */
                         else if (posi(ptr, "(yes/no)") != NULL)
                              {
-                                if ((status = pipe_write(fdm, "no\n", 3)) != 3)
+#ifdef WITH_SSH_FINGERPRINT
+                                if ((fingerprint[0] == '\0') ||
+                                    (posi(ptr, fingerprint) == NULL))
                                 {
-                                   if (errno != 0)
+#endif
+                                   if ((status = pipe_write(fdm, "no\n", 3)) != 3)
                                    {
-                                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                                "write() error [%d] : %s",
-                                                status, strerror(errno));
+                                      if (errno != 0)
+                                      {
+                                         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                                   "write() error [%d] : %s",
+                                                   status, strerror(errno));
+                                      }
                                    }
+                                   else
+                                   {
+                                      msg_str[0] = '\0';
+                                      if ((status = get_ssh_reply(fdm, YES)) != SUCCESS)
+                                      {
+                                         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                                   "Failed to send no to verify ssh connection. [%d]",
+                                                   status);
+                                      }
+                                   }
+                                   trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+#ifdef WITH_SSH_FINGERPRINT
+                                             "Please connect to this host with the command line SSH utility and answer this question appropriately, or use fingerprints.");
+#else
+                                             "Please connect to this host with the command line SSH utility and answer this question appropriately.");
+#endif
+                                   status = INCORRECT;
+#ifdef WITH_SSH_FINGERPRINT
                                 }
                                 else
                                 {
-                                   msg_str[0] = '\0';
-                                   if ((status = get_ssh_reply(fdm, YES)) != SUCCESS)
+                                   if ((status = pipe_write(fdm, "yes\n", 4)) != 4)
                                    {
-                                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                                "Failed to send no to verify ssh connection. [%d]",
-                                                status);
+                                      if (errno != 0)
+                                      {
+                                         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                                   "write() error [%d] : %s",
+                                                   status, strerror(errno));
+                                      }
+                                      status = INCORRECT;
+                                   }
+                                   else
+                                   {
+                                      msg_str[0] = '\0';
+                                      if ((status = get_ssh_reply(fdm, YES)) != SUCCESS)
+                                      {
+                                         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                                   "Failed to send no to verify ssh connection. [%d]",
+                                                   status);
+                                      }
+                                      continue;
                                    }
                                 }
-                                trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
-                                          "Please connect to this host with the command line SSH utility and answer this question appropriately.");
-                                status = INCORRECT;
+#endif
                              }
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+                        else if ((posi(ptr, "DOING SOMETHING NASTY!") != NULL) ||
+                                 (posi(ptr, "man-in-the-middle attack") != NULL) ||
+                                 (posi(ptr, "known_hosts") != NULL))
+                             {
+                                if ((fingerprint[0] != '\0') &&
+                                    (posi(ptr, fingerprint) != NULL))
+                                {
+                                   status = remove_from_knownhosts(sd.hostname);
+                                }
+                                else
+                                {
+                                   continue;
+                                }
+                             }
+# endif
+#endif
 #ifdef WITH_EFENCE
                         else if (posi(ptr, "Electric Fence") != NULL)
                              {
-                                /* Lets assume that no password is */
-                                /* required to login.              */
                                 status = SUCCESS;
+                                continue;
                              }
 #endif
+                        else if (posi(ptr, "Warning: Permanently added") != NULL)
+                             {
+                                /* Just some info that key has been added. */
+                                status = SUCCESS;
+                                continue;
+                             }
                              else
                              {
                                 /* Replace '\n's by spaces for logging. */
@@ -651,6 +754,12 @@ ssh_login(int data_fd, char *passwd)
                                 trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
                                           "Protocol error. ssh is complaining, see next message (%d).",
                                           status);
+                                if (status == 1)
+                                {
+                                   trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                                             "msg_str[0] = %d", msg_str[0]);
+                                }
+                                msg_str[0] = '\0';
                                 status = INCORRECT;
                              }
                      }
@@ -663,13 +772,13 @@ ssh_login(int data_fd, char *passwd)
                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                          "SSH program not responding.");
                status = INCORRECT;
-               if (data_pid > 0)
+               if (ssh_data_pid > 0)
                {
-                  if (kill(data_pid, SIGKILL) == -1)
+                  if (kill(ssh_data_pid, SIGKILL) == -1)
                   {
                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                               "sftp_quit(): Failed to kill() data ssh process %d : %s",
-                               data_pid, strerror(errno));
+                               "ssh_login(): Failed to kill() data ssh process %d : %s",
+                               ssh_data_pid, strerror(errno));
                   }
                   else
                   {
@@ -708,7 +817,7 @@ pipe_write(int fd, char *buf, size_t count)
       fd_set         wset;
       struct timeval timeout;
 
-      /* Initialise descriptor set */
+      /* Initialise descriptor set. */
       FD_ZERO(&wset);
       FD_SET(fd, &wset);
       timeout.tv_usec = 0L;
@@ -761,7 +870,7 @@ pipe_write_np(int fd, char *buf, size_t count)
       fd_set         wset;
       struct timeval timeout;
 
-      /* Initialise descriptor set */
+      /* Initialise descriptor set. */
       FD_ZERO(&wset);
       FD_SET(fd, &wset);
       timeout.tv_usec = 0L;
@@ -870,7 +979,7 @@ get_ssh_reply(int fd, int check_reply)
                     trans_log(INFO_SIGN, NULL, 0, NULL,
                               "== Reading (%d) ==", status);
                  }
-#endif /* _WITH_DEBUG */
+#endif
                  if (check_reply == YES)
                  {
                     if (msg_str[status - 1] == '\n')
@@ -905,26 +1014,166 @@ get_ssh_reply(int fd, int check_reply)
 }
 
 
-/*########################## my_siginterrupt() ##########################*/
+#ifdef WITH_SSH_FINGERPRINT
+# ifdef WITH_REMOVE_FROM_KNOWNHOSTS
+/*###################### remove_from_knownhosts() #######################*/
 int
-my_siginterrupt(int sig, int flag)
+remove_from_knownhosts(char *hostname)
 {
-   int              ret;
-   struct sigaction act;
+   int           ret;
+   struct passwd *pwd;
 
-   (void)sigaction(sig, NULL, &act);
-   if (flag)
+   if ((pwd = getpwuid(getuid())) != NULL)
    {
-      act.sa_flags &= SA_RESTART;
+      int  fd;
+      char fullname[MAX_PATH_LENGTH];
+
+      (void)sprintf(fullname, "%s/.ssh/known_hosts", pwd->pw_dir);
+
+      if ((fd = lock_file(fullname, ON)) < 0)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to open/lock file `%s' : %s",
+                    fullname, strerror(errno));
+         ret = INCORRECT;
+      }
+      else
+      {
+         struct stat stat_buf;
+
+         if (fstat(fd, &stat_buf) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to fstat() `%s' : %s",
+                       fullname, strerror(errno));
+            ret = INCORRECT;
+         }
+         else
+         {
+            if (stat_buf.st_size == 0)
+            {
+               trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                         "`%s' is empty.", fullname);
+               ret = INCORRECT;
+            }
+            else
+            {
+               char *data;
+
+               if ((data = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+                                MAP_SHARED, fd, 0)) == (caddr_t) -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "mmap() error : %s", strerror(errno));
+                  ret = INCORRECT;
+               }
+               else
+               {
+                  size_t remove_size;
+                  char   *ptr;
+
+                  remove_size = 0;
+                  ptr = data;
+                  ret = RETRY;
+                  while ((remove_size == 0) && (ret != INCORRECT))
+                  {
+                     if ((ptr = posi(ptr, hostname)) == NULL)
+                     {
+                        trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                                  "Failed to locate `%s' in `%s'",
+                                  hostname, fullname);
+                        ret = INCORRECT;
+                     }
+                     else
+                     {
+                        char *p_tmp = ptr;
+
+                        ptr = ptr - strlen(hostname) - 1;
+                        if ((ptr == data) || (*(ptr - 1) == '\n') ||
+                            (*(ptr - 1) == ','))
+                        {
+                           char *p_start;
+
+                           /* We might be looking at the IP number that is */
+                           /* following the real hostname.                 */
+                           if ((ptr != data) && (*(ptr - 1) == ','))
+                           {
+                              ptr -= 2;
+                              while ((ptr > data) && (*ptr != '\n'))
+                              {
+                                 ptr--;
+                              }
+                           }
+                           p_start = ptr;
+
+                           while ((ptr < (data + stat_buf.st_size)) &&
+                                  (*ptr != '\n'))
+                           {
+                              ptr++;
+                           }
+                           if (*ptr == '\n')
+                           {
+                              ptr++;
+                              if (ptr < (data + stat_buf.st_size))
+                              {
+                                 (void)memmove(p_start, ptr,
+                                               ((data + stat_buf.st_size) - ptr));
+                                 if (msync(data, stat_buf.st_size, MS_SYNC) == -1)
+                                 {
+                                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                                               "msync() error : %s",
+                                               strerror(errno));
+                                 }
+                              }
+                           }
+                           remove_size = ptr - p_start;
+                        }
+                        else
+                        {
+                           ptr = p_tmp;
+                        }
+                     }
+                  }
+                  if (munmap(data, stat_buf.st_size) == -1)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "munmap() error : %s", strerror(errno));
+                  }
+                  if (remove_size > 0)
+                  {
+                     if (ftruncate(fd, (stat_buf.st_size - remove_size)) == -1)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "ftruncate() error : %s", strerror(errno));
+                        ret = INCORRECT;
+                     }
+                  }
+                  else
+                  {
+                     ret = INCORRECT;
+                  }
+               }
+            } /* (stat_buf.st_size > 0) */
+         }
+         if (close(fd) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Failed to close() `%s' : %s",
+                       fullname, strerror(errno));
+         }
+      }
    }
    else
    {
-      act.sa_flags |= SA_RESTART;
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "getpwuid() error : %s", strerror(errno));
+      ret = INCORRECT;
    }
-   ret = sigaction(sig, &act, NULL);
 
    return(ret);
 }
+# endif
+#endif
 
 
 /*-------------------------- get_passwd_reply() -------------------------*/
@@ -1205,10 +1454,9 @@ tty_raw(int fd)
 }
 
 
-/*+++++++++++++++++++++++++ sig_ignore_handler() ++++++++++++++++++++++++*/
+/*+++++++++++++++++++++++++++++ sig_handler() +++++++++++++++++++++++++++*/
 static void
-sig_ignore_handler(int signo)
+sig_handler(int signo)
 {
-   /* Do nothing. This just allows us to receive a SIGALRM, thus */
-   /* interrupting a system call without being forced to abort.  */
+   longjmp(env_alrm, 1);
 }

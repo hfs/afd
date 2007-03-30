@@ -1,6 +1,6 @@
 /*
  *  get_log_number.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,8 @@ DESCR__S_M3
  **   void get_log_number(int  *log_number,
  **                       int  max_log_number,
  **                       char *log_name,
- **                       int log_name_length)
+ **                       int  log_name_length,
+ **                       char *alias_name)
  **
  ** DESCRIPTION
  **   The function get_log_number() looks in the AFD log directory
@@ -62,7 +63,7 @@ DESCR__E_M3
                                    /* struct dirent                      */
 #include <errno.h>
 
-/* Global variables */
+/* Global variables. */
 extern char *p_work_dir;
 
 
@@ -71,7 +72,8 @@ void
 get_log_number(int  *log_number,
                int  max_log_number,
                char *log_name,
-               int  log_name_length)
+               int  log_name_length,
+               char *alias_name)
 {
    int           i,
                  tmp_number;
@@ -83,9 +85,16 @@ get_log_number(int  *log_number,
    struct dirent *p_dir;
    DIR           *dp;
 
-   /* Initialise log directory */
-   (void)strcpy(log_dir, p_work_dir);
-   (void)strcat(log_dir, LOG_DIR);
+   /* Initialise log directory. */
+   if (alias_name == NULL)
+   {
+      (void)strcpy(log_dir, p_work_dir);
+      (void)strcat(log_dir, LOG_DIR);
+   }
+   else
+   {
+      (void)sprintf(log_dir, "%s%s/%s", p_work_dir, RLOG_DIR, alias_name);
+   }
    if ((dp = opendir(log_dir)) == NULL)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,

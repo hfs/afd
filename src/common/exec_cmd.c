@@ -1,6 +1,6 @@
 /*
  *  exec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -31,6 +31,7 @@ DESCR__S_M3
  **                int    log_fd,
  **                char   *name,
  **                int    name_length,
+ **                char   *job,
  **                time_t exec_timeout,
  **                int    dup_stderr)
  **
@@ -60,6 +61,7 @@ DESCR__S_M3
  **   18.05.2006 H.Kiehl Allocate a ring buffer to read what is being
  **                      returned by the 'cmd', which the caller must
  **                      now free.
+ **   11.02.2007 H.Kiehl Added job string when writting to log_fd.
  **
  */
 DESCR__E_M3
@@ -91,6 +93,7 @@ exec_cmd(char   *cmd,
          int    log_fd,
          char   *name,
          int    name_length,
+         char   *job,
          time_t exec_timeout,
          int    dup_stderr)
 {
@@ -164,11 +167,11 @@ exec_cmd(char   *cmd,
             if (log_fd > -1)
             {
 #if SIZEOF_PID_T == 4
-               (void)rec(log_fd, INFO_SIGN, "%-*s: [%d] %s\n",
+               (void)rec(log_fd, INFO_SIGN, "%-*s%s: [%d] %s\n",
 #else
-               (void)rec(log_fd, INFO_SIGN, "%-*s: [%lld] %s\n",
+               (void)rec(log_fd, INFO_SIGN, "%-*s%s: [%lld] %s\n",
 #endif
-                         name_length, name, getpid(), p_cmd);
+                         name_length, name, job, (pri_pid_t)getpid(), p_cmd);
             }
 
             /* Synchronize with parent. */
@@ -249,21 +252,21 @@ exec_cmd(char   *cmd,
                      if ((clktck = sysconf(_SC_CLK_TCK)) <= 0)
                      {
 #if SIZEOF_PID_T == 4
-                        (void)rec(log_fd, INFO_SIGN, "%-*s: [%d] Done.\n",
+                        (void)rec(log_fd, INFO_SIGN, "%-*s%s: [%d] Done.\n",
 #else
-                        (void)rec(log_fd, INFO_SIGN, "%-*s: [%lld] Done.\n",
+                        (void)rec(log_fd, INFO_SIGN, "%-*s%s: [%lld] Done.\n",
 #endif
-                                  name_length, name, child_pid);
+                                  name_length, name, job, (pri_pid_t)child_pid);
                      }
                      else
                      {
                         (void)rec(log_fd, INFO_SIGN,
 #if SIZEOF_PID_T == 4
-                                  "%-*s: [%ld] Exec time: %.3fs\n",
+                                  "%-*s%s: [%ld] Exec time: %.3fs\n",
 #else
-                                  "%-*s: [%lld] Exec time: %.3fs\n",
+                                  "%-*s%s: [%lld] Exec time: %.3fs\n",
 #endif
-                                  name_length, name, child_pid,
+                                  name_length, name, job, (pri_pid_t)child_pid,
                                   (times(&tval) - start_time) / (double)clktck);
                      }
                   }
@@ -421,7 +424,7 @@ exec_cmd(char   *cmd,
 #else
                                    "Failed to kill() process %lld, due to exec timeout.",
 #endif
-                                   child_pid);
+                                   (pri_pid_t)child_pid);
                      }
                      my_usleep(10000L);
 
@@ -431,12 +434,12 @@ exec_cmd(char   *cmd,
                         {
                            (void)rec(log_fd, WARN_SIGN,
 #if SIZEOF_PID_T == 4
-                                     "%-*s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                     "%-*s%s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n",
 #else
-                                     "%-*s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                     "%-*s%s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n",
 #endif
-                                     name_length, name, child_pid, p_cmd,
-                                     exec_timeout);
+                                     name_length, name, job,
+                                     (pri_pid_t)child_pid, p_cmd, exec_timeout);
                         }
                         exit_status = INCORRECT;
                         break;
@@ -453,7 +456,7 @@ exec_cmd(char   *cmd,
 #else
                                       "Failed to kill() process %lld, due to exec timeout.",
 #endif
-                                      child_pid);
+                                      (pri_pid_t)child_pid);
                         }
                         do
                         {
@@ -465,12 +468,13 @@ exec_cmd(char   *cmd,
                               {
                                  (void)rec(log_fd, WARN_SIGN,
 #if SIZEOF_PID_T == 4
-                                           "%-*s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                           "%-*s%s: [%d] Killed command \"%s\" due to timeout (execution time > %lds).\n",
 #else
-                                           "%-*s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n",
+                                           "%-*s%s: [%lld] Killed command \"%s\" due to timeout (execution time > %lds).\n",
 #endif
-                                           name_length, name, child_pid, p_cmd,
-                                           exec_timeout);
+                                           name_length, name, job,
+                                           (pri_pid_t)child_pid,
+                                           p_cmd, exec_timeout);
                               }
                               counter = 101;
                            }

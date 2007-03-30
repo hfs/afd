@@ -1,6 +1,6 @@
 /*
  *  eval_recipient.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -35,8 +35,9 @@ DESCR__S_M3
  **   Here we evaluate the recipient string which must have the
  **   URL (Uniform Resource Locators) format:
  **
- **    <sheme>://<user>:<password>@<host>:<port>/<url-path>[;type=i|a|d]
- **                                                        [;server=<server-name>]
+ **   <sheme>://[<user>][;fingerprint=][:<password>]@<host>[:<port>][/<url-path>][;type=i|a|d]
+ **                                                                              [;server=<server-name>]
+ **                                                                              [;protocol=<protocol number>]
  **
  ** RETURN VALUES
  **   struct job *p_db   - The structure in which we store the
@@ -47,6 +48,11 @@ DESCR__S_M3
  **                             - hostname
  **                             - port
  **                             - directory
+ **
+ ** SEE ALSO
+ **   common/get_hostname.c, common/create_message.c, fd/get_job_data.c,
+ **   amg/store_passwd.c, fd/init_msg_buffer.c, tools/get_dc_data.c,
+ **   tools/set_pw.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -76,6 +82,7 @@ DESCR__E_M3
 #include <stdio.h>                   /* NULL                             */
 #include <string.h>                  /* strcpy()                         */
 #include <stdlib.h>                  /* atoi(), getenv()                 */
+#include <ctype.h>                   /* isdigit(), tolower(), isxdigit() */
 #include <time.h>                    /* time(), strftime()               */
 #include <unistd.h>                  /* gethostname()                    */
 #include "fddefs.h"
@@ -113,6 +120,7 @@ eval_recipient(char       *recipient,
 #endif
    if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
    {
+      int          smtp_server_in_msg = NO;
       time_t       time_modifier = 0;
       char         time_mod_sign = '+';
       register int i;
@@ -188,8 +196,12 @@ eval_recipient(char       *recipient,
             return(INCORRECT);
          }
          i = 0;
-         while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0') &&
-                (i < MAX_USER_NAME_LENGTH))
+#ifdef WITH_SSH_FINGERPRINT
+         while ((*ptr != ':') && (*ptr != ';') && (*ptr != '@') &&
+#else
+         while ((*ptr != ':') && (*ptr != '@') &&
+#endif
+                (*ptr != '\0') && (i < MAX_USER_NAME_LENGTH))
          {
             if (*ptr == '\\')
             {
@@ -215,10 +227,199 @@ eval_recipient(char       *recipient,
             return(INCORRECT);
          }
          p_db->user[i] = '\0';
+
+#ifdef WITH_SSH_FINGERPRINT
+         /* SSH host key fingerprint. */
+         if (*ptr == ';')
+         {
+            ptr++; /* Away with ; */
+
+            if ((*ptr == 'f') && (*(ptr + 1) == 'i') && (*(ptr + 2) == 'n') &&
+                (*(ptr + 3) == 'g') && (*(ptr + 4) == 'e') &&
+                (*(ptr + 5) == 'r') && (*(ptr + 6) == 'p') &&
+                (*(ptr + 7) == 'r') && (*(ptr + 8) == 'i') &&
+                (*(ptr + 9) == 'n') && (*(ptr + 10) == 't') &&
+                (*(ptr + 11) == '='))
+            {
+               ptr += 12;
+               p_db->key_type = SSH_RSA_KEY;
+
+               /*
+                * Check if public key and/or certificate formats are
+                * defined. We know of the following:
+                *     ssh-dss       Raw DSS Key
+                *     ssh-rsa       Raw RSA Key
+                *     pgp-sign-rsa  OpenPGP certificates (RSA key)
+                *     pgp-sign-dss  OpenPGP certificates (DSS key)
+                *
+                * If none are given, lets just assume ssh-dss.
+                */
+               if ((*ptr == 's') && (*(ptr + 1) == 's') &&
+                   (*(ptr + 2) == 'h') && (*(ptr + 3) == '-'))
+               {
+                  if ((*(ptr + 4) == 'd') && (*(ptr + 5) == 's') &&
+                      (*(ptr + 6) == 's') && (*(ptr + 7) == '-'))
+                  {
+                     p_db->key_type = SSH_DSS_KEY;
+                     ptr += 8;
+                  }
+                  else if ((*(ptr + 4) == 'r') && (*(ptr + 5) == 's') &&
+                           (*(ptr + 6) == 'a') && (*(ptr + 7) == '-'))
+                       {
+                          p_db->key_type = SSH_RSA_KEY;
+                          ptr += 8;
+                       }
+                       else
+                       {
+                          p_db->key_type = 0;
+                       }
+               }
+               else if ((*ptr == 'p') && (*(ptr + 1) == 'g') &&
+                        (*(ptr + 2) == 'p') && (*(ptr + 3) == '-') &&
+                        (*(ptr + 4) == 's') && (*(ptr + 5) == 'i') &&
+                        (*(ptr + 6) == 'g') && (*(ptr + 7) == 'n') &&
+                        (*(ptr + 8) == '-'))
+                    {
+                       if ((*(ptr + 9) == 'd') && (*(ptr + 10) == 's') &&
+                           (*(ptr + 11) == 's') && (*(ptr + 12) == '-'))
+                       {
+                          p_db->key_type = SSH_PGP_DSS_KEY;
+                          ptr += 13;
+                       }
+                       else if ((*(ptr + 9) == 'r') && (*(ptr + 10) == 's') &&
+                                (*(ptr + 11) == 'a') && (*(ptr + 12) == '-'))
+                            {
+                               p_db->key_type = SSH_PGP_RSA_KEY;
+                               ptr += 13;
+                            }
+                            else
+                            {
+                               p_db->key_type = 0;
+                            }
+                    }
+
+               if (p_db->key_type == 0)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "Unknown key type for fingerprint in recipient `%s'.",
+                             recipient);
+                  while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
+                  {
+                     if (*ptr == '\\')
+                     {
+                        ptr++;
+                     }
+                     ptr++;
+                  }
+               }
+               else
+               {
+                  /* Get fingerprint. */
+                  if ((isxdigit(*ptr)) && (isxdigit(*(ptr + 1))) && (*(ptr + 2) == '-') &&
+                      (isxdigit(*(ptr + 3))) && (isxdigit(*(ptr + 4))) && (*(ptr + 5) == '-') &&
+                      (isxdigit(*(ptr + 6))) && (isxdigit(*(ptr + 7))) && (*(ptr + 8) == '-') &&
+                      (isxdigit(*(ptr + 9))) && (isxdigit(*(ptr + 10))) && (*(ptr + 11) == '-') &&
+                      (isxdigit(*(ptr + 12))) && (isxdigit(*(ptr + 13))) && (*(ptr + 14) == '-') &&
+                      (isxdigit(*(ptr + 15))) && (isxdigit(*(ptr + 16))) && (*(ptr + 17) == '-') &&
+                      (isxdigit(*(ptr + 18))) && (isxdigit(*(ptr + 19))) && (*(ptr + 20) == '-') &&
+                      (isxdigit(*(ptr + 21))) && (isxdigit(*(ptr + 22))) && (*(ptr + 23) == '-') &&
+                      (isxdigit(*(ptr + 24))) && (isxdigit(*(ptr + 25))) && (*(ptr + 26) == '-') &&
+                      (isxdigit(*(ptr + 27))) && (isxdigit(*(ptr + 28))) && (*(ptr + 29) == '-') &&
+                      (isxdigit(*(ptr + 30))) && (isxdigit(*(ptr + 31))) && (*(ptr + 32) == '-') &&
+                      (isxdigit(*(ptr + 33))) && (isxdigit(*(ptr + 34))) && (*(ptr + 35) == '-') &&
+                      (isxdigit(*(ptr + 36))) && (isxdigit(*(ptr + 37))) && (*(ptr + 38) == '-') &&
+                      (isxdigit(*(ptr + 39))) && (isxdigit(*(ptr + 40))) && (*(ptr + 41) == '-') &&
+                      (isxdigit(*(ptr + 42))) && (isxdigit(*(ptr + 43))) && (*(ptr + 44) == '-') &&
+                      (isxdigit(*(ptr + 45))) && (isxdigit(*(ptr + 46))))
+                  {
+                     p_db->ssh_fingerprint[0] = tolower(*ptr);
+                     p_db->ssh_fingerprint[1] = tolower(*(ptr + 1));
+                     p_db->ssh_fingerprint[2] = ':';
+                     p_db->ssh_fingerprint[3] = tolower(*(ptr + 3));
+                     p_db->ssh_fingerprint[4] = tolower(*(ptr + 4));
+                     p_db->ssh_fingerprint[5] = ':';
+                     p_db->ssh_fingerprint[6] = tolower(*(ptr + 6));
+                     p_db->ssh_fingerprint[7] = tolower(*(ptr + 7));
+                     p_db->ssh_fingerprint[8] = ':';
+                     p_db->ssh_fingerprint[9] = tolower(*(ptr + 9));
+                     p_db->ssh_fingerprint[10] = tolower(*(ptr + 10));
+                     p_db->ssh_fingerprint[11] = ':';
+                     p_db->ssh_fingerprint[12] = tolower(*(ptr + 12));
+                     p_db->ssh_fingerprint[13] = tolower(*(ptr + 13));
+                     p_db->ssh_fingerprint[14] = ':';
+                     p_db->ssh_fingerprint[15] = tolower(*(ptr + 15));
+                     p_db->ssh_fingerprint[16] = tolower(*(ptr + 16));
+                     p_db->ssh_fingerprint[17] = ':';
+                     p_db->ssh_fingerprint[18] = tolower(*(ptr + 18));
+                     p_db->ssh_fingerprint[19] = tolower(*(ptr + 19));
+                     p_db->ssh_fingerprint[20] = ':';
+                     p_db->ssh_fingerprint[21] = tolower(*(ptr + 21));
+                     p_db->ssh_fingerprint[22] = tolower(*(ptr + 22));
+                     p_db->ssh_fingerprint[23] = ':';
+                     p_db->ssh_fingerprint[24] = tolower(*(ptr + 24));
+                     p_db->ssh_fingerprint[25] = tolower(*(ptr + 25));
+                     p_db->ssh_fingerprint[26] = ':';
+                     p_db->ssh_fingerprint[27] = tolower(*(ptr + 27));
+                     p_db->ssh_fingerprint[28] = tolower(*(ptr + 28));
+                     p_db->ssh_fingerprint[29] = ':';
+                     p_db->ssh_fingerprint[30] = tolower(*(ptr + 30));
+                     p_db->ssh_fingerprint[31] = tolower(*(ptr + 31));
+                     p_db->ssh_fingerprint[32] = ':';
+                     p_db->ssh_fingerprint[33] = tolower(*(ptr + 33));
+                     p_db->ssh_fingerprint[34] = tolower(*(ptr + 34));
+                     p_db->ssh_fingerprint[35] = ':';
+                     p_db->ssh_fingerprint[36] = tolower(*(ptr + 36));
+                     p_db->ssh_fingerprint[37] = tolower(*(ptr + 37));
+                     p_db->ssh_fingerprint[38] = ':';
+                     p_db->ssh_fingerprint[39] = tolower(*(ptr + 39));
+                     p_db->ssh_fingerprint[40] = tolower(*(ptr + 40));
+                     p_db->ssh_fingerprint[41] = ':';
+                     p_db->ssh_fingerprint[42] = tolower(*(ptr + 42));
+                     p_db->ssh_fingerprint[43] = tolower(*(ptr + 43));
+                     p_db->ssh_fingerprint[44] = ':';
+                     p_db->ssh_fingerprint[45] = tolower(*(ptr + 45));
+                     p_db->ssh_fingerprint[46] = tolower(*(ptr + 46));
+                     p_db->ssh_fingerprint[47] = '\0';
+                     ptr += 47;
+                  }
+                  else
+                  {
+                     system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                "This does not look like a fingerprint in recipient `%s'.",
+                                recipient);
+                     while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
+                     {
+                        if (*ptr == '\\')
+                        {
+                           ptr++;
+                        }
+                        ptr++;
+                     }
+                  }
+               }
+            }
+            else
+            {
+               /* Currently we know only fingerprint, nothing else. */
+               /* So lets just ignore anything behind the ;         */
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "Sorry, only `fingerprint=' is a known parameter. (%s).",
+                          recipient);
+               while ((*ptr != ':') && (*ptr != '@') && (*ptr != '\0'))
+               {
+                  if (*ptr == '\\')
+                  {
+                     ptr++;
+                  }
+                  ptr++;
+               }
+            }
+         }
+#endif /* WITH_SSH_FINGERPRINT */
 #ifdef WITH_PASSWD_IN_MSG
          if (*ptr == ':')
          {
-            ptr++;
+            ptr++; /* Away with : */
 
             /* Get password. */
             i = 0;
@@ -462,10 +663,11 @@ eval_recipient(char       *recipient,
                         break;
                      case 'U': /* Unix time. */
 #if SIZEOF_TIME_T == 4
-                        number = sprintf(&p_db->target_dir[i], "%ld", time_buf);
+                        number = sprintf(&p_db->target_dir[i], "%ld",
 #else
-                        number = sprintf(&p_db->target_dir[i], "%lld", time_buf);
+                        number = sprintf(&p_db->target_dir[i], "%lld",
 #endif
+                                         (pri_time_t)time_buf);
                         break;
                      default :
                         number = 3;
@@ -709,6 +911,38 @@ eval_recipient(char       *recipient,
                     if (i != 0)
                     {
                        p_db->smtp_server[i] = '\0';
+                       smtp_server_in_msg = YES;
+                    }
+                 }
+            else if (count == 8)
+                 {
+                    if ((*(ptr - 1) != 'l') || (*(ptr - 2) != 'o') ||
+                        (*(ptr - 3) != 'c') || (*(ptr - 4) != 'o') ||
+                        (*(ptr - 5) != 't') || (*(ptr - 6) != 'o') ||
+                        (*(ptr - 7) != 'r') || (*(ptr - 8) != 'p'))
+                    {
+                       *ptr = '\0';
+                       system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                  "Actually I was expecting <protocol=> and not <%s=>",
+                                  ptr_tmp);
+                       *ptr = '=';
+                       return(INCORRECT);
+                    }
+                    ptr++;
+                    ptr_tmp = ptr;
+                    while ((*ptr != '\0') && (*ptr != ' ') &&
+                           (*ptr != '\t') && (isdigit((int)(*ptr))))
+                    {
+                       ptr++;
+                    }
+                    if (ptr_tmp != ptr)
+                    {
+                       char tmp_char;
+
+                       tmp_char = *ptr;
+                       *ptr = '\0';
+                       p_db->ssh_protocol = (unsigned char)atoi(ptr_tmp);
+                       *ptr = tmp_char;
                     }
                  }
          }
@@ -720,8 +954,8 @@ eval_recipient(char       *recipient,
       /*
        * Find position of this hostname in FSA.
        */
-      if ((p_db->smtp_server[0] == '\0') ||
-          (p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG))
+      if ((p_db->smtp_server[0] == '\0') &&
+          ((p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG) == 0))
       {
          t_hostname(p_db->hostname, p_db->host_alias);
       }
@@ -732,7 +966,8 @@ eval_recipient(char       *recipient,
       if (CHECK_STRCMP(p_db->host_alias, fsa->host_alias) == 0)
       {
          if ((p_db->smtp_server[0] != '\0') &&
-             ( (p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG) == 0))
+             (((p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG) == 0) ||
+              (smtp_server_in_msg == YES)))
          {
             (void)strcpy(p_db->smtp_server,
                          fsa->real_hostname[(int)(fsa->host_toggle - 1)]);

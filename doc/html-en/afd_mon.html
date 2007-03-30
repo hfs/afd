@@ -18,8 +18,14 @@ from it.
 <h3 align=center><u><a NAME="AFD_MON_CONFIG">The AFD_MON_CONFIG file</a></u></h3>
 <p>
 For configuring afd_mon you need to create a configuration file
-$AFD_WORK_DIR/etc/AFD_MON_CONFIG, which should contain the following
-information for an AFD to be monitored:
+$AFD_WORK_DIR/etc/AFD_MON_CONFIG. The AFD_MON_CONFIG file is divided into
+two sections, the first section is for configuring values for the
+afd_mon process itself, while the second part is only for configuring
+the different AFD's that afd_mon needs to connect to.
+</p>
+<p>
+The syntax to specify the information for an AFD to be monitored is as
+follows:
 </p>
 <center><table border>
 <tr>
@@ -61,13 +67,16 @@ information for an AFD to be monitored:
        used if the next value is also non zero. If one is zero both
        will default to zero. Setting this value is only usefull
        connection time is the main cost factor, otherwise it is
-       best to set this and the next value to zero.</td>
+       best to set this and the next value to zero. This value must
+       be set to zero when you want to receive log data from the
+       remote AFD.</td>
    <td>30</td>
 </tr>
 <tr>
    <td>Disconnect time</td>
    <td>Determines how long it should remain disconnected before it
-       tries to connect again.</td>
+       tries to connect again. This value too must be set to zero
+       when remote log data is to be collected.</td>
    <td>600</td>
 </tr>
 <tr>
@@ -98,6 +107,46 @@ information for an AFD to be monitored:
           <td>4</rd>
           <td>Do not specify full path to rafdd_cmd and rafd_cmd_ssh
               script.</td>
+       </tr>
+       <tr>
+          <td>5</td>
+          <td>16</td>
+          <td>System Log Data.</td>
+       </tr>
+       <tr>
+          <td>6</td>
+          <td>32</td>
+          <td>Receive Log Data.</td>
+       </tr>
+       <tr>
+          <td>7</td>
+          <td>64</td>
+          <td>Transfer Log Data.</td>
+       </tr>
+       <tr>
+          <td>8</td>
+          <td>128</td>
+          <td>Transfer Debug Log Data.</td>
+       </tr>
+       <tr>
+          <td>9</td>
+          <td>256</td>
+          <td>Input Log Data.</td>
+       </tr>
+       <tr>
+          <td>10</td>
+          <td>512</td>
+          <td>Production Log Data.</td>
+       </tr>
+       <tr>
+          <td>11</td>
+          <td>1024</td>
+          <td>Output Log Data.</td>
+       </tr>
+       <tr>
+          <td>12</td>
+          <td>2048</td>
+          <td>Delete Log Data.</td>
        </tr>
        </table>
        The options can be combined by adding the decimal values.
@@ -138,11 +187,11 @@ So a sample entry in the AFD_MON_CONFIG file might look as follows:
    # |            |       |  +--------------------------> Interval
    # |            |       |  |  +-----------------------> Connect time
    # |            |       |  |  |  +--------------------> Disconnect time
-   # |            |       |  |  |  |  +-----------------> Options
-   # |            |       |  |  |  |  |  +--------------> Remote cmd
-   # |            |       |  |  |  |  |  |       +------> Convert user name
-   # |            |       |  |  |  |  |  |       |
-   Central-AFD ducktown 4444 5 30 600 0 rsh donald-&gt;daisy
+   # |            |       |  |  |  |    +---------------> Options
+   # |            |       |  |  |  |    |   +-----------> Remote cmd
+   # |            |       |  |  |  |    |   |    +------> Convert user name
+   # |            |       |  |  |  |    |   |    |
+   Central-AFD ducktown 4444 5 30 600 1024 rsh donald-&gt;daisy
 </pre>
 <p>
 NOTE: The syntax of AFD_MON_CONFIG must be correct! The process evaluating
@@ -158,11 +207,11 @@ mafd -a and mafd -s to shut it down again.
 <hr size=3 noshade>
 <table width=100%>
 <tr>
-   <td width=90%><small><address>
-   Copyright &copy; 2000 - 2005 by H.Kiehl<br>
+   <td width=90%><address><small>
+   Copyright &copy; 2000 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 08.12.2005
-   </address></small></td>
+   Last updated: 17.03.2007
+   </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
    <!-- Insert site specific logo -->

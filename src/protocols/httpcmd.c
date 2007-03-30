@@ -1,6 +1,6 @@
 /*
  *  httpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -27,17 +27,18 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int  http_connect(char *hostname, int port, int sndbuf_size, int rcvbuf_size)
  **   int  http_ssl_auth(void)
- **   int  http_check_connection(void)
  **   int  http_del(char *host, char *path, char *filename)
- **   int  http_get(char *host, char *path, char *filename)
+ **   int  http_get(char *host, char *path, char *filename, off_t *content_length, off_t offset)
+ **   int  http_head(char *host, char *path, char *filename, off_t *content_length, time_t date)
  **   int  http_put(char *host, char *path, char *filename, off_t length)
  **   int  http_read(char *block, int blocksize)
  **   int  http_chunk_read(char **chunk, int *chunksize)
+ **   int  http_version(void)
  **   int  http_write(char *block, char *buffer, int size)
  **   void http_quit(void)
  **
  ** DESCRIPTION
- **   ftpcmd provides a set of commands to communicate with an HTTP
+ **   httpcmd provides a set of commands to communicate with an HTTP
  **   server via BSD sockets.
  **
  **
@@ -56,6 +57,8 @@ DESCR__S_M3
  **   19.04.2003 H.Kiehl Created
  **   25.12.2003 H.Kiehl Added traceing.
  **   28.04.2004 H.Kiehl Handle chunked reading.
+ **   16.08.2006 H.Kiehl Added http_head() function.
+ **   17.08.2006 H.Kiehl Added appending to http_get().
  */
 DESCR__E_M3
 
@@ -92,6 +95,8 @@ DESCR__E_M3
 # include <arpa/inet.h>   /* inet_addr()                                 */
 #endif
 #ifdef WITH_SSL
+# include <setjmp.h>      /* setjmp(), longjmp()                         */
+# include <signal.h>      /* signal()                                    */
 # include <openssl/crypto.h>
 # include <openssl/x509.h>  
 # include <openssl/ssl.h>
@@ -106,7 +111,7 @@ DESCR__E_M3
 SSL                              *ssl_con = NULL;
 #endif
 
-/* External global variables */
+/* External global variables. */
 extern int                       timeout_flag;
 extern char                      msg_str[];
 #ifdef LINUX
@@ -115,18 +120,23 @@ extern int                       h_nerr;        /* for gethostbyname()   */
 #endif
 extern long                      transfer_timeout;
 
-/* Local global variables */
+/* Local global variables. */
 static int                       http_fd;
 #ifdef WITH_SSL
+static jmp_buf                   env_alrm;
 static SSL_CTX                   *ssl_ctx;
 #endif
 static struct timeval            timeout;
 static struct http_message_reply hmr;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int                       basic_authentication(void),
+                                 check_connection(void),
                                  get_http_reply(int *),
                                  read_msg(int *);
+#ifdef WITH_SSL
+static void                      sig_handler(int);
+#endif
 
 
 /*########################## http_connect() #############################*/
@@ -254,11 +264,13 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
    }
    hmr.port = port;
    hmr.free = YES;
+   hmr.http_version = 0;
 
 #ifdef WITH_SSL
    if ((ssl == YES) || (ssl == BOTH))
    {
-      int  reply;
+      int  reply,
+           tmp_errno;
       char *p_env,
            *p_env1;
 
@@ -295,7 +307,35 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
       SSL_set_connect_state(ssl_con);
       SSL_set_fd(ssl_con, http_fd);
 
-      if ((reply = SSL_connect(ssl_con)) <= 0)
+      /*
+       * NOTE: Because we have set SSL_MODE_AUTO_RETRY, a SSL_read() can
+       *       block even when we use select(). The same thing might be true
+       *       for SSL_write() but have so far not encountered this case.
+       *       It might be cleaner not to set SSL_MODE_AUTO_RETRY and handle
+       *       SSL_ERROR_WANT_READ error case.
+       */
+      if (signal(SIGALRM, sig_handler) == SIG_ERR)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                   "http_connect(): Failed to set signal handler : %s",
+                   strerror(errno));
+         return(INCORRECT);
+      }
+
+
+      if (setjmp(env_alrm) != 0)
+      {
+         trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                   "http_connect(): SSL_connect() timeout (%ld)",
+                   transfer_timeout);
+         timeout_flag = ON;
+         return(INCORRECT);
+      }
+      (void)alarm(transfer_timeout);
+      reply = SSL_connect(ssl_con);
+      tmp_errno = errno;
+      (void)alarm(0);
+      if (reply <= 0)
       {
          char *ptr;
 
@@ -343,6 +383,11 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
                        ssl_bits);
          reply = SUCCESS;
       }
+#ifdef WITH_SSL_READ_AHEAD
+      /* This is not set because I could not detect any advantage using this. */
+      SSL_set_read_ahead(ssl_con, 1);
+#endif
+
       return(reply);
    }
    else
@@ -355,26 +400,58 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
 }
 
 
+/*########################### http_version() ############################*/
+int
+http_version(void)
+{
+   return(hmr.http_version);
+}
+
+
 /*############################## http_get() #############################*/
 int
-http_get(char *host, char *path, char *filename, off_t *content_length)
+http_get(char  *host,
+         char  *path,
+         char  *filename,
+         off_t *content_length,
+         off_t offset)
 {
-   int reply;
+   int  reply;
+   char range[13 + MAX_OFF_T_LENGTH + 3];
 
    hmr.bytes_read = 0;
-   hmr.chunked = NO;
-
+   hmr.retries = 0;
+   hmr.date = -1;
+   if ((offset == 0) || (offset < 0))
+   {
+      range[0] = '\0';
+   }
+   else
+   {
+#if SIZEOF_OFF_T == 4
+      (void)sprintf(range, "Range: bytes=%ld-\r\n", (pri_off_t)offset);
+#else
+      (void)sprintf(range, "Range: bytes=%lld-\r\n", (pri_off_t)offset);
+#endif
+   }
 retry_get:
    if ((reply = command(http_fd,
-                        "GET %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%sHost: %s\r\nAccept: *\r\n",
-                        (*path != '/') ? "/" : "", path, filename,
+                        "GET %s%s%s HTTP/1.1\r\n%sUser-Agent: AFD/%s\r\n%sHost: %s\r\nAccept: *\r\n",
+                        (*path != '/') ? "/" : "", path, filename, range,
                         PACKAGE_VERSION,
                         (hmr.authorization == NULL) ? "" : hmr.authorization,
                         host)) == SUCCESS)
    {
       if ((reply = get_http_reply(&hmr.bytes_buffered)) == 200)
       {
-         reply = SUCCESS;
+         if (hmr.chunked == YES)
+         {
+            reply = CHUNKED;
+         }
+         else
+         {
+            reply = SUCCESS;
+         }
          *content_length = hmr.content_length;
       }
       else if (reply == 401)
@@ -383,7 +460,7 @@ retry_get:
               {
                  if (basic_authentication() == SUCCESS)
                  {
-                    if (http_check_connection() > INCORRECT)
+                    if (check_connection() > INCORRECT)
                     {
                        goto retry_get;
                     }
@@ -397,7 +474,12 @@ retry_get:
                                 "Digest authentication not yet implemented.");
                    }
            }
+      else if (reply == CONNECTION_REOPENED)
+           {
+              goto retry_get;
+           }
    }
+
    return(reply);
 }
 
@@ -408,6 +490,8 @@ http_put(char *host, char *path, char *filename, off_t length)
 {
    int reply;
 
+   hmr.retries = 0;
+   hmr.date = -1;
 retry_put:
    if ((reply = command(http_fd,
 #if SIZEOF_OFF_T == 4
@@ -417,7 +501,7 @@ retry_put:
 #endif
                         (*path != '/') ? "/" : "", path, filename,
                         PACKAGE_VERSION,
-                        length,
+                        (pri_off_t)length,
                         (hmr.authorization == NULL) ? "" : hmr.authorization,
                         host)) == SUCCESS)
    {
@@ -431,7 +515,7 @@ retry_put:
               {
                  if (basic_authentication() == SUCCESS)
                  {
-                    if (http_check_connection() > INCORRECT)
+                    if (check_connection() > INCORRECT)
                     {
                        goto retry_put;
                     }
@@ -445,6 +529,10 @@ retry_put:
                                 "Digest authentication not yet implemented.");
                    }
            }
+      else if (reply == CONNECTION_REOPENED)
+           {
+              goto retry_put;
+           }
    }
    return(reply);
 }
@@ -456,6 +544,8 @@ http_del(char *host, char *path, char *filename)
 {
    int reply;
 
+   hmr.retries = 0;
+   hmr.date = -1;
 retry_del:
    if ((reply = command(http_fd,
                         "DELETE %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%sHost: %s\r\n",
@@ -474,7 +564,7 @@ retry_del:
               {
                  if (basic_authentication() == SUCCESS)
                  {
-                    if (http_check_connection() > INCORRECT)
+                    if (check_connection() > INCORRECT)
                     {
                        goto retry_del;
                     }
@@ -488,7 +578,67 @@ retry_del:
                                 "Digest authentication not yet implemented.");
                    }
            }
+      else if (reply == CONNECTION_REOPENED)
+           {
+              goto retry_del;
+           }
    }
+   return(reply);
+}
+
+
+/*############################# http_head() #############################*/
+int
+http_head(char   *host,
+          char   *path,
+          char   *filename,
+          off_t  *content_length,
+          time_t *date)
+{
+   int reply;
+
+   hmr.retries = 0;
+   hmr.date = 0;
+retry_head:
+   if ((reply = command(http_fd,
+                        "HEAD %s%s%s HTTP/1.1\r\nUser-Agent: AFD/%s\r\n%sHost: %s\r\nAccept: *\r\n",
+                        (*path != '/') ? "/" : "", path, filename,
+                        PACKAGE_VERSION,
+                        (hmr.authorization == NULL) ? "" : hmr.authorization,
+                        host)) == SUCCESS)
+   {
+      if ((reply = get_http_reply(NULL)) == 200)
+      {
+         reply = SUCCESS;
+         *content_length = hmr.content_length;
+         *date = hmr.date;
+      }
+      else if (reply == 401)
+           {
+              if (hmr.www_authenticate == WWW_AUTHENTICATE_BASIC)
+              {
+                 if (basic_authentication() == SUCCESS)
+                 {
+                    if (check_connection() > INCORRECT)
+                    {
+                       goto retry_head;
+                    }
+                 }
+                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                           "Failed to create basic authentication.");
+              }
+              else if (hmr.www_authenticate == WWW_AUTHENTICATE_DIGEST)
+                   {
+                      trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                "Digest authentication not yet implemented.");
+                   }
+           }
+      else if (reply == CONNECTION_REOPENED)
+           {
+              goto retry_head;
+           }
+   }
+
    return(reply);
 }
 
@@ -661,10 +811,9 @@ http_write(char *block, char *buffer, int size)
 int
 http_read(char *block, int blocksize)
 {
-   int    bytes_read,
-          offset,
-          status;
-   fd_set rset;
+   int bytes_read,
+       offset,
+       status;
 
    if (hmr.bytes_buffered > 0)
    {
@@ -696,81 +845,139 @@ http_read(char *block, int blocksize)
       offset = 0;
    }
 
-   /* Initialise descriptor set */
-   FD_ZERO(&rset);
-   FD_SET(http_fd, &rset);
-   timeout.tv_usec = 0L;
-   timeout.tv_sec = transfer_timeout;
-
-   /* Wait for message x seconds and then continue. */
-   status = select(http_fd + 1, &rset, NULL, NULL, &timeout);
-
-   if (status == 0)
+#ifdef WITH_SSL
+   if ((ssl_con != NULL) && (SSL_pending(ssl_con)))
    {
-      /* timeout has arrived */
-      timeout_flag = ON;
-      return(INCORRECT);
+      if ((bytes_read = SSL_read(ssl_con, &block[offset],
+                                 blocksize - offset)) == INCORRECT)
+      {
+         if ((status = SSL_get_error(ssl_con,
+                                     bytes_read)) == SSL_ERROR_SYSCALL)
+         {
+            if (errno == ECONNRESET)
+            {
+               timeout_flag = CON_RESET;
+            }
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                      "http_read(): SSL_read() error : %s",
+                      strerror(errno));
+         }
+         else
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                      "http_read(): SSL_read() error %d", status);
+         }
+         return(INCORRECT);
+      }
+# ifdef WITH_TRACE
+      trace_log(NULL, 0, BIN_R_TRACE, &block[offset], bytes_read, NULL);
+# endif
    }
-   else if (status < 0)
-        {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "http_read(): select() error : %s", strerror(errno));
-           return(INCORRECT);
-        }
-   else if (FD_ISSET(http_fd, &rset))
-        {
-#ifdef WITH_SSL
-           if (ssl_con == NULL)
-           {
+   else
 #endif
-              if ((bytes_read = read(http_fd, &block[offset],
-                                     blocksize - offset)) == -1)
-              {
-                 if (errno == ECONNRESET)
-                 {
-                    timeout_flag = CON_RESET;
-                 }
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "http_read(): read() error : %s", strerror(errno));
-                 return(INCORRECT);
-              }
-#ifdef WITH_SSL
-           }
-           else
+   {
+      fd_set rset;
+
+      /* Initialise descriptor set */
+      FD_ZERO(&rset);
+      FD_SET(http_fd, &rset);
+      timeout.tv_usec = 0L;
+      timeout.tv_sec = transfer_timeout;
+
+      /* Wait for message x seconds and then continue. */
+      status = select(http_fd + 1, &rset, NULL, NULL, &timeout);
+
+      if (status == 0)
+      {
+         /* timeout has arrived */
+         timeout_flag = ON;
+         return(INCORRECT);
+      }
+      else if (FD_ISSET(http_fd, &rset))
            {
-              if ((bytes_read = SSL_read(ssl_con, &block[offset],
-                                         blocksize - offset)) == INCORRECT)
+#ifdef WITH_SSL
+              if (ssl_con == NULL)
               {
-                 if ((status = SSL_get_error(ssl_con,
-                                             bytes_read)) == SSL_ERROR_SYSCALL)
+#endif
+                 if ((bytes_read = read(http_fd, &block[offset],
+                                        blocksize - offset)) == -1)
                  {
                     if (errno == ECONNRESET)
                     {
                        timeout_flag = CON_RESET;
                     }
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "http_read(): SSL_read() error : %s",
-                              strerror(errno));
+                              "http_read(): read() error : %s", strerror(errno));
+                    return(INCORRECT);
                  }
-                 else
+#ifdef WITH_SSL
+              }
+              else
+              {
+                 int tmp_errno;
+
+                 /*
+                  * Remember we have set SSL_MODE_AUTO_RETRY. This
+                  * means the SSL lib may do several read() calls. We
+                  * just assured one read() with select(). So lets
+                  * set an an alarm since we might block on subsequent
+                  * calls to read(). It might be better when we reimplement
+                  * this without SSL_MODE_AUTO_RETRY and handle
+                  * SSL_ERROR_WANT_READ ourself.
+                  */
+                 if (setjmp(env_alrm) != 0)
                  {
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "http_read(): SSL_read() error %d", status);
+                              "http_read(): SSL_read() timeout (%ld)",
+                              transfer_timeout);
+                    timeout_flag = ON;
+                    return(INCORRECT);
                  }
-                 return(INCORRECT);
+                 (void)alarm(transfer_timeout);
+                 bytes_read = SSL_read(ssl_con, &block[offset],
+                                       blocksize - offset);
+                 tmp_errno = errno;
+                 (void)alarm(0);
+
+                 if (bytes_read == INCORRECT)
+                 {
+                    if ((status = SSL_get_error(ssl_con,
+                                                bytes_read)) == SSL_ERROR_SYSCALL)
+                    {
+                       if (tmp_errno == ECONNRESET)
+                       {
+                          timeout_flag = CON_RESET;
+                       }
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                 "http_read(): SSL_read() error : %s",
+                                 strerror(tmp_errno));
+                    }
+                    else
+                    {
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                 "http_read(): SSL_read() error %d", status);
+                    }
+                    return(INCORRECT);
+                 }
               }
-           }
 #endif
 #ifdef WITH_TRACE
-           trace_log(NULL, 0, BIN_R_TRACE, &block[offset], bytes_read, NULL);
+              trace_log(NULL, 0, BIN_R_TRACE, &block[offset], bytes_read, NULL);
 #endif
-        }
-        else
-        {
-           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                     "http_read(): Unknown condition.");
-           return(INCORRECT);
-        }
+           }
+      else if (status < 0)
+           {
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                        "http_read(): select() error : %s", strerror(errno));
+              return(INCORRECT);
+           }
+           else
+           {
+              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                        "http_read(): Unknown condition.");
+              return(INCORRECT);
+           }
+   }
 
    return(bytes_read + offset);
 }
@@ -784,7 +991,7 @@ http_chunk_read(char **chunk, int *chunksize)
        read_length;
 
    /* First, try read the chunk size. */
-   if ((bytes_buffered = read_msg(&read_length)) != INCORRECT)
+   if ((bytes_buffered = read_msg(&read_length)) > 0)
    {
       int    bytes_read,
              status,
@@ -803,6 +1010,7 @@ http_chunk_read(char **chunk, int *chunksize)
       {
          if (tmp_chunksize == 0)
          {
+            hmr.bytes_read = 0;
             return(HTTP_LAST_CHUNK);
          }
          tmp_chunksize += 2;
@@ -833,92 +1041,161 @@ http_chunk_read(char **chunk, int *chunksize)
       FD_ZERO(&rset);
       do
       {
-         FD_SET(http_fd, &rset);
-         timeout.tv_usec = 0L;
-         timeout.tv_sec = transfer_timeout;
-   
-         /* Wait for message x seconds and then continue. */
-         status = select(http_fd + 1, &rset, NULL, NULL, &timeout);
-
-         if (status == 0)
+#ifdef WITH_SSL
+         if ((ssl_con != NULL) && (SSL_pending(ssl_con)))
          {
-            /* timeout has arrived */
-            timeout_flag = ON;
-            return(INCORRECT);
+            if ((bytes_read = SSL_read(ssl_con, (*chunk + bytes_buffered),
+                                       tmp_chunksize - bytes_buffered)) == INCORRECT)
+            {
+               if ((status = SSL_get_error(ssl_con,
+                                           bytes_read)) == SSL_ERROR_SYSCALL)
+               {
+                  if (errno == ECONNRESET)
+                  {
+                     timeout_flag = CON_RESET;
+                  }
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                            "http_chunk_read(): SSL_read() error : %s",
+                            strerror(errno));
+               }
+               else
+               {
+                  trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                            "http_chunk_read(): SSL_read() error %d",
+                            status);
+               }
+               return(INCORRECT);
+            }
+            if (bytes_read == 0)
+            {
+               /* Premature end, remote side has closed connection. */
+               trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                         "http_chunk_read(): Remote side closed connection (expected: %d read: %d)",
+                         tmp_chunksize, bytes_buffered);
+               return(INCORRECT);
+            }
+# ifdef WITH_TRACE
+            trace_log(NULL, 0, BIN_R_TRACE, (*chunk + bytes_buffered),
+                      bytes_read, NULL);
+# endif
+            bytes_buffered += bytes_read;
          }
-         else if (status < 0)
-              {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "http_chunk_read(): select() error : %s",
-                           strerror(errno));
-                 return(INCORRECT);
-              }
-         else if (FD_ISSET(http_fd, &rset))
-              {
-#ifdef WITH_SSL
-                 if (ssl_con == NULL)
-                 {
+         else
+         {
 #endif
-                    if ((bytes_read = read(http_fd, (*chunk + bytes_buffered),
-                                           tmp_chunksize - bytes_buffered)) == -1)
-                    {
-                       if (errno == ECONNRESET)
-                       {
-                          timeout_flag = CON_RESET;
-                       }
-                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                 "http_chunk_read(): read() error : %s",
-                                 strerror(errno));
-                       return(INCORRECT);
-                    }
-#ifdef WITH_SSL
-                 }
-                 else
+            FD_SET(http_fd, &rset);
+            timeout.tv_usec = 0L;
+            timeout.tv_sec = transfer_timeout;
+   
+            /* Wait for message x seconds and then continue. */
+            status = select(http_fd + 1, &rset, NULL, NULL, &timeout);
+
+            if (status == 0)
+            {
+               /* timeout has arrived */
+               timeout_flag = ON;
+               return(INCORRECT);
+            }
+            else if (FD_ISSET(http_fd, &rset))
                  {
-                    if ((bytes_read = SSL_read(ssl_con, (*chunk + bytes_buffered),
-                                               tmp_chunksize - bytes_buffered)) == INCORRECT)
+#ifdef WITH_SSL
+                    if (ssl_con == NULL)
                     {
-                       if ((status = SSL_get_error(ssl_con,
-                                                   bytes_read)) == SSL_ERROR_SYSCALL)
+#endif
+                       if ((bytes_read = read(http_fd, (*chunk + bytes_buffered),
+                                              tmp_chunksize - bytes_buffered)) == -1)
                        {
                           if (errno == ECONNRESET)
                           {
                              timeout_flag = CON_RESET;
                           }
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                    "http_chunk_read(): SSL_read() error : %s",
+                                    "http_chunk_read(): read() error : %s",
                                     strerror(errno));
+                          return(INCORRECT);
                        }
-                       else
+#ifdef WITH_SSL
+                    }
+                    else
+                    {
+                       int tmp_errno;
+
+                       /*
+                        * Remember we have set SSL_MODE_AUTO_RETRY. This
+                        * means the SSL lib may do several read() calls. We
+                        * just assured one read() with select(). So lets
+                        * set an an alarm since we might block on subsequent
+                        * calls to read(). It might be better when we
+                        * reimplement this without SSL_MODE_AUTO_RETRY
+                        * and handle SSL_ERROR_WANT_READ ourself.
+                        */
+                       if (setjmp(env_alrm) != 0)
                        {
                           trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                    "http_chunk_read(): SSL_read() error %d",
-                                    status);
+                                    "http_chunk_read(): SSL_read() timeout (%ld)",
+                                    transfer_timeout);
+                          timeout_flag = ON;
+                          return(INCORRECT);
                        }
+                       (void)alarm(transfer_timeout);
+                       bytes_read = SSL_read(ssl_con, (*chunk + bytes_buffered),
+                                             tmp_chunksize - bytes_buffered);
+                       tmp_errno = errno;
+                       (void)alarm(0);
+
+                       if (bytes_read == INCORRECT)
+                       {
+                          if ((status = SSL_get_error(ssl_con,
+                                                      bytes_read)) == SSL_ERROR_SYSCALL)
+                          {
+                             if (tmp_errno == ECONNRESET)
+                             {
+                                timeout_flag = CON_RESET;
+                             }
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                       "http_chunk_read(): SSL_read() error : %s",
+                                       strerror(tmp_errno));
+                          }
+                          else
+                          {
+                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                       "http_chunk_read(): SSL_read() error %d",
+                                       status);
+                          }
+                          return(INCORRECT);
+                       }
+                    }
+#endif
+                    if (bytes_read == 0)
+                    {
+                       /* Premature end, remote side has closed connection. */
+                       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                 "http_chunk_read(): Remote side closed connection (expected: %d read: %d)",
+                                 tmp_chunksize, bytes_buffered);
                        return(INCORRECT);
                     }
-                 }
+#ifdef WITH_TRACE
+                    trace_log(NULL, 0, BIN_R_TRACE, (*chunk + bytes_buffered),
+                              bytes_read, NULL);
 #endif
-                 if (bytes_read == 0)
+                    bytes_buffered += bytes_read;
+                 }
+            else if (status < 0)
                  {
-                    /* Premature end, remote side has closed connection. */
                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                              "http_chunk_read(): Remote side closed connection (expected: %d read: %d)",
-                              tmp_chunksize, bytes_buffered);
+                              "http_chunk_read(): select() error : %s",
+                              strerror(errno));
                     return(INCORRECT);
                  }
-#ifdef WITH_TRACE
-                 trace_log(NULL, 0, BIN_R_TRACE, (*chunk + bytes_buffered),
-                           bytes_read, NULL);
+                 else
+                 {
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                              "http_chunk_read(): Unknown condition.");
+                    return(INCORRECT);
+                 }
+#ifdef WITH_SSL
+         }
 #endif
-                 bytes_buffered += bytes_read;
-              }
-              else
-              {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "http_chunk_read(): Unknown condition.");
-                 return(INCORRECT);
-              }
       } while (bytes_buffered < tmp_chunksize);
 
       if (bytes_buffered == tmp_chunksize)
@@ -926,6 +1203,13 @@ http_chunk_read(char **chunk, int *chunksize)
          bytes_buffered -= 2;
       }
    }
+   else if (bytes_buffered == 0)
+        {
+           timeout_flag = NEITHER;
+           trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL, "Remote hang up.");
+           bytes_buffered = INCORRECT;
+        }
+
    return(bytes_buffered);
 }
 
@@ -967,9 +1251,9 @@ http_quit(void)
 }
 
 
-/*####################### http_check_connection() #######################*/
-int
-http_check_connection(void)
+/*+++++++++++++++++++++++++ check_connection() ++++++++++++++++++++++++++*/
+static int
+check_connection(void)
 {
    int connection_closed;
 
@@ -993,9 +1277,9 @@ http_check_connection(void)
 
       if ((status = http_connect(hmr.hostname, hmr.port,
 #ifdef WITH_SSL
-                                 NULL, NULL, hmr.ssl, hmr.sndbuf_size, hmr.rcvbuf_size)) != SUCCESS)
+                                 hmr.user, hmr.passwd, hmr.ssl, hmr.sndbuf_size, hmr.rcvbuf_size)) != SUCCESS)
 #else
-                                 NULL, NULL, hmr.sndbuf_size, hmr.rcvbuf_size)) != SUCCESS)
+                                 hmr.user, hmr.passwd, hmr.sndbuf_size, hmr.rcvbuf_size)) != SUCCESS)
 #endif
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -1022,14 +1306,15 @@ get_http_reply(int *ret_bytes_buffered)
        status_code = INCORRECT;
 
    /* First read start line. */
-   hmr.close = NO;
    hmr.bytes_buffered = 0;
    if (ret_bytes_buffered != NULL)
    {
       *ret_bytes_buffered = 0;
    }
-   if ((bytes_buffered = read_msg(&read_length)) != INCORRECT)
+   if ((bytes_buffered = read_msg(&read_length)) > 0)
    {
+      hmr.close = NO;
+      hmr.chunked = NO;
       if ((read_length > 12) &&
           (((msg_str[0] == 'H') || (msg_str[0] == 'h')) &&
            ((msg_str[1] == 'T') || (msg_str[1] == 't')) &&
@@ -1063,8 +1348,14 @@ get_http_reply(int *ret_bytes_buffered)
           */
          for (;;)
          {
-            if ((bytes_buffered = read_msg(&read_length)) == INCORRECT)
+            if ((bytes_buffered = read_msg(&read_length)) <= 0)
             {
+               if (bytes_buffered == 0)
+               {
+                  trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
+                            "Remote hang up.");
+                  timeout_flag = NEITHER;
+               }
                return(INCORRECT);
             }
 
@@ -1112,8 +1403,13 @@ get_http_reply(int *ret_bytes_buffered)
                      {
                         msg_str[k] = '\0';
                      }
-                     if ((hmr.content_length = strtoul(&msg_str[i], NULL,
-                                                      10)) == ULONG_MAX)
+                     errno = 0;
+#ifdef HAVE_STRTOLL
+                     hmr.content_length = strtoull(&msg_str[i], NULL, 10);
+#else
+                     hmr.content_length = strtoul(&msg_str[i], NULL, 10);
+#endif
+                     if (errno != 0)
                      {
                         hmr.content_length = 0;
                      }
@@ -1235,6 +1531,34 @@ get_http_reply(int *ret_bytes_buffered)
                        }
                     }
                  }
+            else if ((hmr.date != -1) &&
+                     (read_length > 14) && (msg_str[13] == ':') &&
+                     ((msg_str[0] == 'L') || (msg_str[0] == 'l')) &&
+                     ((msg_str[1] == 'A') || (msg_str[1] == 'a')) &&
+                     ((msg_str[2] == 'S') || (msg_str[2] == 's')) &&
+                     ((msg_str[3] == 'T') || (msg_str[3] == 't')) &&
+                     (msg_str[4] == '-') &&
+                     ((msg_str[5] == 'M') || (msg_str[5] == 'm')) &&
+                     ((msg_str[6] == 'O') || (msg_str[6] == 'o')) &&
+                     ((msg_str[7] == 'D') || (msg_str[7] == 'd')) &&
+                     ((msg_str[8] == 'I') || (msg_str[8] == 'i')) &&
+                     ((msg_str[9] == 'F') || (msg_str[9] == 'f')) &&
+                     ((msg_str[10] == 'I') || (msg_str[10] == 'i')) &&
+                     ((msg_str[11] == 'E') || (msg_str[11] == 'e')) &&
+                     ((msg_str[12] == 'D') || (msg_str[12] == 'd')))
+                 {
+                    int i = 14;
+
+                    while (((msg_str[i] == ' ') || (msg_str[i] == '\t')) &&
+                           (i < read_length))
+                    {
+                       i++;
+                    }
+                    if (i < read_length)
+                    {
+                       hmr.date = datestr2unixtime(&msg_str[i]);
+                    }
+                 }
          }
          if ((ret_bytes_buffered != NULL) && (bytes_buffered > read_length))
          {
@@ -1244,6 +1568,34 @@ get_http_reply(int *ret_bytes_buffered)
          }
       }
    }
+   else if (bytes_buffered == 0)
+        {
+           if (hmr.retries == 0)
+           {
+              hmr.close = YES;
+              if ((status_code = check_connection()) == CONNECTION_REOPENED)
+              {
+                 trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
+                           "Reconnected.");
+                 hmr.retries = 1;
+              }
+           }
+           else
+           {
+              timeout_flag = NEITHER;
+              trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
+                        "Remote hang up.");
+              status_code = INCORRECT;
+           }
+        }
+
+#ifdef DEBUG
+   if (status_code == INCORRECT)
+   {
+      trans_log(DEBUG_SIGN, __FILE__, __LINE__, msg_str,
+                "Returning incorrect (bytes_buffered = %d)", bytes_buffered);
+   }
+#endif
    return(status_code);
 }
 
@@ -1280,107 +1632,150 @@ read_msg(int *read_length)
    {
       if (hmr.bytes_read <= 0)
       {
-         /* Initialise descriptor set */
-         FD_SET(http_fd, &rset);
-         timeout.tv_usec = 0L;
-         timeout.tv_sec = transfer_timeout;
-
-         /* Wait for message x seconds and then continue. */
-         status = select(http_fd + 1, &rset, NULL, NULL, &timeout);
-
-         if (status == 0)
+#ifdef WITH_SSL
+         if ((ssl_con != NULL) && (SSL_pending(ssl_con)))
          {
-            /* timeout has arrived */
-            timeout_flag = ON;
-            hmr.bytes_read = 0;
-            return(INCORRECT);
+            if ((hmr.bytes_read = SSL_read(ssl_con,
+                                           &msg_str[bytes_buffered],
+                                           (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
+            {
+               if (hmr.bytes_read == 0)
+               {
+                  return(0);
+               }
+               else
+               {
+                  if ((status = SSL_get_error(ssl_con,
+                                              hmr.bytes_read)) == SSL_ERROR_SYSCALL)
+                  {
+                     if (errno == ECONNRESET)
+                     {
+                        timeout_flag = CON_RESET;
+                     }
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               "SSL_read() error (after reading %d Bytes) : %s",
+                               bytes_buffered, strerror(errno));
+                  }
+                  else
+                  {
+                     trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                               "SSL_read() error (after reading %d Bytes) (%d)",
+                               bytes_buffered, status);
+                  }
+                  hmr.bytes_read = 0;
+                  return(INCORRECT);
+               }
+            }
+# ifdef WITH_TRACE
+            trace_log(NULL, 0, BIN_CMD_R_TRACE,
+                      &msg_str[bytes_buffered], hmr.bytes_read, NULL);
+# endif
+            read_ptr = &msg_str[bytes_buffered];
+            bytes_buffered += hmr.bytes_read;
          }
-         else if (FD_ISSET(http_fd, &rset))
-              {
-#ifdef WITH_SSL
-                 if (ssl_con == NULL)
-                 {
+         else
+         {
 #endif
-                    if ((hmr.bytes_read = read(http_fd, &msg_str[bytes_buffered],
-                                               (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
-                    {
-                       if (hmr.bytes_read == 0)
-                       {
-                          trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                                    "Remote hang up.");
-                          timeout_flag = NEITHER;
-                       }
-                          else
-                       {
-                          if (errno == ECONNRESET)
-                          {
-                             timeout_flag = CON_RESET;
-                          }
-                          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                    "read() error (after reading %d Bytes) : %s",
-                                    bytes_buffered, strerror(errno));
-                          hmr.bytes_read = 0;
-                       }
-                       return(INCORRECT);
-                    }
-#ifdef WITH_SSL
-                 }
-                 else
+            /* Initialise descriptor set */
+            FD_SET(http_fd, &rset);
+            timeout.tv_usec = 0L;
+            timeout.tv_sec = transfer_timeout;
+
+            /* Wait for message x seconds and then continue. */
+            status = select(http_fd + 1, &rset, NULL, NULL, &timeout);
+
+            if (status == 0)
+            {
+               /* timeout has arrived */
+               timeout_flag = ON;
+               hmr.bytes_read = 0;
+               return(INCORRECT);
+            }
+            else if (FD_ISSET(http_fd, &rset))
                  {
-                    if ((hmr.bytes_read = SSL_read(ssl_con,
-                                                   &msg_str[bytes_buffered],
-                                                   (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
+#ifdef WITH_SSL
+                    if (ssl_con == NULL)
                     {
-                       if (hmr.bytes_read == 0)
+#endif
+                       if ((hmr.bytes_read = read(http_fd, &msg_str[bytes_buffered],
+                                                  (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
                        {
-                          trans_log(ERROR_SIGN,  __FILE__, __LINE__, NULL,
-                                    "Remote hang up.");
-                          timeout_flag = NEITHER;
-                       }
-                       else
-                       {
-                          if ((status = SSL_get_error(ssl_con,
-                                                      hmr.bytes_read)) == SSL_ERROR_SYSCALL)
+                          if (hmr.bytes_read == 0)
+                          {
+                             return(0);
+                          }
+                          else
                           {
                              if (errno == ECONNRESET)
                              {
                                 timeout_flag = CON_RESET;
                              }
                              trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "SSL_read() error (after reading %d Bytes) : %s",
+                                       "read() error (after reading %d Bytes) : %s",
                                        bytes_buffered, strerror(errno));
+                             hmr.bytes_read = 0;
+                             return(INCORRECT);
+                          }
+                       }
+#ifdef WITH_SSL
+                    }
+                    else
+                    {
+                       if ((hmr.bytes_read = SSL_read(ssl_con,
+                                                      &msg_str[bytes_buffered],
+                                                      (MAX_RET_MSG_LENGTH - bytes_buffered))) < 1)
+                       {
+                          if (hmr.bytes_read == 0)
+                          {
+                             return(0);
                           }
                           else
                           {
-                             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                                       "SSL_read() error (after reading %d Bytes) (%d)",
-                                       bytes_buffered, status);
+                             if ((status = SSL_get_error(ssl_con,
+                                                         hmr.bytes_read)) == SSL_ERROR_SYSCALL)
+                             {
+                                if (errno == ECONNRESET)
+                                {
+                                   timeout_flag = CON_RESET;
+                                }
+                                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                          "SSL_read() error (after reading %d Bytes) : %s",
+                                          bytes_buffered, strerror(errno));
+                             }
+                             else
+                             {
+                                trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                                          "SSL_read() error (after reading %d Bytes) (%d)",
+                                          bytes_buffered, status);
+                             }
+                             hmr.bytes_read = 0;
+                             return(INCORRECT);
                           }
-                          hmr.bytes_read = 0;
                        }
-                       return(INCORRECT);
                     }
-                 }
 #endif
 #ifdef WITH_TRACE
-                 trace_log(NULL, 0, BIN_R_TRACE,
-                           &msg_str[bytes_buffered], hmr.bytes_read, NULL);
+                    trace_log(NULL, 0, BIN_CMD_R_TRACE,
+                              &msg_str[bytes_buffered], hmr.bytes_read, NULL);
 #endif
-                 read_ptr = &msg_str[bytes_buffered];
-                 bytes_buffered += hmr.bytes_read;
-              }
-         else if (status < 0)
-              {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "select() error : %s", strerror(errno));
-                 return(INCORRECT);
-              }
-              else
-              {
-                 trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
-                           "Unknown condition.");
-                 return(INCORRECT);
-              }
+                    read_ptr = &msg_str[bytes_buffered];
+                    bytes_buffered += hmr.bytes_read;
+                 }
+            else if (status < 0)
+                 {
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                              "select() error : %s", strerror(errno));
+                    return(INCORRECT);
+                 }
+                 else
+                 {
+                    trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                              "Unknown condition.");
+                    return(INCORRECT);
+                 }
+#ifdef WITH_SSL
+         }
+#endif
       }
 
       /* Evaluate what we have read. */
@@ -1405,3 +1800,13 @@ read_msg(int *read_length)
       } while (hmr.bytes_read > 0);
    } /* for (;;) */
 }
+
+
+#ifdef WITH_SSL
+/*+++++++++++++++++++++++++++++ sig_handler() +++++++++++++++++++++++++++*/
+static void
+sig_handler(int signo)
+{
+   longjmp(env_alrm, 1);
+}
+#endif

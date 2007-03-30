@@ -1,6 +1,6 @@
 /*
  *  amg_zombie_check.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -109,7 +109,7 @@ amg_zombie_check(pid_t *proc_id, int option)
                      (void)sprintf(new_core_file, "%s.%s.%lld.%d",
 #endif
                                    core_file, DC_PROC_NAME,
-                                   time(NULL), no_of_saved_cores);
+                                   (pri_time_t)time(NULL), no_of_saved_cores);
                      if (rename(core_file, new_core_file) == -1)
                      {
                         system_log(DEBUG_SIGN, __FILE__, __LINE__,

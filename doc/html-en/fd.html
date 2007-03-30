@@ -72,7 +72,7 @@ The FTP-clients of the AFD currently has the following features:
    <li>Rename a file.</li>
    <li>Delete files on the remote site. This is useful when
        sending lock files.</li>
-   <li>Both active and passive mode are supported.</li>
+   <li>Both active and passive mode are supported and the extended version.</li>
    <li>Change the mode of a file that was transmitted.</li>
    <li>Execute a command on the remote site for each file transmitted.</li>
    <li>It appends a file on the remote site when the transmission was
@@ -80,7 +80,44 @@ The FTP-clients of the AFD currently has the following features:
        connections.</li>
    <li>Get a 'dir' listing from the remote site.</li>
    <li>To reduce latency it can combine the rename procedure RNFR and
-       RNTO.</li>
+       RNTO and/or not send the TYPE command by default.</li>
+   <li>Show all commands it sends and receives from the remote server
+       in a log file (see <a href="log.html#transfer_debug_log">Transfer
+       Debug Log</a>). This helps to locate errors very quickly when
+       the transfer has failed.</li>
+</ul>
+</p>
+<h3 align=center><u><a name="send_file_sftp">Get and Send File SFTP</a></u></h3>
+<p>
+'sf_sftp' is the process responsible to transmit (push) files via
+<a href="glossary.html#SFTP">SFTP</a>. To connect to a remote system it
+uses the local ssh program, once the connection is settup it uses
+it's own client to do the communication according to the draft
+<a href="../txt/draft-ietf-secsh-filexfer-13.txt">SSH File Transfer Protocol
+</a>. This has the advantage that the transfer of a file can be monitored
+byte for byte and not file by file, when using the sftp client of the
+SSH implementation.
+</p>
+<p>
+The process 'gf_sftp' is very similar to 'sf_sftp', the only difference
+being that it fetches files from a remote SSH-server (pull).
+</p>
+<p>
+The SFTP-clients of the AFD currently has the following features:
+</p>
+<ul>
+   <li>Change the remote directory.</li>
+   <li>Create the remote directory, recursivly if necessary.</li>
+   <li>Rename a file.</li>
+   <li>Delete files on the remote site. This is useful when
+       sending lock files.</li>
+   <li>Change the mode of a file that was transmitted.</li>
+   <li>It appends a file on the remote site when the transmission was
+       interrupted. This is very useful with very large files and buggy
+       connections.</li>
+   <li>Get a 'dir' listing from the remote site.</li>
+   <li>To increase speed for writting it can send several write request
+       at once.</li>
    <li>Show all commands it sends and receives from the remote server
        in a log file (see <a href="log.html#transfer_debug_log">Transfer
        Debug Log</a>). This helps to locate errors very quickly when
@@ -121,6 +158,7 @@ The HTTP-client of the AFD currently has the following features:
    <li>Do secure communication using secure sockets (TLS/SSL).</li>
    <li>Is able to do chunk reading.</li>
    <li>Change the remote directory.</li>
+   <li>Handle Apache directory listing.</li>
    <li>Delete files on the remote site.</li>
    <li>Show all commands it sends and receives from the remote server
        in a log file (see <a href="log.html#transfer_debug_log">Transfer
@@ -131,9 +169,9 @@ The HTTP-client of the AFD currently has the following features:
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 1997 - 2005 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 08.07.2005
+   Last updated: 24.03.2007
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

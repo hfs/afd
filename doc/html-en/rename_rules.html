@@ -10,11 +10,14 @@ In the file "$AFD_WORK_DIR/etc/rename.rule" all rules on how to rename a
 file are listed. This file is automatically read again when the date of
 the file has been changed. There are three different options in the
 DIR_CONFIG file which can use the rename.rule: <a href="dir_config.html#rename">
-rename</a>, <a href="dir_config.html#trans_rename">trans_rename</a> and
-<a href="dir_config.html#file_name_is_user">file name is user</a>.
+rename</a>, <a href="dir_config.html#trans_rename">trans_rename</a>,
+<a href="dir_config.html#file_name_is_user">file name is user</a>,
+<a href="dir_config.html#file_name_is_target">file name is target</a>,
+<a href="dir_config.html#attach_file">attach file</a>,
+<a href="dir_config.html#attach_all_files">attach all files</a> and
+<a href="dir_config.html#subject_file">subject</a>.
 The first one is explained as an example below:
 </p>
-<p>
 <pre>
 [directory]
 /the/directory/where/the/files/come/in
@@ -40,11 +43,9 @@ The first one is explained as an example below:
          rename rule_2
          priority 2
 </pre>
-</p>
 <p>
 In file "$AFD_WORK_DIR/etc/rename.rule" these two rules must be defined:
 </p>
-<p>
 <pre>
 [rule_1]
 abc*.*     new_filename*.new.*.test
@@ -65,14 +66,11 @@ ABnew_filenameCD.txt.
 </p>
 <br><br>
 <center><h1><u>Features of the rename rule</u></h1></center>
-<p>
 <ul>
    <li>Define as many rename groups as needed.</li>
    <li>Unlimited number of filters.</li>
    <li>In one filter you can use up to 10 ´*´ and 50 ´?´.</li>
 </ul>
-</p>
-<p>
 <table border>
 <tr>
    <th>Feature</th>
@@ -178,16 +176,15 @@ ABnew_filenameCD.txt.
    <td>a234</td>
 </tr>
 </table>
-</p>
 <br>
 <hr size=3 noshade>
 <table width=100%>
 <tr>
-   <td width=90%><small><address>
-   Copyright &copy; 1997 - 2005 by H.Kiehl<br>
+   <td width=90%><address><small>
+   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 01.04.2006
-   </address></small></td>
+   Last updated: 27.01.2007
+   </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>
    <!-- Insert site specific logo -->

@@ -152,7 +152,7 @@ host. See below for a description of each entry.
 <tr>
    <th valign=top><a name="host_status">Host status</a></th>
    <td>This indicates the status of the host, currently only bits number
-       1, 2, 6 and 7 can be set. The meaning is as follows:
+       1, 2, 3, 6 and 7 can be set. The meaning is as follows:
        <table border>
        <tr>
           <th>Bit number</th>
@@ -167,12 +167,17 @@ host. See below for a description of each entry.
        <tr>
           <td align=center>2</td>
           <td align=center>2</td>
-          <td>If set transfer is stopped for this host.</td>
+          <td>If set queue is stopped for this host.</td>
+       </tr>
+       <tr>
+          <td align=center>3</td>
+          <td align=center>4</td>
+          <td>If set host is NOT in DIR_CONFIG.</td>
        </tr>
        <tr>
           <td align=center>6</td>
           <td align=center>32</td>
-          <td>If set transfer is stopped for this host.</td>
+          <td>If set this host is disabled.</td>
        </tr>
        <tr>
           <td align=center>7</td>
@@ -224,6 +229,27 @@ host. See below for a description of each entry.
           <td align=center>32</td>
           <td>Do not send TYPE I command.</td>
        </tr>
+       <tr>
+          <td align=center>7</td>
+          <td align=center>64</td>
+          <td>Use extended active or extended passive mode.</td>
+       </tr>
+       <tr>
+          <td align=center>8</td>
+          <td align=center>128</td>
+          <td>When set bursting is disabled. AFD by default tries to append
+              a new job to an existing sending job, to reduce the number
+              of connections and the overall latency (this we call a burst).
+              It can however happen that some servers have problems with
+              this. So with this option it is possible to disable
+              bursting.</td>
+       </tr>
+       <tr>
+          <td align=center>9</td>
+          <td align=center>256</td>
+          <td>If set FTP passive mode allows to be redirected to another
+              address. Best is to not set this.</td>
+       </tr>
        </table>
        The default is zero.</td>
 </tr>
@@ -263,6 +289,7 @@ host. See below for a description of each entry.
       1 (1)        - Only do CRC checksum for filename.
       2 (2)        - Only do CRC checksum for file content.
       3 (4)        - Cecksum for filename and content.
+      4 (8)        - Checksum of filename without last suffix.
       16(32768)    - Do a CRC32 checksum.
       24(8388608)  - Delete the file.
       25(16777216) - Store the duplicate file.
@@ -272,16 +299,17 @@ host. See below for a description of each entry.
 <tr>
    <th valign=top><a name="keep_connected">Keep connected</a></th>
    <td>Keep connection for the given number of seconds after all files
-       have been transmitted. Note this has not been implemented.</td>
+       have been transmitted or a directory listing. Note this has
+       only been implemented for retrieving.</td>
 </tr>
 </table>
 <hr size=3 noshade>
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 1997 - 2006 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 09.04.2006
+   Last updated: 27.03.2007
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -1,6 +1,6 @@
 /*
  *  change_name.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Tobias Freyberg <>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -306,7 +306,8 @@ change_name(char         *orig_file_name,
                   if (number >= count_questioner)
                   {
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                                "illegal '?' addressed: %d", number + 1);
+                                "illegal '?' addressed: %d (%s %s)",
+                                number + 1, filter, rename_to_rule);
 
                   }
                   else
@@ -581,10 +582,11 @@ change_name(char         *orig_file_name,
                         break;
                      case 'U' : /* Unix time. */
 #if SIZEOF_TIME_T == 4
-                        number = sprintf(ptr_newname, "%ld", time_buf);
+                        number = sprintf(ptr_newname, "%ld",
 #else
-                        number = sprintf(ptr_newname, "%lld", time_buf);
+                        number = sprintf(ptr_newname, "%lld",
 #endif
+                                         (pri_time_t)time_buf);
                         break;
                      default  : /* unknown character - ignore */
                         system_log(WARN_SIGN, __FILE__, __LINE__,

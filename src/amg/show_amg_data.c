@@ -1,6 +1,6 @@
 /*
  *  show_amg_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1995 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -43,6 +43,7 @@ DESCR__S_M3
  **   10.10.1995 H.Kiehl Created
  **   16.05.2002 H.Kiehl Removed all shared memory stuff and renamed
  **                      to show_amg_data.
+ **   19.02.2007 H.Kiehl Added DIR_CONFIG ID and local options flag.
  **
  */
 DESCR__E_M3
@@ -187,13 +188,28 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
       for (j = 0; j < no_of_jobs; j++)
       {
          /* Show directory, priority and job type */
-         (void)fprintf(output, "Directory          : %s\n", p_ptr[j].ptr[1] + p_offset);
-         (void)fprintf(output, "Alias name         : %s\n", p_ptr[j].ptr[2] + p_offset);
-         (void)fprintf(output, "Priority           : %c\n", *(p_ptr[j].ptr[0] + p_offset));
+         (void)fprintf(output, "DIR_CONFIG ID      : %s\n", p_ptr[j].ptr[DIR_CONFIG_ID_PTR_POS] + p_offset);
+         (void)fprintf(output, "Directory          : %s\n", p_ptr[j].ptr[DIRECTORY_PTR_POS] + p_offset);
+         (void)fprintf(output, "Alias name         : %s\n", p_ptr[j].ptr[ALIAS_NAME_PTR_POS] + p_offset);
+#ifdef WITH_MULTI_DIR_DEFINITION
+         if (*(p_ptr[j].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == '\0')
+         {
+            (void)fprintf(output, "Offset to same dir : Not set (0)\n");
+         }
+         else if (*(p_ptr[j].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset) == 1)
+              {
+                 (void)fprintf(output, "Offset to same dir : Jump back (1)\n");
+              }
+              else
+              {
+                 (void)fprintf(output, "Offset to same dir : %s\n", p_ptr[j].ptr[OFFSET_TO_SAME_DIR_PTR_POS] + p_offset);
+              }
+#endif
+         (void)fprintf(output, "Priority           : %c\n", *(p_ptr[j].ptr[PRIORITY_PTR_POS] + p_offset));
 
          /* Show files to be send */
-         value = atoi(p_ptr[j].ptr[3] + p_offset);
-         ptr = p_ptr[j].ptr[4] + p_offset;
+         value = atoi(p_ptr[j].ptr[NO_OF_FILES_PTR_POS] + p_offset);
+         ptr = p_ptr[j].ptr[FILE_PTR_POS] + p_offset;
          for (k = 0; k < value; k++)
          {
             (void)fprintf(output, "File            %3d: %s\n", k + 1, ptr);
@@ -202,11 +218,11 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
          }
 
          /* Show recipient */
-         (void)fprintf(output, "Recipient          : %s\n", p_ptr[j].ptr[9] + p_offset);
+         (void)fprintf(output, "Recipient          : %s\n", p_ptr[j].ptr[RECIPIENT_PTR_POS] + p_offset);
 
          /* Show local options */
-         value = atoi(p_ptr[j].ptr[5] + p_offset);
-         ptr = p_ptr[j].ptr[6] + p_offset;
+         value = atoi(p_ptr[j].ptr[NO_LOCAL_OPTIONS_PTR_POS] + p_offset);
+         ptr = p_ptr[j].ptr[LOCAL_OPTIONS_PTR_POS] + p_offset;
          for (k = 0; k < value; k++)
          {
             i = 0;
@@ -219,10 +235,15 @@ show_amg_data(FILE *output, char *p_mmap, off_t data_length)
             option[i] = '\0';
             (void)fprintf(output, "Local option    %3d: %s\n", k + 1, option);
          }
+         if (value > 0)
+         {
+            (void)fprintf(output, "Local option flag  : %s\n",
+                          p_ptr[j].ptr[LOCAL_OPTIONS_FLAG_PTR_POS] + p_offset);
+         }
 
          /* Show standard options */
-         value = atoi(p_ptr[j].ptr[7] + p_offset);
-         ptr = p_ptr[j].ptr[8] + p_offset;
+         value = atoi(p_ptr[j].ptr[NO_STD_OPTIONS_PTR_POS] + p_offset);
+         ptr = p_ptr[j].ptr[STD_OPTIONS_PTR_POS] + p_offset;
          for (k = 0; k < value; k++)
          {
             i = 0;

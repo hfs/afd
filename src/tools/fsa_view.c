@@ -1,6 +1,6 @@
 /*
  *  fsa_view.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -169,8 +169,8 @@ main(int argc, char *argv[])
                  *(int *)(ptr + SIZEOF_INT + 4));
    for (j = position; j < last; j++)
    {
-      (void)fprintf(stdout, "=============================> %s <=============================\n",
-                    fsa[j].host_alias);
+      (void)fprintf(stdout, "=============================> %s (%d) <=============================\n",
+                    fsa[j].host_alias, j);
       (void)fprintf(stdout, "Host alias CRC       : %x\n", fsa[j].host_id);
       (void)fprintf(stdout, "Real hostname 1      : %s\n", fsa[j].real_hostname[0]);
       (void)fprintf(stdout, "Real hostname 2      : %s\n", fsa[j].real_hostname[1]);
@@ -202,7 +202,7 @@ main(int argc, char *argv[])
       else if (fsa[j].original_toggle_pos == HOST_TWO)
            {
               (void)fprintf(stdout, "Original toggle      : HOST_TWO\n");
-   }
+           }
       else if (fsa[j].original_toggle_pos == NONE)
            {
               (void)fprintf(stdout, "Original toggle      : NONE\n");
@@ -371,12 +371,16 @@ main(int argc, char *argv[])
 #else
          (void)fprintf(stdout, "Dupcheck timeout     : %lld\n",
 #endif
-                       fsa[j].dup_check_timeout);
+                       (pri_time_t)fsa[j].dup_check_timeout);
          (void)fprintf(stdout, "Dupcheck flag        : ");
          if (fsa[j].dup_check_flag & DC_FILENAME_ONLY)
          {
             (void)fprintf(stdout, "FILENAME_ONLY ");
          }
+         else if (fsa[j].dup_check_flag & DC_NAME_NO_SUFFIX)
+              {
+                 (void)fprintf(stdout, "NAME_NO_SUFFIX ");
+              }
          else if (fsa[j].dup_check_flag & DC_FILE_CONTENT)
               {
                  (void)fprintf(stdout, "FILE_CONTENT ");
@@ -413,10 +417,12 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "AUTO_PAUSE_QUEUE ");
       }
-      if (fsa[j].host_status & AUTO_PAUSE_QUEUE_LOCK_STAT)
+#ifdef WITH_ERROR_QUEUE
+      if (fsa[j].host_status & ERROR_QUEUE_SET)
       {
-         (void)fprintf(stdout, "AUTO_PAUSE_QUEUE_LOCK ");
+         (void)fprintf(stdout, "ERROR_QUEUE_SET ");
       }
+#endif
       if (fsa[j].host_status & STOP_TRANSFER_STAT)
       {
          (void)fprintf(stdout, "STOP_TRANSFER ");
@@ -514,7 +520,7 @@ main(int argc, char *argv[])
 #else
       (void)fprintf(stdout, "Total file size      : %lld\n",
 #endif
-                    fsa[j].total_file_size);
+                    (pri_off_t)fsa[j].total_file_size);
       (void)fprintf(stdout, "File counter done    : %u\n",
                     fsa[j].file_counter_done);
 #if SIZEOF_OFF_T == 4
@@ -535,29 +541,38 @@ main(int argc, char *argv[])
                     fsa[j].allowed_transfers);
 #if SIZEOF_OFF_T == 4
       (void)fprintf(stdout, "Rate limit           : %ld\n",
-                    fsa[j].transfer_rate_limit);
+                    (pri_off_t)fsa[j].transfer_rate_limit);
       (void)fprintf(stdout, "Rate limit per proc  : %ld\n",
-                    fsa[j].trl_per_process);
+                    (pri_off_t)fsa[j].trl_per_process);
       (void)fprintf(stdout, "MC Rate limit        : %ld\n",
-                    fsa[j].mc_ct_rate_limit);
+                    (pri_off_t)fsa[j].mc_ct_rate_limit);
       (void)fprintf(stdout, "MC Rate limit/proc   : %ld\n",
-                    fsa[j].mc_ctrl_per_process);
+                    (pri_off_t)fsa[j].mc_ctrl_per_process);
 #else
       (void)fprintf(stdout, "Rate limit           : %lld\n",
-                    fsa[j].transfer_rate_limit);
+                    (pri_off_t)fsa[j].transfer_rate_limit);
       (void)fprintf(stdout, "Rate limit per proc  : %lld\n",
-                    fsa[j].trl_per_process);
+                    (pri_off_t)fsa[j].trl_per_process);
       (void)fprintf(stdout, "MC Rate limit        : %lld\n",
-                    fsa[j].mc_ct_rate_limit);
+                    (pri_off_t)fsa[j].mc_ct_rate_limit);
       (void)fprintf(stdout, "MC Rate limit/proc   : %lld\n",
-                    fsa[j].mc_ctrl_per_process);
+                    (pri_off_t)fsa[j].mc_ctrl_per_process);
 #endif
 
       if (view_type == SHORT_VIEW)
       {
          (void)fprintf(stdout, "                    |   Job 0   |   Job 1   |   Job 2   |   Job 3   |   Job 4   \n");
          (void)fprintf(stdout, "--------------------+-----------+-----------+-----------+-----------+-----------\n");
-         (void)fprintf(stdout, "PID                 |%10d |%10d |%10d |%10d |%10d \n", fsa[j].job_status[0].proc_id, fsa[j].job_status[1].proc_id, fsa[j].job_status[2].proc_id, fsa[j].job_status[3].proc_id, fsa[j].job_status[4].proc_id);
+#if SIZEOF_PID_T == 4
+         (void)fprintf(stdout, "PID                 |%10d |%10d |%10d |%10d |%10d \n",
+#else
+         (void)fprintf(stdout, "PID                 |%10lld |%10lld |%10lld |%10lld |%10lld \n",
+#endif
+                       (pri_pid_t)fsa[j].job_status[0].proc_id,
+                       (pri_pid_t)fsa[j].job_status[1].proc_id,
+                       (pri_pid_t)fsa[j].job_status[2].proc_id,
+                       (pri_pid_t)fsa[j].job_status[3].proc_id,
+                       (pri_pid_t)fsa[j].job_status[4].proc_id);
          (void)fprintf(stdout, "Connect status      ");
          for (i = 0; i < MAX_NO_PARALLEL_JOBS; i++)
          {
@@ -687,11 +702,11 @@ main(int argc, char *argv[])
 #else
                        "File size           |%10lld |%10lld |%10lld |%10lld |%10lld \n",
 #endif
-                       fsa[j].job_status[0].file_size,
-                       fsa[j].job_status[1].file_size,
-                       fsa[j].job_status[2].file_size,
-                       fsa[j].job_status[3].file_size,
-                       fsa[j].job_status[4].file_size);
+                       (pri_off_t)fsa[j].job_status[0].file_size,
+                       (pri_off_t)fsa[j].job_status[1].file_size,
+                       (pri_off_t)fsa[j].job_status[2].file_size,
+                       (pri_off_t)fsa[j].job_status[3].file_size,
+                       (pri_off_t)fsa[j].job_status[4].file_size);
          (void)fprintf(stdout,
 #if SIZEOF_OFF_T == 4
                        "File size done      |%10lu |%10lu |%10lu |%10lu |%10lu \n",
@@ -727,22 +742,22 @@ main(int argc, char *argv[])
 #else
                        "File size in use    |%10lld |%10lld |%10lld |%10lld |%10lld \n",
 #endif
-                       fsa[j].job_status[0].file_size_in_use,
-                       fsa[j].job_status[1].file_size_in_use,
-                       fsa[j].job_status[2].file_size_in_use,
-                       fsa[j].job_status[3].file_size_in_use,
-                       fsa[j].job_status[4].file_size_in_use);
+                       (pri_off_t)fsa[j].job_status[0].file_size_in_use,
+                       (pri_off_t)fsa[j].job_status[1].file_size_in_use,
+                       (pri_off_t)fsa[j].job_status[2].file_size_in_use,
+                       (pri_off_t)fsa[j].job_status[3].file_size_in_use,
+                       (pri_off_t)fsa[j].job_status[4].file_size_in_use);
          (void)fprintf(stdout,
 #if SIZEOF_OFF_T == 4
                        "Filesize in use done|%10ld |%10ld |%10ld |%10ld |%10ld \n",
 #else
                        "Filesize in use done|%10lld |%10lld |%10lld |%10lld |%10lld \n",
 #endif
-                       fsa[j].job_status[0].file_size_in_use_done,
-                       fsa[j].job_status[1].file_size_in_use_done,
-                       fsa[j].job_status[2].file_size_in_use_done,
-                       fsa[j].job_status[3].file_size_in_use_done,
-                       fsa[j].job_status[4].file_size_in_use_done);
+                       (pri_off_t)fsa[j].job_status[0].file_size_in_use_done,
+                       (pri_off_t)fsa[j].job_status[1].file_size_in_use_done,
+                       (pri_off_t)fsa[j].job_status[2].file_size_in_use_done,
+                       (pri_off_t)fsa[j].job_status[3].file_size_in_use_done,
+                       (pri_off_t)fsa[j].job_status[4].file_size_in_use_done);
 #ifdef _WITH_BURST_2
          (void)fprintf(stdout,
                        "Unique name         |%11.11s|%11.11s|%11.11s|%11.11s|%11.11s\n",
@@ -767,8 +782,12 @@ main(int argc, char *argv[])
             (void)fprintf(stdout,
                           "-------- Job %2d -----+------------------------------------------------------\n",
                           i);
+#if SIZEOF_PID_T == 4
             (void)fprintf(stdout, "PID                  : %d\n",
-                          fsa[j].job_status[i].proc_id);
+#else
+            (void)fprintf(stdout, "PID                  : %lld\n",
+#endif
+                          (pri_pid_t)fsa[j].job_status[i].proc_id);
             switch (fsa[j].job_status[i].connect_status)
             {
                case CONNECTING :
@@ -882,7 +901,7 @@ main(int argc, char *argv[])
 #else
             (void)fprintf(stdout, "File size            : %lld\n",
 #endif
-                          fsa[j].job_status[i].file_size);
+                          (pri_off_t)fsa[j].job_status[i].file_size);
 #if SIZEOF_OFF_T == 4
             (void)fprintf(stdout, "File size done       : %lu\n",
 #else
@@ -898,17 +917,17 @@ main(int argc, char *argv[])
             (void)fprintf(stdout, "File name in use     : %s\n",
                           fsa[j].job_status[i].file_name_in_use);
 #if SIZEOF_OFF_T == 4
-            (void)fprintf(stdout, "File size in use     : %lu\n",
+            (void)fprintf(stdout, "File size in use     : %ld\n",
 #else
-            (void)fprintf(stdout, "File size in use     : %llu\n",
+            (void)fprintf(stdout, "File size in use     : %lld\n",
 #endif
-                          fsa[j].job_status[i].file_size_in_use);
+                          (pri_off_t)fsa[j].job_status[i].file_size_in_use);
 #if SIZEOF_OFF_T == 4
-            (void)fprintf(stdout, "File size in use done: %lu\n",
+            (void)fprintf(stdout, "File size in use done: %ld\n",
 #else
-            (void)fprintf(stdout, "File size in use done: %llu\n",
+            (void)fprintf(stdout, "File size in use done: %lld\n",
 #endif
-                          fsa[j].job_status[i].file_size_in_use);
+                          (pri_off_t)fsa[j].job_status[i].file_size_in_use_done);
 #ifdef _WITH_BURST_2
             (void)fprintf(stdout, "Unique name          : %s\n",
                           fsa[j].job_status[i].unique_name);

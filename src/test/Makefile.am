@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2003 Holger Kiehl                                      
+## Copyright (C) 2001 - 2007 Holger Kiehl                                      
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -20,7 +20,8 @@ SUBDIRS              = filter
 INCLUDES             = -I.. -I../init_afd -I../protocols -I../fd
 EXTRA_PROGRAMS       = arg ahttp ascp bt change_name copy_file create_files\
                        encode64 testlock
-MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS) core core.*
+MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES           = gmon.out core core.*
 encode64_SOURCES     = encode64.c\
                        encode_base64.c
 encode64_LDADD       = ../common/libafd.a

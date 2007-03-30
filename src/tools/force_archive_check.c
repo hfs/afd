@@ -1,7 +1,7 @@
 /*
  *  force_archive_check.c - Part of AFD, an automatic file distribution
  *                          program.
- *  Copyright (c) 2000 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,6 +62,9 @@ int
 main(int argc, char *argv[])
 {
    int  fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  readfd;
+#endif
    char aw_cmd_fifo[MAX_PATH_LENGTH],
         message = RETRY;
 
@@ -75,24 +78,32 @@ main(int argc, char *argv[])
 
    (void)strcat(aw_cmd_fifo, FIFO_DIR);
    (void)strcat(aw_cmd_fifo, AW_CMD_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(aw_cmd_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(aw_cmd_fifo, O_RDWR)) == -1)
+#endif
    {
-      (void)fprintf(stderr,
-                    "ERROR  : Failed to open() %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "ERROR  : Failed to open() %s : %s (%s %d)\n",
                     aw_cmd_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (write(fd, &message, 1) != 1)
    {
-      (void)fprintf(stderr,
-                    "WARNING: write() error : %s (%s %d)\n",
+      (void)fprintf(stderr, "WARNING: write() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
    }
 
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (close(readfd) == -1)
+   {
+      (void)fprintf(stderr, "WARNING: close() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
+#endif
    if (close(fd) == -1)
    {
-      (void)fprintf(stderr,
-                    "WARNING: close() error : %s (%s %d)\n",
+      (void)fprintf(stderr, "WARNING: close() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
    }
 

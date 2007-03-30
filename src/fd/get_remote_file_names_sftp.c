@@ -1,7 +1,7 @@
 /*
  *  get_remote_file_names_sftp.c - Part of AFD, an automatic file distribution
  *                                 program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@
 DESCR__S_M3
 /*
  ** NAME
- **   get_remote_file_names_sftp - searches remote directory for any changes
+ **   get_remote_file_names_sftp - retrieves filename, size and date
  **
  ** SYNOPSIS
  **   int get_remote_file_names_sftp(off_t *file_size_to_retrieve)
@@ -46,6 +46,9 @@ DESCR__E_M3
 #include <string.h>                /* strcpy(), strerror(), memmove()    */
 #include <stdlib.h>                /* malloc(), realloc(), free()        */
 #include <time.h>                  /* time(), mktime(), strftime()       */ 
+#ifdef TM_IN_SYS_TIME
+# include <sys/time.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>                /* unlink()                           */
@@ -55,7 +58,6 @@ DESCR__E_M3
 #include "sftpdefs.h"
 #include "fddefs.h"
 
-#define REMOTE_LIST_STEP_SIZE 10
 
 /* External global variables */
 extern int                        exitflag,
@@ -74,7 +76,6 @@ static time_t                     current_time;
 
 /* Local function prototypes. */
 static int                        check_list(char *, struct stat *, off_t *);
-static void                       remove_ls_data(void);
 
 
 /*#################### get_remote_file_names_sftp() #####################*/
@@ -87,7 +88,6 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve)
                     nfg,           /* Number of file mask. */
                     status;
    char             filename[MAX_FILENAME_LENGTH],
-                    *nlist = NULL,
                     *p_mask;
    struct file_mask *fml = NULL;
    struct tm        *p_tm;
@@ -152,7 +152,7 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve)
 #else
                             "%s  `%s' size=%lld",
 #endif
-                            dstr, filename, stat_buf.st_size);
+                            dstr, filename, (pri_off_t)stat_buf.st_size);
             }
             gotcha = NO;
             for (i = 0; i < nfg; i++)
@@ -220,9 +220,9 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve)
 
    /*
     * Remove all files from the remote_list structure that are not
-    * in the current nlist buffer.
+    * in the current buffer.
     */
-   if ((files_to_retrieve > 0) && (fra[db.fra_pos].stupid_mode == NO) &&
+   if ((files_to_retrieve > 0) && (fra[db.fra_pos].stupid_mode != YES) &&
        (fra[db.fra_pos].remove == NO))
    {
       int    files_removed = 0,
@@ -265,17 +265,17 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve)
          }
          if (*no_of_listed_files == 0)
          {
-            new_size = (REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+            new_size = (RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                        AFD_WORD_OFFSET;
          }
          else
          {
-            new_size = (((*no_of_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                        REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+            new_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                        RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                        AFD_WORD_OFFSET;
          }
-         old_size = (((current_no_of_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                     REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+         old_size = (((current_no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                     RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                     AFD_WORD_OFFSET;
 
          if (old_size != new_size)
@@ -311,8 +311,6 @@ get_remote_file_names_sftp(off_t *file_size_to_retrieve)
 static int
 check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
 {
-   int status;
-
    if ((fra[db.fra_pos].stupid_mode == YES) ||
        (fra[db.fra_pos].remove == YES))
    {
@@ -321,7 +319,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
          size_t rl_size;
          char   *ptr;
 
-         rl_size = (REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+         rl_size = (RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                    AFD_WORD_OFFSET;
          if ((ptr = malloc(rl_size)) == NULL)
          {
@@ -336,11 +334,11 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
          *no_of_listed_files = 0;
       }
       else if ((*no_of_listed_files != 0) &&
-               ((*no_of_listed_files % REMOTE_LIST_STEP_SIZE) == 0))
+               ((*no_of_listed_files % RETRIEVE_LIST_STEP_SIZE) == 0))
            {
               char   *ptr;
-              size_t rl_size = (((*no_of_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                                REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+              size_t rl_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                                RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                                AFD_WORD_OFFSET;
 
               ptr = (char *)rl - AFD_WORD_OFFSET;
@@ -404,7 +402,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
          }
          if (stat_buf.st_size == 0)
          {
-            rl_size = (REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+            rl_size = (RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                       AFD_WORD_OFFSET;
             if (lseek(rl_fd, rl_size - 1, SEEK_SET) == -1)
             {
@@ -442,6 +440,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
          if (stat_buf.st_size == 0)
          {
             *no_of_listed_files = 0;
+            *(ptr - AFD_WORD_OFFSET + SIZEOF_INT + 1 + 1 + 1) = CURRENT_RL_VERSION;
          }
          else
          {
@@ -458,11 +457,11 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                   off_t old_calc_size,
                         old_int_calc_size;
 
-                  old_calc_size = (((*no_of_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                                   REMOTE_LIST_STEP_SIZE * sizeof(struct old_retrieve_list)) +
+                  old_calc_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                                   RETRIEVE_LIST_STEP_SIZE * sizeof(struct old_retrieve_list)) +
                                   8;
-                  old_int_calc_size = (((*no_of_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                                       REMOTE_LIST_STEP_SIZE * sizeof(struct old_int_retrieve_list)) +
+                  old_int_calc_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                                       RETRIEVE_LIST_STEP_SIZE * sizeof(struct old_int_retrieve_list)) +
                                       8;
                   if (stat_buf.st_size == old_calc_size)
                   {
@@ -496,8 +495,8 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                         sftp_quit();
                         exit(INCORRECT);
                      }
-                     rl_size = (((no_of_old_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                                REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                     rl_size = (((no_of_old_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                                RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                                AFD_WORD_OFFSET;
                      if (lseek(new_rl_fd, rl_size - 1, SEEK_SET) == -1)
                      {
@@ -525,6 +524,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                         exit(INCORRECT);
                      }
                      no_of_new_listed_files = (int *)new_ptr;
+                     *(new_ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_RL_VERSION;
                      new_ptr += AFD_WORD_OFFSET;
                      nrl = (struct retrieve_list *)new_ptr;
                      *no_of_new_listed_files = no_of_old_listed_files;
@@ -620,8 +620,8 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                              sftp_quit();
                              exit(INCORRECT);
                           }
-                          rl_size = (((no_of_old_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                                     REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+                          rl_size = (((no_of_old_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                                     RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                                     AFD_WORD_OFFSET;
                           if (lseek(new_rl_fd, rl_size - 1, SEEK_SET) == -1)
                           {
@@ -649,6 +649,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                              exit(INCORRECT);
                           }
                           no_of_new_listed_files = (int *)new_ptr;
+                          *(new_ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_RL_VERSION;
                           new_ptr += AFD_WORD_OFFSET;
                           nrl = (struct retrieve_list *)new_ptr;
                           *no_of_new_listed_files = no_of_old_listed_files;
@@ -717,8 +718,8 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                        {
                           off_t calc_size;
 
-                          calc_size = (((*no_of_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                                       REMOTE_LIST_STEP_SIZE *
+                          calc_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                                       RETRIEVE_LIST_STEP_SIZE *
                                        sizeof(struct retrieve_list)) +
                                       AFD_WORD_OFFSET;
                           system_log(DEBUG_SIGN, __FILE__, __LINE__,
@@ -727,9 +728,10 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
 #else
                                      "Hmm, LS data file %s has incorrect size (%lld != %lld, %lld, %lld), removing it.",
 #endif
-                                     list_file, stat_buf.st_size,
-                                     calc_size, old_calc_size,
-                                     old_int_calc_size);
+                                     list_file, (pri_off_t)stat_buf.st_size,
+                                     (pri_off_t)calc_size,
+                                     (pri_off_t)old_calc_size,
+                                     (pri_off_t)old_int_calc_size);
                           ptr -= AFD_WORD_OFFSET;
                           if (munmap(ptr, stat_buf.st_size) == -1)
                           {
@@ -753,7 +755,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                              sftp_quit();
                              exit(INCORRECT);
                           }
-                          rl_size = (REMOTE_LIST_STEP_SIZE *
+                          rl_size = (RETRIEVE_LIST_STEP_SIZE *
                                      sizeof(struct retrieve_list)) +
                                     AFD_WORD_OFFSET;
                           if (lseek(rl_fd, rl_size - 1, SEEK_SET) == -1)
@@ -783,6 +785,7 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                              exit(INCORRECT);
                           }
                           no_of_listed_files = (int *)ptr;
+                          *(ptr + SIZEOF_INT + 1 + 1 + 1) = CURRENT_RL_VERSION;
                           ptr += AFD_WORD_OFFSET;
                           rl = (struct retrieve_list *)ptr;
                           *no_of_listed_files = 0;
@@ -801,20 +804,32 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
       {
          if (CHECK_STRCMP(rl[i].file_name, file) == 0)
          {
-            rl[i].file_mtime = p_stat_buf->st_mtime;
-            rl[i].got_date = YES;
-            rl[i].size = p_stat_buf->st_size;
-            rl[i].retrieved = NO;
             rl[i].in_list = YES;
+            if ((fra[db.fra_pos].stupid_mode == GET_ONCE_ONLY) &&
+                (rl[i].retrieved == YES))
+            {
+               return(1);
+            }
+            if (rl[i].file_mtime != p_stat_buf->st_mtime)
+            {
+               rl[i].file_mtime = p_stat_buf->st_mtime;
+               rl[i].retrieved = NO;
+            }
+            rl[i].got_date = YES;
+            if (rl[i].size != p_stat_buf->st_size)
+            {
+               rl[i].size = p_stat_buf->st_size;
+               rl[i].retrieved = NO;
+            }
             if (rl[i].retrieved == NO)
             {
                if ((rl[i].size > 0) &&
                    ((fra[db.fra_pos].ignore_size == 0) ||
-                    ((fra[db.fra_pos].gt_lt_sign == ISIZE_EQUAL) &&
+                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
                      (fra[db.fra_pos].ignore_size == rl[i].size)) ||
-                    ((fra[db.fra_pos].gt_lt_sign == ISIZE_LESS_THEN) &&
+                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
                      (fra[db.fra_pos].ignore_size < rl[i].size)) ||
-                    ((fra[db.fra_pos].gt_lt_sign == ISIZE_GREATER_THEN) &&
+                    ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
                      (fra[db.fra_pos].ignore_size > rl[i].size))))
                {
                   if ((rl[i].got_date == NO) ||
@@ -827,11 +842,11 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
                      time_t diff_time;
 
                      diff_time = current_time - rl[i].file_mtime;
-                     if (((fra[db.fra_pos].gt_lt_sign == IFTIME_EQUAL) &&
+                     if (((fra[db.fra_pos].gt_lt_sign & IFTIME_EQUAL) &&
                           (fra[db.fra_pos].ignore_file_time == diff_time)) ||
-                         ((fra[db.fra_pos].gt_lt_sign == IFTIME_LESS_THEN) &&
+                         ((fra[db.fra_pos].gt_lt_sign & IFTIME_LESS_THEN) &&
                           (fra[db.fra_pos].ignore_file_time < diff_time)) ||
-                         ((fra[db.fra_pos].gt_lt_sign == IFTIME_GREATER_THEN) &&
+                         ((fra[db.fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) &&
                           (fra[db.fra_pos].ignore_file_time > diff_time)))
                      {
                         *file_size_to_retrieve += rl[i].size;
@@ -857,11 +872,11 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
 
       /* Add this file to the list. */
       if ((*no_of_listed_files != 0) &&
-          ((*no_of_listed_files % REMOTE_LIST_STEP_SIZE) == 0))
+          ((*no_of_listed_files % RETRIEVE_LIST_STEP_SIZE) == 0))
       {
          char   *ptr;
-         size_t new_size = (((*no_of_listed_files / REMOTE_LIST_STEP_SIZE) + 1) *
-                            REMOTE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
+         size_t new_size = (((*no_of_listed_files / RETRIEVE_LIST_STEP_SIZE) + 1) *
+                            RETRIEVE_LIST_STEP_SIZE * sizeof(struct retrieve_list)) +
                             AFD_WORD_OFFSET;
 
          ptr = (char *)rl - AFD_WORD_OFFSET;
@@ -893,11 +908,11 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
    *file_size_to_retrieve += p_stat_buf->st_size;
 
    if ((fra[db.fra_pos].ignore_size == 0) ||
-       ((fra[db.fra_pos].gt_lt_sign == ISIZE_EQUAL) &&
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_EQUAL) &&
         (fra[db.fra_pos].ignore_size == rl[*no_of_listed_files].size)) ||
-       ((fra[db.fra_pos].gt_lt_sign == ISIZE_LESS_THEN) &&
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_LESS_THEN) &&
         (fra[db.fra_pos].ignore_size < rl[*no_of_listed_files].size)) ||
-       ((fra[db.fra_pos].gt_lt_sign == ISIZE_GREATER_THEN) &&
+       ((fra[db.fra_pos].gt_lt_sign & ISIZE_GREATER_THEN) &&
         (fra[db.fra_pos].ignore_size > rl[*no_of_listed_files].size)))
    {
       if ((rl[*no_of_listed_files].got_date == NO) ||
@@ -910,11 +925,11 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
          time_t diff_time;
 
          diff_time = current_time - rl[*no_of_listed_files].file_mtime;
-         if (((fra[db.fra_pos].gt_lt_sign == IFTIME_EQUAL) &&
+         if (((fra[db.fra_pos].gt_lt_sign & IFTIME_EQUAL) &&
               (fra[db.fra_pos].ignore_file_time == diff_time)) ||
-             ((fra[db.fra_pos].gt_lt_sign == IFTIME_LESS_THEN) &&
+             ((fra[db.fra_pos].gt_lt_sign & IFTIME_LESS_THEN) &&
               (fra[db.fra_pos].ignore_file_time < diff_time)) ||
-             ((fra[db.fra_pos].gt_lt_sign == IFTIME_GREATER_THEN) &&
+             ((fra[db.fra_pos].gt_lt_sign & IFTIME_GREATER_THEN) &&
               (fra[db.fra_pos].ignore_file_time > diff_time)))
          {
             (*no_of_listed_files)++;
@@ -932,39 +947,4 @@ check_list(char *file, struct stat *p_stat_buf, off_t *file_size_to_retrieve)
       *file_size_to_retrieve -= rl[*no_of_listed_files].size;
       return(1);
    }
-}
-
-
-/*++++++++++++++++++++++++++ remove_ls_data() +++++++++++++++++++++++++++*/
-static void
-remove_ls_data()
-{
-   if ((fra[db.fra_pos].stupid_mode == NO) &&
-       (fra[db.fra_pos].remove == NO))
-   {
-      char        list_file[MAX_PATH_LENGTH];
-      struct stat stat_buf;
-
-      (void)sprintf(list_file, "%s%s%s%s/%s", p_work_dir, AFD_FILE_DIR,
-                    INCOMING_DIR, LS_DATA_DIR, fra[db.fra_pos].dir_alias);
-      if (stat(list_file, &stat_buf) == 0)
-      {
-         if ((unlink(list_file) == -1) && (errno != ENOENT))
-         {
-            system_log(WARN_SIGN, __FILE__, __LINE__,
-                       "Failed to unlink() `%s' : %s",
-                       list_file, strerror(errno));
-         }
-      }
-      else
-      {
-         if (errno != ENOENT)
-         {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "Failed to stat() `%s' : %s",
-                       list_file, strerror(errno));
-         }
-      }
-   }
-   return;
 }

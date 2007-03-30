@@ -1,6 +1,6 @@
 /*
  *  mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -44,11 +44,13 @@ DESCR__S_M1
  **   03.12.2003 H.Kiehl Added connection and disconnection time.
  **   26.06.2004 H.Kiehl Store error host list.
  **   27.02.2005 H.Kiehl Option to switch between two AFD's.
+ **   30.07.2006 H.Kiehl Handle total values for input and output.
  **
  */
 DESCR__E_M1
 
 #include <stdio.h>           /* fprintf()                                */
+#include <stdarg.h>          /* va_start(), va_end()                     */
 #include <string.h>          /* strcpy(), strcat(), strerror()           */
 #include <stdlib.h>          /* atexit(), exit()                         */
 #include <signal.h>          /* signal()                                 */
@@ -59,17 +61,23 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <sys/mman.h>        /* munmap()                                 */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <unistd.h>
 #include <errno.h>
 #include "mondefs.h"
+#include "logdefs.h"
 #include "afdddefs.h"
 #include "version.h"
 
-/* Global variables */
+
+/* Global variables. */
 int                    afd_no,
+                       got_log_capabilities,
                        mon_log_fd = STDERR_FILENO,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                       mon_log_readfd,
+#endif
                        msa_fd = -1,
                        msa_id,
                        no_of_afds,
@@ -78,18 +86,27 @@ int                    afd_no,
                        sys_log_fd = STDERR_FILENO,
                        timeout_flag;
 time_t                 new_hour_time;
-size_t                 ahl_size;
+size_t                 adl_size,
+                       ahl_size;
 off_t                  msa_size;
 long                   tcp_timeout = 120L;
-char                   ahl_file_name[MAX_PATH_LENGTH],
+char                   adl_file_name[MAX_PATH_LENGTH],
+                       ahl_file_name[MAX_PATH_LENGTH],
                        msg_str[MAX_RET_MSG_LENGTH],
+                       *p_mon_alias,
                        *p_work_dir;
+FILE                   *p_control;
 struct mon_status_area *msa;
+struct afd_dir_list    *adl = NULL;
 struct afd_host_list   *ahl = NULL;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
 
+/* Local global variables. */
+static int             send_log_request;
+
 /* Local functions prototypes */
-static int             evaluate_message(int *);
+static int             send_got_log_capabilities(int),
+                       tcp_cmd(char *, ...);
 static void            mon_exit(void),
                        sig_bus(int),
                        sig_exit(int),
@@ -102,10 +119,13 @@ static void            mon_exit(void),
 int
 main(int argc, char *argv[])
 {
-   int            bytes_done,
+   int            bytes_done = 0,
                   bytes_buffered = 0,
                   i,
                   retry_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  retry_writefd,
+#endif
                   status;
    time_t         new_day_time,
                   now,
@@ -113,7 +133,6 @@ main(int argc, char *argv[])
                   start_time;
    char           mon_log_fifo[MAX_PATH_LENGTH],
                   retry_fifo[MAX_PATH_LENGTH],
-                  sys_log_fifo[MAX_PATH_LENGTH],
                   work_dir[MAX_PATH_LENGTH];
    fd_set         rset;
    struct stat    stat_buf;
@@ -152,49 +171,18 @@ main(int argc, char *argv[])
    }
 
    /* Initialize variables. */
-   (void)strcpy(sys_log_fifo, p_work_dir);
-   (void)strcat(sys_log_fifo, FIFO_DIR);
-   (void)strcpy(mon_log_fifo, sys_log_fifo);
-   (void)strcat(mon_log_fifo, MON_LOG_FIFO);
-   (void)strcpy(ahl_file_name, sys_log_fifo);
+   (void)strcpy(mon_log_fifo, p_work_dir);
+   (void)strcat(mon_log_fifo, FIFO_DIR);
+   (void)strcpy(adl_file_name, mon_log_fifo);
+   (void)strcat(adl_file_name, ADL_FILE_NAME);
+   (void)strcat(adl_file_name, argv[1]);
+   (void)strcpy(ahl_file_name, mon_log_fifo);
    (void)strcat(ahl_file_name, AHL_FILE_NAME);
    (void)strcat(ahl_file_name, argv[1]);
-   (void)strcpy(retry_fifo, sys_log_fifo);
+   (void)strcpy(retry_fifo, mon_log_fifo);
    (void)strcat(retry_fifo, RETRY_MON_FIFO);
    (void)strcat(retry_fifo, argv[1]);
-   (void)strcat(sys_log_fifo, MON_SYS_LOG_FIFO);
-
-   /* Open and if necessary create system log fifo. */
-   if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
-   {
-      if (errno == ENOENT)
-      {
-         if (make_fifo(sys_log_fifo) == SUCCESS)
-         {
-            if ((sys_log_fd = open(sys_log_fifo, O_RDWR)) == -1)
-            {
-               (void)fprintf(stderr,
-                             "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
-                             sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-               exit(INCORRECT);
-            }
-         }
-         else
-         {
-            (void)fprintf(stderr,
-                          "ERROR   : Could not create fifo %s. (%s %d)\n",
-                          sys_log_fifo, __FILE__, __LINE__);
-            exit(INCORRECT);
-         }
-      }
-      else
-      {
-         (void)fprintf(stderr,
-                       "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
-                       sys_log_fifo, strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-   }
+   (void)strcat(mon_log_fifo, MON_LOG_FIFO);
 
    /* Open (create) monitor log fifo. */
    if ((stat(mon_log_fifo, &stat_buf) < 0) || (!S_ISFIFO(stat_buf.st_mode)))
@@ -207,10 +195,13 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
    }
-   if ((mon_log_fd = open(mon_log_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(mon_log_fifo, &mon_log_readfd, &mon_log_fd) == -1)
+#else
+   if ((mon_log_fd = open(mon_log_fifo, O_RDWR)) == -1)
+#endif
    {
-      (void)fprintf(stderr,
-                    "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
+      (void)fprintf(stderr, "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
                     mon_log_fifo, strerror(errno), __FILE__, __LINE__);
       exit(INCORRECT);
    }
@@ -226,7 +217,11 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
    }
-   if ((retry_fd = open(retry_fifo, O_RDWR)) < 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(retry_fifo, &retry_fd, &retry_writefd) == -1)
+#else
+   if ((retry_fd = open(retry_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr,
                     "ERROR   : Could not open() fifo %s : %s (%s %d)\n",
@@ -234,12 +229,11 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(mon_exit) != 0)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not register exit handler : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not register exit handler : %s", strerror(errno));
       exit(INCORRECT);
    }
    if ((signal(SIGINT, sig_exit) == SIG_ERR) ||
@@ -250,23 +244,21 @@ main(int argc, char *argv[])
        (signal(SIGPIPE, SIG_IGN) == SIG_ERR) ||
        (signal(SIGHUP, SIG_IGN) == SIG_ERR))
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Could not set signal handlers : %s (%s %d)\n",
-                strerror(errno), __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "Could not set signal handlers : %s", strerror(errno));
       exit(INCORRECT);
    }
 
    if (msa_attach() != SUCCESS)
    {
-      (void)rec(sys_log_fd, FATAL_SIGN,
-                "Failed to attach to MSA. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to MSA.");
       exit(INCORRECT);
    }
    msa[afd_no].tr = 0;
+   p_mon_alias = msa[afd_no].afd_alias;
    now = time(NULL);
-   new_day_time = (now / 86400) * 86400 + 86400;
-   new_hour_time = (now / 3600) * 3600 + 3600;
+   new_day_time = ((now / 86400) * 86400) + 86400;
+   new_hour_time = ((now / 3600) * 3600) + 3600;
    for (i = 0; i < NO_OF_LOG_HISTORY; i++)
    {
       shift_log_his[i] = DONE;
@@ -283,8 +275,7 @@ main(int argc, char *argv[])
          {
             if (status != INCORRECT)
             {
-               (void)rec(mon_log_fd, ERROR_SIGN, "%-*s: %s\n",
-                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias, msg_str);
+               mon_log(WARN_SIGN, NULL, 0, 0L, msg_str, "Failed to connect.");
             }
 
             /*
@@ -294,10 +285,8 @@ main(int argc, char *argv[])
          }
          else
          {
-            (void)rec(mon_log_fd, ERROR_SIGN,
-                      "%-*s: Failed to connect due to timeout. (%s %d)\n",
-                      MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                      __FILE__, __LINE__);
+            mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
+                    "Failed to connect due to timeout.");
          }
          msa[afd_no].connect_status = CONNECTION_DEFUNCT;
          retry_interval = RETRY_INTERVAL;
@@ -312,46 +301,42 @@ main(int argc, char *argv[])
             {
                msa[afd_no].afd_toggle = (HOST_ONE - 1);
             }
-            (void)rec(mon_log_fd, WARN_SIGN,
-                      "%-*s: Automatic switching to %s%d (%s at port %d).",
-                      MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                      msa[afd_no].afd_alias, (int)msa[afd_no].afd_toggle + 1,
-                      msa[afd_no].hostname[(int)msa[afd_no].afd_toggle],
-                      msa[afd_no].port[(int)msa[afd_no].afd_toggle]);
+            mon_log(WARN_SIGN, NULL, 0, 0L, NULL,
+                    "Automatic switching to %s%d (%s at port %d).",
+                    msa[afd_no].afd_alias, (int)msa[afd_no].afd_toggle + 1,
+                    msa[afd_no].hostname[(int)msa[afd_no].afd_toggle],
+                    msa[afd_no].port[(int)msa[afd_no].afd_toggle]);
          }
       }
       else
       {
          char current_afd_toggle;
 
+         got_log_capabilities = NO;
+         send_log_request = NO;
          if (msa[afd_no].afd_switching != NO_SWITCHING)
          {
             current_afd_toggle = msa[afd_no].afd_toggle;
          }
          msa[afd_no].connect_status = CONNECTION_ESTABLISHED;
-         (void)rec(mon_log_fd, INFO_SIGN,
-                   "%-*s: ========> AFDD Connected <========\n",
-                   MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias);
-         if ((bytes_buffered = tcp_cmd(START_STAT_CMD)) < 0)
+         mon_log(INFO_SIGN, NULL, 0, 0L, NULL,
+                 "========> AFDD Connected <========");
+         if ((bytes_buffered = tcp_cmd("%s", START_STAT_CMD)) < 0)
          {
-            if (timeout_flag == OFF)
+            if (bytes_buffered == -AFDD_SHUTTING_DOWN)
             {
-               (void)rec(mon_log_fd, ERROR_SIGN,
-                         "%-*s: Failed to send %s command. (%s %d)\n",
-                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                         START_STAT_CMD, __FILE__, __LINE__);
-               (void)rec(mon_log_fd, ERROR_SIGN, "%-*s: %s\n",
-                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias, msg_str);
+               timeout_flag = ON;
+               (void)tcp_quit();
+               timeout_flag = OFF;
+               msa[afd_no].connect_status = DISCONNECTED;
             }
             else
             {
-               (void)rec(mon_log_fd, ERROR_SIGN,
-                         "%-*s: Failed to send %s command due to timeout. (%s %d)\n",
-                         MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                         START_STAT_CMD, __FILE__, __LINE__);
+               mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                       "Failed to send %s command.", START_STAT_CMD);
+               (void)tcp_quit();
+               msa[afd_no].connect_status = CONNECTION_DEFUNCT;
             }
-            (void)tcp_quit();
-            msa[afd_no].connect_status = CONNECTION_DEFUNCT;
             retry_interval = RETRY_INTERVAL;
          }
          else
@@ -379,7 +364,7 @@ main(int argc, char *argv[])
                   msa[afd_no].top_no_of_transfers[0] = 0;
                   msa[afd_no].top_tr[0] = msa[afd_no].top_fr[0] = 0;
                   msa[afd_no].top_not_time = msa[afd_no].top_tr_time = msa[afd_no].top_fr_time = 0L;
-                  new_day_time = (now / 86400) * 86400 + 86400;
+                  new_day_time = ((now / 86400) * 86400) + 86400;
                }
                if (now > (new_hour_time + 120))
                {
@@ -387,7 +372,7 @@ main(int argc, char *argv[])
                   {
                      shift_log_his[i] = NO;
                   }
-                  new_hour_time = (now / 3600) * 3600 + 3600;
+                  new_hour_time = ((now / 3600) * 3600) + 3600;
                }
 
                while (bytes_buffered > 0)
@@ -404,10 +389,6 @@ main(int argc, char *argv[])
                      if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
                      {
                         bytes_buffered -= bytes_done;
-                        timeout_flag = ON;
-                        (void)tcp_quit();
-                        timeout_flag = OFF;
-                        msa[afd_no].connect_status = DISCONNECTED;
                         retry_interval = RETRY_INTERVAL;
                         goto done;
                      }
@@ -415,7 +396,16 @@ main(int argc, char *argv[])
                   }
                }
 
-               /* Initialise descriptor set and timeout */
+               if ((msa[afd_no].log_capabilities > 0) &&
+                   (got_log_capabilities == YES) && (send_log_request == NO))
+               {
+                  if (send_got_log_capabilities(afd_no) == SUCCESS)
+                  {
+                     send_log_request = YES;
+                  }
+               }
+
+               /* Initialise descriptor set and timeout. */
                FD_SET(sock_fd, &rset);
                timeout.tv_usec = 0;
                timeout.tv_sec = msa[afd_no].poll_interval;
@@ -439,10 +429,6 @@ main(int argc, char *argv[])
                         if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
                         {
                            bytes_buffered -= bytes_done;
-                           timeout_flag = ON;
-                           (void)tcp_quit();
-                           timeout_flag = OFF;
-                           msa[afd_no].connect_status = DISCONNECTED;
                            retry_interval = RETRY_INTERVAL;
                            goto done;
                         }
@@ -452,29 +438,15 @@ main(int argc, char *argv[])
                }
                else if (status == 0)
                     {
-                       if ((bytes_buffered = tcp_cmd(STAT_CMD)) < 0)
+                       if ((bytes_buffered = tcp_cmd("%s", STAT_CMD)) < 0)
                        {
-                          if (timeout_flag == OFF)
+                          if (bytes_buffered != -AFDD_SHUTTING_DOWN)
                           {
-                             (void)rec(mon_log_fd, ERROR_SIGN,
-                                       "%-*s: Failed to send %s command. (%s %d)\n",
-                                       MAX_AFDNAME_LENGTH,
-                                       msa[afd_no].afd_alias, STAT_CMD,
-                                       __FILE__, __LINE__);
-                             (void)rec(mon_log_fd, ERROR_SIGN, "%-*s: %s\n",
-                                       MAX_AFDNAME_LENGTH,
-                                       msa[afd_no].afd_alias, msg_str);
+                             mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                     "Failed to send %s command.", STAT_CMD);
+                             (void)tcp_quit();
+                             msa[afd_no].connect_status = CONNECTION_DEFUNCT;
                           }
-                          else
-                          {
-                             (void)rec(mon_log_fd, ERROR_SIGN,
-                                       "%-*s: Failed to send %s command due to timeout. (%s %d)\n",
-                                       MAX_AFDNAME_LENGTH,
-                                       msa[afd_no].afd_alias, STAT_CMD,
-                                       __FILE__, __LINE__);
-                          }
-                          (void)tcp_quit();
-                          msa[afd_no].connect_status = CONNECTION_DEFUNCT;
                           retry_interval = RETRY_INTERVAL;
                           break;
                        }
@@ -484,10 +456,6 @@ main(int argc, char *argv[])
                           if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
                           {
                              bytes_buffered -= bytes_done;
-                             timeout_flag = ON;
-                             (void)tcp_quit();
-                             timeout_flag = OFF;
-                             msa[afd_no].connect_status = DISCONNECTED;
                              retry_interval = RETRY_INTERVAL;
                              break;
                           }
@@ -496,9 +464,8 @@ main(int argc, char *argv[])
                     }
                     else
                     {
-                       (void)rec(sys_log_fd, FATAL_SIGN,
-                                 "select() error : %s (%s %d)\n",
-                                 strerror(errno), __FILE__, __LINE__);
+                       system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                  "select() error : %s", strerror(errno));
                        exit(SELECT_ERROR);
                     }
 
@@ -509,30 +476,14 @@ main(int argc, char *argv[])
                   {
                      if (tcp_quit() != SUCCESS)
                      {
-                        if (timeout_flag == OFF)
-                        {
-                           (void)rec(mon_log_fd, ERROR_SIGN,
-                                     "%-*s: Failed to send %s command. (%s %d)\n",
-                                     MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                     QUIT_CMD, __FILE__, __LINE__);
-                           (void)rec(mon_log_fd, ERROR_SIGN, "%-*s: %s\n",
-                                     MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                     msg_str);
-                        }
-                        else
-                        {
-                           (void)rec(mon_log_fd, ERROR_SIGN,
-                                     "%-*s: Failed to send %s command due to timeout. (%s %d)\n",
-                                     MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                     QUIT_CMD, __FILE__, __LINE__);
-                        }
+                        mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                "Failed to send %s command.", QUIT_CMD);
                      }
                      retry_interval = msa[afd_no].disconnect_time;
                      msa[afd_no].connect_status = DISCONNECTED;
-                     (void)rec(mon_log_fd, INFO_SIGN,
-                               "%-*s: ========> Disconnect (due to connect interval %ds) <========\n",
-                               MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                               msa[afd_no].connect_time);
+                     mon_log(INFO_SIGN, NULL, 0, 0L, NULL,
+                             "========> Disconnect (due to connect interval %ds) <========",
+                             msa[afd_no].connect_time);
                      break;
                   }
                }
@@ -541,32 +492,16 @@ main(int argc, char *argv[])
                {
                   if (tcp_quit() != SUCCESS)
                   {
-                     if (timeout_flag == OFF)
-                     {
-                        (void)rec(mon_log_fd, ERROR_SIGN,
-                                  "%-*s: Failed to send %s command. (%s %d)\n",
-                                  MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                  QUIT_CMD, __FILE__, __LINE__);
-                        (void)rec(mon_log_fd, ERROR_SIGN, "%-*s: %s\n",
-                                  MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                  msg_str);
-                     }
-                     else
-                     {
-                        (void)rec(mon_log_fd, ERROR_SIGN,
-                                  "%-*s: Failed to send %s command due to timeout. (%s %d)\n",
-                                  MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                                  QUIT_CMD, __FILE__, __LINE__);
-                     }
+                     mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                             "Failed to send %s command.", QUIT_CMD);
                   }
                   msa[afd_no].connect_status = DISCONNECTED;
                   retry_interval = 0L;
-                  (void)rec(mon_log_fd, WARN_SIGN,
-                            "%-*s: Switching to %s%d (%s at port %d).",
-                            MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias,
-                            msa[afd_no].afd_alias, (int)msa[afd_no].afd_toggle,
-                            msa[afd_no].hostname[(int)msa[afd_no].afd_toggle],
-                            msa[afd_no].port[(int)msa[afd_no].afd_toggle]);
+                  mon_log(WARN_SIGN, NULL, 0, 0L, NULL,
+                          "Switching to %s%d (%s at port %d).",
+                          msa[afd_no].afd_alias, (int)msa[afd_no].afd_toggle,
+                          msa[afd_no].hostname[(int)msa[afd_no].afd_toggle],
+                          msa[afd_no].port[(int)msa[afd_no].afd_toggle]);
                   break;
                }
             } /* for (;;) */
@@ -593,16 +528,14 @@ done:
           */
          if (read(retry_fd, msg_str, MAX_RET_MSG_LENGTH) < 0)
          {
-            (void)rec(sys_log_fd, ERROR_SIGN,
-                      "read() error on %s : %s (%s %d)\n",
-                      retry_fifo, strerror(errno), __FILE__, __LINE__);
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "read() error on %s : %s", retry_fifo, strerror(errno));
          }
       }
       else if (status == -1)
            {
-              (void)rec(sys_log_fd, FATAL_SIGN,
-                        "select() error : %s (%s %d)\n",
-                        strerror(errno), __FILE__, __LINE__);
+              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                         "select() error : %s", strerror(errno));
               exit(INCORRECT);
            }
 
@@ -621,715 +554,124 @@ done:
 }
 
 
-/*+++++++++++++++++++++++++++ evaluate_message() ++++++++++++++++++++++++*/
-/*                            -----------------                          */
-/* Description: Evaluates what is returned in msg_str. The first two     */
-/*              characters always describe the content of the message:   */
-/*                IS - Interval summary                                  */
-/*                NH - Number of hosts                                   */
-/*                NJ - Number of jobs configured                         */
-/*                MC - Maximum number of connections                     */
-/*                SR - System Log Radar Information                      */
-/*                AM - Status of AMG                                     */
-/*                FD - Status of FD                                      */
-/*                AW - Status of archive_watch                           */
-/*                WD - remote AFD working directory                      */
-/*                AV - AFD version                                       */
-/*                HL - List of current host alias names and real         */
-/*                     hostnames                                         */
-/*                EL - Error list for a given host                       */
-/*                RH - Receive log history                               */
-/*                SH - System log history                                */
-/*                TH - Transfer log history                              */
-/*+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++*/
+/*############################## tcp_cmd() ##############################*/
 static int
-evaluate_message(int *bytes_done)
+tcp_cmd(char *fmt, ...)
 {
-   char *ptr,
-        *ptr_start;
+   int     bytes_buffered,
+           bytes_done;
+   va_list ap;
 
-   /* Evaluate what is returned and store in MSA. */
-   ptr = msg_str;
-   for (;;)
+   va_start(ap, fmt);
+   (void)vfprintf(p_control, fmt, ap);
+   va_end(ap);
+   (void)fprintf(p_control, "\r\n");
+   (void)fflush(p_control);
+
+   while ((bytes_buffered = read_msg()) != INCORRECT)
    {
-      if (*ptr == '\0')
+      if (bytes_buffered > 3)
       {
-         break;
-      }
-      ptr++;
-   }
-   *bytes_done = ptr - msg_str + 2;
-   ptr = msg_str;
-   if ((*ptr == 'I') && (*(ptr + 1) == 'S'))
-   {
-      ptr += 3;
-      ptr_start = ptr;
-      while ((*ptr != ' ') && (*ptr != '\0'))
-      {
-         ptr++;
-      }
-      if (*ptr == ' ')
-      {
-         /* Store the number of files still to be send. */
-         *ptr = '\0';
-         msa[afd_no].fc = (unsigned int)strtoul(ptr_start, NULL, 10);
-         ptr++;
-         ptr_start = ptr;
-         while ((*ptr != ' ') && (*ptr != '\0'))
+         if ((msg_str[0] == '2') && (msg_str[1] == '1') &&
+             (msg_str[2] == '1') && (msg_str[3] == '-'))
          {
-            ptr++;
+            bytes_buffered = read_msg();
+            break;
          }
-         if (*ptr == ' ')
+         if ((isdigit((int)msg_str[0])) && (isdigit((int)msg_str[1])) &&
+             (isdigit((int)msg_str[2])) && (msg_str[3] == '-'))
          {
-            /* Store the number of bytes still to be send. */
-            *ptr = '\0';
-            msa[afd_no].fs = (unsigned int)strtoul(ptr_start, NULL, 10);
-            ptr++;
-            ptr_start = ptr;
-            while ((*ptr != ' ') && (*ptr != '\0'))
+            return(-(((msg_str[0] - '0') * 100) + ((msg_str[1] - '0') * 10) +
+                   (msg_str[2] - '0')));
+         }
+         if ((isupper((int)msg_str[0])) && (isupper((int)msg_str[1])) &&
+             (msg_str[2] == ' '))
+         {
+            if (evaluate_message(&bytes_done) == AFDD_SHUTTING_DOWN)
             {
-               ptr++;
+               return(-AFDD_SHUTTING_DOWN);
             }
-            if (*ptr == ' ')
-            {
-               /* Store the transfer rate. */
-               *ptr = '\0';
-               msa[afd_no].tr = (unsigned int)strtoul(ptr_start, NULL, 10);
-               if (msa[afd_no].tr > msa[afd_no].top_tr[0])
-               {
-                  msa[afd_no].top_tr[0] = msa[afd_no].tr;
-                  msa[afd_no].top_tr_time = msa[afd_no].last_data_time;
-               }
-               ptr++;
-               ptr_start = ptr;
-               while ((*ptr != ' ') && (*ptr != '\0'))
-               {
-                  ptr++;
-               }
-               if (*ptr == ' ')
-               {
-                  /* Store file rate. */
-                  *ptr = '\0';
-                  msa[afd_no].fr = (unsigned int)strtoul(ptr_start, NULL, 10);
-                  if (msa[afd_no].fr > msa[afd_no].top_fr[0])
-                  {
-                     msa[afd_no].top_fr[0] = msa[afd_no].fr;
-                     msa[afd_no].top_fr_time = msa[afd_no].last_data_time;
-                  }
-                  ptr++;
-                  ptr_start = ptr;
-                  while ((*ptr != ' ') && (*ptr != '\0'))
-                  {
-                     ptr++;
-                  }
-                  if (*ptr == ' ')
-                  {
-                     /* Store error counter. */
-                     *ptr = '\0';
-                     msa[afd_no].ec = (unsigned int)strtoul(ptr_start, NULL, 10);
-                     ptr++;
-                     ptr_start = ptr;
-                     while ((*ptr != ' ') && (*ptr != '\0'))
-                     {
-                        ptr++;
-                     }
-                     if (*ptr == ' ')
-                     {
-                        /* Store error hosts. */
-                        *ptr = '\0';
-                        msa[afd_no].host_error_counter = atoi(ptr_start);
-                        ptr++;
-                        ptr_start = ptr;
-                        while ((*ptr != ' ') && (*ptr != '\0'))
-                        {
-                           ptr++;
-                        }
-                        if (*ptr == ' ')
-                        {
-                           /* Store number of transfers. */
-                           *ptr = '\0';
-                           msa[afd_no].no_of_transfers = atoi(ptr_start);
-                           if (msa[afd_no].no_of_transfers > msa[afd_no].top_no_of_transfers[0])
-                           {
-                              msa[afd_no].top_no_of_transfers[0] = msa[afd_no].no_of_transfers;
-                              msa[afd_no].top_not_time = msa[afd_no].last_data_time;
-                           }
-                           ptr++;
-                           ptr_start = ptr;
-                           while ((*ptr != ' ') && (*ptr != '\0'))
-                           {
-                              ptr++;
-                           }
-                           if (*ptr == '\0')
-                           {
-                              /* Store number of jobs in queue. */
-                              msa[afd_no].jobs_in_queue = atoi(ptr_start);
-                           }
-                        }
-                     }
-                  }
-               }
-            }
+            bytes_buffered -= bytes_done;
+         }
+         else
+         {
+            mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                    "Reading garbage, don't know what to do?");
+            return(INCORRECT);
          }
       }
-#ifdef _DEBUG_PRINT
-      (void)fprintf(stderr, "IS %d %d %d %d %d %d %d\n",
-                    msa[afd_no].fc, msa[afd_no].fs, msa[afd_no].tr,
-                    msa[afd_no].fr, msa[afd_no].ec,
-                    msa[afd_no].host_error_counter,
-                    msa[afd_no].jobs_in_queue);
-#endif /* _DEBUG_PRINT */
+      else
+      {
+         mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                 "Reading garbage, don't know what to do?");
+         return(INCORRECT);
+      }
    }
-   /*
-    * Status of AMG
-    */
-   else if ((*ptr == 'A') && (*(ptr + 1) == 'M'))
-        {
-           ptr += 3;
-           ptr_start = ptr;
-           while (*ptr != '\0')
-           {
-              ptr++;
-           }
-           msa[afd_no].amg = (char)atoi(ptr_start);
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "AM %d\n", msa[afd_no].amg);
-#endif /* _DEBUG_PRINT */
-        }
-   /*
-    * Status of FD
-    */
-   else if ((*ptr == 'F') && (*(ptr + 1) == 'D'))
-        {
-           ptr += 3;
-           ptr_start = ptr;
-           while (*ptr != '\0')
-           {
-              ptr++;
-           }
-           msa[afd_no].fd = (char)atoi(ptr_start);
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "FD %d\n", msa[afd_no].fd);
-#endif /* _DEBUG_PRINT */
-        }
-   /*
-    * Status of archive watch
-    */
-   else if ((*ptr == 'A') && (*(ptr + 1) == 'W'))
-        {
-           ptr += 3;
-           ptr_start = ptr;
-           while (*ptr != '\0')
-           {
-              ptr++;
-           }
-           msa[afd_no].archive_watch = (char)atoi(ptr_start);
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "AW %d\n", msa[afd_no].archive_watch);
-#endif /* _DEBUG_PRINT */
-        }
-   /*
-    * Number of hosts
-    */
-   else if ((*ptr == 'N') && (*(ptr + 1) == 'H'))
-        {
-           int new_no_of_hosts;
 
-           ptr += 3;
-           ptr_start = ptr;
-           while (*ptr != '\0')
-           {
-              ptr++;
-           }
-           new_no_of_hosts = atoi(ptr_start);
-           if ((new_no_of_hosts != msa[afd_no].no_of_hosts) ||
-               (ahl == NULL))
-           {
-              int  fd;
-              char *ahl_ptr;
+   return(bytes_buffered);
+}
 
-              if (ahl != NULL)
-              {
-                 if (munmap((void *)ahl, ahl_size) == -1)
-                 {
-                    (void)rec(sys_log_fd, ERROR_SIGN,
-                              "munmap() error : %s (%s %d)\n",
-                              strerror(errno), __FILE__, __LINE__);
-                 }
-              }
-              ahl_size = new_no_of_hosts * sizeof(struct afd_host_list);
-              msa[afd_no].no_of_hosts = new_no_of_hosts;
-              if ((ahl_ptr = attach_buf(ahl_file_name, &fd, ahl_size,
-                                        NULL, FILE_MODE, NO)) == (caddr_t) -1)
-              {
-                 (void)rec(sys_log_fd, ERROR_SIGN,
-                           "Failed to mmap() %s : %s (%s %d)\n",
-                           ahl_file_name, strerror(errno),
-                           __FILE__, __LINE__);
-              }
-              else
-              {
-                 if (close(fd) == -1)
-                 {
-                    (void)rec(sys_log_fd, DEBUG_SIGN,
-                              "close() error : %s (%s %d)\n",
-                              strerror(errno), __FILE__, __LINE__);
-                 }
-                 ahl = (struct afd_host_list *)ahl_ptr;
-              }
-           }
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "NH %d\n", msa[afd_no].no_of_hosts);
-#endif /* _DEBUG_PRINT */
-        }
-   /*
-    * Maximum number of connections.
-    */
-   else if ((*ptr == 'M') && (*(ptr + 1) == 'C'))
-        {
-           ptr += 3;
-           ptr_start = ptr;
-           while (*ptr != '\0')
-           {
-              ptr++;
-           }
-           msa[afd_no].max_connections = atoi(ptr_start);
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "MC %d\n", msa[afd_no].max_connections);
-#endif /* _DEBUG_PRINT */
-        }
-   /*
-    * Number of jobs.
-    */
-   else if ((*ptr == 'N') && (*(ptr + 1) == 'J'))
-        {
-           ptr += 3;
-           ptr_start = ptr;
-           while (*ptr != '\0')
-           {
-              ptr++;
-           }
-           msa[afd_no].no_of_jobs = atoi(ptr_start);
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "NJ %d\n", msa[afd_no].no_of_jobs);
-#endif /* _DEBUG_PRINT */
-        }
-   /*
-    * System log radar
-    */
-   else if ((*ptr == 'S') && (*(ptr + 1) == 'R'))
-        {
-           ptr += 3;
-           ptr_start = ptr;
-           while ((*ptr != ' ') && (*ptr != '\0'))
-           {
-              ptr++;
-           }
-           if (*ptr == ' ')
-           {
-              register int i = 0;
-#ifdef _DEBUG_PRINT
-              int  length = 2;
-              char fifo_buf[(LOG_FIFO_SIZE * 4) + 4];
 
-              fifo_buf[0] = 'S';
-              fifo_buf[1] = 'R';
-#endif /* _DEBUG_PRINT */
-
-              /* Store system log entry counter. */
-              *ptr = '\0';
-              msa[afd_no].sys_log_ec = (unsigned int)strtoul(ptr_start, NULL, 10);
-              ptr++;
-              while ((*ptr != '\0') && (i < LOG_FIFO_SIZE))
-              {
-                 msa[afd_no].sys_log_fifo[i] = *ptr - ' ';
-                 if (msa[afd_no].sys_log_fifo[i] > COLOR_POOL_SIZE)
-                 {
-                    (void)rec(sys_log_fd, DEBUG_SIGN,
-                              "Reading garbage for Transfer Log Radar entry <%d> (%s %d)\n",
-                              (int)msa[afd_no].sys_log_fifo[i],
-                              __FILE__, __LINE__);
-                    msa[afd_no].sys_log_fifo[i] = NO_INFORMATION;
-                 }
-#ifdef _DEBUG_PRINT
-                 length += sprintf(&fifo_buf[length], " %d",
-                                   (int)msa[afd_no].sys_log_fifo[i]);
-#endif /* _DEBUG_PRINT */
-                 ptr++; i++;
-              }
-#ifdef _DEBUG_PRINT
-              (void)fprintf(stderr, "%s\n", fifo_buf);
-#endif /* _DEBUG_PRINT */
-           }
-        }
-   /*
-    * Error list
-    */
-   else if ((*ptr == 'E') && (*(ptr + 1) == 'L'))
-        {
-           /* Syntax: EL <host_number> <error code 1> ... <error code n> */
-           ptr += 3;
-           ptr_start = ptr;
-           while ((*ptr != ' ') && (*ptr != '\0'))
-           {
-              ptr++;
-           }
-           if (*ptr == ' ')
-           {
-              int i, k = 0,
-                  pos;
-
-              *ptr = '\0';
-              pos = atoi(ptr_start);
-              if (pos < msa[afd_no].no_of_hosts)
-              {
-                 ptr = ptr + 1;
-                 ptr_start = ptr;
-                 while ((*ptr != ' ') && (*ptr != '\0'))
-                 {
-                    ptr++;
-                 }
-                 if (*ptr == ' ')
-                 {
-                    k = 1;
-                    *ptr = '\0';
-                    ahl[pos].error_history[0] = (unsigned char)atoi(ptr_start);
-
-                    do
-                    {
-                       ptr = ptr + 1;
-                       ptr_start = ptr;
-                       while ((*ptr != ' ') && (*ptr != '\0'))
-                       {
-                          ptr++;
-                       }
-                       if ((*ptr == ' ') && (k < ERROR_HISTORY_LENGTH))
-                       {
-                          *ptr = '\0';
-                          ahl[pos].error_history[k] = (unsigned char)atoi(ptr_start);
-                          k++;
-                       }
-                    } while (*ptr != '\0');
-                 }
-                 for (i = k; i < ERROR_HISTORY_LENGTH; i++)
-                 {
-                    ahl[pos].error_history[k] = 0;
-                 }
-#ifdef _DEBUG_PRINT
-                 (void)fprintf(stderr, "EL %d %d",
-                               pos, ahl[pos].error_history[0]);
-                 for (i = 0; i < k; i++)
-                 {
-                    (void)fprintf(stderr, " %d",
-                                  (int)ahl[pos].error_history[i]);
-                 }
-                 (void)fprintf(stderr, "\n");
-#endif /* _DEBUG_PRINT */
-              }
-              else
-              {
-                 (void)rec(sys_log_fd, DEBUG_SIGN,
-                           "Hmmm. Trying to insert at position %d, but there are only %d hosts. (%s %d)\n",
-                           pos, msa[afd_no].no_of_hosts, __FILE__, __LINE__);
-              }
-           }
-        }
-   /*
-    * Host list
-    */
-   else if ((*ptr == 'H') && (*(ptr + 1) == 'L'))
-        {
-           /* Syntax: HL <host_number> <host alias> <real hostname> [<error code>] */
-           ptr += 3;
-           ptr_start = ptr;
-           while ((*ptr != ' ') && (*ptr != '\0'))
-           {
-              ptr++;
-           }
-           if (*ptr == ' ')
-           {
-              int i = 0,
-                  pos;
-
-              *ptr = '\0';
-              pos = atoi(ptr_start);
-              if (pos < msa[afd_no].no_of_hosts)
-              {
-                 ptr = ptr + 1;
-                 while ((*ptr != ' ') && (*ptr != '\0') &&
-                        (i < MAX_HOSTNAME_LENGTH))
-                 {
-                    ahl[pos].host_alias[i] = *ptr;
-                    ptr++; i++;
-                 }
-                 if (*ptr == ' ')
-                 {
-                    ahl[pos].host_alias[i] = '\0';
-                    i = 0;
-                    ptr = ptr + 1;
-                    while ((*ptr != ' ') && (*ptr != '\0') &&
-                           (i < (MAX_REAL_HOSTNAME_LENGTH - 1)))
-                    {
-                       ahl[pos].real_hostname[0][i] = *ptr;
-                       ptr++; i++;
-                    }
-                    ahl[pos].real_hostname[0][i] = '\0';
-                    if (*ptr == ' ')
-                    {
-                       i = 0;
-                       ptr = ptr + 1;
-                       while ((*ptr != ' ') && (*ptr != '\0') &&
-                              (i < (MAX_REAL_HOSTNAME_LENGTH - 1)))
-                       {
-                          ahl[pos].real_hostname[1][i] = *ptr;
-                          ptr++; i++;
-                       }
-                       ahl[pos].real_hostname[1][i] = '\0';
-                    }
-                    else
-                    {
-                       ahl[pos].real_hostname[1][0] = '\0';
-                    }
-                 }
-#ifdef _DEBUG_PRINT
-                 (void)fprintf(stderr, "HL %d %s %s %s\n",
-                               pos, ahl[pos].host_alias,
-                               ahl[pos].real_hostname[0],
-                               ahl[pos].real_hostname[1]);
-#endif /* _DEBUG_PRINT */
-              }
-              else
-              {
-                 (void)rec(sys_log_fd, DEBUG_SIGN,
-                           "Hmmm. Trying to insert at position %d, but there are only %d hosts. (%s %d)\n",
-                           pos, msa[afd_no].no_of_hosts,
-                           __FILE__, __LINE__);
-              }
-           }
-        }
-   /*
-    * Receive Log History
-    */
-   else if ((*ptr == 'R') && (*(ptr + 1) == 'H'))
-        {
-           register int i,
-                        his_length_received;
-#ifdef _DEBUG_PRINT
-           int  length = 2;
-           char fifo_buf[(MAX_LOG_HISTORY * 4) + 4];
-
-           fifo_buf[0] = 'R';
-           fifo_buf[1] = 'H';
-#endif /* _DEBUG_PRINT */
-           his_length_received = *bytes_done - 2 - 3;
-           if (his_length_received > MAX_LOG_HISTORY)
-           {
-              his_length_received = MAX_LOG_HISTORY;
-           }
-           else if ((his_length_received < MAX_LOG_HISTORY) &&
-                    (shift_log_his[RECEIVE_HISTORY] == NO) &&
-                    (msa[afd_no].last_data_time >= new_hour_time))
-                {
-                   (void)memmove(msa[afd_no].log_history[RECEIVE_HISTORY],
-                                 &msa[afd_no].log_history[RECEIVE_HISTORY][1],
-                                 (MAX_LOG_HISTORY - his_length_received));
-                   shift_log_his[RECEIVE_HISTORY] = DONE;
-                }
-
-           /* Syntax: RH <history data> */;
-           ptr += 3;
-           for (i = (MAX_LOG_HISTORY - his_length_received); i < MAX_LOG_HISTORY; i++)
-           {
-              msa[afd_no].log_history[RECEIVE_HISTORY][i] = *ptr - ' ';
-              if (msa[afd_no].log_history[RECEIVE_HISTORY][i] > COLOR_POOL_SIZE)
-              {
-                 (void)rec(sys_log_fd, DEBUG_SIGN,
-                           "Reading garbage for Receive Log History <%d> (%s %d)\n",
-                           (int)msa[afd_no].log_history[RECEIVE_HISTORY][i],
-                           __FILE__, __LINE__);
-                 msa[afd_no].log_history[RECEIVE_HISTORY][i] = NO_INFORMATION;
-              }
-              ptr++;
-#ifdef _DEBUG_PRINT
-              length += sprintf(&fifo_buf[length], " %d",
-                                (int)msa[afd_no].log_history[RECEIVE_HISTORY][i]);
+/*+++++++++++++++++++++ send_got_log_capabilities() +++++++++++++++++++++*/
+static int
+send_got_log_capabilities(int afd_no)
+{
+   int  mon_cmd_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int  mon_cmd_readfd;
 #endif
-           }
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "%s\n", fifo_buf);
-#endif
-        }
-   /*
-    * Transfer Log History
-    */
-   else if ((*ptr == 'T') && (*(ptr + 1) == 'H'))
-        {
-           register int i,
-                        his_length_received;
-#ifdef _DEBUG_PRINT
-           int  length = 2;
-           char fifo_buf[(MAX_LOG_HISTORY * 4) + 4];
+   char mon_cmd_fifo[MAX_PATH_LENGTH];
 
-           fifo_buf[0] = 'T';
-           fifo_buf[1] = 'H';
-#endif
-           his_length_received = *bytes_done - 2 - 3;
-           if (his_length_received > MAX_LOG_HISTORY)
-           {
-              his_length_received = MAX_LOG_HISTORY;
-           }
-           else if ((his_length_received < MAX_LOG_HISTORY) &&
-                    (shift_log_his[TRANSFER_HISTORY] == NO) &&
-                    (msa[afd_no].last_data_time >= new_hour_time))
-                {
-                   (void)memmove(msa[afd_no].log_history[TRANSFER_HISTORY],
-                                 &msa[afd_no].log_history[TRANSFER_HISTORY][1],
-                                 (MAX_LOG_HISTORY - his_length_received));
-                   shift_log_his[TRANSFER_HISTORY] = DONE;
-                }
+   (void)strcpy(mon_cmd_fifo, p_work_dir);
+   (void)strcat(mon_cmd_fifo, FIFO_DIR);
+   (void)strcat(mon_cmd_fifo, MON_CMD_FIFO);
 
-           /* Syntax: TH <history data> */;
-           ptr += 3;
-           for (i = (MAX_LOG_HISTORY - his_length_received); i < MAX_LOG_HISTORY; i++)
-           {
-              msa[afd_no].log_history[TRANSFER_HISTORY][i] = *ptr - ' ';
-              if (msa[afd_no].log_history[TRANSFER_HISTORY][i] > COLOR_POOL_SIZE)
-              {
-                 (void)rec(sys_log_fd, DEBUG_SIGN,
-                           "Reading garbage for Transfer Log History <%d> (%s %d)\n",
-                           (int)msa[afd_no].log_history[TRANSFER_HISTORY][i],
-                           __FILE__, __LINE__);
-                 msa[afd_no].log_history[TRANSFER_HISTORY][i] = NO_INFORMATION;
-              }
-              ptr++;
-#ifdef _DEBUG_PRINT
-              length += sprintf(&fifo_buf[length], " %d",
-                                (int)msa[afd_no].log_history[TRANSFER_HISTORY][i]);
+   /* Open fifo to AFD to receive commands. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT                
+   if (open_fifo_rw(mon_cmd_fifo, &mon_cmd_readfd, &mon_cmd_fd) == -1)
+#else                                                                  
+   if ((mon_cmd_fd = coe_open(mon_cmd_fifo, O_RDWR)) == -1)
 #endif
-           }
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "%s\n", fifo_buf);
-#endif
-        }
-   /*
-    * System Log History
-    */
-   else if ((*ptr == 'S') && (*(ptr + 1) == 'H'))
-        {
-           register int i,
-                        his_length_received;
-#ifdef _DEBUG_PRINT
-           int  length = 2;
-           char fifo_buf[(MAX_LOG_HISTORY * 4) + 4];
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Could not open fifo %s : %s", mon_cmd_fifo, strerror(errno));
+   }
+   else
+   {
+      int  length;
+      char cmd[2 + MAX_INT_LENGTH];
 
-           fifo_buf[0] = 'S';
-           fifo_buf[1] = 'H';
+      length = sprintf(cmd, "%c %d", GOT_LC, afd_no);
+      if (write(mon_cmd_fd, cmd, length) != length)
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Failed to write() %d bytes to `%s' : %s",
+                    length, mon_cmd_fifo, strerror(errno));
+         length = INCORRECT;
+      }
+      else
+      {
+         length = SUCCESS;
+      }
+      if (close(mon_cmd_fd) == -1)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to close() `%s' : %s",
+                    mon_cmd_fifo, strerror(errno));
+      }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (close(mon_cmd_readfd) == -1)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to close() `%s' (read) : %s",
+                    mon_cmd_fifo, strerror(errno));
+      }
 #endif
-           his_length_received = *bytes_done - 2 - 3;
-           if (his_length_received > MAX_LOG_HISTORY)
-           {
-              his_length_received = MAX_LOG_HISTORY;
-           }
-           else if ((his_length_received < MAX_LOG_HISTORY) &&
-                    (shift_log_his[SYSTEM_HISTORY] == NO) &&
-                    (msa[afd_no].last_data_time >= new_hour_time))
-                {
-                   (void)memmove(msa[afd_no].log_history[SYSTEM_HISTORY],
-                                 &msa[afd_no].log_history[SYSTEM_HISTORY][1],
-                                 (MAX_LOG_HISTORY - his_length_received));
-                   shift_log_his[SYSTEM_HISTORY] = DONE;
-                }
 
-           /* Syntax: SH <history data> */;
-           ptr += 3;
-           for (i = (MAX_LOG_HISTORY - his_length_received); i < MAX_LOG_HISTORY; i++)
-           {
-              msa[afd_no].log_history[SYSTEM_HISTORY][i] = *ptr - ' ';
-              if (msa[afd_no].log_history[SYSTEM_HISTORY][i] > COLOR_POOL_SIZE)
-              {
-                 (void)rec(sys_log_fd, DEBUG_SIGN,
-                           "Reading garbage for System Log History <%d> (%s %d)\n",
-                           (int)msa[afd_no].log_history[SYSTEM_HISTORY][i],
-                           __FILE__, __LINE__);
-                 msa[afd_no].log_history[SYSTEM_HISTORY][i] = NO_INFORMATION;
-              }
-              ptr++;
-#ifdef _DEBUG_PRINT
-              length += sprintf(&fifo_buf[length], " %d",
-                                (int)msa[afd_no].log_history[SYSTEM_HISTORY][i]);
-#endif
-           }
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "%s\n", fifo_buf);
-#endif
-        }
-   /*
-    * AFD Version Number
-    */
-   else if ((*ptr == 'A') && (*(ptr + 1) == 'V'))
-        {
-           if ((*bytes_done - 3) < MAX_VERSION_LENGTH)
-           {
-              (void)strcpy(msa[afd_no].afd_version, ptr + 3);
-#ifdef _DEBUG_PRINT
-              (void)fprintf(stderr, "AV %s\n", msa[afd_no].afd_version);
-#endif /* _DEBUG_PRINT */
-           }
-           else
-           {
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Version is %d Bytes long, but can handle only %d Bytes. (%s %d)\n",
-                        *bytes_done - 3, MAX_VERSION_LENGTH,
-                        __FILE__, __LINE__);
-           }
-        }
-   /*
-    * Remote AFD working directory.
-    */
-   else if ((*ptr == 'W') && (*(ptr + 1) == 'D'))
-        {
-           if ((*bytes_done - 3) < MAX_PATH_LENGTH)
-           {
-              (void)strcpy(msa[afd_no].r_work_dir, ptr + 3);
-#ifdef _DEBUG_PRINT
-              (void)fprintf(stderr, "WD %s\n", msa[afd_no].r_work_dir);
-#endif /* _DEBUG_PRINT */
-           }
-           else
-           {
-              (void)rec(sys_log_fd, WARN_SIGN,
-                        "Path is %d Bytes long, but can handle only %d Bytes. (%s %d)\n",
-                        *bytes_done - 3, MAX_PATH_LENGTH,
-                        __FILE__, __LINE__);
-           }
-        }
-   else if ((*ptr == '2') && (*(ptr + 1) == '1') && (*(ptr + 2) == '1') &&
-            (*(ptr + 3) == '-'))
-        {
-           /* Ignore this, not of intrest! */;
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "%s\n", ptr);
-#endif /* _DEBUG_PRINT */
-        }
-   else if (strcmp(ptr, AFDD_SHUTDOWN_MESSAGE) == 0)
-        {
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "%s\n", ptr);
-#endif /* _DEBUG_PRINT */
-           (void)rec(mon_log_fd, WARN_SIGN,
-                     "%-*s: ========> AFDD SHUTDOWN <========\n",
-                     MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias);
-           return(AFDD_SHUTTING_DOWN);
-        }
-        else
-        {
-           (void)rec(mon_log_fd, ERROR_SIGN,
-                     "%-*s: Failed to evaluate message [%s]. (%s %d)\n",
-                     MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias, ptr,
-                     __FILE__, __LINE__);
-        }
+      return(length);
+   }
 
-   return(SUCCESS);
+   return(INCORRECT);                                                       
 }
 
 
@@ -1339,9 +681,8 @@ mon_exit(void)
 {
    if (tcp_quit() < 0)
    {
-      (void)rec(mon_log_fd, DEBUG_SIGN,
-                "%-*s: Failed to close TCP connection. (%s %d)\n",
-                msa[afd_no].afd_alias, __FILE__, __LINE__);
+      mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, NULL,
+              "Failed to close TCP connection.");
    }
    if (msa[afd_no].connect_status == DISABLED)
    {
@@ -1357,17 +698,16 @@ mon_exit(void)
       msa[afd_no].connect_status = DISCONNECTED;
    }
    msa[afd_no].tr = 0;
-   (void)rec(mon_log_fd, INFO_SIGN,
-             "%-*s: ========> Disconnect <========\n",
-              MAX_AFDNAME_LENGTH, msa[afd_no].afd_alias);
+   mon_log(INFO_SIGN, NULL, 0, 0L, NULL, "========> Disconnect <========");
 
    if (msa_detach() != SUCCESS)
    {
-      (void)rec(sys_log_fd, DEBUG_SIGN,
-                "Failed to detach from MSA. (%s %d)\n",
-                __FILE__, __LINE__);
+      system_log(DEBUG_SIGN, __FILE__, __LINE__, "Failed to detach from MSA.");
    }
 
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   (void)close(mon_log_readfd);
+#endif
    (void)close(mon_log_fd);
    (void)close(sys_log_fd);
 
@@ -1379,8 +719,7 @@ mon_exit(void)
 static void
 sig_segv(int signo)
 {
-   (void)rec(sys_log_fd, FATAL_SIGN,
-             "Aaarrrggh! Received SIGSEGV. (%s %d)\n", __FILE__, __LINE__);
+   system_log(FATAL_SIGN, __FILE__, __LINE__, "Aaarrrggh! Received SIGSEGV.");
 
    /* Dump core so we know what happened! */
    abort();
@@ -1391,8 +730,7 @@ sig_segv(int signo)
 static void
 sig_bus(int signo)
 {
-   (void)rec(sys_log_fd, FATAL_SIGN,
-             "Uuurrrggh! Received SIGBUS. (%s %d)\n", __FILE__, __LINE__);
+   system_log(FATAL_SIGN, __FILE__, __LINE__, "Uuurrrggh! Received SIGBUS.");
 
    /* Dump core so we know what happened! */
    abort();

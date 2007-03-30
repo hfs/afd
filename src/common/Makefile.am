@@ -51,8 +51,23 @@ else
    SET_AFD_EUID =
    EXTRA_SET_AFD_EUID = set_afd_euid.c
 endif
+if WITH_FIFO_RW_SUPPORT
+   OPEN_FIFO_RW =
+   EXTRA_OPEN_FIFO_RW = open_fifo_rw.c
+else
+   OPEN_FIFO_RW = open_fifo_rw.c
+   EXTRA_OPEN_FIFO_RW =
+endif
+if ERROR_QUEUE_SUPPORT
+   HANDLE_ERROR_QUEUE = handle_error_queue.c
+   EXTRA_HANDLE_ERROR_QUEUE =
+else
+   HANDLE_ERROR_QUEUE =
+   EXTRA_HANDLE_ERROR_QUEUE = handle_error_queue.c
+endif
 EXTRA_DIST = $(EXTRA_MAPPER) $(EXTRA_AFD_MON) $(EXTRA_EACCESS)\
-             $(EXTRA_DUPCHECK) $(EXTRA_SET_AFD_EUID)
+             $(EXTRA_DUPCHECK) $(EXTRA_SET_AFD_EUID) $(EXTRA_OPEN_FIFO_RW)\
+             $(EXTRA_HANDLE_ERROR_QUEUE)
 
 MAINTAINERCLEANFILES = Makefile.in
 INCLUDES             = -I.. -I../init_afd -I../amg -I../fd -I../misc\
@@ -79,6 +94,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        copy_file.c\
                        create_name.c\
                        daemon_init.c\
+                       datestr2unixtime.c\
                        delete_log_ptrs.c\
                        detach_afd_status.c\
                        $(AFD_EACCESS)\
@@ -108,6 +124,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        get_rename_rules.c\
                        get_rule.c\
                        get_user.c\
+                       $(HANDLE_ERROR_QUEUE)\
                        inform_fd_about_fsa_change.c\
                        $(DUPCHECK)\
                        is_msgname.c\
@@ -125,6 +142,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        my_usleep.c\
                        next_counter.c\
                        open_counter_file.c\
+                       $(OPEN_FIFO_RW)\
                        posi.c\
                        pmatch.c\
                        production_log.c\

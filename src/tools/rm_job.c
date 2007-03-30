@@ -1,6 +1,6 @@
 /*
  *  rm_job.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -86,6 +86,9 @@ int
 main(int argc, char *argv[])
 {
    int    fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   int    readfd;
+#endif
    size_t length;
    char   *p_job_name,
           delete_fifo[MAX_PATH_LENGTH],
@@ -128,7 +131,11 @@ main(int argc, char *argv[])
    (void)strcpy(delete_fifo, work_dir);
    (void)strcat(delete_fifo, FIFO_DIR);
    (void)strcat(delete_fifo, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (open_fifo_rw(delete_fifo, &readfd, &fd) == -1)
+#else
    if ((fd = open(delete_fifo, O_RDWR)) == -1)
+#endif
    {
       (void)fprintf(stderr, "Failed to open %s : %s (%s %d)\n",
                     delete_fifo, strerror(errno), __FILE__, __LINE__);
@@ -170,6 +177,14 @@ main(int argc, char *argv[])
                {
                   char *ptr;
 
+#ifdef WITH_ERROR_QUEUE
+                  if ((mdb[qb[i].pos].fsa_pos > -1) &&
+                      (fsa[mdb[qb[i].pos].fsa_pos].host_status & ERROR_QUEUE_SET))
+                  {
+                     (void)remove_from_error_queue(mdb[qb[i].pos].job_id,
+                                                   &fsa[mdb[qb[i].pos].fsa_pos]);
+                  }
+#endif
                   ptr = file_dir + strlen(file_dir);
                   (void)strcpy(ptr, qb[i].msg_name);
                   remove_job(file_dir, mdb[qb[i].pos].fsa_pos);
@@ -195,6 +210,9 @@ main(int argc, char *argv[])
       argv++;
       argc--;
    }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   (void)close(readfd);
+#endif
    (void)close(fd);
 
    exit(SUCCESS);

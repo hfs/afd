@@ -36,6 +36,8 @@ DESCR__S_M3
  **         File name  : xxxxxxx.xx
  **         Msg dir    : 3_991243800_118
  **         Directory  : /aaa/bbb/ccc
+ **         Dir Alias  : abc
+ **         Dir-ID     : 12fd45
  **         Filter     : filter_1
  **                      filter_2
  **                      filter_n
@@ -52,7 +54,8 @@ DESCR__S_M3
  **    format_input_info() does it slightly differently:
  **         File name  : xxxxxxx.xx
  **         Hostname   : esoc
- **         Dir-ID     : 4323121
+ **         Dir-ID     : 12fd45
+ **         Dir Alias  : abc
  **         Directory  : /aaa/bbb/ccc
  **         =====================================================
  **         Filter     : filter_1
@@ -73,7 +76,8 @@ DESCR__S_M3
  **
  **    format_retrieve_info() looks as follows:
  **         Hostname   : esoc
- **         Dir-ID     : 4323121
+ **         Dir-ID     : 12fd45
+ **         Dir Alias  : abc
  **         Directory  : /aaa/bbb/ccc
  **
  **
@@ -86,6 +90,7 @@ DESCR__S_M3
  ** HISTORY
  **   29.07.2001 H.Kiehl Created
  **   11.06.2006 H.Kiehl Show retrieve information.
+ **   28.09.2006 H.Kiehl Show directory alias for all casses.
  **
  */
 DESCR__E_M3
@@ -252,6 +257,21 @@ format_output_info(char *text, int pos)
          {
             max_x = count;
          }
+
+         count = sprintf(text + length, "Dir Alias  : %s\n",
+                         qfl[pos].dir_alias);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
+
+         count = sprintf(text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
+         length += count;
+         if (count > max_x)
+         {
+            max_x = count;
+         }
          get_file_mask_list(jd[jd_pos].file_mask_id, &no_of_file_masks,
                             &p_file_list);
          if (p_file_list != NULL)
@@ -264,7 +284,7 @@ format_output_info(char *text, int pos)
             {
                max_x = count;
             }
-            max_y += 2;
+            max_y += 4;
             for (i = 1; i < no_of_file_masks; i++)
             {
                count = sprintf(text + length, "             %s\n", ptr);
@@ -277,6 +297,10 @@ format_output_info(char *text, int pos)
                max_y++;
             }
             free(p_file_list);
+         }
+         else
+         {
+            max_y += 3;
          }
 
          /* Print recipient */
@@ -488,14 +512,20 @@ format_input_info(char *text, int pos)
       return;
    }
 
-   count = sprintf(text + length, "Dir_ID     : %x\n",
-                   dnb[qfl[pos].dir_id_pos].dir_id);
+   count = sprintf(text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
    length += count;
    if (count > max_x)
    {
       max_x = count;
    }
-   max_y++;
+
+   count = sprintf(text + length, "Dir Alias  : %s\n", qfl[pos].dir_alias);
+   length += count;
+   if (count > max_x)
+   {
+      max_x = count;
+   }
+   max_y += 2;
 
    if (dnb[qfl[pos].dir_id_pos].dir_name[0] != '\0')
    {
@@ -804,7 +834,6 @@ format_retrieve_info(char *text, int pos)
 {
    int                 count,
                        fd,
-                       i,
                        length;
    off_t               dnb_size;
    char                fullname[MAX_PATH_LENGTH];
@@ -860,9 +889,20 @@ format_retrieve_info(char *text, int pos)
    max_x = sprintf(text, "Hostname   : %s\n", qfl[pos].hostname);
    length = max_x;
 
-   count = sprintf(text + length, "Dir_ID     : %x\n", qfl[pos].dir_id);
+   count = sprintf(text + length, "Dir-ID     : %x\n", qfl[pos].dir_id);
    length += count;
-   max_y = 2;
+   if (count > max_x)
+   {
+      max_x = count;
+   }
+
+   count = sprintf(text + length, "Dir Alias  : %s\n", qfl[pos].dir_alias);
+   length += count;
+   if (count > max_x)
+   {
+      max_x = count;
+   }
+   max_y = 3;
 
    if (dnb[qfl[pos].dir_id_pos].dir_name[0] != '\0')
    {

@@ -44,7 +44,11 @@ subdir = src/amg
 DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
+am__aclocal_m4_deps =  \
+	$(top_srcdir)/ac-tools/ax_check_compiler_flags.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_archflag.m4 \
+	$(top_srcdir)/ac-tools/ax_gcc_x86_cpuid.m4 \
+	$(top_srcdir)/ac-tools/etr_socket_nsl.m4 \
 	$(top_srcdir)/ac-tools/motif.m4 \
 	$(top_srcdir)/ac-tools/motif_version.m4 \
 	$(top_srcdir)/ac-tools/type_socklen_t.m4 \
@@ -76,12 +80,13 @@ am_dir_check_OBJECTS = check_files.$(OBJEXT) \
 	clear_msg_buffer.$(OBJEXT) count_pool_files.$(OBJEXT) \
 	create_db.$(OBJEXT) dir_check.$(OBJEXT) \
 	enter_time_job.$(OBJEXT) eval_time_str.$(OBJEXT) \
-	handle_options.$(OBJEXT) handle_time_jobs.$(OBJEXT) \
-	init_dir_check.$(OBJEXT) init_job_data.$(OBJEXT) \
-	init_msg_buffer.$(OBJEXT) in_time.$(OBJEXT) \
-	link_files.$(OBJEXT) lookup_fra_pos.$(OBJEXT) \
-	lookup_file_mask_id.$(OBJEXT) lookup_job_id.$(OBJEXT) \
-	next.$(OBJEXT) receive_log.$(OBJEXT) remove_time_dir.$(OBJEXT) \
+	handle_options.$(OBJEXT) handle_retrieve_list.$(OBJEXT) \
+	handle_time_jobs.$(OBJEXT) init_dir_check.$(OBJEXT) \
+	init_job_data.$(OBJEXT) init_msg_buffer.$(OBJEXT) \
+	in_time.$(OBJEXT) link_files.$(OBJEXT) \
+	lookup_fra_pos.$(OBJEXT) lookup_file_mask_id.$(OBJEXT) \
+	lookup_job_id.$(OBJEXT) next.$(OBJEXT) receive_log.$(OBJEXT) \
+	remove_old_ls_data_files.$(OBJEXT) remove_time_dir.$(OBJEXT) \
 	rename_files.$(OBJEXT) save_files.$(OBJEXT) \
 	search_old_files.$(OBJEXT) send_message.$(OBJEXT) \
 	sort_time_job.$(OBJEXT) store_passwd.$(OBJEXT)
@@ -148,6 +153,8 @@ ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
+ERROR_QUEUE_SUPPORT_FALSE = @ERROR_QUEUE_SUPPORT_FALSE@
+ERROR_QUEUE_SUPPORT_TRUE = @ERROR_QUEUE_SUPPORT_TRUE@
 EXEEXT = @EXEEXT@
 EXTRA_SOCKET_LIBS = @EXTRA_SOCKET_LIBS@
 HAVE_EACCESS_FALSE = @HAVE_EACCESS_FALSE@
@@ -174,6 +181,7 @@ PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 PING_CMD = @PING_CMD@
 PKGCONFIG = @PKGCONFIG@
+PRTDIAG = @PRTDIAG@
 RANLIB = @RANLIB@
 REQUIRES = @REQUIRES@
 RPM = @RPM@
@@ -193,6 +201,8 @@ WITH_AFD_MON_ONLY_TRUE = @WITH_AFD_MON_ONLY_TRUE@
 WITH_AFD_MON_TRUE = @WITH_AFD_MON_TRUE@
 WITH_DELETE_LOG_FALSE = @WITH_DELETE_LOG_FALSE@
 WITH_DELETE_LOG_TRUE = @WITH_DELETE_LOG_TRUE@
+WITH_FIFO_RW_SUPPORT_FALSE = @WITH_FIFO_RW_SUPPORT_FALSE@
+WITH_FIFO_RW_SUPPORT_TRUE = @WITH_FIFO_RW_SUPPORT_TRUE@
 WITH_GTK_FALSE = @WITH_GTK_FALSE@
 WITH_GTK_TRUE = @WITH_GTK_TRUE@
 WITH_INPUT_LOG_FALSE = @WITH_INPUT_LOG_FALSE@
@@ -258,9 +268,10 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-MAINTAINERCLEANFILES = Makefile.in
 noinst_HEADERS = amgdefs.h
 INCLUDES = -I.. -I../init_afd -I../fd
+MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
+CLEANFILES = gmon.out core core.*
 amg_SOURCES = amg.c\
                         amg_zombie_check.c\
                         clear_pool_dir.c\
@@ -293,6 +304,7 @@ dir_check_SOURCES = check_files.c\
                         enter_time_job.c\
                         eval_time_str.c\
                         handle_options.c\
+                        handle_retrieve_list.c\
                         handle_time_jobs.c\
                         init_dir_check.c\
                         init_job_data.c\
@@ -304,6 +316,7 @@ dir_check_SOURCES = check_files.c\
                         lookup_job_id.c\
                         next.c\
                         receive_log.c\
+                        remove_old_ls_data_files.c\
                         remove_time_dir.c\
                         rename_files.c\
                         save_files.c\
@@ -423,6 +436,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_dir_options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_time_str.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_options.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_retrieve_list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_time_jobs.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/in_time.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_dir_check.Po@am__quote@
@@ -437,6 +451,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/make_process_amg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/next.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/receive_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remove_old_ls_data_files.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remove_pool_directory.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/remove_time_dir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rename_files.Po@am__quote@
@@ -566,6 +581,7 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
+	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)

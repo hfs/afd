@@ -387,8 +387,146 @@
              --enable-multi_dir_definition).
 30.06.2006 - Added directory option 'accept dot files', so files with
              a leading dot can be downloaded from a remote host.
-04.07.2007 - When we delete old files from the queue we must subtract
+04.07.2006 - When we delete old files from the queue we must subtract
              those from the queued files in FRA.
            - When opening an afd_ctrl dialog via mon_ctrl it was not
              possible to open the dir_ctrl dialog via mon_ctrl. Fixed.
 ------------------------> Released: 05.07.2006 <---------------------------
+
+
+
+----------------------------> Version 1.3.4 <------------------------------
+                             ---------------
+20.07.2006 - Added option 'convert mrz2wmo', to convert GRIB, BUFR, BLOK
+             files to WMO files (10 byte length/type indicator plus
+             SOH and ETX at start and end).
+23.07.2006 - SFTP and SCP can both now take the host fingerprint and
+             handle the known_hosts file.
+           - Option -T for show_stat and show_istat to just show numeric
+             total values.
+27.07.2006 - Process afdd now sends some statistic data to afd_mon.
+02.08.2006 - For the option 'file name is header' allow for a dot being
+             the end of the header information.
+05.08.2006 - Enhanced option 'subject' to allow for inserting the
+             filename or part of it.
+06.08.2006 - Updated optimization option for gcc compiler for newer CPU's.
+           - Added option --enable-compiler-security to add gcc security
+             features.
+08.08.2006 - When a retrieve job is removed by hand, it would always
+             popup in the queue again, because we forgot to calculate
+             a new fetch time.
+09.08.2006 - Error jobs for retrieve jobs where not ageing in the queue.
+             Fixed.
+           - Added LIST_ERROR to the errors where we need to apply ageing.
+12.08.2006 - Added extended commands EPRT and EPSV for FTP.
+17.08.2006 - Implemented for HTTP fetching to continue an interrupted
+             download where it stopped just before the interrupt.
+18.08.2006 - Added handling of directory listing for HTTP. Currently
+             we can handle only a few listings from Apache web servers.
+             More will be added.
+20.08.2006 - For the option 'store remote list' added parameter 'once'
+             to retrieve files only once. This is usefull for directories
+             with lots of files and when the protocol forces us to poll
+             each individual file for any changes in modification time
+             and/or size.
+23.08.2006 - Made directory option 'store remote list' now also work
+             for local directories. For this reason the option is renamed
+             to 'store retrieve list'. The old option name will still
+             work for a while, but will eventually be removed.
+24.08.2006 - Added option DELETE_STALE_ERROR_JOBS in AFD_CONFIG to
+             remove error jobs queued that are no longer in DIR_CONFIG.
+26.08.2006 - Implemented persistend connection for retrieving files.
+27.08.2006 - Close an unneeded file descriptor in process AMG.
+28.08.2006 - get_dc_data and dialog view_dc can now show all data when
+             a host alias is used for retrieving and sending.
+19.09.2006 - The extract option now can handle parameters which can handle
+             if SOH and ETX is added or not, a CRC checksum is added to
+             the filename and/or a unique number is added to the filename.
+20.09.2006 - Proftpd server does not send a reply to NLST command when
+             directory is empty. Added a workaround.
+24.09.2006 - Show the number of directories scanned on a daily basis.
+27.09.2006 - If the text in the mail body had a leading dot, AFD did
+             not add another dot as specified in RFC 821. Fixed.
+28.09.2006 - Added option to make trans_rename apply only for primary or
+             secondary host.
+           - When showing information in the show_queue dialog, show
+             the directory alias of a job.
+29.09.2006 - When disabling a directory and it is one retrieving files
+             from a remote host, we need to remove the job from the queue
+             in process FD.
+05.10.2006 - Added configure option --enable-multi_dir_scans for systems
+             that do not update the modification time of the scanned
+             directory correctly.
+16.10.2006 - The view_dc dialog sometimes shows garbage at the end. Fixed.
+20.10.2006 - Function check_file_dir() will delete all files or directories
+             of a job when they start with a leading dot and the job is
+             done.
+23.10.2006 - In the URI it is now possible to specify the SSH protocol
+             to be used for SFTP or SCP with the help of protocol= option.
+28.10.2006 - Selecting a directory and then calling show_ilog, show_olog
+             show_dlog and/or show_queue did not work from the dir_ctrl
+             dialog. Fixed.
+30.10.2006 - Accept " when specifying the file name for option 'mail header'.
+31.10.2006 - When we fail to create a directory or even when we do not
+             have sufficent permissions, we now accept it. Before we just
+             ignored this directory. This behaviour had the disadvantage
+             that one always had to restart AFD once the directory was
+             added.
+06.11.2006 - When the host alias name is equal or longer then
+             MAX_HOSTNAME_LENGTH (8), don't put the switching number/letter
+             at end when logging in TRANSFER_LOG.
+07.11.2006 - Renaming for options "attach file" and "attach all files" did
+             not work. Fixed.
+           - Implemented an error queue that stores the job ID's of broken
+             (ie. those that do not work) jobs. So if for example the remote
+             directory of one job is not available, but another job with
+             another working directory to the same destination, will no
+             longer be blocked.
+08.11.2006 - Dialog afd_ctrl could crash when a parallel transfer was added
+             or removed from a host. Fixed.
+           - In rename.rule allow user to specify rules with spaces.
+09.11.2006 - The send button in show_olog and show_queue dialog did not
+             work for other users under certain conditions. Fixed.
+           - If dialogs cannot open $AFD_WORK_DIR/etc/afd.users file due to
+             permissions, give out some more meaningful messages.
+           - When process FD is stopped it must ensure that sending process
+             do not leave behind any empty directories.
+10.11.2006 - New directory option 'warn time', to warn user when the
+             directory has not received any data for the specified time.
+             This will be shown by the middle bar in the dir_ctrl dialog.
+13.11.2006 - Allow for multiple time entries under options.
+14.11.2006 - Show queued time jobs in show_queue dialog.
+16.11.2006 - Corrected some errors in AFD init script when having multiple
+             users configured.
+17.11.2006 - Make creation of source directories in AFD_CONFIG configurable.
+18.11.2006 - Function calc_next_time() did not calculate the correct time
+             when the current minute was 59. Fixed.
+21.11.2006 - tr and fr fields where swapped. Fixed.
+13.12.2006 - Fix an error in "extract ASCII" that could lead to a crash
+             of process dir_check.
+20.12.2006 - Implemented no last suffix option for dupcheck option.
+10.01.2007 - If AFD is already stopped do not return a -1 when doing
+             a 'afd -s' or 'afd -S' it now returns a 10. This makes it
+             possible to detect if AFD was shutdown properly.
+08.02.2007 - Added afdcfg option to enable or disable 'warn time' for
+             directories.
+23.02.2007 - Specifying the parameter '-a -2' for program aftp did not
+             work since it thought that the -2 is a new option.
+25.02.2007 - Fix a memory leak in process dir_check when the host alias
+             order is changed with edit_hc dialog.
+27.02.2007 - For HTTPS guard SSL_read() from blocking, since we are using
+             SSL_MODE_AUTO_RETRY.
+01.03.2007 - Give user the option to disable bursting on a per host basis.
+06.03.2007 - Function check_fsa_entries() did not reset the queue flag in
+             FRA when it was resetting this.
+15.03.2007 - The dir alias name was truncated to 8 characters when calling
+             show_istat with a dir alias as parameter. Fixed.
+23.03.2007 - Fix an error in show_istat which could lead to wrong sums.
+           - When using passive FTP ignore the remote IP part, only
+             take the port.
+24.03.2007 - Finish implementing of collecting all log data by afd_mon
+             from monitored AFD's.
+27.03.2007 - When doing a burst and duplicate check is enabled we must
+             pass on the number of retries, otherwise when we do the
+             duplicate check will delete data that we still need to send.
+------------------------> Released: 27.03.2007 <---------------------------

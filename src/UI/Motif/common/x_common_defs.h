@@ -1,6 +1,6 @@
 /*
  *  x_common_defs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@@dwd.de>
+ *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,10 +40,6 @@
 #define BUTTON_SPACING                  3
 #define LED_SPACING                     1
 #define PROC_LED_SPACING                3
-#define KILOBYTE                        1024
-#define MEGABYTE                        1048576
-#define GIGABYTE                        1073741824
-#define TERABYTE                        1099511627776LL
 #define DEFAULT_FILENAME_DISPLAY_LENGTH 25
 #define DEFAULT_NO_OF_HISTORY_LOGS      0
 #define DEFAULT_WINDOW_ID_STEPSIZE      5
@@ -397,34 +393,108 @@ struct window_ids
 #define CREATE_FC_STRING(str, value)                        \
         {                                                   \
            (str)[4] = '\0';                                 \
-           if ((value) < 10)                                \
+           if ((value) < 10000)                             \
            {                                                \
-              (str)[0] = ' ';                               \
-              (str)[1] = ' ';                               \
-              (str)[2] = ' ';                               \
-              (str)[3] = (value) + '0';                     \
+              if ((value) < 10)                             \
+              {                                             \
+                 (str)[0] = ' ';                            \
+                 (str)[1] = ' ';                            \
+                 (str)[2] = ' ';                            \
+                 (str)[3] = (value) + '0';                  \
+              }                                             \
+              else if ((value) < 100)                       \
+                   {                                        \
+                      (str)[0] = ' ';                       \
+                      (str)[1] = ' ';                       \
+                      (str)[2] = ((value) / 10) + '0';      \
+                      (str)[3] = ((value) % 10) + '0';      \
+                   }                                        \
+              else if ((value) < 1000)                      \
+                   {                                        \
+                      (str)[0] = ' ';                       \
+                      (str)[1] = ((value) / 100) + '0';     \
+                      (str)[2] = (((value) / 10) % 10) + '0';\
+                      (str)[3] = ((value) % 10) + '0';      \
+                   }                                        \
+                   else                                     \
+                   {                                        \
+                      (str)[0] = (((value) / 1000) % 10) + '0';\
+                      (str)[1] = (((value) / 100) % 10) + '0';\
+                      (str)[2] = (((value) / 10) % 10) + '0';\
+                      (str)[3] = ((value) % 10) + '0';      \
+                   }                                        \
            }                                                \
-           else if ((value) < 100)                          \
-                {                                           \
-                   (str)[0] = ' ';                          \
-                   (str)[1] = ' ';                          \
-                   (str)[2] = ((value) / 10) + '0';         \
-                   (str)[3] = ((value) % 10) + '0';         \
-                }                                           \
-           else if ((value) < 1000)                         \
-                {                                           \
-                   (str)[0] = ' ';                          \
-                   (str)[1] = ((value) / 100) + '0';        \
-                   (str)[2] = (((value) / 10) % 10) + '0';  \
-                   (str)[3] = ((value) % 10) + '0';         \
-                }                                           \
-                else                                        \
-                {                                           \
-                   (str)[0] = (((value) / 1000) % 10) + '0';\
-                   (str)[1] = (((value) / 100) % 10) + '0'; \
-                   (str)[2] = (((value) / 10) % 10) + '0';  \
-                   (str)[3] = ((value) % 10) + '0';         \
-                }                                           \
+           else                                             \
+           {                                                \
+              if ((value) < MEGAFILE)                       \
+              {                                             \
+                 int num = (value) / KILOFILE;              \
+                                                            \
+                 (str)[3] = 'k';                            \
+                 if (num < 100)                             \
+                 {                                          \
+                    (str)[0] = ' ';                         \
+                    (str)[1] = (num / 10) + '0';            \
+                    (str)[2] = (num % 10) + '0';            \
+                 }                                          \
+                 else                                       \
+                 {                                          \
+                    (str)[0] = (num / 100) + '0';           \
+                    (str)[1] = ((num / 10) % 10) + '0';     \
+                    (str)[2] = (num % 10) + '0';            \
+                 }                                          \
+              }                                             \
+              else if ((value) < GIGAFILE)                  \
+                   {                                        \
+                      int num = (value) / MEGAFILE;         \
+                                                            \
+                      (str)[3] = 'm';                       \
+                      if (num < 10)                         \
+                      {                                     \
+                         num = ((value) * 10) / MEGAFILE;   \
+                         (str)[0] = (num / 10) + '0';       \
+                         (str)[1] = '.';                    \
+                         (str)[2] = (num % 10) + '0';       \
+                      }                                     \
+                      else if (num < 100)                   \
+                           {                                \
+                              (str)[0] = ' ';               \
+                              (str)[1] = (num / 10) + '0';  \
+                              (str)[2] = (num % 10) + '0';  \
+                           }                                \
+                           else                             \
+                           {                                \
+                              (str)[0] = (num / 100) + '0'; \
+                              (str)[1] = ((num / 10) % 10) + '0';\
+                              (str)[2] = (num % 10) + '0';  \
+                           }                                \
+                   }                                        \
+                   else                                     \
+                   {                                        \
+                      int num = (value) / GIGAFILE;         \
+                                                            \
+                      (str)[3] = 'g';                       \
+                      if (num < 10)                         \
+                      {                                     \
+                         num = (value) / (GIGAFILE / 10);   \
+                         (str)[0] = (num / 10) + '0';       \
+                         (str)[1] = '.';                    \
+                         (str)[2] = (num % 10) + '0';       \
+                      }                                     \
+                      else if (num < 100)                   \
+                           {                                \
+                              (str)[0] = ' ';               \
+                              (str)[1] = (num / 10) + '0';  \
+                              (str)[2] = (num % 10) + '0';  \
+                           }                                \
+                           else                             \
+                           {                                \
+                              (str)[0] = ((num / 100) % 10) + '0';\
+                              (str)[1] = ((num / 10) % 10) + '0';\
+                              (str)[2] = (num % 10) + '0';  \
+                           }                                \
+                   }                                        \
+           }                                                \
         }
 
 #define CREATE_FR_STRING(str, value)                        \
@@ -539,137 +609,242 @@ struct window_ids
                 }                                           \
         }
 
-#define CREATE_FS_STRING(str, value)                        \
-        {                                                   \
-           (str)[4] = '\0';                                 \
-           if ((value) < KILOBYTE)                          \
-           {                                                \
-              if ((value) < 1000)                           \
-              {                                             \
-                 (str)[3] = 'B';                            \
-                 if ((value) < 10)                          \
-                 {                                          \
-                    (str)[0] = ' ';                         \
-                    (str)[1] = ' ';                         \
-                    (str)[2] = (value) + '0';               \
-                 }                                          \
-                 else if ((value) < 100)                    \
-                      {                                     \
-                         (str)[0] = ' ';                    \
-                         (str)[1] = ((value) / 10) + '0';   \
-                         (str)[2] = ((value) % 10) + '0';   \
-                      }                                     \
-                      else                                  \
-                      {                                     \
-                         (str)[0] = ((value) / 100) + '0';  \
-                         (str)[1] = (((value) / 10) % 10) + '0';\
-                         (str)[2] = ((value) % 10) + '0';   \
-                      }                                     \
-              }                                             \
-              else                                          \
-              {                                             \
-                 (str)[0] = '0';                            \
-                 (str)[1] = '.';                            \
-                 (str)[2] = '9';                            \
-                 (str)[3] = 'K';                            \
-              }                                             \
-           }                                                \
-           else if ((value) < MEGABYTE)                     \
-                {                                           \
-                   if ((value) < 1000000)                   \
-                   {                                        \
-                      int num = (value) / KILOBYTE;         \
-                                                            \
-                      (str)[3] = 'K';                       \
-                      if (num < 10)                         \
-                      {                                     \
-                         num = ((value) * 10) / KILOBYTE;   \
-                         (str)[0] = (num / 10) + '0';       \
-                         (str)[1] = '.';                    \
-                         (str)[2] = (num % 10) + '0';       \
-                      }                                     \
-                      else if (num < 100)                   \
-                           {                                \
-                              (str)[0] = ' ';               \
-                              (str)[1] = (num / 10) + '0';  \
-                              (str)[2] = (num % 10) + '0';  \
-                           }                                \
-                           else                             \
-                           {                                \
-                              (str)[0] = (num / 100) + '0'; \
-                              (str)[1] = ((num / 10) % 10) + '0';\
-                              (str)[2] = (num % 10) + '0';  \
-                           }                                \
-                   }                                        \
-                   else                                     \
-                   {                                        \
-                      (str)[0] = '0';                       \
-                      (str)[1] = '.';                       \
-                      (str)[2] = '9';                       \
-                      (str)[3] = 'M';                       \
-                   }                                        \
-                }                                           \
-           else if ((value) < GIGABYTE)                     \
-                {                                           \
-                   if ((value) < 1000000000)                \
-                   {                                        \
-                      int num = (value) / MEGABYTE;         \
-                                                            \
-                      (str)[3] = 'M';                       \
-                      if (num < 10)                         \
-                      {                                     \
-                         num = ((value) * 10) / MEGABYTE;   \
-                         (str)[0] = (num / 10) + '0';       \
-                         (str)[1] = '.';                    \
-                         (str)[2] = (num % 10) + '0';       \
-                      }                                     \
-                      else if (num < 100)                   \
-                           {                                \
-                              (str)[0] = ' ';               \
-                              (str)[1] = (num / 10) + '0';  \
-                              (str)[2] = (num % 10) + '0';  \
-                           }                                \
-                           else                             \
-                           {                                \
-                              (str)[0] = (num / 100) + '0'; \
-                              (str)[1] = ((num / 10) % 10) + '0';\
-                              (str)[2] = (num % 10) + '0';  \
-                           }                                \
-                   }                                        \
-                   else                                     \
-                   {                                        \
-                      (str)[0] = '0';                       \
-                      (str)[1] = '.';                       \
-                      (str)[2] = '9';                       \
-                      (str)[3] = 'G';                       \
-                   }                                        \
-                }                                           \
-                else                                        \
-                {                                           \
-                   int num = (value) / GIGABYTE;            \
-                                                            \
-                   (str)[3] = 'G';                          \
-                   if (num < 10)                            \
-                   {                                        \
-                      (str)[0] = num + '0';                 \
-                      (str)[1] = '.';                       \
-                      num = (value) / 107374182;            \
-                      (str)[2] = (num % 10) + '0';          \
-                   }                                        \
-                   else if (num < 100)                      \
-                        {                                   \
-                           (str)[0] = ' ';                  \
-                           (str)[1] = (num / 10) + '0';     \
-                           (str)[2] = (num % 10) + '0';     \
-                        }                                   \
-                        else                                \
-                        {                                   \
-                           (str)[0] = ((num / 100) % 10) + '0';\
-                           (str)[1] = ((num / 10) % 10) + '0';\
-                           (str)[2] = (num % 10) + '0';     \
-                        }                                   \
-                }                                           \
-        }
+#define CREATE_FS_STRING(str, value)\
+   {\
+      (str)[4] = '\0';\
+      if ((value) < KILOBYTE)\
+      {\
+         if ((value) < 1000)\
+         {\
+            (str)[3] = 'B';\
+            if ((value) < 10)\
+            {\
+               (str)[0] = ' ';\
+               (str)[1] = ' ';\
+               (str)[2] = (value) + '0';\
+            }\
+            else if ((value) < 100)\
+                 {\
+                    (str)[0] = ' ';\
+                    (str)[1] = ((value) / 10) + '0';\
+                    (str)[2] = ((value) % 10) + '0';\
+                 }\
+                 else\
+                 {\
+                    (str)[0] = ((value) / 100) + '0';\
+                    (str)[1] = (((value) / 10) % 10) + '0';\
+                    (str)[2] = ((value) % 10) + '0';\
+                 }\
+         }\
+         else\
+         {\
+            (str)[0] = '0';\
+            (str)[1] = '.';\
+            (str)[2] = '9';\
+            (str)[3] = 'K';\
+         }\
+      }\
+      else if ((value) < MEGABYTE)\
+           {\
+              if ((value) < 1000000)\
+              {\
+                 int num = (value) / KILOBYTE;\
+\
+                 (str)[3] = 'K';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / KILOBYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = 'M';\
+              }\
+           }\
+      else if ((value) < GIGABYTE)\
+           {\
+              if ((value) < 1000000000)\
+              {\
+                 int num = (value) / MEGABYTE;\
+\
+                 (str)[3] = 'M';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / MEGABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = 'G';\
+              }\
+           }\
+      else if ((value) < TERABYTE)\
+           {\
+              if ((value) < 1000000000000LL)\
+              {\
+                 int num = (value) / GIGABYTE;\
+\
+                 (str)[3] = 'G';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / GIGABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = 'T';\
+              }\
+           }\
+      else if ((value) < PETABYTE)\
+           {\
+              if ((value) < 1000000000000000LL)\
+              {\
+                 int num = (value) / TERABYTE;\
+\
+                 (str)[3] = 'T';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / TERABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = 'P';\
+              }\
+           }\
+      else if ((value) < EXABYTE)\
+           {\
+              if ((value) < 1000000000000000000LL)\
+              {\
+                 int num = (value) / PETABYTE;\
+\
+                 (str)[3] = 'P';\
+                 if (num < 10)\
+                 {\
+                    num = ((value) * 10) / PETABYTE;\
+                    (str)[0] = (num / 10) + '0';\
+                    (str)[1] = '.';\
+                    (str)[2] = (num % 10) + '0';\
+                 }\
+                 else if (num < 100)\
+                      {\
+                         (str)[0] = ' ';\
+                         (str)[1] = (num / 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+                      else\
+                      {\
+                         (str)[0] = (num / 100) + '0';\
+                         (str)[1] = ((num / 10) % 10) + '0';\
+                         (str)[2] = (num % 10) + '0';\
+                      }\
+              }\
+              else\
+              {\
+                 (str)[0] = '0';\
+                 (str)[1] = '.';\
+                 (str)[2] = '9';\
+                 (str)[3] = 'E';\
+              }\
+           }\
+           else\
+           {\
+              int num = (value) / EXABYTE;\
+\
+              (str)[3] = 'E';\
+              if (num < 10)\
+              {\
+                 (str)[0] = num + '0';\
+                 (str)[1] = '.';\
+                 num = (value) / EXABYTE;\
+                 (str)[2] = (num % 10) + '0';\
+              }\
+              else if (num < 100)\
+                   {\
+                      (str)[0] = ' ';\
+                      (str)[1] = (num / 10) + '0';\
+                      (str)[2] = (num % 10) + '0';\
+                   }\
+                   else\
+                   {\
+                      (str)[0] = ((num / 100) % 10) + '0';\
+                      (str)[1] = ((num / 10) % 10) + '0';\
+                      (str)[2] = (num % 10) + '0';\
+                   }\
+           }\
+   }
 
 /* Function Prototypes */
 extern int    check_host_permissions(char *, char **, int),

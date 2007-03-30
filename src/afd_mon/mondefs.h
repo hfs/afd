@@ -1,6 +1,6 @@
 /*
  *  mondefs.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -32,15 +32,20 @@
                                        /* the remote TCP port.           */
 #define MAX_VERSION_LENGTH       40
 #define MAX_CONVERT_USERNAME     5
+#define MAX_INODE_LOG_NO_LENGTH  (MAX_LONG_LONG_LENGTH + 1 + MAX_INT_LENGTH + 1)
 
 #define MON_CONFIG_FILE          "/MON_CONFIG"
 #define AFD_MON_CONFIG_FILE      "/AFD_MON_CONFIG"
+
+#define REMOTE_INODE_EXTENSION   "remote.inode"
 
 #define MON_ACTIVE_FILE          "/AFD_MON_ACTIVE"
 #define MON_STATUS_FILE          "/mon_status"
 #define MON_STATUS_FILE_ALL      "/mon_status.*"
 #define AFD_MON_STATUS_FILE      "/afd_mon.status"
 #define MSA_ID_FILE              "/msa.id"
+#define ADL_FILE_NAME            "/afd_dir_list."
+#define ADL_FILE_NAME_ALL        "/afd_dir_list.*"
 #define AHL_FILE_NAME            "/afd_host_list."
 #define AHL_FILE_NAME_ALL        "/afd_host_list.*"
 #define MON_CMD_FIFO             "/afd_mon_cmd.fifo"
@@ -53,6 +58,15 @@
 #define STORAGE_TIME             7    /* Time in days to store top       */
                                       /* values for transfer rate and    */
                                       /* file rate.                      */
+#define SUM_STORAGE              6    /* The number of summary values    */
+                                      /* stored. See sumdefs.h for the   */
+                                      /* meaning each value defined.     */
+#define CURRENT_SUM              0
+#define HOUR_SUM                 1
+#define DAY_SUM                  2
+#define WEEK_SUM                 3
+#define MONTH_SUM                4
+#define YEAR_SUM                 5
 #define DEFAULT_POLL_INTERVAL    5
 #define DEFAULT_OPTION_ENTRY     0
 #define DEFAULT_REMOTE_CMD       "rsh"
@@ -62,28 +76,55 @@
                                       /* process will try to reconnect   */
                                       /* after an error occured.         */
 
+/* Values for special flag in MSA. */
+#define SUM_VAL_INITIALIZED      1
+
+#define LOG_RESHUFFEL            1
+#define LOG_STALE                2
+
 /* Error return values for mon process. */
 #define SYNTAX_ERROR             1
 #define SELECT_ERROR             2
 
+/* Return values of log sub process of afd_mon. */
+#define MISSED_PACKET            5
+#define REMOTE_HANGUP            6
+#define FAILED_LOG_CMD           7
+#define LOG_CONNECT_ERROR        8
+
+/* Different return codes for function evaluate_message(). */
+#define UNKNOWN_MESSAGE          1
 #define AFDD_SHUTTING_DOWN       24
+/* NOTE: Do not go above 99! Values from 100 on are used to return */
+/*       the true return code of a TCP command.                    */
 
 /* Flags for the options field in struct mon_status_area. */
 #define COMPRESS_FLAG            1
 #define MINUS_Y_FLAG             2
 #define DONT_USE_FULL_PATH_FLAG  4
+#define ENABLE_SSL_ENCRYPTION    8 /* Still to be implemented. */
+/* NOTE: afddefs.h defines bits 5 - 14 . */
 
 /* Different toggling status for switching AFD's. */
 #define NO_SWITCHING             0
 #define AUTO_SWITCHING           1
 #define USER_SWITCHING           2
 
-/* Structure to hold all host alias names and there real names. */
+/* Structure to hold all host alias names and their real names. */
 struct afd_host_list
        {
           char          host_alias[MAX_HOSTNAME_LENGTH + 1];
           char          real_hostname[2][MAX_REAL_HOSTNAME_LENGTH];
           unsigned char error_history[ERROR_HISTORY_LENGTH];
+       };
+
+/* Structure to hold all dir alias names, dir ID's and names from DIR_CONFIG. */
+struct afd_dir_list
+       {
+          unsigned int  dir_id;
+          char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
+          char          dir_name[MAX_PATH_LENGTH];
+          char          orig_dir_name[MAX_PATH_LENGTH];
        };
 
 /* Structure to hold data from AFD_MON_CONFIG file. */
@@ -118,7 +159,18 @@ struct mon_list
                                                  /*+------+-------------+*/
                                                  /*|Bit(s)|   Meaning   |*/
                                                  /*+------+-------------+*/
-                                                 /*| 4-32 | Not used.   |*/
+                                                 /*| 15-32| Not used.   |*/
+                                                 /*| 14   | Compression1|*/
+                                                 /*| 13   | Job data    |*/
+                                                 /*| 12   | Delete Log  |*/
+                                                 /*| 11   | Output Log  |*/
+                                                 /*| 10   | Product. Log|*/
+                                                 /*| 9    | Input Log   |*/
+                                                 /*| 8    | Trans_db Log|*/
+                                                 /*| 7    | Transfer Log|*/
+                                                 /*| 6    | Receive Log |*/
+                                                 /*| 5    | System Log  |*/
+                                                 /*| 4    | SSL Encrypt.|*/
                                                  /*| 3    | Don't use   |*/
                                                  /*|      | full path.  |*/
                                                  /*| 2    | Use -Y      |*/
@@ -166,7 +218,7 @@ struct afd_mon_status
  *    -------+---------------+---------------------------------------
  *     9 - 16|               | Not used.
  *-----------------------------------------------------------------------*/
-#define CURRENT_MSA_VERSION 0
+#define CURRENT_MSA_VERSION           1
 struct mon_status_area
        {
           char          r_work_dir[MAX_PATH_LENGTH];
@@ -227,6 +279,10 @@ struct mon_status_area
           int           host_error_counter;      /* Number of host       */
                                                  /* names that are red.  */
           int           no_of_hosts;             /* The number of hosts  */
+                                                 /* configured.          */
+          int           no_of_dirs;              /* The number of        */
+                                                 /* directories          */
+                                                 /* configured.          */
           unsigned int  no_of_jobs;              /* The number of jobs   */
                                                  /* configured.          */
           unsigned int  options;                 /* Special options with */
@@ -234,7 +290,18 @@ struct mon_status_area
                                                  /*+------+-------------+*/
                                                  /*|Bit(s)|   Meaning   |*/
                                                  /*+------+-------------+*/
-                                                 /*| 4-32 | Not used.   |*/
+                                                 /*| 15-32| Not used.   |*/
+                                                 /*| 14   | Compression1|*/
+                                                 /*| 13   | Job data    |*/
+                                                 /*| 12   | Delete Log  |*/
+                                                 /*| 11   | Output Log  |*/
+                                                 /*| 10   | Product. Log|*/
+                                                 /*| 9    | Input Log   |*/
+                                                 /*| 8    | Trans_db Log|*/
+                                                 /*| 7    | Transfer Log|*/
+                                                 /*| 6    | Receive Log |*/
+                                                 /*| 5    | System Log  |*/
+                                                 /*| 4    | SSL Encrypt.|*/
                                                  /*| 3    | Don't use   |*/
                                                  /*|      | full path.  |*/
                                                  /*| 2    | Use -Y      |*/
@@ -244,12 +311,15 @@ struct mon_status_area
                                                  /*|      | for ssh.    |*/
                                                  /*+------+-------------+*/
                                                  /* that this AFD has.   */
+          unsigned int  log_capabilities;        /* Flags have the same  */
+                                                 /* meaning as above, but*/
+                                                 /* only for bits 5-14.  */
           unsigned int  fc;                      /* Files still to be    */
                                                  /* send.                */
-          unsigned int  fs;                      /* File size still to   */
+          u_off_t       fs;                      /* File size still to   */
                                                  /* be send.             */
-          unsigned int  tr;                      /* Transfer rate.       */
-          unsigned int  top_tr[STORAGE_TIME];    /* Maximum transfer     */
+          u_off_t       tr;                      /* Transfer rate.       */
+          u_off_t       top_tr[STORAGE_TIME];    /* Maximum transfer     */
                                                  /* rate on a per day    */
                                                  /* basis.               */
           time_t        top_tr_time;             /* Time when this       */
@@ -263,8 +333,31 @@ struct mon_status_area
           time_t        last_data_time;          /* Last time data was   */
                                                  /* received from        */
                                                  /* remote AFD.          */
+          u_off_t       bytes_send[SUM_STORAGE]; /* The number of bytes  */
+                                                 /* send.                */
+          u_off_t       bytes_received[SUM_STORAGE]; /* The number of    */
+                                                 /* bytes received.      */
+          u_off_t       log_bytes_received[SUM_STORAGE]; /* The number of*/
+                                                 /* log bytes received.  */
+          unsigned int  files_send[SUM_STORAGE]; /* The number of files  */
+                                                 /* send.                */
+          unsigned int  files_received[SUM_STORAGE]; /* The number of    */
+                                                 /* files received.      */
+          unsigned int  connections[SUM_STORAGE];/* Number of connections*/
+                                                 /* done so far.         */
+          unsigned int  total_errors[SUM_STORAGE]; /* Number of errors   */
+                                                 /* that have occured so */
+                                                 /* far.                 */
           char          connect_status;          /* Connect status to    */
                                                  /* remote AFD.          */
+          unsigned char special_flag;            /* Special flag with the*/
+                                                 /* following meaning:   */
+                                                 /* +------+------------+*/
+                                                 /* |Bit(s)|  Meaning   |*/
+                                                 /* +------+------------+*/
+                                                 /* | 2 - 8| Not used   |*/
+                                                 /* | 1    | SUM_VAL_INITIALIZED|*/
+                                                 /* +------+------------+*/
           unsigned char afd_switching;           /* Flag to specify if   */
                                                  /* automatic AFD switch-*/
                                                  /* ing (AUTO_SWITCHING),*/
@@ -286,11 +379,17 @@ struct process_list
                                                  /* The name of the     */
                                                  /* remote AFD shown in */
                                                  /* the dialog.         */
-          pid_t        pid;                      /* Process ID of       */
+          pid_t        mon_pid;                  /* Process ID of       */
                                                  /* process monitoring  */
                                                  /* this AFD.           */
+          pid_t        log_pid;                  /* Process ID of log   */
+                                                 /* proccess receiving  */
+                                                 /* remote log data.    */
           time_t       start_time;               /* Time when process   */
                                                  /* was started.        */
+          time_t       next_retry_time_log;      /* At what time we     */
+                                                 /* try another restart */
+                                                 /* of the log process. */
           int          number_of_restarts;       /* Number of times     */
                                                  /* this process has    */
                                                  /* restarted.          */
@@ -300,16 +399,23 @@ struct process_list
 int   attach_afd_mon_status(void),
       check_mon(long),
       detach_afd_mon_status(void),
+      evaluate_message(int *),
+      handle_log_data(int, int),
       init_fifos_mon(void),
       read_msg(void),
-      tcp_cmd(char *),
+      send_log_cmd(int, char *, int *),
       tcp_connect(char *, int),
       tcp_quit(void);
 pid_t start_process(char *, int);
+char  *convert_msa(int, char *, off_t *, int, unsigned char, unsigned char);
 void  create_msa(void),
       eval_afd_mon_db(struct mon_list **),
+      mon_log(char *, char *, int, time_t, char *, char *, ...),
       shutdown_mon(int, char *),
       start_all(void),
-      stop_process(int, int);
+      start_log_process(int, unsigned int),
+      stop_log_process(int),
+      stop_process(int, int),
+      write_afd_log(int, int, unsigned int, unsigned int, char *);
 
 #endif /* __mondefs_h */

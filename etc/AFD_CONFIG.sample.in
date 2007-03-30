@@ -10,13 +10,36 @@
 # Default: Disabled                                                      #
 ##########################################################################
 #AFD_TCP_PORT                     4444
+ 
+##########################################################################
+# The logs that may be requested from the given AFD_TCP_PORT. If this is #
+# defined, then it means for all hosts that connect to this port. With   #
+# the TRUSTED_REMOTE_IP it can be resticted to specific host(s). The     #
+# value given is an integer bit mask, with the following meaning:        #
+#                                                                        #
+#   5 (16)    - System Log                                               #
+#   6 (32)    - Receive Log                                              #
+#   7 (64)    - Transfer Log                                             #
+#   8 (128)   - Transfer Debug Log                                       #
+#   9 (256)   - Input Log                                                #
+#  10 (512)   - Production Log                                           #
+#  11 (1024)  - Output Log                                               #
+#  12 (2048)  - Delete Log                                               #
+#                                                                        #
+# Default:  0 (Disabled)                                                 #
+##########################################################################
+#AFD_TCP_LOGS                     4080
 
 ##########################################################################
 # With the following entry it is possible to specify who may connect to  #
 # the above port. Multiple TRUSTED_REMOTE_IP entries are also possible.  #
+# A second optional parameter may be set to specify which log the remote #
+# host may request. This will override AFD_TCP_LOGS if set. Also note    #
+# the order of multiple TRUSTED_REMOTE_IP is important. The log          #
+# permissions of the first IP or hostname that matches will be taken.    #
 # Default: None                                                          #
 ##########################################################################
-#TRUSTED_REMOTE_IP                *.dwd.de
+#TRUSTED_REMOTE_IP                192.168.22.*
 
 ##########################################################################
 # The configuration file from where AFD will read it's configuration.    #
@@ -33,6 +56,19 @@
 MAX_NO_OF_DIR_CHECKS             12
 
 ##########################################################################
+# The following flag determines the default inotify flag for all         #
+# directories. This flag can be overruled with the directory option      #
+# inotify in the DIR_CONFIG. The value given is an integer bit mask,     #
+# with the following meaning:                                            #
+#                                                                        #
+#    1 (1)      - File moved into or renamed in directory                #
+#    2 (2)      - File that is closed after being written to.            #
+#                                                                        #
+# Default:  0 (Disabled)                                                 #
+##########################################################################
+#DEFAULT_INOTIFY_FLAG             1
+
+##########################################################################
 # The maximum number of process that may be forked for one directory.    #
 # Default: 10                                                            #
 ##########################################################################
@@ -47,6 +83,15 @@ MAX_NO_OF_DIR_CHECKS             12
 # Default: 5                                                             #
 ##########################################################################
 AMG_DIR_RESCAN_TIME              5
+
+##########################################################################
+# The time when AMG will warn in receive log that no data has been       #
+# received in the specified directory. directory. This value will be     #
+# overridden by 'warn time' value from DIR_CONFIG if set. The unit is    #
+# second.                                                                #
+# Default: 0 (disabled)                                                  #
+##########################################################################
+#DEFAULT_DIR_WARN_TIME            0
 
 ##########################################################################
 # What to do with files that a certain age but cannot be transmited      #
@@ -66,6 +111,23 @@ AMG_DIR_RESCAN_TIME              5
 #DEFAULT_OLD_FILE_TIME            24
 
 ##########################################################################
+# By default AFD will never delete a host from HOST_CONFIG if the host   #
+# is not found in DIR_CONFIG. With this option set, those hosts will be  #
+# deleted.                                                               #
+# Default: Not set                                                       #
+##########################################################################
+#REMOVE_UNUSED_HOSTS
+
+##########################################################################
+# When a job is removed from DIR_CONFIG but FD has still files queued    #
+# and these jobs produce errors (ie. they cannot be send, due to whatever#
+# reason), AFD will by default not delete these files. By setting this to#
+# YES, such jobs will be removed.                                        #
+# Default: NO                                                            #
+##########################################################################
+#DELETE_STALE_ERROR_JOBS          NO
+
+##########################################################################
 # The maximum number of simultaneous connections/transfers that the AFD  #
 # allows.                                                                #
 # Default: 50                                                            #
@@ -78,6 +140,15 @@ MAX_CONNECTIONS                  80
 # Default: 60                                                            #
 ##########################################################################
 #REMOTE_FILE_CHECK_INTERVAL       60
+
+##########################################################################
+# If this is set to NO, the source directories will not be created if    #
+# they do not exist. When set to YES, these will be created if AFD does  #
+# have the permission to do so. Currently only local directories will be #
+# created, not remote directories.                                       #
+# Default: YES                                                           #
+##########################################################################
+#CREATE_SOURCE_DIR                YES
 
 ##########################################################################
 # If this is set to YES and the target directory does not exist it will  #
@@ -96,6 +167,30 @@ MAX_CONNECTIONS                  80
 # Default: 0 (disabled)                                                  #
 ##########################################################################
 #DEFAULT_AGE_LIMIT                0
+
+##########################################################################
+# When setting one of the exec options exec or pexec, the default is to  #
+# let those process run as long as those process want to run, ie. there  #
+# is no restriction in time. This default can be changed to the value    #
+# specified here in seconds. If the time is up the process is killed.    #
+# Default: 0 (disabled)                                                  #
+##########################################################################
+#EXEC_TIMEOUT                     0
+
+##########################################################################
+# The default SMTP server where mails are to be send to. This can be an  #
+# IP number or a hostname.                                               #
+# Default: localhost                                                     #
+##########################################################################
+#DEFAULT_SMTP_SERVER              localhost
+
+##########################################################################
+# The default what will be put into the from line, if the from option is #
+# not set under [options]. If not set it will take the user- and hostname#
+# from the current system where AFD is running.                          #
+# Default: not set (ie. will take current user and hostname)             #
+##########################################################################
+#DEFAULT_SMTP_FROM                donald@ducktown
 
 ##########################################################################
 # The maximum number of files that are copied before they are send to    #

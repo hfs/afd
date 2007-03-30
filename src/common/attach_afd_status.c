@@ -1,6 +1,6 @@
 /*
  *  attach_afd_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -117,7 +117,8 @@ attach_afd_status(int *fd)
 #else
                  "Incorrect size, `%s' is %lld bytes and not %u bytes.",
 #endif
-                 afd_status_file, stat_buf.st_size, sizeof(struct afd_status));
+                 afd_status_file, (pri_off_t)stat_buf.st_size,
+                 sizeof(struct afd_status));
       (void)close(*ptr_fd);
       return(INCORRECT);
    }

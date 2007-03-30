@@ -1,6 +1,6 @@
 /*
  *  show_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -636,7 +636,7 @@ main(int argc, char *argv[])
 #if SIZEOF_LONG == 4
       (void)sprintf(str_number, "%d", i);
 #else
-      (void)sprintf(str_number, "%lld", i);
+      (void)sprintf(str_number, "%ld", i);
 #endif
       button = XtCreateManagedWidget(str_number, xmPushButtonWidgetClass,
                                      pane_w, args, argcount);

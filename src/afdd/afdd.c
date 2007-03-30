@@ -1,6 +1,6 @@
 /*
  *  afdd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,7 +73,10 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-int               number_of_trusted_hosts,
+int               default_log_defs = DEFAULT_AFDD_LOG_DEFS,
+                  *ip_log_defs = NULL,
+                  log_defs = 0,
+                  number_of_trusted_ips,
                   sys_log_fd = STDERR_FILENO;
 clock_t           clktck;
 char              afd_config_file[MAX_PATH_LENGTH],
@@ -82,8 +85,9 @@ char              afd_config_file[MAX_PATH_LENGTH],
                   hostname[MAX_FULL_USER_ID_LENGTH],
                   *p_work_dir,
                   *p_work_dir_end,
-                  **trusted_host = NULL;
+                  **trusted_ip = NULL;
 struct afd_status *p_afd_status;
+struct logdata    ld[NO_OF_LOGS];
 const char        *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local global variables. */
@@ -113,7 +117,8 @@ main(int argc, char *argv[])
                       port,
                       ports_tried = 0,
                       on = 1,
-                      status;
+                      status,
+                      trusted_ip_pos = -1;
    my_socklen_t       peer_addrlen;
    char               *ptr,
                       port_no[MAX_INT_LENGTH],
@@ -209,6 +214,9 @@ main(int argc, char *argv[])
    }
    peer_addrlen = sizeof(peer_address);
 
+   /* Initialize the log structure. */
+   (void)memset(ld, 0, (NO_OF_LOGS * sizeof(struct logdata)));
+
    /* Do some cleanups when we exit */
    if (atexit(afdd_exit) != 0)          
    {
@@ -249,7 +257,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Attach to the AFD Status Area */
+   /* Attach to the AFD Status Area. */
    if (attach_afd_status(NULL) < 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -271,7 +279,7 @@ main(int argc, char *argv[])
    {
       if ((p_service = getservbyname(port_no, "tcp")))
       {
-         data.sin_port =  htons(ntohs((u_short)p_service->s_port));
+         data.sin_port = htons(ntohs((u_short)p_service->s_port));
       }
       else if ((data.sin_port = htons((u_short)atoi(port_no))) == 0)
            {
@@ -336,7 +344,7 @@ main(int argc, char *argv[])
 
    for (;;)
    {
-      /* Initialise descriptor set */
+      /* Initialise descriptor set. */
       FD_SET(sockfd, &rset);
       timeout.tv_usec = 0L;
       timeout.tv_sec = 5L;
@@ -354,25 +362,29 @@ main(int argc, char *argv[])
 
       if (FD_ISSET(sockfd, &rset))
       {
-         if ((new_sockfd = accept(sockfd, (struct sockaddr *)&peer_address, &peer_addrlen)) < 0)
+         char remote_ip_str[MAX_IP_LENGTH];
+
+         if ((new_sockfd = accept(sockfd, (struct sockaddr *)&peer_address,
+                                  &peer_addrlen)) < 0)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
                        "accept() error : %s", strerror(errno));
             (void)close(sockfd);
             exit(INCORRECT);
          }
-         if (number_of_trusted_hosts > 0)
-         {
-            int  gotcha = NO,
-                 i;
-            char remote_ip_str[16];
+         (void)strcpy(remote_ip_str, inet_ntoa(peer_address.sin_addr));
 
-            (void)strcpy(remote_ip_str, inet_ntoa(peer_address.sin_addr));
-            for (i = 0; i < number_of_trusted_hosts; i++)
+         if (number_of_trusted_ips > 0)
+         {
+            int gotcha = NO,
+                i;
+
+            for (i = 0; i < number_of_trusted_ips; i++)
             {
-               if (pmatch(trusted_host[i], remote_ip_str, NULL) == 0)
+               if (pmatch(trusted_ip[i], remote_ip_str, NULL) == 0)
                {
                   gotcha = YES;
+                  trusted_ip_pos = i;
                   break;
                }
             }
@@ -391,23 +403,23 @@ main(int argc, char *argv[])
             }
             else
             {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+               system_log(DEBUG_SIGN, NULL, 0,
                           "AFDD: Connection from %s", remote_ip_str);
             }
          }
          else
          {
+            trusted_ip_pos = 0;
             if (no_of_connections >= max_afdd_connections)
             {
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
                           "AFDD: Connection attempt from %s, but denied because max connection (%d) reached.",
-                          inet_ntoa(peer_address.sin_addr),
-                          max_afdd_connections);
+                          remote_ip_str, max_afdd_connections);
             }
             else
             {
-               system_log(DEBUG_SIGN, NULL, 0, "AFDD: Connection from %s",
-                          inet_ntoa(peer_address.sin_addr));
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "AFDD: Connection from %s", remote_ip_str);
             }
          }
 
@@ -431,7 +443,7 @@ main(int argc, char *argv[])
             {
                switch (pid[pos] = fork())
                {
-                  case -1 : /* Could not generate process */
+                  case -1 : /* Could not generate process. */
                      system_log(ERROR_SIGN, __FILE__, __LINE__,
                                 "fork() error : %s", strerror(errno));
                      break;
@@ -439,10 +451,11 @@ main(int argc, char *argv[])
                   case 0  : /* Child process to serve user. */
                      in_child = YES;
                      (void)close(sockfd);
-                     handle_request(new_sockfd, pos);
+                     handle_request(new_sockfd, pos, trusted_ip_pos,
+                                    remote_ip_str);
                      exit(0);
 
-                  default : /* Parent process */
+                  default : /* Parent process. */
                      (void)close(new_sockfd);
                      no_of_connections++;
                      break;
@@ -496,16 +509,16 @@ zombie_check(void)
             pid[i] = 0;
             no_of_connections--;
          }
-         else  if (WIFSIGNALED(status))
-               {
-                  /* abnormal termination */
-                  pid[i] = 0;
-                  no_of_connections--;
-               }
-          else if (WIFSTOPPED(status))
-               {
-                  /* Child stopped */;
-               }
+         else if (WIFSIGNALED(status))
+              {
+                 /* abnormal termination */
+                 pid[i] = 0;
+                 no_of_connections--;
+              }
+         else if (WIFSTOPPED(status))
+              {
+                 /* Child stopped */;
+              }
       }
    }
 
@@ -525,7 +538,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
        (read_file(config_file, &buffer) != INCORRECT))
    {
       char *ptr = buffer,
-           tmp_trusted_host[16],
+           tmp_trusted_ip[MAX_IP_LENGTH + 1],
            value[MAX_INT_LENGTH];
 
       if (get_definition(buffer, MAX_AFDD_CONNECTIONS_DEF,
@@ -557,19 +570,25 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
          }
       }
 
+      if (get_definition(buffer, AFD_TCP_LOGS_DEF,
+                         value, MAX_INT_LENGTH) != NULL)
+      {
+         default_log_defs = atoi(value);
+      }
+
       /*
        * Read all IP-numbers that may connect to AFDD. If none is found
        * all IP's may connect.
        */
       do
       {
-         if ((ptr = get_definition(ptr, TRUSTED_REMOTE_IP_DEF,
-                                   tmp_trusted_host, 16)) != NULL)
+         if ((ptr = get_definition(ptr, TRUSTED_REMOTE_IP_DEF, tmp_trusted_ip,
+                                   MAX_IP_LENGTH)) != NULL)
          {
             int  counter = 0;
             char *check_ptr;
 
-            check_ptr = tmp_trusted_host;
+            check_ptr = tmp_trusted_ip;
             while (((isdigit((int)(*check_ptr))) || (*check_ptr == '*') ||
                     (*check_ptr == '?')) && (counter < 3))
             {
@@ -605,21 +624,60 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
                      if ((counter < 4) && ((*check_ptr == '\n') ||
                          (*check_ptr == '\0')))
                      {
-                        number_of_trusted_hosts++;
-                        if (number_of_trusted_hosts == 1)
+                        number_of_trusted_ips++;
+                        if (number_of_trusted_ips == 1)
                         {
-                           RT_ARRAY(trusted_host, number_of_trusted_hosts,
-                                    16, char);
+                           RT_ARRAY(trusted_ip, number_of_trusted_ips,
+                                    MAX_IP_LENGTH, char);
+                           if ((ip_log_defs = malloc(sizeof(int))) == NULL)
+                           {
+                              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                         "Failed to malloc() %d bytes : %s",
+                                         sizeof(int), strerror(errno));
+                              exit(INCORRECT);
+                           }
+                           ip_log_defs[0] = default_log_defs;
                         }
                         else
                         {
-                           REALLOC_RT_ARRAY(trusted_host,
-                                            number_of_trusted_hosts,
-                                            16,
+                           REALLOC_RT_ARRAY(trusted_ip,
+                                            number_of_trusted_ips,
+                                            MAX_IP_LENGTH,
                                             char);
+                           if ((ip_log_defs = realloc(ip_log_defs,
+                                                      number_of_trusted_ips * sizeof(int))) == NULL)
+                           {
+                              system_log(FATAL_SIGN, __FILE__, __LINE__,
+                                         "Failed to realloc() %d bytes : %s",
+                                         number_of_trusted_ips * sizeof(int),
+                                         strerror(errno));
+                              exit(INCORRECT);
+                           }
+                           ip_log_defs[number_of_trusted_ips - 1] = default_log_defs;
                         }
-                        (void)strcpy(trusted_host[number_of_trusted_hosts - 1],
-                                     tmp_trusted_host);
+                        (void)strcpy(trusted_ip[number_of_trusted_ips - 1],
+                                     tmp_trusted_ip);
+                     }
+
+                     /* Check if log definitions have been added for this ip. */
+                     if (*ptr == ' ')
+                     {
+                        while (*ptr == ' ')
+                        {
+                           ptr++;
+                        }
+                        counter = 0;
+                        check_ptr = ptr;
+                        while ((isdigit((int)(*check_ptr))) &&
+                               (*check_ptr != '\n') && (*check_ptr != '\0') && 
+                               (counter < MAX_INT_LENGTH))
+                        {
+                           check_ptr++; counter++;
+                        }
+                        if (check_ptr != ptr)
+                        {
+                           ip_log_defs[number_of_trusted_ips - 1] = atoi(ptr);
+                        }
                      }
                   }
                }
@@ -627,6 +685,18 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
          }
       } while (ptr != NULL);
       free(buffer);
+
+      if (ip_log_defs == NULL)
+      {
+         if ((ip_log_defs = malloc(sizeof(int))) == NULL)
+         {
+            system_log(FATAL_SIGN, __FILE__, __LINE__,
+                       "Failed to malloc() %d bytes : %s",
+                       sizeof(int), strerror(errno));
+            exit(INCORRECT);
+         }
+         ip_log_defs[0] = default_log_defs;
+      }
    }
 
    return;
@@ -651,8 +721,12 @@ afdd_exit(void)
                if (errno != ESRCH)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
+#if SIZEOF_PID_T == 4
                              "Failed to kill() %d : %s",
-                             pid[i], strerror(errno));
+#else
+                             "Failed to kill() %lld : %s",
+#endif
+                             (pri_pid_t)pid[i], strerror(errno));
                }
             }
          }

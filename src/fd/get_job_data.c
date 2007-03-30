@@ -1,6 +1,6 @@
 /*
  *  get_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,6 +35,11 @@ DESCR__S_M3
  ** RETURN VALUES
  **   SUCCESS when it managed to store the message, otherwise INCORRECT
  **   is returned.
+ **
+ ** SEE ALSO
+ **   common/get_hostname.c, common/create_message.c, fd/eval_recipient.c,
+ **   amg/store_passwd.c, fd/init_msg_buffer.c, tools/get_dc_data.c,
+ **   tools/set_pw.c
  **
  ** AUTHOR
  **   H.Kiehl
@@ -327,6 +332,25 @@ retry:
       }
       ptr++;
    }
+#ifdef WITH_SSH_FINGERPRINT
+   if (*ptr == ';')
+   {
+      char *tmp_ptr = ptr + 1;
+
+      while ((*tmp_ptr != '@') && (*tmp_ptr != '\n') && (*tmp_ptr != ';'))
+      {
+         if (*tmp_ptr == '\\')
+         {
+            tmp_ptr++;
+         }
+         tmp_ptr++;
+      }
+      if ((*tmp_ptr == '@') || (*tmp_ptr == ';'))
+      {
+         ptr = tmp_ptr;
+      }
+   }
+#endif
    if (*ptr == '@')
    {
       ptr++;

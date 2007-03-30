@@ -94,7 +94,11 @@ struct filetransfer_status        *fsa;
 struct afd_status                 *p_afd_status;
 
 /* Local function prototypes. */
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+static void                       check_fds(int *, int *);
+#else
 static void                       check_fds(int *);
+#endif
 
 
 /*############################ delete_files() ###########################*/
@@ -104,6 +108,9 @@ delete_files(int no_selected, int *select_list)
    int                 deleted,
                        fd,
                        fd_delete_fd = -1,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                       fd_delete_readfd = -1,
+#endif
                        files_deleted = 0,
                        files_not_deleted = 0,
                        gotcha,
@@ -123,8 +130,7 @@ delete_files(int no_selected, int *select_list)
    struct dir_name_buf *dnb;
 
    /* Map to directory name buffer. */
-   (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR,
-                 DIR_NAME_FILE);
+   (void)sprintf(fullname, "%s%s%s", p_work_dir, FIFO_DIR, DIR_NAME_FILE);
    if ((fd = open(fullname, O_RDONLY)) == -1)
    {
       (void)xrec(appshell, ERROR_DIALOG,
@@ -287,7 +293,11 @@ delete_files(int no_selected, int *select_list)
       else if ((qfl[select_list[i] - 1].queue_type == SHOW_RETRIEVES) ||
                (qfl[select_list[i] - 1].queue_type == SHOW_PENDING_RETRIEVES))
            {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+              check_fds(&fd_delete_readfd, &fd_delete_fd);
+#else
               check_fds(&fd_delete_fd);
+#endif
               if (p_afd_status->fd == ON)
               {
                  wbuf[0] = DELETE_RETRIEVE;
@@ -357,6 +367,21 @@ delete_files(int no_selected, int *select_list)
                  }
               }
               deleted = NEITHER;
+           }
+      else if (qfl[select_list[i] - 1].queue_type == SHOW_TIME_JOBS)
+           {
+              (void)sprintf(fullname, "%s%s%s/%x/%s",
+                            p_work_dir, AFD_FILE_DIR, AFD_TIME_DIR,
+                            qfl[select_list[i] - 1].job_id,
+                            qfl[select_list[i] - 1].file_name);
+              if (unlink(fullname) == -1)
+              {
+                 deleted = NO;
+              }
+              else
+              {
+                 deleted = YES;
+              }
            }
            else /* It's in one of the input queue's. */
            {
@@ -455,7 +480,11 @@ delete_files(int no_selected, int *select_list)
          {
             if (p_afd_status->fd == ON)
             {
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               check_fds(&fd_delete_readfd, &fd_delete_fd);
+#else
                check_fds(&fd_delete_fd);
+#endif
                if (qtb[i].files_to_send == qtb[i].files_to_delete)
                {
                   length = strlen(qtb[i].msg_name) + 1;
@@ -524,6 +553,14 @@ delete_files(int no_selected, int *select_list)
 #endif
                            fsa[pos].total_file_counter--;
                            fsa[pos].total_file_size -= qfl[qtb[i].qfl_pos[j]].size;
+#ifdef WITH_ERROR_QUEUE
+                           if ((qfl[qtb[i].qfl_pos[j]].job_id != 0) &&
+                               (fsa[pos].host_status & ERROR_QUEUE_SET))
+                           {
+                              (void)remove_from_error_queue(qfl[qtb[i].qfl_pos[j]].job_id,
+                                                            &fsa[pos]);
+                           }
+#endif
                            if (qb[k].files_to_send == 0)
                            {
                               (void)sprintf(fullname, "%s%s%s/%s",
@@ -591,6 +628,12 @@ delete_files(int no_selected, int *select_list)
       }
    }
 
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (fd_delete_readfd != -1)
+   {
+      (void)close(fd_delete_readfd);
+   }
+#endif
    if (fd_delete_fd != -1)
    {
       (void)close(fd_delete_fd);
@@ -675,7 +718,11 @@ delete_files(int no_selected, int *select_list)
 
 /*+++++++++++++++++++++++++++++ check_fds() +++++++++++++++++++++++++++++*/
 static void
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+check_fds(int *fd_delete_readfd, int *fd_delete_fd)
+#else
 check_fds(int *fd_delete_fd)
+#endif
 {
    if (*fd_delete_fd == -1)
    {
@@ -683,7 +730,11 @@ check_fds(int *fd_delete_fd)
 
       (void)sprintf(delete_fifo, "%s%s%s",
                     p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+      if (open_fifo_rw(delete_fifo, fd_delete_readfd, fd_delete_fd) == -1)
+#else
       if ((*fd_delete_fd = open(delete_fifo, O_RDWR)) == -1)
+#endif
       {
          (void)xrec(appshell, FATAL_DIALOG,
                     "Failed to open() <%s> : %s (%s %d)",
