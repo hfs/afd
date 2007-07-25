@@ -26,7 +26,7 @@ DESCR__S_M3
  **   eval_dir_config - reads the DIR_CONFIG file and evaluates it
  **
  ** SYNOPSIS
- **   int eval_dir_config(off_t db_size)
+ **   int eval_dir_config(off_t db_size, unsigend int *warn_counter)
  **
  ** DESCRIPTION
  **   The function eval_dir_config() reads the DIR_CONFIG file of the
@@ -73,9 +73,8 @@ DESCR__S_M3
  **   transmitted will be archived for three days.
  **
  ** RETURN VALUES
- **   Returns INCORRECT when it fails to evaluate the database file
- **   of the AMG. On success the number of user directories is
- **   returned.
+ **   Returns NO_VALID_ENTRIES when it fails to find any valid entries
+ **   in any database file (DIR_CONFIG's). Otherwise SUCCESS is returned.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -107,6 +106,8 @@ DESCR__S_M3
  **                      check if this was commented out.
  **   24.06.2006 H.Kiehl Allow for duplicate directories when the
  **                      directories are in different DIR_CONFIGS.
+ **   03.05.2007 H.Kiehl Return the number of warnings that where generated.
+ **   17.05.2007 H.Kiehl Added check for options.
  **
  */
 DESCR__E_M3
@@ -157,9 +158,12 @@ extern struct dir_config_buf  *dcl;
 /* Global variables. */
 int                           no_of_local_dirs,
                               *no_of_passwd,
+                              no_of_rule_headers,
                               pwb_fd,
                               job_no;   /* By job number we here mean for   */
                                         /* each destination specified!      */
+char                          rule_file[MAX_PATH_LENGTH];
+struct rule                   *rule;
 struct dir_data               *dd = NULL;
 struct p_array                *pp;
 struct passwd_buf             *pwb = NULL;
@@ -232,7 +236,7 @@ static char                   *posi_identifier(char *, char *, size_t);
 
 /*########################## eval_dir_config() ##########################*/
 int
-eval_dir_config(off_t db_size)
+eval_dir_config(off_t db_size, unsigned int *warn_counter)
 {
    int              dcd = 0,             /* DIR_CONFIG's done.            */
                     i,
@@ -357,6 +361,8 @@ eval_dir_config(off_t db_size)
    unique_file_counter = 0;
    unique_dest_counter = 0;
    no_of_local_dirs = 0;
+   rule_file[0] = '\0'; /* We set this so we only read rename rule once   */
+                        /* in function check_rule() (see check_option.c). */
 
    /* Evaluate each DIR_CONFIG each by itself. */
    do
@@ -364,9 +370,20 @@ eval_dir_config(off_t db_size)
       system_log(DEBUG_SIGN, NULL, 0, "Reading %s", dcl[dcd].dir_config_file);
 
       /* Read database file and store it into memory. */
-      if (read_file(dcl[dcd].dir_config_file, &database) == INCORRECT)
+      if ((read_file(dcl[dcd].dir_config_file, &database) == INCORRECT) ||
+          (database[0] == '\0'))
       {
+         if (database[0] == '\0')
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "Configuration file `%s' is empty.",
+                       dcl[dcd].dir_config_file);
+         }
          dcd++;
+         if (warn_counter != NULL)
+         {
+            (*warn_counter)++;
+         }
          continue;
       }
       ptr = database;
@@ -432,6 +449,10 @@ eval_dir_config(off_t db_size)
                        "In %s line %d, directory entry does not have a directory.",
                        dcl[dcd].dir_config_file,
                        count_new_lines(database, search_ptr));
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
             ptr++;
 
             continue;
@@ -557,6 +578,10 @@ eval_dir_config(off_t db_size)
                             dcl[dcd].dir_config_file,
                             count_new_lines(database, search_ptr),
                             (MAX_PATH_LENGTH - 2));
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  continue;
               }
          dir->location[i] = '\0';
@@ -590,6 +615,10 @@ eval_dir_config(off_t db_size)
                                 "Cannot find working directory for user with the user ID %d in /etc/passwd (ignoring directory from %s) : %s",
                                 current_uid, dcl[dcd].dir_config_file,
                                 strerror(errno));
+                     if (warn_counter != NULL)
+                     {
+                        (*warn_counter)++;
+                     }
                      *tmp_ptr = tmp_char;
                      continue;
                   }
@@ -602,6 +631,10 @@ eval_dir_config(off_t db_size)
                                 "Cannot find users %s working directory in /etc/passwd (ignoring directory from %s) : %s",
                                 &dir->location[1], dcl[dcd].dir_config_file,
                                 strerror(errno));
+                     if (warn_counter != NULL)
+                     {
+                        (*warn_counter)++;
+                     }
                      *tmp_ptr = tmp_char;
                      continue;
                   }
@@ -732,6 +765,10 @@ eval_dir_config(off_t db_size)
                  system_log(WARN_SIGN, __FILE__, __LINE__,
                             "Unknown or unsupported scheme, ignoring directory %s from %s",
                             dir->location, dcl[dcd].dir_config_file);
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  continue;
               }
 
@@ -751,6 +788,10 @@ eval_dir_config(off_t db_size)
                  if (error_ptr != NULL)
                  {
                     *error_ptr = '\0';
+                 }
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
                  }
                  if (dir->type == REMOTE_DIR)
                  {
@@ -778,6 +819,10 @@ eval_dir_config(off_t db_size)
                  {
                     *error_ptr = '\0';
                  }
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  if (dir->type == REMOTE_DIR)
                  {
                     system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -804,10 +849,14 @@ eval_dir_config(off_t db_size)
                  {
                     *error_ptr = '\0';
                  }
-                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
                             "Failed to stat() `%s' at line %d from %s : %s",
                             dir->location, count_new_lines(database, ptr - 1),
                             dcl[dcd].dir_config_file, strerror(errno));
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  if (error_ptr != NULL)
                  {
                     *error_ptr = '/';
@@ -1002,6 +1051,10 @@ eval_dir_config(off_t db_size)
                              dcl[dcd].dir_config_file,
                              count_new_lines(database, search_ptr),
                              dir->location);
+                  if (warn_counter != NULL)
+                  {
+                     (*warn_counter)++;
+                  }
 
                   /* To read the next file entry, put back the char    */
                   /* that was torn out to mark end of this file entry. */
@@ -1204,6 +1257,10 @@ eval_dir_config(off_t db_size)
                                 "Directory %s in %s at line %d does not have a destination entry for file group no. %d.",
                                 dir->location, dcl[dcd].dir_config_file,
                                 count_new_lines(database, ptr), dir->fgc);
+                     if (warn_counter != NULL)
+                     {
+                        (*warn_counter)++;
+                     }
 
                      /* To read the next destination entry, put back the */
                      /* char that was torn out to mark end of this       */
@@ -1371,13 +1428,17 @@ eval_dir_config(off_t db_size)
                                          real_hostname) == INCORRECT)
                         {
                            system_log(WARN_SIGN, __FILE__, __LINE__,
-                                      "Failed to locate hostname in recipient string %s. Ignoring the recipient in %s at line %d.",
+                                      "Failed to locate hostname or @ sign in recipient string %s. Ignoring the recipient in %s at line %d.",
                                       dir->file[dir->fgc].\
                                       dest[dir->file[dir->fgc].dgc].\
                                       recipient[dir->file[dir->fgc].\
                                       dest[dir->file[dir->fgc].dgc].rc],
                                       dcl[dcd].dir_config_file,
                                       count_new_lines(database, search_ptr));
+                           if (warn_counter != NULL)
+                           {
+                              (*warn_counter)++;
+                           }
                         }
                         else
                         {
@@ -1399,6 +1460,10 @@ eval_dir_config(off_t db_size)
                                          "Failed to determine sheme/protocol. Ignoring this recipient in %s at line %d.",
                                          dcl[dcd].dir_config_file,
                                          count_new_lines(database, search_ptr));
+                              if (warn_counter != NULL)
+                              {
+                                 (*warn_counter)++;
+                              }
                            }
                            else
                            {
@@ -1592,6 +1657,10 @@ eval_dir_config(off_t db_size)
                                             search_ptr - j,
                                             dcl[dcd].dir_config_file,
                                             count_new_lines(database, search_ptr));
+                                 if (warn_counter != NULL)
+                                 {
+                                    (*warn_counter)++;
+                                 }
                               }
                               *search_ptr = ':';
                            }
@@ -1626,6 +1695,10 @@ check_dummy_line:
                              dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].dest_group_name,
                              dcl[dcd].dir_config_file,
                              count_new_lines(database, search_ptr));
+                  if (warn_counter != NULL)
+                  {
+                     (*warn_counter)++;
+                  }
 
                   /* To read the next destination entry, put back the */
                   /* char that was torn out to mark end of this       */
@@ -1703,6 +1776,10 @@ check_dummy_line:
                                    "Option at line %d longer then %d, ignoring this option.",
                                    count_new_lines(database, ptr),
                                    MAX_OPTION_LENGTH);
+                        if (warn_counter != NULL)
+                        {
+                           (*warn_counter)++;
+                        }
                      }
                      else
                      {
@@ -1713,7 +1790,24 @@ check_dummy_line:
                                    dest[dir->file[dir->fgc].dgc].\
                                    options[dir->file[dir->fgc].\
                                    dest[dir->file[dir->fgc].dgc].oc][i] = '\0';
-                           dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc++;
+                           if (check_option(dir->file[dir->fgc].\
+                                            dest[dir->file[dir->fgc].dgc].\
+                                            options[dir->file[dir->fgc].\
+                                            dest[dir->file[dir->fgc].dgc].oc]) == SUCCESS)
+                           {
+                              dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc++;
+                           }
+                           else
+                           {
+                              system_log(WARN_SIGN, __FILE__, __LINE__,
+                                         "Removing option `%s' at line %d",
+                                         dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].options[dir->file[dir->fgc].dest[dir->file[dir->fgc].dgc].oc],
+                                         count_new_lines(database, ptr));
+                              if (warn_counter != NULL)
+                              {
+                                 (*warn_counter)++;
+                              }
+                           }
                         }
                      }
                      ptr++;
@@ -1735,6 +1829,10 @@ check_dummy_line:
                      system_log(WARN_SIGN, __FILE__, __LINE__,
                                 "Exceeded the number of total options (max = %d) at line %d. Ignoring.",
                                 MAX_NO_OPTIONS, count_new_lines(database, ptr));
+                     if (warn_counter != NULL)
+                     {
+                        (*warn_counter)++;
+                     }
                   }
                }
 
@@ -1757,6 +1855,10 @@ check_dummy_line:
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           "Directory %s in %s does not have a destination entry for file group no. %d.",
                           dir->location, dcl[dcd].dir_config_file, dir->fgc);
+               if (warn_counter != NULL)
+               {
+                  (*warn_counter)++;
+               }
 
                /* Reduce file counter, since this one is faulty. */
                dir->fgc--;
@@ -1821,6 +1923,10 @@ check_dummy_line:
                        "In %s at line %d, no destination defined.",
                        dcl[dcd].dir_config_file,
                        count_new_lines(database, end_ptr));
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
          }
          else
          {
@@ -1838,6 +1944,10 @@ check_dummy_line:
                      system_log(WARN_SIGN, __FILE__, __LINE__,
                                 "Ignoring duplicate directory entry %s in %s.",
                                 dir->location, dcl[dcd].dir_config_file);
+                     if (warn_counter != NULL)
+                     {
+                        (*warn_counter)++;
+                     }
                      duplicate = YES;
 #ifdef WITH_MULTI_DIR_DEFINITION
                   }
@@ -1906,6 +2016,10 @@ check_dummy_line:
                                       "Duplicate directory alias `%s' in `%s', giving it another alias: `%s'",
                                       dd[j].dir_alias, dcl[dcd].dir_config_file,
                                       dir->alias);
+                           if (warn_counter != NULL)
+                           {
+                              (*warn_counter)++;
+                           }
                            break;
                         }
                      }
@@ -2596,8 +2710,8 @@ copy_job(int              file_no,
    priority = DEFAULT_PRIORITY;
    for (i = 0; i < dir->file[file_no].dest[dest_no].oc; i++)
    {
-      if (strncmp(dir->file[file_no].dest[dest_no].options[i],
-                  PRIORITY_ID, PRIORITY_ID_LENGTH) == 0)
+      if (CHECK_STRNCMP(dir->file[file_no].dest[dest_no].options[i],
+                        PRIORITY_ID, PRIORITY_ID_LENGTH) == 0)
       {
          char *tmp_ptr = &dir->file[file_no].dest[dest_no].options[i][PRIORITY_ID_LENGTH];
 
@@ -2699,8 +2813,8 @@ copy_job(int              file_no,
       {
          for (k = 0; k < LOCAL_OPTION_POOL_SIZE; k++)
          {
-            if (strncmp(dir->file[file_no].dest[dest_no].options[i],
-                        p_loption[k], loption_length[k]) == 0)
+            if (CHECK_STRNCMP(dir->file[file_no].dest[dest_no].options[i],
+                              p_loption[k], loption_length[k]) == 0)
             {
                /* Save the local option in shared memory region. */
                offset = sprintf(ptr, "%s", dir->file[file_no].

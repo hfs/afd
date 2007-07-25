@@ -387,7 +387,7 @@ init_trl_data(void)
                              ptr++;
                           }
                           p_start = ptr;
-                          while (isdigit(*ptr))
+                          while (isdigit((int)(*ptr)))
                           {
                              ptr++;
                           }

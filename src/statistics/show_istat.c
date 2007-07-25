@@ -192,7 +192,7 @@ main(int argc, char *argv[])
 
       ptr = statistic_file_name + strlen(statistic_file_name) - 1;
       i = 0;
-      while ((isdigit(*ptr)) && (i < MAX_INT_LENGTH))
+      while ((isdigit((int)(*ptr))) && (i < MAX_INT_LENGTH))
       {
          ptr--; i++;
       }

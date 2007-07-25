@@ -26,13 +26,19 @@ DESCR__S_M3
  **            with wild cards
  **
  ** SYNOPSIS
- **   int pmatch(char *p_filter, char *p_file, time_t *pmatch_time)
+ **   int pmatch(char const *p_filter, char const *p_file, time_t *pmatch_time)
  **
  ** DESCRIPTION
  **   The function pmatch() checks if 'p_file' matches 'p_filter'.
  **   'p_filter' may have the wild cards '*' and '?' anywhere and
  **   in any order. Where '*' matches any string and '?' matches
- **   any single character.
+ **   any single character. It also may list characters enclosed in
+ **   []. A pair of characters separated by a hyphen denotes a range
+ **   expression; any character that sorts between those two characters
+ **   is matched. If the first character following the [ is a ! then
+ **   any character not enclosed is matched.
+ **
+ **   The code was taken from wildmatch() by Karl Heuer.
  **
  ** RETURN VALUES
  **   Returns 0 when pattern matches, if this file is definitly
@@ -46,15 +52,18 @@ DESCR__S_M3
  **   18.10.1997 H.Kiehl  Introduced inverse filtering.
  **   03.02.2000 H.Lepper Fix the case "*xxx*??" sdsfxxxbb
  **   29.03.2006 H.Kiehl  Added support for expanding filters.
+ **   01.04.2007 H.Kiehl  Fix the case "r10013*00" r10013301000.
+ **   29.05.2007 H.Kiehl  Fix the case "*7????" abcd77abcd.
+ **   30.05.2007 H.Kiehl  Replaced code with wildmatch() code from
+ **                       Karl Heuer.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>
-#include <string.h>                    /* strncmp()                      */
 #include <stdlib.h>                    /* malloc()                       */
 #include <ctype.h>                     /* isdigit()                      */
-#include <time.h>                      /* time()                         */
+#include <time.h>                      /* time(), strftime()             */
 #include <unistd.h>                    /* gethostname()                  */
 
 
@@ -62,215 +71,139 @@ DESCR__E_M3
 static char *tmp_filter = NULL;
 
 /* Local function prototypes. */
-static char *find(char *, register char *, register int);
+static int  pmatch2(char const *, char const *, time_t *);
 static void expand_filter(char *, time_t);
 
 
 /*################################ pmatch() #############################*/
 int
-pmatch(char *p_filter, char *p_file, time_t *pmatch_time)
+pmatch(char const *p_filter, char const *p_file, time_t *pmatch_time)
 {
-   register int  length;
-   register char *p_gap_file = NULL,
-                 *p_gap_filter,
-                 *ptr = p_filter,
-                 *p_start,
-                 *p_start_file = p_file,
-                 *p_tmp = NULL,
-                 buffer;
+   int ret;
 
-   if (*ptr == '!')
+   ret = pmatch2((*p_filter == '!') ? p_filter + 1 : p_filter, p_file,
+                 pmatch_time);
+   if ((ret == 0) && (*p_filter == '!'))
    {
-      ptr++;
+      ret = 1;
    }
-   p_start = ptr;
-   while (*ptr != '\0')
+
+   return(ret);
+}
+
+
+/*++++++++++++++++++++++++++++++ pmatch2() ++++++++++++++++++++++++++++++*/
+static int
+pmatch2(char const *p, char const *s, time_t *pmatch_time)
+{
+   register char c;
+
+   while ((c = *p++) != '\0')
    {
-      length = 0;
-      p_tmp = ptr;
-      switch (*ptr)
+      if (c == '*')
       {
-         case '*' :
-            ptr++;
-            while ((*ptr != '*') && (*ptr != '?') && (*ptr != '%') &&
-                   (*ptr != '\0'))
+         if (*p == '\0')
+         {
+            return(0); /* optimize common case */
+         }
+         do
+         {
+            if (pmatch2(p, s, pmatch_time) == 0)
             {
-               length++;
-               ptr++;
+               return(0);
             }
-            if (length == 0)
-            {
-               p_gap_filter = ptr;
-               while (*ptr == '*')
+         } while (*s++ != '\0');
+         return(-1);
+      }
+      else if (c == '?')
+           {
+               if (*s++ == '\0')
                {
-                  ptr++;
-               }
-               if (*ptr != '\0')
-               {
-                  ptr = p_gap_filter;
-               }
-               if ((*ptr == '*') || (*ptr == '?') || (*ptr == '%'))
-               {
-                  p_gap_file = p_file + 1;
-                  p_gap_filter = p_tmp;
-                  break;
-               }
-               else
-               {
-                  return((*p_filter != '!') ? 0 : 1);
-               }
-            }
-            buffer = *ptr;
-            if ((p_file = find(p_file, p_tmp + 1, length)) == NULL)
-            {
-               return(-1);
-            }
-            else
-            {
-               if (*ptr == '?')
-               {
-                  if (length > 1 )
-                  {
-                     p_gap_file = p_file - length + 1;
-                  }
-                  else
-                  {
-                     p_gap_file = p_file + 1;
-                  }
-                  p_gap_filter = p_tmp;
-               }
-               if ((*ptr == '\0') && (*p_file != '\0'))
-               {
-                  ptr = p_tmp;
-               }
-            }
-            if ((buffer == '\0') && (*p_file == '\0'))
-            {
-               return((*p_filter != '!') ? 0 : 1);
-            }
-            break;
-
-         case '?' :
-            if (*(p_file++) == '\0')
-            {
-               return(-1);
-            }
-            if ((*(++ptr) == '\0') && (*p_file == '\0'))
-            {
-               return((*p_filter != '!') ? 0 : 1);
-            }
-            if ((*ptr == '\0') && (p_gap_file != NULL))
-            {
-               p_file = p_gap_file;
-               ptr = p_gap_filter;
-            }
-            break;
-
-         default  :
-            if ((*ptr == '%') && ((*(ptr + 1) == 't') || (*(ptr + 1) == 'T') ||
-                (*(ptr + 1) == 'h')) &&
-                ((ptr == p_start) || ((*(ptr - 1) != '\\'))))
-            {
-               time_t check_time;
-
-               if (pmatch_time == NULL)
-               {
-                  check_time = time(NULL);
-               }
-               else
-               {
-                  check_time = *pmatch_time;
-               }
-               expand_filter(p_start, check_time);
-               if (tmp_filter == NULL)
-               {
-                  /* We failed to allocate memory, lets ignore expanding. */
-                  goto error_expand;
-               }
-               else
-               {
-                  ptr = tmp_filter;
-                  p_start = tmp_filter;
-                  p_gap_file = NULL;
-                  p_file = p_start_file;
-               }
-            }
-            else
-            {
-error_expand:
-               while ((*ptr != '*') && (*ptr != '?') && (*ptr != '%') &&
-                      (*ptr != '\0'))
-               {
-                  length++;
-                  ptr++;
-               }
-               if (strncmp(p_file, p_tmp, length) != 0)
-               {
-                  if (p_gap_file != NULL)
-                  {
-                     p_file = p_gap_file;
-                     ptr = p_gap_filter;
-                     break;
-                  }
                   return(-1);
                }
-               p_file += length;
-               if ((*ptr == '\0') && (*p_file == '\0'))
-               {
-                  return((*p_filter != '!') ? 0 : 1);
-               }
-            }
-            break;
-      }
+           }
+      else if (c == '[')
+           {
+              register int wantit;
+              register int seenit = NO;
+
+              if (*p == '!')
+              {
+                 wantit = NO;
+                 ++p;
+              }
+              else
+              {
+                 wantit = YES;
+              }
+              c = *p++;
+              do
+              {
+                 if (c == '\0')
+                 {
+                    return(-1);
+                 }
+                 if ((*p == '-') && (p[1] != '\0'))
+                 {
+                    if ((*s >= c) && (*s <= p[1]))
+                    {
+                       seenit = YES;
+                    }
+                    p += 2;
+                 }
+                 else
+                 {
+                    if (c == *s)
+                    {
+                       seenit = YES;
+                    }
+                 }
+              } while ((c = *p++) != ']');
+
+              if (wantit != seenit)
+              {
+                 return(-1);
+              }
+              ++s;
+           }
+      else if (c == '\\')
+           {
+              if ((*p == '\0') || (*p++ != *s++))
+              {
+                 return(-1);
+              }
+           }
+      else if ((c == '%') && ((*p == 't') || (*p == 'T') || (*p == 'h')))
+           {
+              expand_filter((char *)(p - 1),
+                            (pmatch_time == NULL) ? time(NULL) : *pmatch_time);
+              if (tmp_filter == NULL)
+              {
+                 /* We failed to allocate memory, lets ignore expanding. */
+                 if (c != *s++)
+                 {
+                    return(-1);
+                 }
+              }
+              else
+              {
+                 p = tmp_filter;
+              }
+           }
+           else
+           {
+              if (c != *s++)
+              {
+                 return(-1);
+              }
+           }
    }
 
-   return(-1);
+   return((*s == '\0') ? 0 : -1);
 }
 
 
-/*++++++++++++++++++++++++++++++++ find() +++++++++++++++++++++++++++++++*/
-/*
- * Description  : Searches in "search_text" for "search_string". If
- *                found, it returns the address of the last character
- *                in "search_string".
- * Input values : char *search_text
- *                char *search_string
- *                int  string_length
- * Return value : char *search_text when it finds search_text otherwise
- *                NULL is returned.
- */
-static char *
-find(char          *search_text,
-     register char *search_string,
-     register int  string_length)
-{
-   register int hit = 0;
-
-   while (*search_text != '\0')
-   {
-      if (*(search_text++) == *(search_string++))
-      {
-         if (++hit == string_length)
-         {
-            return(search_text);
-         }
-      }
-      else
-      {
-         search_string -= (hit + 1);
-         if (hit != 0)
-         {
-            search_text -= hit;
-            hit = 0;
-         }
-      }
-   }
-
-   return(NULL);
-}
-
-
-/*++++++++++++++++++++++++++++ expand_filter() ++++++++++++++++++++++++++*/
+/*--------------------------- expand_filter() ---------------------------*/
 static void
 expand_filter(char *orig_filter, time_t check_time)
 {
@@ -418,7 +351,7 @@ expand_filter(char *orig_filter, time_t check_time)
                           break;
                     }
                     m = 0;
-                    while ((isdigit(*rptr)) && (m < MAX_INT_LENGTH))
+                    while ((isdigit((int)(*rptr))) && (m < MAX_INT_LENGTH))
                     {
                        string[m++] = *rptr++;
                     }

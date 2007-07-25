@@ -1,6 +1,6 @@
 /*
  *  show_olog.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -105,7 +105,7 @@
 #define LINES_BUFFERED           1000
 #define MAX_DISPLAYED_FILE_SIZE  10
 #define MAX_DISPLAYED_TRANSFER_TIME 6
-#define MAX_OUTPUT_LINE_LENGTH   16 + MAX_HOSTNAME_LENGTH + 1 + 1 + 5 + 1 + MAX_DISPLAYED_FILE_SIZE + 1 + MAX_DISPLAYED_TRANSFER_TIME + 1 + 2
+#define MAX_OUTPUT_LINE_LENGTH   (16 + MAX_HOSTNAME_LENGTH + 1 + 1 + 5 + 1 + MAX_DISPLAYED_FILE_SIZE + 1 + MAX_DISPLAYED_TRANSFER_TIME + 1 + 2)
 
 #define FILE_SIZE_FORMAT         "Enter file size in bytes: [=<>]file size"
 #define TIME_FORMAT              "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"
@@ -124,7 +124,7 @@
 #endif
 #define REST_HEADER              "Type    File size   TT   A"
 
-#define LOG_CHECK_INTERVAL       1000L   /* Default interval in milli-    */
+#define LOG_CHECK_INTERVAL       1000L  /* Default interval in milli-    */
                                         /* seconds to check for changes  */
                                         /* in log file.                  */
 
@@ -190,6 +190,7 @@ struct sol_perm
           int  send_limit;
           int  list_limit;
           char view_passwd;
+          char view_data;
        };
 
 /* Various macro definitions. */
@@ -275,7 +276,9 @@ extern void calculate_summary(char *, time_t, time_t, unsigned int,
             set_sensitive(void),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
-            toggled(Widget, XtPointer, XtPointer);
+            toggled(Widget, XtPointer, XtPointer),
+            view_button(Widget, XtPointer, XtPointer),
+            view_files(int, int *);
 extern int  get_sum_data(int, time_t *, double *, double *);
 
 #endif /* __show_olog_h */

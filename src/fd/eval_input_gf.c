@@ -78,7 +78,7 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
    else
    {
       STRNCPY(p_work_dir, argv[1], MAX_PATH_LENGTH);
-      if (isdigit(argv[2][0]) == 0)
+      if (isdigit((int)(argv[2][0])) == 0)
       {
          (void)fprintf(stderr,
                        "ERROR   : None nummeric value for job number : %s.\n",
@@ -96,7 +96,7 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
          i = 0;
          do
          {
-            if (isdigit(argv[3][i]) == 0)
+            if (isdigit((int)(argv[3][i])) == 0)
             {
                i = MAX_INT_LENGTH;
             }
@@ -110,7 +110,7 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
             i = 0;
             do
             {
-               if (isdigit(argv[4][i]) == 0)
+               if (isdigit((int)(argv[4][i])) == 0)
                {
                   i = MAX_INT_LENGTH;
                }
@@ -144,7 +144,7 @@ eval_input_gf(int argc, char *argv[], struct job *p_db)
                                     i++;
                                     do
                                     {
-                                       if (isdigit(argv[i][k]) == 0)
+                                       if (isdigit((int)(argv[i][k])) == 0)
                                        {
                                           k = MAX_INT_LENGTH;
                                        }

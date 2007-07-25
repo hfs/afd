@@ -64,9 +64,9 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am_amg_OBJECTS = amg.$(OBJEXT) amg_zombie_check.$(OBJEXT) \
-	clear_pool_dir.$(OBJEXT) com.$(OBJEXT) convert_fsa.$(OBJEXT) \
-	convert_fra.$(OBJEXT) create_fsa.$(OBJEXT) \
-	create_fra.$(OBJEXT) create_sa.$(OBJEXT) \
+	check_option.$(OBJEXT) clear_pool_dir.$(OBJEXT) com.$(OBJEXT) \
+	convert_fsa.$(OBJEXT) convert_fra.$(OBJEXT) \
+	create_fsa.$(OBJEXT) create_fra.$(OBJEXT) create_sa.$(OBJEXT) \
 	eval_dir_config.$(OBJEXT) eval_dir_options.$(OBJEXT) \
 	eval_time_str.$(OBJEXT) lookup_dc_id.$(OBJEXT) \
 	lookup_dir_id.$(OBJEXT) make_process_amg.$(OBJEXT) \
@@ -274,6 +274,7 @@ MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES = gmon.out core core.*
 amg_SOURCES = amg.c\
                         amg_zombie_check.c\
+                        check_option.c\
                         clear_pool_dir.c\
                         com.c\
                         convert_fsa.c\
@@ -419,6 +420,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/amg_zombie_check.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_files.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_old_time_jobs.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_option.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/check_paused_dir.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/clear_msg_buffer.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/clear_pool_dir.Po@am__quote@

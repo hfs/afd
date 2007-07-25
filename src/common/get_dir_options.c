@@ -111,7 +111,7 @@ get_dir_options(unsigned int dir_id, struct dir_options *d_o)
             {
                (void)sprintf(d_o->aoptions[d_o->no_of_dir_options], "%s %d",
                              DEL_OLD_LOCKED_FILES_ID,
-                             fra[i].queued_file_time / 3600);
+                             fra[i].locked_file_time / 3600);
                d_o->no_of_dir_options++;
             }
          }

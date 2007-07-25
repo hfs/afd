@@ -132,13 +132,12 @@ main(int argc, char *argv[])
    XmFontType      dummy;
    Arg             args[MAXARGS];
    Cardinal        argcount;
-   Dimension       button_height;
    uid_t           euid, /* Effective user ID. */
                    ruid; /* Real user ID. */
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    p_work_dir = work_dir;
    init_view_dc(&argc, argv);
 
@@ -174,7 +173,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Get display pointer */
+   /* Get display pointer. */
    if ((display = XtDisplay(appshell)) == NULL)
    {
       (void)fprintf(stderr,
@@ -183,7 +182,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Create managing widget */
+   /* Create managing widget. */
    form_w = XmCreateForm(appshell, "form", NULL, 0);
 
    entry = XmFontListEntryLoad(XtDisplay(form_w), font_name,
@@ -211,9 +210,8 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNfractionBase,     21);
    argcount++;
    buttonbox_w = XmCreateForm(form_w, "buttonbox", args, argcount);
-   XtVaGetValues(buttonbox_w, XmNheight, &button_height, NULL);
 
-   /* Create a horizontal separator */
+   /* Create a horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
    argcount++;
@@ -244,7 +242,7 @@ main(int argc, char *argv[])
                  (XtCallbackProc)close_button, 0);
    XtManageChild(buttonbox_w);
 
-   /* Create DIR_CONFIG data as a ScrolledText window */
+   /* Create DIR_CONFIG data as a ScrolledText window. */
    argcount = 0;
    XtSetArg(args[argcount], XmNfontList,               fontlist);
    argcount++;
@@ -288,7 +286,7 @@ main(int argc, char *argv[])
    XtManageChild(text_w);
    XtManageChild(form_w);
 
-   /* Free font list */
+   /* Free font list. */
    XmFontListFree(fontlist);
 
 #ifdef WITH_EDITRES
@@ -296,10 +294,10 @@ main(int argc, char *argv[])
                      _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
-   /* We want the keyboard focus on the Done button */
+   /* We want the keyboard focus on the Close button. */
    XmProcessTraversal(button_w, XmTRAVERSE_CURRENT);
 
    /* Write window ID, so afd_ctrl can set focus if it is called again. */

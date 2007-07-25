@@ -471,7 +471,7 @@ create_archive_dir(char         *p_path,
 #else
    (void)sprintf(msg_name, "%llx_%x",
 #endif
-                 (pri_time_t)(((archive_start_time + (archive_time * ARCHIVE_UNIT)) /
+                 (pri_time_t)(((archive_start_time + archive_time) /
                   ARCHIVE_STEP_TIME) * ARCHIVE_STEP_TIME),
                  job_id);
 

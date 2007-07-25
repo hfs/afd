@@ -51,7 +51,7 @@
                                        /* create the archive directory   */
                                        /* this is set.                   */
 #ifndef MAX_RET_MSG_LENGTH
-#define MAX_RET_MSG_LENGTH       1024
+# define MAX_RET_MSG_LENGTH      1024
 #endif
 #define MAX_FD_DIR_CHECK         152   /* FD should only check the file  */
                                        /* directory if it is less then   */
@@ -147,6 +147,8 @@
 #define CHOWN_ERROR_STR          "Failed to change owner of file"
 #define CONNECTION_RESET_ERROR   28
 #define CONNECTION_RESET_ERROR_STR "Connection reset by peer"
+#define CONNECTION_REFUSED_ERROR 29
+#define CONNECTION_REFUSED_ERROR_STR "Connection refused"
 #define OPEN_LOCAL_ERROR         30
 #define OPEN_LOCAL_ERROR_STR     "Failed to open local file"
 #define READ_LOCAL_ERROR         31
@@ -189,7 +191,7 @@
 /* NOTE: MAX_ERROR_STR_LENGTH    34 is defined in afddefs.h! */
 
 #ifdef _WITH_WMO_SUPPORT
-#define NEGATIV_ACKNOWLEDGE      -10
+# define NEGATIV_ACKNOWLEDGE     -10
 #endif
 
 #define PENDING                  -2
@@ -199,7 +201,7 @@
 /* it knows which value it has to reset.   */
 #define IS_FAULTY_VAR             2
 
-/* Definition of the different names of locking */
+/* Definition of the different names of locking. */
 #define LOCK_DOT                 "DOT"      /* eg. .filename -> filename */
 #define LOCK_DOT_VMS             "DOT_VMS"  /* Same as LOCK_DOT, however */
                                             /* VMS always puts a dot to  */
@@ -212,12 +214,12 @@
 #define LOCKFILE                 3
 #define POSTFIX                  4
 #ifdef WITH_READY_FILES
-#define READY_FILE_ASCII         "RDYA"
-#define LOCK_READY_A_FILE        "RDY A"
-#define READY_A_FILE             4
-#define READY_FILE_BINARY        "RDYB"
-#define LOCK_READY_B_FILE        "RDY B"
-#define READY_B_FILE             5
+# define READY_FILE_ASCII        "RDYA"
+# define LOCK_READY_A_FILE       "RDY A"
+# define READY_A_FILE            4
+# define READY_FILE_BINARY       "RDYB"
+# define LOCK_READY_B_FILE       "RDY B"
+# define READY_B_FILE            5
 #endif
 
 /* Definitions for tracing. */
@@ -229,100 +231,26 @@
 #define W_TRACE                  6
 #define C_TRACE                  7
 
-/* Default definitions */
+/* Default definitions. */
 #define DEFAULT_ERROR_REPEAT     1
 #define DEFAULT_LOCK             DOT
 #define DEFAULT_TRANSFER_MODE    'I'
 #define DEFAULT_NOOP_INTERVAL    30
 
-/* Definitions of identifiers in options */
-#define OUTPUT_LOG_ID                   "no log output"
-#define OUTPUT_LOG_ID_LENGTH            (sizeof(OUTPUT_LOG_ID) - 1)
-#define ARCHIVE_ID                      "archive"
-#define ARCHIVE_ID_LENGTH               (sizeof(ARCHIVE_ID) - 1)
-#define LOCK_ID                         "lock"
-#define LOCK_ID_LENGTH                  (sizeof(LOCK_ID) - 1)
-#define LOCK_POSTFIX_ID                 "lockp"
-#define LOCK_POSTFIX_ID_LENGTH          (sizeof(LOCK_POSTFIX_ID) - 1)
-#define RESTART_FILE_ID                 "restart"
-#define RESTART_FILE_ID_LENGTH          (sizeof(RESTART_FILE_ID) - 1)
-#define TRANS_RENAME_ID                 "trans_rename"
-#define TRANS_RENAME_ID_LENGTH          (sizeof(TRANS_RENAME_ID) - 1)
-#ifdef _WITH_WMO_SUPPORT
-#define WITH_SEQUENCE_NUMBER_ID         "sequence numbering"
-#define WITH_SEQUENCE_NUMBER_ID_LENGTH  (sizeof(WITH_SEQUENCE_NUMBER_ID) - 1)
-#define CHECK_REPLY_ID                  "check reply"
-#define CHECK_REPLY_ID_LENGTH           (sizeof(CHECK_REPLY_ID) - 1)
-#endif /* _WITH_WMO_SUPPORT */
-#define FILE_NAME_IS_HEADER_ID          "file name is header"
-#define FILE_NAME_IS_HEADER_ID_LENGTH   (sizeof(FILE_NAME_IS_HEADER_ID) - 1)
-#define FILE_NAME_IS_USER_ID            "file name is user"
-#define FILE_NAME_IS_USER_ID_LENGTH     (sizeof(FILE_NAME_IS_USER_ID) - 1)
-#define FILE_NAME_IS_TARGET_ID          "file name is target"
-#define FILE_NAME_IS_TARGET_ID_LENGTH   (sizeof(FILE_NAME_IS_TARGET_ID) - 1)
-#define FILE_NAME_IS_SUBJECT_ID         "file name is subject"
-#define FILE_NAME_IS_SUBJECT_ID_LENGTH  (sizeof(FILE_NAME_IS_SUBJECT_ID) - 1)
-#define ADD_MAIL_HEADER_ID              "mail header"
-#define ADD_MAIL_HEADER_ID_LENGTH       (sizeof(ADD_MAIL_HEADER_ID) - 1)
-#define ATTACH_FILE_ID                  "attach file"
-#define ATTACH_FILE_ID_LENGTH           (sizeof(ATTACH_FILE_ID) - 1)
-#define ATTACH_ALL_FILES_ID             "attach all files"
-#define ATTACH_ALL_FILES_ID_LENGTH      (sizeof(ATTACH_ALL_FILES_ID) - 1)
-#define REPLY_TO_ID                     "reply-to"
-#define REPLY_TO_ID_LENGTH              (sizeof(REPLY_TO_ID) - 1)
-#define FROM_ID                         "from"
-#define FROM_ID_LENGTH                  (sizeof(FROM_ID) - 1)
-#define CHARSET_ID                      "charset"
-#define CHARSET_ID_LENGTH               (sizeof(CHARSET_ID) - 1)
-#ifdef WITH_EUMETSAT_HEADERS
-# define EUMETSAT_HEADER_ID             "eumetsat"
-# define EUMETSAT_HEADER_ID_LENGTH      (sizeof(EUMETSAT_HEADER_ID) - 1)
-#endif
-#define CHMOD_ID                        "chmod"
-#define CHMOD_ID_LENGTH                 (sizeof(CHMOD_ID) - 1)
-#define CHOWN_ID                        "chown"
-#define CHOWN_ID_LENGTH                 (sizeof(CHOWN_ID) - 1)
-#define ENCODE_ANSI_ID                  "encode ansi"
-#define ENCODE_ANSI_ID_LENGTH           (sizeof(ENCODE_ANSI_ID) - 1)
-#define SUBJECT_ID                      "subject"
-#define SUBJECT_ID_LENGTH               (sizeof(SUBJECT_ID) - 1)
-#define FORCE_COPY_ID                   "force copy"
-#define FORCE_COPY_ID_LENGTH            (sizeof(FORCE_COPY_ID) - 1)
-#define RENAME_FILE_BUSY_ID             "file busy rename"
-#define RENAME_FILE_BUSY_ID_LENGTH      (sizeof(RENAME_FILE_BUSY_ID) - 1)
-#define ACTIVE_FTP_MODE                 "mode active"
-#define ACTIVE_FTP_MODE_LENGTH          (sizeof(ACTIVE_FTP_MODE) - 1)
-#define PASSIVE_FTP_MODE                "mode passive"
-#define PASSIVE_FTP_MODE_LENGTH         (sizeof(PASSIVE_FTP_MODE) - 1)
-#define FTP_EXEC_CMD                    "site"
-#define FTP_EXEC_CMD_LENGTH             (sizeof(FTP_EXEC_CMD) - 1)
-#define LOGIN_SITE_CMD                  "login site"
-#define LOGIN_SITE_CMD_LENGTH           (sizeof(LOGIN_SITE_CMD) - 1)
-#define CREATE_TARGET_DIR_ID            "create target dir"
-#define CREATE_TARGET_DIR_ID_LENGTH     (sizeof(CREATE_TARGET_DIR_ID) - 1)
-#define DONT_CREATE_TARGET_DIR          "do not create target dir"
-#define DONT_CREATE_TARGET_DIR_LENGTH   (sizeof(DONT_CREATE_TARGET_DIR) - 1)
-#define SEQUENCE_LOCKING_ID             "sequence locking"
-#define SEQUENCE_LOCKING_ID_LENGTH      (sizeof(SEQUENCE_LOCKING_ID) - 1)
-#define SOCKET_SEND_BUFFER_ID           "socket send buffer"
-#define SOCKET_SEND_BUFFER_ID_LENGTH    (sizeof(SOCKET_SEND_BUFFER_ID) - 1)
-#define SOCKET_RECEIVE_BUFFER_ID        "socket receive buffer"
-#define SOCKET_RECEIVE_BUFFER_ID_LENGTH (sizeof(SOCKET_RECEIVE_BUFFER_ID) - 1)
-
-/* Definition for special_flag in structure job */
+/* Definition for special_flag in structure job. */
 #define FILE_NAME_IS_HEADER            1
 #define FILE_NAME_IS_SUBJECT           2
 #define FILE_NAME_IS_USER              4
 #ifdef WITH_EUMETSAT_HEADERS
-#define ADD_EUMETSAT_HEADER            4
+# define ADD_EUMETSAT_HEADER           4
 #endif
 #define EXEC_FTP                       8
 #define ADD_MAIL_HEADER                8
 #define ATTACH_FILE                    16
 #define CHANGE_UID_GID                 16
 #ifdef _WITH_WMO_SUPPORT
-#define WMO_CHECK_ACKNOWLEDGE          16
-#define WITH_SEQUENCE_NUMBER           32
+# define WMO_CHECK_ACKNOWLEDGE         16
+# define WITH_SEQUENCE_NUMBER          32
 #endif
 #define ENCODE_ANSI                    32
 #define CHANGE_PERMISSION              64
@@ -345,6 +273,7 @@
 #ifdef WITH_ERROR_QUEUE
 # define IN_ERROR_QUEUE                262144
 #endif
+#define SMTP_SERVER_NAME_IN_MESSAGE    524288
 
 #ifdef _WITH_BURST_2
 # define MORE_DATA_FIFO                "/more_data_"
@@ -467,7 +396,11 @@ struct job
           char           dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char           hostname[MAX_REAL_HOSTNAME_LENGTH];
           char           host_alias[MAX_HOSTNAME_LENGTH + 1];
+#if MAX_USER_NAME_LENGTH > MAX_REAL_HOSTNAME_LENGTH
           char           user[MAX_USER_NAME_LENGTH + 1];
+#else
+          char           user[MAX_REAL_HOSTNAME_LENGTH + 1];
+#endif
 #ifdef WITH_SSH_FINGERPRINT
           char           ssh_fingerprint[MAX_FINGERPRINT_LENGTH + 1];
           char           key_type;
@@ -628,6 +561,8 @@ struct job
                                          /*|   | secondary only.        |*/
                                          /*|17 | Is set when the job is |*/
                                          /*|   | in the error queue.    |*/
+                                         /*|18 | The SMTP server name is|*/
+                                         /*|   | in message.            |*/
                                          /*+---+------------------------+*/
 #ifdef WITH_DUP_CHECK
           unsigned int   dup_check_flag; /* Flag storing the type of     */
@@ -647,14 +582,14 @@ struct job
                                          /*|    2 | DC_FILE_CONTENT     |*/
                                          /*|    1 | DC_FILENAME_ONLY    |*/
                                          /*+------+---------------------+*/
-          int            filename_pos_subject;
-                                         /* Where in subject the file-   */
-                                         /* name is to be positioned.    */
           time_t         dup_check_timeout;/* When the stored CRC for    */
                                          /* duplicate checks are no      */
                                          /* longer valid. Value is in    */
                                          /* seconds.                     */
 #endif
+          int            filename_pos_subject;
+                                         /* Where in subject the file-   */
+                                         /* name is to be positioned.    */
           char           job_no;         /* The job number of current    */
                                          /* transfer process.            */
 #ifdef _OUTPUT_LOG
@@ -737,7 +672,7 @@ struct trl_cache
            }                                                  \
         }
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int   append_compare(char *, char *),
              archive_file(char *, char *, struct job *),
              check_burst_2(char *, int *, unsigned int *),

@@ -1,6 +1,6 @@
 /*
  *  trans_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -101,7 +101,17 @@ trans_log(char *sign, char *file, int line, char *msg_str, char *fmt, ...)
    buf[10] = (p_ts->tm_sec % 10) + '0';
    buf[11] = ' ';
    buf[12] = sign[0];
-   buf[13] = sign[1];
+   if (((sign[1] == 'E') || (sign[1] == 'W')) &&
+        ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
+         (fsa->host_status & HOST_ERROR_OFFLINE) ||
+         (fsa->host_status & HOST_ERROR_OFFLINE_T)))
+   {
+      buf[13] = 'O';
+   }
+   else
+   {
+      buf[13] = sign[1];
+   }
    buf[14] = sign[2];
    buf[15] = ' ';
 

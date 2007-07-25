@@ -858,6 +858,7 @@ usage(void)
    (void)fprintf(stderr, "      %2d - Zielverzeichnis konnte nicht gesetzt werden.\n", CHDIR_ERROR);
    (void)fprintf(stderr, "      %2d - Verbindung abgebrochen (FTP-timeout).\n", TIMEOUT_ERROR);
    (void)fprintf(stderr, "      %2d - Der remote partner hat Verbindung abgebrochen.\n", CONNECTION_RESET_ERROR);
+   (void)fprintf(stderr, "      %2d - Der remote partner hat sich geweigert die Verbindung anzunehmen.\n", CONNECTION_REFUSED_ERROR);
    (void)fprintf(stderr, "      %2d - Ursprungsdatei konnte nicht geoeffnet werden.\n", OPEN_LOCAL_ERROR);
    (void)fprintf(stderr, "      %2d - Fehler beim lesen der Ursprungsdatei.\n", READ_LOCAL_ERROR);
    (void)fprintf(stderr, "      %2d - Systemfehler stat().\n", STAT_ERROR);
@@ -965,6 +966,7 @@ usage(void)
    (void)fprintf(stderr, "      %2d - Remote directory could not be set.\n", CHDIR_ERROR);
    (void)fprintf(stderr, "      %2d - %s.\n", TIMEOUT_ERROR, TIMEOUT_ERROR_STR);
    (void)fprintf(stderr, "      %2d - %s.\n", CONNECTION_RESET_ERROR, CONNECTION_RESET_ERROR_STR);
+   (void)fprintf(stderr, "      %2d - %s.\n", CONNECTION_REFUSED_ERROR, CONNECTION_REFUSED_ERROR_STR);
    (void)fprintf(stderr, "      %2d - Could not open source file.\n", OPEN_LOCAL_ERROR);
    (void)fprintf(stderr, "      %2d - Failed to read source file.\n", READ_LOCAL_ERROR);
    (void)fprintf(stderr, "      %2d - System error stat().\n", STAT_ERROR);

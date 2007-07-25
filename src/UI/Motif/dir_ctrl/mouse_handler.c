@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -111,6 +111,7 @@ extern unsigned long              color_pool[];
 extern char                       fake_user[],
                                   font_name[],
                                   line_style,
+                                  profile[],
                                   *p_work_dir,
                                   user[],
                                   username[];
@@ -224,15 +225,20 @@ dir_input(Widget      w,
              (event->xkey.state & Mod4Mask)) &&
              (event->xany.type == ButtonPress))
          {
-            int gotcha = NO,
-                i;
+            int    gotcha = NO,
+                   i;
+            Window window_id;
 
             for (i = 0; i < no_of_active_process; i++)
             {
                if ((apps_list[i].position == select_no) &&
-                   (strcmp(apps_list[i].progname, DIR_INFO) == 0))
+                   (CHECK_STRCMP(apps_list[i].progname, DIR_INFO) == 0))
                {
-                  gotcha = YES;
+                  if ((window_id = get_window_id(apps_list[i].pid,
+                                                 DIR_CTRL)) != 0L)
+                  {
+                     gotcha = YES;
+                  }
                   break;
                }
             }
@@ -262,9 +268,9 @@ dir_input(Widget      w,
             }
             else
             {
-               (void)xrec(appshell, INFO_DIALOG,
-                          "Information dialog for %s is already open on your display.",
-                          fra[select_no].dir_alias);
+               XRaiseWindow(display, window_id);
+               XSetInputFocus(display, window_id, RevertToParent,
+                              CurrentTime);
             }
          }
          else if (event->xany.type == ButtonPress)
@@ -386,7 +392,8 @@ dir_popup_cb(Widget    w,
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
        ((sel_typ == DIR_DISABLE_SEL) || (sel_typ == DIR_INFO_SEL) ||
-        (sel_typ == DIR_RESCAN_SEL) || (sel_typ == DIR_VIEW_DC_SEL)))
+        (sel_typ == DIR_RESCAN_SEL) || (sel_typ == DIR_VIEW_DC_SEL) ||
+        (sel_typ == DIR_HANDLE_EVENT_SEL)))
    {
       (void)xrec(appshell, INFO_DIALOG,
                  "You must first select a directory!\nUse mouse button 1 together with the SHIFT or CTRL key.");
@@ -403,6 +410,31 @@ dir_popup_cb(Widget    w,
 
    switch (sel_typ)
    {
+      case DIR_HANDLE_EVENT_SEL:
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
+         if (profile[0] != '\0')
+         {
+            args[offset] = "-p";
+            args[offset + 1] = profile;
+            offset += 2;
+         }
+         (void)strcpy(progname, HANDLE_EVENT);
+         break;
+
       case DIR_DISABLE_SEL:
       case DIR_RESCAN_SEL:
          break;
@@ -441,6 +473,25 @@ dir_popup_cb(Widget    w,
          make_xprocess(progname, progname, args, -1);
          return;
 
+      case E_LOG_SEL : /* Event Log */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
+         (void)strcpy(progname, SHOW_ELOG);
+         break;
+
       case R_LOG_SEL : /* Receive Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
@@ -463,17 +514,6 @@ dir_popup_cb(Widget    w,
          args[6] = log_typ;
          (void)strcpy(progname, SHOW_LOG);
          (void)strcpy(log_typ, TRANSFER_STR);
-         break;
-
-      case D_LOG_SEL : /* Transfer Debug Log */
-         args[0] = progname;
-         args[1] = WORK_DIR_ID;
-         args[2] = p_work_dir;
-         args[3] = "-f";
-         args[4] = font_name;
-         args[5] = "-l";
-         args[6] = log_typ;
-         (void)strcpy(progname, SHOW_LOG);
          break;
 
       case I_LOG_SEL : /* Input Log */
@@ -514,7 +554,7 @@ dir_popup_cb(Widget    w,
          (void)strcpy(progname, SHOW_OLOG);
          break;
 
-      case E_LOG_SEL : /* Delete Log */
+      case D_LOG_SEL : /* Delete Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -530,7 +570,7 @@ dir_popup_cb(Widget    w,
          {
             offset = 5;
          }
-         (void)strcpy(progname, SHOW_RLOG);
+         (void)strcpy(progname, SHOW_DLOG);
          break;
 
       case SHOW_QUEUE_SEL : /* Queue */
@@ -661,6 +701,14 @@ dir_popup_cb(Widget    w,
          {
             FREE_RT_ARRAY(dcp.show_slog_list);
          }
+         if (dcp.show_rlog_list != NULL)
+         {
+            FREE_RT_ARRAY(dcp.show_rlog_list);
+         }
+         if (dcp.show_elog_list != NULL)
+         {
+            FREE_RT_ARRAY(dcp.show_elog_list);
+         }
          if (dcp.show_tlog_list != NULL)
          {
             FREE_RT_ARRAY(dcp.show_tlog_list);
@@ -672,6 +720,10 @@ dir_popup_cb(Widget    w,
          if (dcp.show_olog_list != NULL)
          {
             FREE_RT_ARRAY(dcp.show_olog_list);
+         }
+         if (dcp.show_dlog_list != NULL)
+         {
+            FREE_RT_ARRAY(dcp.show_dlog_list);
          }
          if (dcp.afd_load_list != NULL)
          {
@@ -735,10 +787,13 @@ dir_popup_cb(Widget    w,
       }
    }
    else if (((sel_typ == I_LOG_SEL) || (sel_typ == O_LOG_SEL) ||
-             (sel_typ == E_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL)) &&
+             (sel_typ == D_LOG_SEL) ||  (sel_typ == E_LOG_SEL) ||
+             (sel_typ == SHOW_QUEUE_SEL) ||
+             (sel_typ == DIR_HANDLE_EVENT_SEL)) &&
             ((no_selected > 0) || (no_selected_static > 0)))
         {
            args[offset] = "-d";
+           offset++;
         }
 
    current_time = time(NULL);
@@ -756,7 +811,8 @@ dir_popup_cb(Widget    w,
                {
                   fra[i].dir_flag ^= DIR_DISABLED;
                   SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
-                  config_log("ENABLED directory %s", fra[i].dir_alias);
+                  config_log(EC_DIR, ET_MAN, EA_ENABLE_DIRECTORY,
+                             fra[i].dir_alias, NULL);
                }
                else
                {
@@ -766,7 +822,8 @@ dir_popup_cb(Widget    w,
                   {
                      fra[i].dir_flag ^= DIR_DISABLED;
                      SET_DIR_STATUS(fra[i].dir_flag, fra[i].dir_status);
-                     config_log("DISABLED directory %s", fra[i].dir_alias);
+                     config_log(EC_DIR, ET_MAN, EA_DISABLE_DIRECTORY,
+                                fra[i].dir_alias, NULL);
 
                      if (fra[i].host_alias[0] != '\0')
                      {
@@ -829,6 +886,8 @@ dir_popup_cb(Widget    w,
                if ((fra[i].time_option != NO) &&
                    (fra[i].next_check_time > current_time))
                {
+                  event_log(current_time, EC_DIR, ET_MAN, EA_RESCAN_DIRECTORY,
+                            "%s", user);
                   fra[i].next_check_time = current_time;
                   if (fra[i].host_alias[0] != '\0')
                   {
@@ -839,15 +898,20 @@ dir_popup_cb(Widget    w,
 
             case DIR_INFO_SEL : /* Show information for this directory. */
                {
-                  int gotcha = NO,
-                      ii;
+                  int    gotcha = NO,
+                         ii;
+                  Window window_id;
 
                   for (ii = 0; ii < no_of_active_process; ii++)
                   {
                      if ((apps_list[ii].position == i) &&
-                         (strcmp(apps_list[ii].progname, DIR_INFO) == 0))
+                         (CHECK_STRCMP(apps_list[ii].progname, DIR_INFO) == 0))
                      {
-                        gotcha = YES;
+                        if ((window_id = get_window_id(apps_list[ii].pid,
+                                                       DIR_CTRL)) != 0L)
+                        {
+                           gotcha = YES;
+                        }
                         break;
                      }
                   }
@@ -858,24 +922,29 @@ dir_popup_cb(Widget    w,
                   }
                   else
                   {
-                     (void)xrec(appshell, INFO_DIALOG,
-                                "Information dialog for %s is already open on your display.",
-                                fra[i].dir_alias);
+                     XRaiseWindow(display, window_id);
+                     XSetInputFocus(display, window_id, RevertToParent,
+                                    CurrentTime);
                   }
                }
                break;
 
             case DIR_VIEW_DC_SEL : /* Show DIR_CONFIG data for this directory. */
                {
-                  int gotcha = NO,
-                      ii;
+                  int    gotcha = NO,
+                         ii;
+                  Window window_id;
 
                   for (ii = 0; ii < no_of_active_process; ii++)
                   {
                      if ((apps_list[ii].position == i) &&
-                         (strcmp(apps_list[ii].progname, VIEW_DC) == 0))
+                         (CHECK_STRCMP(apps_list[ii].progname, VIEW_DC) == 0))
                      {
-                        gotcha = YES;
+                        if ((window_id = get_window_id(apps_list[ii].pid,
+                                                       DIR_CTRL)) != 0L)
+                        {
+                           gotcha = YES;
+                        }
                         break;
                      }
                   }
@@ -886,19 +955,58 @@ dir_popup_cb(Widget    w,
                   }
                   else
                   {
-                     (void)xrec(appshell, INFO_DIALOG,
-                                "Configuration dialog for %s is already open on your display.",
-                                fra[i].dir_alias);
+                     XRaiseWindow(display, window_id);
+                     XSetInputFocus(display, window_id, RevertToParent,
+                                    CurrentTime);
                   }
                }
                break;
 
+            case DIR_HANDLE_EVENT_SEL : /* Handle event. */
+               {
+                  int    gotcha = NO,
+                         ii;
+                  Window window_id;
+
+                  for (ii = 0; ii < no_of_active_process; ii++)
+                  {
+                     if ((apps_list[ii].position == -1) &&
+                         (CHECK_STRCMP(apps_list[ii].progname, HANDLE_EVENT) == 0))
+                     {
+                        if ((window_id = get_window_id(apps_list[ii].pid,
+                                                       DIR_CTRL)) != 0L)
+                        {
+                           gotcha = YES;
+                        }
+                        break;
+                     }
+                  }
+                  if (gotcha == NO)
+                  {
+                     args[offset + k] = fra[i].dir_alias;
+                     k++;
+                  }
+                  else
+                  {
+                     XRaiseWindow(display, window_id);
+                     XSetInputFocus(display, window_id, RevertToParent,
+                                    CurrentTime);
+                     return;
+                  }
+               }
+               break;
+
+            case E_LOG_SEL : /* View Event Log. */
+               args[offset + k] = fra[i].dir_alias;
+               k++;
+               break;
+
             case O_LOG_SEL : /* View Output Log. */
-            case E_LOG_SEL : /* View Delete Log. */
+            case D_LOG_SEL : /* View Delete Log. */
             case I_LOG_SEL : /* View Input Log. */
             case SHOW_QUEUE_SEL : /* View Queue. */
                (void)sprintf(dirs[k], "%x", fra[i].dir_id);
-               args[offset + 1 + k] = dirs[k];
+               args[offset + k] = dirs[k];
                k++;
                break;
 
@@ -985,9 +1093,10 @@ dir_popup_cb(Widget    w,
       make_xprocess(progname, progname, args, -1);
    }
    else if ((sel_typ == I_LOG_SEL) || (sel_typ == O_LOG_SEL) ||
-            (sel_typ == E_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
+            (sel_typ == D_LOG_SEL) || (sel_typ == E_LOG_SEL) ||
+            (sel_typ == SHOW_QUEUE_SEL) || (sel_typ == DIR_HANDLE_EVENT_SEL))
         {
-           args[k + 6] = NULL;
+           args[k + offset] = NULL;
            make_xprocess(progname, progname, args, -1);
         }
 

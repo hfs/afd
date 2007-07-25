@@ -185,9 +185,7 @@ send_files(int no_selected, int *select_list)
    }
 
    /*
-    * Now we have the job ID of every file that is to be resend.
-    * Plus we have removed those that have not been archived or
-    * could not be found.
+    * Now we have checked all files are in archive that are to be send.
     * Lets lookup the archive directory for each job ID and then
     * collect all files that are to be resend for this ID. When
     * all files have been collected we start sending all of them
@@ -349,7 +347,7 @@ get_archive_data(int pos, int file_no)
       return(INCORRECT);
    }
 
-   ptr = &buffer[11 + MAX_HOSTNAME_LENGTH + 3];
+   ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
 
    /* Mark end of file name. */
    while (*ptr != SEPARATOR_CHAR)
@@ -412,7 +410,7 @@ get_archive_data(int pos, int file_no)
    *(p_archive_name + i++) = '_';
 
    /* Copy the file name to the archive directory. */
-   (void)strcpy((p_archive_name + i), &buffer[11 + MAX_HOSTNAME_LENGTH + 3]);
+   (void)strcpy((p_archive_name + i), &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3]);
    p_file_name = p_archive_name + i;
 
    return(SUCCESS);

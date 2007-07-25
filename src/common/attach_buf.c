@@ -56,7 +56,6 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <string.h>
-#include <stdlib.h>                 /* exit()                            */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
@@ -86,10 +85,10 @@ attach_buf(char   *file,
     */
    if ((*fd = coe_open(file, O_RDWR | O_CREAT, mode)) == -1)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to open() and create `%s' : %s",
                  file, strerror(errno));
-      exit(INCORRECT);
+      return((caddr_t) -1);
    }
    if (prog_name != NULL)
    {
@@ -116,16 +115,16 @@ attach_buf(char   *file,
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Another `%s' is already running. Terminating.",
                        prog_name);
-            exit(INCORRECT);
+            return((caddr_t) -1);
          }
       }
    }
 
    if (fstat(*fd, &stat_buf) == -1)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to fstat() `%s' : %s", file, strerror(errno));
-      exit(INCORRECT);
+      return((caddr_t) -1);
    }
 
    if (stat_buf.st_size < new_size)
@@ -139,15 +138,15 @@ attach_buf(char   *file,
 
       if (write(*fd, &buf_size, sizeof(int)) != sizeof(int))
       {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to write() to `%s' : %s", file, strerror(errno));
-         exit(INCORRECT);
+         return((caddr_t) -1);
       }
       if (lseek(*fd, stat_buf.st_size, SEEK_SET) == -1)
       {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to lseek() `%s' : %s", file, strerror(errno));
-         exit(INCORRECT);
+         return((caddr_t) -1);
       }
       write_size = new_size - stat_buf.st_size;
       (void)memset(buffer, 0, 4096);
@@ -157,18 +156,18 @@ attach_buf(char   *file,
       {
          if (write(*fd, buffer, 4096) != 4096)
          {
-            system_log(FATAL_SIGN, __FILE__, __LINE__,
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to write() to `%s' : %s", file, strerror(errno));
-            exit(INCORRECT);
+            return((caddr_t) -1);
          }
       }
       if (rest > 0)
       {
          if (write(*fd, buffer, rest) != rest)
          {
-            system_log(FATAL_SIGN, __FILE__, __LINE__,
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Failed to write() to `%s' : %s", file, strerror(errno));
-            exit(INCORRECT);
+            return((caddr_t) -1);
          }
       }
    }

@@ -39,6 +39,12 @@ are available.
    <td>Resend files.</td>
 </tr>
 <tr>
+   <td>send</td>
+   <td>Send files to host not in DIR_CONFIG from <a href="show_olog.html">
+       show_olog</a> and/or <a href="show_queue.html">show_queue</a>
+       dialog.</td>
+</tr>
+<tr>
    <td>view_passwd</td>
    <td>View the password in the recipient string. If not set you will
        only see xxxx in place of the password.</td>
@@ -46,6 +52,10 @@ are available.
 <tr>
    <td>set_passwd</td>
    <td>Set the password for a certain host and user.</td>
+</tr>
+<tr>
+   <td>view_data</td>
+   <td>Allows user to view the actual data distributed by AFD.</td>
 </tr>
 <tr>
    <td>list_limit x</td>
@@ -58,11 +68,15 @@ are available.
    <td>View the <a href="show_log.html">system log</a> dialog.</td>
 </tr>
 <tr>
+   <td>show_elog</td>
+   <td>View the <a href="show_elog.html">event log</a> dialog.</td>
+</tr>
+<tr>
    <td>show_tlog</td>
    <td>View the <a href="show_log.html">transfer log</a> dialog.</td>
 </tr>
 <tr>
-   <td>show_dlog</td>
+   <td>show_tdlog</td>
    <td>View the <a href="show_log.html">transfer debug log</a>
        dialog.</td>
 </tr>
@@ -79,8 +93,8 @@ are available.
    <td>View the <a href="show_olog.html">output log</a> dialog.</td>
 </tr>
 <tr>
-   <td>show_elog</td>
-   <td>View the delete log.</td>
+   <td>show_dlog</td>
+   <td>View the <a href="show_dlog.html">delete log</a> dialog.</td>
 </tr>
 <tr>
    <td>show_queue</td>
@@ -128,6 +142,11 @@ are available.
 <tr>
    <td>FD_control</td>
    <td>Start/Stop FD</td>
+</tr>
+<tr>
+   <td>handle_events</td>
+   <td>Allows user to handle events via afd_ctrl and/or dir_ctrl
+       dialog.</td>
 </tr>
 <tr>
    <td>control_queue</td>
@@ -226,9 +245,9 @@ are available.
 <table width=100%>
 <tr>
    <td width=90%><small><address>
-   Copyright &copy; 1999 - 2006 by H.Kiehl<br>
+   Copyright &copy; 1999 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 31.01.2006
+   Last updated: 21.07.2007
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

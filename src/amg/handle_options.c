@@ -146,6 +146,7 @@ DESCR__S_M3
  **                      DELETE_LOG.
  **   20.07.2006 H.Kiehl Added 'convert mrz2wmo'.
  **   11.02.2007 H.Kiehl Added locking option to exec.
+ **   30.04.2007 H.Kiehl Recount files when we rename and overwrite files.
  **
  */
 DESCR__E_M3
@@ -256,7 +257,7 @@ handle_options(int            position,
 
       /* Check if we have to rename */
       if ((db[position].loptions_flag & RENAME_ID_FLAG) &&
-          (strncmp(options, RENAME_ID, RENAME_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, RENAME_ID, RENAME_ID_LENGTH) == 0))
       {
          /*
           * To rename a file we first look in the rename table 'rule' to
@@ -315,6 +316,7 @@ handle_options(int            position,
                      register int k,
                                   overwrite,
                                   ret;
+                     int          recount_files_var = NO;
                      char         changed_name[MAX_FILENAME_LENGTH],
                                   *p_overwrite;
 
@@ -426,26 +428,41 @@ search_again:
 #endif /* !_WITH_PTHREAD */
                               (void)strcpy(p_newname, changed_name);
 
-#ifdef _WITH_PTHREAD
                               /*
                                * Could be that we overwrite an existing
-                               * file. If thats the case, subtract this
-                               * from file_size and files_to_send. But
+                               * file. If thats the case, we need to
+                               * redo the file_name_buffer. But
                                * the changed name may not be the same
                                * name as the new one, else we get the
                                * counters wrong in afd_ctrl. Worth, when
                                * we only have one file to send, we will
                                * loose it!
                                */
-                              if (((overwrite == YES) ||
-                                   (CHECK_STRCMP(p_file_name, changed_name) != 0)) &&
+                              if ((recount_files_var == NO) &&
+#ifdef _WITH_PTHREAD
+                                  ((overwrite == YES) ||
+                                   (CHECK_STRCMP(p_file_name, changed_name) != 0)))
 #else
-                              if ((overwrite == YES) &&
+                                  (overwrite == YES))
 #endif
-                                  (stat(newname, &stat_buf) != -1))
                               {
-                                 (*files_to_send)--;
-                                 *file_size -= stat_buf.st_size;
+                                 int  m;
+                                 char *p_tmp_file_name;
+
+                                 p_tmp_file_name = file_name_buffer;
+                                 for (m = 0; m < file_counter; m++)
+                                 {
+                                    if (m != j)
+                                    {
+                                       if (CHECK_STRCMP(p_tmp_file_name,
+                                                        changed_name) == 0)
+                                       {
+                                          recount_files_var = YES;
+                                          break;
+                                       }
+                                    }
+                                    p_tmp_file_name += MAX_FILENAME_LENGTH;
+                                 }
                               }
                               if (rename(fullname, newname) < 0)
                               {
@@ -476,9 +493,18 @@ search_again:
                                     */
                                    break;
                                 }
-                        }
+                        } /* for (k = 0; k < rule[rule_pos].no_of_rules; k++) */
 
                         p_file_name += MAX_FILENAME_LENGTH;
+                     } /* for (j = 0; j < file_counter; j++) */
+
+                     if (recount_files_var == YES)
+                     {
+#ifdef _WITH_PTHREAD
+                        *files_to_send = recount_files(file_path, file_size);
+#else
+                        *files_to_send = restore_files(file_path, file_size);
+#endif
                      }
 #ifdef _WITH_PTHREAD
                   }
@@ -495,7 +521,7 @@ search_again:
 
       /* Check if we have to execute a command */
       if ((db[position].loptions_flag & EXEC_ID_FLAG) &&
-          (strncmp(options, EXEC_ID, EXEC_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, EXEC_ID, EXEC_ID_LENGTH) == 0))
       {
 #ifndef _WITH_PTHREAD
          int    file_counter = *files_to_send;
@@ -589,8 +615,8 @@ search_again:
                           if (i < MAX_INT_LENGTH)
                           {
                              str_number[i] = '\0';
-                             exec_timeout = strtol(str_number,
-                                                   (char **)NULL, 10);
+                             exec_timeout = str2timet(str_number,
+                                                      (char **)NULL, 10);
                           }
                           else
                           {
@@ -1157,6 +1183,7 @@ search_again:
                               break;
                            }
                         }
+                        p_tmp_file_name += MAX_FILENAME_LENGTH;
                      }
                   }
 #ifndef _WITH_PTHREAD
@@ -1263,6 +1290,7 @@ search_again:
                               break;
                            }
                         }
+                        p_tmp_file_name += MAX_FILENAME_LENGTH;
                      }
                   }
 #ifndef _WITH_PTHREAD
@@ -1290,7 +1318,7 @@ search_again:
 
       /* Check if it's the add prefix option */
       if ((db[position].loptions_flag & ADD_PREFIX_ID_FLAG) &&
-          (strncmp(options, ADD_PREFIX_ID, ADD_PREFIX_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, ADD_PREFIX_ID, ADD_PREFIX_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int file_counter = 0;
@@ -1355,6 +1383,7 @@ search_again:
                               break;
                            }
                         }
+                        p_tmp_file_name += MAX_FILENAME_LENGTH;
                      }
                   }
 #ifndef _WITH_PTHREAD
@@ -1382,7 +1411,7 @@ search_again:
 
       /* Check if it's the delete prefix option */
       if ((db[position].loptions_flag & DEL_PREFIX_ID_FLAG) &&
-          (strncmp(options, DEL_PREFIX_ID, DEL_PREFIX_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, DEL_PREFIX_ID, DEL_PREFIX_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int file_counter = 0;
@@ -1413,7 +1442,7 @@ search_again:
             for (j = 0; j < file_counter; j++)
             {
                (void)strcpy(ptr, p_file_name);
-               if (strncmp(p_file_name, p_prefix, strlen(p_prefix)) == 0)
+               if (CHECK_STRNCMP(p_file_name, p_prefix, strlen(p_prefix)) == 0)
                {
                   /* Generate name with prefix */
                   (void)strcpy(p_newname, p_file_name + strlen(p_prefix));
@@ -1447,6 +1476,7 @@ search_again:
                                  break;
                               }
                            }
+                           p_tmp_file_name += MAX_FILENAME_LENGTH;
                         }
                      }
 #ifndef _WITH_PTHREAD
@@ -1476,7 +1506,7 @@ search_again:
 
       /* Check if it's the toupper option */
       if ((db[position].loptions_flag & TOUPPER_ID_FLAG) &&
-          (strncmp(options, TOUPPER_ID, TOUPPER_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, TOUPPER_ID, TOUPPER_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;
@@ -1538,6 +1568,7 @@ search_again:
                               break;
                            }
                         }
+                        p_tmp_file_name += MAX_FILENAME_LENGTH;
                      }
                   }
 #ifndef _WITH_PTHREAD
@@ -1566,7 +1597,7 @@ search_again:
 
       /* Check if it's the tolower option */
       if ((db[position].loptions_flag & TOLOWER_ID_FLAG) &&
-          (strncmp(options, TOLOWER_ID, TOLOWER_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, TOLOWER_ID, TOLOWER_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;
@@ -1628,6 +1659,7 @@ search_again:
                               break;
                            }
                         }
+                        p_tmp_file_name += MAX_FILENAME_LENGTH;
                      }
                   }
 #ifndef _WITH_PTHREAD
@@ -1996,7 +2028,7 @@ search_again:
 
       /* Check if we want to convert GRIB files to WMO files */
       if ((db[position].loptions_flag & GRIB2WMO_ID_FLAG) &&
-          (strncmp(options, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, GRIB2WMO_ID, GRIB2WMO_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0;
@@ -2021,7 +2053,7 @@ search_again:
                   ptr++;
                }
                j = 0;
-               while ((isalpha(*ptr)) && (j < 4))
+               while ((isalpha((int)(*ptr))) && (j < 4))
                {
                   cccc[j] = *ptr;
                   j++; ptr++;
@@ -2104,7 +2136,7 @@ search_again:
 
       /* Check if we want extract bulletins from a file. */
       if ((db[position].loptions_flag & EXTRACT_ID_FLAG) &&
-          (strncmp(options, EXTRACT_ID, EXTRACT_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, EXTRACT_ID, EXTRACT_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0,
@@ -2113,7 +2145,8 @@ search_again:
 #endif
               extract_options = DEFAULT_EXTRACT_OPTIONS,
               extract_typ;
-         char *p_extract_id;
+         char *p_extract_id,
+              *p_filter;
 #ifdef _PRODUCTION_LOG
          char extract_id[6];
 #endif
@@ -2182,9 +2215,11 @@ search_again:
             } while (*p_extract_id == '-');
          }
          if ((*p_extract_id == 'V') && (*(p_extract_id + 1) == 'A') &&
-             (*(p_extract_id + 2) == 'X'))
+             (*(p_extract_id + 2) == 'X') &&
+             ((*(p_extract_id + 3) == ' ') || (*(p_extract_id + 3) == '\0')))
          {
             extract_typ = TWO_BYTE;
+            p_extract_id += 3;
 #ifdef _PRODUCTION_LOG
             extract_id[0] = 'V';
             extract_id[1] = 'A';
@@ -2193,9 +2228,11 @@ search_again:
 #endif
          }
          else if ((*p_extract_id == 'L') && (*(p_extract_id + 1) == 'B') &&
-                  (*(p_extract_id + 2) == 'F'))
+                  (*(p_extract_id + 2) == 'F') &&
+                  ((*(p_extract_id + 3) == ' ') || (*(p_extract_id + 3) == '\0')))
               {
                  extract_typ = FOUR_BYTE_LBF;
+                 p_extract_id += 3;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'L';
                  extract_id[1] = 'B';
@@ -2204,9 +2241,11 @@ search_again:
 #endif
               }
          else if ((*p_extract_id == 'H') && (*(p_extract_id + 1) == 'B') &&
-                  (*(p_extract_id + 2) == 'F'))
+                  (*(p_extract_id + 2) == 'F') &&
+                  ((*(p_extract_id + 3) == ' ') || (*(p_extract_id + 3) == '\0')))
               {
                  extract_typ = FOUR_BYTE_HBF;
+                 p_extract_id += 3;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'H';
                  extract_id[1] = 'B';
@@ -2215,9 +2254,11 @@ search_again:
 #endif
               }
          else if ((*p_extract_id == 'M') && (*(p_extract_id + 1) == 'S') &&
-                  (*(p_extract_id + 2) == 'S'))
+                  (*(p_extract_id + 2) == 'S') &&
+                  ((*(p_extract_id + 3) == ' ') || (*(p_extract_id + 3) == '\0')))
               {
                  extract_typ = FOUR_BYTE_MSS;
+                 p_extract_id += 3;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'M';
                  extract_id[1] = 'S';
@@ -2226,9 +2267,11 @@ search_again:
 #endif
               }
          else if ((*p_extract_id == 'M') && (*(p_extract_id + 1) == 'R') &&
-                  (*(p_extract_id + 2) == 'Z'))
+                  (*(p_extract_id + 2) == 'Z') &&
+                  ((*(p_extract_id + 3) == ' ') || (*(p_extract_id + 3) == '\0')))
               {
                  extract_typ = FOUR_BYTE_MRZ;
+                 p_extract_id += 3;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'M';
                  extract_id[1] = 'R';
@@ -2237,9 +2280,12 @@ search_again:
 #endif
               }
          else if ((*p_extract_id == 'G') && (*(p_extract_id + 1) == 'R') &&
-                  (*(p_extract_id + 2) == 'I') && (*(p_extract_id + 3) == 'B'))
+                  (*(p_extract_id + 2) == 'I') &&
+                  (*(p_extract_id + 3) == 'B') &&
+                  ((*(p_extract_id + 4) == ' ') || (*(p_extract_id + 4) == '\0')))
               {
                  extract_typ = FOUR_BYTE_GRIB;
+                 p_extract_id += 4;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'G';
                  extract_id[1] = 'R';
@@ -2249,9 +2295,11 @@ search_again:
 #endif
               }
          else if ((*p_extract_id == 'W') && (*(p_extract_id + 1) == 'M') &&
-                  (*(p_extract_id + 2) == 'O'))
+                  (*(p_extract_id + 2) == 'O') &&
+                  ((*(p_extract_id + 3) == ' ') || (*(p_extract_id + 3) == '\0')))
               {
                  extract_typ = WMO_STANDARD;
+                 p_extract_id += 3;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'W';
                  extract_id[1] = 'M';
@@ -2261,9 +2309,12 @@ search_again:
               }
          else if ((*p_extract_id == 'A') && (*(p_extract_id + 1) == 'S') &&
                   (*(p_extract_id + 2) == 'C') &&
-                  (*(p_extract_id + 3) == 'I') && (*(p_extract_id + 4) == 'I'))
+                  (*(p_extract_id + 3) == 'I') &&
+                  (*(p_extract_id + 4) == 'I') &&
+                  ((*(p_extract_id + 5) == ' ') || (*(p_extract_id + 5) == '\0')))
               {
                  extract_typ = ASCII_STANDARD;
+                 p_extract_id += 5;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'A';
                  extract_id[1] = 'S';
@@ -2277,6 +2328,7 @@ search_again:
               {
                  /* To stay compatible to Version 0.8.x */
                  extract_typ = FOUR_BYTE_MRZ;
+                 p_extract_id -= 1;
 #ifdef _PRODUCTION_LOG
                  extract_id[0] = 'M';
                  extract_id[1] = 'R';
@@ -2292,6 +2344,19 @@ search_again:
                  NEXT(options);
                  continue;
               }
+
+          while (*p_extract_id == ' ')
+          {
+             p_extract_id++;
+          }
+          if (*p_extract_id != '\0')
+          {
+             p_filter = p_extract_id;
+          }
+          else
+          {
+             p_filter = NULL;
+          }
 
 #ifdef _WITH_PTHREAD
          if ((file_counter = get_file_names(file_path, &file_name_buffer,
@@ -2309,12 +2374,14 @@ search_again:
                {
                   (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
                   if (bin_file_chopper(fullname, files_to_send, file_size,
+                                       p_filter,
 #ifdef _PRODUCTION_LOG
-                      (extract_typ == FOUR_BYTE_MRZ) ? NO : YES,
-                      creation_time, unique_number, split_job_counter,
-                      extract_id, p_file_name) < 0)
+                                       (extract_typ == FOUR_BYTE_MRZ) ? NO : YES,
+                                       creation_time, unique_number,
+                                       split_job_counter,
+                                       extract_id, p_file_name) < 0)
 #else
-                      (extract_typ == FOUR_BYTE_MRZ) ? NO : YES) < 0)
+                                       (extract_typ == FOUR_BYTE_MRZ) ? NO : YES) < 0)
 #endif
                   {
                      receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
@@ -2353,7 +2420,7 @@ search_again:
                for (j = 0; j < file_counter; j++)
                {
                   (void)sprintf(fullname, "%s/%s", file_path, p_file_name);
-                  if (extract(p_file_name, file_path,
+                  if (extract(p_file_name, file_path, p_filter,
 #ifdef _PRODUCTION_LOG
                               creation_time, unique_number,
                               split_job_counter, extract_id,
@@ -2411,7 +2478,7 @@ search_again:
 
       /* Check if we want assemble bulletins to a file. */
       if ((db[position].loptions_flag & ASSEMBLE_ID_FLAG) &&
-          (strncmp(options, ASSEMBLE_ID, ASSEMBLE_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, ASSEMBLE_ID, ASSEMBLE_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int  file_counter = 0,
@@ -2591,7 +2658,7 @@ search_again:
 
       /* Check if we want convert a file from one format to another. */
       if ((db[position].loptions_flag & CONVERT_ID_FLAG) &&
-          (strncmp(options, CONVERT_ID, CONVERT_ID_LENGTH) == 0))
+          (CHECK_STRNCMP(options, CONVERT_ID, CONVERT_ID_LENGTH) == 0))
       {
 #ifdef _WITH_PTHREAD
          int file_counter = 0;

@@ -44,7 +44,12 @@ DESCR__S_M3
 DESCR__E_M3
 
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h>                      /* malloc()                     */
+#include <unistd.h>                      /* close()                      */
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>                       /* O_RDONLY                     */
+#include <sys/mman.h>                    /* munmap()                     */
 #include <Xm/Xm.h>
 #include <Xm/Form.h>
 #include <Xm/RowColumn.h>
@@ -59,37 +64,44 @@ DESCR__E_M3
 #include <errno.h>
 #include "mon_ctrl.h"
 
-/* Global variables */
+/* Global variables. */
 Widget                        findshell = (Widget)NULL;
 
-/* External global variables */
+/* External global variables. */
 extern Display                *display;
 extern Widget                 appshell;
 extern int                    no_of_afds,
                               no_selected,
                               no_selected_static;
-extern char                   font_name[];
+extern char                   font_name[],
+                              *p_work_dir;
 extern struct mon_line        *connect_data;
 extern struct mon_status_area *msa;
 
-/* Local global variables */
+/* Local global variables. */
 static Widget                 alias_toggle_w,
                               find_text_w;
 static int                    deselect,
-                              afdname_type,
+                              name_class,
+                              name_type,
                               static_select;
 
 /* Local function prototypes. */
 static void                   done_button(Widget, XtPointer, XtPointer),
                               search_select_afd(Widget, XtPointer, XtPointer),
-                              select_callback(Widget, XtPointer, XtPointer);
+                              select_callback(Widget, XtPointer, XtPointer),
+                              select_line(int);
 
 #define STATIC_SELECT_CB      1
 #define DESELECT_CB           2
-#define ALIAS_AFDNAME_CB      3
-#define REAL_AFDNAME_CB       4
+#define AFD_NAME_CLASS_CB     3
+#define HOST_NAME_CLASS_CB    4
+#define ALIAS_AFDNAME_CB      5
+#define REAL_AFDNAME_CB       6
 #define ALIAS_NAME            1
 #define REAL_NAME             2
+#define AFD_NAME_CLASS        1
+#define HOST_NAME_CLASS       2
 
 
 /*######################### select_afd_dialog() #########################*/
@@ -119,10 +131,10 @@ select_afd_dialog(Widget w, XtPointer client_data, XtPointer call_data)
       findshell = XtVaCreatePopupShell("Search AFD", topLevelShellWidgetClass,
                                        appshell, NULL);
 
-      /* Create managing widget */
+      /* Create managing widget. */
       main_form_w = XmCreateForm(findshell, "main_form", NULL, 0);
 
-      /* Prepare font */
+      /* Prepare font. */
       if ((entry = XmFontListEntryLoad(XtDisplay(main_form_w), font_name,
                                        XmFONT_IS_FONT, "TAG1")) == NULL)
       {
@@ -217,7 +229,7 @@ select_afd_dialog(Widget w, XtPointer client_data, XtPointer call_data)
       /*---------------------------------------------------------------*/
       /*                        Enter AFD name                         */
       /*---------------------------------------------------------------*/
-      dialog_w = XtVaCreateManagedWidget("Search AFD name:",
+      dialog_w = XtVaCreateManagedWidget("Search AFD/Host name:",
                         xmLabelGadgetClass,  criteriabox_w,
                         XmNleftAttachment,   XmATTACH_FORM,
                         XmNleftOffset,       5,
@@ -315,7 +327,7 @@ select_afd_dialog(Widget w, XtPointer client_data, XtPointer call_data)
       /*---------------------------------------------------------------*/
       /*                          Radio Box                            */
       /*---------------------------------------------------------------*/
-      dialog_w = XtVaCreateWidget("AFD name :",
+      dialog_w = XtVaCreateWidget("Name :",
                                   xmLabelGadgetClass,  criteriabox_w,
                                   XmNfontList,         p_fontlist,
                                   XmNalignment,        XmALIGNMENT_END,
@@ -345,6 +357,40 @@ select_afd_dialog(Widget w, XtPointer client_data, XtPointer call_data)
       XtSetArg(args[argcount], XmNnumColumns,       1);
       argcount++;
       radiobox_w = XmCreateRadioBox(criteriabox_w, "radiobox", args, argcount);
+      dialog_w = XtVaCreateManagedWidget("AFD",
+                                   xmToggleButtonGadgetClass, radiobox_w,
+                                   XmNfontList,               p_fontlist,
+                                   XmNset,                    True,
+                                   NULL);
+      XtAddCallback(dialog_w, XmNdisarmCallback,
+                    (XtCallbackProc)select_callback, (XtPointer)AFD_NAME_CLASS_CB);
+      dialog_w = XtVaCreateManagedWidget("Host",
+                                   xmToggleButtonGadgetClass, radiobox_w,
+                                   XmNfontList,               p_fontlist,
+                                   XmNset,                    False,
+                                   NULL);
+      XtAddCallback(dialog_w, XmNdisarmCallback,
+                    (XtCallbackProc)select_callback, (XtPointer)HOST_NAME_CLASS_CB);
+      name_class = AFD_NAME_CLASS;
+      XtManageChild(radiobox_w);
+      argcount = 0;
+      XtSetArg(args[argcount], XmNtopAttachment,    XmATTACH_WIDGET);
+      argcount++;
+      XtSetArg(args[argcount], XmNtopWidget,        separator_w);
+      argcount++;
+      XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
+      argcount++;
+      XtSetArg(args[argcount], XmNleftWidget,       radiobox_w);
+      argcount++;
+      XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
+      argcount++;
+      XtSetArg(args[argcount], XmNorientation,      XmHORIZONTAL);
+      argcount++;
+      XtSetArg(args[argcount], XmNpacking,          XmPACK_TIGHT);
+      argcount++;
+      XtSetArg(args[argcount], XmNnumColumns,       1);
+      argcount++;
+      radiobox_w = XmCreateRadioBox(criteriabox_w, "radiobox", args, argcount);
       dialog_w = XtVaCreateManagedWidget("Alias",
                                    xmToggleButtonGadgetClass, radiobox_w,
                                    XmNfontList,               p_fontlist,
@@ -359,7 +405,7 @@ select_afd_dialog(Widget w, XtPointer client_data, XtPointer call_data)
                                    NULL);
       XtAddCallback(dialog_w, XmNdisarmCallback,
                     (XtCallbackProc)select_callback, (XtPointer)REAL_AFDNAME_CB);
-      afdname_type = ALIAS_NAME;
+      name_type = ALIAS_NAME;
       XtManageChild(radiobox_w);
       XtManageChild(criteriabox_w);
       XtManageChild(main_form_w);
@@ -404,12 +450,20 @@ select_callback(Widget w, XtPointer client_data, XtPointer call_data)
          }
          break;
 
+      case AFD_NAME_CLASS_CB :
+         name_class = AFD_NAME_CLASS;
+         break;
+
+      case HOST_NAME_CLASS_CB :
+         name_class = HOST_NAME_CLASS;
+         break;
+
       case ALIAS_AFDNAME_CB :
-         afdname_type = ALIAS_NAME;
+         name_type = ALIAS_NAME;
          break;
 
       case REAL_AFDNAME_CB :
-         afdname_type = REAL_NAME;
+         name_type = REAL_NAME;
          break;
 
       default :
@@ -431,90 +485,203 @@ static void
 search_select_afd(Widget w, XtPointer client_data, XtPointer call_data)
 {
    char *text = XmTextGetString(find_text_w);
-   int  draw_selection,
-        i,
+   int  i,
         match;
 
-   for (i = 0; i < no_of_afds; i++)
+   if (name_class == AFD_NAME_CLASS)
    {
-      if (afdname_type == ALIAS_NAME)
+      for (i = 0; i < no_of_afds; i++)
       {
-         match = pmatch(text, connect_data[i].afd_alias, NULL);
+         if (name_type == ALIAS_NAME)
+         {
+            match = pmatch(text, connect_data[i].afd_alias, NULL);
+         }
+         else
+         {
+            match = pmatch(text, msa[i].hostname[0], NULL);
+            if ((match != 0) && (msa[i].hostname[1][0] != '\0') &&
+                (strcmp(msa[i].hostname[0], msa[i].hostname[0]) != 0))
+            {
+               match = pmatch(text, msa[i].hostname[1], NULL);
+            }
+         }
+         if (match == 0)
+         {
+            select_line(i);
+         }
+      }
+   }
+   else
+   {
+      int                  ahl_fd,
+                           j;
+      char                 ahl_file[MAX_PATH_LENGTH],
+                           *p_ahl_file,
+                           *ptr;
+      struct stat          stat_buf;
+      struct afd_host_list **ahl;
+
+      p_ahl_file = ahl_file +
+                   sprintf(ahl_file, "%s%s%s", p_work_dir, FIFO_DIR, AHL_FILE_NAME);
+      if ((ahl = malloc(no_of_afds * sizeof(struct afd_host_list *))) == NULL)
+      {
+         (void)fprintf(stderr,
+                       "ERROR   : Failed to malloc() memory : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      for (i = 0; i < no_of_afds; i++)
+      {
+         (void)sprintf(p_ahl_file, "%s", msa[i].afd_alias);
+         if ((stat(ahl_file, &stat_buf) == 0) && (stat_buf.st_size > 0))
+         {
+            if ((ptr = map_file(ahl_file, &ahl_fd, &stat_buf,
+                                O_RDONLY)) == (caddr_t) -1)
+            {
+               (void)fprintf(stderr,
+                             "ERROR : Failed to mmap() to %s : %s (%s %d)\n",
+                             ahl_file, strerror(errno), __FILE__, __LINE__);
+               exit(INCORRECT);
+            }
+            ahl[i] = (struct afd_host_list *)ptr;
+            if (close(ahl_fd) == -1)
+            {
+               (void)fprintf(stderr, "DEBUG : close() error : %s (%s %d)\n",
+                             strerror(errno), __FILE__, __LINE__);
+            }
+         }
+         else
+         {
+            ahl[i] = NULL;
+         }
+      }
+      if (name_type == ALIAS_NAME)
+      {
+         for (i = 0; i < no_of_afds; i++)
+         {
+            if (ahl[i] != NULL)
+            {
+               for (j = 0; j < msa[i].no_of_hosts; j++)
+               {
+                  if (pmatch(text, ahl[i][j].host_alias, NULL) == 0)
+                  {
+                     select_line(i);
+                  }
+               }
+            }
+         }
       }
       else
       {
-         match = pmatch(text, msa[i].hostname[0], NULL);
-         if ((match != 0) && (msa[i].hostname[1][0] != '\0') &&
-             (strcmp(msa[i].hostname[0], msa[i].hostname[0]) != 0))
+         for (i = 0; i < no_of_afds; i++)
          {
-            match = pmatch(text, msa[i].hostname[1], NULL);
+            if (ahl[i] != NULL)
+            {
+               for (j = 0; j < msa[i].no_of_hosts; j++)
+               {
+                  if ((pmatch(text, ahl[i][j].real_hostname[0], NULL) == 0) ||
+                      ((ahl[i][j].real_hostname[1][0] != '\0') &&
+                       (pmatch(text,  ahl[i][j].real_hostname[1], NULL) == 0)))
+                  {
+                     select_line(i);
+                  }
+               }
+            }
          }
       }
-      if (match == 0)
+
+      /* Now unmap and free everything. */
+      for (i = 0; i < no_of_afds; i++)
       {
-         if (deselect == YES)
+         if (ahl[i] != NULL)
+         {
+            (void)sprintf(p_ahl_file, "%s", msa[i].afd_alias);
+            if (stat(ahl_file, &stat_buf) == 0)
+            {
+               if (munmap((char *)ahl[i], stat_buf.st_size) == -1)
+               {
+                  (void)fprintf(stderr,
+                                "ERROR : Failed to munmap() from %s : %s (%s %d)\n",
+                                ahl_file, strerror(errno), __FILE__, __LINE__);
+                  exit(INCORRECT);
+               }
+            }
+         }
+      }
+      (void)free(ahl);
+   }
+   XFlush(display);
+   XtFree(text);
+
+   return;
+}
+
+
+/*---------------------------- select_line() ----------------------------*/
+static void
+select_line(int i)
+{
+   int draw_selection;
+
+   if (deselect == YES)
+   {
+      if (connect_data[i].inverse == STATIC)
+      {
+         no_selected_static--;
+         draw_selection = YES;
+      }
+      else if (connect_data[i].inverse == ON)
+           {
+              no_selected--;
+              draw_selection = YES;
+           }
+           else
+           {
+              draw_selection = NO;
+           }
+      connect_data[i].inverse = OFF;
+   }
+   else
+   {
+      if (static_select == YES)
+      {
+         if (connect_data[i].inverse == STATIC)
+         {
+            draw_selection = NO;
+         }
+         else
+         {
+            if (connect_data[i].inverse == ON)
+            {
+               no_selected--;
+            }
+            no_selected_static++;
+            connect_data[i].inverse = STATIC;
+            draw_selection = YES;
+         }
+      }
+      else
+      {
+         if (connect_data[i].inverse == ON)
+         {
+            draw_selection = NO;
+         }
+         else
          {
             if (connect_data[i].inverse == STATIC)
             {
                no_selected_static--;
-               draw_selection = YES;
             }
-            else if (connect_data[i].inverse == ON)
-                 {
-                    no_selected--;
-                    draw_selection = YES;
-                 }
-                 else
-                 {
-                    draw_selection = NO;
-                 }
-            connect_data[i].inverse = OFF;
-         }
-         else
-         {
-            if (static_select == YES)
-            {
-               if (connect_data[i].inverse == STATIC)
-               {
-                  draw_selection = NO;
-               }
-               else
-               {
-                  if (connect_data[i].inverse == ON)
-                  {
-                     no_selected--;
-                  }
-                  no_selected_static++;
-                  connect_data[i].inverse = STATIC;
-                  draw_selection = YES;
-               }
-            }
-            else
-            {
-               if (connect_data[i].inverse == ON)
-               {
-                  draw_selection = NO;
-               }
-               else
-               {
-                  if (connect_data[i].inverse == STATIC)
-                  {
-                     no_selected_static--;
-                  }
-                  no_selected++;
-                  connect_data[i].inverse = ON;
-                  draw_selection = YES;
-               }
-            }
-         }
-         if (draw_selection == YES)
-         {
-            draw_line_status(i, 1);
+            no_selected++;
+            connect_data[i].inverse = ON;
+            draw_selection = YES;
          }
       }
    }
-   XFlush(display);
-   XtFree(text);
+   if (draw_selection == YES)
+   {
+      draw_line_status(i, 1);
+   }
 
    return;
 }

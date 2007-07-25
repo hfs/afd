@@ -319,13 +319,13 @@ get_sum_data(int item, time_t *date, double *file_size)
       str_hex_number[0] = '0';
       str_hex_number[1] = 'x';
       i = 2;
-      while ((*ptr != ' ') && (i < 11))
+      while ((*ptr != ' ') && (i < (LOG_DATE_LENGTH + 1)))
       {
          str_hex_number[i] = *ptr;
          ptr++; i++;
       }
       str_hex_number[i] = '\0';
-      *date = (time_t)strtol(str_hex_number, NULL, 16);
+      *date = (time_t)str2timet(str_hex_number, NULL, 16);
       while (*ptr == ' ')
       {
          ptr++;
@@ -414,13 +414,13 @@ get_all(int item)
       str_hex_number[0] = '0';
       str_hex_number[1] = 'x';
       i = 2;
-      while ((*ptr != ' ') && (i < 11))
+      while ((*ptr != ' ') && (i < (LOG_DATE_LENGTH + 1)))
       {
          str_hex_number[i] = *ptr;
          ptr++; i++;
       }
       str_hex_number[i] = '\0';
-      id.arrival_time = (time_t)strtol(str_hex_number, NULL, 16);
+      id.arrival_time = (time_t)str2timet(str_hex_number, NULL, 16);
       while (*ptr == ' ')
       {
          ptr++;

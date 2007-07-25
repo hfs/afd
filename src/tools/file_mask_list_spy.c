@@ -1,7 +1,7 @@
 /*
  *  file_mask_list_spy.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 2003 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -52,7 +52,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -71,13 +71,14 @@ main(int argc, char *argv[])
    unsigned int file_mask_id;
    char         file[MAX_PATH_LENGTH],
                 *fmd,
+                *fmd_end,
                 *ptr,
                 work_dir[MAX_PATH_LENGTH];
    struct stat  stat_buf;
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
@@ -115,6 +116,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    no_of_file_masks_id = *(int *)ptr;
+   fmd_end = ptr + stat_buf.st_size;
    ptr += AFD_WORD_OFFSET;
    fmd = ptr;
    fml_offset = sizeof(int) + sizeof(int);
@@ -163,6 +165,10 @@ main(int argc, char *argv[])
          }
          ptr += (mask_offset + *(int *)(ptr + fml_offset) + sizeof(char) +
                  *(ptr + mask_offset - 1));
+         if (ptr > fmd_end)
+         {
+            break;
+         }
       }
    }
    else

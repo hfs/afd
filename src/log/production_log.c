@@ -330,11 +330,11 @@ main(int argc, char *argv[])
                     else
                     {
 #if SIZEOF_TIME_T == 4
-                       (void)fprintf(production_file, "%-10lx%s\n",
+                       (void)fprintf(production_file, "%-*lx%s\n",
 #else
-                       (void)fprintf(production_file, "%-10llx%s\n",
+                       (void)fprintf(production_file, "%-*llx%s\n",
 #endif
-                                     (pri_time_t)now,
+                                     LOG_DATE_LENGTH, (pri_time_t)now,
                                      &fifo_buffer[sizeof(short)]);
                        length = *msg_length;
                     }

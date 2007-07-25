@@ -27,8 +27,8 @@ if WITH_AFD_MON_ONLY
 else
    OTHER_DIRS = common afd_ctrl dir_ctrl afd_info dir_info afd_load\
                 edit_hc show_cmd show_log $(AFD_SHOW_OLOG) $(AFD_SHOW_ILOG)\
-                $(AFD_SHOW_DLOG) show_queue view_dc xsend_file xshow_stat\
-                $(AFD_MON_DIR)
+                $(AFD_SHOW_DLOG) show_elog show_queue view_dc xsend_file\
+                xshow_stat handle_event $(AFD_MON_DIR)
 endif
 
 MAINTAINERCLEANFILES = Makefile.in

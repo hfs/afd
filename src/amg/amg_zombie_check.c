@@ -78,12 +78,15 @@ amg_zombie_check(pid_t *proc_id, int option)
 
       if (WIFEXITED(status))
       {
-         if (WEXITSTATUS(status) == 0)
+         exit_status = WEXITSTATUS(status);
+         if (exit_status == 0)
          {
             exit_status = NOT_RUNNING;
          }
          else
          {
+            system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                       "Process returned %d", exit_status);
             exit_status = DIED;
          }
       }
@@ -123,6 +126,9 @@ amg_zombie_check(pid_t *proc_id, int option)
                   }
                }
 #endif /* NO_OF_SAVED_CORE_FILES */
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "Abnormal termination caused by signal %d",
+                          WTERMSIG(status));
                exit_status = DIED;
             }
        else  if (WIFSTOPPED(status))

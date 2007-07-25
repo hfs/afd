@@ -969,7 +969,7 @@ main(int argc, char *argv[])
    {
       (void)xrec(appshell, WARN_DIALOG,
                  "Failed to set signal handler's for %s : %s",
-                 SHOW_RLOG, strerror(errno));
+                 SHOW_DLOG, strerror(errno));
    }
 
    /* We want the keyboard focus on the start time */

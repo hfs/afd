@@ -348,18 +348,18 @@ main(int argc, char *argv[])
                        {
 #if SIZEOF_OFF_T == 4
 # if SIZEOF_TIME_T == 4
-                          (void)fprintf(input_file, "%-10lx %s%c%lx%c%x%c%x\n",
+                          (void)fprintf(input_file, "%-*lx %s%c%lx%c%x%c%x\n",
 # else
-                          (void)fprintf(input_file, "%-10llx %s%c%lx%c%x%c%x\n",
+                          (void)fprintf(input_file, "%-*llx %s%c%lx%c%x%c%x\n",
 # endif
 #else
 # if SIZEOF_TIME_T == 4
-                          (void)fprintf(input_file, "%-10lx %s%c%llx%c%x%c%x\n",
+                          (void)fprintf(input_file, "%-*lx %s%c%llx%c%x%c%x\n",
 # else
-                          (void)fprintf(input_file, "%-10llx %s%c%llx%c%x%c%x\n",
+                          (void)fprintf(input_file, "%-*llx %s%c%llx%c%x%c%x\n",
 # endif
 #endif
-                                        (pri_time_t)now,
+                                        LOG_DATE_LENGTH, (pri_time_t)now,
                                         p_file_name,
                                         SEPARATOR_CHAR,
                                         (pri_off_t)*file_size,

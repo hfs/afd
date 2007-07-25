@@ -1,6 +1,6 @@
 /*
  *  show_cmd.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,7 +26,6 @@
 
 /* Function prototypes */
 extern void close_button(Widget, XtPointer, XtPointer),
-            catch_child(Widget),
             print_button(Widget, XtPointer, XtPointer),
             repeat_button(Widget, XtPointer, XtPointer),
             xexec_cmd(char *);

@@ -1,5 +1,8 @@
 /* ac-tools/config.h.in.  Generated from configure.in by autoheader.  */
 
+/* Enables settings for running afdbench */
+#undef AFDBENCH_CONFIG
+
 /* With afd_ctrl dialog checking for main AFD process */
 #undef AFD_CTRL_PROC_CHECK
 
@@ -368,7 +371,7 @@
 /* Define to `int' if <sys/types.h> does not define. */
 #undef mode_t
 
-/* Set argument of getsockname and other functions */
+/* Set my_socklen_t to socklen_t if set */
 #undef my_socklen_t
 
 /* Define to `long' if <sys/types.h> does not define. */
@@ -379,9 +382,6 @@
 
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
-
-/* Set socklen_t to int if not set */
-#undef socklen_t
 
 /* Define to `int' if <sys/types.h> doesn't define. */
 #undef uid_t

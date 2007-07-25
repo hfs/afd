@@ -123,7 +123,7 @@ extern XT_PTR_TYPE             current_font,
 extern unsigned long           color_pool[];
 extern float                   max_bar_length;
 extern char                    *p_work_dir,
-                               *profile,
+                               profile[],
                                *ping_cmd,
                                *ptr_ping_cmd,
                                *traceroute_cmd,
@@ -614,6 +614,14 @@ mon_popup_cb(Widget    w,
          {
             FREE_RT_ARRAY(mcp.show_slog_list);
          }
+         if (mcp.show_elog_list != NULL)
+         {
+            FREE_RT_ARRAY(mcp.show_elog_list);
+         }
+         if (mcp.show_rlog_list != NULL)
+         {
+            FREE_RT_ARRAY(mcp.show_rlog_list);
+         }
          if (mcp.show_tlog_list != NULL)
          {
             FREE_RT_ARRAY(mcp.show_tlog_list);
@@ -625,6 +633,10 @@ mon_popup_cb(Widget    w,
          if (mcp.show_olog_list != NULL)
          {
             FREE_RT_ARRAY(mcp.show_olog_list);
+         }
+         if (mcp.show_dlog_list != NULL)
+         {
+            FREE_RT_ARRAY(mcp.show_dlog_list);
          }
          if (mcp.afd_load_list != NULL)
          {
@@ -802,20 +814,23 @@ mon_popup_cb(Widget    w,
                      }
                      else
                      {
-                        int  length;
-                        char cmd[2 + MAX_INT_LENGTH];
+                        char cmd[1 + SIZEOF_INT];
 
-                        length = sprintf(cmd, "%c %d", ENABLE_MON, i);
-                        if (write(fd, cmd, length) != length)
+                        cmd[0] = ENABLE_MON;
+                        (void)memcpy(&cmd[1], &i, SIZEOF_INT);
+                        if (write(fd, cmd, (1 + SIZEOF_INT)) != (1 + SIZEOF_INT))
                         {
                            (void)xrec(appshell, ERROR_DIALOG,
                                       "Failed to write() to %s : %s (%s %d)",
                                       mon_cmd_fifo, strerror(errno),
                                       __FILE__, __LINE__);
                         }
-                        mconfig_log(SYS_LOG, CONFIG_SIGN,
-                                    "ENABLED monitoring for AFD %s",
-                                    msa[i].afd_alias);
+                        else
+                        {
+                           mconfig_log(SYS_LOG, CONFIG_SIGN,
+                                       "ENABLED monitoring for AFD %s",
+                                       msa[i].afd_alias);
+                        }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                         if (close(readfd) == -1)
                         {
@@ -859,20 +874,23 @@ mon_popup_cb(Widget    w,
                         }
                         else
                         {
-                           int  length;
-                           char cmd[2 + MAX_INT_LENGTH];
+                           char cmd[1 + SIZEOF_INT];
 
-                           length = sprintf(cmd, "%c %d", DISABLE_MON, i);
-                           if (write(fd, cmd, length) != length)
+                           cmd[0] = DISABLE_MON;
+                           (void)memcpy(&cmd[1], &i, SIZEOF_INT);
+                           if (write(fd, cmd, (1 + SIZEOF_INT)) != (1 + SIZEOF_INT))
                            {
                               (void)xrec(appshell, ERROR_DIALOG,
                                          "Failed to write() to %s : %s (%s %d)",
                                          mon_cmd_fifo, strerror(errno),
                                          __FILE__, __LINE__);
                            }
-                           mconfig_log(SYS_LOG, CONFIG_SIGN,
-                                       "DISABLED monitoring for AFD %s",
-                                       msa[i].afd_alias);
+                           else
+                           {
+                              mconfig_log(SYS_LOG, CONFIG_SIGN,
+                                          "DISABLED monitoring for AFD %s",
+                                          msa[i].afd_alias);
+                           }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                            if (close(readfd) == -1)
                            {
@@ -1106,7 +1124,7 @@ start_remote_prog(Widget    w,
          {
             case AFD_CTRL_SEL : /* Remote afd_ctrl */
                {
-                  int offset = 0;
+                  int offset;
 
                   args[arg_count + display_offset + 5] = AFD_CTRL;
                   args[arg_count + display_offset + 6] = "-f";
@@ -1121,7 +1139,7 @@ start_remote_prog(Widget    w,
                   {
                      offset = 0;
                   }
-                  if (profile != NULL)
+                  if (profile[0] != '\0')
                   {
                      args[arg_count + display_offset + offset + 8] = "-p";
                      args[arg_count + display_offset + offset + 9] = profile;
@@ -1141,6 +1159,22 @@ start_remote_prog(Widget    w,
                args[arg_count + display_offset + 8] = "-l";
                args[arg_count + display_offset + 9] = SYSTEM_STR;
                args[arg_count + display_offset + 10] = NULL;
+               break;
+
+            case E_LOG_SEL : /* Remote Event Log */
+               args[arg_count + display_offset + 5] = SHOW_ELOG;
+               args[arg_count + display_offset + 6] = "-f";
+               args[arg_count + display_offset + 7] = font_name;
+               if (fake_user[0] == '\0')
+               {
+                  args[arg_count + display_offset + 8] = NULL;
+               }
+               else
+               {
+                  args[arg_count + display_offset + 8] = "-u";
+                  args[arg_count + display_offset + 9] = fake_user;
+                  args[arg_count + display_offset + 10] = NULL;
+               }
                break;
 
             case R_LOG_SEL : /* Remote Receive Log */
@@ -1193,8 +1227,8 @@ start_remote_prog(Widget    w,
                }
                break;
 
-            case E_LOG_SEL : /* Remote Delete Log */
-               args[arg_count + display_offset + 5] = SHOW_RLOG;
+            case D_LOG_SEL : /* Remote Delete Log */
+               args[arg_count + display_offset + 5] = SHOW_DLOG;
                args[arg_count + display_offset + 6] = "-f";
                args[arg_count + display_offset + 7] = font_name;
                if (fake_user[0] == '\0')
@@ -1210,18 +1244,32 @@ start_remote_prog(Widget    w,
                break;
 
             case SHOW_QUEUE_SEL : /* View AFD Queue */
-               args[arg_count + display_offset + 5] = SHOW_QUEUE;
-               args[arg_count + display_offset + 6] = "-f";
-               args[arg_count + display_offset + 7] = font_name;
-               if (fake_user[0] == '\0')
                {
-                  args[arg_count + display_offset + 8] = NULL;
-               }
-               else
-               {
-                  args[arg_count + display_offset + 8] = "-u";
-                  args[arg_count + display_offset + 9] = fake_user;
-                  args[arg_count + display_offset + 10] = NULL;
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = SHOW_QUEUE;
+                  args[arg_count + display_offset + 6] = "-f";
+                  args[arg_count + display_offset + 7] = font_name;
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 8] = "-u";
+                     args[arg_count + display_offset + 9] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 8] = "-p";
+                     args[arg_count + display_offset + offset + 9] = profile;
+                     args[arg_count + display_offset + offset + 10] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 8] = NULL;
+                  }
                }
                break;
 
@@ -1258,58 +1306,146 @@ start_remote_prog(Widget    w,
                break;
 
             case CONTROL_AMG_SEL : /* Start/Stop AMG */
-               args[arg_count + display_offset + 5] = AFD_CMD;
-               args[arg_count + display_offset + 6] = "-Y";
-               if (fake_user[0] == '\0')
                {
-                  args[arg_count + display_offset + 7] = NULL;
-               }
-               else
-               {
-                  args[arg_count + display_offset + 7] = "-u";
-                  args[arg_count + display_offset + 8] = fake_user;
-                  args[arg_count + display_offset + 9] = NULL;
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = AFD_CMD;
+                  args[arg_count + display_offset + 6] = "-Y";
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 7] = "-u";
+                     args[arg_count + display_offset + 8] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 7] = "-p";
+                     args[arg_count + display_offset + offset + 8] = profile;
+                     args[arg_count + display_offset + offset + 9] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 7] = NULL;
+                  }
                }
                break;
 
             case CONTROL_FD_SEL : /* Start/Stop FD */
-               args[arg_count + display_offset + 5] = AFD_CMD;
-               args[arg_count + display_offset + 6] = "-Z";
-               if (fake_user[0] == '\0')
                {
-                  args[arg_count + display_offset + 7] = NULL;
-               }
-               else
-               {
-                  args[arg_count + display_offset + 7] = "-u";
-                  args[arg_count + display_offset + 8] = fake_user;
-                  args[arg_count + display_offset + 9] = NULL;
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = AFD_CMD;
+                  args[arg_count + display_offset + 6] = "-Z";
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 7] = "-u";
+                     args[arg_count + display_offset + 8] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 7] = "-p";
+                     args[arg_count + display_offset + offset + 8] = profile;
+                     args[arg_count + display_offset + offset + 9] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 7] = NULL;
+                  }
                }
                break;
 
             case REREAD_DIR_CONFIG_SEL : /* Reread DIR_CONFIG file */
-               args[arg_count + display_offset + 5] = "udc";
-               args[arg_count + display_offset + 6] = NULL;
+               {
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = "udc";
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 6] = "-u";
+                     args[arg_count + display_offset + 7] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 6] = "-p";
+                     args[arg_count + display_offset + offset + 7] = profile;
+                     args[arg_count + display_offset + offset + 8] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 6] = NULL;
+                  }
+               }
                break;
 
             case REREAD_HOST_CONFIG_SEL : /* Reread HOST_CONFIG file */
-               args[arg_count + display_offset + 5] = "uhc";
-               args[arg_count + display_offset + 6] = NULL;
+               {
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = "uhc";
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 6] = "-u";
+                     args[arg_count + display_offset + 7] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 6] = "-p";
+                     args[arg_count + display_offset + offset + 7] = profile;
+                     args[arg_count + display_offset + offset + 8] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 6] = NULL;
+                  }
+               }
                break;
 
             case EDIT_HC_SEL : /* Edit HOST_CONFIG file */
-               args[arg_count + display_offset + 5] = EDIT_HC;
-               args[arg_count + display_offset + 6] = "-f";
-               args[arg_count + display_offset + 7] = font_name;
-               if (fake_user[0] == '\0')
                {
-                  args[arg_count + display_offset + 8] = NULL;
-               }
-               else
-               {
-                  args[arg_count + display_offset + 8] = "-u";
-                  args[arg_count + display_offset + 9] = fake_user;
-                  args[arg_count + display_offset + 10] = NULL;
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = EDIT_HC;
+                  args[arg_count + display_offset + 6] = "-f";
+                  args[arg_count + display_offset + 7] = font_name;
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 8] = "-u";
+                     args[arg_count + display_offset + 9] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 8] = "-p";
+                     args[arg_count + display_offset + offset + 9] = profile;
+                     args[arg_count + display_offset + offset + 10] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 8] = NULL;
+                  }
                }
                break;
 
@@ -1330,7 +1466,7 @@ start_remote_prog(Widget    w,
                   {
                      offset = 0;
                   }
-                  if (profile != NULL)
+                  if (profile[0] != '\0')
                   {
                      args[arg_count + display_offset + offset + 8] = "-p";
                      args[arg_count + display_offset + offset + 9] = profile;
@@ -1344,32 +1480,60 @@ start_remote_prog(Widget    w,
                break;
 
             case STARTUP_AFD_SEL : /* Startup AFD */
-               args[arg_count + display_offset + 5] = "afd";
-               args[arg_count + display_offset + 6] = "-a";
-               if (fake_user[0] == '\0')
                {
-                  args[arg_count + display_offset + 7] = NULL;
-               }
-               else
-               {
-                  args[arg_count + display_offset + 7] = "-u";
-                  args[arg_count + display_offset + 8] = fake_user;
-                  args[arg_count + display_offset + 9] = NULL;
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = "afd";
+                  args[arg_count + display_offset + 6] = "-a";
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 7] = "-u";
+                     args[arg_count + display_offset + 8] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 7] = "-p";
+                     args[arg_count + display_offset + offset + 8] = profile;
+                     args[arg_count + display_offset + offset + 9] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 7] = NULL;
+                  }
                }
 	       break;
 
             case SHUTDOWN_AFD_SEL : /* Shutdown AFD */
-               args[arg_count + display_offset + 5] = "afd";
-               args[arg_count + display_offset + 6] = "-S";
-               if (fake_user[0] == '\0')
                {
-                  args[arg_count + display_offset + 7] = NULL;
-               }
-               else
-               {
-                  args[arg_count + display_offset + 7] = "-u";
-                  args[arg_count + display_offset + 8] = fake_user;
-                  args[arg_count + display_offset + 9] = NULL;
+                  int offset;
+
+                  args[arg_count + display_offset + 5] = "afd";
+                  args[arg_count + display_offset + 6] = "-S";
+                  if (fake_user[0] != '\0')
+                  {
+                     args[arg_count + display_offset + 7] = "-u";
+                     args[arg_count + display_offset + 8] = fake_user;
+                     offset = 2;
+                  }
+                  else
+                  {
+                     offset = 0;
+                  }
+                  if (profile[0] != '\0')
+                  {
+                     args[arg_count + display_offset + offset + 7] = "-p";
+                     args[arg_count + display_offset + offset + 8] = profile;
+                     args[arg_count + display_offset + offset + 9] = NULL;
+                  }
+                  else
+                  {
+                     args[arg_count + display_offset + offset + 7] = NULL;
+                  }
                }
 	       break;
 
@@ -1497,6 +1661,12 @@ start_remote_prog(Widget    w,
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
+                  case E_LOG_SEL : /* Remote Event Log */
+                     mconfig_log(MON_LOG, DEBUG_SIGN,
+                                 "%-*s: Event Log started",
+                                 MAX_AFDNAME_LENGTH, msa[i].afd_alias);
+                     break;
+
                   case R_LOG_SEL : /* Remote Receive Log */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Receive Log started",
@@ -1521,7 +1691,7 @@ start_remote_prog(Widget    w,
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);
                      break;
 
-                  case E_LOG_SEL : /* Remote Delete Log */
+                  case D_LOG_SEL : /* Remote Delete Log */
                      mconfig_log(MON_LOG, DEBUG_SIGN,
                                  "%-*s: Delete Log started",
                                  MAX_AFDNAME_LENGTH, msa[i].afd_alias);

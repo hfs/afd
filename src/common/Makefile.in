@@ -75,13 +75,14 @@ am__libafd_a_SOURCES_DIST = attach_afd_status.c attach_buf.c \
 	check_fsa.c check_msa.c clr_fl.c copy_file.c create_name.c \
 	daemon_init.c datestr2unixtime.c delete_log_ptrs.c \
 	detach_afd_status.c eaccess.c error_action.c \
-	eval_host_config.c eval_timeout.c exec_cmd.c fra_attach.c \
-	fra_detach.c fsa_attach.c fsa_detach.c get_afd_name.c \
-	get_afd_path.c get_arg.c get_checksum.c get_definition.c \
-	get_dir_number.c get_dir_options.c get_error_str.c \
-	get_hostname.c get_log_number.c get_max_log_number.c \
-	get_mon_path.c get_permissions.c get_position.c get_pw.c \
-	get_rename_rules.c get_rule.c get_user.c handle_error_queue.c \
+	eval_host_config.c eval_timeout.c event_log.c exec_cmd.c \
+	fra_attach.c fra_detach.c fsa_attach.c fsa_detach.c \
+	get_afd_name.c get_afd_path.c get_arg.c get_checksum.c \
+	get_definition.c get_dir_number.c get_dir_options.c \
+	get_error_str.c get_hostname.c get_log_number.c \
+	get_max_log_number.c get_mon_path.c get_permissions.c \
+	get_position.c get_pw.c get_rename_rules.c get_rule.c \
+	get_update_config_str.c get_user.c handle_error_queue.c \
 	inform_fd_about_fsa_change.c isdup.c eval_dupcheck_options.c \
 	is_msgname.c lock_file.c lock_proc.c lock_region.c \
 	lock_region_w.c make_fifo.c map_file.c mmap_emu.c msync_emu.c \
@@ -94,19 +95,21 @@ am__libafd_a_SOURCES_DIST = attach_afd_status.c attach_buf.c \
 	set_fl.c show_fifo_data.c system_log.c t_hostname.c \
 	unlock_region.c unmap_data.c write_host_config.c \
 	../init_afd/afddefs.h ../afdsetup.h ../../config.h
-@HAVE_EACCESS_FALSE@am__objects_1 = eaccess.$(OBJEXT)
-@ERROR_QUEUE_SUPPORT_TRUE@am__objects_2 =  \
+@WITH_DELETE_LOG_TRUE@am__objects_1 = delete_log_ptrs.$(OBJEXT)
+@HAVE_EACCESS_FALSE@am__objects_2 = eaccess.$(OBJEXT)
+@ERROR_QUEUE_SUPPORT_TRUE@am__objects_3 =  \
 @ERROR_QUEUE_SUPPORT_TRUE@	handle_error_queue.$(OBJEXT)
-@WITHOUT_DUPCHECK_FALSE@am__objects_3 = isdup.$(OBJEXT) \
+@WITHOUT_DUPCHECK_FALSE@am__objects_4 = isdup.$(OBJEXT) \
 @WITHOUT_DUPCHECK_FALSE@	eval_dupcheck_options.$(OBJEXT)
-@WITHOUT_MMAP_TRUE@am__objects_4 = mmap_emu.$(OBJEXT) \
+@WITHOUT_MMAP_TRUE@am__objects_5 = mmap_emu.$(OBJEXT) \
 @WITHOUT_MMAP_TRUE@	msync_emu.$(OBJEXT) munmap_emu.$(OBJEXT)
-@WITH_AFD_MON_TRUE@am__objects_5 = msa_attach.$(OBJEXT) \
+@WITH_AFD_MON_TRUE@am__objects_6 = msa_attach.$(OBJEXT) \
 @WITH_AFD_MON_TRUE@	msa_detach.$(OBJEXT) \
 @WITH_AFD_MON_TRUE@	attach_afd_mon_status.$(OBJEXT) \
 @WITH_AFD_MON_TRUE@	detach_afd_mon_status.$(OBJEXT)
-@WITH_FIFO_RW_SUPPORT_FALSE@am__objects_6 = open_fifo_rw.$(OBJEXT)
-@WITH_SETUID_TRUE@am__objects_7 = set_afd_euid.$(OBJEXT)
+@WITH_FIFO_RW_SUPPORT_FALSE@am__objects_7 = open_fifo_rw.$(OBJEXT)
+@WITH_PRODUCTION_LOG_TRUE@am__objects_8 = production_log.$(OBJEXT)
+@WITH_SETUID_TRUE@am__objects_9 = set_afd_euid.$(OBJEXT)
 am_libafd_a_OBJECTS = attach_afd_status.$(OBJEXT) attach_buf.$(OBJEXT) \
 	bitstuff.$(OBJEXT) calc_next_time.$(OBJEXT) \
 	change_alias_order.$(OBJEXT) change_name.$(OBJEXT) \
@@ -117,32 +120,32 @@ am_libafd_a_OBJECTS = attach_afd_status.$(OBJEXT) attach_buf.$(OBJEXT) \
 	check_fsa.$(OBJEXT) check_msa.$(OBJEXT) clr_fl.$(OBJEXT) \
 	copy_file.$(OBJEXT) create_name.$(OBJEXT) \
 	daemon_init.$(OBJEXT) datestr2unixtime.$(OBJEXT) \
-	delete_log_ptrs.$(OBJEXT) detach_afd_status.$(OBJEXT) \
-	$(am__objects_1) error_action.$(OBJEXT) \
-	eval_host_config.$(OBJEXT) eval_timeout.$(OBJEXT) \
-	exec_cmd.$(OBJEXT) fra_attach.$(OBJEXT) fra_detach.$(OBJEXT) \
-	fsa_attach.$(OBJEXT) fsa_detach.$(OBJEXT) \
-	get_afd_name.$(OBJEXT) get_afd_path.$(OBJEXT) \
-	get_arg.$(OBJEXT) get_checksum.$(OBJEXT) \
-	get_definition.$(OBJEXT) get_dir_number.$(OBJEXT) \
-	get_dir_options.$(OBJEXT) get_error_str.$(OBJEXT) \
-	get_hostname.$(OBJEXT) get_log_number.$(OBJEXT) \
-	get_max_log_number.$(OBJEXT) get_mon_path.$(OBJEXT) \
-	get_permissions.$(OBJEXT) get_position.$(OBJEXT) \
-	get_pw.$(OBJEXT) get_rename_rules.$(OBJEXT) get_rule.$(OBJEXT) \
-	get_user.$(OBJEXT) $(am__objects_2) \
-	inform_fd_about_fsa_change.$(OBJEXT) $(am__objects_3) \
-	is_msgname.$(OBJEXT) lock_file.$(OBJEXT) lock_proc.$(OBJEXT) \
-	lock_region.$(OBJEXT) lock_region_w.$(OBJEXT) \
-	make_fifo.$(OBJEXT) map_file.$(OBJEXT) $(am__objects_4) \
-	mmap_resize.$(OBJEXT) $(am__objects_5) move_file.$(OBJEXT) \
-	my_strncpy.$(OBJEXT) my_usleep.$(OBJEXT) \
+	$(am__objects_1) detach_afd_status.$(OBJEXT) $(am__objects_2) \
+	error_action.$(OBJEXT) eval_host_config.$(OBJEXT) \
+	eval_timeout.$(OBJEXT) event_log.$(OBJEXT) exec_cmd.$(OBJEXT) \
+	fra_attach.$(OBJEXT) fra_detach.$(OBJEXT) fsa_attach.$(OBJEXT) \
+	fsa_detach.$(OBJEXT) get_afd_name.$(OBJEXT) \
+	get_afd_path.$(OBJEXT) get_arg.$(OBJEXT) \
+	get_checksum.$(OBJEXT) get_definition.$(OBJEXT) \
+	get_dir_number.$(OBJEXT) get_dir_options.$(OBJEXT) \
+	get_error_str.$(OBJEXT) get_hostname.$(OBJEXT) \
+	get_log_number.$(OBJEXT) get_max_log_number.$(OBJEXT) \
+	get_mon_path.$(OBJEXT) get_permissions.$(OBJEXT) \
+	get_position.$(OBJEXT) get_pw.$(OBJEXT) \
+	get_rename_rules.$(OBJEXT) get_rule.$(OBJEXT) \
+	get_update_config_str.$(OBJEXT) get_user.$(OBJEXT) \
+	$(am__objects_3) inform_fd_about_fsa_change.$(OBJEXT) \
+	$(am__objects_4) is_msgname.$(OBJEXT) lock_file.$(OBJEXT) \
+	lock_proc.$(OBJEXT) lock_region.$(OBJEXT) \
+	lock_region_w.$(OBJEXT) make_fifo.$(OBJEXT) map_file.$(OBJEXT) \
+	$(am__objects_5) mmap_resize.$(OBJEXT) $(am__objects_6) \
+	move_file.$(OBJEXT) my_strncpy.$(OBJEXT) my_usleep.$(OBJEXT) \
 	next_counter.$(OBJEXT) open_counter_file.$(OBJEXT) \
-	$(am__objects_6) posi.$(OBJEXT) pmatch.$(OBJEXT) \
-	production_log.$(OBJEXT) read_file.$(OBJEXT) readn.$(OBJEXT) \
+	$(am__objects_7) posi.$(OBJEXT) pmatch.$(OBJEXT) \
+	$(am__objects_8) read_file.$(OBJEXT) readn.$(OBJEXT) \
 	rec.$(OBJEXT) rec_rmdir.$(OBJEXT) remove_dir.$(OBJEXT) \
 	remove_files.$(OBJEXT) reshuffel_log_files.$(OBJEXT) \
-	rlock_region.$(OBJEXT) send_cmd.$(OBJEXT) $(am__objects_7) \
+	rlock_region.$(OBJEXT) send_cmd.$(OBJEXT) $(am__objects_9) \
 	set_fl.$(OBJEXT) show_fifo_data.$(OBJEXT) system_log.$(OBJEXT) \
 	t_hostname.$(OBJEXT) unlock_region.$(OBJEXT) \
 	unmap_data.$(OBJEXT) write_host_config.$(OBJEXT)
@@ -329,6 +332,14 @@ target_alias = @target_alias@
 @WITH_SETUID_TRUE@SET_AFD_EUID = set_afd_euid.c
 @WITH_SETUID_FALSE@EXTRA_SET_AFD_EUID = set_afd_euid.c
 @WITH_SETUID_TRUE@EXTRA_SET_AFD_EUID = 
+@WITH_PRODUCTION_LOG_FALSE@PRODUCTION_LOG = 
+@WITH_PRODUCTION_LOG_TRUE@PRODUCTION_LOG = production_log.c
+@WITH_PRODUCTION_LOG_FALSE@EXTRA_PRODUCTION_LOG = production_log.c
+@WITH_PRODUCTION_LOG_TRUE@EXTRA_PRODUCTION_LOG = 
+@WITH_DELETE_LOG_FALSE@DELETE_LOG_PTRS = 
+@WITH_DELETE_LOG_TRUE@DELETE_LOG_PTRS = delete_log_ptrs.c
+@WITH_DELETE_LOG_FALSE@EXTRA_DELETE_LOG_PTRS = delete_log_ptrs.c
+@WITH_DELETE_LOG_TRUE@EXTRA_DELETE_LOG_PTRS = 
 @WITH_FIFO_RW_SUPPORT_FALSE@OPEN_FIFO_RW = open_fifo_rw.c
 @WITH_FIFO_RW_SUPPORT_TRUE@OPEN_FIFO_RW = 
 @WITH_FIFO_RW_SUPPORT_FALSE@EXTRA_OPEN_FIFO_RW = 
@@ -338,8 +349,9 @@ target_alias = @target_alias@
 @ERROR_QUEUE_SUPPORT_FALSE@EXTRA_HANDLE_ERROR_QUEUE = handle_error_queue.c
 @ERROR_QUEUE_SUPPORT_TRUE@EXTRA_HANDLE_ERROR_QUEUE = 
 EXTRA_DIST = $(EXTRA_MAPPER) $(EXTRA_AFD_MON) $(EXTRA_EACCESS)\
-             $(EXTRA_DUPCHECK) $(EXTRA_SET_AFD_EUID) $(EXTRA_OPEN_FIFO_RW)\
-             $(EXTRA_HANDLE_ERROR_QUEUE)
+             $(EXTRA_DUPCHECK) $(EXTRA_SET_AFD_EUID) $(EXTRA_PRODUCTION_LOG)\
+             $(EXTRA_DELETE_LOG_PTRS) $(EXTRA_OPEN_FIFO_RW)\
+             $(EXTRA_HANDLE_ERROR_QUEUE) pmatch_old.c
 
 MAINTAINERCLEANFILES = Makefile.in
 INCLUDES = -I.. -I../init_afd -I../amg -I../fd -I../misc\
@@ -367,12 +379,13 @@ libafd_a_SOURCES = attach_afd_status.c\
                        create_name.c\
                        daemon_init.c\
                        datestr2unixtime.c\
-                       delete_log_ptrs.c\
+                       $(DELETE_LOG_PTRS)\
                        detach_afd_status.c\
                        $(AFD_EACCESS)\
                        error_action.c\
                        eval_host_config.c\
                        eval_timeout.c\
+                       event_log.c\
                        exec_cmd.c\
                        fra_attach.c\
                        fra_detach.c\
@@ -395,6 +408,7 @@ libafd_a_SOURCES = attach_afd_status.c\
                        get_pw.c\
                        get_rename_rules.c\
                        get_rule.c\
+                       get_update_config_str.c\
                        get_user.c\
                        $(HANDLE_ERROR_QUEUE)\
                        inform_fd_about_fsa_change.c\
@@ -417,7 +431,7 @@ libafd_a_SOURCES = attach_afd_status.c\
                        $(OPEN_FIFO_RW)\
                        posi.c\
                        pmatch.c\
-                       production_log.c\
+                       $(PRODUCTION_LOG)\
                        read_file.c\
                        readn.c\
                        rec.c\
@@ -542,6 +556,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_dupcheck_options.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_host_config.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_timeout.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/event_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/exec_cmd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fra_attach.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fra_detach.Po@am__quote@
@@ -564,6 +579,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_pw.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_rename_rules.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_rule.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_update_config_str.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_user.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_error_queue.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/inform_fd_about_fsa_change.Po@am__quote@

@@ -1,6 +1,6 @@
 /*
  *  remove_dir.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -73,6 +73,9 @@ remove_dir(char *dirname)
    struct dirent *dirp;
    DIR           *dp;
 
+#ifdef WITH_UNLINK_DELAY
+try_again2:
+#endif
    ptr = dirname + strlen(dirname);
 
    if ((dp = opendir(dirname)) == NULL)
@@ -114,7 +117,7 @@ try_again:
          }
 #ifdef WITH_UNLINK_DELAY
          else if ((errno == EBUSY) && (wait_time > 0) &&
-                  (loops > (10 * wait_time)))
+                  (loops < (10 * wait_time)))
               {
                  (void)my_usleep(100000L);
                  loops++;
@@ -176,6 +179,14 @@ try_again:
    }
    if (rmdir(dirname) == -1)
    {
+#ifdef WITH_UNLINK_DELAY
+      if ((errno == ENOTEMPTY) && (wait_time > 0) && (loops < (10 * wait_time)))
+      {
+         (void)my_usleep(100000L);
+         loops++;
+         goto try_again2;
+      }
+#endif
       system_log(ERROR_SIGN, __FILE__, __LINE__,
                  "Failed to rmdir() `%s' : %s", dirname, strerror(errno));
       return(INCORRECT);

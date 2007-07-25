@@ -1,6 +1,6 @@
 /*
  *  shutdown_mon.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   shutdown_mon - does a shutdown of the AFD_MON
  **
  ** SYNOPSIS
- **   void shutdown_mon(int silent_shutdown, char *fake_user)
+ **   void shutdown_mon(int silent_shutdown, char *user)
  **
  ** DESCRIPTION
  **
@@ -55,13 +55,13 @@ DESCR__E_M3
 #include "mondefs.h"
 #include "version.h"
 
-/* External global variables */
+/* External global variables. */
 extern char *p_work_dir;
 
 
 /*########################### shutdown_mon() ############################*/
 void
-shutdown_mon(int silent_shutdown, char *fake_user)
+shutdown_mon(int silent_shutdown, char *user)
 {
    int            mon_cmd_fd,
                   mon_resp_fd,
@@ -73,11 +73,10 @@ shutdown_mon(int silent_shutdown, char *fake_user)
    fd_set         rset;
    char           buffer[DEFAULT_BUFFER_SIZE],
                   mon_cmd_fifo[MAX_PATH_LENGTH],
-                  mon_resp_fifo[MAX_PATH_LENGTH],
-                  user[MAX_FULL_USER_ID_LENGTH];
+                  mon_resp_fifo[MAX_PATH_LENGTH];
    struct timeval timeout;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    (void)strcpy(mon_cmd_fifo, p_work_dir);
    (void)strcat(mon_cmd_fifo, FIFO_DIR);
    (void)strcpy(mon_resp_fifo, mon_cmd_fifo);
@@ -105,12 +104,11 @@ shutdown_mon(int silent_shutdown, char *fake_user)
       exit(INCORRECT);
    }
 
-   /* Tell user what we are doing */
-   get_user(user, fake_user);
+   /* Tell user what we are doing. */
    system_log(CONFIG_SIGN, NULL, 0,
               "Starting %s shutdown (%s) ...", AFD_MON, user);
 
-   /* Send SHUTDOWN command */
+   /* Send SHUTDOWN command. */
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    if (send_cmd(SHUTDOWN, mon_cmd_writefd) < 0)
 #else

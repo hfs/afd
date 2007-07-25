@@ -29,7 +29,7 @@
                                   WMO to transport data via TCP.
                                   [Default: enabled]
 --disable-dupcheck_support      - When enabled AFD will be able to check
-                                  the input and aoutput for duplicates.
+                                  the input and output for duplicates.
                                   [Default: enabled]
 --disable-largefile             - Large file support does not work properly
                                   on some older systems (linux 2.2.x and
@@ -60,6 +60,8 @@
                                   FIFO for reading and writting. With this
                                   option set AFD will use two file descriptors
                                   one for reading and one for writting.
+--enable-afdbench-settings      - Enables settings for running afdbench.
+                                  [Default: disabled]
 --enable-setuid_progs           - Enables setting setuid flag for the
                                   programms afdcmd, afd, init_afd, mafd,
                                   afd_ctrl, dir_ctrl, mon_ctrl and show_olog.

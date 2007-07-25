@@ -266,7 +266,7 @@ eval_message(char *message_name, struct job *p_db)
          while (*ptr != '\0')
          {
             if (((used & ARCHIVE_FLAG) == 0) &&
-                (strncmp(ptr, ARCHIVE_ID, ARCHIVE_ID_LENGTH) == 0))
+                (CHECK_STRNCMP(ptr, ARCHIVE_ID, ARCHIVE_ID_LENGTH) == 0))
             {
                used |= ARCHIVE_FLAG;
                ptr += ARCHIVE_ID_LENGTH;
@@ -275,7 +275,8 @@ eval_message(char *message_name, struct job *p_db)
                   ptr++;
                }
                end_ptr = ptr;
-               while ((*end_ptr != '\n') && (*end_ptr != '\0'))
+               while ((isdigit((int)(*end_ptr))) && (*end_ptr != '\n') &&
+                      (*end_ptr != '\0'))
                {
                  end_ptr++;
                }
@@ -283,7 +284,39 @@ eval_message(char *message_name, struct job *p_db)
                *end_ptr = '\0';
                if (p_db->archive_time != -1)
                {
-                  p_db->archive_time = atoi(ptr);
+                  int unit;
+
+                  switch (byte_buf)
+                  {
+                     case '\n' :
+                     case '\0' : /* Default unit. */
+                        unit = DEFAULT_ARCHIVE_UNIT;
+                        break;
+
+                     case 'd' : /* Days */
+                        unit = 86400;
+                        break;
+
+                     case 'h' : /* Hours */
+                        unit = 3600;
+                        break;
+
+                     case 'm' : /* Minutes */
+                        unit = 60;
+                        break;
+
+                     case 's' : /* Seconds */
+                        unit = 1;
+                        break;
+
+                     default : /* Unknown */
+                        system_log(WARN_SIGN, __FILE__, __LINE__,
+                                   "Unknown unit type `%c' (%d) for %s option. Taking default.",
+                                   byte_buf, (int)byte_buf, ARCHIVE_ID);
+                        unit = DEFAULT_ARCHIVE_UNIT;
+                        break;
+                  }
+                  p_db->archive_time = atoi(ptr) * unit;
                }
                *end_ptr = byte_buf;
                ptr = end_ptr;
@@ -293,7 +326,8 @@ eval_message(char *message_name, struct job *p_db)
                }
             }
             else if (((used & AGE_LIMIT_FLAG) == 0) &&
-                     (strncmp(ptr, AGE_LIMIT_ID, AGE_LIMIT_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, AGE_LIMIT_ID,
+                                    AGE_LIMIT_ID_LENGTH) == 0))
                  {
                     used |= AGE_LIMIT_FLAG;
                     ptr += AGE_LIMIT_ID_LENGTH;
@@ -317,7 +351,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & LOCK_POSTFIX_FLAG) == 0) &&
-                     (strncmp(ptr, LOCK_POSTFIX_ID, LOCK_POSTFIX_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, LOCK_POSTFIX_ID,
+                                    LOCK_POSTFIX_ID_LENGTH) == 0))
                  {
                     size_t length = 0;
 
@@ -363,7 +398,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & LOCK_FLAG) == 0) &&
-                     (strncmp(ptr, LOCK_ID, LOCK_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, LOCK_ID, LOCK_ID_LENGTH) == 0))
                  {
                     used |= LOCK_FLAG;
                     ptr += LOCK_ID_LENGTH;
@@ -480,7 +515,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & TRANS_RENAME_FLAG) == 0) &&
-                     (strncmp(ptr, TRANS_RENAME_ID, TRANS_RENAME_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, TRANS_RENAME_ID,
+                                    TRANS_RENAME_ID_LENGTH) == 0))
                  {
                     used |= TRANS_RENAME_FLAG;
                     ptr += TRANS_RENAME_ID_LENGTH;
@@ -566,8 +602,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & CREATE_TARGET_DIR_FLAG) == 0) &&
-                     (strncmp(ptr, CREATE_TARGET_DIR_ID,
-                              CREATE_TARGET_DIR_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, CREATE_TARGET_DIR_ID,
+                                    CREATE_TARGET_DIR_ID_LENGTH) == 0))
                  {
                     used |= CREATE_TARGET_DIR_FLAG;
                     p_db->special_flag |= CREATE_TARGET_DIR;
@@ -581,8 +617,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & DONT_CREATE_TARGET_DIR_FLAG) == 0) &&
-                     (strncmp(ptr, DONT_CREATE_TARGET_DIR,
-                              DONT_CREATE_TARGET_DIR_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, DONT_CREATE_TARGET_DIR,
+                                    DONT_CREATE_TARGET_DIR_LENGTH) == 0))
                  {
                     used |= DONT_CREATE_TARGET_DIR_FLAG;
                     if (p_db->special_flag & CREATE_TARGET_DIR)
@@ -599,7 +635,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & CHMOD_FLAG) == 0) &&
-                     (strncmp(ptr, CHMOD_ID, CHMOD_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, CHMOD_ID, CHMOD_ID_LENGTH) == 0))
                  {
                     used |= CHMOD_FLAG;
                     ptr += CHMOD_ID_LENGTH;
@@ -828,7 +864,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & CHOWN_FLAG) == 0) &&
-                     (strncmp(ptr, CHOWN_ID, CHOWN_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, CHOWN_ID, CHOWN_ID_LENGTH) == 0))
                  {
                     used |= CHOWN_FLAG;
                     ptr += CHOWN_ID_LENGTH;
@@ -929,7 +965,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & OUTPUT_LOG_FLAG) == 0) &&
-                     (strncmp(ptr, OUTPUT_LOG_ID, OUTPUT_LOG_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, OUTPUT_LOG_ID,
+                                    OUTPUT_LOG_ID_LENGTH) == 0))
                  {
                     used |= OUTPUT_LOG_FLAG;
 #ifdef _OUTPUT_LOG
@@ -945,7 +982,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & RESTART_FILE_FLAG) == 0) &&
-                     (strncmp(ptr, RESTART_FILE_ID, RESTART_FILE_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, RESTART_FILE_ID,
+                                    RESTART_FILE_ID_LENGTH) == 0))
                  {
                     int length = 0,
                         max_length = 0;
@@ -1027,11 +1065,11 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #ifdef WITH_DUP_CHECK
             else if (((used & DUPCHECK_FLAG) == 0) &&
-                     (strncmp(ptr, DUPCHECK_ID, DUPCHECK_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, DUPCHECK_ID, DUPCHECK_ID_LENGTH) == 0))
                  {
                     used |= DUPCHECK_FLAG;
                     ptr = eval_dupcheck_options(ptr, &p_db->dup_check_timeout,
-                                                &p_db->dup_check_flag);
+                                                &p_db->dup_check_flag, NULL);
                     p_db->crc_id = p_db->job_id;
                     while (*ptr == '\n')
                     {
@@ -1040,7 +1078,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #endif
             else if (((used & FILE_NAME_IS_HEADER_FLAG) == 0) &&
-                     (strncmp(ptr, FILE_NAME_IS_HEADER_ID, FILE_NAME_IS_HEADER_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, FILE_NAME_IS_HEADER_ID,
+                                    FILE_NAME_IS_HEADER_ID_LENGTH) == 0))
                  {
                     used |= FILE_NAME_IS_HEADER_FLAG;
                     p_db->special_flag |= FILE_NAME_IS_HEADER;
@@ -1054,7 +1093,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & SEQUENCE_LOCKING_FLAG) == 0) &&
-                     (strncmp(ptr, SEQUENCE_LOCKING_ID, SEQUENCE_LOCKING_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, SEQUENCE_LOCKING_ID,
+                                    SEQUENCE_LOCKING_ID_LENGTH) == 0))
                  {
                     used |= SEQUENCE_LOCKING_FLAG;
                     p_db->special_flag |= SEQUENCE_LOCKING;
@@ -1068,7 +1108,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & SUBJECT_FLAG) == 0) &&
-                     (strncmp(ptr, SUBJECT_ID, SUBJECT_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, SUBJECT_ID, SUBJECT_ID_LENGTH) == 0))
                  {
                     used |= SUBJECT_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1108,6 +1148,30 @@ eval_message(char *message_name, struct job *p_db)
                                            strerror(errno));
                              }
                              ptr++;
+                          }
+                          else
+                          {
+                             if ((*ptr == '\n') || (*ptr == '\0'))
+                             {
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "Subject line not terminated with a \" sign, igoring %s option.",
+                                           SUBJECT_ID);
+                             }
+                             else
+                             {
+                                system_log(WARN_SIGN, __FILE__, __LINE__,
+                                           "Subject line contains an illegal character (integer value = %d)that does not fit into the 7-bit ASCII character set, igoring %s option.",
+                                           (int)((unsigned char)*ptr),
+                                           SUBJECT_ID);
+                                while ((*ptr != '\n') && (*ptr != '\0'))
+                                {
+                                   ptr++;
+                                }
+                                while (*ptr == '\n')
+                                {
+                                   ptr++;
+                                }
+                             }
                           }
                        }
                        else if (*ptr == '/')
@@ -1370,7 +1434,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & FORCE_COPY_FLAG) == 0) &&
-                     (strncmp(ptr, FORCE_COPY_ID, FORCE_COPY_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, FORCE_COPY_ID,
+                                    FORCE_COPY_ID_LENGTH) == 0))
                  {
                     used |= FORCE_COPY_FLAG;
                     if (p_db->protocol & LOC_FLAG)
@@ -1387,7 +1452,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & FILE_NAME_IS_SUBJECT_FLAG) == 0) &&
-                     (strncmp(ptr, FILE_NAME_IS_SUBJECT_ID, FILE_NAME_IS_SUBJECT_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, FILE_NAME_IS_SUBJECT_ID,
+                                    FILE_NAME_IS_SUBJECT_ID_LENGTH) == 0))
                  {
                     used |= FILE_NAME_IS_SUBJECT_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1404,7 +1470,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & REPLY_TO_FLAG) == 0) &&
-                     (strncmp(ptr, REPLY_TO_ID, REPLY_TO_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, REPLY_TO_ID, REPLY_TO_ID_LENGTH) == 0))
                  {
                     used |= REPLY_TO_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1448,7 +1514,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & FROM_FLAG) == 0) &&
-                     (strncmp(ptr, FROM_ID, FROM_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, FROM_ID, FROM_ID_LENGTH) == 0))
                  {
                     used |= FROM_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1500,7 +1566,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & CHECK_ANSI_FLAG) == 0) &&
-                     (strncmp(ptr, ENCODE_ANSI_ID, ENCODE_ANSI_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, ENCODE_ANSI_ID,
+                                    ENCODE_ANSI_ID_LENGTH) == 0))
                  {
                     used |= CHECK_ANSI_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1518,7 +1585,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #ifdef _WITH_WMO_SUPPORT
             else if (((used & CHECK_REPLY_FLAG) == 0) &&
-                     (strncmp(ptr, CHECK_REPLY_ID, CHECK_REPLY_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, CHECK_REPLY_ID,
+                                    CHECK_REPLY_ID_LENGTH) == 0))
                  {
                     used |= CHECK_REPLY_FLAG;
                     if (p_db->protocol & WMO_FLAG)
@@ -1535,7 +1603,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & WITH_SEQUENCE_NUMBER_FLAG) == 0) &&
-                     (strncmp(ptr, WITH_SEQUENCE_NUMBER_ID, WITH_SEQUENCE_NUMBER_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, WITH_SEQUENCE_NUMBER_ID,
+                                    WITH_SEQUENCE_NUMBER_ID_LENGTH) == 0))
                  {
                     used |= WITH_SEQUENCE_NUMBER_FLAG;
                     if (p_db->protocol & WMO_FLAG)
@@ -1553,7 +1622,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #endif /* _WITH_WMO_SUPPORT */
             else if (((used & ATTACH_FILE_FLAG) == 0) &&
-                     (strncmp(ptr, ATTACH_FILE_ID, ATTACH_FILE_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, ATTACH_FILE_ID,
+                                    ATTACH_FILE_ID_LENGTH) == 0))
                  {
                     used |= ATTACH_FILE_FLAG;
                     ptr += ATTACH_FILE_ID_LENGTH;
@@ -1601,7 +1671,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & ADD_MAIL_HEADER_FLAG) == 0) &&
-                     (strncmp(ptr, ADD_MAIL_HEADER_ID, ADD_MAIL_HEADER_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, ADD_MAIL_HEADER_ID,
+                                    ADD_MAIL_HEADER_ID_LENGTH) == 0))
                  {
                     if (p_db->protocol & SMTP_FLAG)
                     {
@@ -1657,7 +1728,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & FTP_EXEC_FLAG) == 0) &&
-                     (strncmp(ptr, FTP_EXEC_CMD, FTP_EXEC_CMD_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, FTP_EXEC_CMD,
+                                    FTP_EXEC_CMD_LENGTH) == 0))
                  {
                     used |= FTP_EXEC_FLAG;
                     if (p_db->protocol & FTP_FLAG)
@@ -1704,7 +1776,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used2 & LOGIN_SITE_FLAG) == 0) &&
-                     (strncmp(ptr, LOGIN_SITE_CMD, LOGIN_SITE_CMD_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, LOGIN_SITE_CMD,
+                                    LOGIN_SITE_CMD_LENGTH) == 0))
                  {
                     used2 |= LOGIN_SITE_FLAG;
                     if (p_db->protocol & FTP_FLAG)
@@ -1751,7 +1824,7 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & CHARSET_FLAG) == 0) &&
-                     (strncmp(ptr, CHARSET_ID, CHARSET_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, CHARSET_ID, CHARSET_ID_LENGTH) == 0))
                  {
                     used |= CHARSET_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1796,7 +1869,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
             else if (((used & FILE_NAME_IS_USER_FLAG) == 0) &&
                      ((used2 & FILE_NAME_IS_TARGET_FLAG) == 0) &&
-                     (strncmp(ptr, FILE_NAME_IS_USER_ID, FILE_NAME_IS_USER_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, FILE_NAME_IS_USER_ID,
+                                    FILE_NAME_IS_USER_ID_LENGTH) == 0))
                  {
                     used |= FILE_NAME_IS_USER_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1832,7 +1906,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
             else if (((used2 & FILE_NAME_IS_TARGET_FLAG) == 0) &&
                      ((used & FILE_NAME_IS_USER_FLAG) == 0) &&
-                     (strncmp(ptr, FILE_NAME_IS_TARGET_ID, FILE_NAME_IS_TARGET_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, FILE_NAME_IS_TARGET_ID,
+                                    FILE_NAME_IS_TARGET_ID_LENGTH) == 0))
                  {
                     used2 |= FILE_NAME_IS_TARGET_FLAG;
                     if (p_db->protocol & SMTP_FLAG)
@@ -1868,7 +1943,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #ifdef WITH_EUMETSAT_HEADERS
             else if (((used & EUMETSAT_HEADER_FLAG) == 0) &&
-                     (strncmp(ptr, EUMETSAT_HEADER_ID, EUMETSAT_HEADER_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, EUMETSAT_HEADER_ID,
+                                    EUMETSAT_HEADER_ID_LENGTH) == 0))
                  {
                     int length;
 
@@ -1973,7 +2049,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #endif /* WITH_EUMETSAT_HEADERS */
             else if (((used & RENAME_FILE_BUSY_FLAG) == 0) &&
-                     (strncmp(ptr, RENAME_FILE_BUSY_ID, RENAME_FILE_BUSY_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, RENAME_FILE_BUSY_ID,
+                                    RENAME_FILE_BUSY_ID_LENGTH) == 0))
                  {
                     used |= RENAME_FILE_BUSY_FLAG;
                     ptr += RENAME_FILE_BUSY_ID_LENGTH;
@@ -1992,7 +2069,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & CHANGE_FTP_MODE_FLAG) == 0) &&
-                     (strncmp(ptr, PASSIVE_FTP_MODE, PASSIVE_FTP_MODE_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, PASSIVE_FTP_MODE,
+                                    PASSIVE_FTP_MODE_LENGTH) == 0))
                  {
                     used |= CHANGE_FTP_MODE_FLAG;
                     if (p_db->protocol & FTP_FLAG)
@@ -2009,7 +2087,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & CHANGE_FTP_MODE_FLAG) == 0) &&
-                     (strncmp(ptr, ACTIVE_FTP_MODE, ACTIVE_FTP_MODE_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, ACTIVE_FTP_MODE,
+                                    ACTIVE_FTP_MODE_LENGTH) == 0))
                  {
                     used |= CHANGE_FTP_MODE_FLAG;
                     if (p_db->protocol & FTP_FLAG)
@@ -2026,7 +2105,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used & ATTACH_ALL_FILES_FLAG) == 0) &&
-                     (strncmp(ptr, ATTACH_ALL_FILES_ID, ATTACH_ALL_FILES_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, ATTACH_ALL_FILES_ID,
+                                    ATTACH_ALL_FILES_ID_LENGTH) == 0))
                  {
                     used |= ATTACH_ALL_FILES_FLAG;
                     used |= ATTACH_FILE_FLAG;
@@ -2077,7 +2157,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #ifdef _WITH_TRANS_EXEC
             else if (((used & TRANS_EXEC_FLAG) == 0) &&
-                     (strncmp(ptr, TRANS_EXEC_ID, TRANS_EXEC_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, TRANS_EXEC_ID,
+                                    TRANS_EXEC_ID_LENGTH) == 0))
                  {
                     int exec_timeout_set = NO,
                         length = 0;
@@ -2119,8 +2200,8 @@ eval_message(char *message_name, struct job *p_db)
                                    if (i < MAX_INT_LENGTH)
                                    {
                                       str_number[i] = '\0';
-                                      p_db->trans_exec_timeout = strtol(str_number,
-                                                                        (char **)NULL, 10);
+                                      p_db->trans_exec_timeout = str2timet(str_number,
+                                                                           (char **)NULL, 10);
                                       exec_timeout_set = YES;
                                       while ((*ptr == ' ') || (*ptr == '\t'))
                                       {
@@ -2223,7 +2304,8 @@ eval_message(char *message_name, struct job *p_db)
                  }
 #endif /* _WITH_TRANS_EXEC */
             else if (((used2 & SOCK_SND_BUF_SIZE_FLAG) == 0) &&
-                     (strncmp(ptr, SOCKET_SEND_BUFFER_ID, SOCKET_SEND_BUFFER_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, SOCKET_SEND_BUFFER_ID,
+                                    SOCKET_SEND_BUFFER_ID_LENGTH) == 0))
                  {
                     used2 |= SOCK_SND_BUF_SIZE_FLAG;
                     ptr += SOCKET_SEND_BUFFER_ID_LENGTH;
@@ -2247,7 +2329,8 @@ eval_message(char *message_name, struct job *p_db)
                     }
                  }
             else if (((used2 & SOCK_RCV_BUF_SIZE_FLAG) == 0) &&
-                     (strncmp(ptr, SOCKET_RECEIVE_BUFFER_ID, SOCKET_RECEIVE_BUFFER_ID_LENGTH) == 0))
+                     (CHECK_STRNCMP(ptr, SOCKET_RECEIVE_BUFFER_ID,
+                                    SOCKET_RECEIVE_BUFFER_ID_LENGTH) == 0))
                  {
                     used2 |= SOCK_RCV_BUF_SIZE_FLAG;
                     ptr += SOCKET_RECEIVE_BUFFER_ID_LENGTH;

@@ -439,16 +439,34 @@ main(int argc, char *argv[])
       {
          (void)fprintf(stdout, "DANGER_PAUSE_QUEUE_STAT ");
       }
-      if (fsa[j].error_counter >= fsa[j].max_errors)
+      if (fsa[j].host_status & HOST_ERROR_ACKNOWLEDGED)
       {
-         if (fsa[j].error_counter >= (2 * fsa[j].max_errors))
-         {
-            (void)fprintf(stdout, "NOT_WORKING2 ");
-         }
-         else
-         {
-            (void)fprintf(stdout, "NOT_WORKING ");
-         }
+         (void)fprintf(stdout, "HOST_ERROR_ACKNOWLEDGED ");
+      }
+      if (fsa[j].host_status & HOST_ERROR_ACKNOWLEDGED_T)
+      {
+         (void)fprintf(stdout, "HOST_ERROR_ACKNOWLEDGED_T ");
+      }
+      if (fsa[j].host_status & HOST_ERROR_OFFLINE)
+      {
+         (void)fprintf(stdout, "HOST_ERROR_OFFLINE ");
+      }
+      if (fsa[j].host_status & HOST_ERROR_OFFLINE_T)
+      {
+         (void)fprintf(stdout, "HOST_ERROR_OFFLINE_T ");
+      }
+      if (fsa[j].host_status & HOST_ERROR_OFFLINE_STATIC)
+      {
+         (void)fprintf(stdout, "HOST_ERROR_OFFLINE_STATIC ");
+      }
+      if ((fsa[j].error_counter >= fsa[j].max_errors) &&
+          ((fsa[j].host_status & HOST_ERROR_ACKNOWLEDGED) == 0) &&
+          ((fsa[j].host_status & HOST_ERROR_ACKNOWLEDGED_T) == 0) &&
+          ((fsa[j].host_status & HOST_ERROR_OFFLINE) == 0) &&
+          ((fsa[j].host_status & HOST_ERROR_OFFLINE_T) == 0) &&
+          ((fsa[j].host_status & HOST_ERROR_OFFLINE_STATIC) == 0))
+      {
+         (void)fprintf(stdout, "NOT_WORKING ");
       }
       if (fsa[j].active_transfers > 0)
       {
@@ -475,11 +493,9 @@ main(int argc, char *argv[])
       }
       if (fsa[j].special_flag & HOST_IN_DIR_CONFIG)
       {
-         (void)fprintf(stdout, "HOST_IN_DIR_CONFIG ");
+         (void)fprintf(stdout, "HOST_IN_DIR_CONFIG");
       }
-      (void)fprintf(stdout, "NO_BURST=%d\n",
-                    fsa[j].special_flag & NO_BURST_COUNT_MASK);
-      (void)fprintf(stdout, "Error counter        : %d\n",
+      (void)fprintf(stdout, "\nError counter        : %d\n",
                     fsa[j].error_counter);
       (void)fprintf(stdout, "Total errors         : %u\n",
                     fsa[j].total_errors);
@@ -624,6 +640,10 @@ main(int argc, char *argv[])
                   (void)fprintf(stdout, "| FTP BURST ");
                   break;
 
+               case FTP_RETRIEVE_ACTIVE :
+                  (void)fprintf(stdout, "| FTP RETR  ");
+                  break;
+
                case SFTP_ACTIVE :
 #ifdef _WITH_MAP_SUPPORT
                   /* or MAP_ACTIVE */
@@ -635,6 +655,21 @@ main(int argc, char *argv[])
 
                case SFTP_BURST_TRANSFER_ACTIVE :
                   (void)fprintf(stdout, "| SFTP BURST");
+                  break;
+
+               case SFTP_RETRIEVE_ACTIVE :
+#ifdef _WITH_SCP_SUPPORT
+                  if (fsa[j].protocol & SFTP_FLAG)
+                  {
+                     (void)fprintf(stdout, "| SFTP RETR ");
+                  }
+                  else
+                  {
+                     (void)fprintf(stdout, "| SCP BURST");
+                  }
+#else
+                  (void)fprintf(stdout, "| SFTP RETR ");
+#endif
                   break;
 
                case LOC_ACTIVE :
@@ -654,14 +689,10 @@ main(int argc, char *argv[])
                   break;
 
 #ifdef _WITH_SCP_SUPPORT
-               case SCP_BURST_TRANSFER_ACTIVE :
-                  (void)fprintf(stdout, "| SCP BURST");
-                  break;
-
                case SCP_ACTIVE :
                   (void)fprintf(stdout, "| SCP ACTIV");
                   break;
-#endif /* _WITH_SCP_SUPPORT */
+#endif
 #ifdef _WITH_WMO_SUPPORT
                case WMO_BURST_TRANSFER_ACTIVE :
                   (void)fprintf(stdout, "| WMO BURST ");

@@ -31,7 +31,8 @@ show_olog_SOURCES    = calculate_summary.c\
                        print_data.c\
                        resend_files.c\
                        send_files.c\
-                       show_olog.c
+                       show_olog.c\
+                       view_files.c
 show_olog_LDADD      = ../common/libxafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
 

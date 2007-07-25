@@ -1,6 +1,6 @@
 /*
  *  fsa_attach.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1995 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1995 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,6 +43,11 @@ DESCR__S_M3
  **    -------+---------------+---------------------------------------
  **       6   | unsigned char | Flag to enable or disable certain
  **           |               | features in the AFD.
+ **           |               | Bit| Meaning
+ **           |               | ---+-------------------------
+ **           |               |  1 | DISABLE_RETRIEVE
+ **           |               |  2 | DISABLE_ARCHIVE
+ **           |               |  3 | ENABLE_CREATE_TARGET_DIR
  **    -------+---------------+---------------------------------------
  **       7   | unsigned char | Not used.
  **    -------+---------------+---------------------------------------

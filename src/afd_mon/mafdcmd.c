@@ -1,6 +1,6 @@
 /*
  *  mafdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ DESCR__S_M1
  **                -r          retry
  **                -s          switch AFD
  **                -X          toggle enable/disable AFD
+ *+                -p <role>   user role
  **                -u[ <user>] fake user
  **                -v          Just print the version number.
  **
@@ -49,22 +50,22 @@ DESCR__S_M1
  */
 DESCR__E_M1
 
-#include <stdio.h>                       /* fprintf(), stderr            */
-#include <string.h>                      /* strcpy(), strerror()         */
-#include <stdlib.h>                      /* atoi()                       */
-#include <ctype.h>                       /* isdigit()                    */
+#include <stdio.h>                    /* fprintf(), stderr               */
+#include <string.h>                   /* strcpy(), strerror(), strlen()  */
+#include <stdlib.h>                   /* atoi()                          */
+#include <ctype.h>                    /* isdigit()                       */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>                       /* open()                       */
+#include <fcntl.h>                    /* open()                          */
 #endif
-#include <unistd.h>                      /* STDERR_FILENO                */
+#include <unistd.h>                   /* STDERR_FILENO                   */
 #include <errno.h>
 #include "mondefs.h"
 #include "permission.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int                    sys_log_fd = STDERR_FILENO,
                        msa_fd = -1,
                        msa_id,
@@ -97,7 +98,8 @@ main(int argc, char *argv[])
 {
    int  errors = 0,
         i,
-        position;
+        position,
+        user_offset;
    char fake_user[MAX_FULL_USER_ID_LENGTH],
         *perm_buffer,
         *ptr,
@@ -118,6 +120,14 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   if (get_arg(&argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+   }
+   else
+   {
+      user_offset = strlen(user);
+   }
 #ifdef WITH_SETUID_PROGS
    set_afd_euid(work_dir);
 #endif
@@ -129,7 +139,7 @@ main(int argc, char *argv[])
    }
    check_fake_user(&argc, argv, MON_CONFIG_FILE, fake_user);
    eval_input(argc, argv);
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
 
    /*
     * Ensure that the user may use this program.
@@ -307,11 +317,11 @@ main(int argc, char *argv[])
             }
             else
             {
-               int  length;
-               char cmd[2 + MAX_INT_LENGTH];
+               char cmd[1 + SIZEOF_INT];
 
-               length = sprintf(cmd, "%c %d", ENABLE_MON, position);
-               if (write(fd, cmd, length) != length)
+               cmd[0] = ENABLE_MON;
+               (void)memcpy(&cmd[1], &position, SIZEOF_INT);
+               if (write(fd, cmd, (1 + SIZEOF_INT)) != (1 + SIZEOF_INT))
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to write() to %s : %s",
@@ -382,11 +392,11 @@ main(int argc, char *argv[])
             }
             else
             {
-               int  length;
-               char cmd[2 + MAX_INT_LENGTH];
+               char cmd[1 + SIZEOF_INT];
 
-               length = sprintf(cmd, "%c %d", DISABLE_MON, position);
-               if (write(fd, cmd, length) != length)
+               cmd[0] = DISABLE_MON;
+               (void)memcpy(&cmd[1], &position, SIZEOF_INT);
+               if (write(fd, cmd, (1 + SIZEOF_INT)) != (1 + SIZEOF_INT))
                {
                   system_log(ERROR_SIGN, __FILE__, __LINE__,
                              "Failed to write() to %s : %s",
@@ -443,21 +453,18 @@ main(int argc, char *argv[])
          }
          else
          {
-            int  length;
-            char action,
-                 cmd[2 + MAX_INT_LENGTH];
+            char cmd[1 + SIZEOF_INT];
 
             if (msa[position].connect_status == DISABLED)
             {
-               length = sprintf(cmd, "%c %d", ENABLE_MON, position);
-               action = ENABLE_MON;
+               cmd[0] = ENABLE_MON;
             }
             else /* DISABLE AFD */
             {
-               length = sprintf(cmd, "%c %d", DISABLE_MON, position);
-               action = DISABLE_MON;
+               cmd[0] = DISABLE_MON;
             }
-            if (write(fd, cmd, length) != length)
+            (void)memcpy(&cmd[1], &position, SIZEOF_INT);
+            if (write(fd, cmd, (1 + SIZEOF_INT)) != (1 + SIZEOF_INT))
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Failed to write() to %s : %s",
@@ -469,7 +476,7 @@ main(int argc, char *argv[])
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: %s (%s) [mafdcmd].",
                           MAX_AFD_NAME_LENGTH, msa[position].afd_alias,
-                          (action == DISABLE_MON) ? "DISABLE" : "ENABLE", user);
+                          (cmd[0] == DISABLE_MON) ? "DISABLE" : "ENABLE", user);
             }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
             if (close(readfd) == -1)

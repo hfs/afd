@@ -38,6 +38,7 @@ else
 endif
 if WITH_AFD_MON
    AFD_MON_PROGS        =  mon_sys_log monitor_log
+   EXTRA_MON_PROGS      =
    INCLUDES             = -I.. -I../init_afd -I../afd_mon
 else
    AFD_MON_PROGS        = 
@@ -46,21 +47,27 @@ else
 endif
 
 EXTRA_PROGRAMS         = $(EXTRA_INPUT_LOG) $(EXTRA_OUTPUT_LOG)\
-                         $(EXTRA_DELETE_LOG) $(EXTRA_PRODUCTION_LOG)
+                         $(EXTRA_DELETE_LOG) $(EXTRA_PRODUCTION_LOG)\
+                         $(EXTRA_MON_PROGS) alda
 MAINTAINERCLEANFILES   = Makefile.in
 CLEANFILES             = gmon.out core core.*
 noinst_HEADERS         = logdefs.h
 if WITH_AFD_MON_ONLY
    bin_PROGRAMS        = mon_sys_log monitor_log
 else
-   bin_PROGRAMS        = system_log receive_log transfer_log trans_db_log\
-                         $(AFD_MON_PROGS) $(AFD_INPUT_LOG) $(AFD_OUTPUT_LOG)\
-                         $(AFD_DELETE_LOG) $(AFD_PRODUCTION_LOG)
+   bin_PROGRAMS        = system_log event_log receive_log transfer_log\
+                         trans_db_log $(AFD_MON_PROGS) $(AFD_INPUT_LOG)\
+                         $(AFD_OUTPUT_LOG) $(AFD_DELETE_LOG)\
+                         $(AFD_PRODUCTION_LOG)
 endif
 system_log_SOURCES     = fprint_dup_msg.c\
                          logger.c\
                          system_log.c
 system_log_LDADD       = ../common/libafd.a
+event_log_SOURCES      = event_log.c\
+                         fprint_dup_msg.c\
+                         event_logger.c
+event_log_LDADD        = ../common/libafd.a
 receive_log_SOURCES    = fprint_dup_msg.c\
                          open_log_file.c\
                          receive_log.c
@@ -93,3 +100,6 @@ delete_log_LDADD       = ../common/libafd.a
 production_log_SOURCES = production_log.c\
                          open_log_file.c
 production_log_LDADD   = ../common/libafd.a
+alda_SOURCES           = alda.c\
+                         eval_input_alda.c
+alda_LDADD             = ../common/libafd.a

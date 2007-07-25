@@ -1,6 +1,6 @@
 /*
  *  afd_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -35,40 +35,42 @@
 
 #define MAX_NO_OF_DETAILED_TRANSFERS    60
 
-/* Definitions for the menu bar items */
+/* Definitions for the menu bar items. */
 #define HOST_W                          0
 #define LOG_W                           1
 #define CONTROL_W                       2
 #define CONFIG_W                        3
 #define HELP_W                          4
 
-/* Definitions for Host pulldown */
-#define QUEUE_W                         0
-#define TRANSFER_W                      1
-#define DISABLE_W                       2
-#define SWITCH_W                        3
-#define RETRY_W                         4
-#define DEBUG_W                         5
-#define SELECT_W                        6
-#define LONG_SHORT_W                    7
-#define TEST_W                          8
-#define VIEW_LOAD_W                     9
-#define EXIT_W                          10
+/* Definitions for Host pulldown. */
+#define HANDLE_EVENT_W                  0
+#define QUEUE_W                         1
+#define TRANSFER_W                      2
+#define DISABLE_W                       3
+#define SWITCH_W                        4
+#define RETRY_W                         5
+#define DEBUG_W                         6
+#define SELECT_W                        7
+#define LONG_SHORT_W                    8
+#define TEST_W                          9
+#define VIEW_LOAD_W                     10
+#define EXIT_W                          11
 
-/* Definitions for View pulldown */
+/* Definitions for View pulldown. */
 #define SYSTEM_W                        0
-#define RECEIVE_W                       1
-#define TRANS_W                         2
-#define TRANS_DEBUG_W                   3
-#define INPUT_W                         4
-#define OUTPUT_W                        5
-#define DELETE_W                        6
-#define SHOW_QUEUE_W                    7
-#define INFO_W                          8
-#define VIEW_DC_W                       9
-#define VIEW_JOB_W                     10
+#define EVENT_W                         1
+#define RECEIVE_W                       2
+#define TRANS_W                         3
+#define TRANS_DEBUG_W                   4
+#define INPUT_W                         5
+#define OUTPUT_W                        6
+#define DELETE_W                        7
+#define SHOW_QUEUE_W                    8
+#define INFO_W                          9
+#define VIEW_DC_W                      10
+#define VIEW_JOB_W                     11
 
-/* Definitions for Control pulldown */
+/* Definitions for Control pulldown. */
 #define AMG_CTRL_W                      0
 #define FD_CTRL_W                       1
 #define RR_DC_W                         2
@@ -83,19 +85,20 @@
 #define TRACE_STYLE_W                   1
 #define FULL_TRACE_STYLE_W              2
 
-/* Definitions of popup selections */
-#define QUEUE_SEL                       0
-#define TRANS_SEL                       1
-#define RETRY_SEL                       2
-#define DEBUG_SEL                       3
-#define TRACE_SEL                       4
-#define FULL_TRACE_SEL                  5
-#define INFO_SEL                        6
-#define DISABLE_SEL                     7
-#define LONG_SHORT_SEL                  8
-#define VIEW_JOB_SEL                    9
-#define SWITCH_SEL                      10
-#define VIEW_DC_SEL                     11
+/* Definitions of popup selections. */
+#define EVENT_SEL                       0
+#define QUEUE_SEL                       1
+#define TRANS_SEL                       2
+#define RETRY_SEL                       3
+#define DEBUG_SEL                       4
+#define TRACE_SEL                       5
+#define FULL_TRACE_SEL                  6
+#define INFO_SEL                        7
+#define DISABLE_SEL                     8
+#define LONG_SHORT_SEL                  9
+#define VIEW_JOB_SEL                    10
+#define SWITCH_SEL                      11
+#define VIEW_DC_SEL                     12
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
 /*         afd_ctrl.h        0 - 39                    */
@@ -103,7 +106,7 @@
 /*         dir_ctrl.h       70 - 99                    */
 /*         x_common_defs.h 100 onwards.                */
 
-/* Bar types */
+/* Bar types. */
 #define ERROR_BAR_NO                    0
 #define TR_BAR_NO                       1
 #define CURRENT_FILE_SIZE_BAR_NO        0
@@ -118,11 +121,11 @@
 #define FILE_SIZE                       4
 #define FILE_SIZE_DONE                  5
 
-/* Status LED's */
+/* Status LED's. */
 #define LED_ONE                         1
 #define LED_TWO                         2
 
-/* Log indicators (bit mapped) */
+/* Log indicators (bit mapped). */
 #define RECEIVE_LOG_INDICATOR           0
 #define SYS_LOG_INDICATOR               1
 #define TRANS_LOG_INDICATOR             2
@@ -141,7 +144,7 @@
 
 #define QUEUE_COUNTER_CHARS             4
 
-/* Structure definitions */
+/* Structure definitions. */
 struct line 
        {
           char           hostname[MAX_HOSTNAME_LENGTH + 1];
@@ -149,8 +152,7 @@ struct line
           int            no_of_files[MAX_NO_PARALLEL_JOBS];
           char           connect_status[MAX_NO_PARALLEL_JOBS];
           char           detailed_selection[MAX_NO_PARALLEL_JOBS];
-          u_off_t        bytes_send[MAX_NO_PARALLEL_JOBS];
-                                             /* No. of bytes send so far.*/
+          u_off_t        bytes_send[MAX_NO_PARALLEL_JOBS]; /* No. of bytes send so far.*/
           char           debug;              /* Is debugging enabled     */
                                              /* or disabled?             */
           char           host_toggle;
@@ -158,7 +160,7 @@ struct line
           unsigned char  stat_color_no;
           unsigned char  special_flag;
           clock_t        start_time;
-          char           status_led[2];
+          char           status_led[3];
           int            total_file_counter; /* The overall number of    */
                                              /* files still to be send.  */
           char           str_tfc[5];         /* String holding this      */
@@ -183,6 +185,8 @@ struct line
           int            short_pos;          /* Position in hostname     */
                                              /* only portion of dialog.  */
           float          scale;
+          unsigned int   host_status;
+          unsigned int   protocol;
           unsigned int   bar_length[2];
           unsigned short green_color_offset;
           unsigned short red_color_offset;
@@ -196,18 +200,20 @@ struct afd_control_perm
           char        **afd_ctrl_list;
           char        **ctrl_transfer_list;
           char        **ctrl_queue_list;
+          char        **handle_event_list;
           char        **switch_host_list;
           char        **disable_list;
           char        **info_list;
           char        **debug_list;
           char        **retry_list;
           char        **show_slog_list;
+          char        **show_elog_list;
           char        **show_rlog_list;
           char        **show_tlog_list;
-          char        **show_dlog_list;
+          char        **show_tdlog_list;
           char        **show_ilog_list;
           char        **show_olog_list;
-          char        **show_elog_list;
+          char        **show_dlog_list;
           char        **show_queue_list;
           char        **afd_load_list;
           char        **view_jobs_list;
@@ -221,6 +227,7 @@ struct afd_control_perm
           signed char shutdown_afd;          /* Shutdown AFD             */
           signed char ctrl_transfer;         /* Start/Stop transfer      */
           signed char ctrl_queue;            /* Start/Stop queue         */
+          signed char handle_event;          /* Handle event             */
           signed char switch_host;           /* Switch host              */
           signed char disable;               /* Disable host             */
           signed char info;                  /* Info about host          */
@@ -229,12 +236,13 @@ struct afd_control_perm
           signed char full_trace;            /* Enable/disable full trace*/
           signed char retry;                 /* Retry sending file       */
           signed char show_slog;             /* Show System Log          */
+          signed char show_elog;             /* Show Event Log           */
           signed char show_rlog;             /* Show Receive Log         */
           signed char show_tlog;             /* Show Transfer Log        */
-          signed char show_dlog;             /* Show Debug Log           */
+          signed char show_tdlog;            /* Show Debug Log           */
           signed char show_ilog;             /* Show Input Log           */
           signed char show_olog;             /* Show Output Log          */
-          signed char show_elog;             /* Show Delete Log          */
+          signed char show_dlog;             /* Show Delete Log          */
           signed char show_queue;            /* Show AFD Queue           */
           signed char afd_load;              /* Show load of AFD         */
           signed char view_jobs;             /* View detailed transfer   */

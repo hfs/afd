@@ -1,6 +1,6 @@
 /*
  *  map_file.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2001 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ DESCR__S_M3
  **   map_file - uses mmap() to map to a file
  **
  ** SYNOPSIS
- **   void *map_file(char *file, int *fd)
+ **   void *map_file(char *file, int *fd, int flags, ...)
  **
  ** DESCRIPTION
  **   The function map_file() attaches to the file 'file'. If
@@ -44,8 +44,7 @@ DESCR__S_M3
  */
 DESCR__E_M3
 
-#include <string.h>                 /* strerror()                        */
-#include <stdlib.h>                 /* exit()                            */
+#include <stdarg.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_FCNTL_H
@@ -58,30 +57,65 @@ DESCR__E_M3
 
 /*############################# map_file() ##############################*/
 void *
-map_file(char *file, int *fd)
+map_file(char *file, int *fd, struct stat *p_stat_buf, int flags, ...)
 {
+   int         prot;
    struct stat stat_buf;
 
-   if ((*fd = coe_open(file, O_RDWR | O_CREAT, FILE_MODE)) == -1)
+   if (flags & O_RDWR)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to open() + create <%s> : %s", file, strerror(errno));
-      exit(INCORRECT);
+      prot = PROT_READ | PROT_WRITE;
+   }
+   else if (flags & O_WRONLY)
+        {
+           prot = PROT_WRITE;
+        }
+        else
+        {
+           prot = PROT_READ;
+        }
+
+   if (flags & O_CREAT)
+   {
+      int     mode;
+      va_list arg;
+
+      va_start(arg, flags);
+      mode = va_arg(arg, int);
+      va_end(arg);
+
+      if ((*fd = coe_open(file, flags, mode)) == -1)
+      {
+         return((caddr_t)-1);
+      }
+   }
+   else
+   {
+      if ((*fd = coe_open(file, flags)) == -1)
+      {
+         return((caddr_t)-1);
+      }
    }
 
-   if (fstat(*fd, &stat_buf) == -1)
+   if (p_stat_buf == NULL)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "Failed to fstat() <%s> : %s", file, strerror(errno));
-      exit(INCORRECT);
+      if (fstat(*fd, &stat_buf) == -1)
+      {
+         int tmp_errno = errno;
+
+         (void)close(*fd);
+         errno = tmp_errno;
+         return((caddr_t)-1);
+      }
+      p_stat_buf = &stat_buf;
    }
 
-   if (stat_buf.st_size == 0)
+   if (p_stat_buf->st_size == 0)
    {
-      system_log(FATAL_SIGN, __FILE__, __LINE__,
-                 "It doesn't make sense to mmap() to a file of zero length.");
-      exit(INCORRECT);
+      (void)close(*fd);
+      errno = EINVAL;
+      return((caddr_t)-1);
    }
 
-   return(mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE), MAP_SHARED, *fd, 0));
+   return(mmap(0, p_stat_buf->st_size, prot, MAP_SHARED, *fd, 0));
 }

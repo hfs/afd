@@ -106,7 +106,8 @@ DESCR__E_M1
 #endif
 
 /* Global variables */
-int                        exitflag = IS_FAULTY_VAR,
+int                        event_log_fd = STDERR_FILENO,
+                           exitflag = IS_FAULTY_VAR,
                            files_to_delete,
                            no_of_hosts,
                            *p_no_of_hosts = NULL,
@@ -925,6 +926,7 @@ main(int argc, char *argv[])
       if (db.lock == LOCKFILE)
       {
          /* Create lock file on remote host */
+         msg_str[0] = '\0';
          if ((status = ftp_data(db.lock_file_name, 0, db.mode_flag,
                                 DATA_WRITE, 0)) != SUCCESS)
          {
@@ -1168,6 +1170,13 @@ main(int argc, char *argv[])
 #else
                   unlock_region(fsa_fd, db.lock_offset + LOCK_FIU + db.job_no);
 #endif
+#ifdef WITH_ERROR_QUEUE
+                  if ((db.special_flag & IN_ERROR_QUEUE) &&
+                      (fsa->host_status & ERROR_QUEUE_SET))
+                  {
+                     remove_from_error_queue(db.job_id, fsa);
+                  }
+#endif
                   continue;
                }
             }
@@ -1361,15 +1370,7 @@ main(int argc, char *argv[])
                                 p_end++;
                              }
                              *p_end = '\0';
-#ifdef HAVE_STRTOLL
-# if SIZEOF_OFF_T == 4
-                             append_offset = (off_t)strtol(ptr, NULL, 10);
-# else
-                             append_offset = (off_t)strtoll(ptr, NULL, 10);
-# endif
-#else
-                             append_offset = (off_t)strtol(ptr, NULL, 10);
-#endif
+                             append_offset = (off_t)str2offt(ptr, NULL, 10);
                              if (fsa->debug > NORMAL_MODE)
                              {
                                 trans_db_log(INFO_SIGN, __FILE__, __LINE__, msg_str,
@@ -1408,17 +1409,20 @@ main(int argc, char *argv[])
 #endif
 
             /* Open file on remote site. */
+            msg_str[0] = '\0';
             if ((status = ftp_data(initial_filename, append_offset,
                                    db.mode_flag, DATA_WRITE,
                                    db.sndbuf_size)) != SUCCESS)
             {
                if ((db.rename_file_busy != '\0') && (timeout_flag != ON) &&
+                   (msg_str[0] != '\0') &&
                    (posi(msg_str, "Cannot open or remove a file containing a running program.") != NULL))
                {
                   size_t length = strlen(p_initial_filename);
 
                   p_initial_filename[length] = db.rename_file_busy;
                   p_initial_filename[length + 1] = '\0';
+                  msg_str[0] = '\0';
                   if ((status = ftp_data(initial_filename, 0,
                                          db.mode_flag, DATA_WRITE,
                                          db.sndbuf_size)) != SUCCESS)
@@ -2000,7 +2004,7 @@ main(int argc, char *argv[])
 
             }
 
-            /* Close local file */
+            /* Close local file. */
             if (close(fd) == -1)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -2244,6 +2248,7 @@ main(int argc, char *argv[])
             (void)sprintf(ready_file_name, "%s_rdy", final_filename);
 
             /* Open ready file on remote site */
+            msg_str[0] = '\0';
             if ((status = ftp_data(ready_file_name, append_offset,
                                    db.mode_flag, DATA_WRITE,
                                    db.sndbuf_size)) != SUCCESS)
@@ -2397,7 +2402,7 @@ main(int argc, char *argv[])
             fsa->job_status[(int)db.job_no].file_size_in_use = 0;
             fsa->job_status[(int)db.job_no].file_size_in_use_done = 0;
 
-            /* Total file counter */
+            /* Total file counter. */
             fsa->total_file_counter -= 1;
 #ifdef _VERIFY_FSA
             if (fsa->total_file_counter < 0)
@@ -2409,7 +2414,7 @@ main(int argc, char *argv[])
             }
 #endif
 
-            /* Total file size */
+            /* Total file size. */
             fsa->total_file_size -= *p_file_size_buffer;
 #ifdef _VERIFY_FSA
             if (fsa->total_file_size < 0)
@@ -2471,7 +2476,7 @@ main(int argc, char *argv[])
          {
             trans_exec(file_path, fullname, p_file_name_buffer);
          }
-#endif /* _WITH_TRANS_EXEC */
+#endif
 
          /* Now archive file if necessary */
          if ((db.archive_time > 0) &&
@@ -2483,8 +2488,7 @@ main(int argc, char *argv[])
              * (in struct p_db) it does not always have to check
              * whether the directory has been created or not. And
              * we ensure that we do not create duplicate names
-             * when adding ARCHIVE_UNIT * db.archive_time to
-             * msg_name.
+             * when adding db.archive_time to msg_name.
              */
             if (archive_file(file_path, p_file_name_buffer, p_db) < 0)
             {
@@ -2719,15 +2723,40 @@ main(int argc, char *argv[])
              */
             if (fsa->host_status & AUTO_PAUSE_QUEUE_STAT)
             {
+               char *sign;
+
                fsa->host_status ^= AUTO_PAUSE_QUEUE_STAT;
+               if (fsa->host_status & HOST_ERROR_EA_STATIC)
+               {
+                  fsa->host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+               }
+               else
+               {
+                  fsa->host_status &= ~EVENT_STATUS_FLAGS;
+               }
                error_action(fsa->host_alias, "stop");
-               system_log(INFO_SIGN, __FILE__, __LINE__,
+               event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
+                         fsa->host_alias);
+               if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
+                   (fsa->host_status & HOST_ERROR_OFFLINE) ||
+                   (fsa->host_status & HOST_ERROR_OFFLINE_T))
+               {
+                  sign = OFFLINE_SIGN;
+               }
+               else
+               {
+                  sign = INFO_SIGN;
+               }
+               system_log(sign, __FILE__, __LINE__,
                           "Starting input queue for %s that was stopped by init_afd.",
                           fsa->host_alias);
+               event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
+                         fsa->host_alias);
             }
          } /* if (fsa->error_counter > 0) */
 #ifdef WITH_ERROR_QUEUE
-         if (db.special_flag & IN_ERROR_QUEUE)
+         if ((db.special_flag & IN_ERROR_QUEUE) &&
+             (fsa->host_status & ERROR_QUEUE_SET))
          {
             remove_from_error_queue(db.job_id, fsa);
          }

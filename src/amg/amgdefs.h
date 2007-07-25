@@ -30,7 +30,7 @@
 #define MAX_PROCESS_PER_DIR_DEF    "MAX_PROCESS_PER_DIR"
 #define CREATE_SOURCE_DIR_MODE_DEF "CREATE_SOURCE_DIR_MODE"
 
-/* Definitions of default values */
+/* Definitions of default values. */
 #define DEFAULT_PRIORITY           '9'  /* When priority is not          */
                                         /* specified, assume this value. */
 
@@ -71,7 +71,7 @@
 #define TIME_JOB_STEP_SIZE         10
 #define FILE_NAME_STEP_SIZE        20
 
-/* Definitions of identifiers in options */
+/* Definitions of identifiers in options. */
 #define TIME_NO_COLLECT_ID         "time no collect"
 #define TIME_NO_COLLECT_ID_LENGTH  (sizeof(TIME_NO_COLLECT_ID) - 1)
 #define TIME_NO_COLLECT_ID_FLAG    8
@@ -622,9 +622,11 @@ struct fork_job_data
           clock_t      system_time;
        };
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int    amg_zombie_check(pid_t *, int),
               check_list(struct directory_entry *, char *, struct stat *),
+              check_option(char *),
+              check_time_str(char *),
               com(char),
               convert(char *, char *, int, off_t *),
 #ifdef _WITH_PTHREAD
@@ -650,7 +652,7 @@ extern int    amg_zombie_check(pid_t *, int),
 #endif
               check_process_list(int),
               create_db(void),
-              eval_dir_config(off_t),
+              eval_dir_config(off_t, unsigned int *),
               eval_time_str(char *, struct bd_time_entry *),
               handle_options(int,
 #ifdef _PRODUCTION_LOG
@@ -661,7 +663,11 @@ extern int    amg_zombie_check(pid_t *, int),
               lookup_dir_id(char *, char *),
               lookup_fra_pos(char *),
               rename_files(char *, char *, int, struct instant_db *, time_t *,
-                           int, unsigned int *, char *, off_t *);
+                           int, unsigned int *, char *, off_t *),
+              reread_dir_config(int, off_t, time_t *, int, int, size_t,
+                                int, int, unsigned int *, struct host_list *),
+              reread_host_config(time_t *, int *, int *, size_t *,
+                                 struct host_list **, unsigned int *, int);
 extern pid_t  make_process_amg(char *, char *, int, int);
 extern off_t  fax2gts(char *, char *);
 extern char   *check_paused_dir(struct directory_entry *, int *, int *, int *),
@@ -694,16 +700,11 @@ extern void   check_old_time_jobs(int),
 #else
               remove_time_dir(char *, unsigned int),
 #endif
-              reread_dir_config(int, off_t, time_t *, int, int, size_t,
-                                int, int, struct host_list *),
-              reread_host_config(time_t *, int *, int *, size_t *,
-                                 struct host_list **, int),
               rm_removed_files(struct directory_entry *),
               search_old_files(time_t),
               send_message(char *, char *, unsigned int, unsigned short,
                            time_t, int,
 #ifdef _WITH_PTHREAD
-                           char *,
 # ifdef _DELETE_LOG
                            off_t *, char **,
 # endif

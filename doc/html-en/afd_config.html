@@ -44,6 +44,7 @@ the new value:
           10 (512)   - Production Log
           11 (1024)  - Output Log
           12 (2048)  - Delete Log
+          15 (16384) - Event Log
        </pre>
        Just add the values in brackets to set the wanted logs.</td>
    <td valign=top>0</td>
@@ -372,6 +373,27 @@ the new value:
    <td valign=top>afd_ctrl</td>
 </tr>
 <tr>
+   <td valign=top><a name="view_data_prog">VIEW_DATA_PROG</a></td>
+   <td>Program to view data of show_olog and show_queue dialog. This may
+       be used multiple times in AFD_CONFIG to configure different
+       programs for different file types (patterns). The syntax is as
+       follows:
+       <pre>
+VIEW_DATA_PROG &lt;progname&gt; &lt;pattern&gt;
+
+   &lt;progname&gt; - Is the program name of the program to be
+                called. If parameters need to be added,
+                tey must be put in ". The filename to be
+                shown, can be added with %s.
+   &lt;pattern&gt;  - The filename pattern that applies for the
+                above program name. Multiple patterns must
+                be seperated with a pipe sign (|).
+       </pre>
+       </td>
+   <td valign=top><pre>&nbsp;</pre></td>
+   <td valign=top>show_olog, show_queue</td>
+</tr>
+<tr>
    <td valign=top>FAKE_USER &lt;fake user name&gt;</td>
    <td>This option allows the administrator to allow certain users
        to take up another identity, even if they do not exist on the
@@ -406,7 +428,7 @@ restarted.
    <td width=90%><small><address>
    Copyright &copy; 1999 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 17.03.2007
+   Last updated: 15.07.2007
    </address></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

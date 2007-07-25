@@ -278,7 +278,7 @@ isdup(char *fullname, unsigned int id, time_t timeout, int flag, int rm_flag)
              ((*no_of_crcs % CRC_STEP_SIZE) == 0))
          {
             new_size = (((*no_of_crcs / CRC_STEP_SIZE) + 1) *
-                       CRC_STEP_SIZE * sizeof(struct crc_buf)) +
+                        CRC_STEP_SIZE * sizeof(struct crc_buf)) +
                        AFD_WORD_OFFSET;
             ptr = (char *)cdb - AFD_WORD_OFFSET;
             if ((ptr = mmap_resize(fd, ptr, new_size)) == (caddr_t) -1)

@@ -29,7 +29,8 @@ show_queue_SOURCES   = callbacks.c\
                        get_data.c\
                        print_data.c\
                        send_files.c\
-                       show_queue.c
+                       show_queue.c\
+                       view_files.c
 show_queue_LDADD     = ../common/libxafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
 

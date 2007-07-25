@@ -1,6 +1,6 @@
 /*
  *  afdsetup.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -29,38 +29,45 @@
  * features of the AFD. But note, the more features you enable will
  * increase memory usage and in some cases may harm performance.
  *
- * _WITH_BURST_2            - Before a sf_xxx process exits it asks FD if
- *                            it has another job which it can handle. This
- *                            should reduce the number of forks by FD
- *                            considerably. [Very experimental!]
- * _LOG_REMOVE_INFO         - If set, every time an archive is removed a log
- *                            entry is made in the system log. This can be
- *                            very annoying if you have lots of files in the
- *                            archive. So it's best to have this disabled.
- * _WITH_SHUTDOWN           - When FTP/SMTP closes the data connection it is
- *                            common practice to shutdown() the connection.
- *                            This can however have the unpleasant side
- *                            effect that data can be lost it is still in
- *                            the local buffer. It's best not to enable this.
- * _WITH_SEND               - When writing to sockets we use the send()
- *                            command when this option is set. Otherwise
- *                            we simply use write().
- * _WITH_PTHREAD            - If your system supports POSIX threads enable
- *                            this. Best leave this disabled since it did
- *                            not bring any performance gains, just
- *                            complicated the code.
- * _WITH_MAP_SUPPORT        - Support for the special protocol used by the
- *                            MAP system of the German Weather Service (DWD).
- * _WITH_SCP_SUPPORT        - Support for copying files via the SCP protocol.
- *                            This requires a local ssh client.
- * _WITH_TRANS_EXEC         - With option to execute a command after each
- *                            file was send.
- * DO_NOT_ARCHIVE_UNIQUE_PART-This will not store the unique part of the
- *                            file name in the archive. Do NOT activate
- *                            this! Only activate this in benchmarking
- *                            to have comparible results to AFD releases
- *                            prior to 1.3.0. Otherwise the results are
- *                            just not comparible.
+ * _WITH_BURST_2                 - Before a sf_xxx process exits it asks
+ *                                 FD if it has another job which it can
+ *                                 handle. This reduces the number of
+ *                                 forks by FD and network latency
+ *                                 considerably.
+ * _LOG_REMOVE_INFO              - If set, every time an archive is
+ *                                 removed a log entry is made in the
+ *                                 system log. This can be very annoying
+ *                                 if you have lots of files in the
+ *                                 archive. So it's best to have this
+ *                                 disabled.
+ * _WITH_SHUTDOWN                - When FTP/SMTP closes the data connection
+ *                                 it is common practice to shutdown() the
+ *                                 connection.
+ * _WITH_SEND                    - When writing to sockets we use the send()
+ *                                 command when this option is set.
+ *                                 Otherwise we simply use write().
+ * _WITH_PTHREAD                 - If your system supports POSIX threads
+ *                                 enable this. Best leave this disabled
+ *                                 since it did not bring any performance
+ *                                 gains, just complicated the code.
+ * _WITH_MAP_SUPPORT             - Support for the special protocol used
+ *                                 by the MAP system of the German Weather
+ *                                 Service (DWD).
+ * _WITH_SCP_SUPPORT             - Support for copying files via the SCP
+ *                                 protocol. This requires a local ssh
+ *                                 client.
+ * _WITH_TRANS_EXEC              - With option to execute a command after
+ *                                 each file was send.
+ * DO_NOT_INFORM_ABOUT_OVERWRITE - If you do not want to be informed when
+ *                                 an existing files is overwritten, then
+ *                                 enable this.
+ * DO_NOT_ARCHIVE_UNIQUE_PART    - This will not store the unique part of
+ *                                 the file name in the archive. Do NOT
+ *                                 activate this! Only activate this in
+ *                                 benchmarking to have comparible
+ *                                 results to AFD releases prior to 1.3.0.
+ *                                 Otherwise the results are just not
+ *                                 comparible.
  *-----------------------------------------------------------------------*/
 #define _WITH_BURST_2
 /* #define _LOG_REMOVE_INFO */
@@ -76,7 +83,13 @@
 # define WITH_REMOVE_FROM_KNOWNHOSTS
 #endif
 #define FTP_CTRL_KEEP_ALIVE_INTERVAL 1200L
-/* #define DO_NOT_ARCHIVE_UNIQUE_PART */
+#ifdef AFDBENCH_CONFIG
+# ifdef _WITH_AFW2WMO
+#  undef _WITH_AFW2WMO
+# endif
+# define DO_NOT_ARCHIVE_UNIQUE_PART
+# define DO_NOT_INFORM_ABOUT_OVERWRITE
+#endif
 
 /*-----------------------------------------------------------------------*
  * These following options are only for the dialogs of the AFD.
@@ -182,7 +195,11 @@
  * over written in that archive directory. The lowest value is 1.
  * DEFAULT: 240 (=> 4 minute)
  *-----------------------------------------------------------------------*/
-#define ARCHIVE_STEP_TIME 240
+#ifdef AFDBENCH_CONFIG
+# define ARCHIVE_STEP_TIME 10
+#else
+# define ARCHIVE_STEP_TIME 240
+#endif
 
 /*-----------------------------------------------------------------------*
  * The maximum length of the host name (alias) that is displayed by
@@ -251,9 +268,13 @@
  *                            define this.
  *                            DEFAULT: 30L
  *-----------------------------------------------------------------------*/
-#define REPORT_DIR_TIME_INTERVAL 3600
+#ifdef AFDBENCH_CONFIG
+# define REPORT_DIR_TIME_INTERVAL 300
+#else
+# define REPORT_DIR_TIME_INTERVAL 3600
+#endif
 #ifdef REPORT_DIR_TIME_INTERVAL
-#define MAX_DIFF_TIME            30L
+# define MAX_DIFF_TIME            30L
 #endif /* REPORT_DIR_TIME_INTERVAL */
 
 /*-----------------------------------------------------------------------*
@@ -332,7 +353,7 @@
  * default value. If you expect to distribute lot's of files its best to
  * set this value to zero. Because when you forget to enter a value
  * it can very quickly fill up your disk. The unit depends on
- * ARCHIVE_UNIT.
+ * DEFAULT_ARCHIVE_UNIT when no unit is specified.
  * DEFAULT: 0
  *-----------------------------------------------------------------------*/
 #define DEFAULT_ARCHIVE_TIME 0
@@ -417,9 +438,9 @@
  * fail to transmit the file and in most cases will then also fail to
  * disconnect properly. And if this continues too fast the remote
  * host will have lots of ftp daemons that still think they are connected.
- * DEFAULT: 600 (=> 10 min)
+ * DEFAULT: 300 (=> 5 min)
  *-----------------------------------------------------------------------*/
-#define DEFAULT_RETRY_INTERVAL 600
+#define DEFAULT_RETRY_INTERVAL 300
 
 /*-----------------------------------------------------------------------*
  * The default block size when transmitting files.

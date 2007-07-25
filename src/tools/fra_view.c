@@ -169,6 +169,7 @@ main(int argc, char *argv[])
       (void)fprintf(stdout, "FSA position         : %d\n", fra[i].fsa_pos);
       (void)fprintf(stdout, "Priority             : %c\n", fra[i].priority);
       (void)fprintf(stdout, "Number of process    : %d\n", fra[i].no_of_process);
+      (void)fprintf(stdout, "Max number of process: %d\n", fra[i].max_process);
 #if SIZEOF_OFF_T == 4
       (void)fprintf(stdout, "Bytes received       : %lu\n", fra[i].bytes_received);
 #else

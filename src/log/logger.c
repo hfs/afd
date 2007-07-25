@@ -1,6 +1,6 @@
 /*
  *  logger.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,6 +59,7 @@ DESCR__S_M3
  **                      it will try to read what is still left in
  **                      the fifo.
  **   27.12.2003 H.Kiehl Catch fifo buffer overflow.
+ **   16.07.2007 H.Kiehl Added offline ID.
  **
  */
 DESCR__E_M3
@@ -74,7 +75,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "logdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int          bytes_buffered;
 extern unsigned int *p_log_counter,
                     total_length;
@@ -85,7 +86,7 @@ extern char         *fifo_buffer,
                     *p_log_his,
                     *prev_msg_str;
 
-/* Local global varaibles */
+/* Local global varaibles. */
 static int          log_fd;
 static FILE         *p_log_file;
 
@@ -216,6 +217,8 @@ check_data(long rescan_time)
                   break;
                case 'T' : /* Trace is NOT made vissible! */
                   break;
+               case 'O' : /* Error/Warn Offline, NOT vissible! */
+                  break;
                case 'C' : /* Config */
                   p_log_fifo[log_pos] = CONFIG_ID;
                   break;
@@ -230,7 +233,8 @@ check_data(long rescan_time)
                   break;
             }
             if ((prev_msg_str[LOG_SIGN_POSITION] != 'D') &&
-                (prev_msg_str[LOG_SIGN_POSITION] != 'T'))
+                (prev_msg_str[LOG_SIGN_POSITION] != 'T') &&
+                (prev_msg_str[LOG_SIGN_POSITION] != 'O'))
             {
                if (p_log_his != NULL)
                {
@@ -402,6 +406,8 @@ check_data(long rescan_time)
                              break;
                           case 'T' : /* Trace is NOT made vissible! */
                              break;
+                          case 'O' : /* Error/Warn Offline, NOT vissible! */
+                             break;
                           case 'C' : /* Config */
                              p_log_fifo[log_pos] = CONFIG_ID;
                              break;
@@ -416,7 +422,8 @@ check_data(long rescan_time)
                              break;
                        }
                        if ((msg_str[LOG_SIGN_POSITION] != 'D') &&
-                           (msg_str[LOG_SIGN_POSITION] != 'T'))
+                           (msg_str[LOG_SIGN_POSITION] != 'T') &&
+                           (msg_str[LOG_SIGN_POSITION] != 'O'))
                        {
                           if (p_log_his != NULL)
                           {
@@ -439,7 +446,7 @@ check_data(long rescan_time)
               } /* while (count < n) */
            } /* if (n > 0) */
         }
-        /* An error has occurred */
+        /* An error has occurred. */
    else if (status < 0)
         {
            (void)fprintf(stderr,

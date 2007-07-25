@@ -87,11 +87,11 @@ read_current_msg_list(unsigned int **cml, int *no_of_current_msg)
          sleep_counter = 0;
          do
          {
-            (void)sleep(1);
+            (void)my_usleep(100000L);
             errno = 0;
             sleep_counter++;
             if (((fd = open(current_msg_list_file, O_RDWR)) == -1) &&
-                ((errno != ENOENT) || (sleep_counter > 10)))
+                ((errno != ENOENT) || (sleep_counter > 100)))
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           "Failed to open() `%s' : %s",
@@ -140,9 +140,9 @@ read_current_msg_list(unsigned int **cml, int *no_of_current_msg)
    sleep_counter = 0;
    while ((p_afd_status->amg_jobs & WRITTING_JID_STRUCT) == 1)
    {
-      (void)sleep(1);
+      (void)my_usleep(100000L);
       sleep_counter++;
-      if (sleep_counter > 10)
+      if (sleep_counter > 100)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Timeout arrived for waiting for AMG to finish writting to JID structure.");

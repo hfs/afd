@@ -18,6 +18,8 @@ AC_DEFUN([TYPE_SOCKLEN_T],
   ac_cv_type_socklen_t=no)
 ])
   if test $ac_cv_type_socklen_t != yes; then
-     AC_DEFINE([socklen_t], [int], [Set socklen_t to int if not set])
+     AC_DEFINE([my_socklen_t], [int], [Set my_socklen_t to int if not set])
+  else
+     AC_DEFINE([my_socklen_t], [socklen_t], [Set my_socklen_t to socklen_t if set])
   fi
 ])

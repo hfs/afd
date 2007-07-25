@@ -460,10 +460,6 @@ create_fsa(void)
          {
             fsa[i].special_flag |= HOST_IN_DIR_CONFIG;
          }
-         if (hl[i].number_of_no_bursts > 0)
-         {
-            fsa[i].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
-         }
          if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
          {
             fsa[i].special_flag |= HOST_DISABLED;
@@ -532,6 +528,10 @@ create_fsa(void)
          if (hl[i].host_status & PAUSE_QUEUE_STAT)
          {
             fsa[i].host_status |= PAUSE_QUEUE_STAT;
+         }
+         if (hl[i].host_status & HOST_ERROR_OFFLINE_STATIC)
+         {
+            fsa[i].host_status |= HOST_ERROR_OFFLINE_STATIC;
          }
          fsa[i].error_counter       = 0;
          fsa[i].total_errors        = 0;
@@ -822,10 +822,6 @@ create_fsa(void)
             fsa[i].total_file_counter  = 0;
             fsa[i].total_file_size     = 0;
             fsa[i].special_flag        = 0;
-            if (hl[i].number_of_no_bursts > 0)
-            {
-               fsa[i].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
-            }
             fsa[i].successful_retries  = 0;
             fsa[i].mc_nack_counter     = 0;
             fsa[i].trl_per_process     = fsa[i].transfer_rate_limit;
@@ -883,6 +879,14 @@ create_fsa(void)
          else
          {
             fsa[i].host_status &= ~PAUSE_QUEUE_STAT;
+         }
+         if (hl[i].host_status & HOST_ERROR_OFFLINE_STATIC)
+         {
+            fsa[i].host_status |= HOST_ERROR_OFFLINE_STATIC;
+         }
+         else
+         {
+            fsa[i].host_status &= ~HOST_ERROR_OFFLINE_STATIC;
          }
       } /* for (i = 0; i < no_of_hosts; i++) */
 
@@ -1055,7 +1059,6 @@ create_fsa(void)
                      hl[j].file_size_offset    = fsa[j].file_size_offset;
                      hl[j].transfer_timeout    = fsa[j].transfer_timeout;
                      hl[j].transfer_rate_limit = fsa[j].transfer_rate_limit;
-                     hl[j].number_of_no_bursts = fsa[j].special_flag & NO_BURST_COUNT_MASK;
                      hl[j].ttl                 = fsa[j].ttl;
                      hl[j].socksnd_bufsize     = fsa[j].socksnd_bufsize;
                      hl[j].sockrcv_bufsize     = fsa[j].sockrcv_bufsize;
@@ -1069,6 +1072,10 @@ create_fsa(void)
                      hl[j].in_dir_config       = NO;
                      fsa[j].special_flag &= ~HOST_IN_DIR_CONFIG;
                      hl[j].host_status = 0;
+                     if (fsa[j].host_status & HOST_ERROR_OFFLINE_STATIC)
+                     {
+                        hl[j].host_status |= HOST_ERROR_OFFLINE_STATIC;
+                     }
                      if (fsa[j].special_flag & HOST_DISABLED)
                      {
                         hl[j].host_status |= HOST_CONFIG_HOST_DISABLED;

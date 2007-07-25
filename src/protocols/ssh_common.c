@@ -1017,7 +1017,7 @@ get_ssh_reply(int fd, int check_reply)
 #ifdef WITH_SSH_FINGERPRINT
 # ifdef WITH_REMOVE_FROM_KNOWNHOSTS
 /*###################### remove_from_knownhosts() #######################*/
-int
+static int
 remove_from_knownhosts(char *hostname)
 {
    int           ret;

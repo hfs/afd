@@ -296,14 +296,25 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
       }
       if (length >= MAX_OPTION_LENGTH)
       {
+         int j;
+
+         for (j = i; j < p_db->no_of_loptions; j++)
+         {
+            while (*ptr != '\0')
+            {
+               ptr++;
+            }
+            ptr++;
+         }
+         length = ptr - p_db->loptions;
          system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Unable to store all AMG options in job data structure [%d > %d].",
+                    "Unable to store all AMG options in job data structure [%d >= %d].",
                     length, MAX_OPTION_LENGTH);
-         length = MAX_OPTION_LENGTH;
-         (void)memcpy(jd[*no_of_job_ids].loptions, p_db->loptions, length - 1);
-         (void)memcpy(&buffer[offset], p_db->loptions, length - 1);
-         jd[*no_of_job_ids].loptions[length - 1] = '\0';
-         buffer[offset + length - 1] = '\0';
+         length = MAX_OPTION_LENGTH - 1;
+         (void)memcpy(jd[*no_of_job_ids].loptions, p_db->loptions, length);
+         (void)memcpy(&buffer[offset], p_db->loptions, length);
+         jd[*no_of_job_ids].loptions[length] = '\0';
+         buffer[offset + length] = '\0';
       }
       else
       {
@@ -324,8 +335,8 @@ lookup_job_id(struct instant_db *p_db, unsigned int *jid_number)
       if (length >= (MAX_OPTION_LENGTH - 1))
       {
          system_log(WARN_SIGN,  __FILE__, __LINE__,
-                    "Unable to store all FD options in job data structure [%d > %d].",
-                    length, MAX_OPTION_LENGTH);
+                    "Unable to store all FD options in job data structure [%d >= %d].",
+                    length, MAX_OPTION_LENGTH - 1);
          (void)memcpy(jd[*no_of_job_ids].soptions, p_db->soptions,
                       MAX_OPTION_LENGTH);
          (void)memcpy(&buffer[offset], p_db->soptions, MAX_OPTION_LENGTH);

@@ -1,6 +1,6 @@
 /*
  *  sfilter.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -32,7 +32,13 @@ DESCR__S_M3
  **   The function sfilter() checks if 'p_file' matches 'p_filter'.
  **   'p_filter' may have the wild cards '*' and '?' anywhere and
  **   in any order. Where '*' matches any string and '?' matches
- **   any single character.
+ **   any single character. It also may list characters enclosed in
+ **   []. A pair of characters separated by a hyphen denotes a range
+ **   expression; any character that sorts between those two characters
+ **   is matched. If the first character following the [ is a ! then
+ **   any character not enclosed is matched.
+ **
+ **   The code was taken from wildmatch() by Karl Heuer.
  **
  **   This function only differs from pmatch() in that it expects
  **   p_file to be terminated by a 'separator_char'.
@@ -46,183 +52,133 @@ DESCR__S_M3
  **
  ** HISTORY
  **   12.04.1997 H.Kiehl Created
+ **   01.04.2007 H.Kiehl Fix the case "r10013*00" r10013301000.
+ **   30.05.2007 H.Kiehl Replaced code with wildmatch() code from
+ **                      Karl Heuer.
  **
  */
 DESCR__E_M3
 
 #include <stdio.h>
-#include <string.h>                    /* strncmp()                      */
 #include "x_common_defs.h"
 
-/* local functions */
-static char *find(char *, register char *, register int, char);
+/* Local function prototypes. */
+static int sfilter2(char const *, char const *, char);
 
 
-/*############################### sfilter() #############################*/
+/*############################## sfilter() ##############################*/
 int
-sfilter(char *p_filter, char *p_file, char separator_char)
+sfilter(char const *p_filter, char const *p_file, char separator_char)
 {
-   register int  length;
-   register char *p_gap_file = NULL,
-                 *p_gap_filter,
-                 *ptr = p_filter,
-                 *p_tmp = NULL,
-                 buffer;
+   int ret;
 
-   if (*ptr == '!')
+   ret = sfilter2((*p_filter == '!') ? p_filter + 1 : p_filter, p_file,
+                  separator_char);
+   if (*p_filter == '!')
    {
-      ptr++;
-   }
-   while (*ptr != '\0')
-   {
-      length = 0;
-      p_tmp = ptr;
-      switch (*ptr)
+      if (ret == 0)
       {
-         case '*' :
-            ptr++;
-            while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
-            {
-               length++;
-               ptr++;
-            }
-            if (length == 0)
-            {
-               p_gap_filter = ptr;
-               while (*ptr == '*')
-               {
-                  ptr++;
-               }
-               if (*ptr != '\0')
-               {
-                  ptr = p_gap_filter;
-               }
-               if ((*ptr == '*') || (*ptr == '?'))
-               {
-                  p_gap_file = p_file + 1;
-                  p_gap_filter = p_tmp;
-                  break;
-               }
-               else
-               {
-                  return((*p_filter != '!') ? 0 : 1);
-               }
-            }
-            buffer = *ptr;
-            if ((p_file = find(p_file, p_tmp + 1,
-                               length, separator_char)) == NULL)
-            {
-               return((*p_filter != '!') ? -1 : 0);
-            }
-            else
-            {
-               if (*ptr == '?')
-               {
-                  if (length > 1 )
-                  {
-                     p_gap_file = p_file - length + 1;
-                  }
-                  else
-                  {
-                     p_gap_file = p_file + 1;
-                  }
-                  p_gap_filter = p_tmp;
-               }
-               if ((*ptr == '\0') && (*p_file != separator_char))
-               {
-                  ptr = p_tmp;
-               }
-            }
-            if ((buffer == '\0') && (*p_file == separator_char))
-            {
-               return((*p_filter != '!') ? 0 : 1);
-            }
-            break;
-
-         case '?' :
-            if (*(p_file++) == separator_char)
-            {
-               return((*p_filter != '!') ? -1 : 0);
-            }
-            if ((*(++ptr) == '\0') && (*p_file == separator_char))
-            {
-               return((*p_filter != '!') ? 0 : 1);
-            }
-            if ((*ptr == '\0') && (p_gap_file != NULL))
-            {
-               p_file = p_gap_file;
-               ptr = p_gap_filter;
-            }
-            break;
-
-         default  :
-            while ((*ptr != '*') && (*ptr != '?') && (*ptr != '\0'))
-            {
-               length++;
-               ptr++;
-            }
-            if (strncmp(p_file, p_tmp, length) != 0)
-            {
-               if (p_gap_file != NULL)
-               {
-                  p_file = p_gap_file;
-                  ptr = p_gap_filter;
-                  break;
-               }
-               return((*p_filter != '!') ? -1 : 0);
-            }
-            p_file += length;
-            if ((*ptr == '\0') &&
-                ((*p_file == ' ') || (*p_file == separator_char)))
-            {
-               return((*p_filter != '!') ? 0 : 1);
-            }
-            break;
+         ret = 1;
       }
+      else if (ret == -1)
+           {
+              ret = 0;
+           }
    }
 
-   return((*p_filter != '!') ? -1 : 0);
+   return(ret);
 }
 
 
-/*++++++++++++++++++++++++++++++++ find() +++++++++++++++++++++++++++++++*/
-/*
- * Description  : Searches in "search_text" for "search_string". If
- *                found, it returns the address of the last character
- *                in "search_string".
- * Input values : char *search_text
- *                char *search_string
- *                int  string_length
- * Return value : char *search_text when it finds search_text otherwise
- *                NULL is returned.
- */
-static char *
-find(char          *search_text,
-     register char *search_string,
-     register int  string_length,
-     char          separator_char)
+/*++++++++++++++++++++++++++++++ sfilter2() +++++++++++++++++++++++++++++*/
+static int
+sfilter2(char const *p, char const *s, char separator_char)
 {
-   register int hit = 0;
+   register char c;
 
-   while (*search_text != separator_char)
+   while ((c = *p++) != '\0')
    {
-      if (*(search_text++) == *(search_string++))
+      if (c == '*')
       {
-         if (++hit == string_length)
+         if (*p == '\0')
          {
-            return(search_text);
+            return(0); /* optimize common case */
          }
-      }
-      else
-      {
-         search_string -= (hit + 1);
-         if (hit != 0)
+         do
          {
-            search_text -= hit;
-            hit = 0;
-         }
+            if (sfilter2(p, s, separator_char) == 0)
+            {
+               return(0);
+            }
+         } while (*s++ != separator_char);
+         return(-1);
       }
+      else if (c == '?')
+           {
+               if (*s++ == separator_char)
+               {
+                  return(-1);
+               }
+           }
+      else if (c == '[')
+           {
+              register int wantit;
+              register int seenit = NO;
+
+              if (*p == '!')
+              {
+                 wantit = NO;
+                 ++p;
+              }
+              else
+              {
+                 wantit = YES;
+              }
+              c = *p++;
+              do
+              {
+                 if (c == '\0')
+                 {
+                    return(-1);
+                 }
+                 if ((*p == '-') && (p[1] != '\0'))
+                 {
+                    if ((*s >= c) && (*s <= p[1]))
+                    {
+                       seenit = YES;
+                    }
+                    p += 2;
+                 }
+                 else
+                 {
+                    if (c == *s)
+                    {
+                       seenit = YES;
+                    }
+                 }
+              } while ((c = *p++) != ']');
+
+              if (wantit != seenit)
+              {
+                 return(-1);
+              }
+              ++s;
+           }
+      else if (c == '\\')
+           {
+              if ((*p == '\0') || (*p++ != *s++))
+              {
+                 return(-1);
+              }
+           }
+           else
+           {
+              if (c != *s++)
+              {
+                 return(-1);
+              }
+           }
    }
 
-   return(NULL);
+   return((*s == separator_char) ? 0 : -1);
 }

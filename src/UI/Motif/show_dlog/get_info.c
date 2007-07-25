@@ -270,7 +270,7 @@ get_sum_data(int item, time_t *date, double *file_size)
 
       /* Go to beginning of line to read complete line. */
       if (fseek(il[file_no].fp,
-                (long)(il[file_no].line_offset[pos] - (11 + MAX_HOSTNAME_LENGTH + 3)),
+                (long)(il[file_no].line_offset[pos] - (LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3)),
                 SEEK_SET) == -1)
       {
          (void)xrec(appshell, FATAL_DIALOG,
@@ -290,7 +290,7 @@ get_sum_data(int item, time_t *date, double *file_size)
       str_hex_number[0] = '0';
       str_hex_number[1] = 'x';
       i = 2;
-      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (i < 11))
+      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (i < (LOG_DATE_LENGTH + 1)))
       {
          str_hex_number[i] = *ptr;
          ptr++; i++;
@@ -298,10 +298,10 @@ get_sum_data(int item, time_t *date, double *file_size)
       if (*ptr == SEPARATOR_CHAR)
       {
          str_hex_number[i] = '\0';
-         *date = (time_t)strtol(str_hex_number, NULL, 16);
+         *date = (time_t)str2timet(str_hex_number, NULL, 16);
          ptr++;
       }
-      else if (i >= 11)
+      else if (i >= (LOG_DATE_LENGTH + 1))
            {
               while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n'))
               {
@@ -315,7 +315,7 @@ get_sum_data(int item, time_t *date, double *file_size)
            }
 
       /* Ignore file name */
-      ptr = &buffer[11 + MAX_HOSTNAME_LENGTH + 3];
+      ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
       while (*ptr != SEPARATOR_CHAR)
       {
          ptr++;
@@ -324,7 +324,7 @@ get_sum_data(int item, time_t *date, double *file_size)
 
       /* Get file size. */
       i = 2;
-      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (i < 11))
+      while ((*ptr != SEPARATOR_CHAR) && (*ptr != '\n') && (i < (LOG_DATE_LENGTH + 1)))
       {
          str_hex_number[i] = *ptr;
          ptr++; i++;

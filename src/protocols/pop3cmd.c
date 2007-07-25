@@ -1,6 +1,6 @@
 /*
  *  pop3cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ DESCR__S_M3
  **   int  pop3_quit(void)
  **
  ** DESCRIPTION
- **   pop3cmd provides a set of commands to communicate with a PÄOP3
+ **   pop3cmd provides a set of commands to communicate with a POP3
  **   server via BSD sockets.
  **   The following functions are necessary to do the communication:
  **      pop3_connect()  - build a connection to a POP3 server
@@ -60,6 +60,7 @@ DESCR__E_M3
 #include <stdio.h>
 #include <string.h>           /* memset(), memcpy()                      */
 #include <stdlib.h>           /* malloc(), free()                        */
+#include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>        /* fd_set                                  */
 #include <sys/time.h>         /* struct timeval                          */
 #ifdef HAVE_SYS_SOCKET_H
@@ -126,11 +127,7 @@ pop3_connect(char *hostname, int port)
 #endif
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
-   if ((sin.sin_addr.s_addr = inet_addr(hostname)) != -1)
-   {
-      sin.sin_family = AF_INET;
-   }
-   else
+   if ((sin.sin_addr.s_addr = inet_addr(hostname)) == -1)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
@@ -167,19 +164,18 @@ pop3_connect(char *hostname, int port)
 #endif
          return(INCORRECT);
       }
-      sin.sin_family = p_host->h_addrtype;
 
-      /* Copy IP number to socket structure */
+      /* Copy IP number to socket structure. */
       memcpy((char *)&sin.sin_addr, p_host->h_addr, p_host->h_length);
    }
 
-   if ((pop3_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+   if ((pop3_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "socket() error : %s", strerror(errno));
       return(INCORRECT);
    }
-
+   sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
    while (connect(pop3_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
@@ -209,7 +205,7 @@ pop3_connect(char *hostname, int port)
          trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
                    "close() error : %s", strerror(errno));
       }
-      if ((pop3_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+      if ((pop3_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                    "socket() error : %s", strerror(errno));
@@ -285,7 +281,7 @@ pop3_stat(int *no_of_messages, off_t *msg_size)
 
          ptr = msg_str + 4;
          i = 0;
-         while (isdigit(*(ptr + i)) && (i < MAX_INT_LENGTH))
+         while (isdigit((int)(*(ptr + i))) && (i < MAX_INT_LENGTH))
          {
             str_number[i] = *(ptr + i);
             i++;
@@ -315,7 +311,7 @@ pop3_stat(int *no_of_messages, off_t *msg_size)
          }
          ptr += i;
          i = 0;
-         while (isdigit(*(ptr + i)) && (i < MAX_LONG_LENGTH))
+         while (isdigit((int)(*(ptr + i))) && (i < MAX_LONG_LENGTH))
          {
             str_number[i] = *(ptr + i);
             i++;
@@ -367,7 +363,7 @@ pop3_retrieve(unsigned int msg_number, off_t *msg_size)
 
             i = 0;
             ptr++;
-            while (isdigit(*(ptr + i)) && (i < MAX_LONG_LENGTH))
+            while (isdigit((int)(*(ptr + i))) && (i < MAX_LONG_LENGTH))
             {
                str_number[i] = *(ptr + i);
                i++;

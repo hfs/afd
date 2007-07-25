@@ -1,6 +1,6 @@
 /*
  *  ports.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2002 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2002 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -21,9 +21,26 @@
 #define __ports_h
 
 #if !defined(HAVE_SETEUID) && defined(HAVE_SETREUID)
-#define seteuid(a)    setreuid(-1, (a))
-#define setegid(a)    setregid(-1, (a))
-#define HAVE_SETEUID
+# define seteuid(a)    setreuid(-1, (a))
+# define setegid(a)    setregid(-1, (a))
+# define HAVE_SETEUID
 #endif
+
+#ifdef HAVE_STRTOLL
+# if SIZEOF_TIME_T == 4
+#  define str2timet strtol
+# else
+#  define str2timet strtoll
+# endif
+# if SIZEOF_OFF_T == 4
+#  define str2offt strtol
+# else
+#  define str2offt strtoll
+# endif
+#else
+# define str2timet strtol
+# define str2offt strtol
+#endif
+
 
 #endif /* __ports_h */

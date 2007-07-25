@@ -87,18 +87,18 @@ int                    afd_no,
                        timeout_flag;
 time_t                 new_hour_time;
 size_t                 adl_size,
-                       ahl_size;
+                       ahl_size,
+                       ajl_size;
 off_t                  msa_size;
 long                   tcp_timeout = 120L;
-char                   adl_file_name[MAX_PATH_LENGTH],
-                       ahl_file_name[MAX_PATH_LENGTH],
-                       msg_str[MAX_RET_MSG_LENGTH],
+char                   msg_str[MAX_RET_MSG_LENGTH],
                        *p_mon_alias,
                        *p_work_dir;
 FILE                   *p_control;
 struct mon_status_area *msa;
 struct afd_dir_list    *adl = NULL;
 struct afd_host_list   *ahl = NULL;
+struct afd_job_list    *ajl = NULL;
 const char             *sys_log_name = MON_SYS_LOG_FIFO;
 
 /* Local global variables. */
@@ -173,12 +173,6 @@ main(int argc, char *argv[])
    /* Initialize variables. */
    (void)strcpy(mon_log_fifo, p_work_dir);
    (void)strcat(mon_log_fifo, FIFO_DIR);
-   (void)strcpy(adl_file_name, mon_log_fifo);
-   (void)strcat(adl_file_name, ADL_FILE_NAME);
-   (void)strcat(adl_file_name, argv[1]);
-   (void)strcpy(ahl_file_name, mon_log_fifo);
-   (void)strcat(ahl_file_name, AHL_FILE_NAME);
-   (void)strcat(ahl_file_name, argv[1]);
    (void)strcpy(retry_fifo, mon_log_fifo);
    (void)strcat(retry_fifo, RETRY_MON_FIFO);
    (void)strcat(retry_fifo, argv[1]);
@@ -269,7 +263,8 @@ main(int argc, char *argv[])
       msa[afd_no].connect_status = CONNECTING;
       timeout_flag = OFF;
       if ((status = tcp_connect(msa[afd_no].hostname[(int)msa[afd_no].afd_toggle],
-                                msa[afd_no].port[(int)msa[afd_no].afd_toggle])) != SUCCESS)
+                                msa[afd_no].port[(int)msa[afd_no].afd_toggle],
+                                NO)) != SUCCESS)
       {
          if (timeout_flag == OFF)
          {
@@ -509,6 +504,32 @@ main(int argc, char *argv[])
       }
 
 done:
+      if (adl != NULL)
+      {
+#ifdef HAVE_MMAP
+         if (munmap((void *)adl, adl_size) == -1)
+#else
+         if (munmap_emu((void *)adl) == -1)
+#endif
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "munmap() error : %s", strerror(errno));
+         }
+         adl = NULL;
+      }
+      if (ajl != NULL)
+      {
+#ifdef HAVE_MMAP
+         if (munmap((void *)ajl, ajl_size) == -1)
+#else
+         if (munmap_emu((void *)ajl) == -1)
+#endif
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "munmap() error : %s", strerror(errno));
+         }
+         ajl = NULL;
+      }
       msa[afd_no].tr = 0;
 
       /* Initialise descriptor set and timeout. */
@@ -622,15 +643,13 @@ send_got_log_capabilities(int afd_no)
 #endif
    char mon_cmd_fifo[MAX_PATH_LENGTH];
 
-   (void)strcpy(mon_cmd_fifo, p_work_dir);
-   (void)strcat(mon_cmd_fifo, FIFO_DIR);
-   (void)strcat(mon_cmd_fifo, MON_CMD_FIFO);
+   (void)sprintf(mon_cmd_fifo, "%s%s%s", p_work_dir, FIFO_DIR, MON_CMD_FIFO);
 
    /* Open fifo to AFD to receive commands. */
 #ifdef WITHOUT_FIFO_RW_SUPPORT                
    if (open_fifo_rw(mon_cmd_fifo, &mon_cmd_readfd, &mon_cmd_fd) == -1)
 #else                                                                  
-   if ((mon_cmd_fd = coe_open(mon_cmd_fifo, O_RDWR)) == -1)
+   if ((mon_cmd_fd = open(mon_cmd_fifo, O_RDWR)) == -1)
 #endif
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -639,9 +658,11 @@ send_got_log_capabilities(int afd_no)
    else
    {
       int  length;
-      char cmd[2 + MAX_INT_LENGTH];
+      char cmd[1 + SIZEOF_INT];
 
-      length = sprintf(cmd, "%c %d", GOT_LC, afd_no);
+      cmd[0] = GOT_LC;
+      (void)memcpy(&cmd[1], &afd_no, SIZEOF_INT);
+      length = 1 + SIZEOF_INT;
       if (write(mon_cmd_fd, cmd, length) != length)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -653,12 +674,6 @@ send_got_log_capabilities(int afd_no)
       {
          length = SUCCESS;
       }
-      if (close(mon_cmd_fd) == -1)
-      {
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                    "Failed to close() `%s' : %s",
-                    mon_cmd_fifo, strerror(errno));
-      }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
       if (close(mon_cmd_readfd) == -1)
       {
@@ -667,6 +682,12 @@ send_got_log_capabilities(int afd_no)
                     mon_cmd_fifo, strerror(errno));
       }
 #endif
+      if (close(mon_cmd_fd) == -1)
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to close() `%s' : %s",
+                    mon_cmd_fifo, strerror(errno));
+      }
 
       return(length);
    }

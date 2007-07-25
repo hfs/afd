@@ -1,6 +1,6 @@
 /*
  *  dir_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2004 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M1
  **   dir_spy - shows all directory names currently stored
  **
  ** SYNOPSIS
- **   dir_spy [-w <AFD work dir>] [--version]
+ **   dir_spy[ -w <AFD work dir>][ --version][ -d <dir ID>]
  **
  ** DESCRIPTION
  **
@@ -39,6 +39,7 @@ DESCR__S_M1
  **   03.02.1998 H.Kiehl Created
  **   05.01.2004 H.Kiehl Also show the original directory name as stored
  **                      in DIR_CONFIG.
+ **   09.07.2007 H.Kiehl Added -d option.
  **
  */
 DESCR__E_M1
@@ -56,10 +57,13 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Global variables */
-int        sys_log_fd = STDERR_FILENO;
-char       *p_work_dir = NULL;
-const char *sys_log_name = SYSTEM_LOG_FIFO;
+/* Global variables. */
+int         sys_log_fd = STDERR_FILENO;
+char        *p_work_dir = NULL;
+const char  *sys_log_name = SYSTEM_LOG_FIFO;
+
+/* Local function prototypes. */
+static void usage(char *);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -68,12 +72,23 @@ main(int argc, char *argv[])
 {
    int                 fd,
                        i,
-                       *no_of_dir_names;
+                       *no_of_dir_names,
+                       ret;
+   unsigned int        search_dir_id;
    char                file[MAX_PATH_LENGTH],
                        *ptr,
+                       str_dir_id[MAX_INT_LENGTH + 1],
                        work_dir[MAX_PATH_LENGTH];
    struct stat         stat_buf;
    struct dir_name_buf *dnb;
+
+   if ((get_arg(&argc, argv, "-?", NULL, 0) == SUCCESS) ||
+       (get_arg(&argc, argv, "-help", NULL, 0) == SUCCESS) ||
+       (get_arg(&argc, argv, "--help", NULL, 0) == SUCCESS))
+   {
+      usage(argv[0]);
+      exit(SUCCESS);
+   }
 
    CHECK_FOR_VERSION(argc, argv);
 
@@ -81,6 +96,16 @@ main(int argc, char *argv[])
    if (get_afd_path(&argc, argv, work_dir) < 0) 
    {
       exit(INCORRECT);
+   }
+
+   if (get_arg(&argc, argv, "-d", str_dir_id, MAX_INT_LENGTH) == INCORRECT)
+   {
+      search_dir_id = 0;
+      str_dir_id[0] = '\0';
+   }
+   else
+   {
+      search_dir_id = (unsigned int)strtoul(str_dir_id, NULL, 16);
    }
 
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, DIR_NAME_FILE);
@@ -121,26 +146,55 @@ main(int argc, char *argv[])
 
    if (*no_of_dir_names > 0)
    {
-      (void)fprintf(stdout, "No of directories : %d\n", *no_of_dir_names);
-      (void)fprintf(stdout, "Pos   Dir-ID     Dir-name [| Original name]\n");
-      for (i = 0; i < *no_of_dir_names; i++)
+      if (str_dir_id[0] == '\0')
       {
-         if (CHECK_STRCMP(dnb[i].dir_name, dnb[i].orig_dir_name) == 0)
+         (void)fprintf(stdout, "No of directories : %d\n", *no_of_dir_names);
+         (void)fprintf(stdout, "Pos   Dir-ID     Dir-name [| Original name]\n");
+         for (i = 0; i < *no_of_dir_names; i++)
          {
-            (void)fprintf(stdout, "%-5d %-10x %s\n",
-                          i, dnb[i].dir_id, dnb[i].dir_name);
+            if (CHECK_STRCMP(dnb[i].dir_name, dnb[i].orig_dir_name) == 0)
+            {
+               (void)fprintf(stdout, "%-5d %-*x %s\n",
+                             i, MAX_INT_LENGTH, dnb[i].dir_id, dnb[i].dir_name);
+            }
+            else
+            {
+               (void)fprintf(stdout, "%-5d %-*x %s | %s\n",
+                             i, MAX_INT_LENGTH, dnb[i].dir_id, dnb[i].dir_name,
+                             dnb[i].orig_dir_name);
+            }
          }
-         else
+         ret = SUCCESS;
+      }
+      else
+      {
+         for (i = 0; i < *no_of_dir_names; i++)
          {
-            (void)fprintf(stdout, "%-5d %-10x %s | %s\n",
-                          i, dnb[i].dir_id, dnb[i].dir_name,
-                          dnb[i].orig_dir_name);
+            if (dnb[i].dir_id == search_dir_id)
+            {
+               if (CHECK_STRCMP(dnb[i].dir_name, dnb[i].orig_dir_name) == 0)
+               {
+                  (void)fprintf(stdout, "%-5d %-*x %s\n",
+                                i, MAX_INT_LENGTH, dnb[i].dir_id,
+                                dnb[i].dir_name);
+               }
+               else
+               {
+                  (void)fprintf(stdout, "%-5d %-*x %s | %s\n",
+                                i, MAX_INT_LENGTH, dnb[i].dir_id,
+                                dnb[i].dir_name, dnb[i].orig_dir_name);
+               }
+               exit(SUCCESS);
+            }
          }
+         (void)fprintf(stdout, "Directory ID %u not found.\n", search_dir_id);
+         ret = INCORRECT;
       }
    }
    else
    {
       (void)fprintf(stdout, "No directories.\n");
+      ret = INCORRECT;
    }
 
    ptr -= AFD_WORD_OFFSET;
@@ -154,5 +208,15 @@ main(int argc, char *argv[])
                     file, strerror(errno), __FILE__, __LINE__);
    }
 
-   exit(INCORRECT);
+   exit(ret);
+}
+
+/*+++++++++++++++++++++++++++++++ usage() +++++++++++++++++++++++++++++++*/
+static void
+usage(char *progname)
+{
+   (void)fprintf(stderr,
+                 "Usage : %s[ -w <AFD work dir>][ --version][ -d <dir ID>]\n",
+                 progname);
+   return;
 }

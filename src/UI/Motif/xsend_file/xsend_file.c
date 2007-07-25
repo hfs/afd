@@ -1317,7 +1317,7 @@ xsend_file_exit(void)
 #else
          (void)fprintf(stderr, "Failed to kill() process %lld : %s (%s %d)\n",
 #endif
-                       cmd_pid, strerror(errno), __FILE__, __LINE__);
+                       (pri_pid_t)cmd_pid, strerror(errno), __FILE__, __LINE__);
       }
    }
    (void)unlink(file_name_file);

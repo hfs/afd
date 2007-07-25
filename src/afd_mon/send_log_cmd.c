@@ -58,7 +58,7 @@ DESCR__E_M3
 
 /* #define DEBUG_LOG_CMD */
 
-/* External global variables */
+/* External global variables. */
 extern int                    sock_fd,
                               timeout_flag;
 extern long                   tcp_timeout;
@@ -89,6 +89,19 @@ send_log_cmd(int afd_no, char *log_data_buffer, int *bytes_buffered)
       cmd_length += sprintf(&cmd_buffer[cmd_length], " LS 0 %s %ld",
 #else
       cmd_length += sprintf(&cmd_buffer[cmd_length], " LS 0 %s %lld",
+#endif
+                                     remote_log_inode,
+                                     (pri_off_t)log_file_size);
+   }
+   if ((msa[afd_no].log_capabilities & AFDD_EVENT_LOG) &&
+       (msa[afd_no].options & AFDD_EVENT_LOG))
+   {
+      init_log_values(EVENT_LOG_NAME, msa[afd_no].afd_alias, remote_log_inode,
+                      &log_file_size);
+#if SIZEOF_OFF_T == 4
+      cmd_length += sprintf(&cmd_buffer[cmd_length], " LE 0 %s %ld",
+#else
+      cmd_length += sprintf(&cmd_buffer[cmd_length], " LE 0 %s %lld",
 #endif
                                      remote_log_inode,
                                      (pri_off_t)log_file_size);

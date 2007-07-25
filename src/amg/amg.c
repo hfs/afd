@@ -87,7 +87,8 @@ DESCR__E_M1
 #endif
 #include <signal.h>                   /* kill(), signal()                */
 #include <unistd.h>                   /* select(), read(), write(),      */
-                                      /* close(), unlink(), sleep()      */
+                                      /* close(), unlink(), sleep(),     */
+                                      /* fpathconf()                     */
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>                    /* O_RDWR, O_CREAT, O_WRONLY, etc  */
                                       /* open()                          */
@@ -148,7 +149,7 @@ struct delete_log          dl;
 #endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* local functions    */
+/* Local function prototypes. */
 static void                amg_exit(void),
                            get_afd_config_value(int *, int *, int *, mode_t *,
                                                 unsigned int *, off_t *,
@@ -189,7 +190,8 @@ main(int argc, char *argv[])
                     rescan_time = DEFAULT_RESCAN_TIME,
                     max_no_proc = MAX_NO_OF_DIR_CHECKS;
    time_t           hc_old_time;
-   char             buffer[10],
+   size_t           fifo_size;
+   char             *fifo_buffer,
                     work_dir[MAX_PATH_LENGTH],
                     *ptr;
    fd_set           rset;
@@ -202,7 +204,7 @@ main(int argc, char *argv[])
    CHECK_FOR_VERSION(argc, argv);
 
 #ifdef _DEBUG
-   /* Open debug file for writing */
+   /* Open debug file for writing. */
    if ((p_debug_file = fopen("amg.debug", "w")) == NULL)
    {
       (void)fprintf(stderr, "ERROR   : Could not open %s : %s (%s %d)\n",
@@ -226,7 +228,7 @@ main(int argc, char *argv[])
    }
 #endif
 
-   /* Do some cleanups when we exit */
+   /* Do some cleanups when we exit. */
    if (atexit(amg_exit) != 0)
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -245,7 +247,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    
-   /* Check syntax if necessary */
+   /* Check syntax if necessary. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
@@ -395,7 +397,7 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      /* Initialise counter file with zero */
+      /* Initialise counter file with zero. */
       if (write(fd, &status, sizeof(int)) != sizeof(int))
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -465,6 +467,23 @@ main(int argc, char *argv[])
 #endif
                            &default_warn_time, &create_source_dir);
 
+      /* Determine the size of the fifo buffer and allocate buffer. */
+      if ((i = (int)fpathconf(db_update_fd, _PC_PIPE_BUF)) < 0)
+      {
+         /* If we cannot determine the size of the fifo set default value. */
+         fifo_size = DEFAULT_FIFO_SIZE;
+      }
+      else
+      {
+         fifo_size = i;
+      }
+      if ((fifo_buffer = malloc(fifo_size)) == NULL)
+      {
+         system_log(FATAL_SIGN, __FILE__, __LINE__,
+                    "malloc() error [%d bytes] : %s",
+                    fifo_size, strerror(errno));
+      }
+
       /* Find largest file descriptor. */
       if (amg_cmd_fd > db_update_fd)
       {
@@ -478,7 +497,7 @@ main(int argc, char *argv[])
       /* Evaluate HOST_CONFIG file. */
       hl = NULL;
       if ((eval_host_config(&no_of_hosts, host_config_file,
-                            &hl, first_time) == NO_ACCESS) &&
+                            &hl, NULL, first_time) == NO_ACCESS) &&
           (first_time == NO))
       {
          /*
@@ -513,7 +532,6 @@ main(int argc, char *argv[])
                hl[i].file_size_offset    = fsa[i].file_size_offset;
                hl[i].transfer_timeout    = fsa[i].transfer_timeout;
                hl[i].protocol            = fsa[i].protocol;
-               hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
                hl[i].transfer_rate_limit = fsa[i].transfer_rate_limit;
                hl[i].socksnd_bufsize     = fsa[i].socksnd_bufsize;
                hl[i].sockrcv_bufsize     = fsa[i].sockrcv_bufsize;
@@ -524,6 +542,10 @@ main(int argc, char *argv[])
 #endif
                hl[i].protocol_options    = fsa[i].protocol_options;
                hl[i].host_status = 0;
+               if (fsa[i].host_status & HOST_ERROR_OFFLINE_STATIC)
+               {
+                  hl[i].host_status |= HOST_ERROR_OFFLINE_STATIC;
+               }
                if (fsa[i].special_flag & HOST_DISABLED)
                {
                   hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
@@ -590,7 +612,7 @@ main(int argc, char *argv[])
       inform_fd_about_fsa_change();
 
       /* evaluate database */
-      if (eval_dir_config(db_size) != SUCCESS)
+      if (eval_dir_config(db_size, NULL) != SUCCESS)
       {
          system_log(FATAL_SIGN, __FILE__, __LINE__,
                     "Could not find any valid entries in database %s",
@@ -727,11 +749,11 @@ main(int argc, char *argv[])
               "AMG Configuration: Remove unused hosts       %s",
               (remove_unused_hosts == NO) ? "No" : "Yes");
 
-   /* Check if the database has been changed */
+   /* Check if the database has been changed. */
    FD_ZERO(&rset);
    for (;;)
    {
-      /* Initialise descriptor set and timeout */
+      /* Initialise descriptor set and timeout. */
       FD_SET(amg_cmd_fd, &rset);
       FD_SET(db_update_fd, &rset);
       timeout.tv_usec = 0;
@@ -744,7 +766,7 @@ main(int argc, char *argv[])
       /* fifo to shutdown the AMG?                 */
       if ((status > 0) && (FD_ISSET(amg_cmd_fd, &rset)))
       {
-         if ((status = read(amg_cmd_fd, buffer, 10)) > 0)
+         if ((status = read(amg_cmd_fd, fifo_buffer, 10)) > 0)
          {
             /* Show user we got shutdown message */
             system_log(INFO_SIGN, NULL, 0, "%s shutting down ....", AMG);
@@ -800,14 +822,14 @@ main(int argc, char *argv[])
               int n,
                   count = 0;
 
-              if ((n = read(db_update_fd, buffer, 10)) > 0)
+              if ((n = read(db_update_fd, fifo_buffer, fifo_size)) > 0)
               {
 #ifdef _FIFO_DEBUG
-                 show_fifo_data('R', DB_UPDATE_FIFO, buffer, n, __FILE__, __LINE__);
+                 show_fifo_data('R', DB_UPDATE_FIFO, fifo_buffer, n, __FILE__, __LINE__);
 #endif
                  while (count < n)
                  {
-                    switch (buffer[count])
+                    switch (fifo_buffer[count])
                     {
                        case HOST_CONFIG_UPDATE :
                           /* HOST_CONFIG updated by edit_hc */
@@ -834,7 +856,6 @@ main(int argc, char *argv[])
                              hl[i].file_size_offset    = fsa[i].file_size_offset;
                              hl[i].transfer_timeout    = fsa[i].transfer_timeout;
                              hl[i].protocol            = fsa[i].protocol;
-                             hl[i].number_of_no_bursts = fsa[i].special_flag & NO_BURST_COUNT_MASK;
                              hl[i].transfer_rate_limit = fsa[i].transfer_rate_limit;
                              hl[i].socksnd_bufsize     = fsa[i].socksnd_bufsize;
                              hl[i].sockrcv_bufsize     = fsa[i].sockrcv_bufsize;
@@ -845,6 +866,10 @@ main(int argc, char *argv[])
 #endif
                              hl[i].protocol_options    = fsa[i].protocol_options;
                              hl[i].host_status = 0;
+                             if (fsa[i].host_status & HOST_ERROR_OFFLINE_STATIC)
+                             {
+                                hl[i].host_status |= HOST_ERROR_OFFLINE_STATIC;
+                             }
                              if (fsa[i].special_flag & HOST_DISABLED)
                              {
                                 hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
@@ -885,109 +910,319 @@ main(int argc, char *argv[])
                           break;
 
                        case REREAD_HOST_CONFIG :
-                          reread_host_config(&hc_old_time, NULL, NULL,
-                                             NULL, NULL, YES);
-
-                          /*
-                           * Do not forget to start dir_check if we have
-                           * stopped it!
-                           */
-                          if (dc_pid == NOT_RUNNING)
                           {
-                             dc_pid = make_process_amg(work_dir, DC_PROC_NAME,
-                                                       rescan_time, max_no_proc);
-                             if (pid_list != NULL)
+                             count++;
+                             if ((n - count) < SIZEOF_PID_T)
                              {
-                                *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
+                                system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                           "Unable to handle request since we only have %d bytes buffered but need %d. Discarding buffer!",
+                                           (n - count), SIZEOF_PID_T);
+                                count = n;
                              }
-                             system_log(INFO_SIGN, __FILE__, __LINE__,
-                                        "Restarted %s.", DC_PROC_NAME);
+                             else
+                             {
+                                int          hc_result,
+                                             db_update_reply_fd;
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                int          db_update_reply_readfd;
+#endif
+                                unsigned int hc_warn_counter;
+                                pid_t        ret_pid;
+                                char         db_update_reply_fifo[MAX_PATH_LENGTH];
+
+                                (void)memcpy(&ret_pid, &fifo_buffer[count],
+                                             SIZEOF_PID_T);
+                                count += (SIZEOF_PID_T - 1);
+                                (void)sprintf(db_update_reply_fifo,
+#if SIZEOF_PID_T == 4
+                                              "%s%s%s%d",
+#else
+                                              "%s%s%s%lld",
+#endif
+                                              p_work_dir, FIFO_DIR,
+                                              DB_UPDATE_REPLY_FIFO,
+                                              (pri_pid_t)ret_pid);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                if (open_fifo_rw(db_update_reply_fifo,
+                                                 &db_update_reply_readfd,
+                                                 &db_update_reply_fd) == -1)
+#else
+                                if ((db_update_reply_fd = open(db_update_reply_fifo,
+                                                               O_RDWR)) == -1)
+#endif
+                                {
+                                   if (errno != ENOENT)
+                                   {
+                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                 "Failed to open() `%s' : %s",
+                                                 db_update_reply_fifo,
+                                                 strerror(errno));
+                                   }
+                                   /*
+                                    * Lets continue even if we are not able
+                                    * to send a responce to the process that
+                                    * initiated the update.
+                                    */
+                                }
+
+                                hc_warn_counter = 0;
+                                hc_result = NO_CHANGE_IN_HOST_CONFIG;
+                                hc_result = reread_host_config(&hc_old_time,
+                                                               NULL, NULL, NULL,
+                                                               NULL,
+                                                               &hc_warn_counter,
+                                                               YES);
+
+                                /*
+                                 * Do not forget to start dir_check if we have
+                                 * stopped it!
+                                 */
+                                if (dc_pid == NOT_RUNNING)
+                                {
+                                   dc_pid = make_process_amg(work_dir,
+                                                             DC_PROC_NAME,
+                                                             rescan_time,
+                                                             max_no_proc);
+                                   if (pid_list != NULL)
+                                   {
+                                      *(pid_t *)(pid_list + ((DC_NO + 1) * sizeof(pid_t))) = dc_pid;
+                                   }
+                                   system_log(INFO_SIGN, __FILE__, __LINE__,
+                                              "Restarted %s.", DC_PROC_NAME);
+                                }
+                                if (db_update_reply_fd != -1)
+                                {
+                                   char reply_buffer[MAX_UHC_RESPONCE_LENGTH];
+
+                                   if ((dc_pid <= 0) &&
+                                       ((hc_result == HOST_CONFIG_DATA_CHANGED) ||
+                                        (hc_result == HOST_CONFIG_DATA_ORDER_CHANGED) ||
+                                        (hc_result == HOST_CONFIG_ORDER_CHANGED)))
+                                   {
+                                      hc_result = HOST_CONFIG_UPDATED_DC_PROBLEMS;
+                                   }
+                                   (void)memcpy(reply_buffer, &hc_result,
+                                                SIZEOF_INT);
+                                   (void)memcpy(&reply_buffer[SIZEOF_INT],
+                                                &hc_warn_counter, SIZEOF_INT);
+                                   if (write(db_update_reply_fd, reply_buffer,
+                                             MAX_UHC_RESPONCE_LENGTH) != MAX_UHC_RESPONCE_LENGTH)
+                                   {
+                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                 "Failed to write() reply for reread HOST_CONFIG request : %s",
+                                                 strerror(errno));
+                                   }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                   if (close(db_update_reply_readfd) == -1)
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 "close() error : %s",
+                                                 strerror(errno));
+                                   }
+#endif
+                                   if (close(db_update_reply_fd) == -1)
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 "close() error : %s",
+                                                 strerror(errno));
+                                   }
+                                }
+                             }
                           }
                           break;
 
                        case REREAD_DIR_CONFIG :
                           {
-                             int         dc_changed = NO;
-                             off_t       db_size = 0;
-                             struct stat stat_buf;
-
-                             for (i = 0; i < no_of_dir_configs; i++)
+                             count++;
+                             if ((n - count) < SIZEOF_PID_T)
                              {
-                                if (stat(dcl[i].dir_config_file, &stat_buf) < 0)
-                                {
-                                   system_log(WARN_SIGN, __FILE__, __LINE__,
-                                              "Failed to stat() %s : %s",
-                                              dcl[i].dir_config_file,
-                                              strerror(errno));
-                                }
-                                else
-                                {
-                                   if (dcl[i].dc_old_time != stat_buf.st_mtime)
-                                   {
-                                      dcl[i].dc_old_time = stat_buf.st_mtime;
-                                      dc_changed = YES;
-                                   }
-                                   db_size += stat_buf.st_size;
-                                }
-                             }
-                             if (db_size > 0)
-                             {
-                                if (dc_changed == YES)
-                                {
-                                   int              old_no_of_hosts,
-                                                    rewrite_host_config = NO;
-                                   size_t           old_size = 0;
-                                   struct host_list *old_hl = NULL;
-
-                                   /* Set flag to indicate that we are */
-                                   /* rereading the DIR_CONFIG.        */
-                                   if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
-                                   {
-                                      p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
-                                   }
-                                   inform_fd_about_fsa_change();
-
-                                   /* Better check if there was a change in HOST_CONFIG */
-                                   reread_host_config(&hc_old_time,
-                                                      &old_no_of_hosts,
-                                                      &rewrite_host_config,
-                                                      &old_size, &old_hl, NO);
-
-                                   reread_dir_config(dc_changed,
-                                                     db_size,
-                                                     &hc_old_time,
-                                                     old_no_of_hosts,
-                                                     rewrite_host_config,
-                                                     old_size,
-                                                     rescan_time,
-                                                     max_no_proc,
-                                                     old_hl);
-                                }
-                                else
-                                {
-                                   if (no_of_dir_configs > 1)
-                                   {
-                                      system_log(INFO_SIGN, NULL, 0,
-                                                 "There is no change in all DIR_CONFIG's.");
-                                   }
-                                   else
-                                   {
-                                      system_log(INFO_SIGN, NULL, 0,
-                                                 "There is no change in DIR_CONFIG.");
-                                   }
-                                }
+                                system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                           "Unable to handle request since we only have %d bytes buffered but need %d. Discarding buffer!",
+                                           (n - count), SIZEOF_PID_T);
+                                count = n;
                              }
                              else
                              {
-                                if (no_of_dir_configs > 1)
+                                int          dc_changed = NO,
+                                             db_update_reply_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                             db_update_reply_readfd,
+#endif
+                                             dc_result,
+                                             hc_result,
+                                             stat_error_set;
+                                unsigned int dc_warn_counter,
+                                             hc_warn_counter;
+                                off_t        db_size = 0;
+                                pid_t        ret_pid;
+                                char         db_update_reply_fifo[MAX_PATH_LENGTH];
+                                struct stat  stat_buf;
+
+                                (void)memcpy(&ret_pid, &fifo_buffer[count],
+                                             SIZEOF_PID_T);
+                                count += (SIZEOF_PID_T - 1);
+                                (void)sprintf(db_update_reply_fifo,
+#if SIZEOF_PID_T == 4
+                                              "%s%s%s%d",
+#else
+                                              "%s%s%s%lld",
+#endif
+                                              p_work_dir, FIFO_DIR,
+                                              DB_UPDATE_REPLY_FIFO,
+                                              (pri_pid_t)ret_pid);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                if (open_fifo_rw(db_update_reply_fifo,
+                                                 &db_update_reply_readfd,
+                                                 &db_update_reply_fd) == -1)
+#else
+                                if ((db_update_reply_fd = open(db_update_reply_fifo,
+                                                               O_RDWR)) == -1)
+#endif
                                 {
-                                   system_log(WARN_SIGN, NULL, 0,
-                                              "All DIR_CONFIG files are empty.");
+                                   if (errno != ENOENT)
+                                   {
+                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                 "Failed to open() `%s' : %s",
+                                                 db_update_reply_fifo,
+                                                 strerror(errno));
+                                   }
+                                   /*
+                                    * Lets continue even if we are not able
+                                    * to send a responce to the process that
+                                    * initiated the update.
+                                    */
+                                }
+
+                                hc_warn_counter = 0;
+                                hc_result = NO_CHANGE_IN_HOST_CONFIG;
+                                dc_warn_counter = 0;
+                                dc_result = DIR_CONFIG_NOTHING_DONE;
+                                stat_error_set = NO;
+                                for (i = 0; i < no_of_dir_configs; i++)
+                                {
+                                   if (stat(dcl[i].dir_config_file, &stat_buf) < 0)
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 "Failed to stat() %s : %s",
+                                                 dcl[i].dir_config_file,
+                                                 strerror(errno));
+                                      stat_error_set = YES;
+                                   }
+                                   else
+                                   {
+                                      if (dcl[i].dc_old_time != stat_buf.st_mtime)
+                                      {
+                                         dcl[i].dc_old_time = stat_buf.st_mtime;
+                                         dc_changed = YES;
+                                      }
+                                      db_size += stat_buf.st_size;
+                                   }
+                                }
+                                if (db_size > 0)
+                                {
+                                   if (dc_changed == YES)
+                                   {
+                                      int              old_no_of_hosts,
+                                                       rewrite_host_config = NO;
+                                      size_t           old_size = 0;
+                                      struct host_list *old_hl = NULL;
+
+                                      /* Set flag to indicate that we are */
+                                      /* rereading the DIR_CONFIG.        */
+                                      if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
+                                      {
+                                         p_afd_status->amg_jobs ^= REREADING_DIR_CONFIG;
+                                      }
+                                      inform_fd_about_fsa_change();
+
+                                      /* Better check if there was a change in HOST_CONFIG */
+                                      hc_result = reread_host_config(&hc_old_time,
+                                                                     &old_no_of_hosts,
+                                                                     &rewrite_host_config,
+                                                                     &old_size, &old_hl,
+                                                                     &hc_warn_counter,
+                                                                     NO);
+
+                                      dc_result = reread_dir_config(dc_changed,
+                                                                    db_size,
+                                                                    &hc_old_time,
+                                                                    old_no_of_hosts,
+                                                                    rewrite_host_config,
+                                                                    old_size,
+                                                                    rescan_time,
+                                                                    max_no_proc,
+                                                                    &dc_warn_counter,
+                                                                    old_hl);
+                                   }
+                                   else
+                                   {
+                                      if (no_of_dir_configs > 1)
+                                      {
+                                         system_log(INFO_SIGN, NULL, 0,
+                                                    "There is no change in all DIR_CONFIG's.");
+                                      }
+                                      else
+                                      {
+                                         system_log(INFO_SIGN, NULL, 0,
+                                                    "There is no change in DIR_CONFIG.");
+                                      }
+                                      dc_result = NO_CHANGE_IN_DIR_CONFIG;
+                                   }
                                 }
                                 else
                                 {
-                                   system_log(WARN_SIGN, NULL, 0,
-                                              "DIR_CONFIG file is empty.");
+                                   if (stat_error_set == NO)
+                                   {
+                                      if (no_of_dir_configs > 1)
+                                      {
+                                         system_log(WARN_SIGN, NULL, 0,
+                                                    "All DIR_CONFIG files are empty.");
+                                      }
+                                      else
+                                      {
+                                         system_log(WARN_SIGN, NULL, 0,
+                                                    "DIR_CONFIG file is empty.");
+                                      }
+                                      dc_result = DIR_CONFIG_EMPTY;
+                                   }
+                                   else
+                                   {
+                                      dc_result = DIR_CONFIG_ACCESS_ERROR;
+                                   }
+                                }
+                                if (db_update_reply_fd != -1)
+                                {
+                                   char reply_buffer[MAX_UDC_RESPONCE_LENGTH];
+
+                                   (void)memcpy(reply_buffer, &hc_result,
+                                                SIZEOF_INT);
+                                   (void)memcpy(&reply_buffer[SIZEOF_INT],
+                                                &hc_warn_counter, SIZEOF_INT);
+                                   (void)memcpy(&reply_buffer[SIZEOF_INT + SIZEOF_INT],
+                                                &dc_result, SIZEOF_INT);
+                                   (void)memcpy(&reply_buffer[SIZEOF_INT + SIZEOF_INT + SIZEOF_INT],
+                                                &dc_warn_counter, SIZEOF_INT);
+                                   if (write(db_update_reply_fd, reply_buffer,
+                                             MAX_UDC_RESPONCE_LENGTH) != MAX_UDC_RESPONCE_LENGTH)
+                                   {
+                                      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                                 "Failed to write() reply for reread DIR_CONFIG request : %s",
+                                                 strerror(errno));
+                                   }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                   if (close(db_update_reply_readfd) == -1)
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 "close() error : %s",
+                                                 strerror(errno));
+                                   }
+#endif
+                                   if (close(db_update_reply_fd) == -1)
+                                   {
+                                      system_log(WARN_SIGN, __FILE__, __LINE__,
+                                                 "close() error : %s",
+                                                 strerror(errno));
+                                   }
                                 }
                              }
                           }
@@ -997,11 +1232,11 @@ main(int argc, char *argv[])
                           /* Assume we are reading garbage */
                           system_log(INFO_SIGN, __FILE__, __LINE__,
                                      "Reading garbage (%d) on fifo %s",
-                                     (int)buffer[count], DB_UPDATE_FIFO);
+                                     (int)fifo_buffer[count], DB_UPDATE_FIFO);
                           break;
                     }
                     count++;
-                 }
+                 } /* while (count < n) */
               }
            }
            /* Did we get a timeout. */

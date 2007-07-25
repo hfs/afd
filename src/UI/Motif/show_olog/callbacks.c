@@ -1,6 +1,6 @@
 /*
  *  callbacks.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,6 +26,7 @@ DESCR__S_M3
  **   callbacks - all callback functions for module show_olog
  **
  ** SYNOPSIS
+ **   void continues_toggle(Widget w, XtPointer client_data, XtPointer call_data)
  **   void toggled(Widget w, XtPointer client_data, XtPointer call_data)
  **   void file_name_toggle(Widget w, XtPointer client_data, XtPointer call_data)
  **   void radio_button(Widget w, XtPointer client_data, XtPointer call_data)
@@ -37,6 +38,8 @@ DESCR__S_M3
  **   void close_button(Widget w, XtPointer client_data, XtPointer call_data)
  **   void save_input(Widget w, XtPointer client_data, XtPointer call_data)
  **   void scrollbar_moved(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void view_button(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void set_sensitive(void)
  **
  ** DESCRIPTION
  **   The function toggled() is used to set the bits in the global
@@ -84,6 +87,7 @@ DESCR__S_M3
  **   23.11.2003 H.Kiehl Disallow user to change window width even if
  **                      window manager allows this, but allow to change
  **                      height.
+ **   04.04.2007 H.Kiehl Added button to view data.
  **
  */
 DESCR__E_M3
@@ -108,7 +112,8 @@ DESCR__E_M3
 
 /* External global variables */
 extern Display          *display;
-extern Widget           cont_togglebox_w,
+extern Widget           appshell,
+                        cont_togglebox_w,
                         directory_w,
                         end_time_w,
                         file_length_w,
@@ -124,7 +129,7 @@ extern Widget           cont_togglebox_w,
                         statusbox_w,
                         summarybox_w,
                         togglebox_w,
-                        appshell;
+                        view_button_w;
 extern Window           main_window;
 extern int              continues_toggle_set,
                         file_name_toggle_set,
@@ -600,6 +605,71 @@ set_sensitive(void)
 }
 
 
+/*############################ view_button() ############################*/
+void
+view_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   int no_selected,
+       *select_list;
+
+   reset_message(statusbox_w);
+   if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
+   {
+      view_files(no_selected, select_list);
+      XtFree((char *)select_list);
+
+      /*
+       * After resending, see if any items habe been left selected.
+       * If so, create a new summary string or else insert the total
+       * summary string if no items are left selected.
+       */
+      if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
+      {
+         int    i;
+         time_t date,
+                first_date_found,
+                last_date_found;
+         double current_file_size,
+                current_trans_time,
+                file_size = 0.0,
+                trans_time = 0.0;
+
+         first_date_found = -1;
+         for (i = 0; i < no_selected; i++)
+         {
+            if (get_sum_data((select_list[i] - 1),
+                             &date, &current_file_size,
+                             &current_trans_time) == INCORRECT)
+            {
+               return;
+            }
+            if (first_date_found == -1)
+            {
+               first_date_found = date;
+            }
+            file_size += current_file_size;
+            trans_time += current_trans_time;
+         }
+         last_date_found = date;
+         XtFree((char *)select_list);
+         calculate_summary(summary_str, first_date_found, last_date_found,
+                           no_selected, file_size, trans_time);
+      }
+      else
+      {
+         (void)strcpy(summary_str, total_summary_str);
+      }
+      SHOW_SUMMARY_DATA();
+   }
+   else
+   {
+      show_message(statusbox_w, "No file selected!");
+   }
+
+   return;
+}
+
+
 /*########################### resend_button() ###########################*/
 void
 resend_button(Widget w, XtPointer client_data, XtPointer call_data)
@@ -712,6 +782,7 @@ send_button(Widget w, XtPointer client_data, XtPointer call_data)
                          "None of the selected files are in the archive!");
          }
       }
+      XtFree((char *)select_list);
    }
    else
    {
@@ -727,7 +798,7 @@ void
 print_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    reset_message(statusbox_w);
-   print_data();
+   print_data(w, client_data, call_data);
 
    return;
 }

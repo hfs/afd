@@ -85,7 +85,8 @@ DESCR__E_M3
 extern int   fmd_fd,
              *no_of_file_masks;
 extern off_t fmd_size;
-extern char  *fmd;
+extern char  *fmd,
+             *fmd_end;
 
 
 /*######################## lookup_file_mask_id() ########################*/
@@ -104,18 +105,6 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
           *ptr,
           *tmp_ptr;
 
-   if (fmd_size == 0)
-   {
-      struct stat stat_buf;
-
-      if (fstat(fmd_fd, &stat_buf) == -1)
-      {
-         system_log(FATAL_SIGN, __FILE__, __LINE__,
-                    "fstat() error : %s", strerror(errno));
-         exit(INCORRECT);
-      }
-      fmd_size = stat_buf.st_size;
-   }
    ptr = fmd;
    fml_offset = sizeof(int) + sizeof(int);
    mask_offset = fml_offset + sizeof(int) + sizeof(unsigned int) +
@@ -129,6 +118,7 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
          p_db->file_mask_id = *(unsigned int *)(ptr + fml_offset + sizeof(int));
          return;
       }
+      tmp_ptr = ptr;
       ptr += (mask_offset + *(int *)(ptr + fml_offset) + sizeof(char) +
               *(ptr + mask_offset - 1));
 
@@ -138,27 +128,18 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
        * large. So far it only happens on a 4 CPU System with a large
        * DIR_CONFIG. This needs to be fixed properly.
        */
-      if ((ptr - fmd) >= fmd_size)
+      if ((ptr > fmd_end) || (ptr < tmp_ptr))
       {
-         if ((i + 1) != *no_of_file_masks)
-         {
-            system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                       "The number of file mask is to large %d, changing to %d.",
-                       *no_of_file_masks, i);
-            *no_of_file_masks = i;
-         }
-         else if ((ptr - fmd) > fmd_size)
-              {
-                 system_log(DEBUG_SIGN, __FILE__, __LINE__,
+         system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_OFF_T == 4
-                            "Hmmm, something is wrong here (i=%d *no_of_file_masks=%d diff=%d fmd_size=%ld).",
+                    "File name database file is corrupted (i=%d *no_of_file_masks=%d fmd_size=%ld ptr=%lx fmd_end=%lx tmp_ptr=%lx). Trying to correct this.",
 #else
-                            "Hmmm, something is wrong here (i=%d *no_of_file_masks=%d diff=%d fmd_size=%lld).",
+                    "File name database file is corrupted (i=%d *no_of_file_masks=%d fmd_size=%lld ptr=%llx fmd_end=%llx tmp_ptr=%llx). Trying to correct this.",
 #endif
-                            i, *no_of_file_masks, (ptr - fmd),
-                            (pri_off_t)fmd_size);
-                 break;
-              }
+                    i, *no_of_file_masks, (pri_off_t)fmd_size, ptr, fmd_end, tmp_ptr);
+         *no_of_file_masks = i;
+         fmd_size -= (fmd_end - tmp_ptr);
+         break;
       }
    }
 
@@ -185,6 +166,7 @@ lookup_file_mask_id(struct instant_db *p_db, int fbl)
       exit(INCORRECT);
    }
    no_of_file_masks = (int *)ptr;
+   fmd_end = ptr + new_size;
    fmd = ptr + AFD_WORD_OFFSET;
    ptr += fmd_size;
    fmd_size = new_size;

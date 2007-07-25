@@ -77,9 +77,9 @@ main(int argc, char *argv[])
          off_t size;
 
          size = 0;
-         if ((argc == 3) && (isalpha(argv[2][0])) && (isalpha(argv[2][1])) &&
-             (isalpha(argv[2][2])) && (isalpha(argv[2][3])) &&
-             (argv[2][4] == '\0'))
+         if ((argc == 3) && (isalpha((int)(argv[2][0]))) &&
+             (isalpha((int)(argv[2][1]))) && (isalpha((int)(argv[2][2]))) &&
+             (isalpha((int)(argv[2][3]))) && (argv[2][4] == '\0'))
          {
             p_cccc = argv[2];
          }

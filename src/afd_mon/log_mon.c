@@ -39,6 +39,7 @@ DESCR__S_M1
  **   The following <log types> are known:
  **
  **      LS - System Log data
+ **      LE - Event Log data
  **      LR - Receive Log data
  **      LT - Transfer Log data
  **      LB - Transfer Debug Log data
@@ -46,6 +47,7 @@ DESCR__S_M1
  **      LP - Production Log data
  **      LO - Output Log data
  **      LD - Delete Log data
+ **      LN - NOP message
  **
  **   The <options> field holds information if this packet is compressed
  **   and if yes what compression type is used.
@@ -58,6 +60,7 @@ DESCR__S_M1
  **   The following <inode types> are known:
  **
  **      OS - System Log data
+ **      OE - Event Log data
  **      OR - Receive Log data
  **      OT - Transfer Log data
  **      OB - Transfer Debug Log data
@@ -146,6 +149,7 @@ main(int argc, char *argv[])
                   bytes_buffered,
                   status;
    unsigned int   log_capabilities;
+   long           log_data_interval;
    char           *log_data_buffer,
                   mon_log_fifo[MAX_PATH_LENGTH],
                   work_dir[MAX_PATH_LENGTH];
@@ -216,6 +220,7 @@ main(int argc, char *argv[])
       cur_ino_log_no_str[status][0] = '\0';
    }
    log_flags[SYS_LOG_POS] = AFDD_SYSTEM_LOG;
+   log_flags[EVE_LOG_POS] = AFDD_EVENT_LOG;
    log_flags[REC_LOG_POS] = AFDD_RECEIVE_LOG;
    log_flags[TRA_LOG_POS] = AFDD_TRANSFER_LOG;
    log_flags[TDB_LOG_POS] = AFDD_TRANSFER_DEBUG_LOG;
@@ -304,7 +309,8 @@ main(int argc, char *argv[])
    /* Connect to remote AFDD. */
    timeout_flag = OFF;
    if ((status = tcp_connect(msa[afd_no].hostname[(int)msa[afd_no].afd_toggle],
-                             msa[afd_no].port[(int)msa[afd_no].afd_toggle])) != SUCCESS)
+                             msa[afd_no].port[(int)msa[afd_no].afd_toggle],
+                             YES)) != SUCCESS)
    {
       if (timeout_flag == OFF)
       {
@@ -333,6 +339,11 @@ main(int argc, char *argv[])
    {
       exit(FAILED_LOG_CMD);
    }
+   log_data_interval = AFDD_CMD_TIMEOUT;
+   if (log_data_interval < (10 * LOG_WRITE_INTERVAL))
+   {
+      log_data_interval = 10 * LOG_WRITE_INTERVAL;
+   }
 
    FD_ZERO(&rset);
    for (;;)
@@ -340,7 +351,7 @@ main(int argc, char *argv[])
       /* Initialise descriptor set. */
       FD_SET(sock_fd, &rset);
       timeout.tv_usec = 0L;
-      timeout.tv_sec = 5L;
+      timeout.tv_sec = log_data_interval;
 
       status = select(sock_fd + 1, &rset, NULL, NULL, &timeout);
 
@@ -360,6 +371,7 @@ main(int argc, char *argv[])
               {
                  mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
                          "Remote hang up.");
+                 timeout_flag = NEITHER;
                  exit(REMOTE_HANGUP);
               }
               else
@@ -370,7 +382,14 @@ main(int argc, char *argv[])
                  exit(INCORRECT);
               }
       }
-      else if (status < 0)
+      else if (status == 0)
+           {
+              mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,
+                      "Not receiving any data for more then %ld seconds, hanging up.",
+                      log_data_interval);
+              exit(LOG_DATA_TIMEOUT);
+           }
+           else
            {
               system_log(ERROR_SIGN, __FILE__, __LINE__,
                          "select() error : %s", strerror(errno));
@@ -401,8 +420,8 @@ eval_log_buffer(char *log_data_buffer,
    /*
     * We must always mark the end of what we read with a special character
     * otherwise it can happen that we think part of the old buffer is
-    * part of the new message. This character must be one that is not
-    * part of the header message.
+    * part of the new message. This special character must be one that
+    * is not part of the header message.
     */
    i = MAX_LOG_DATA_BUFFER - bytes_read;
    if (i > 0)
@@ -473,6 +492,41 @@ eval_log_buffer(char *log_data_buffer,
                   case 'S' : /* System log */
                      log_type = SYS_LOG_POS;
                      break;
+                  case 'E' : /* Event log */
+                     log_type = EVE_LOG_POS;
+                     break;
+                  case 'N' : /* No log data message */
+                     if ((i + 4) <= bytes_read)
+                     {
+                        if ((log_data_buffer[i + 2] == '\r') &&
+                            (log_data_buffer[i + 3] == '\n'))
+                        {
+                           i += 4;
+                           continue;
+                        }
+                        else
+                        {
+                           mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, NULL,
+                                   "Reading garbage! Discarding data!");
+                           *bytes_buffered = 0;
+                           return;
+                        }
+                     }
+                     else
+                     {
+                        if (i != 0)
+                        {
+                           *bytes_buffered += (bytes_read - i);
+                           (void)memmove(log_data_buffer, &log_data_buffer[i],
+                                         (bytes_read - i));
+                        }
+                        else
+                        {
+                           *bytes_buffered += bytes_read;
+                        }
+                        return;
+                     }
+                     break;
                   case 'B' : /* Transfer debug log */
                      log_type = TDB_LOG_POS;
                      break;
@@ -490,7 +544,7 @@ eval_log_buffer(char *log_data_buffer,
                   /* Read options. */
                   j = 0;
                   while ((i < bytes_read) && (j < MAX_INT_LENGTH) &&
-                         (isdigit(log_data_buffer[i])))
+                         (isdigit((int)(log_data_buffer[i]))))
                   {
                      str_number[j] = log_data_buffer[i];
                      i++; j++;
@@ -506,7 +560,7 @@ eval_log_buffer(char *log_data_buffer,
                      /* Read packet number. */
                      j = 0;
                      while ((i < bytes_read) && (j < MAX_INT_LENGTH) &&
-                            (isdigit(log_data_buffer[i])))
+                            (isdigit((int)(log_data_buffer[i]))))
                      {
                         str_number[j] = log_data_buffer[i];
                         i++; j++;
@@ -553,6 +607,9 @@ eval_log_buffer(char *log_data_buffer,
                               case SYS_LOG_POS :
                                  (void)strcpy(pri_log_name, "system");
                                  break;
+                              case EVE_LOG_POS :
+                                 (void)strcpy(pri_log_name, "event");
+                                 break;
                               case TDB_LOG_POS :
                                  (void)strcpy(pri_log_name, "trans debug");
                                  break;
@@ -575,7 +632,7 @@ eval_log_buffer(char *log_data_buffer,
                         /* Read packet length. */
                         j = i;
                         while ((i < bytes_read) && ((i - j) < MAX_INT_LENGTH) &&
-                               (isdigit(log_data_buffer[i])))
+                               (isdigit((int)(log_data_buffer[i]))))
                         {
                            i++;
                         }
@@ -761,6 +818,10 @@ eval_log_buffer(char *log_data_buffer,
                      (void)strcpy(log_name, SYSTEM_LOG_NAME);
                      log_pos = SYS_LOG_POS;
                      break;
+                  case 'E' : /* Event log */
+                     (void)strcpy(log_name, EVENT_LOG_NAME);
+                     log_pos = EVE_LOG_POS;
+                     break;
                   case 'B' : /* Transfer debug log */
                      (void)strcpy(log_name, TRANS_DB_LOG_NAME);
                      log_pos = TDB_LOG_POS;
@@ -883,6 +944,11 @@ eval_log_buffer(char *log_data_buffer,
                               (void)strcpy(max_log_def, MAX_SYSTEM_LOG_FILES_DEF);
                               max_log_files = default_log_files = MAX_SYSTEM_LOG_FILES;
                               log_name_length = SYSTEM_LOG_NAME_LENGTH;
+                              break;
+                           case EVE_LOG_POS : /* Event log */
+                              (void)strcpy(max_log_def, MAX_EVENT_LOG_FILES_DEF);
+                              max_log_files = default_log_files = MAX_EVENT_LOG_FILES;
+                              log_name_length = EVENT_LOG_NAME_LENGTH;
                               break;
                            case TDB_LOG_POS : /* Transfer debug log */
                               (void)strcpy(max_log_def, MAX_TRANS_DB_LOG_FILES_DEF);

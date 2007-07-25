@@ -48,7 +48,7 @@ DESCR__E_M3
 #include <time.h>
 #include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        fra_fd,
                                   *no_msg_queued;
 extern struct queue_buf           *qb;

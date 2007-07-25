@@ -55,7 +55,7 @@ DESCR__E_M1
 #include "logdefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int          bytes_buffered = 0,
              sys_log_fd = STDERR_FILENO;
 unsigned int *p_log_counter = NULL, /* Disable writing to AFD status area. */
@@ -90,7 +90,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* First get working directory for the AFD */
+   /* First get working directory for the AFD. */
    if (get_afd_path(&argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
@@ -101,7 +101,7 @@ main(int argc, char *argv[])
 
       p_work_dir = work_dir;
 
-      /* Initialise variables for fifo stuff */
+      /* Initialise variables for fifo stuff. */
       (void)strcpy(trans_db_log_fifo, work_dir);
       (void)strcat(trans_db_log_fifo, FIFO_DIR);
       (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
@@ -119,7 +119,7 @@ main(int argc, char *argv[])
 
       if ((fifo_size = fpathconf(trans_db_log_fd, _PC_PIPE_BUF)) < 0)
       {
-         /* If we cannot determine the size of the fifo set default value */
+         /* If we cannot determine the size of the fifo set default value. */
          fifo_size = DEFAULT_FIFO_SIZE;
       }
       if (((fifo_buffer = malloc((size_t)fifo_size)) == NULL) ||
@@ -148,11 +148,8 @@ main(int argc, char *argv[])
    (void)umask(S_IWGRP | S_IWOTH);
 #endif
 
-   get_log_number(&log_number,
-                  (max_trans_db_log_files - 1),
-                  TRANS_DB_LOG_NAME,
-                  TRANS_DB_LOG_NAME_LENGTH,
-                  NULL);
+   get_log_number(&log_number, (max_trans_db_log_files - 1),
+                  TRANS_DB_LOG_NAME, TRANS_DB_LOG_NAME_LENGTH, NULL);
    (void)sprintf(current_log_file, "%s%s/%s0",
                  p_work_dir, LOG_DIR, TRANS_DB_LOG_NAME);
    p_end = log_file;
@@ -170,7 +167,7 @@ main(int argc, char *argv[])
    {
       if (stat(current_log_file, &stat_buf) < 0)
       {
-         /* The log file does not yet exist */
+         /* The log file does not yet exist. */
          total_length = 0;
       }
       else
@@ -190,7 +187,7 @@ main(int argc, char *argv[])
          }
       }
 
-      /* Open debug file for writing */
+      /* Open debug file for writing. */
       if ((p_log_file = fopen(current_log_file, "a+")) == NULL)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,

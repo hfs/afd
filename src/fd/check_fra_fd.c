@@ -1,6 +1,6 @@
 /*
  *  check_fra_fd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -197,7 +197,8 @@ check_fra_fd(void)
 
          if ((no_of_retrieves > 0) && (ord != NULL))
          {
-            int pos;
+            int gotcha,
+                pos;
 
             for (i = 0; i < no_of_retrieves; i++)
             {
@@ -343,6 +344,30 @@ check_fra_fd(void)
                   }
                }
             } /* for (i = 0; i < no_of_retrieves; i++) */
+
+            /* Lets check if all queued flags in FRA are accounted for. */
+            for (i = 0; i < no_of_dirs; i++)
+            {
+               if ((fra[i].queued == YES) && (fra[i].host_alias[0] != '\0'))
+               {
+                  gotcha = NO;
+                  for (j = 0; j < no_remote_queued; j++)
+                  {
+                     if (i == qb[rql[j].qb_pos].pos)
+                     {
+                        gotcha = YES;
+                        break;
+                     }
+                  }
+                  if (gotcha == YES)
+                  {
+                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                "Queued flag for `%s' is set but there is no job in the queue. Correcting.",
+                                fra[i].dir_alias);
+                     fra[i].queued = NO;
+                  }
+               }
+            }
          }
          if (rql != NULL)
          {

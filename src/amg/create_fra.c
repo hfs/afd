@@ -80,7 +80,7 @@ DESCR__E_M3
 #include "amgdefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern char                       *p_work_dir;
 extern int                        fra_id,
                                   fra_fd;
@@ -114,7 +114,7 @@ create_fra(int no_of_dirs)
 
    fra_size = -1;
 
-   /* Initialise all pathnames and file descriptors */
+   /* Initialise all pathnames and file descriptors. */
    (void)strcpy(fra_id_file, p_work_dir);
    (void)strcat(fra_id_file, FIFO_DIR);
    (void)strcpy(old_fra_stat, fra_id_file);
@@ -353,10 +353,10 @@ create_fra(int no_of_dirs)
    }
    (void)memset(ptr, 0, fra_size);
 
-   /* Write number of directories to new memory mapped region */
+   /* Write number of directories to new memory mapped region. */
    *(int *)ptr = no_of_dirs;
 
-   /* Reposition fra pointer after no_of_dirs */
+   /* Reposition fra pointer after no_of_dirs. */
    ptr += AFD_WORD_OFFSET;
    fra = (struct fileretrieve_status *)ptr;
 
@@ -415,6 +415,7 @@ create_fra(int no_of_dirs)
          fra[i].files_received         = 0;
          fra[i].no_of_process          = 0;
          fra[i].dir_status             = NORMAL_STATUS;
+         fra[i].queued                 = NO;
          fra[i].error_counter          = 0;
          if (dd[i].accept_dot_files == NO)
          {

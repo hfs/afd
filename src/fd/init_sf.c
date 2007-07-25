@@ -337,6 +337,13 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       }
    }
 
+#ifdef WITH_ERROR_QUEUE
+   if ((fsa->host_status & ERROR_QUEUE_SET) &&
+       (check_error_queue(db.job_id, -1) == 1))
+   {
+      db.special_flag |= IN_ERROR_QUEUE;
+   }
+#endif
    db.lock_offset = AFD_WORD_OFFSET +
                     (db.fsa_pos * sizeof(struct filetransfer_status));
    if ((files_to_send = get_file_names(file_path, &file_size_to_send)) < 1)
@@ -393,13 +400,6 @@ init_sf(int argc, char *argv[], char *file_path, int protocol)
       unlock_region(fsa_fd, db.lock_offset, __FILE__, __LINE__);
 #else
       unlock_region(fsa_fd, db.lock_offset);
-#endif
-#ifdef WITH_ERROR_QUEUE
-      if ((fsa->host_status & ERROR_QUEUE_SET) &&
-          (check_error_queue(db.job_id, -1) == 1))
-      {
-         db.special_flag |= IN_ERROR_QUEUE;
-      }
 #endif
 
       /* Set the timeout value. */

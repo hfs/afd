@@ -1,6 +1,6 @@
 /*
  *  afdcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M1
  **   afdcmd - send commands to the AFD
  **
  ** SYNOPSIS
- **   afdcmd [-w <working directory>] [-u[ <user>]] option hostname|position
+ **   afdcmd [-w <working directory>] [-p <role>] [-u[ <user>]] option hostname|position
  **                   -q      start queue
  **                   -Q      stop queue
  **                   -t      start transfer
@@ -83,7 +83,8 @@ DESCR__E_M1
 #include "version.h"
 
 /* Global variables */
-int                        sys_log_fd = STDERR_FILENO,
+int                        event_log_fd = STDERR_FILENO,
+                           sys_log_fd = STDERR_FILENO,
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -140,12 +141,13 @@ main(int argc, char *argv[])
                     errors = 0,
                     hosts_found,
                     i,
-                    position;
+                    position,
+                    user_offset;
    char             fake_user[MAX_FULL_USER_ID_LENGTH],
                     host_config_file[MAX_PATH_LENGTH],
                     *perm_buffer,
                     *ptr,
-                    user[MAX_FULL_USER_ID_LENGTH],
+                    user[41 + MAX_FULL_USER_ID_LENGTH],
                     work_dir[MAX_PATH_LENGTH];
    struct host_list *hl = NULL;
 
@@ -163,6 +165,14 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   if (get_arg(&argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == SUCCESS)
+   {
+      user_offset = strlen(user);
+   }
+   else
+   {
+      user_offset = 0;
+   }
 #ifdef WITH_SETUID_PROGS
    set_afd_euid(work_dir);
 #endif
@@ -174,7 +184,7 @@ main(int argc, char *argv[])
    }
    check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
    eval_input(argc, argv);
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
 
    /*
     * Ensure that the user may use this program.
@@ -512,6 +522,8 @@ main(int argc, char *argv[])
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: FORCED rescan (%s) [afdcmd].",
                           MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
+               event_log(0L, EC_DIR, ET_MAN, EA_RESCAN_DIRECTORY, "%s%c%s",
+                         fra[position].dir_alias, SEPARATOR_CHAR, user);
             }
          }
 
@@ -526,6 +538,8 @@ main(int argc, char *argv[])
                           "%-*s: ENABLED directory (%s) [afdcmd].",
                           MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
                           user);
+               event_log(0L, EC_DIR, ET_MAN, EA_ENABLE_DIRECTORY, "%s%c%s",
+                         fra[position].dir_alias, SEPARATOR_CHAR, user);
                fra[position].dir_flag ^= DIR_DISABLED;
                SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
             }
@@ -553,6 +567,8 @@ main(int argc, char *argv[])
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: DISABLED directory (%s) [afdcmd].",
                           MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
+               event_log(0L, EC_DIR, ET_MAN, EA_DISABLE_DIRECTORY, "%s%c%s",
+                         fra[position].dir_alias, SEPARATOR_CHAR, user);
                fra[position].dir_flag ^= DIR_DISABLED;
                SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
 
@@ -625,6 +641,8 @@ main(int argc, char *argv[])
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: ENABLED directory (%s) [afdcmd].",
                           MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias, user);
+               event_log(0L, EC_DIR, ET_MAN, EA_ENABLE_DIRECTORY, "%s%c%s",
+                         fra[position].dir_alias, SEPARATOR_CHAR, user);
                fra[position].dir_flag ^= DIR_DISABLED;
                SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
             }
@@ -634,6 +652,8 @@ main(int argc, char *argv[])
                           "%-*s: DISABLED directory (%s) [afdcmd].",
                           MAX_DIR_ALIAS_LENGTH, fra[position].dir_alias,
                           user);
+               event_log(0L, EC_DIR, ET_MAN, EA_DISABLE_DIRECTORY, "%s%c%s",
+                         fra[position].dir_alias, SEPARATOR_CHAR, user);
                fra[position].dir_flag ^= DIR_DISABLED;
                SET_DIR_STATUS(fra[position].dir_flag, fra[position].dir_status);
 
@@ -753,7 +773,7 @@ main(int argc, char *argv[])
       {
          (void)sprintf(host_config_file, "%s%s%s",
                        p_work_dir, ETC_DIR, DEFAULT_HOST_CONFIG_FILE);
-         ehc = eval_host_config(&hosts_found, host_config_file, &hl, NO);
+         ehc = eval_host_config(&hosts_found, host_config_file, &hl, NULL, NO);
          if ((ehc == NO) && (no_of_hosts != hosts_found))
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -813,6 +833,8 @@ main(int argc, char *argv[])
                              "%-*s: STARTED queue (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_START_QUEUE, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
                   fsa[position].host_status ^= PAUSE_QUEUE_STAT;
                   hl[position].host_status &= ~PAUSE_QUEUE_STAT;
                   change_host_config = YES;
@@ -842,6 +864,8 @@ main(int argc, char *argv[])
                              "%-*s: STOPPED queue (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_STOP_QUEUE, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
                   fsa[position].host_status ^= PAUSE_QUEUE_STAT;
                   hl[position].host_status |= PAUSE_QUEUE_STAT;
                   change_host_config = YES;
@@ -904,6 +928,8 @@ main(int argc, char *argv[])
                              "%-*s: STARTED transfer (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_START_TRANSFER, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
                   fsa[position].host_status ^= STOP_TRANSFER_STAT;
                   hl[position].host_status &= ~STOP_TRANSFER_STAT;
                   change_host_config = YES;
@@ -933,6 +959,8 @@ main(int argc, char *argv[])
                              "%-*s: STOPPED transfer (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_STOP_TRANSFER, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
                   fsa[position].host_status ^= STOP_TRANSFER_STAT;
                   hl[position].host_status |= STOP_TRANSFER_STAT;
                   change_host_config = YES;
@@ -950,6 +978,8 @@ main(int argc, char *argv[])
                              "%-*s: ENABLED (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_ENABLE_HOST, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status &= ~HOST_CONFIG_HOST_DISABLED;
                   change_host_config = YES;
@@ -986,6 +1016,16 @@ main(int argc, char *argv[])
                              "%-*s: DISABLED (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_DISABLE_HOST, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
+                  if (fsa[position].host_status & HOST_ERROR_EA_STATIC)
+                  {
+                     fsa[position].host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+                  }
+                  else
+                  {
+                     fsa[position].host_status &= ~EVENT_STATUS_FLAGS;
+                  }
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status |= HOST_CONFIG_HOST_DISABLED;
                   change_host_config = YES;
@@ -1088,6 +1128,8 @@ main(int argc, char *argv[])
                              "%-*s: ENABLED (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_ENABLE_HOST, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status &= ~HOST_CONFIG_HOST_DISABLED;
                }
@@ -1104,6 +1146,16 @@ main(int argc, char *argv[])
                              "%-*s: DISABLED (%s) [afdcmd].",
                              MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
                              user);
+                  event_log(0L, EC_HOST, ET_MAN, EA_DISABLE_HOST, "%s%c%s",
+                            fsa[position].host_alias, SEPARATOR_CHAR, user);
+                  if (fsa[position].host_status & HOST_ERROR_EA_STATIC)
+                  {
+                     fsa[position].host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+                  }
+                  else
+                  {
+                     fsa[position].host_status &= ~EVENT_STATUS_FLAGS;
+                  }
                   fsa[position].special_flag ^= HOST_DISABLED;
                   hl[position].host_status |= HOST_CONFIG_HOST_DISABLED;
                   length = strlen(fsa[position].host_alias) + 1;
@@ -1198,6 +1250,8 @@ main(int argc, char *argv[])
             if ((fsa[position].toggle_pos > 0) &&
                 (fsa[position].host_toggle_str[0] != '\0'))
             {
+               char tmp_host_alias[MAX_HOSTNAME_LENGTH + 1];
+
                system_log(DEBUG_SIGN, NULL, 0,
                           "Host Switch initiated for host %s (%s) [afdcmd]",
                           fsa[position].host_dsp_name, user);
@@ -1212,7 +1266,13 @@ main(int argc, char *argv[])
                   hl[position].host_status &= ~HOST_TWO_FLAG;
                }
                change_host_config = YES;
+               (void)strcpy(tmp_host_alias, fsa[position].host_dsp_name);
                fsa[position].host_dsp_name[(int)fsa[position].toggle_pos] = fsa[position].host_toggle_str[(int)fsa[position].host_toggle];
+               event_log(0L, EC_HOST, ET_MAN, EA_SWITCH_HOST,
+                         "%s%c%s%c%s -> %s",
+                         fsa[position].host_alias, SEPARATOR_CHAR,
+                         user, SEPARATOR_CHAR, tmp_host_alias,
+                         fsa[position].host_dsp_name);
             }
             else
             {
@@ -1246,6 +1306,8 @@ main(int argc, char *argv[])
             }
             else
             {
+               event_log(0L, EC_HOST, ET_MAN, EA_RETRY_HOST, "%s%c%s",
+                         fsa[position].host_alias, SEPARATOR_CHAR, user);
                if (write(fd, &position, sizeof(int)) != sizeof(int))
                {
                   (void)fprintf(stderr,
@@ -1277,14 +1339,20 @@ main(int argc, char *argv[])
             {
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: Enabled DEBUG mode by user %s [afdcmd].",
-                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                          user);
+               event_log(0L, EC_HOST, ET_MAN, EA_ENABLE_DEBUG_HOST, "%s%c%s",
+                         fsa[position].host_alias, SEPARATOR_CHAR, user);
                fsa[position].debug = DEBUG_MODE;
             }
             else
             {
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: Disabled DEBUG mode by user %s [afdcmd].",
-                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                          user);
+               event_log(0L, EC_HOST, ET_MAN, EA_DISABLE_DEBUG_HOST, "%s%c%s",
+                         fsa[position].host_alias, SEPARATOR_CHAR, user);
                fsa[position].debug = NORMAL_MODE;
             }
          }
@@ -1295,14 +1363,20 @@ main(int argc, char *argv[])
             {
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: Enabled TRACE mode by user %s [afdcmd].",
-                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                          user);
+               event_log(0L, EC_HOST, ET_MAN, EA_ENABLE_TRACE_HOST, "%s%c%s",
+                         fsa[position].host_alias, SEPARATOR_CHAR, user);
                fsa[position].debug = TRACE_MODE;
             }
             else
             {
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: Disabled TRACE mode by user %s [afdcmd].",
-                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                          user);
+               event_log(0L, EC_HOST, ET_MAN, EA_DISABLE_TRACE_HOST, "%s%c%s",
+                         fsa[position].host_alias, SEPARATOR_CHAR, user);
                fsa[position].debug = NORMAL_MODE;
             }
          }
@@ -1313,14 +1387,22 @@ main(int argc, char *argv[])
             {
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: Enabled FULL TRACE MODE by user %s [afdcmd].",
-                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                          user);
+               event_log(0L, EC_HOST, ET_MAN, EA_ENABLE_FULL_TRACE_HOST,
+                         "%s%c%s",
+                         fsa[position].host_alias, SEPARATOR_CHAR, user);
                fsa[position].debug = FULL_TRACE_MODE;
             }
             else
             {
                system_log(DEBUG_SIGN, NULL, 0,
                           "%-*s: Disabled FULL TRACE mode by user %s [afdcmd].",
-                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name, user);
+                          MAX_HOSTNAME_LENGTH, fsa[position].host_dsp_name,
+                          user);
+               event_log(0L, EC_HOST, ET_MAN, EA_DISABLE_FULL_TRACE_HOST,
+                         "%s%c%s",
+                         fsa[position].host_alias, SEPARATOR_CHAR, user);
                fsa[position].debug = NORMAL_MODE;
             }
          }
@@ -1384,6 +1466,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending START to %s by %s [afdcmd]", FD, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_FD_START, "%s", user);
                if (send_cmd(START_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1399,6 +1482,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending STOP to %s by %s [afdcmd]", FD, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_FD_STOP, "%s", user);
                if (send_cmd(STOP_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1424,6 +1508,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending START to %s by %s [afdcmd]", AMG, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_AMG_START, "%s", user);
                if (send_cmd(START_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1439,6 +1524,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending STOP to %s by %s [afdcmd]", AMG, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_AMG_STOP, "%s", user);
                if (send_cmd(STOP_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1459,6 +1545,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending STOP to %s by %s [afdcmd]", AMG, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_AMG_STOP, "%s", user);
                if (send_cmd(STOP_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1470,6 +1557,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending START to %s by %s [afdcmd]", AMG, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_AMG_START, "%s", user);
                if (send_cmd(START_AMG, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1485,6 +1573,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending STOP to %s by %s [afdcmd]", FD, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_FD_STOP, "%s", user);
                if (send_cmd(STOP_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1496,6 +1585,7 @@ main(int argc, char *argv[])
             {
                system_log(CONFIG_SIGN, NULL, 0,
                           "Sending START to %s by %s [afdcmd]", FD, user);
+               event_log(0L, EC_GLOB, ET_MAN, EA_AMG_START, "%s", user);
                if (send_cmd(START_FD, afd_cmd_fd) != SUCCESS)
                {
                   (void)fprintf(stderr,
@@ -1728,7 +1818,7 @@ static void
 usage(char *progname)
 {                    
    (void)fprintf(stderr,
-                 "SYNTAX  : %s [-w working directory] [-u[ <user>]] options hostname|directory|position\n",
+                 "SYNTAX  : %s[ -w working directory][ -p <role>][ -u[ <user>]] options hostname|directory|position\n",
                  progname);
    (void)fprintf(stderr,
                  "    FSA options:\n");

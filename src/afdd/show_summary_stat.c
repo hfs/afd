@@ -89,13 +89,18 @@ show_summary_stat(FILE *p_data)
       bytes_to_be_send += fsa[i].total_file_size;
       bytes_send += (double)fsa[i].bytes_send;
       files_send += (double)fsa[i].file_counter_done;
-      if (fsa[i].error_counter >= fsa[i].max_errors)
+      if (((fsa[i].host_status & HOST_ERROR_OFFLINE) == 0) &&
+          ((fsa[i].host_status & HOST_ERROR_OFFLINE_T) == 0) &&
+          ((fsa[i].host_status & HOST_ERROR_OFFLINE_STATIC) == 0))
       {
-         error_hosts++;
-      }
-      else
-      {
-         errors += fsa[i].error_counter;
+         if (fsa[i].error_counter >= fsa[i].max_errors)
+         {
+            error_hosts++;
+         }
+         else
+         {
+            errors += fsa[i].error_counter;
+         }
       }
       connections += fsa[i].connections;
       total_errors += fsa[i].total_errors;

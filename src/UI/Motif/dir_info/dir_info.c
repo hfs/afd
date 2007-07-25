@@ -77,7 +77,7 @@ DESCR__E_M1
 #include "version.h"
 #include "permission.h"
 
-/* Global variables */
+/* Global variables. */
 Display                    *display;
 XtAppContext               app;
 XtIntervalId               interval_id_dir;
@@ -134,8 +134,9 @@ struct fileretrieve_status *fra;
 struct prev_values         prev;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
-static void                init_dir_info(int *, char **),
+/* Local function prototypes. */
+static void                dir_info_exit(void),
+                           init_dir_info(int *, char **),
                            usage(char *);
 
 
@@ -185,7 +186,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    p_work_dir = work_dir;
    init_dir_info(&argc, argv);
 
@@ -223,7 +224,7 @@ main(int argc, char *argv[])
 
    display = XtDisplay(appshell);
 
-   /* Create managing widget */
+   /* Create managing widget. */
    form_w = XmCreateForm(appshell, "form", NULL, 0);
 
    entry = XmFontListEntryLoad(XtDisplay(form_w), font_name,
@@ -391,7 +392,7 @@ main(int argc, char *argv[])
    }
    XtManageChild(rowcol1_w);
 
-   /* Fill up the text widget with some values */
+   /* Fill up the text widget with some values. */
    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, prev.dir_alias);
    XmTextSetString(text_wl[ALIAS_DIR_NAME_POS], str_line);
    if (prev.stupid_mode == YES)
@@ -490,7 +491,7 @@ main(int argc, char *argv[])
    (void)sprintf(str_line, "%*s", DIR_INFO_LENGTH_L, tmp_str_line);
    XmTextSetString(text_wl[LAST_RETRIEVAL_POS], str_line);
 
-   /* Create the horizontal separator */
+   /* Create the horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
    argcount++;
@@ -505,7 +506,7 @@ main(int argc, char *argv[])
    h_separator1_w = XmCreateSeparator(form_w, "h_separator1_w", args, argcount);
    XtManageChild(h_separator1_w);
 
-   /* Create the vertical separator */
+   /* Create the vertical separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
    argcount++;
@@ -742,7 +743,7 @@ main(int argc, char *argv[])
                                          XmNrightAttachment, XmATTACH_FORM,
                                          NULL);
 
-   /* Create the horizontal separator */
+   /* Create the horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,     XmHORIZONTAL);
    argcount++;
@@ -790,7 +791,7 @@ main(int argc, char *argv[])
    XtManageChild(buttonbox_w);
    XtManageChild(form_w);
 
-   /* Free font list */
+   /* Free font list. */
    XmFontListFree(fontlist);
 
 #ifdef WITH_EDITRES
@@ -798,7 +799,7 @@ main(int argc, char *argv[])
                      _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
    wait_visible(appshell);
 
@@ -807,8 +808,11 @@ main(int argc, char *argv[])
                                       (XtTimerCallbackProc)update_info,
                                       form_w);
 
-   /* We want the keyboard focus on the Done button */
+   /* We want the keyboard focus on the Done button. */
    XmProcessTraversal(button_w, XmTRAVERSE_CURRENT);
+
+   /* Write window ID, so dir_ctrl can set focus if it is called again. */
+   write_window_id(XtWindow(appshell), getpid(), DIR_INFO);
 
    /* Start the main event-handling loop */
    XtAppMainLoop(app);
@@ -930,7 +934,7 @@ init_dir_info(int *argc, char *argv[])
          exit(INCORRECT);
    }
 
-   /* Attach to the FRA */
+   /* Attach to the FRA. */
    if (fra_attach_passive() < 0)
    {
       (void)fprintf(stderr, "Failed to attach to FRA. (%s %d)\n",
@@ -1004,7 +1008,7 @@ init_dir_info(int *argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialize values in FRA structure */
+   /* Initialize values in FRA structure. */
    (void)strcpy(prev.real_dir_name, dnb[prev.dir_pos].dir_name);
    (void)strcpy(prev.host_alias, fra[fra_pos].host_alias);
    (void)strcpy(prev.dir_alias, fra[fra_pos].dir_alias);
@@ -1051,6 +1055,13 @@ init_dir_info(int *argc, char *argv[])
       (void)fprintf(stderr, "Failed to munmap() from %s : %s (%s %d)\n",
                     dir_name_file, strerror(errno), __FILE__, __LINE__);
    }
+   if (atexit(dir_info_exit) != 0)
+   {
+      (void)xrec(appshell, WARN_DIALOG,
+                 "Failed to set exit handler for %s : %s",
+                 DIR_INFO, strerror(errno));                            
+   }
+   check_window_ids(DIR_INFO);
 
    return;
 }
@@ -1065,5 +1076,14 @@ usage(char *progname)
    (void)fprintf(stderr, "           -f <font name>\n");
    (void)fprintf(stderr, "           -u[ <user>]\n");
    (void)fprintf(stderr, "           -w <working directory>\n");
+   return;
+}
+
+
+/*--------------------------- dir_info_exit() ---------------------------*/
+static void
+dir_info_exit(void)
+{
+   remove_window_id(getpid(), DIR_INFO);
    return;
 }

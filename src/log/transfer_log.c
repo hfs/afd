@@ -346,6 +346,8 @@ main(int argc, char *argv[])
                              case 'I' : /* Info */
                                 p_log_fifo[log_pos] = INFO_ID;
                                 break;
+                             case 'O' : /* Error/Warn Offline, NOT vissible!!! */
+                                break;
                              case 'W' : /* Warn */
                                 p_log_fifo[log_pos] = WARNING_ID;
                                 break;
@@ -361,7 +363,8 @@ main(int argc, char *argv[])
                                 p_log_fifo[log_pos] = CHAR_BACKGROUND;
                                 break;
                           }
-                          if (msg_str[LOG_SIGN_POSITION] != 'D')
+                          if ((msg_str[LOG_SIGN_POSITION] != 'D') &&
+                              (msg_str[LOG_SIGN_POSITION] != 'O'))
                           {
                              if (p_log_fifo[log_pos] > p_log_his[MAX_LOG_HISTORY - 1])
                              {

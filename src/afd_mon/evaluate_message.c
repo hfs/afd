@@ -44,13 +44,13 @@ DESCR__S_M1
  **               HL - List of current host alias names and real
  **                    hostnames
  **               DL - List of current directories
+ **               JL - List of current jobs
  **               EL - Error list for a given host
  **               RH - Receive log history
  **               SH - System log history
  **               TH - Transfer log history
  **             Log message types:
  **               LC - Log capabilities
- **               JD - Job ID data
  **
  ** RETURN VALUES
  **   Returns the following values:
@@ -63,6 +63,7 @@ DESCR__S_M1
  **
  ** HISTORY
  **   22.10.2006 H.Kiehl Created
+ **   21.04.2007 H.Kiehl Handle job ID data.
  **
  */
 DESCR__E_M1
@@ -73,6 +74,7 @@ DESCR__E_M1
 #include <ctype.h>           /* isdigit()                                */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>           /* O_RDONLY                                 */
 #ifdef HAVE_MMAP
 # include <sys/mman.h>
 #endif
@@ -89,13 +91,18 @@ extern int                    afd_no,
                               timeout_flag;
 extern time_t                 new_hour_time;
 extern size_t                 adl_size,
-                              ahl_size;
-extern char                   adl_file_name[],
-                              ahl_file_name[],
-                              msg_str[];
+                              ahl_size,
+                              ajl_size;
+extern char                   msg_str[],
+                              *p_work_dir;
 extern struct mon_status_area *msa;
 extern struct afd_dir_list    *adl;
 extern struct afd_host_list   *ahl;
+extern struct afd_job_list    *ajl;
+
+/* Local function prototypes. */
+static void                   reshuffel_dir_data(int),
+                              reshuffel_job_data(int);
 
 
 /*######################### evaluate_message() ##########################*/
@@ -327,10 +334,40 @@ evaluate_message(int *bytes_done)
                                                      msa[afd_no].bytes_received[CURRENT_SUM] = (u_off_t)strtoul(ptr_start, NULL, 10);
 #endif
                                                   }
+                                                  else
+                                                  {
+                                                     mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                                             "Missed bytes_received.");
+                                                  }
+                                               }
+                                               else
+                                               {
+                                                  mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                                          "Missed files_received.");
                                                }
                                             }
+                                            else
+                                            {
+                                               mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                                       "Missed total_errors.");
+                                            }
+                                         }
+                                         else
+                                         {
+                                            mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                                    "Missed connections.");
                                          }
                                       }
+                                      else
+                                      {
+                                         mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                                 "Missed bytes_send.");
+                                      }
+                                   }
+                                   else
+                                   {
+                                      mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                                              "Missed files_send.");
                                    }
                                 }
                         }
@@ -421,7 +458,8 @@ evaluate_message(int *bytes_done)
     */
    else if ((*ptr == 'N') && (*(ptr + 1) == 'H'))
         {
-           int new_no_of_hosts;
+           int  new_no_of_hosts;
+           char ahl_file_name[MAX_PATH_LENGTH];
 
            ptr += 3;
            ptr_start = ptr;
@@ -430,8 +468,7 @@ evaluate_message(int *bytes_done)
               ptr++;
            }
            new_no_of_hosts = atoi(ptr_start);
-           if ((new_no_of_hosts != msa[afd_no].no_of_hosts) ||
-               (ahl == NULL))
+           if ((new_no_of_hosts != msa[afd_no].no_of_hosts) || (ahl == NULL))
            {
               int  fd;
               char *ahl_ptr;
@@ -450,12 +487,17 @@ evaluate_message(int *bytes_done)
               }
               ahl_size = new_no_of_hosts * sizeof(struct afd_host_list);
               msa[afd_no].no_of_hosts = new_no_of_hosts;
+              (void)sprintf(ahl_file_name, "%s%s%s%s",
+                            p_work_dir, FIFO_DIR, AHL_FILE_NAME,
+                            msa[afd_no].afd_alias);
               if ((ahl_ptr = attach_buf(ahl_file_name, &fd, ahl_size,
                                         NULL, FILE_MODE, NO)) == (caddr_t) -1)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to mmap() %s : %s",
                             ahl_file_name, strerror(errno));
+                 (void)close(fd);
+                 exit(INCORRECT);
               }
               else
               {
@@ -477,7 +519,9 @@ evaluate_message(int *bytes_done)
     */
    else if ((*ptr == 'N') && (*(ptr + 1) == 'D'))
         {
-           int new_no_of_dirs;
+           int         new_no_of_dirs;
+           char        adl_file_name[MAX_PATH_LENGTH];
+           struct stat stat_buf;
 
            ptr += 3;
            ptr_start = ptr;
@@ -486,8 +530,25 @@ evaluate_message(int *bytes_done)
               ptr++;
            }
            new_no_of_dirs = atoi(ptr_start);
-           if ((new_no_of_dirs != msa[afd_no].no_of_dirs) ||
-               (adl == NULL))
+
+           /* Save old adl file, if it exist. */
+           (void)sprintf(adl_file_name, "%s%s%s%s",
+                         p_work_dir, FIFO_DIR, ADL_FILE_NAME,
+                         msa[afd_no].afd_alias);
+           if (stat(adl_file_name, &stat_buf) == 0)
+           {
+              char tmp_adl_file_name[MAX_PATH_LENGTH];
+
+              (void)sprintf(tmp_adl_file_name, "%s%s%s%s",
+                            p_work_dir, FIFO_DIR, TMP_ADL_FILE_NAME,
+                            msa[afd_no].afd_alias);
+              if (copy_file(adl_file_name, tmp_adl_file_name,
+                            &stat_buf) == INCORRECT)
+              {
+                 (void)unlink(tmp_adl_file_name);
+              }
+           }
+           if ((new_no_of_dirs != msa[afd_no].no_of_dirs) || (adl == NULL))
            {
               int  fd;
               char *adl_ptr;
@@ -512,6 +573,8 @@ evaluate_message(int *bytes_done)
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Failed to mmap() %s : %s",
                             adl_file_name, strerror(errno));
+                 (void)close(fd);
+                 adl = NULL;
               }
               else
               {
@@ -529,6 +592,84 @@ evaluate_message(int *bytes_done)
 #endif
         }
    /*
+    * Number of current job ID's (NJ)
+    */
+   else if ((*ptr == 'N') && (*(ptr + 1) == 'J'))
+        {
+           int         new_no_of_job_ids;
+           char        ajl_file_name[MAX_PATH_LENGTH];
+           struct stat stat_buf;
+
+           ptr += 3;
+           ptr_start = ptr;
+           while (*ptr != '\0')
+           {
+              ptr++;
+           }
+           new_no_of_job_ids = atoi(ptr_start);
+
+           /* Save old adl file, if it exist. */
+           (void)sprintf(ajl_file_name, "%s%s%s%s",
+                         p_work_dir, FIFO_DIR, AJL_FILE_NAME,
+                         msa[afd_no].afd_alias);
+           if (stat(ajl_file_name, &stat_buf) == 0)
+           {
+              char tmp_ajl_file_name[MAX_PATH_LENGTH];
+
+              (void)sprintf(tmp_ajl_file_name, "%s%s%s%s",
+                            p_work_dir, FIFO_DIR, TMP_AJL_FILE_NAME,
+                            msa[afd_no].afd_alias);
+              if (copy_file(ajl_file_name, tmp_ajl_file_name,
+                            &stat_buf) == INCORRECT)
+              {
+                 (void)unlink(tmp_ajl_file_name);
+              }
+           }
+
+           if ((new_no_of_job_ids != msa[afd_no].no_of_jobs) || (ajl == NULL))
+           {
+              int  fd;
+              char *ajl_ptr;
+
+              if (ajl != NULL)
+              {
+#ifdef HAVE_MMAP
+                 if (munmap((void *)ajl, ajl_size) == -1)
+#else
+                 if (munmap_emu((void *)ajl) == -1)
+#endif
+                 {
+                    system_log(ERROR_SIGN, __FILE__, __LINE__,
+                               "munmap() error : %s", strerror(errno));
+                 }
+              }
+              ajl_size = new_no_of_job_ids * sizeof(struct afd_job_list);
+              msa[afd_no].no_of_jobs = new_no_of_job_ids;
+              if ((ajl_ptr = attach_buf(ajl_file_name, &fd, ajl_size,
+                                        NULL, FILE_MODE, NO)) == (caddr_t) -1)
+              {
+                 system_log(ERROR_SIGN, __FILE__, __LINE__,
+                            "Failed to mmap() %s : %s",
+                            ajl_file_name, strerror(errno));
+                 (void)close(fd);
+                 ajl = NULL;
+              }
+              else
+              {
+                 if (close(fd) == -1)
+                 {
+                    system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                               "close() error : %s", strerror(errno));
+                 }
+                 ajl = (struct afd_job_list *)ajl_ptr;
+              }
+           }
+           ret = SUCCESS;
+#ifdef _DEBUG_PRINT
+           (void)fprintf(stderr, "NJ %d\n", msa[afd_no].no_of_jobs);
+#endif
+        }
+   /*
     * Maximum number of connections. (MC)
     */
    else if ((*ptr == 'M') && (*(ptr + 1) == 'C'))
@@ -543,23 +684,6 @@ evaluate_message(int *bytes_done)
            ret = SUCCESS;
 #ifdef _DEBUG_PRINT
            (void)fprintf(stderr, "MC %d\n", msa[afd_no].max_connections);
-#endif
-        }
-   /*
-    * Number of jobs. (NJ)
-    */
-   else if ((*ptr == 'N') && (*(ptr + 1) == 'J'))
-        {
-           ptr += 3;
-           ptr_start = ptr;
-           while (*ptr != '\0')
-           {
-              ptr++;
-           }
-           msa[afd_no].no_of_jobs = atoi(ptr_start);
-           ret = SUCCESS;
-#ifdef _DEBUG_PRINT
-           (void)fprintf(stderr, "NJ %d\n", msa[afd_no].no_of_jobs);
 #endif
         }
    /*
@@ -762,82 +886,318 @@ evaluate_message(int *bytes_done)
    else if ((*ptr == 'D') && (*(ptr + 1) == 'L'))
         {
            /* Syntax: DL <dir_number> <dir ID> <dir alias> <dir name> [<original dir name>] */
-           ptr += 3;
-           ptr_start = ptr;
-           while ((*ptr != ' ') && (*ptr != '\0'))
-           {
-              ptr++;
-           }
-           if (*ptr == ' ')
-           {
-              int i = 0,
-                  pos;
 
-              *ptr = '\0';
-              pos = atoi(ptr_start);
-              if (pos < msa[afd_no].no_of_dirs)
+           if (adl != NULL)
+           {
+              ptr += 3;
+              ptr_start = ptr;
+              while ((*ptr != ' ') && (*ptr != '\0'))
               {
-                 ptr = ptr + 1;
-                 ptr_start = ptr;
-                 while ((*ptr != ' ') && (*ptr != '\0') &&
-                        (i < MAX_INT_LENGTH))
-                 {
-                    ptr++; i++;
-                 }
-                 if (*ptr == ' ')
-                 {
-                    *ptr = '\0';
-                    adl[pos].dir_id = (unsigned int)strtoul(ptr_start, NULL, 16);
+                 ptr++;
+              }
+              if (*ptr == ' ')
+              {
+                 int i = 0,
+                     pos;
 
-                    i = 0;
+                 *ptr = '\0';
+                 pos = atoi(ptr_start);
+                 if (pos < msa[afd_no].no_of_dirs)
+                 {
                     ptr = ptr + 1;
+                    ptr_start = ptr;
                     while ((*ptr != ' ') && (*ptr != '\0') &&
-                           (i < MAX_DIR_ALIAS_LENGTH))
+                           (i < MAX_INT_LENGTH))
                     {
-                       adl[pos].dir_alias[i] = *ptr;
                        ptr++; i++;
                     }
                     if (*ptr == ' ')
                     {
-                       adl[pos].dir_alias[i] = '\0';
+                       *ptr = '\0';
+                       adl[pos].dir_id = (unsigned int)strtoul(ptr_start, NULL, 16);
+
                        i = 0;
                        ptr = ptr + 1;
                        while ((*ptr != ' ') && (*ptr != '\0') &&
-                              (i < (MAX_PATH_LENGTH - 1)))
+                              (i < MAX_DIR_ALIAS_LENGTH))
                        {
-                          adl[pos].dir_name[i] = *ptr;
+                          adl[pos].dir_alias[i] = *ptr;
                           ptr++; i++;
                        }
-                       adl[pos].dir_name[i] = '\0';
                        if (*ptr == ' ')
                        {
+                          adl[pos].dir_alias[i] = '\0';
                           i = 0;
                           ptr = ptr + 1;
                           while ((*ptr != ' ') && (*ptr != '\0') &&
                                  (i < (MAX_PATH_LENGTH - 1)))
                           {
-                             adl[pos].orig_dir_name[i] = *ptr;
+                             adl[pos].dir_name[i] = *ptr;
                              ptr++; i++;
                           }
-                          adl[pos].orig_dir_name[i] = '\0';
+                          adl[pos].dir_name[i] = '\0';
+                          if (*ptr == ' ')
+                          {
+                             i = 0;
+                             ptr = ptr + 1;
+                             while ((*ptr != ' ') && (*ptr != '\0') &&
+                                    (i < (MAX_PATH_LENGTH - 1)))
+                             {
+                                adl[pos].orig_dir_name[i] = *ptr;
+                                ptr++; i++;
+                             }
+                             adl[pos].orig_dir_name[i] = '\0';
+                             if (*ptr == ' ')
+                             {
+                                i = 0;
+                                ptr = ptr + 1;
+                                while ((*ptr != ' ') && (*ptr != '\0') &&
+                                       (i < (MAX_USER_NAME_LENGTH - 1)))
+                                {
+                                   adl[pos].home_dir_user[i] = *ptr;
+                                   ptr++; i++;
+                                }
+                                adl[pos].home_dir_user[i] = '\0';
+                                if (*ptr == ' ')
+                                {
+                                   i = 0;
+                                   ptr = ptr + 1;
+                                   ptr_start = ptr;
+                                   while ((*ptr != ' ') && (*ptr != '\0') &&
+                                          (i < MAX_INT_LENGTH))
+                                   {
+                                      ptr++; i++;
+                                   }
+                                   if (*ptr == ' ')
+                                   {
+                                      *ptr = '\0';
+                                      adl[pos].home_dir_length = (unsigned int)strtoul(ptr_start, NULL, 16);
+                                   }
+                                }
+                                else
+                                {
+                                   adl[pos].home_dir_length = 0;
+                                }
+                             }
+                             else
+                             {
+                                adl[pos].home_dir_user[0] = '\0';
+                                adl[pos].home_dir_length = 0;
+                             }
+                          }
+                          else
+                          {
+                             adl[pos].home_dir_user[0] = '\0';
+                             adl[pos].home_dir_length = 0;
+                             adl[pos].orig_dir_name[0] = '\0';
+                          }
                        }
                        else
                        {
+                          adl[pos].dir_alias[0] = '\0';
+                          adl[pos].home_dir_user[0] = '\0';
+                          adl[pos].home_dir_length = 0;
                           adl[pos].orig_dir_name[0] = '\0';
                        }
                     }
-                 }
+                    else
+                    {
+                       adl[pos].dir_id = 0;
+                       adl[pos].dir_alias[0] = '\0';
+                       adl[pos].home_dir_user[0] = '\0';
+                       adl[pos].home_dir_length = 0;
+                       adl[pos].orig_dir_name[0] = '\0';
+                    }
+                    adl[pos].entry_time = msa[afd_no].last_data_time;
+                    if ((pos + 1) == msa[afd_no].no_of_dirs)
+                    {
+                       reshuffel_dir_data(msa[afd_no].no_of_dirs);
+                    }
 #ifdef _DEBUG_PRINT
-                 (void)fprintf(stderr, "DL %d %s %x %s %s\n",
-                               pos, adl[pos].dir_id, adl[pos].dir_alias,
-                               adl[pos].dir_name, adl[pos].orig_dir_name);
+                    if (adl[pos].home_dir_user[0] == '\0')
+                    {
+                       (void)fprintf(stderr, "DL %d %s %x %s %s\n",
+                                     pos, adl[pos].dir_id, adl[pos].dir_alias,
+                                     adl[pos].dir_name, adl[pos].orig_dir_name);
+                    }
+                    else
+                    {
+                       (void)fprintf(stderr, "DL %d %s %x %s %s %s %x\n",
+                                     pos, adl[pos].dir_id, adl[pos].dir_alias,
+                                     adl[pos].dir_name, adl[pos].orig_dir_name,
+                                     adl[pos].home_dir_user,
+                                     adl[pos].home_dir_length);
+                    }
 #endif
+                 }
+                 else
+                 {
+                    mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                            "Hmmm. Trying to insert directory at position %d, but there are only %d directories.",
+                            pos, msa[afd_no].no_of_dirs);
+                 }
               }
-              else
+           }
+           ret = SUCCESS;
+        }
+   /*
+    * Job ID list (JL)
+    */
+#ifdef WITHOUT_BLUR_DATA
+   else if ((*ptr == 'J') && (*(ptr + 1) == 'L'))
+#else
+   else if ((*ptr == 'J') && (*(ptr + 1) == 'l'))
+#endif
+        {
+           /* Syntax: Jl <job_id_number> <job ID> <dir ID>            */
+           /*            <no of local options> <priority> <recipient> */
+           if (ajl != NULL)
+           {
+              ptr += 3;
+              ptr_start = ptr;
+              while ((*ptr != ' ') && (*ptr != '\0'))
               {
-                 mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, msg_str,
-                         "Hmmm. Trying to insert directory at position %d, but there are only %d directories.",
-                         pos, msa[afd_no].no_of_dirs);
+                 ptr++;
+              }
+              if (*ptr == ' ')
+              {
+                 int i = 0,
+                     pos;
+
+                 *ptr = '\0';
+                 pos = atoi(ptr_start);
+                 if (pos < msa[afd_no].no_of_jobs)
+                 {
+                    ptr = ptr + 1;
+                    ptr_start = ptr;
+                    while ((*ptr != ' ') && (*ptr != '\0') &&
+                           (i < MAX_INT_LENGTH))
+                    {
+                       ptr++; i++;
+                    }
+                    if (*ptr == ' ')
+                    {
+                       *ptr = '\0';
+                       ajl[pos].job_id = (unsigned int)strtoul(ptr_start, NULL, 16);
+
+                       i = 0;
+                       ptr = ptr + 1;
+                       ptr_start = ptr;
+                       while ((*ptr != ' ') && (*ptr != '\0') &&
+                              (i < MAX_INT_LENGTH))
+                       {
+                          ptr++; i++;
+                       }
+                       if (*ptr == ' ')
+                       {
+                          *ptr = '\0';
+                          ajl[pos].dir_id = (unsigned int)strtoul(ptr_start, NULL, 16);
+
+                          i = 0;
+                          ptr = ptr + 1;
+                          ptr_start = ptr;
+                          while ((*ptr != ' ') && (*ptr != '\0') &&
+                                 (i < MAX_INT_LENGTH))
+                          {
+                             ptr++; i++;
+                          }
+                          if (*ptr == ' ')
+                          {
+                             *ptr = '\0';
+                             ajl[pos].no_of_loptions = (int)strtol(ptr_start, NULL, 16);
+
+                             i = 0;
+                             ptr = ptr + 1;
+                             if ((isxdigit((int)(*ptr))) &&
+                                 (*(ptr + 1) == ' '))
+                             {
+#ifndef WITHOUT_BLUR_DATA
+                                int offset = 0;
+#endif
+
+                                ajl[pos].priority = *ptr;
+
+                                i = 0;
+                                ptr = ptr + 2;
+                                while ((*ptr != '\0') &&
+                                       (i < MAX_RECIPIENT_LENGTH))
+                                {
+#ifdef WITHOUT_BLUR_DATA
+                                   ajl[pos].recipient[i] = *ptr;
+#else
+                                   if ((i - offset) > 28)
+                                   {
+                                      offset += 28;
+                                   }
+                                   if (((i - offset) % 3) == 0)
+                                   {
+                                      ajl[pos].recipient[i] = (unsigned char)*ptr + 9 - (i - offset);
+                                   }
+                                   else
+                                   {
+                                      ajl[pos].recipient[i] = (unsigned char)*ptr + 17 - (i - offset);
+                                   }
+#endif
+                                   ptr++; i++;
+                                }
+                                ajl[pos].recipient[i] = '\0';
+                                if (i == MAX_RECIPIENT_LENGTH)
+                                {
+                                   system_log(WARN_SIGN, __FILE__, __LINE__,
+                                              "Recipient overflow!!!");
+                                }
+                             }
+                             else
+                             {
+                                ajl[pos].recipient[0] = '\0';
+                                ajl[pos].priority = '9';
+                             }
+                          }
+                          else
+                          {
+                             ajl[pos].recipient[0] = '\0';
+                             ajl[pos].priority = '9';
+                             ajl[pos].no_of_loptions = -1;
+                          }
+                       }
+                       else
+                       {
+                          ajl[pos].recipient[0] = '\0';
+                          ajl[pos].priority = '9';
+                          ajl[pos].no_of_loptions = -1;
+                          ajl[pos].dir_id = 0;
+                       }
+                    }
+                    else
+                    {
+                       ajl[pos].recipient[0] = '\0';
+                       ajl[pos].priority = '9';
+                       ajl[pos].no_of_loptions = -1;
+                       ajl[pos].dir_id = 0;
+                       ajl[pos].job_id = 0;
+                    }
+                    ajl[pos].entry_time = msa[afd_no].last_data_time;
+                    if ((pos + 1) == msa[afd_no].no_of_jobs)
+                    {
+                       reshuffel_job_data(msa[afd_no].no_of_jobs);
+                    }
+#ifdef _DEBUG_PRINT
+# ifdef WITHOUT_BLUR_DATA
+                    (void)fprintf(stderr, "JL %d %x %x %x %c %s\n",
+# else
+                    (void)fprintf(stderr, "Jl %d %x %x %x %c %s\n",
+# endif
+                                  pos, ajl[pos].job_id, ajl[pos].dir_id,
+                                  ajl[pos].no_of_loptions, ajl[pos].priority,
+                                  ajl[pos].recipient);
+#endif
+                 }
+                 else
+                 {
+                    mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, msg_str,
+                            "Hmmm. Trying to insert job ID at position %d, but there are only %d jobs.",
+                            pos, msa[afd_no].no_of_jobs);
+                 }
               }
            }
            ret = SUCCESS;
@@ -1059,8 +1419,8 @@ evaluate_message(int *bytes_done)
            }
            ret = SUCCESS;
         }
-   else if ((isdigit(*ptr)) && (isdigit(*(ptr + 1))) &&
-            (isdigit(*(ptr + 2))) && (*(ptr + 3) == '-'))
+   else if ((isdigit((int)(*ptr))) && (isdigit((int)(*(ptr + 1)))) &&
+            (isdigit((int)(*(ptr + 2)))) && (*(ptr + 3) == '-'))
         {
            ret = ((*ptr - '0') * 100) + ((*(ptr + 1) - '0') * 10) +
                  (*(ptr + 2) - '0');
@@ -1089,4 +1449,466 @@ evaluate_message(int *bytes_done)
         }
 
    return(ret);
+}
+
+
+/*++++++++++++++++++++++++ reshuffel_dir_data() +++++++++++++++++++++++++*/
+static void
+reshuffel_dir_data(int no_of_dirs)
+{
+   int    oadl_fd;
+   size_t oadl_size;
+   char   *ptr,
+          tmp_adl_file_name[MAX_PATH_LENGTH];
+
+   (void)sprintf(tmp_adl_file_name, "%s%s%s%s",
+                 p_work_dir, FIFO_DIR, OLD_ADL_FILE_NAME,
+                 msa[afd_no].afd_alias);
+   oadl_size = AFD_WORD_OFFSET + (DATA_STEP_SIZE * sizeof(struct afd_dir_list));
+   if ((ptr = attach_buf(tmp_adl_file_name, &oadl_fd, oadl_size, NULL,
+                         FILE_MODE, NO)) == (caddr_t) -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to mmap() %s : %s",
+                 tmp_adl_file_name, strerror(errno));
+      (void)close(oadl_fd);
+      (void)sprintf(tmp_adl_file_name, "%s%s%s%s",
+                    p_work_dir, FIFO_DIR, TMP_ADL_FILE_NAME,
+                    msa[afd_no].afd_alias);
+   }
+   else
+   {
+      struct stat         stat_buf;
+      struct afd_dir_list *oadl;
+
+      (void)sprintf(tmp_adl_file_name, "%s%s%s%s",
+                    p_work_dir, FIFO_DIR, TMP_ADL_FILE_NAME,
+                    msa[afd_no].afd_alias);
+      if ((stat(tmp_adl_file_name, &stat_buf) == 0) &&
+          (stat_buf.st_size > 0))
+      {
+         int  fd,
+              tmp_no_of_dirs;
+         char *ptr2;
+
+         tmp_no_of_dirs = stat_buf.st_size / sizeof(struct afd_dir_list);
+         if ((ptr2 = map_file(tmp_adl_file_name, &fd, &stat_buf,
+                              O_RDONLY)) == (caddr_t)-1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to map_file() `%s' : %s",
+                       tmp_adl_file_name, strerror(errno));
+            (void)close(fd);
+            oadl = NULL;
+         }
+         else
+         {
+            int                 end_pos,
+                                gotcha,
+                                i, j,
+                                no_added,
+                                no_deleted,
+                                old_no_of_dirs;
+            time_t              offset_time;
+            size_t              work_size;
+            struct afd_dir_list *tadl;
+
+            if (close(fd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+            tadl = (struct afd_dir_list *)ptr2;
+            old_no_of_dirs = *(int *)ptr;
+            ptr += AFD_WORD_OFFSET;
+            oadl = (struct afd_dir_list *)ptr;
+            get_max_log_number(&gotcha, MAX_INPUT_LOG_FILES_DEF,
+                              MAX_INPUT_LOG_FILES);
+            offset_time = gotcha * SWITCH_FILE_TIME;
+            no_added = no_deleted = 0;
+            for (i = 0; i < old_no_of_dirs; i++)
+            {
+               if ((oadl[i].entry_time + offset_time) < msa[afd_no].last_data_time)
+               {
+                  end_pos = i;
+                  while ((++end_pos <= old_no_of_dirs) &&
+                         ((oadl[i].entry_time + offset_time) < msa[afd_no].last_data_time))
+                  {
+                     /* Nothing to be done. */;
+                  }
+                  if (end_pos <= old_no_of_dirs)
+                  {
+                     work_size = (old_no_of_dirs - (end_pos - 1)) *
+                                 sizeof(struct afd_dir_list);
+                     (void)memmove(&oadl[i], &oadl[end_pos - 1], work_size);
+                  }
+                  gotcha = end_pos - 1 - i;
+                  old_no_of_dirs -= gotcha;
+                  no_deleted += gotcha;
+               }
+            }
+            for (i = 0; i < tmp_no_of_dirs; i++)
+            {
+               gotcha = NO;
+               for (j = 0; j < no_of_dirs; j++)
+               {
+                  if (tadl[i].dir_id == adl[j].dir_id)
+                  {
+                     gotcha = YES;
+                     j = no_of_dirs;
+                  }
+               }
+               if (gotcha == NO)
+               {
+                  if ((no_added > no_deleted) &&
+                      ((old_no_of_dirs % DATA_STEP_SIZE) == 0))
+                  {
+                     work_size = (((old_no_of_dirs / DATA_STEP_SIZE) + 1) *
+                                  DATA_STEP_SIZE * sizeof(struct afd_dir_list)) +
+                                 AFD_WORD_OFFSET;
+                     ptr = (char *)oadl - AFD_WORD_OFFSET;
+                     if ((ptr = mmap_resize(oadl_fd, ptr,
+                                            work_size)) == (caddr_t) -1)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "mmap_resize() error : %s", strerror(errno));
+                        (void)close(oadl_fd);
+                        oadl = NULL;
+                        break;
+                     }
+                     else
+                     {
+                        old_no_of_dirs = *(int *)ptr;
+                        ptr += AFD_WORD_OFFSET;
+                        oadl = (struct afd_dir_list *)ptr;
+                     }
+                  }
+                  (void)memcpy(&oadl[old_no_of_dirs], &tadl[i],
+                               sizeof(struct afd_dir_list));
+                  old_no_of_dirs++;
+                  no_added++;
+               }
+            } /* for (i = 0; i < tmp_no_of_dirs; i++) */
+
+#ifdef HAVE_MMAP
+            if (munmap((void *)tadl, stat_buf.st_size) == -1)
+#else
+            if (munmap_emu((void *)tadl) == -1)
+#endif
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "munmap() error : %s", strerror(errno));
+            }
+
+            /* Check if we need to resize file. */
+            if (no_deleted > no_added)
+            {
+               work_size = (((old_no_of_dirs / DATA_STEP_SIZE) + 1) *
+                            DATA_STEP_SIZE * sizeof(struct afd_dir_list)) +
+                           AFD_WORD_OFFSET;
+               ptr = (char *)oadl - AFD_WORD_OFFSET;
+               if ((ptr = mmap_resize(oadl_fd, ptr,
+                                      work_size)) == (caddr_t) -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "mmap_resize() error : %s", strerror(errno));
+                  (void)close(oadl_fd);
+                  oadl = NULL;
+               }
+               else
+               {
+                  old_no_of_dirs = *(int *)ptr;
+                  ptr += AFD_WORD_OFFSET;
+                  oadl = (struct afd_dir_list *)ptr;
+               }
+            }
+         }
+      }
+      else
+      {
+         oadl = NULL;
+      }
+
+      if ((unlink(tmp_adl_file_name) == -1) && (errno != ENOENT))
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to unlink() `%s' : %s",
+                    tmp_adl_file_name, strerror(errno));
+      }
+
+      if (oadl != NULL)
+      {
+         ptr = (char *)oadl - AFD_WORD_OFFSET;
+#ifdef HAVE_MMAP
+         if (fstat(oadl_fd, &stat_buf) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "fstat() error : %s", strerror(errno));
+         }
+         else
+         {
+            if (munmap((void *)ptr, stat_buf.st_size) == -1)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "munmap() error : %s", strerror(errno));
+            }
+         }
+#else
+         if (munmap_emu((void *)ptr) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "munmap_emu() error : %s", strerror(errno));
+         }
+#endif
+         if (close(oadl_fd) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+      }
+   }
+
+#ifdef HAVE_MMAP
+   if (munmap((void *)adl, adl_size) == -1)
+#else
+   if (munmap_emu((void *)adl) == -1)
+#endif
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "munmap() error : %s", strerror(errno));
+   }
+   adl = NULL;
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++ reshuffel_job_data() +++++++++++++++++++++++++*/
+static void
+reshuffel_job_data(int no_of_job_ids)
+{
+   int    oajl_fd;
+   size_t oajl_size;
+   char   *ptr,
+          tmp_ajl_file_name[MAX_PATH_LENGTH];
+
+   (void)sprintf(tmp_ajl_file_name, "%s%s%s%s",
+                 p_work_dir, FIFO_DIR, OLD_AJL_FILE_NAME,
+                 msa[afd_no].afd_alias);
+   oajl_size = AFD_WORD_OFFSET + (DATA_STEP_SIZE * sizeof(struct afd_job_list));
+   if ((ptr = attach_buf(tmp_ajl_file_name, &oajl_fd, oajl_size, NULL,
+                         FILE_MODE, NO)) == (caddr_t) -1)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Failed to mmap() %s : %s",
+                 tmp_ajl_file_name, strerror(errno));
+      (void)close(oajl_fd);
+      (void)sprintf(tmp_ajl_file_name, "%s%s%s%s",
+                    p_work_dir, FIFO_DIR, TMP_AJL_FILE_NAME,
+                    msa[afd_no].afd_alias);
+   }
+   else
+   {
+      struct stat         stat_buf;
+      struct afd_job_list *oajl;
+
+      (void)sprintf(tmp_ajl_file_name, "%s%s%s%s",
+                    p_work_dir, FIFO_DIR, TMP_AJL_FILE_NAME,
+                    msa[afd_no].afd_alias);
+      if ((stat(tmp_ajl_file_name, &stat_buf) == 0) &&
+          (stat_buf.st_size > 0))
+      {
+         int  fd,
+              tmp_no_of_job_ids;
+         char *ptr2;
+
+         tmp_no_of_job_ids = stat_buf.st_size / sizeof(struct afd_job_list);
+         if ((ptr2 = map_file(tmp_ajl_file_name, &fd, &stat_buf,
+                              O_RDONLY)) == (caddr_t)-1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "Failed to map_file() `%s' : %s",
+                       tmp_ajl_file_name, strerror(errno));
+            (void)close(fd);
+            oajl = NULL;
+         }
+         else
+         {
+            int                 end_pos,
+                                gotcha,
+                                i, j,
+                                no_added,
+                                no_deleted,
+                                old_no_of_job_ids;
+            time_t              offset_time;
+            size_t              work_size;
+            struct afd_job_list *tajl;
+
+            if (close(fd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+            tajl = (struct afd_job_list *)ptr2;
+            old_no_of_job_ids = *(int *)ptr;
+            ptr += AFD_WORD_OFFSET;
+            oajl = (struct afd_job_list *)ptr;
+            get_max_log_number(&gotcha, MAX_OUTPUT_LOG_FILES_DEF,
+                              MAX_OUTPUT_LOG_FILES);
+            offset_time = gotcha * SWITCH_FILE_TIME;
+            no_added = no_deleted = 0;
+            for (i = 0; i < old_no_of_job_ids; i++)
+            {
+               if ((oajl[i].entry_time + offset_time) < msa[afd_no].last_data_time)
+               {
+                  end_pos = i;
+                  while ((++end_pos <= old_no_of_job_ids) &&
+                         ((oajl[i].entry_time + offset_time) < msa[afd_no].last_data_time))
+                  {
+                     /* Nothing to be done. */;
+                  }
+                  if (end_pos <= old_no_of_job_ids)
+                  {
+                     work_size = (old_no_of_job_ids - (end_pos - 1)) *
+                                 sizeof(struct afd_job_list);
+                     (void)memmove(&oajl[i], &oajl[end_pos - 1], work_size);
+                  }
+                  gotcha = end_pos - 1 - i;
+                  old_no_of_job_ids -= gotcha;
+                  no_deleted += gotcha;
+               }
+            }
+            for (i = 0; i < tmp_no_of_job_ids; i++)
+            {
+               gotcha = NO;
+               for (j = 0; j < no_of_job_ids; j++)
+               {
+                  if (tajl[i].job_id == ajl[j].job_id)
+                  {
+                     gotcha = YES;
+                     j = no_of_job_ids;
+                  }
+               }
+               if (gotcha == NO)
+               {
+                  if ((no_added > no_deleted) &&
+                      ((old_no_of_job_ids % DATA_STEP_SIZE) == 0))
+                  {
+                     work_size = (((old_no_of_job_ids / DATA_STEP_SIZE) + 1) *
+                                  DATA_STEP_SIZE * sizeof(struct afd_job_list)) +
+                                 AFD_WORD_OFFSET;
+                     ptr = (char *)oajl - AFD_WORD_OFFSET;
+                     if ((ptr = mmap_resize(oajl_fd, ptr,
+                                            work_size)) == (caddr_t) -1)
+                     {
+                        system_log(ERROR_SIGN, __FILE__, __LINE__,
+                                   "mmap_resize() error : %s", strerror(errno));
+                        (void)close(oajl_fd);
+                        oajl = NULL;
+                        break;
+                     }
+                     else
+                     {
+                        old_no_of_job_ids = *(int *)ptr;
+                        ptr += AFD_WORD_OFFSET;
+                        oajl = (struct afd_job_list *)ptr;
+                     }
+                  }
+                  (void)memcpy(&oajl[old_no_of_job_ids], &tajl[i],
+                               sizeof(struct afd_job_list));
+                  old_no_of_job_ids++;
+                  no_added++;
+               }
+            } /* for (i = 0; i < tmp_no_of_job_ids; i++) */
+
+#ifdef HAVE_MMAP
+            if (munmap((void *)tajl, stat_buf.st_size) == -1)
+#else
+            if (munmap_emu((void *)tajl) == -1)
+#endif
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "munmap() error : %s", strerror(errno));
+            }
+
+            /* Check if we need to resize file. */
+            if (no_deleted > no_added)
+            {
+               work_size = (((old_no_of_job_ids / DATA_STEP_SIZE) + 1) *
+                            DATA_STEP_SIZE * sizeof(struct afd_job_list)) +
+                           AFD_WORD_OFFSET;
+               ptr = (char *)oajl - AFD_WORD_OFFSET;
+               if ((ptr = mmap_resize(oajl_fd, ptr,
+                                      work_size)) == (caddr_t) -1)
+               {
+                  system_log(ERROR_SIGN, __FILE__, __LINE__,
+                             "mmap_resize() error : %s", strerror(errno));
+                  (void)close(oajl_fd);
+                  oajl = NULL;
+               }
+               else
+               {
+                  old_no_of_job_ids = *(int *)ptr;
+                  ptr += AFD_WORD_OFFSET;
+                  oajl = (struct afd_job_list *)ptr;
+               }
+            }
+         }
+      }
+      else
+      {
+         oajl = NULL;
+      }
+
+      if ((unlink(tmp_ajl_file_name) == -1) && (errno != ENOENT))
+      {
+         system_log(WARN_SIGN, __FILE__, __LINE__,
+                    "Failed to unlink() `%s' : %s",
+                    tmp_ajl_file_name, strerror(errno));
+      }
+
+      if (oajl != NULL)
+      {
+         ptr = (char *)oajl - AFD_WORD_OFFSET;
+#ifdef HAVE_MMAP
+         if (fstat(oajl_fd, &stat_buf) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "fstat() error : %s", strerror(errno));
+         }
+         else
+         {
+            if (munmap((void *)ptr, stat_buf.st_size) == -1)
+            {
+               system_log(ERROR_SIGN, __FILE__, __LINE__,
+                          "munmap() error : %s", strerror(errno));
+            }
+         }
+#else
+         if (munmap_emu((void *)ptr) == -1)
+         {
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
+                       "munmap_emu() error : %s", strerror(errno));
+         }
+#endif
+         if (close(oajl_fd) == -1)
+         {
+            system_log(WARN_SIGN, __FILE__, __LINE__,
+                       "close() error : %s", strerror(errno));
+         }
+      }
+   }
+
+#ifdef HAVE_MMAP
+   if (munmap((void *)ajl, ajl_size) == -1)
+#else
+   if (munmap_emu((void *)ajl) == -1)
+#endif
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "munmap() error : %s", strerror(errno));
+   }
+   ajl = NULL;
+
+   return;
 }

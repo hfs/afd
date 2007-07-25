@@ -68,8 +68,9 @@ DESCR__E_M1
 #include "fddefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int                        counter_fd = -1,    /* NOT USED */
+                           event_log_fd = STDERR_FILENO,
                            exitflag = IS_FAULTY_VAR,
                            files_to_delete,    /* NOT USED */
                            no_of_hosts,   /* This variable is not used   */
@@ -106,10 +107,10 @@ struct delete_log          dl;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
 #ifdef _WITH_MAP_SUPPORT
-/* Local variables */
+/* Local variables. */
 static jmp_buf             env_alrm;
 
-/* Local functions */
+/* Local functions. */
 static void sf_map_exit(void),
             sig_bus(int),
             sig_segv(int),
@@ -117,7 +118,7 @@ static void sf_map_exit(void),
             sig_exit(int),
             sig_handler(int);
 
-/* Remote function prototypes */
+/* Remote function prototypes. */
 extern int  store_blob(unsigned long, char *, char *, char *, char *,
                        long, signed long *);
 extern char *map_db_errafd(void);
@@ -500,8 +501,7 @@ main(int argc, char *argv[])
           * (in struct p_db) it does not always have to check
           * whether the directory has been created or not. And
           * we ensure that we do not create duplicate names
-          * when adding ARCHIVE_UNIT * db.archive_time to
-          * msg_name.
+          * when adding db.archive_time to msg_name.
           */
          if (archive_file(file_path, p_file_name_buffer, p_db) < 0)
          {
@@ -699,15 +699,40 @@ main(int argc, char *argv[])
           */
          if (fsa->host_status & AUTO_PAUSE_QUEUE_STAT)
          {
+            char *sign;
+
             fsa->host_status ^= AUTO_PAUSE_QUEUE_STAT;
+            if (fsa->host_status & HOST_ERROR_EA_STATIC)
+            {
+               fsa->host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+            }
+            else
+            {
+               fsa->host_status &= ~EVENT_STATUS_FLAGS;
+            }
             error_action(fsa->host_alias, "stop");
-            system_log(INFO_SIGN, __FILE__, __LINE__,
+            event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
+                      fsa->host_alias);
+            if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
+                (fsa->host_status & HOST_ERROR_OFFLINE) ||
+                (fsa->host_status & HOST_ERROR_OFFLINE_T))
+            {
+               sign = OFFLINE_SIGN;
+            }
+            else
+            {
+               sign = INFO_SIGN;
+            }
+            system_log(sign, __FILE__, __LINE__,
                        "Starting input queue for %s that was stopped by init_afd.",
                        fsa->host_alias);
+            event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
+                      fsa->host_alias);
          }
       } /* if (fsa->error_counter > 0) */
 #ifdef WITH_ERROR_QUEUE
-      if (db.special_flag & IN_ERROR_QUEUE)
+      if ((db.special_flag & IN_ERROR_QUEUE) &&
+          (fsa->host_status & ERROR_QUEUE_SET))
       {
          remove_from_error_queue(db.job_id, fsa);
       }

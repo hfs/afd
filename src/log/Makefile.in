@@ -38,13 +38,14 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 EXTRA_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
-	$(am__EXEEXT_4)
+	$(am__EXEEXT_4) $(am__EXEEXT_5) alda$(EXEEXT)
 @WITH_AFD_MON_ONLY_FALSE@bin_PROGRAMS = system_log$(EXEEXT) \
+@WITH_AFD_MON_ONLY_FALSE@	event_log$(EXEEXT) \
 @WITH_AFD_MON_ONLY_FALSE@	receive_log$(EXEEXT) \
 @WITH_AFD_MON_ONLY_FALSE@	transfer_log$(EXEEXT) \
-@WITH_AFD_MON_ONLY_FALSE@	trans_db_log$(EXEEXT) $(am__EXEEXT_5) \
-@WITH_AFD_MON_ONLY_FALSE@	$(am__EXEEXT_6) $(am__EXEEXT_7) \
-@WITH_AFD_MON_ONLY_FALSE@	$(am__EXEEXT_8) $(am__EXEEXT_9)
+@WITH_AFD_MON_ONLY_FALSE@	trans_db_log$(EXEEXT) $(am__EXEEXT_6) \
+@WITH_AFD_MON_ONLY_FALSE@	$(am__EXEEXT_7) $(am__EXEEXT_8) \
+@WITH_AFD_MON_ONLY_FALSE@	$(am__EXEEXT_9) $(am__EXEEXT_10)
 @WITH_AFD_MON_ONLY_TRUE@bin_PROGRAMS = mon_sys_log$(EXEEXT) \
 @WITH_AFD_MON_ONLY_TRUE@	monitor_log$(EXEEXT)
 subdir = src/log
@@ -71,18 +72,27 @@ CONFIG_CLEAN_FILES =
 @WITH_OUTPUT_LOG_FALSE@am__EXEEXT_2 = output_log$(EXEEXT)
 @WITH_DELETE_LOG_FALSE@am__EXEEXT_3 = delete_log$(EXEEXT)
 @WITH_PRODUCTION_LOG_FALSE@am__EXEEXT_4 = production_log$(EXEEXT)
-@WITH_AFD_MON_TRUE@am__EXEEXT_5 = mon_sys_log$(EXEEXT) \
+@WITH_AFD_MON_FALSE@am__EXEEXT_5 = mon_sys_log$(EXEEXT) \
+@WITH_AFD_MON_FALSE@	monitor_log$(EXEEXT)
+@WITH_AFD_MON_TRUE@am__EXEEXT_6 = mon_sys_log$(EXEEXT) \
 @WITH_AFD_MON_TRUE@	monitor_log$(EXEEXT)
-@WITH_INPUT_LOG_TRUE@am__EXEEXT_6 = input_log$(EXEEXT)
-@WITH_OUTPUT_LOG_TRUE@am__EXEEXT_7 = output_log$(EXEEXT)
-@WITH_DELETE_LOG_TRUE@am__EXEEXT_8 = delete_log$(EXEEXT)
-@WITH_PRODUCTION_LOG_TRUE@am__EXEEXT_9 = production_log$(EXEEXT)
+@WITH_INPUT_LOG_TRUE@am__EXEEXT_7 = input_log$(EXEEXT)
+@WITH_OUTPUT_LOG_TRUE@am__EXEEXT_8 = output_log$(EXEEXT)
+@WITH_DELETE_LOG_TRUE@am__EXEEXT_9 = delete_log$(EXEEXT)
+@WITH_PRODUCTION_LOG_TRUE@am__EXEEXT_10 = production_log$(EXEEXT)
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
+am_alda_OBJECTS = alda.$(OBJEXT) eval_input_alda.$(OBJEXT)
+alda_OBJECTS = $(am_alda_OBJECTS)
+alda_DEPENDENCIES = ../common/libafd.a
 am_delete_log_OBJECTS = delete_log.$(OBJEXT) open_log_file.$(OBJEXT)
 delete_log_OBJECTS = $(am_delete_log_OBJECTS)
 delete_log_DEPENDENCIES = ../common/libafd.a
+am_event_log_OBJECTS = event_log.$(OBJEXT) fprint_dup_msg.$(OBJEXT) \
+	event_logger.$(OBJEXT)
+event_log_OBJECTS = $(am_event_log_OBJECTS)
+event_log_DEPENDENCIES = ../common/libafd.a
 am_input_log_OBJECTS = input_log.$(OBJEXT) open_log_file.$(OBJEXT)
 input_log_OBJECTS = $(am_input_log_OBJECTS)
 input_log_DEPENDENCIES = ../common/libafd.a
@@ -124,12 +134,14 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(delete_log_SOURCES) $(input_log_SOURCES) \
-	$(mon_sys_log_SOURCES) $(monitor_log_SOURCES) \
-	$(output_log_SOURCES) $(production_log_SOURCES) \
-	$(receive_log_SOURCES) $(system_log_SOURCES) \
-	$(trans_db_log_SOURCES) $(transfer_log_SOURCES)
-DIST_SOURCES = $(delete_log_SOURCES) $(input_log_SOURCES) \
+SOURCES = $(alda_SOURCES) $(delete_log_SOURCES) $(event_log_SOURCES) \
+	$(input_log_SOURCES) $(mon_sys_log_SOURCES) \
+	$(monitor_log_SOURCES) $(output_log_SOURCES) \
+	$(production_log_SOURCES) $(receive_log_SOURCES) \
+	$(system_log_SOURCES) $(trans_db_log_SOURCES) \
+	$(transfer_log_SOURCES)
+DIST_SOURCES = $(alda_SOURCES) $(delete_log_SOURCES) \
+	$(event_log_SOURCES) $(input_log_SOURCES) \
 	$(mon_sys_log_SOURCES) $(monitor_log_SOURCES) \
 	$(output_log_SOURCES) $(production_log_SOURCES) \
 	$(receive_log_SOURCES) $(system_log_SOURCES) \
@@ -298,9 +310,10 @@ target_alias = @target_alias@
 @WITH_PRODUCTION_LOG_FALSE@EXTRA_PRODUCTION_LOG = production_log
 @WITH_AFD_MON_FALSE@AFD_MON_PROGS = 
 @WITH_AFD_MON_TRUE@AFD_MON_PROGS = mon_sys_log monitor_log
+@WITH_AFD_MON_FALSE@EXTRA_MON_PROGS = mon_sys_log monitor_log
+@WITH_AFD_MON_TRUE@EXTRA_MON_PROGS = 
 @WITH_AFD_MON_FALSE@INCLUDES = -I.. -I../init_afd
 @WITH_AFD_MON_TRUE@INCLUDES = -I.. -I../init_afd -I../afd_mon
-@WITH_AFD_MON_FALSE@EXTRA_MON_PROGS = mon_sys_log monitor_log
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES = gmon.out core core.*
 noinst_HEADERS = logdefs.h
@@ -309,6 +322,11 @@ system_log_SOURCES = fprint_dup_msg.c\
                          system_log.c
 
 system_log_LDADD = ../common/libafd.a
+event_log_SOURCES = event_log.c\
+                         fprint_dup_msg.c\
+                         event_logger.c
+
+event_log_LDADD = ../common/libafd.a
 receive_log_SOURCES = fprint_dup_msg.c\
                          open_log_file.c\
                          receive_log.c
@@ -350,6 +368,10 @@ production_log_SOURCES = production_log.c\
                          open_log_file.c
 
 production_log_LDADD = ../common/libafd.a
+alda_SOURCES = alda.c\
+                         eval_input_alda.c
+
+alda_LDADD = ../common/libafd.a
 all: all-am
 
 .SUFFIXES:
@@ -406,9 +428,15 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+alda$(EXEEXT): $(alda_OBJECTS) $(alda_DEPENDENCIES) 
+	@rm -f alda$(EXEEXT)
+	$(LINK) $(alda_LDFLAGS) $(alda_OBJECTS) $(alda_LDADD) $(LIBS)
 delete_log$(EXEEXT): $(delete_log_OBJECTS) $(delete_log_DEPENDENCIES) 
 	@rm -f delete_log$(EXEEXT)
 	$(LINK) $(delete_log_LDFLAGS) $(delete_log_OBJECTS) $(delete_log_LDADD) $(LIBS)
+event_log$(EXEEXT): $(event_log_OBJECTS) $(event_log_DEPENDENCIES) 
+	@rm -f event_log$(EXEEXT)
+	$(LINK) $(event_log_LDFLAGS) $(event_log_OBJECTS) $(event_log_LDADD) $(LIBS)
 input_log$(EXEEXT): $(input_log_OBJECTS) $(input_log_DEPENDENCIES) 
 	@rm -f input_log$(EXEEXT)
 	$(LINK) $(input_log_LDFLAGS) $(input_log_OBJECTS) $(input_log_LDADD) $(LIBS)
@@ -443,7 +471,11 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/alda.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/delete_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval_input_alda.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/event_log.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/event_logger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fprint_dup_msg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/input_log.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/logger.Po@am__quote@

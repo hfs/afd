@@ -7,14 +7,16 @@ afdcmd \- send commands to the AFD
 .SH SYNOPSIS
 .B afdcmd [-w
 .I working directory
-.B ] [-aAdeEfFqQrstTvXYZ]
-.I hostname|position
+.B ] [-u[
+.I user
+.B ] [-aAbBdeEfFqQrRstTvWXYZ]
+.I hostname|directory|position
 .SH DESCRIPTION
 With the command
 .B afdcmd
 it is possible to issue most commands that can be issued with
 the afd_ctrl dialog on a per host basis.
-.SH OPTIONS
+.SH FSA OPTIONS
 .IP -q
 start the input queue
 .IP -Q
@@ -33,6 +35,22 @@ switch host
 retry
 .IP -d
 enable/diable debug
+.IP -c
+enable/disable trace
+.IP -C
+enable/disable full trace
+.IP -X
+toggle enable/disable host
+.SH FRA options
+.IP -b
+enable directory
+.IP -B
+disable directory
+.IP -R
+rescan directory
+.IP -W
+toggle enable/disable directory
+.SH General options
 .IP -f
 start FD
 .IP -F
@@ -41,8 +59,6 @@ stop FD
 start AMG
 .IP -A
 stop AMG
-.IP -X
-toggle enable/disable host
 .IP -Y
 start/stop AMG
 .IP -Z

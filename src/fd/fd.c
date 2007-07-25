@@ -71,6 +71,8 @@ DESCR__S_M1
  */
 DESCR__E_M1
 
+/* #define WITH_MEMCHECK */
+
 #include <stdio.h>            /* fprintf()                               */
 #include <string.h>           /* strcpy(), strcat(), strerror(),         */
                               /* memset(), memmove()                     */
@@ -80,6 +82,9 @@ DESCR__E_M1
 #include <limits.h>           /* LINK_MAX                                */
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifdef WITH_MEMCHECK
+# include <mcheck.h>
+#endif
 #include <sys/mman.h>         /* msync(), munmap()                       */
 #include <sys/time.h>         /* struct timeval                          */
 #include <sys/wait.h>         /* waitpid()                               */
@@ -94,10 +99,11 @@ DESCR__E_M1
 /* #define _MACRO_DEBUG */
 /* #define _TESTEN_ */
 
-/* Global variables */
+/* Global variables. */
 int                        amg_flag = NO,
                            default_age_limit = DEFAULT_AGE_LIMIT,
                            delete_jobs_fd,
+                           event_log_fd = STDERR_FILENO,
                            fd_cmd_fd,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                            delete_jobs_writefd,
@@ -162,7 +168,7 @@ struct delete_log          dl;
 #endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local global variables */
+/* Local global variables. */
 static time_t              now,
                            next_dir_check_time;
 static double              max_threshold;
@@ -201,7 +207,7 @@ static double              max_threshold;
            }                                                  \
         }
 
-/* Local functions prototypes */
+/* Local functions prototypes. */
 static void  get_afd_config_value(void),
              fd_exit(void),
              qb_pos_fsa(int, int *),
@@ -255,6 +261,9 @@ main(int argc, char *argv[])
    struct sigaction sact;
 #endif
 
+#ifdef WITH_MEMCHECK
+   mtrace();
+#endif
    CHECK_FOR_VERSION(argc, argv);
 
    /* First get working directory for the AFD */
@@ -282,7 +291,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    (void)strcpy(msg_dir, work_dir);
    (void)strcat(msg_dir, AFD_MSG_DIR);
    (void)strcat(msg_dir, "/");
@@ -432,7 +441,7 @@ main(int argc, char *argv[])
     */
    if ((i = (int)fpathconf(delete_jobs_fd, _PC_PIPE_BUF)) < 0)
    {
-      /* If we cannot determine the size of the fifo set default value */
+      /* If we cannot determine the size of the fifo set default value. */
       fifo_size = DEFAULT_FIFO_SIZE;
    }
    else
@@ -1530,7 +1539,7 @@ system_log(DEBUG_SIGN, NULL, 0,
                        get_new_positions();
                        init_msg_buffer();
                     }
-#endif /* WITH_MULTI_FSA_CHECKS */
+#endif
                     (void)memcpy(msg_buffer, &nmsg_fifo_buffer[bytes_done],
                                  MAX_BIN_MSG_LENGTH);
 
@@ -1957,7 +1966,7 @@ start_process(int fsa_pos, int qb_pos, time_t current_time, int retry)
                      init_msg_buffer();
                      fsa_pos = connection[pos].fsa_pos;
                   }
-#endif /* WITH_MULTI_FSA_CHECKS */
+#endif
                   (void)strcpy(fsa[fsa_pos].job_status[connection[pos].job_no].unique_name, qb[qb_pos].msg_name);
                   if ((fsa[fsa_pos].error_counter == 0) &&
                       (fsa[fsa_pos].auto_toggle == ON) &&
@@ -2327,6 +2336,9 @@ make_process(struct connection *con, unsigned int retries)
 
       case  0 : /* Child process */
 
+#ifdef WITH_MEMCHECK
+         muntrace();
+#endif
          (void)execvp(args[0], args);
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Failed to start process %s : %s",
@@ -2534,9 +2546,7 @@ zombie_check(struct connection *p_con,
 #ifdef WITH_SSL
             case AUTH_ERROR            : /* SSL/TLS authentification error */
 #endif
-            case USER_ERROR            : /* User name wrong */
             case TYPE_ERROR            : /* Setting transfer type failed */
-            case REMOTE_USER_ERROR     : /* Failed to send mail address. */
             case DATA_ERROR            : /* Failed to send data command. */
             case READ_LOCAL_ERROR      : /* */
             case WRITE_REMOTE_ERROR    : /* */
@@ -2585,6 +2595,8 @@ zombie_check(struct connection *p_con,
                }
                break;
 
+            case REMOTE_USER_ERROR     : /* Failed to send mail address. */
+            case USER_ERROR            : /* User name wrong */
             case PASSWORD_ERROR        : /* Password wrong */
             case CHDIR_ERROR           : /* Change remote directory */
             case CLOSE_REMOTE_ERROR    : /* */
@@ -2627,7 +2639,8 @@ zombie_check(struct connection *p_con,
                             (qb[*qb_pos].retries == 1))
                         {
                            add_to_error_queue(fsa[p_con->fsa_pos].job_status[p_con->job_no].job_id,
-                                              &fsa[p_con->fsa_pos]);
+                                              &fsa[p_con->fsa_pos],
+                                              exit_status);
                         }
 #endif
                         qb[*qb_pos].msg_number += 60000000.0;
@@ -2708,6 +2721,8 @@ zombie_check(struct connection *p_con,
                       (fsa[p_con->fsa_pos].total_file_size == 0) &&
                       (fsa[p_con->fsa_pos].host_status & AUTO_PAUSE_QUEUE_STAT))
                   {
+                     char *sign;
+
                      if (fsa[p_con->fsa_pos].error_counter > 0)
                      {
                         int   i;
@@ -2739,10 +2754,35 @@ zombie_check(struct connection *p_con,
 #endif
                      }
                      fsa[p_con->fsa_pos].host_status ^= AUTO_PAUSE_QUEUE_STAT;
-                     error_action(fsa[p_con->fsa_pos].host_alias, "stop");
-                     system_log(INFO_SIGN, __FILE__, __LINE__,
+                     if (fsa[p_con->fsa_pos].last_connection > fsa[p_con->fsa_pos].first_error_time)
+                     {
+                        if (fsa[p_con->fsa_pos].host_status & HOST_ERROR_EA_STATIC)
+                        {
+                           fsa[p_con->fsa_pos].host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+                        }
+                        else
+                        {
+                           fsa[p_con->fsa_pos].host_status &= ~EVENT_STATUS_FLAGS;
+                        }
+                        error_action(fsa[p_con->fsa_pos].host_alias, "stop");
+                        event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
+                                  fsa[p_con->fsa_pos].host_alias);
+                     }
+                     if ((fsa[p_con->fsa_pos].host_status & HOST_ERROR_OFFLINE_STATIC) ||
+                         (fsa[p_con->fsa_pos].host_status & HOST_ERROR_OFFLINE) ||
+                         (fsa[p_con->fsa_pos].host_status & HOST_ERROR_OFFLINE_T))
+                     {
+                        sign = OFFLINE_SIGN;
+                     }
+                     else
+                     {
+                        sign = INFO_SIGN;
+                     }
+                     system_log(sign, __FILE__, __LINE__,
                                 "Starting input queue for %s that was stopped by init_afd.",
                                  fsa[p_con->fsa_pos].host_alias);
+                     event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
+                               fsa[p_con->fsa_pos].host_alias);
                   }
                }
                remove_connection(p_con, NEITHER, now);
@@ -2804,9 +2844,10 @@ zombie_check(struct connection *p_con,
                fsa[p_con->fsa_pos].job_status[p_con->job_no].file_name_in_use[0] = '\0';
 
                (void)rec(transfer_log_fd, WARN_SIGN,
-                         "%-*s[%d]: Abnormal termination of transfer job (%d). (%s %d)\n",
+                         "%-*s[%d]: Abnormal termination (by signal %d) of transfer job (%d). (%s %d)\n",
                          MAX_HOSTNAME_LENGTH, p_con->hostname,
-                         p_con->job_no, p_con->pid, __FILE__, __LINE__);
+                         p_con->job_no, WTERMSIG(status), p_con->pid,
+                         __FILE__, __LINE__);
             }
 
       remove_connection(p_con, faulty, now);

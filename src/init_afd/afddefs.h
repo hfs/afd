@@ -21,7 +21,7 @@
 #ifndef __afddefs_h
 #define __afddefs_h
 
-/* Indicators for start and end of module description for man pages */
+/* Indicators for start and end of module description for man pages. */
 #define DESCR__S_M1             /* Start for User Command Man Page. */
 #define DESCR__E_M1             /* End for User Command Man Page.   */
 #define DESCR__S_M3             /* Start for Subroutines Man Page.  */
@@ -98,7 +98,7 @@ typedef unsigned long long  u_long_64;
 typedef unsigned long       u_long_64;
 #endif
 
-/* Define the language to use */
+/* Define the language to use. */
 /* #define GERMAN */
 #define ENGLISH
 
@@ -121,17 +121,18 @@ typedef unsigned long       u_long_64;
 #endif /* LINUX */
 
 #ifndef HAVE_MMAP
-/* Dummy definitions for systems that do not have mmap() */
-#define PROT_READ                  1
-#define PROT_WRITE                 1
-#define MAP_SHARED                 1
+/* Dummy definitions for systems that do not have mmap(). */
+# define PROT_READ                 1
+# define PROT_WRITE                1
+# define MAP_SHARED                1
 #endif
 
-/* Define the names of the program's */
+/* Define the names of the program's. */
 #ifndef HAVE_MMAP
 # define MAPPER                    "mapper"
 #endif
 #define AFD                        "init_afd"
+#define AFD_LENGTH                 (sizeof(AFD) - 1)
 #define AMG                        "amg"
 #define FD                         "fd"
 #define SEND_FILE_FTP              "sf_ftp"
@@ -163,14 +164,16 @@ typedef unsigned long       u_long_64;
 #define GET_FILE_SFTP              "gf_sftp"
 #define GET_FILE_SFTP_TRACE        "gf_sftp_trace"
 #define SLOG                       "system_log"
+#define ELOG                       "event_log"
 #define RLOG                       "receive_log"
 #define TLOG                       "transfer_log"
 #define TDBLOG                     "trans_db_log"
 #define MON_SYS_LOG                "mon_sys_log"
 #define MONITOR_LOG                "monitor_log"
+#define SHOW_ELOG                  "show_elog"
 #define SHOW_ILOG                  "show_ilog"
 #define SHOW_OLOG                  "show_olog"
-#define SHOW_RLOG                  "show_dlog"
+#define SHOW_DLOG                  "show_dlog"
 #define SHOW_QUEUE                 "show_queue"
 #define SHOW_TRANS                 "show_trans"
 #define XSEND_FILE                 "xsend_file"
@@ -189,11 +192,13 @@ typedef unsigned long       u_long_64;
 #define ARCHIVE_WATCH              "archive_watch"
 #define SHOW_LOG                   "show_log"
 #define SHOW_CMD                   "show_cmd"
+#define SHOW_CMD_LENGTH            (sizeof(SHOW_CMD) - 1)
 #define AFD_STAT                   "afd_stat"
 #define AFD_INFO                   "afd_info"
 #define EDIT_HC                    "edit_hc"
 #define AFD_LOAD                   "afd_load"
 #define AFD_CTRL                   "afd_ctrl"
+#define AFD_CTRL_LENGTH            (sizeof(AFD_CTRL) - 1)
 #define AFDD                       "afdd"
 #ifdef _WITH_SERVER_SUPPORT
 # define WMOD                      "wmod"
@@ -209,9 +214,11 @@ typedef unsigned long       u_long_64;
 #define DIR_CTRL                   "dir_ctrl"
 #define DIR_INFO                   "dir_info"
 #define DIR_CHECK                  "dir_check"
+#define HANDLE_EVENT               "handle_event"
 #define MAX_PROCNAME_LENGTH        14
 #define AFTP                       "aftp"
 #define ASMTP                      "asmtp"
+#define HEX_PRINT                  "afd_hex_print"
 #ifdef WITH_AUTO_CONFIG
 # define AFD_AUTO_CONFIG           "afd_auto_config"
 #endif
@@ -241,7 +248,7 @@ typedef unsigned long       u_long_64;
 #define AFD_IS_NOT_ACTIVE          10
 #define NO_DIR_CONFIG              -2
 
-/* Definitions of lock ID's */
+/* Definitions of lock ID's. */
 #define EDIT_HC_LOCK_ID            0    /* Edit host configuration      */
 #define EDIT_DC_LOCK_ID            1    /* Edit directory configuration */
 #define AMG_LOCK_ID                2    /* AMG                          */
@@ -251,19 +258,14 @@ typedef unsigned long       u_long_64;
 #define AFDD_LOCK_ID               6    /* AFD TCP Daemon               */
 #define NO_OF_LOCK_PROC            7
 
-/* Definitions for options needed both for AMG and FD. */
-#ifdef _WITH_TRANS_EXEC
-# define TRANS_EXEC_ID             "pexec"
-# define TRANS_EXEC_ID_LENGTH      (sizeof(TRANS_EXEC_ID) - 1)
-#endif
-
-/* Commands that can be send to DB_UPDATE_FIFO of the AMG */
+/* Commands that can be send to DB_UPDATE_FIFO of the AMG. */
 #define HOST_CONFIG_UPDATE         4
 #define DIR_CONFIG_UPDATE          5
 #define REREAD_HOST_CONFIG         6
 #define REREAD_DIR_CONFIG          7
 
 #define WORK_DIR_ID                "-w"
+#define WORK_DIR_ID_LENGTH         (sizeof(WORK_DIR_ID) - 1)
 
 #ifdef FTX
 # define WAIT_LOOPS 600 /* 60 seconds */
@@ -290,172 +292,173 @@ typedef unsigned long       u_long_64;
 #define HOST_DISABLED              32
 #define HOST_IN_DIR_CONFIG         64  /* Host in DIR_CONFIG file (bit 7)*/
 
-/* Process numbers that are started by AFD */
+/* Process numbers that are started by AFD. */
 #define AMG_NO                     0
 #define FD_NO                      1
 #define SLOG_NO                    2
-#define RLOG_NO                    3
-#define TLOG_NO                    4
-#define TDBLOG_NO                  5
-#define AW_NO                      6
-#define STAT_NO                    7
-#define DC_NO                      8
-#define AFDD_NO                    9
+#define ELOG_NO                    3
+#define RLOG_NO                    4
+#define TLOG_NO                    5
+#define TDBLOG_NO                  6
+#define AW_NO                      7
+#define STAT_NO                    8
+#define DC_NO                      9
+#define AFDD_NO                    10
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define PL_NO                     11
-# define NO_OF_PROCESS             12
+# define MAPPER_NO                 11
+# define PL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define DL_NO                     11
-# define NO_OF_PROCESS             12
+# define MAPPER_NO                 11
+# define DL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define DL_NO                     11
-# define PL_NO                     12
-# define NO_OF_PROCESS             13
+# define MAPPER_NO                 11
+# define DL_NO                     12
+# define PL_NO                     13
+# define NO_OF_PROCESS             14
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define PL_NO                     10
-# define NO_OF_PROCESS             11
+# define PL_NO                     11
+# define NO_OF_PROCESS             12
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define DL_NO                     10
-# define NO_OF_PROCESS             11
+# define DL_NO                     11
+# define NO_OF_PROCESS             12
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define DL_NO                     10
-# define PL_NO                     11
-# define NO_OF_PROCESS             12
+# define DL_NO                     11
+# define PL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define NO_OF_PROCESS             11
+# define IL_NO                     11
+# define NO_OF_PROCESS             12
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define PL_NO                     11
-# define NO_OF_PROCESS             12
+# define IL_NO                     11
+# define PL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define DL_NO                     11
-# define NO_OF_PROCESS             12
+# define IL_NO                     11
+# define DL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define DL_NO                     11
-# define PL_NO                     12
-# define NO_OF_PROCESS             13
+# define IL_NO                     11
+# define DL_NO                     12
+# define PL_NO                     13
+# define NO_OF_PROCESS             14
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define IL_NO                     11
-# define NO_OF_PROCESS             12
+# define MAPPER_NO                 11
+# define IL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define IL_NO                     11
-# define PL_NO                     12
-# define NO_OF_PROCESS             13
+# define MAPPER_NO                 11
+# define IL_NO                     12
+# define PL_NO                     13
+# define NO_OF_PROCESS             14
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define IL_NO                     11
-# define DL_NO                     12
-# define NO_OF_PROCESS             13
+# define MAPPER_NO                 11
+# define IL_NO                     12
+# define DL_NO                     13
+# define NO_OF_PROCESS             14
 #endif
 #if defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define IL_NO                     11
-# define DL_NO                     12
-# define PL_NO                     13
-# define NO_OF_PROCESS             14
+# define MAPPER_NO                 11
+# define IL_NO                     12
+# define DL_NO                     13
+# define PL_NO                     14
+# define NO_OF_PROCESS             15
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && !defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define OL_NO                     10
-# define NO_OF_PROCESS             11
+# define OL_NO                     11
+# define NO_OF_PROCESS             12
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && !defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define OL_NO                     10
-# define PL_NO                     11
-# define NO_OF_PROCESS             12
+# define OL_NO                     11
+# define PL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define OL_NO                     10
-# define DL_NO                     11
-# define NO_OF_PROCESS             12
+# define OL_NO                     11
+# define DL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define OL_NO                     10
-# define DL_NO                     11
-# define PL_NO                     12
-# define NO_OF_PROCESS             13
+# define OL_NO                     11
+# define DL_NO                     12
+# define PL_NO                     13
+# define NO_OF_PROCESS             14
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && !defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define OL_NO                     11
-# define NO_OF_PROCESS             12
+# define MAPPER_NO                 11
+# define OL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && !defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define OL_NO                     11
-# define PL_NO                     12
-# define NO_OF_PROCESS             13
+# define MAPPER_NO                 11
+# define OL_NO                     12
+# define PL_NO                     13
+# define NO_OF_PROCESS             14
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define OL_NO                     11
-# define DL_NO                     12
-# define NO_OF_PROCESS             13
+# define MAPPER_NO                 11
+# define OL_NO                     12
+# define DL_NO                     13
+# define NO_OF_PROCESS             14
 #endif
 #if defined (_OUTPUT_LOG) && !defined (_INPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define OL_NO                     11
-# define DL_NO                     12
-# define PL_NO                     13
-# define NO_OF_PROCESS             14
+# define MAPPER_NO                 11
+# define OL_NO                     12
+# define DL_NO                     13
+# define PL_NO                     14
+# define NO_OF_PROCESS             15
 #endif
 #if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define OL_NO                     11
-# define NO_OF_PROCESS             12
+# define IL_NO                     11
+# define OL_NO                     12
+# define NO_OF_PROCESS             13
 #endif
 #if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define OL_NO                     11
-# define PL_NO                     12
-# define NO_OF_PROCESS             13
-#endif
-#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define OL_NO                     11
-# define DL_NO                     12
-# define NO_OF_PROCESS             13
-#endif
-#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define IL_NO                     10
-# define OL_NO                     11
-# define DL_NO                     12
+# define IL_NO                     11
+# define OL_NO                     12
 # define PL_NO                     13
 # define NO_OF_PROCESS             14
 #endif
-#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
+#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
+# define IL_NO                     11
+# define OL_NO                     12
+# define DL_NO                     13
+# define NO_OF_PROCESS             14
+#endif
+#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
 # define IL_NO                     11
 # define OL_NO                     12
 # define DL_NO                     13
 # define PL_NO                     14
 # define NO_OF_PROCESS             15
 #endif
+#if defined (_INPUT_LOG) && defined (_OUTPUT_LOG) && defined (_DELETE_LOG) && defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
+# define MAPPER_NO                 11
+# define IL_NO                     12
+# define OL_NO                     13
+# define DL_NO                     14
+# define PL_NO                     15
+# define NO_OF_PROCESS             16
+#endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && defined (HAVE_MMAP)
-# define NO_OF_PROCESS             10
+# define NO_OF_PROCESS             11
 #endif
 #if !defined (_INPUT_LOG) && !defined (_OUTPUT_LOG) && !defined (_DELETE_LOG) && !defined (_PRODUCTION_LOG) && !defined (HAVE_MMAP)
-# define MAPPER_NO                 10
-# define NO_OF_PROCESS             11
+# define MAPPER_NO                 11
+# define NO_OF_PROCESS             12
 #endif
 #define SHOW_OLOG_NO               30
 
@@ -468,6 +471,7 @@ typedef unsigned long       u_long_64;
 #define SUCCESS                    0
 #define STALE                      -1
 #define CON_RESET                  2
+#define CON_REFUSED                3
 #define ON                         1
 #define OFF                        0
 #define ALL                        0
@@ -537,6 +541,7 @@ typedef unsigned long       u_long_64;
 #define CONFIG_SIGN                "<C>"   /* If changed see:            */
                                            /*           config_log.c     */
                                            /*           mconfig_log.c    */
+#define OFFLINE_SIGN               "<O>"
 #define WARN_SIGN                  "<W>"
 #define ERROR_SIGN                 "<E>"
 #define FATAL_SIGN                 "<F>"   /* donated by Paul Merken.    */
@@ -546,16 +551,23 @@ typedef unsigned long       u_long_64;
                                            /* information, eg month.     */
 #define SEPARATOR                  "-->"
 
+#define INFO_NO                    1
+#define CONFIG_NO                  2
+#define WARN_NO                    3
+#define ERROR_NO                   4
+#define FATAL_NO                   5
+/* NOTE: Check UI/Motif/x_common_defs.h if the above are changed. */
+
 /* Separator to separate elements in log files. */
 #define SEPARATOR_CHAR             '|'
 
-/* Definitions of different exit status */
+/* Definitions of different exit status. */
 #define NOT_RUNNING                -1
 #define UNKNOWN_STATE              -2
 #define STOPPED                    -3
 #define DIED                       -4
 
-/* Definitions for different addresses for one host */
+/* Definitions for different addresses for one host. */
 #define HOST_ONE                   1
 #define HOST_TWO                   2
 #define DEFAULT_TOGGLE_HOST        HOST_ONE
@@ -565,7 +577,7 @@ typedef unsigned long       u_long_64;
 #define STATIC_TOGGLE_OPEN         '['
 #define STATIC_TOGGLE_CLOSE        ']'
 
-/* Definitions of the protocol's and extensions */
+/* Definitions of the protocol's and extensions. */
 #define FTP                        0
 #define FTP_FLAG                   1
 #define LOC                        1
@@ -652,7 +664,7 @@ typedef unsigned long       u_long_64;
 #define SFTP_SHEME_LENGTH          (sizeof(SFTP_SHEME) - 1)
 
 
-/* Definitions for [dir options] */
+/* Definitions for [dir options]. */
 #define DEL_UNKNOWN_FILES_ID             "delete unknown files"
 #define DEL_UNKNOWN_FILES_ID_LENGTH      (sizeof(DEL_UNKNOWN_FILES_ID) - 1)
 #define DEL_QUEUED_FILES_ID              "delete queued files"
@@ -717,11 +729,89 @@ typedef unsigned long       u_long_64;
 #define QUEUED_FILES                     2
 #define OLD_LOCKED_FILES                 4
 
-/* Definitions for [options] */
+/* Definitions for [options]. */
 #define AGE_LIMIT_ID                     "age-limit"
 #define AGE_LIMIT_ID_LENGTH              (sizeof(AGE_LIMIT_ID) - 1)
+#ifdef _WITH_TRANS_EXEC
+# define TRANS_EXEC_ID                   "pexec"
+# define TRANS_EXEC_ID_LENGTH            (sizeof(TRANS_EXEC_ID) - 1)
+#endif
 
-/* Default definitions */
+/* Definitions for FD [options]. */
+#define OUTPUT_LOG_ID                   "no log output"
+#define OUTPUT_LOG_ID_LENGTH            (sizeof(OUTPUT_LOG_ID) - 1)
+#define ARCHIVE_ID                      "archive"                  
+#define ARCHIVE_ID_LENGTH               (sizeof(ARCHIVE_ID) - 1)
+#define LOCK_ID                         "lock"
+#define LOCK_ID_LENGTH                  (sizeof(LOCK_ID) - 1)
+#define LOCK_POSTFIX_ID                 "lockp"
+#define LOCK_POSTFIX_ID_LENGTH          (sizeof(LOCK_POSTFIX_ID) - 1)
+#define RESTART_FILE_ID                 "restart"
+#define RESTART_FILE_ID_LENGTH          (sizeof(RESTART_FILE_ID) - 1)
+#define TRANS_RENAME_ID                 "trans_rename"
+#define TRANS_RENAME_ID_LENGTH          (sizeof(TRANS_RENAME_ID) - 1)
+#ifdef _WITH_WMO_SUPPORT
+# define WITH_SEQUENCE_NUMBER_ID        "sequence numbering"
+# define WITH_SEQUENCE_NUMBER_ID_LENGTH (sizeof(WITH_SEQUENCE_NUMBER_ID) - 1)
+# define CHECK_REPLY_ID                 "check reply"
+# define CHECK_REPLY_ID_LENGTH          (sizeof(CHECK_REPLY_ID) - 1)
+#endif
+#define FILE_NAME_IS_HEADER_ID          "file name is header"
+#define FILE_NAME_IS_HEADER_ID_LENGTH   (sizeof(FILE_NAME_IS_HEADER_ID) - 1)
+#define FILE_NAME_IS_USER_ID            "file name is user"
+#define FILE_NAME_IS_USER_ID_LENGTH     (sizeof(FILE_NAME_IS_USER_ID) - 1)
+#define FILE_NAME_IS_TARGET_ID          "file name is target"
+#define FILE_NAME_IS_TARGET_ID_LENGTH   (sizeof(FILE_NAME_IS_TARGET_ID) - 1)
+#define FILE_NAME_IS_SUBJECT_ID         "file name is subject"
+#define FILE_NAME_IS_SUBJECT_ID_LENGTH  (sizeof(FILE_NAME_IS_SUBJECT_ID) - 1)
+#define ADD_MAIL_HEADER_ID              "mail header"
+#define ADD_MAIL_HEADER_ID_LENGTH       (sizeof(ADD_MAIL_HEADER_ID) - 1)
+#define ATTACH_FILE_ID                  "attach file"
+#define ATTACH_FILE_ID_LENGTH           (sizeof(ATTACH_FILE_ID) - 1)
+#define ATTACH_ALL_FILES_ID             "attach all files"
+#define ATTACH_ALL_FILES_ID_LENGTH      (sizeof(ATTACH_ALL_FILES_ID) - 1)
+#define REPLY_TO_ID                     "reply-to"
+#define REPLY_TO_ID_LENGTH              (sizeof(REPLY_TO_ID) - 1)
+#define FROM_ID                         "from"
+#define FROM_ID_LENGTH                  (sizeof(FROM_ID) - 1)
+#define CHARSET_ID                      "charset"
+#define CHARSET_ID_LENGTH               (sizeof(CHARSET_ID) - 1)
+#ifdef WITH_EUMETSAT_HEADERS
+# define EUMETSAT_HEADER_ID             "eumetsat"
+# define EUMETSAT_HEADER_ID_LENGTH      (sizeof(EUMETSAT_HEADER_ID) - 1)
+#endif
+#define CHMOD_ID                        "chmod"
+#define CHMOD_ID_LENGTH                 (sizeof(CHMOD_ID) - 1)
+#define CHOWN_ID                        "chown"
+#define CHOWN_ID_LENGTH                 (sizeof(CHOWN_ID) - 1)
+#define ENCODE_ANSI_ID                  "encode ansi"
+#define ENCODE_ANSI_ID_LENGTH           (sizeof(ENCODE_ANSI_ID) - 1)
+#define SUBJECT_ID                      "subject"                   
+#define SUBJECT_ID_LENGTH               (sizeof(SUBJECT_ID) - 1)
+#define FORCE_COPY_ID                   "force copy"
+#define FORCE_COPY_ID_LENGTH            (sizeof(FORCE_COPY_ID) - 1)
+#define RENAME_FILE_BUSY_ID             "file busy rename"
+#define RENAME_FILE_BUSY_ID_LENGTH      (sizeof(RENAME_FILE_BUSY_ID) - 1)
+#define ACTIVE_FTP_MODE                 "mode active"
+#define ACTIVE_FTP_MODE_LENGTH          (sizeof(ACTIVE_FTP_MODE) - 1)
+#define PASSIVE_FTP_MODE                "mode passive"
+#define PASSIVE_FTP_MODE_LENGTH         (sizeof(PASSIVE_FTP_MODE) - 1)
+#define FTP_EXEC_CMD                    "site"
+#define FTP_EXEC_CMD_LENGTH             (sizeof(FTP_EXEC_CMD) - 1)
+#define LOGIN_SITE_CMD                  "login site"
+#define LOGIN_SITE_CMD_LENGTH           (sizeof(LOGIN_SITE_CMD) - 1)
+#define CREATE_TARGET_DIR_ID            "create target dir"
+#define CREATE_TARGET_DIR_ID_LENGTH     (sizeof(CREATE_TARGET_DIR_ID) - 1)
+#define DONT_CREATE_TARGET_DIR          "do not create target dir"
+#define DONT_CREATE_TARGET_DIR_LENGTH   (sizeof(DONT_CREATE_TARGET_DIR) - 1)
+#define SEQUENCE_LOCKING_ID             "sequence locking"
+#define SEQUENCE_LOCKING_ID_LENGTH      (sizeof(SEQUENCE_LOCKING_ID) - 1)
+#define SOCKET_SEND_BUFFER_ID           "socket send buffer"
+#define SOCKET_SEND_BUFFER_ID_LENGTH    (sizeof(SOCKET_SEND_BUFFER_ID) - 1)
+#define SOCKET_RECEIVE_BUFFER_ID        "socket receive buffer"
+#define SOCKET_RECEIVE_BUFFER_ID_LENGTH (sizeof(SOCKET_RECEIVE_BUFFER_ID) - 1)
+
+/* Default definitions. */
 #define AFD_CONFIG_FILE                  "/AFD_CONFIG"
 #define DEFAULT_DIR_CONFIG_FILE          "/DIR_CONFIG"
 #define DEFAULT_HOST_CONFIG_FILE         "/HOST_CONFIG"
@@ -780,6 +870,8 @@ typedef unsigned long       u_long_64;
 #define REMOVE_UNUSED_HOSTS_DEF          "REMOVE_UNUSED_HOSTS"
 #define DELETE_STALE_ERROR_JOBS_DEF      "DELETE_STALE_ERROR_JOBS"
 #define DEFAULT_DIR_WARN_TIME_DEF        "DEFAULT_DIR_WARN_TIME"
+#define VIEW_DATA_PROG_DEF               "VIEW_DATA_PROG"
+#define VIEW_DATA_PROG_DEF_LENGTH        (sizeof(VIEW_DATA_PROG_DEF) - 1)
 
 /* Heading identifiers for the DIR_CONFIG file and messages. */
 #define DIR_IDENTIFIER                   "[directory]"
@@ -799,7 +891,7 @@ typedef unsigned long       u_long_64;
 #define VIEW_DC_DIR_IDENTIFIER_LENGTH    (sizeof(VIEW_DC_DIR_IDENTIFIER) - 1)
 
 /* Definitions for AFDD Logs. */
-/* NOTE: Bits 1 - 2 are defined in afd_mon/mondefs.h */
+/* NOTE: Bits 1 - 4 are defined in afd_mon/mondefs.h */
 #define AFDD_SYSTEM_LOG                  16
 #define AFDD_RECEIVE_LOG                 32
 #define AFDD_TRANSFER_LOG                64
@@ -810,10 +902,14 @@ typedef unsigned long       u_long_64;
 #define AFDD_DELETE_LOG                  2048
 #define AFDD_JOB_DATA                    4096
 #define AFDD_COMPRESSION_1               8192
+#define AFDD_EVENT_LOG                   16384
 /* NOTE: If new flags are added check afd_mon/mondefs.h first! */
 
 /* Group identifier for mails. */
 #define MAIL_GROUP_IDENTIFIER      '$'
+
+/* Length of log date in log files. */
+#define LOG_DATE_LENGTH            10
 
 /* Definitions of maximum values */
 #define MAX_SHUTDOWN_TIME          60     /* When the AMG gets the order  */
@@ -837,6 +933,8 @@ typedef unsigned long       u_long_64;
                                           /* as string this is the no.    */
                                           /* characters needed to store   */
                                           /* the largest integer value.   */
+#define MAX_INT_HEX_LENGTH          9     /* Ditto, just using hex values */
+                                          /* here.                        */
 #if SIZEOF_LONG == 4
 # define MAX_LONG_LENGTH           11
 #else
@@ -848,10 +946,18 @@ typedef unsigned long       u_long_64;
 #else
 # define MAX_OFF_T_LENGTH          20
 #endif
+#if SIZEOF_TIME_T == 4
+# define MAX_TIME_T_LENGTH         11
+#else
+# define MAX_TIME_T_LENGTH         20
+#endif
 #define MAX_TOGGLE_STR_LENGTH      5
 #define MAX_USER_NAME_LENGTH       80     /* Maximum length of the user   */
                                           /* name and password.           */
-#define MAX_FULL_USER_ID_LENGTH    80     /* Max length for user name and */
+#define MAX_PROFILE_NAME_LENGTH    40     /* Maximum length og the profile*/
+                                          /* name.                        */
+#define MAX_FULL_USER_ID_LENGTH    (MAX_PROFILE_NAME_LENGTH + 80)
+                                          /* Max length for user name and */
                                           /* display.                     */
 #define MAX_COPIED_FILES           100    /* The maximum number of files  */
                                           /* that the AMG may collect     */
@@ -868,6 +974,8 @@ typedef unsigned long       u_long_64;
 #define MAX_PRODUCTION_BUFFER_LENGTH 8192 /* Buffer size to hold new file-*/
                                           /* names after a rename, exec,  */
                                           /* etc.                         */
+#define MAX_EVENT_REASON_LENGTH    2048   /* The maximum length of the    */
+                                          /* event reason.                */
 #define MAX_NO_PARALLEL_JOBS       5      /* Maximum number of parallel   */
                                           /* jobs per host alias.         */
 #define MAX_FILENAME_LENGTH        256    /* Maximum length of a filename.*/
@@ -875,11 +983,21 @@ typedef unsigned long       u_long_64;
                                           /* error strings. (see fddefs.h)*/
 #define MAX_IP_LENGTH              16     /* Maximum length of an IP      */
                                           /* number as string.            */
+#define MAX_UDC_RESPONCE_LENGTH    (SIZEOF_INT + SIZEOF_INT + SIZEOF_INT + SIZEOF_INT)
+                                          /* The maximum responce length  */
+                                          /* when DIR_CONFIG is updated.  */
+#define MAX_UHC_RESPONCE_LENGTH    (SIZEOF_INT + SIZEOF_INT)
+                                          /* The maximum responce length  */
+                                          /* when HOST_CONFIG is updated. */
+#define MAX_UPDATE_REPLY_STR_LENGTH 256   /* The maximum length that a    */
+                                          /* string may be long from a    */
+                                          /* responce when updating       */
+                                          /* configuration.               */
 
 /* The length of message we send via fifo from AMG to FD. */
 #define MAX_BIN_MSG_LENGTH (sizeof(time_t) + sizeof(unsigned int) + sizeof(unsigned int) + sizeof(unsigned int) + sizeof(off_t) + sizeof(unsigned short) + sizeof(unsigned short) + sizeof(char) + sizeof(char))
 
-/* Miscellaneous definitions */
+/* Miscellaneous definitions. */
 #define LOG_SIGN_POSITION          13     /* Position in log file where   */
                                           /* type of log entry can be     */
                                           /* determined (I, W, E, F, D).  */
@@ -891,25 +1009,38 @@ typedef unsigned long       u_long_64;
                                           /* during transmission.         */
                                           /* NOTE: This value MUST be at  */
                                           /*       least 2!               */
-#define ARCHIVE_UNIT               86400  /* Seconds => 1 day             */
+#ifdef AFDBENCH_CONFIG
+# define DEFAULT_ARCHIVE_UNIT      600
+#else
+# define DEFAULT_ARCHIVE_UNIT      86400  /* Seconds => 1 day             */
+#endif
 #define WD_ENV_NAME                "AFD_WORK_DIR"   /* The working dir-   */
                                                     /* ectory environment */
 
-/* Different host status */
+/* Different host status. */
 #define STOP_TRANSFER_STAT         1
 #define PAUSE_QUEUE_STAT           2
 #define AUTO_PAUSE_QUEUE_STAT      4
 #define DANGER_PAUSE_QUEUE_STAT    8
-/* NOTE: This is not used.         16 */
+#define HOST_ERROR_OFFLINE_STATIC  16
 #define HOST_CONFIG_HOST_DISABLED  32
 /* NOTE: HOST_TWO_FLAG             64 */
 #ifdef WITH_ERROR_QUEUE
-#define ERROR_QUEUE_SET            128
+# define ERROR_QUEUE_SET           128
 #endif
+#define PENDING_ERRORS             256
+#define HOST_ERROR_ACKNOWLEDGED    512
+#define HOST_ERROR_OFFLINE         1024
+#define HOST_ERROR_ACKNOWLEDGED_T  2048
+#define HOST_ERROR_OFFLINE_T       4096
+#define HOST_ERROR_EA_STATIC       8192  /* Host error event action static. */
+
+#define EVENT_STATUS_STATIC_FLAGS  (PENDING_ERRORS & HOST_ERROR_ACKNOWLEDGED & HOST_ERROR_OFFLINE)
+#define EVENT_STATUS_FLAGS         (EVENT_STATUS_STATIC_FLAGS & HOST_ERROR_ACKNOWLEDGED_T & HOST_ERROR_OFFLINE_T)
 
 #define HOST_NOT_IN_DIR_CONFIG     4
 
-/* Position of each colour in global array */
+/* Position of each colour in global array. */
 /*############################ LightBlue1 ###############################*/
 #define DEFAULT_BG                 0  /* Background                      */
 #define HTTP_ACTIVE                0
@@ -960,8 +1091,10 @@ typedef unsigned long       u_long_64;
 #define BUTTON_BACKGROUND          9  /* Background for button line in   */
                                       /* afd_ctrl dialog.                */
 #define LOC_ACTIVE                 9
+#define ERROR_OFFLINE_ID           9
 /*############################### pink ##################################*/
 #define EMAIL_ACTIVE               10
+#define ERROR_ACKNOWLEDGED_ID      10
 /*############################## green ##################################*/
 #define FTP_BURST2_TRANSFER_ACTIVE 11
 /*############################## green3 #################################*/
@@ -1067,10 +1200,13 @@ typedef unsigned long       u_long_64;
 #define ALTERNATE_FILE_ALL         "/alternate.*"
 #define LOCK_PROC_FILE             "/LOCK_FILE"
 #define AFD_ACTIVE_FILE            "/AFD_ACTIVE"
-#define WINDOW_ID_FILE             "/window_ids"
+#define WINDOW_ID_FILE             "/window_ids" /* No longer used, but keep */
+                                                 /* it so that it gets       */
+                                                 /* deleted by afd -i or -I. */
 
 /* Definitions of fifo names. */
 #define SYSTEM_LOG_FIFO            "/system_log.fifo"
+#define EVENT_LOG_FIFO             "/event_log.fifo"
 #define RECEIVE_LOG_FIFO           "/receive_log.fifo"
 #define TRANSFER_LOG_FIFO          "/transfer_log.fifo"
 #define TRANS_DEBUG_LOG_FIFO       "/trans_db_log.fifo"
@@ -1079,6 +1215,8 @@ typedef unsigned long       u_long_64;
 #define AFD_RESP_FIFO              "/afd_resp.fifo"
 #define AMG_CMD_FIFO               "/amg_cmd.fifo"
 #define DB_UPDATE_FIFO             "/db_update.fifo"
+#define DB_UPDATE_REPLY_FIFO       "/db_update_reply.fifo."
+#define DB_UPDATE_REPLY_FIFO_ALL   "/db_update_reply.fifo.*"
 #define FD_CMD_FIFO                "/fd_cmd.fifo"
 #define AW_CMD_FIFO                "/aw_cmd.fifo"
 #define IP_FIN_FIFO                "/ip_fin.fifo"
@@ -1159,9 +1297,13 @@ typedef unsigned long       u_long_64;
 #define DONT_GET_DIR_LIST          64
 #define DIR_ERROR_SET              128
 #define WARN_TIME_REACHED          256
+#define DIR_ERROR_ACKN             512
+#define DIR_ERROR_OFFLINE          1024
+#define DIR_ERROR_ACKN_T           2048
+#define DIR_ERROR_OFFL_T           4096
 #ifdef WITH_INOTIFY
-# define INOTIFY_RENAME            512
-# define INOTIFY_CLOSE             1024
+# define INOTIFY_RENAME            8192
+# define INOTIFY_CLOSE             16384
 /*
  * Note: The following inotify flag are for the user interface
  *       AFD_CONFIG and DIR_CONFIG.
@@ -1207,7 +1349,7 @@ typedef unsigned long       u_long_64;
 # define INOTIFY_FLAG_IDC          1024
 #endif
 
-/* In process AFD we have various stop flags */
+/* In process AFD we have various stop flags. */
 #define STARTUP_ID                 -1
 #define NONE_ID                    0
 #define ALL_ID                     1
@@ -1216,6 +1358,81 @@ typedef unsigned long       u_long_64;
 
 #define NO_ID                      0
 
+/* Definitions for event classes. */
+#define EC_GLOB                    1  /* Global event. */
+#define EC_DIR                     2  /* Directory event. */
+#define EC_PROD                    3  /* Production event. */
+#define EC_HOST                    4  /* Host event. */
+
+/* Definitions for event types. */
+#define ET_MAN                     1  /* Manual event. */
+#define ET_EXT                     2  /* External event. */
+#define ET_AUTO                    3  /* Automatic event. */
+
+/* Definitions for different event actions, see doc/txt/event_log.txt. */
+#define EA_REREAD_DIR_CONFIG             1
+#define EA_REREAD_HOST_CONFIG            2
+#define EA_REREAD_RENAME_RULE            3
+#define EA_AFD_CONFIG_CHANGE             4
+#define EA_ENABLE_RETRIEVE               5
+#define EA_DISABLE_RETRIEVE              6
+#define EA_ENABLE_ARCHIVE                7
+#define EA_DISABLE_ARCHIVE               8
+#define EA_ENABLE_CREATE_TARGET_DIR      9
+#define EA_DISABLE_CREATE_TARGET_DIR    10
+#define EA_ENABLE_DIR_WARN_TIME         11
+#define EA_DISABLE_DIR_WARN_TIME        12
+#define EA_AMG_STOP                     13
+#define EA_AMG_START                    14
+#define EA_FD_STOP                      15
+#define EA_FD_START                     16
+#define EA_AFD_STOP                     17
+#define EA_AFD_START                    18
+#define EA_PRODUCTION_ERROR             19
+#define EA_ERROR_START                  20
+#define EA_ERROR_END                    21
+#define EA_ENABLE_DIRECTORY             22
+#define EA_DISABLE_DIRECTORY            23
+#define EA_RESCAN_DIRECTORY             24
+#define EA_EXEC_ERROR_ACTION_START      25
+#define EA_EXEC_ERROR_ACTION_STOP       26
+#define EA_OFFLINE                      27
+#define EA_ACKNOWLEDGE                  28
+#define EA_ENABLE_HOST                  29
+#define EA_DISABLE_HOST                 30
+#define EA_START_TRANSFER               31
+#define EA_STOP_TRANSFER                32
+#define EA_START_QUEUE                  33
+#define EA_STOP_QUEUE                   34
+#define EA_START_ERROR_QUEUE            35
+#define EA_STOP_ERROR_QUEUE             36
+#define EA_SWITCH_HOST                  37
+#define EA_RETRY_HOST                   38
+#define EA_ENABLE_DEBUG_HOST            39
+#define EA_ENABLE_TRACE_HOST            40
+#define EA_ENABLE_FULL_TRACE_HOST       41
+#define EA_DISABLE_DEBUG_HOST           42
+#define EA_DISABLE_TRACE_HOST           43
+#define EA_DISABLE_FULL_TRACE_HOST      44
+#define EA_UNSET_ACK_OFFL               45
+
+#define MAX_EVENT_ACTION_LENGTH     (sizeof("Disable create target dir") - 1)
+
+/* Different return status codes when updating configuration. */
+#define NO_CHANGE_IN_DIR_CONFIG         1
+#define DIR_CONFIG_UPDATED              2
+#define DIR_CONFIG_UPDATED_DC_PROBLEMS  3
+#define DIR_CONFIG_NO_VALID_DATA        4
+#define DIR_CONFIG_EMPTY                5
+#define DIR_CONFIG_ACCESS_ERROR         6
+#define DIR_CONFIG_NOTHING_DONE         7
+#define NO_CHANGE_IN_HOST_CONFIG        101
+#define HOST_CONFIG_RECREATED           102
+#define HOST_CONFIG_DATA_CHANGED        103
+#define HOST_CONFIG_DATA_ORDER_CHANGED  104
+#define HOST_CONFIG_ORDER_CHANGED       105
+#define HOST_CONFIG_UPDATED_DC_PROBLEMS 106
+
 /* The following definitions are used for the function */
 /* write_fsa(), so it knows where to write the info.   */
 #define ERROR_COUNTER              1
@@ -1223,10 +1440,6 @@ typedef unsigned long       u_long_64;
 #define TRANSFER_RATE              9
 #define NO_OF_FILES                11
 #define CONNECT_STATUS             20
-
-#define NO_BURST_COUNT_MASK        0x1f /* The mask to read the number   */
-                                        /* of transfers that may not     */
-                                        /* burst.                        */
 
 #define AFDD_SHUTDOWN_MESSAGE      "500 AFDD shutdown."
 
@@ -1258,7 +1471,7 @@ typedef unsigned long       u_long_64;
  *       6   | unsigned char | Flag to enable or disable the
  *           |               | following features:
  *           |               | Bit| Meaning
- *           |               | ---+-----------------------
+ *           |               | ---+-------------------------
  *           |               |  1 | DISABLE_RETRIEVE
  *           |               |  2 | DISABLE_ARCHIVE
  *           |               |  3 | ENABLE_CREATE_TARGET_DIR
@@ -1405,9 +1618,7 @@ struct filetransfer_status
                                             /*| 7    | Host is in       |*/
                                             /*|      | DIR_CONFIG file. |*/
                                             /*| 6    | Host disabled.   |*/
-                                            /*| 1 - 5| Number of jobs   |*/
-                                            /*|      | that may NOT     |*/
-                                            /*|      | burst.           |*/
+                                            /*| 1-5  | Not used.        |*/
                                             /*+------+------------------+*/
           unsigned int   protocol;          /* Transfer protocol that    */
                                             /* is being used:            */
@@ -1461,21 +1672,21 @@ struct filetransfer_status
                                             /* check that is to be done  */
                                             /* and what type of CRC to   */
                                             /* use:                      */
-                                            /*+------+------------------+*/
-                                            /*|Bit(s)|     Meaning      |*/
-                                            /*+------+------------------+*/
-                                            /*|27-32 | Not used.        |*/
-                                            /*|   26 | DC_WARN          |*/
-                                            /*|   25 | DC_STORE         |*/
-                                            /*|   24 | DC_DELETE        |*/
-                                            /*|17-23 | Not used.        |*/
-                                            /*|   16 | DC_CRC32         |*/
-                                            /*| 5-15 | Not used.        |*/
-                                            /*|    4 | DC_NAME_NO_SUFFIX|*/
-                                            /*|    3 | DC_FILE_CONT_NAME|*/
-                                            /*|    2 | DC_FILE_CONTENT  |*/
-                                            /*|    1 | DC_FILENAME_ONLY |*/
-                                            /*+------+------------------+*/
+                                            /*+-----+-------------------+*/
+                                            /*| Bit |     Meaning       |*/
+                                            /*+-----+-------------------+*/
+                                            /*|27-32| Not used.         |*/
+                                            /*|   26| DC_WARN           |*/
+                                            /*|   25| DC_STORE          |*/
+                                            /*|   24| DC_DELETE         |*/
+                                            /*|17-23| Not used.         |*/
+                                            /*|   16| DC_CRC32          |*/
+                                            /*| 5-15| Not used.         |*/
+                                            /*|    4| DC_NAME_NO_SUFFIX |*/
+                                            /*|    3| DC_FILE_CONT_NAME |*/
+                                            /*|    2| DC_FILE_CONTENT   |*/
+                                            /*|    1| DC_FILENAME_ONLY  |*/
+                                            /*+-----+-------------------+*/
 #endif
           unsigned int   host_id;           /* CRC-32 checksum of        */
                                             /* host_alias above.         */
@@ -1489,19 +1700,25 @@ struct filetransfer_status
                                             /* this switch.              */
           unsigned int   host_status;       /* What is the status for    */
                                             /* this host?                */
-                                            /*+----+--------------------------+*/
-                                            /*| Bit|      Meaning             |*/
-                                            /*+----+--------------------------+*/
-                                            /*|9-32| Not used.                |*/
-                                            /*|   8| ERROR_QUEUE_SET          |*/
-                                            /*|   7| HOST_TWO_FLAG            |*/
-                                            /*|   6| HOST_CONFIG_HOST_DISABLED|*/
-                                            /*|   5| Not used.                |*/
-                                            /*|   4| DANGER_PAUSE_QUEUE_STAT  |*/
-                                            /*|   3| AUTO_PAUSE_QUEUE_STAT    |*/
-                                            /*|   2| PAUSE_QUEUE_STAT         |*/
-                                            /*|   1| STOP_TRANSFER_STAT       |*/
-                                            /*+----+--------------------------+*/
+                                            /*+-----+-------------------------+*/
+                                            /*| Bit |     Meaning             |*/
+                                            /*+-----+-------------------------+*/
+                                            /*|14-32|Not used.                |*/
+                                            /*|   14|HOST_ERROR_EA_STATIC     |*/
+                                            /*|   13|HOST_ERROR_OFFLINE_T     |*/
+                                            /*|   12|HOST_ERROR_ACKNOWLEDGED_T|*/
+                                            /*|   11|HOST_ERROR_OFFLINE       |*/
+                                            /*|   10|HOST_ERROR_ACKNOWLEDGED  |*/
+                                            /*|    9|PENDING_ERRORS           |*/
+                                            /*|    8|ERROR_QUEUE_SET          |*/
+                                            /*|    7|HOST_TWO_FLAG            |*/
+                                            /*|    6|HOST_CONFIG_HOST_DISABLED|*/
+                                            /*|    5|HOST_ERROR_OFFLINE_STATIC|*/
+                                            /*|    4|DANGER_PAUSE_QUEUE_STAT  |*/
+                                            /*|    3|AUTO_PAUSE_QUEUE_STAT    |*/
+                                            /*|    2|PAUSE_QUEUE_STAT         |*/
+                                            /*|    1|STOP_TRANSFER_STAT       |*/
+                                            /*+-----+-------------------------+*/
           int            error_counter;     /* Errors that have so far   */
                                             /* occurred. With the next   */
                                             /* successful transfer this  */
@@ -1532,6 +1749,12 @@ struct filetransfer_status
           time_t         first_error_time;  /* The first time when a     */
                                             /* transmission error        */
                                             /* condition started.        */
+#ifdef NEXT_FSA_VERSION
+          time_t        start_event_handle; /* Time when to set the      */
+                                            /* specified event.          */
+          time_t        end_event_handle;   /* Time when to remove the   */
+                                            /* specified event.          */
+#endif
           int            total_file_counter;/* The overall number of     */
                                             /* files still to be send.   */
           off_t          total_file_size;   /* The overall number of     */
@@ -1738,9 +1961,13 @@ struct fileretrieve_status
                                             /*+------+------------------+*/
                                             /*|Bit(s)|     Meaning      |*/
                                             /*+------+------------------+*/
-                                            /*|12-32 | Not used.        |*/
-                                            /*|   11 | INOTIFY_CLOSE    |*/
-                                            /*|   10 | INOTIFY_RENAME   |*/
+                                            /*|16-32 | Not used.        |*/
+                                            /*|   15 | INOTIFY_CLOSE    |*/
+                                            /*|   14 | INOTIFY_RENAME   |*/
+                                            /*|   13 | DIR_ERROR_OFFL_T |*/
+                                            /*|   12 | DIR_ERROR_ACKN_T |*/
+                                            /*|   11 | DIR_ERROR_OFFLINE|*/
+                                            /*|   10 | DIR_ERROR_ACKN   |*/
                                             /*|    9 | WARN_TIME_REACHED|*/
                                             /*|    8 | DIR_ERROR_SET    |*/
                                             /*|    7 | DONT_GET_DIR_LIST|*/
@@ -1851,6 +2078,12 @@ struct fileretrieve_status
           time_t        warn_time;          /* Time when to warn that the*/
                                             /* directory has not received*/
                                             /* any data.                 */
+#ifdef NEXT_FRA_VERSION
+          time_t        start_event_handle; /* Time when to set the      */
+                                            /* specified event.          */
+          time_t        end_event_handle;   /* Time when to remove the   */
+                                            /* specified event.          */
+#endif
           int           unknown_file_time;  /* After how many hours can  */
                                             /* a unknown file be deleted.*/
           int           queued_file_time;   /* After how many hours can  */
@@ -1895,7 +2128,7 @@ struct fileretrieve_status
 /* Definitions for the different lock positions in the FSA. */
 #define LOCK_FD_DIR_CHECK_ACTIVE 1
 
-/* Structure that holds status of all process */
+/* Structure that holds status of all process. */
 struct afd_status
        {
           signed char   amg;             /* Automatic Message Generator, */
@@ -1925,6 +2158,7 @@ struct afd_status
                                          /*+------+---------------------+*/
           signed char   fd;              /* File Distributor             */
           signed char   sys_log;         /* System Log                   */
+          signed char   event_log;       /* Event Log                    */
           signed char   receive_log;     /* Receive Log                  */
           signed char   trans_log;       /* Transfer Log                 */
           signed char   trans_db_log;    /* Transfer Debug Log           */
@@ -1984,7 +2218,7 @@ struct proc_table
           char        proc_name[MAX_PROCNAME_LENGTH];
        };
 
-/* Definitions for renaming */
+/* Definitions for renaming. */
 #define READ_RULES_INTERVAL        30          /* in seconds             */
 #define MAX_RULE_HEADER_LENGTH     50
 struct rule
@@ -1995,7 +2229,7 @@ struct rule
           char **rename_to;
        };
 
-/* Definition for structure that holds all data for one job ID */
+/* Definition for structure that holds all data for one job ID. */
 #define CURRENT_JID_VERSION 1
 struct job_id_data
        {
@@ -2125,7 +2359,7 @@ struct old_int_retrieve_list
           int  size;
        };
 
-/* Runtime array */
+/* Runtime array. */
 #define RT_ARRAY(name, rows, columns, type)                              \
         {                                                                \
            int macro_row_counter;                                        \
@@ -2177,7 +2411,7 @@ struct old_int_retrieve_list
               (name)[macro_row_counter] = ((name)[0] + (macro_row_counter * (columns)));\
         }
 
-/* Runtime pointer array */
+/* Runtime pointer array. */
 #define RT_P_ARRAY(name, rows, columns, type)                               \
         {                                                                   \
            register int macro_i;                                            \
@@ -2303,7 +2537,20 @@ struct old_int_retrieve_list
            }                                    \
            else if ((flag) & DIR_ERROR_SET)     \
                 {                               \
-                   (status) = NOT_WORKING2;     \
+                   if (((flag) & DIR_ERROR_OFFLINE) ||\
+                       ((flag) & DIR_ERROR_OFFL_T))\
+                   {                            \
+                      (status) = ERROR_OFFLINE_ID;\
+                   }                            \
+                   else if (((flag) & DIR_ERROR_ACKN) ||\
+                            ((flag) & DIR_ERROR_ACKN_T))\
+                        {                       \
+                           (status) = ERROR_ACKNOWLEDGED_ID;\
+                        }                       \
+                        else                    \
+                        {                       \
+                           (status) = NOT_WORKING2;\
+                        }                       \
                 }                               \
            else if ((flag) & WARN_TIME_REACHED) \
                 {                               \
@@ -2315,14 +2562,16 @@ struct old_int_retrieve_list
                 }                               \
         }
 
-/* Macro to check if we can avoid a strcmp. */
+/* Macro to check if we can avoid a strcmp or strncmp. */
 #define CHECK_STRCMP(a, b)  (*(a) != *(b) ? (int)((unsigned char) *(a) - (unsigned char) *(b)) : strcmp((a), (b)))
+#define CHECK_STRNCMP(a, b, c)  (*(a) != *(b) ? (int)((unsigned char) *(a) - (unsigned char) *(b)) : strncmp((a), (b), (c)))
 
-/* Function prototypes */
+/* Function prototypes. */
 extern char         *get_definition(char *, char *, char *, int),
                     *get_error_str(int),
 #ifdef WITH_DUP_CHECK
-                    *eval_dupcheck_options(char *, time_t *, unsigned int *),
+                    *eval_dupcheck_options(char *, time_t *, unsigned int *,
+                                           int *),
 #endif
                     *lock_proc(int, int),
                     *posi(char *, char *);
@@ -2340,13 +2589,12 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
 #endif
                     afw2wmo(char *, int *, char **, char *),
 #ifdef _PRODUCTION_LOG
-                    bin_file_chopper(char *, int *, off_t *, char,
-                                     time_t, unsigned short,
+                    bin_file_chopper(char *, int *, off_t *, char *,
+                                     char, time_t, unsigned short,
                                      unsigned int, char *, char *),
 #else
-                    bin_file_chopper(char *, int *, off_t *, char),
+                    bin_file_chopper(char *, int *, off_t *, char *, char),
 #endif
-                    bin_file_convert(char *, off_t, int),
                     bittest(unsigned char *, int),
                     check_afd_heartbeat(long, int),
                     check_create_path(char *, mode_t, char **, int),
@@ -2367,11 +2615,12 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
 #ifndef HAVE_EACCESS
                     eaccess(char *, int),
 #endif
-                    eval_host_config(int *, char *, struct host_list **, int),
+                    eval_host_config(int *, char *, struct host_list **,
+                                     unsigned int *, int),
                     eval_timeout(int),
                     exec_cmd(char *, char **, int, char *, int, char *,
                              time_t, int),
-                    extract(char *, char *,
+                    extract(char *, char *, char *,
 #ifdef _PRODUCTION_LOG
                             time_t, unsigned short, unsigned int, char *,
 #endif
@@ -2416,7 +2665,7 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                     open_fifo_rw(char *, int *, int *),
 #endif
-                    pmatch(char *, char *, time_t *),
+                    pmatch(char const *, char const *, time_t *),
                     rec(int, char *, char *, ...),
                     rec_rmdir(char *),
 #ifdef WITH_UNLINK_DELAY
@@ -2426,8 +2675,10 @@ extern int          assemble(char *, char *, int, char *, int, int *, off_t *),
 #endif
                     remove_files(char *, char *),
                     send_cmd(char, int),
+                    startup_afd(void),
                     wmo2ascii(char *, char *, off_t *);
-extern off_t        dwdtiff2gts(char *, char *),
+extern off_t        bin_file_convert(char *, off_t, int),
+                    dwdtiff2gts(char *, char *),
                     gts2tiff(char *, char *),
                     read_file(char *, char **),
                     tiff2gts(char *, char *);
@@ -2441,7 +2692,7 @@ extern time_t       calc_next_time(struct bd_time_entry *, time_t),
                     write_host_config(int, char *, struct host_list *);
 #ifdef WITH_ERROR_QUEUE
 extern void         add_to_error_queue(unsigned int,
-                                       struct filetransfer_status *),
+                                       struct filetransfer_status *, int),
                     *attach_buf(char *, int *, size_t, char *, mode_t, int),
 #else
 extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
@@ -2457,11 +2708,15 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
                     daemon_init(char *),
                     delete_log_ptrs(struct delete_log *),
                     error_action(char *, char *),
+                    event_log(time_t, unsigned int, unsigned int,
+                              unsigned int, char *, ...),
                     get_dir_options(unsigned int, struct dir_options *),
+                    get_dc_result_str(char *, int, int, int *, int *),
+                    get_hc_result_str(char *, int, int, int *, int *),
                     get_log_number(int *, int, char *, int, char *),
                     get_max_log_number(int *, char *, int),
                     get_rename_rules(char *, int),
-                    get_user(char *, char *),
+                    get_user(char *, char *, int),
                     inform_fd_about_fsa_change(void),
                     init_fifos_afd(void),
 #ifdef LOCK_DEBUG
@@ -2469,7 +2724,7 @@ extern void         *attach_buf(char *, int *, size_t, char *, mode_t, int),
 #else
                     lock_region_w(int, off_t),
 #endif
-                    *map_file(char *, int *),
+                    *map_file(char *, int *, struct stat *, int, ...),
                     *mmap_resize(int, void *, size_t),
                     my_usleep(unsigned long),
 #ifdef _PRODUCTION_LOG

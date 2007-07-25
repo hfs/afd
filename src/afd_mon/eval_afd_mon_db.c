@@ -61,6 +61,8 @@ DESCR__S_M3
  **             1024 - send OUTPUT_LOG data
  **             2048 - send DELETE_LOG data
  **             4096 - send job data
+ **             8192 - compression method 1
+ **            16384 - send EVENT_LOG data
  **
  ** RETURN VALUES
  **   None.
@@ -228,11 +230,11 @@ eval_afd_mon_db(struct mon_list **nml)
       {
          char *ptr_start;
 
-         /* Calculate new size for afd list */
+         /* Calculate new size for afd list. */
          new_size = ((no_of_afds / MEM_STEP_SIZE) + 1) *
                     MEM_STEP_SIZE * sizeof(struct mon_status_area);
 
-         /* Now increase the space */
+         /* Now increase the space. */
          if ((*nml = realloc(*nml, new_size)) == NULL)
          {
             system_log(FATAL_SIGN, __FILE__, __LINE__,
@@ -241,7 +243,7 @@ eval_afd_mon_db(struct mon_list **nml)
             exit(INCORRECT);
          }
 
-         /* Initialise the new memory area */
+         /* Initialise the new memory area. */
          if (no_of_afds > (MEM_STEP_SIZE - 1))
          {
             ptr_start = (char *)(*nml) + (no_of_afds * sizeof(struct mon_status_area));
@@ -316,7 +318,7 @@ eval_afd_mon_db(struct mon_list **nml)
          }
       }
 
-      /* Store Real Hostname */
+      /* Store Real Hostname. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '|') &&
              (*ptr != '/') && (*ptr != '\n') && (*ptr != '\0') &&
@@ -406,7 +408,7 @@ eval_afd_mon_db(struct mon_list **nml)
          }
       }
 
-      /* Store TCP port number */
+      /* Store TCP port number. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
              (*ptr != '|') && (*ptr != '/') && (*ptr != '\0') &&
@@ -550,7 +552,7 @@ eval_afd_mon_db(struct mon_list **nml)
          }
       }
 
-      /* Store poll interval */
+      /* Store poll interval. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
              (*ptr != '\0') && (i < MAX_INT_LENGTH))
@@ -626,7 +628,7 @@ eval_afd_mon_db(struct mon_list **nml)
          }
       }
 
-      /* Store Connect Time */
+      /* Store Connect Time. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
              (*ptr != '\0') && (i < MAX_INT_LENGTH))
@@ -701,7 +703,7 @@ eval_afd_mon_db(struct mon_list **nml)
          }
       }
 
-      /* Store Disconnect Time */
+      /* Store Disconnect Time. */
       i = 0;
       while ((*ptr != ' ') && (*ptr != '\t') && (*ptr != '\n') &&
              (*ptr != '\0') && (i < MAX_INT_LENGTH))
@@ -906,7 +908,7 @@ eval_afd_mon_db(struct mon_list **nml)
          }
       }
 
-      /* Store Convert Username */
+      /* Store Convert Username. */
       cu_counter = 0;
       do
       {

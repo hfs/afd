@@ -1,6 +1,6 @@
 /*
  *  lock_proc.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -152,7 +152,11 @@ lock_proc(int proc_id, int test_lock)
       ptr = user_str + strlen(user_str);
       *ptr = ' ';
       ptr++;
-      (void)sprintf(ptr, "%d", wlock.l_pid);
+#if SIZEOF_PID_T == 4
+      (void)sprintf(ptr, "%d", (pri_pid_t)wlock.l_pid);
+#else
+      (void)sprintf(ptr, "%lld", (pri_pid_t)wlock.l_pid);
+#endif
 
       return(user_str);
    }
@@ -177,7 +181,11 @@ lock_proc(int proc_id, int test_lock)
             ptr = user_str + strlen(user_str);
             *ptr = ' ';
             ptr++;
-            (void)sprintf(ptr, "%d", wlock.l_pid);
+#if SIZEOF_PID_T == 4
+            (void)sprintf(ptr, "%d", (pri_pid_t)wlock.l_pid);
+#else
+            (void)sprintf(ptr, "%lld", (pri_pid_t)wlock.l_pid);
+#endif
 
             return(user_str);
          }
@@ -189,7 +197,7 @@ lock_proc(int proc_id, int test_lock)
          }
       }
 
-      get_user(user_str, "");
+      get_user(user_str, "", 0);
       if (write(fd, user_str, MAX_FULL_USER_ID_LENGTH) != MAX_FULL_USER_ID_LENGTH)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,

@@ -175,15 +175,31 @@ main(int argc, char *argv[])
                     break;
          case '5' : (void)fprintf(stdout, "\033[2J\033[3;1H");
                     (void)fprintf(stdout, "\n\n\n");
-                    (void)fprintf(stdout, "     Start/Stop queue..............(1)\n");
-                    (void)fprintf(stdout, "     Start/Stop transfer...........(2)\n");
-                    (void)fprintf(stdout, "     Start/Stop auto queue.........(3)\n");
-                    (void)fprintf(stdout, "     Start/Stop danger queue.......(4)\n");
+                    (void)fprintf(stdout, "     Start/Stop queue [%d]..........(1)\n",
+                                  (fsa[position].host_status & PAUSE_QUEUE_STAT) ? 1 : 0);
+                    (void)fprintf(stdout, "     Start/Stop transfer [%d].......(2)\n",
+                                  (fsa[position].host_status & STOP_TRANSFER_STAT) ? 1 : 0);
+                    (void)fprintf(stdout, "     Start/Stop auto queue [%d].....(3)\n",
+                                  (fsa[position].host_status & AUTO_PAUSE_QUEUE_STAT) ? 1 : 0);
+                    (void)fprintf(stdout, "     Start/Stop danger queue [%d]...(4)\n",
+                                  (fsa[position].host_status & DANGER_PAUSE_QUEUE_STAT) ? 1 : 0);
 #ifdef WITH_ERROR_QUEUE
-                    (void)fprintf(stdout, "     Set/Unset error queue flag....(5)\n");
+                    (void)fprintf(stdout, "     Set/Unset error queue flag [%d](5)\n",
+                                  (fsa[position].host_status & ERROR_QUEUE_SET) ? 1 : 0);
 #endif
-                    (void)fprintf(stdout, "     HOST_CONFIG host disabled.....(6)\n");
-                    (void)fprintf(stderr, "     None..........................(7) ");
+                    (void)fprintf(stdout, "     HOST_CONFIG host disabled [%d].(6)\n",
+                                  (fsa[position].host_status & HOST_CONFIG_HOST_DISABLED) ? 1 : 0);
+                    (void)fprintf(stdout, "     Pending errors [%d]............(7)\n",
+                                  (fsa[position].host_status & PENDING_ERRORS) ? 1 : 0);
+                    (void)fprintf(stdout, "     Host errors ackn [%d]..........(8)\n",
+                                  (fsa[position].host_status & HOST_ERROR_ACKNOWLEDGED) ? 1 : 0);
+                    (void)fprintf(stdout, "     Host errors offline [%d].......(9)\n",
+                                  (fsa[position].host_status & HOST_ERROR_OFFLINE) ? 1 : 0);
+                    (void)fprintf(stdout, "     Host errors ackn time [%d].....(a)\n",
+                                  (fsa[position].host_status & HOST_ERROR_ACKNOWLEDGED_T) ? 1 : 0);
+                    (void)fprintf(stdout, "     Host errors offline time [%d]..(b)\n",
+                                  (fsa[position].host_status & HOST_ERROR_OFFLINE_T) ? 1 : 0);
+                    (void)fprintf(stderr, "     None..........................(c) ");
                     switch (get_key())
                     {
                        case '1' : fsa[position].host_status ^= PAUSE_QUEUE_STAT;
@@ -200,7 +216,17 @@ main(int argc, char *argv[])
 #endif
                        case '6' : fsa[position].host_status ^= HOST_CONFIG_HOST_DISABLED;
                                   break;
-                       case '7' : break;
+                       case '7' : fsa[position].host_status ^= PENDING_ERRORS;
+                                  break;
+                       case '8' : fsa[position].host_status ^= HOST_ERROR_ACKNOWLEDGED;
+                                  break;
+                       case '9' : fsa[position].host_status ^= HOST_ERROR_OFFLINE;
+                                  break;
+                       case 'a' : fsa[position].host_status ^= HOST_ERROR_ACKNOWLEDGED_T;
+                                  break;
+                       case 'b' : fsa[position].host_status ^= HOST_ERROR_OFFLINE_T;
+                                  break;
+                       case 'c' : break;
                        default  : (void)printf("Wrong choice!\n");
                                   (void)sleep(1);
                                   break;
@@ -236,17 +262,7 @@ main(int argc, char *argv[])
          case 'b' : (void)fprintf(stderr, "\n\nEnter hostdisplayname: ");
                     (void)scanf("%s", fsa[position].host_dsp_name);
                     break;
-         case 'c' : (void)fprintf(stderr, "\n\n     Enter value [c] : ");
-                    (void)scanf("%u", &value);
-                    if (value > MAX_NO_PARALLEL_JOBS)
-                    {
-                       (void)printf("The value must be between 0 and %d!\n", NO_BURST_COUNT_MASK);
-                       (void)sleep(1);
-                    }
-                    else
-                    {
-                       fsa[position].special_flag = (fsa[position].special_flag & (~NO_BURST_COUNT_MASK)) | value;
-                    }
+         case 'c' : fsa[position].host_status ^= HOST_ERROR_OFFLINE_STATIC;
                     break;
          case 'd' : (void)fprintf(stderr, "\n\n     Enter value [d] : ");
                     (void)scanf("%u", &value);
@@ -334,7 +350,7 @@ menu(int position)
    (void)fprintf(stdout, "        |  9  |Transfer timeout  | %14ld |\n", fsa[position].transfer_timeout);
    (void)fprintf(stdout, "        |  a  |Real hostname     | %14s |\n", fsa[position].real_hostname[0]);
    (void)fprintf(stdout, "        |  b  |Host display name | %14s |\n", fsa[position].host_dsp_name);
-   (void)fprintf(stdout, "        |  c  |No. of no bursts  | %14d |\n", (fsa[position].special_flag & NO_BURST_COUNT_MASK));
+   (void)fprintf(stdout, "        |  c  |Error offline stat| %14s |\n", (fsa[position].host_status & HOST_ERROR_OFFLINE_STATIC) ? "Yes" : "No");
    (void)fprintf(stdout, "        |  d  |Active transfers  | %14d |\n", fsa[position].active_transfers);
    (void)fprintf(stdout, "        |  e  |File name         | %14s |\n", fsa[position].job_status[0].file_name_in_use);
    (void)fprintf(stdout, "        |  f  |Jobs queued       | %14u |\n", fsa[position].jobs_queued);

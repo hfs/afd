@@ -1,8 +1,8 @@
 /*
  *  current_job_list_spy.c - Part of AFD, an automatic file distribution
  *                           program.
- *  Copyright (c) 1998 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -82,7 +82,7 @@ main(int argc, char *argv[])
    }
 
    (void)sprintf(file, "%s%s%s", work_dir, FIFO_DIR, CURRENT_MSG_LIST_FILE);
-   if ((fd = open(file, O_RDWR)) == -1)
+   if ((fd = open(file, O_RDONLY)) == -1)
    {
       (void)fprintf(stderr,
                     "Failed to open() `%s' : %s (%s %d)\n",
@@ -98,7 +98,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   if ((ptr = mmap(0, stat_buf.st_size, (PROT_READ | PROT_WRITE),
+   if ((ptr = mmap(0, stat_buf.st_size, PROT_READ,
                    MAP_SHARED, fd, 0)) == (caddr_t)-1)
    {
       (void)fprintf(stderr,

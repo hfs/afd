@@ -27,16 +27,17 @@ DESCR__S_M3
  **                      one file per bulletin
  **
  ** SYNOPSIS
- **   int bin_file_chopper(char           *bin_file,
- **                        int            *files_to_send,
- **                        off_t          *file_size,
- **                        char           wmo_header_file_name,
- **                        time_t         creation_time,
- **                        unsigned short unique_number,
- **                        unsigned int   split_job_counter,
- **                        char           *extract_id,
- **                        char           *p_file_name)
- **   int bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
+ **   int   bin_file_chopper(char           *bin_file,
+ **                          int            *files_to_send,
+ **                          off_t          *file_size,
+ **                          char           *p_filter,
+ **                          char           wmo_header_file_name,
+ **                          time_t         creation_time,
+ **                          unsigned short unique_number,
+ **                          unsigned int   split_job_counter,
+ **                          char           *extract_id,
+ **                          char           *p_file_name)
+ **   off_t bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
  **
  ** DESCRIPTION
  **   The function bin_file_chopper reads a binary WMO bulletin file,
@@ -52,9 +53,10 @@ DESCR__S_M3
  **
  ** RETURN VALUES
  **   Returns INCORRECT when it fails to read any valid data from the
- **   file. On success SUCCESS will be returned and for the function
- **   bin_file_chopper() the number of files that have been created and
- **   the sum of their size.
+ **   file. For function bin_file_chopper(), SUCCESS will be returned and
+ **   the number of files that have been created and the sum of their size,
+ **   will be returned. Function bin_file_convert() will return the number
+ **   of bytes stored.
  **
  ** AUTHOR
  **   H.Kiehl
@@ -66,6 +68,8 @@ DESCR__S_M3
  **   18.11.2002 H.Kiehl WMO header file names.
  **   03.10.2004 H.Kiehl Added production log.
  **   20.07.2006 H.Kiehl Added bin_file_convert().
+ **   13.07.2007 H.Kiehl Added option to filter out only those bulletins
+ **                      we really nead.
  **
  */
 DESCR__E_M3
@@ -113,6 +117,7 @@ int
 bin_file_chopper(char           *bin_file,
                  int            *files_to_send,
                  off_t          *file_size,
+                 char           *p_filter,
 #ifdef _PRODUCTION_LOG
                  char           wmo_header_file_name,
                  time_t         creation_time,
@@ -383,57 +388,71 @@ bin_file_chopper(char           *bin_file,
                           originator, date_str, counter);
          }
 
-         /*
-          * Store data of each bulletin into an extra file.
-          */
-         if ((fd = open(new_file, (O_WRONLY | O_CREAT | O_TRUNC),
-                        file_mode)) < 0)
+         if ((p_filter == NULL) || (pmatch(p_filter, p_new_file, NULL) == 0))
          {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
-                        "Failed to open() %s : %s", new_file, strerror(errno));
-            free(p_file);
-            (void)close(counter_fd);
-            return(INCORRECT);
-         }
+            /*
+             * Store data of each bulletin into an extra file.
+             */
+            if ((fd = open(new_file, (O_WRONLY | O_CREAT | O_TRUNC),
+                           file_mode)) < 0)
+            {
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
+                           "Failed to open() %s : %s", new_file, strerror(errno));
+               free(p_file);
+               (void)close(counter_fd);
+               return(INCORRECT);
+            }
 
-         /* Add data type and end identifier to file. */
-         ptr -= id_length[i];
-         if (message_length == 0)
-         {
-            data_length = data_length + id_length[i] + end_id_length[i];
+            /* Add data type and end identifier to file. */
+            ptr -= id_length[i];
+            if (message_length == 0)
+            {
+               data_length = data_length + id_length[i] + end_id_length[i];
+            }
+            else
+            {
+               data_length = message_length;
+            }
+
+            if (write(fd, ptr, data_length) != data_length)
+            {
+               receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
+                           "write() error : %s", strerror(errno));
+               free(p_file);
+               (void)close(fd);
+               (void)unlink(new_file); /* End user should not get any junk! */
+               (void)close(counter_fd);
+               return(INCORRECT);
+            }
+
+            if (close(fd) == -1)
+            {
+               receive_log(DEBUG_SIGN, __FILE__, __LINE__, tvalue,
+                           "close() error : %s", strerror(errno));
+            }
+#ifdef _PRODUCTION_LOG
+            if (p_file_name != NULL)
+            {
+               production_log(creation_time, unique_number,
+                              split_job_counter, "%s|%s|extract(%s)",
+                              p_file_name, p_new_file, extract_id);
+            }
+#endif
+
+            *file_size += data_length;
+            (*files_to_send)++;
          }
          else
          {
-            data_length = message_length;
+            if (message_length == 0)
+            {
+               data_length = data_length + id_length[i] + end_id_length[i];
+            }
+            else
+            {
+               data_length = message_length;
+            }
          }
-
-         if (write(fd, ptr, data_length) != data_length)
-         {
-            receive_log(ERROR_SIGN, __FILE__, __LINE__, tvalue,
-                        "write() error : %s", strerror(errno));
-            free(p_file);
-            (void)close(fd);
-            (void)unlink(new_file); /* End user should not get any junk! */
-            (void)close(counter_fd);
-            return(INCORRECT);
-         }
-
-         if (close(fd) == -1)
-         {
-            receive_log(DEBUG_SIGN, __FILE__, __LINE__, tvalue,
-                        "close() error : %s", strerror(errno));
-         }
-#ifdef _PRODUCTION_LOG
-         if (p_file_name != NULL)
-         {
-            production_log(creation_time, unique_number,
-                           split_job_counter, "%s|%s|extract(%s)",
-                           p_file_name, p_new_file, extract_id);
-         }
-#endif
-
-         *file_size += data_length;
-         (*files_to_send)++;
          length = data_length;
 /*         length = data_length + end_id_length[i]; */
          if (data_length > total_length)
@@ -504,12 +523,13 @@ bin_file_chopper(char           *bin_file,
 
 
 /*########################## bin_file_convert() #########################*/
-int
+off_t
 bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
 {
    int   first_time = YES,
          i;
-   off_t data_length = 0,
+   off_t bytes_written = 0,
+         data_length = 0,
          length;
    char  *buffer,
          *ptr,
@@ -620,6 +640,7 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
                         "write() error : %s", strerror(errno));
             return(INCORRECT);
          }
+         bytes_written += 14;
 
          /* Write message body. */
          if (write(to_fd, ptr, data_length) != data_length)
@@ -628,6 +649,7 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
                         "write() error : %s", strerror(errno));
             return(INCORRECT);
          }
+         bytes_written += data_length;
 
          length_indicator[0] = 13;
          length_indicator[1] = 13;
@@ -639,6 +661,7 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
                         "write() error : %s", strerror(errno));
             return(INCORRECT);
          }
+         bytes_written += 4;
 
          length = data_length;
 /*         length = data_length + end_id_length[i]; */
@@ -686,7 +709,7 @@ bin_file_convert(char *src_ptr, off_t total_length, int to_fd)
       }
    } /* while (total_length > 9) */
 
-   return(SUCCESS);
+   return(bytes_written);
 }
 
 

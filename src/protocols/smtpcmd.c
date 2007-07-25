@@ -1,6 +1,6 @@
 /*
  *  smtpcmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -159,11 +159,7 @@ smtp_connect(char *hostname, int port)
    register struct hostent *p_host = NULL;
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
-   if ((sin.sin_addr.s_addr = inet_addr(hostname)) != -1)
-   {
-      sin.sin_family = AF_INET;
-   }
-   else
+   if ((sin.sin_addr.s_addr = inet_addr(hostname)) == -1)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
@@ -200,19 +196,18 @@ smtp_connect(char *hostname, int port)
 #endif
          return(INCORRECT);
       }
-      sin.sin_family = p_host->h_addrtype;
 
-      /* Copy IP number to socket structure */
+      /* Copy IP number to socket structure. */
       memcpy((char *)&sin.sin_addr, p_host->h_addr, p_host->h_length);
    }
 
-   if ((smtp_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+   if ((smtp_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "socket() error : %s", strerror(errno));
       return(INCORRECT);
    }
-
+   sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
    if (connect(smtp_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
@@ -520,38 +515,63 @@ smtp_write_iso8859(char *block, char *buffer, int size)
                    }
                    else
                    {
-                      if (*ptr == 129) /* ue */
+                      switch (*ptr)
                       {
-                         buffer[count] = (char)(252);
+                         case 21 :
+                            buffer[count] = (char)(167);
+                            break;
+                         case 129 : /* ue */
+                            buffer[count] = (char)(252);
+                            break;
+                         case 130 :
+                            buffer[count] = (char)(233);
+                            break;
+                         case 131 :
+                            buffer[count] = (char)(226);
+                            break;
+                         case 132 : /* ae */
+                            buffer[count] = (char)(228);
+                            break;
+                         case 140 :
+                            buffer[count] = (char)(238);
+                            break;
+                         case 142 : /* AE */
+                            buffer[count] = (char)(196);
+                            break;
+                         case 147 :
+                            buffer[count] = (char)(244);
+                            break;
+                         case 148 : /* oe */
+                            buffer[count] = (char)(246);
+                            break;
+                         case 153 : /* OE */
+                            buffer[count] = (char)(214);
+                            break;
+                         case 154 : /* UE */
+                            buffer[count] = (char)(220);
+                            break;
+                         case 160 :
+                            buffer[count] = (char)(225);
+                            break;
+                         case 161 :
+                            buffer[count] = (char)(237);
+                            break;
+                         case 163 :
+                            buffer[count] = (char)(250);
+                            break;
+                         case 225 : /* ss */
+                            buffer[count] = (char)(223);
+                            break;
+                         case 246 :
+                            buffer[count] = (char)(247);
+                            break;
+                         case 248 :
+                            buffer[count] = (char)(176);
+                            break;
+                         default :
+                            buffer[count] = *ptr;
+                            break;
                       }
-                      else if (*ptr == 132) /* ae */
-                           {
-                              buffer[count] = (char)(228);
-                           }
-                      else if (*ptr == 142) /* AE */
-                           {
-                              buffer[count] = (char)(196);
-                           }
-                      else if (*ptr == 148) /* oe */
-                           {
-                              buffer[count] = (char)(246);
-                           }
-                      else if (*ptr == 153) /* OE */
-                           {
-                              buffer[count] = (char)(214);
-                           }
-                      else if (*ptr == 154) /* UE */
-                           {
-                              buffer[count] = (char)(220);
-                           }
-                      else if (*ptr == 225) /* ss */
-                           {
-                              buffer[count] = (char)(223);
-                           }
-                           else
-                           {
-                              buffer[count] = *ptr;
-                           }
                       count++;
                    }
               ptr++;

@@ -1,6 +1,6 @@
 /*
  *  init_fifos_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -74,6 +74,7 @@ init_fifos_afd(void)
    char        afd_cmd_fifo[MAX_PATH_LENGTH],
                afd_resp_fifo[MAX_PATH_LENGTH],
                amg_cmd_fifo[MAX_PATH_LENGTH],
+               event_log_fifo[MAX_PATH_LENGTH],
                fd_cmd_fifo[MAX_PATH_LENGTH],
                ip_fin_fifo[MAX_PATH_LENGTH],
                probe_only_fifo[MAX_PATH_LENGTH],
@@ -84,6 +85,8 @@ init_fifos_afd(void)
    /* Initialise fifo names */
    (void)strcpy(transfer_log_fifo, p_work_dir);
    (void)strcat(transfer_log_fifo, FIFO_DIR);
+   (void)strcpy(event_log_fifo, transfer_log_fifo);
+   (void)strcat(event_log_fifo, EVENT_LOG_FIFO);
    (void)strcpy(trans_db_log_fifo, transfer_log_fifo);
    (void)strcat(trans_db_log_fifo, TRANS_DEBUG_LOG_FIFO);
    (void)strcpy(afd_cmd_fifo, transfer_log_fifo);
@@ -104,6 +107,7 @@ init_fifos_afd(void)
    /* First remove any stale fifos. Maybe they still have       */
    /* some garbage. So lets remove it before it can do any harm. */
    (void)unlink(transfer_log_fifo);
+   (void)unlink(event_log_fifo);
    (void)unlink(trans_db_log_fifo);
    (void)unlink(afd_cmd_fifo);
    (void)unlink(afd_resp_fifo);
@@ -116,6 +120,12 @@ init_fifos_afd(void)
    {
       (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
                     transfer_log_fifo, __FILE__, __LINE__);
+      exit(INCORRECT);
+   }
+   if (make_fifo(event_log_fifo) < 0)
+   {
+      (void)fprintf(stderr, "Could not create fifo %s. (%s %d)\n",
+                    event_log_fifo, __FILE__, __LINE__);
       exit(INCORRECT);
    }
    if (make_fifo(trans_db_log_fifo) < 0)
@@ -164,7 +174,7 @@ init_fifos_afd(void)
       }
    }
 
-   /* Now lets open all fifos needed by the AFD */
+   /* Now lets open all fifos needed by the AFD. */
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    if (open_fifo_rw(afd_cmd_fifo, &afd_cmd_fd, &afd_cmd_writefd) == -1)
 #else

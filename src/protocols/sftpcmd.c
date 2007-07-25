@@ -2017,7 +2017,7 @@ write_msg(char *block, int size)
 
 
 /*++++++++++++++++++++++++++++++ read_msg() +++++++++++++++++++++++++++++*/
-int
+static int
 read_msg(char *block, int blocksize)
 {
 #ifdef WITH_TRACE

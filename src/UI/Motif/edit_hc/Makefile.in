@@ -235,7 +235,8 @@ noinst_HEADERS = edit_hc.h no_source.h no_source_mask.h source.h\
                        source_mask.h
 
 INCLUDES = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../../../amg -I../afd_ctrl
+                       -I../../../init_afd -I../../../amg -I../../../log\
+                       -I../afd_ctrl
 
 edit_hc_SOURCES = accept_drop.c\
                        edit_hc.c\

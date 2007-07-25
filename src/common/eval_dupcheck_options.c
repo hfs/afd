@@ -1,7 +1,7 @@
 /*
  *  eval_dupcheck_options.c - Part of AFD, an automatic file distribution
  *                            program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -28,7 +28,8 @@ DESCR__S_M3
  ** SYNOPSIS
  **   char *eval_dupcheck_options(char         *ptr,
  **                               time_t       *timeout,
- **                               unsigned int *flag)
+ **                               unsigned int *flag,
+ **                               int          *warn)
  **
  ** DESCRIPTION
  **   This function evaluates the dupcheck option that can be specified
@@ -67,6 +68,8 @@ DESCR__S_M3
  ** HISTORY
  **   14.06.2005 H.Kiehl Created
  **   20.12.2006 H.Kiehl Added option filename without last suffix.
+ **   20.05.2007 H.Kiehl Added warn option so caller knows if we had a
+ **                      warning.
  **
  */
 DESCR__E_M3
@@ -77,7 +80,10 @@ DESCR__E_M3
 
 /*####################### eval_dupcheck_options() #######################*/
 char *
-eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
+eval_dupcheck_options(char         *ptr,
+                      time_t       *timeout,
+                      unsigned int *flag,
+                      int          *warn)
 {
    int  length = 0;
    char number[MAX_LONG_LENGTH + 1];
@@ -131,13 +137,25 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
               else
               {
                  *flag = DC_FILENAME_ONLY;
-                 system_log(WARN_SIGN, __FILE__, __LINE__,
-                            "Unkown duplicate check type %d using default %d.",
-                            val, DC_FILENAME_ONLY_BIT);
+                 if (warn == NULL)
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Unkown duplicate check type %d using default %d.",
+                               val, DC_FILENAME_ONLY_BIT);
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Unkown duplicate check type %d.", val);
+                 }
                  system_log(WARN_SIGN, __FILE__, __LINE__,
                             "Possible types are: %d (filename only), %d (file content only) and %d (filename and content).",
                             DC_FILENAME_ONLY_BIT, DC_FILE_CONTENT_BIT,
                             DC_FILE_CONT_NAME_BIT);
+                 if (warn != NULL)
+                 {
+                    *warn = 1;
+                 }
               }
          while ((*ptr == ' ') || (*ptr == '\t'))
          {
@@ -176,9 +194,18 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
                  else
                  {
                     *flag |= DC_DELETE;
-                    system_log(WARN_SIGN, __FILE__, __LINE__,
-                               "Unkown duplicate check action %d using default %d.",
-                               val, DC_DELETE);
+                    if (warn == NULL)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Unkown duplicate check action %d using default %d.",
+                                  val, DC_DELETE);
+                    }
+                    else
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Unkown duplicate check action %d.", val);
+                       *warn = 1;
+                    }
                  }
 
             while ((*ptr == ' ') || (*ptr == '\t'))
@@ -198,9 +225,18 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
                if (val != DC_CRC32_BIT)
                {
                   *flag |= DC_CRC32;
-                  system_log(WARN_SIGN, __FILE__, __LINE__,
-                             "Unkown duplicate check CRC type %d using default %d.",
-                             val, DC_CRC32_BIT);
+                  if (warn == NULL)
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Unkown duplicate check CRC type %d using default %d.",
+                                val, DC_CRC32_BIT);
+                  }
+                  else
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Unkown duplicate check CRC type %d.", val);
+                     *warn = 1;
+                  }
                }
                else
                {
@@ -214,6 +250,10 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
                {
                   system_log(WARN_SIGN, __FILE__, __LINE__,
                              "Integer value for duplicate check CRC type to large.");
+                  if (warn != NULL)
+                  {
+                     *warn = 1;
+                  }
                }
             }
          }
@@ -224,6 +264,10 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
             {
                system_log(WARN_SIGN, __FILE__, __LINE__,
                           "Integer value for duplicate check action to large.");
+               if (warn != NULL)
+               {
+                  *warn = 1;
+               }
             }
          }
       }
@@ -234,6 +278,10 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
          {
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Integer value for duplicate check type to large.");
+            if (warn != NULL)
+            {
+               *warn = 1;
+            }
          }
       }
    }
@@ -245,6 +293,10 @@ eval_dupcheck_options(char *ptr, time_t *timeout, unsigned int *flag)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Long integer value for duplicate check timeout to large.");
+         if (warn != NULL)
+         {
+            *warn = 1;
+         }
       }
    }
    while ((*ptr != '\n') && (*ptr != '\0'))

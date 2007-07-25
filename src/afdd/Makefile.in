@@ -65,7 +65,7 @@ am_afdd_OBJECTS = afdd.$(OBJEXT) check_changes.$(OBJEXT) \
 	check_logs.$(OBJEXT) display_file.$(OBJEXT) \
 	get_display_data.$(OBJEXT) handle_request.$(OBJEXT) \
 	show_dir_list.$(OBJEXT) show_host_list.$(OBJEXT) \
-	show_summary_stat.$(OBJEXT)
+	show_job_list.$(OBJEXT) show_summary_stat.$(OBJEXT)
 afdd_OBJECTS = $(am_afdd_OBJECTS)
 afdd_DEPENDENCIES = ../common/libafd.a
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -243,6 +243,7 @@ afdd_SOURCES = afdd.c\
                        handle_request.c\
                        show_dir_list.c\
                        show_host_list.c\
+                       show_job_list.c\
                        show_summary_stat.c
 
 afdd_LDADD = ../common/libafd.a @EXTRA_SOCKET_LIBS@
@@ -320,6 +321,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/handle_request.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_dir_list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_host_list.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_job_list.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_summary_stat.Po@am__quote@
 
 .c.o:

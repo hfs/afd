@@ -102,7 +102,7 @@
 #define LINES_BUFFERED            1000
 #define MAX_DISPLAYED_FILE_SIZE   10
 #define MAX_PROC_USER_LENGTH      18
-#define MAX_OUTPUT_LINE_LENGTH    16 + MAX_HOSTNAME_LENGTH + 1 + MAX_DISPLAYED_FILE_SIZE + 1 + MAX_REASON_LENGTH + 1 + MAX_PROC_USER_LENGTH + 1
+#define MAX_OUTPUT_LINE_LENGTH    (16 + MAX_HOSTNAME_LENGTH + 1 + MAX_DISPLAYED_FILE_SIZE + 1 + MAX_REASON_LENGTH + 1 + MAX_PROC_USER_LENGTH + 1)
 
 #define FILE_SIZE_FORMAT          "Enter file size in bytes: [=<>]file size"
 #define TIME_FORMAT               "Absolut: MMDDhhmm or DDhhmm or hhmm   Relative: -DDhhmm or -hhmm or -mm"

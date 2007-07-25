@@ -31,6 +31,13 @@
 #define SYSTEM_LOG_NAME_LENGTH            (sizeof(SYSTEM_LOG_NAME) - 1)
 #define SYSTEM_LOG_NAME_ALL               "SYSTEM_LOG.*"
 #define MAX_SYSTEM_LOG_FILES_DEF          "MAX_SYSTEM_LOG_FILES"
+#define MAX_EVENT_LOG_FILES               5            /* Must be > 1!   */
+#define MAX_EVE_LOGFILE_SIZE              10485760
+#define EVENT_LOG_RESCAN_TIME             60
+#define EVENT_LOG_NAME                    "EVENT_LOG."
+#define EVENT_LOG_NAME_LENGTH             (sizeof(EVENT_LOG_NAME) - 1)
+#define EVENT_LOG_NAME_ALL                "EVENT_LOG.*"
+#define MAX_EVENT_LOG_FILES_DEF           "MAX_EVENT_LOG_FILES"
 #define MAX_RECEIVE_LOG_FILES             7            /* Must be > 1!   */
 #define RECEIVE_LOG_NAME                  "RECEIVE_LOG."
 #define RECEIVE_LOG_NAME_LENGTH           (sizeof(RECEIVE_LOG_NAME) - 1)
@@ -127,9 +134,32 @@
                                              /* MAX_DELETE_LOG_FILES_DEF     */
                                              /* MAX_PRODUCTION_LOG_FILES_DEF */
 
+/* Definitions for evaluating log data (alda). */
+#define ALDA_LOCAL_MODE                  1
+#define ALDA_REMOTE_MODE                 2
+#define ALDA_BACKWARD_MODE               4
+#define ALDA_FORARD_MODE                 8
+
+/* Structure for evaluating log data (alda). */
+struct alda_data
+       {
+          off_t         file_size;
+          time_t        data_time;
+          unsigned int  flag;       /* Output log - Protocol used        */
+                                    /* Delete log - Deletion type        */
+          unsigned int  dir_id;
+          unsigned int  job_id;
+          char          *file_name;
+          char          *action;    /* Production log - command executed */
+                                    /* Delete log     - user/process     */
+          unsigned char type;       /* Which log type this is.           */
+       };
+
 /* Function prototypes. */
-extern int  fprint_dup_msg(FILE *, int, char *, char *, int, time_t),
+extern int  event_logger(FILE *, off_t, int, int),
+            fprint_dup_msg(FILE *, int, char *, char *, int, time_t),
             logger(FILE *, off_t, int, int);
 extern FILE *open_log_file(char *);
+extern void eval_input_alda(int, char **);
 
 #endif /* __logdefs_h */

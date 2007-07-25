@@ -1,6 +1,6 @@
 /*
  *  eval_time_str.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,7 @@ DESCR__S_M3
  **
  ** SYNOPSIS
  **   int eval_time_str(char *time_str, struct bd_time_entry *te);
+ **   int check_time_str(char *time_str);
  **
  ** DESCRIPTION
  **   Evaluates the time and date fields as follows:
@@ -47,6 +48,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   29.04.1999 H.Kiehl Created
+ **   21.05.2007 H.Kiehl Added check_time_str() to just check the time
+ **                      string supplied.
  **
  */
 DESCR__E_M3
@@ -345,7 +348,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
               {
                  char tmp_str_number[3];
 
-                 (void)memcpy(tmp_str_number, str_number, 3);
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
                  ptr++;
                  if ((ptr = get_number(ptr, str_number)) == NULL)
                  {
@@ -378,7 +383,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                  {
                     continuous = NO;
                  }
-                 (void)memcpy(str_number, tmp_str_number, 3);
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
               }
               else
               {
@@ -569,7 +576,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
               {
                  char tmp_str_number[3];
 
-                 (void)memcpy(tmp_str_number, str_number, 3);
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
                  ptr++;
                  if ((ptr = get_number(ptr, str_number)) == NULL)
                  {
@@ -598,7 +607,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                                step_size);
                     return(INCORRECT);
                  }
-                 (void)memcpy(str_number, tmp_str_number, 3);
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
               }
               else
               {
@@ -807,7 +818,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
               {
                  char tmp_str_number[3];
 
-                 (void)memcpy(tmp_str_number, str_number, 3);
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
                  ptr++;
                  if ((ptr = get_number(ptr, str_number)) == NULL)
                  {
@@ -836,7 +849,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                                step_size);
                     return(INCORRECT);
                  }
-                 (void)memcpy(str_number, tmp_str_number, 3);
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
               }
               else
               {
@@ -1042,7 +1057,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
               {
                  char tmp_str_number[3];
 
-                 (void)memcpy(tmp_str_number, str_number, 3);
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
                  ptr++;
                  if ((ptr = get_number(ptr, str_number)) == NULL)
                  {
@@ -1071,7 +1088,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                                step_size);
                     return(INCORRECT);
                  }
-                 (void)memcpy(str_number, tmp_str_number, 3);
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
               }
               else
               {
@@ -1257,7 +1276,9 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
               {
                  char tmp_str_number[3];
 
-                 (void)memcpy(tmp_str_number, str_number, 3);
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
                  ptr++;
                  if ((ptr = get_number(ptr, str_number)) == NULL)
                  {
@@ -1288,13 +1309,936 @@ eval_time_str(char *time_str, struct bd_time_entry *te)
                                step_size);
                     return(INCORRECT);
                  }
-                 (void)memcpy(str_number, tmp_str_number, 3);
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
               }
               else
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Unable to handle time entry `%s'. Ignoring time entry.",
                             time_str);
+                 return(INCORRECT);
+              }
+      }
+      else
+      {
+         return(INCORRECT);
+      }
+   } /* for (;;) */
+
+   return(SUCCESS);
+}
+
+
+/*########################## check_time_str() ###########################*/
+int
+check_time_str(char *time_str)
+{
+   int  continuous = YES,
+        first_number = -1,
+        number,
+        step_size = 0;
+   char *ptr = time_str,
+        str_number[3];
+
+   /* Evaluate 'minute' field (0-59) */
+   for (;;)
+   {
+      if ((step_size != 0) ||
+          ((ptr = get_number(ptr, str_number)) != NULL))
+      {
+         if (*ptr == ',')
+         {
+            if (str_number[0] == '*')
+            {
+               if ((str_number[1] == '\0') && (first_number == -1))
+               {
+                  if ((step_size == 1) && (continuous == YES))
+                  {
+                     /* continuous_minute = ALL_MINUTES */;
+                  }
+                  else
+                  {
+                     /* minute = ALL_MINUTES */;
+                     continuous = YES;
+                  }
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Combination of '*' and other numeric values in minute field not possible.");
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (str_number[1] == '\0')
+               {
+                  number = str_number[0] - '0';
+               }
+               else
+               {
+                  if (str_number[0] > '5')
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Possible values for minute field : 0-59.");
+                     return(INCORRECT);
+                  }
+                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
+               }
+               if (first_number != -1)
+               {
+                  step_size = 0;
+                  first_number = -1;
+               }
+            }
+            ptr++;
+         }
+         else if (*ptr == '-')
+              {
+                 if (str_number[1] == '\0')
+                 {
+                    first_number = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    if (str_number[0] > '5')
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for minute field : 0-59.");
+                       return(INCORRECT);
+                    }
+                    first_number = ((str_number[0] - '0') * 10) +
+                                   str_number[1] - '0';
+                 }
+                 ptr++;
+              }
+         else if ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 if (str_number[0] == '*')
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       if ((step_size == 1) && (continuous == YES))
+                       {
+                          /* continuous_minute = ALL_MINUTES */;
+                       }
+                       else
+                       {
+                          /* minute = ALL_MINUTES */;
+                          continuous = YES;
+                       }
+                       step_size = 0;
+                    }
+                    else
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Combination of '*' and other numeric values in minute field not possible.");
+                       return(INCORRECT);
+                    }
+                 }
+                 else
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       number = str_number[0] - '0';
+                    }
+                    else
+                    {
+                       if (str_number[0] > '5')
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Possible values for minute field : 0-59.");
+                          return(INCORRECT);
+                       }
+                       number = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                    }
+                    if (first_number != -1)
+                    {
+                       if ((step_size == 1) && (continuous == YES))
+                       {
+                          /* store continuous_minute */;
+                       }
+                       else
+                       {
+                          /* store minute */;
+                          continuous = YES;
+                       }
+                       step_size = 0;
+                       first_number = -1;
+                    }
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+                 break;
+              }
+         else if (*ptr == '\0')
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Premature end of time entry.");
+                 return(INCORRECT);
+              }
+         else if (*ptr == '/')
+              {
+                 char tmp_str_number[3];
+
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
+                 ptr++;
+                 if ((ptr = get_number(ptr, str_number)) == NULL)
+                 {
+                    return(INCORRECT);
+                 }
+                 if (str_number[1] == '\0')
+                 {
+                    if (isdigit((int)str_number[0]) == 0)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Division by non numeric value <%c>.",
+                                  str_number[0]);
+                       return(INCORRECT);
+                    }
+                    step_size = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    step_size = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                 }
+                 if ((step_size == 0) || (step_size > 59))
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Invalid step size %d in minute field.",
+                               step_size);
+                    return(INCORRECT);
+                 }
+                 if (step_size == 1)
+                 {
+                    continuous = NO;
+                 }
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'.", time_str);
+                 return(INCORRECT);
+              }
+      }
+      else
+      {
+         return(INCORRECT);
+      }
+   } /* for (;;) */
+
+   /* Evaluate 'hour' field (0-23) */
+   step_size = 0;
+   for (;;)
+   {
+      if ((step_size != 0) ||
+          ((ptr = get_number(ptr, str_number)) != NULL))
+      {
+         if (*ptr == ',')
+         {
+            if (str_number[0] == '*')
+            {
+               if ((str_number[1] == '\0') && (first_number == -1))
+               {
+                  /* ALL_HOURS */;
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Combination of '*' and other numeric values in hour field not possible.");
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (str_number[1] == '\0')
+               {
+                  number = str_number[0] - '0';
+               }
+               else
+               {
+                  if ((str_number[0] > '2') ||
+                      ((str_number[0] == '2') && (str_number[1] > '3')))
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Possible values for hour field : 0-23.");
+                     return(INCORRECT);
+                  }
+                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
+               }
+               if (first_number != -1)
+               {
+                  step_size = 0;
+                  first_number = -1;
+               }
+            }
+            ptr++;
+         }
+         else if (*ptr == '-')
+              {
+                 if (str_number[1] == '\0')
+                 {
+                    first_number = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    if ((str_number[0] > '2') ||
+                        ((str_number[0] == '2') && (str_number[1] > '3')))
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for hour field : 0-23.");
+                       return(INCORRECT);
+                    }
+                    first_number = ((str_number[0] - '0') * 10) +
+                                   str_number[1] - '0';
+                 }
+                 ptr++;
+              }
+         else if ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 if (str_number[0] == '*')
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       step_size = 0;
+                    }
+                    else
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Combination of '*' and other numeric values in hour field not possible.");
+                       return(INCORRECT);
+                    }
+                 }
+                 else
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       number = str_number[0] - '0';
+                    }
+                    else
+                    {
+                       if ((str_number[0] > '2') ||
+                           ((str_number[0] == '2') && (str_number[1] > '3')))
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Possible values for hour field : 0-23.");
+                          return(INCORRECT);
+                       }
+                       number = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                    }
+                    if (first_number != -1)
+                    {
+                       step_size = 0;
+                       first_number = -1;
+                    }
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+                 break;
+              }
+         else if (*ptr == '\0')
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Premature end of time entry.");
+                 return(INCORRECT);
+              }
+         else if (*ptr == '/')
+              {
+                 char tmp_str_number[3];
+
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
+                 ptr++;
+                 if ((ptr = get_number(ptr, str_number)) == NULL)
+                 {
+                    return(INCORRECT);
+                 }
+                 if (str_number[1] == '\0')
+                 {
+                    if (isdigit((int)str_number[0]) == 0)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Division by non numeric value <%c>.",
+                                  str_number[0]);
+                       return(INCORRECT);
+                    }
+                    step_size = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    step_size = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                 }
+                 if ((step_size == 0) || (step_size > 23))
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Invalid step size %d in hour field.",
+                               step_size);
+                    return(INCORRECT);
+                 }
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'.", time_str);
+                 return(INCORRECT);
+              }
+      }
+      else
+      {
+         return(INCORRECT);
+      }
+   } /* for (;;) */
+   
+   /* Evaluate 'day of month' field (1-31) */
+   step_size = 0;
+   for (;;)
+   {
+      if ((step_size != 0) ||
+          ((ptr = get_number(ptr, str_number)) != NULL))
+      {
+         if (*ptr == ',')
+         {
+            if (str_number[0] == '*')
+            {
+               if ((str_number[1] == '\0') && (first_number == -1))
+               {
+                  /* ALL_DAY_OF_MONTH */;
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Combination of '*' and other numeric values in day of month field not possible.");
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (str_number[1] == '\0')
+               {
+                  if (str_number[0] == '0')
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Possible values for day of month field : 1-31.");
+                     return(INCORRECT);
+                  }
+                  number = str_number[0] - '0';
+               }
+               else
+               {
+                  if ((str_number[0] > '3') ||
+                      ((str_number[0] == '3') && (str_number[1] > '1')))
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Possible values for day of month field : 1-31.");
+                     return(INCORRECT);
+                  }
+                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
+               }
+               if (first_number != -1)
+               {
+                  step_size = 0;
+                  first_number = -1;
+               }
+            }
+            ptr++;
+         }
+         else if (*ptr == '-')
+              {
+                 if (str_number[1] == '\0')
+                 {
+                    if (str_number[0] == '0')
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for day of month field : 1-31.");
+                       return(INCORRECT);
+                    }
+                    first_number = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    if ((str_number[0] > '3') ||
+                        ((str_number[0] == '3') && (str_number[1] > '1')))
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for day of month field : 1-31.");
+                       return(INCORRECT);
+                    }
+                    first_number = ((str_number[0] - '0') * 10) +
+                                   str_number[1] - '0';
+                 }
+                 ptr++;
+              }
+         else if ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 if (str_number[0] == '*')
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       step_size = 0;
+                    }
+                    else
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Combination of '*' and other numeric values in day of month field not possible.");
+                       return(INCORRECT);
+                    }
+                 }
+                 else
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       if (str_number[0] == '0')
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Possible values for day of month field : 1-31.");
+                          return(INCORRECT);
+                       }
+                       number = str_number[0] - '0';
+                    }
+                    else
+                    {
+                       if ((str_number[0] > '3') ||
+                           ((str_number[0] == '3') && (str_number[1] > '1')))
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Possible values for day of month field : 1-31.");
+                          return(INCORRECT);
+                       }
+                       number = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                    }
+                    if (first_number != -1)
+                    {
+                       step_size = 0;
+                       first_number = -1;
+                    }
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+                 break;
+              }
+         else if (*ptr == '\0')
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Premature end of time entry.");
+                 return(INCORRECT);
+              }
+         else if (*ptr == '/')
+              {
+                 char tmp_str_number[3];
+
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
+                 ptr++;
+                 if ((ptr = get_number(ptr, str_number)) == NULL)
+                 {
+                    return(INCORRECT);
+                 }
+                 if (str_number[1] == '\0')
+                 {
+                    if (isdigit((int)str_number[0]) == 0)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Division by non numeric value <%c>.",
+                                  str_number[0]);
+                       return(INCORRECT);
+                    }
+                    step_size = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    step_size = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                 }
+                 if ((step_size == 0) || (step_size > 31))
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Invalid step size %d in day of month field.",
+                               step_size);
+                    return(INCORRECT);
+                 }
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'.", time_str);
+                 return(INCORRECT);
+              }
+      }
+      else
+      {
+         return(INCORRECT);
+      }
+   } /* for (;;) */
+   
+   /* Evaluate 'month' field (1-12) */
+   step_size = 0;
+   for (;;)
+   {
+      if ((step_size != 0) ||
+          ((ptr = get_number(ptr, str_number)) != NULL))
+      {
+         if (*ptr == ',')
+         {
+            if (str_number[0] == '*')
+            {
+               if ((str_number[1] == '\0') && (first_number == -1))
+               {
+                  /* ALL_MONTH */;
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Combination of '*' and other numeric values in time string field not possible.");
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (str_number[1] == '\0')
+               {
+                  if (str_number[0] == '0')
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Possible values for month field : 1-12.");
+                     return(INCORRECT);
+                  }
+                  number = str_number[0] - '0';
+               }
+               else
+               {
+                  if ((str_number[0] > '1') || (str_number[1] > '2'))
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Possible values for month field : 1-12.");
+                     return(INCORRECT);
+                  }
+                  number = ((str_number[0] - '0') * 10) + str_number[1] - '0';
+               }
+               if (first_number != -1)
+               {
+                  step_size = 0;
+                  first_number = -1;
+               }
+            }
+            ptr++;
+         }
+         else if (*ptr == '-')
+              {
+                 if (str_number[1] == '\0')
+                 {
+                    if (str_number[0] == '0')
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for month field : 1-12.");
+                       return(INCORRECT);
+                    }
+                    first_number = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    if ((str_number[0] > '1') || (str_number[1] > '2'))
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for month field : 1-12.");
+                       return(INCORRECT);
+                    }
+                    first_number = ((str_number[0] - '0') * 10) +
+                                   str_number[1] - '0';
+                 }
+                 ptr++;
+              }
+         else if ((*ptr == ' ') || (*ptr == '\t'))
+              {
+                 if (str_number[0] == '*')
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       step_size = 0;
+                    }
+                    else
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Combination of '*' and other numeric values in time string field not possible.");
+                       return(INCORRECT);
+                    }
+                 }
+                 else
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       if (str_number[0] == '0')
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Possible values for month field : 1-12.");
+                          return(INCORRECT);
+                       }
+                       number = str_number[0] - '0';
+                    }
+                    else
+                    {
+                       if ((str_number[0] > '1') || (str_number[1] > '2'))
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Possible values for month field : 1-12.");
+                          return(INCORRECT);
+                       }
+                       number = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                    }
+                    if (first_number != -1)
+                    {
+                       step_size = 0;
+                       first_number = -1;
+                    }
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+                 break;
+              }
+         else if (*ptr == '\0')
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Premature end of time entry.");
+                 return(INCORRECT);
+              }
+         else if (*ptr == '/')
+              {
+                 char tmp_str_number[3];
+
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
+                 ptr++;
+                 if ((ptr = get_number(ptr, str_number)) == NULL)
+                 {
+                    return(INCORRECT);
+                 }
+                 if (str_number[1] == '\0')
+                 {
+                    if (isdigit((int)str_number[0]) == 0)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Division by non numeric value <%c>.",
+                                  str_number[0]);
+                       return(INCORRECT);
+                    }
+                    step_size = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    step_size = ((str_number[0] - '0') * 10) +
+                                str_number[1] - '0';
+                 }
+                 if ((step_size == 0) || (step_size > 12))
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Invalid step size %d in month field.",
+                               step_size);
+                    return(INCORRECT);
+                 }
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'.", time_str);
+                 return(INCORRECT);
+              }
+      }
+      else
+      {
+         return(INCORRECT);
+      }
+   } /* for (;;) */
+
+   /* Evaluate 'day of week' field (1-7) */
+   step_size = 0;
+   for (;;)
+   {
+      if ((step_size != 0) ||
+          ((ptr = get_number(ptr, str_number)) != NULL))
+      {
+         if (*ptr == ',')
+         {
+            if (str_number[0] == '*')
+            {
+               if ((str_number[1] == '\0') && (first_number == -1))
+               {
+                  /* ALL_DAY_OF_WEEK */;
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Combination of '*' and other numeric values in time string field not possible.");
+                  return(INCORRECT);
+               }
+            }
+            else
+            {
+               if (str_number[1] == '\0')
+               {
+                  if ((str_number[0] < '1') || (str_number[0] > '7'))
+                  {
+                     system_log(WARN_SIGN, __FILE__, __LINE__,
+                                "Possible values for day of week field : 1-7.");
+                     return(INCORRECT);
+                  }
+                  number = str_number[0] - '0';
+               }
+               else
+               {
+                  system_log(WARN_SIGN, __FILE__, __LINE__,
+                             "Possible values for day of week field : 1-7.");
+                  return(INCORRECT);
+               }
+               if (first_number != -1)
+               {
+                  step_size = 0;
+                  first_number = -1;
+               }
+            }
+            ptr++;
+         }
+         else if (*ptr == '-')
+              {
+                 if (str_number[1] == '\0')
+                 {
+                    if ((str_number[0] < '1') || (str_number[0] > '7'))
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for day of week field : 1-7.");
+                       return(INCORRECT);
+                    }
+                    first_number = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Possible values for day of week field : 1-7.");
+                    return(INCORRECT);
+                 }
+                 ptr++;
+              }
+         else if ((*ptr == ' ') || (*ptr == '\t') || (*ptr == '\0'))
+              {
+                 if (str_number[0] == '*')
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       step_size = 0;
+                    }
+                    else
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Combination of '*' and other numeric values in time string field not possible.");
+                       return(INCORRECT);
+                    }
+                 }
+                 else
+                 {
+                    if (str_number[1] == '\0')
+                    {
+                       if ((str_number[0] < '1') || (str_number[0] > '7'))
+                       {
+                          system_log(WARN_SIGN, __FILE__, __LINE__,
+                                     "Possible values for day of week field : 1-7.");
+                          return(INCORRECT);
+                       }
+                       number = str_number[0] - '0';
+                    }
+                    else
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Possible values for day of week field : 1-7.");
+                       return(INCORRECT);
+                    }
+                    if (first_number != -1)
+                    {
+                       step_size = 0;
+                       first_number = -1;
+                    }
+                 }
+                 while ((*ptr == ' ') || (*ptr == '\t'))
+                 {
+                    ptr++;
+                 }
+                 break;
+              }
+         else if (*ptr == '/')
+              {
+                 char tmp_str_number[3];
+
+                 tmp_str_number[0] = str_number[0];
+                 tmp_str_number[1] = str_number[1];
+                 tmp_str_number[2] = str_number[2];
+                 ptr++;
+                 if ((ptr = get_number(ptr, str_number)) == NULL)
+                 {
+                    return(INCORRECT);
+                 }
+                 if (str_number[1] == '\0')
+                 {
+                    if (isdigit((int)str_number[0]) == 0)
+                    {
+                       system_log(WARN_SIGN, __FILE__, __LINE__,
+                                  "Division by non numeric value <%c>.",
+                                  str_number[0]);
+                       return(INCORRECT);
+                    }
+                    step_size = str_number[0] - '0';
+                 }
+                 else
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Invalid step size %d in day of week field.",
+                               step_size);
+                    return(INCORRECT);
+                 }
+                 if ((step_size == 0) || (step_size > 7))
+                 {
+                    system_log(WARN_SIGN, __FILE__, __LINE__,
+                               "Invalid step size %d in day of week field.",
+                               step_size);
+                    return(INCORRECT);
+                 }
+                 str_number[0] = tmp_str_number[0];
+                 str_number[1] = tmp_str_number[1];
+                 str_number[2] = tmp_str_number[2];
+              }
+              else
+              {
+                 system_log(WARN_SIGN, __FILE__, __LINE__,
+                            "Unable to handle time entry `%s'.", time_str);
                  return(INCORRECT);
               }
       }

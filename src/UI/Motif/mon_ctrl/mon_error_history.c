@@ -1,6 +1,6 @@
 /*
  *  mon_error_history.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004, 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -96,8 +96,8 @@ popup_error_history(int x_root, int y_root, int afd_no)
    display_height = DisplayHeight(display, DefaultScreen(display));
    max_lines = display_height / glyph_height;
 
-   (void)sprintf(ahl_file, "%s%s%s%d",
-                 p_work_dir, FIFO_DIR, AHL_FILE_NAME, afd_no);
+   (void)sprintf(ahl_file, "%s%s%s%s",
+                 p_work_dir, FIFO_DIR, AHL_FILE_NAME, msa[afd_no].afd_alias);
    (void)read_file(ahl_file, (char **)&ahl);
    total_error_list_length = ERROR_HISTORY_LENGTH *
                              (MAX_HOSTNAME_LENGTH + 1 + 5 + 1 +

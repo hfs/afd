@@ -1,6 +1,6 @@
 /*
  *  delete_log_ptrs.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -75,9 +75,8 @@ DESCR__E_M3
 #include <fcntl.h>
 #endif
 #include <errno.h>
-#include "fddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern char       *p_work_dir;
 
 
@@ -85,7 +84,6 @@ extern char       *p_work_dir;
 void
 delete_log_ptrs(struct delete_log *dl)
 {
-#ifdef _DELETE_LOG
    char        delete_log_fifo[MAX_PATH_LENGTH];
    struct stat stat_buf;
 
@@ -169,6 +167,5 @@ delete_log_ptrs(struct delete_log *dl)
       }
    }
 
-#endif /* _DELETE_LOG */
    return;
 }

@@ -1,6 +1,6 @@
 /*
  *  get_hostname.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -52,6 +52,10 @@ DESCR__S_M3
  **   15.12.1996 H.Kiehl Switched to URL format.
  **   15.12.2001 H.Kiehl When server= is set take this as hostname.
  **   19.02.2002 H.Kiehl Handle group names.
+ **   26.04.2007 H.Kiehl Return INCORRECT if we do not find a @ sign.
+ **                      Theoreticaly we could handle this for mailto, but
+ **                      no one used this and this case is to difficult
+ **                      to maintain, so lets just drop it.
  **
  */
 DESCR__E_M3
@@ -70,10 +74,6 @@ get_hostname(char *recipient, char *real_hostname)
    real_hostname[0] = '\0';
    while ((*ptr != '\0') && (*ptr != ':'))
    {
-      if (*ptr == '\\')
-      {
-         ptr++;
-      }
       ptr++;
    }
    if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/') &&
@@ -81,7 +81,6 @@ get_hostname(char *recipient, char *real_hostname)
    {
       ptr += 4;
       while ((*ptr != '\0') && (*ptr != '@') &&
-             (*ptr != '/') && /* url-path */
              (*ptr != ':') && /* port number */
              (*ptr != ';') && /* server= */
              (i < MAX_REAL_HOSTNAME_LENGTH))
@@ -142,6 +141,19 @@ get_hostname(char *recipient, char *real_hostname)
          }
          real_hostname[i] = *ptr;
          i++; ptr++;
+      }
+   }
+   else
+   {
+      if (i == 0)
+      {
+         /*
+          * Actually this is not quit true that we return INCORRECT,
+          * since for mailto we might handle it correctly if we do
+          * get the ;server= argument. But since nobody uses this
+          * and the code is easier to maintain, lets drop this.
+          */
+         return(INCORRECT);
       }
    }
 

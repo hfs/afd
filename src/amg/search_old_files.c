@@ -164,8 +164,10 @@ search_old_files(time_t current_time)
                      diff_time = 0;
                   }
                   if (((p_dir->d_name[0] == '.') &&
-                       (fra[de[i].fra_pos].unknown_file_time == 0) &&
-                       (diff_time > 3600)) ||
+                       (diff_time > 3600) &&
+                       ((fra[de[i].fra_pos].unknown_file_time == 0) ||
+                        ((fra[de[i].fra_pos].delete_files_flag & OLD_LOCKED_FILES) &&
+                         (diff_time > fra[de[i].fra_pos].locked_file_time)))) ||
                       ((diff_time > 5L) &&
                        (diff_time > fra[de[i].fra_pos].unknown_file_time)))
                   {

@@ -183,7 +183,7 @@ store_passwd(char *recipient, int remove_passwd)
                           "Hmmm. How am I suppose to find the hostname?");
                return;
             }
-            if (i == MAX_USER_NAME_LENGTH)
+            if (i >= MAX_USER_NAME_LENGTH)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Unable to store password. It is longer than %d Bytes!",
@@ -212,6 +212,9 @@ store_passwd(char *recipient, int remove_passwd)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Hmmm. How am I suppose to find the hostname?");
+#ifdef _DEBUG
+                 system_log(DEBUG_SIGN, __FILE__, __LINE__, "`%s'", recipient);
+#endif
                  return;
               }
 

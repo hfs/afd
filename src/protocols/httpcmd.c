@@ -150,11 +150,7 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
    struct sockaddr_in sin;
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
-   if ((sin.sin_addr.s_addr = inet_addr(hostname)) != -1)
-   {
-      sin.sin_family = AF_INET;
-   }
-   else
+   if ((sin.sin_addr.s_addr = inet_addr(hostname)) == -1)
    {
       register struct hostent *p_host = NULL;
 
@@ -193,19 +189,18 @@ http_connect(char *hostname, int port, char *user, char *passwd, int sndbuf_size
 #endif
          return(INCORRECT);
       }
-      sin.sin_family = p_host->h_addrtype;
 
-      /* Copy IP number to socket structure */
+      /* Copy IP number to socket structure. */
       memcpy((char *)&sin.sin_addr, p_host->h_addr, p_host->h_length);
    }
 
-   if ((http_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+   if ((http_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "http_connect(): socket() error : %s", strerror(errno));
       return(INCORRECT);
    }
-
+   sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
    if (sndbuf_size > 0)
@@ -1321,10 +1316,10 @@ get_http_reply(int *ret_bytes_buffered)
            ((msg_str[2] == 'T') || (msg_str[2] == 't')) &&
            ((msg_str[3] == 'P') || (msg_str[3] == 'p')) &&
            (msg_str[4] == '/') &&
-           (isdigit(msg_str[5])) && (msg_str[6] == '.') &&
-           (isdigit(msg_str[7])) && (msg_str[8] == ' ') &&
-           (isdigit(msg_str[9])) && (isdigit(msg_str[10])) &&
-           (isdigit(msg_str[11]))))
+           (isdigit((int)(msg_str[5]))) && (msg_str[6] == '.') &&
+           (isdigit((int)(msg_str[7]))) && (msg_str[8] == ' ') &&
+           (isdigit((int)(msg_str[9]))) && (isdigit((int)(msg_str[10]))) &&
+           (isdigit((int)(msg_str[11])))))
       {
          hmr.http_version = ((msg_str[5] - '0') * 10) + (msg_str[7] - '0');
          status_code = ((msg_str[9] - '0') * 100) +
@@ -1393,7 +1388,7 @@ get_http_reply(int *ret_bytes_buffered)
                {
                   int k = i;
 
-                  while ((isdigit(msg_str[k])) && (k < read_length))
+                  while ((isdigit((int)(msg_str[k]))) && (k < read_length))
                   {
                      k++;
                   }

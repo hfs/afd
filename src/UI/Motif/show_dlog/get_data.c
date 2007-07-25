@@ -170,27 +170,10 @@ static void   display_data(int, time_t, time_t),
            ptr++; i--;         \
            continue;           \
         }
-#define CONVERT_TIME()                               \
-        {                                            \
-           line[0] = ((p_ts->tm_mon + 1) / 10) + '0';\
-           line[1] = ((p_ts->tm_mon + 1) % 10) + '0';\
-           line[2] = '.';                            \
-           line[3] = (p_ts->tm_mday / 10) + '0';     \
-           line[4] = (p_ts->tm_mday % 10) + '0';     \
-           line[5] = '.';                            \
-           line[7] = (p_ts->tm_hour / 10) + '0';     \
-           line[8] = (p_ts->tm_hour % 10) + '0';     \
-           line[9] = ':';                            \
-           line[10] = (p_ts->tm_min / 10) + '0';     \
-           line[11] = (p_ts->tm_min % 10) + '0';     \
-           line[12] = ':';                           \
-           line[13] = (p_ts->tm_sec / 10) + '0';     \
-           line[14] = (p_ts->tm_sec % 10) + '0';     \
-        }
 #define INSERT_TIME_TYPE(reason, reason_length)            \
         {                                                  \
            (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);\
-           time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);\
+           time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);\
            if (first_date_found == -1)                     \
            {                                               \
               first_date_found = time_when_transmitted;    \
@@ -295,7 +278,7 @@ static void   display_data(int, time_t, time_t),
                                                                        \
            for (ii = 0; ii < no_of_search_hosts; ii++)                 \
            {                                                           \
-              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
               {                                                        \
                  current_search_host = ii;                             \
                  break;                                                \
@@ -303,7 +286,7 @@ static void   display_data(int, time_t, time_t),
            }                                                           \
            if (current_search_host != -1)                              \
            {                                                           \
-              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                     \
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;    \
               while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
@@ -377,7 +360,7 @@ static void   display_data(int, time_t, time_t),
                                                                        \
            for (ii = 0; ii < no_of_search_hosts; ii++)                 \
            {                                                           \
-              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
               {                                                        \
                  current_search_host = ii;                             \
                  break;                                                \
@@ -385,7 +368,7 @@ static void   display_data(int, time_t, time_t),
            }                                                           \
            if (current_search_host != -1)                              \
            {                                                           \
-              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                     \
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;    \
               while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
@@ -470,7 +453,7 @@ static void   display_data(int, time_t, time_t),
                                                                        \
            for (ii = 0; ii < no_of_search_hosts; ii++)                 \
            {                                                           \
-              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
               {                                                        \
                  current_search_host = ii;                             \
                  break;                                                \
@@ -478,7 +461,7 @@ static void   display_data(int, time_t, time_t),
            }                                                           \
            if (current_search_host != -1)                              \
            {                                                           \
-              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                     \
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;    \
               while (*ptr != SEPARATOR_CHAR)                           \
               {                                                        \
                  ptr++;                                                \
@@ -555,7 +538,7 @@ static void   display_data(int, time_t, time_t),
                                                                        \
                for (ii = 0; ii < no_of_search_hosts; ii++)             \
                {                                                       \
-                  if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
                   {                                                    \
                      current_search_host = ii;                         \
                      break;                                            \
@@ -563,10 +546,10 @@ static void   display_data(int, time_t, time_t),
                }                                                       \
                if (current_search_host != -1)                          \
                {                                                       \
-                  ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                 \
+                  ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
                   if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)\
                   {                                                    \
-                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);\
+                     il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);\
                      INSERT_TIME_TYPE((id_string), (id_string_length));\
                      j = 0;                                            \
                      while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))\
@@ -594,7 +577,7 @@ static void   display_data(int, time_t, time_t),
 #ifdef HAVE_STRTOULL
 #define FILE_SIZE_ONLY(id_string, id_string_length)                    \
         {                                                              \
-           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                        \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;       \
            while (*ptr != SEPARATOR_CHAR)                              \
            {                                                           \
               ptr++;                                                   \
@@ -659,7 +642,7 @@ static void   display_data(int, time_t, time_t),
 # ifdef LINUX
 #define FILE_SIZE_ONLY(id_string, id_string_length)                    \
         {                                                              \
-           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                        \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;       \
            while (*ptr != SEPARATOR_CHAR)                              \
            {                                                           \
               ptr++;                                                   \
@@ -735,7 +718,7 @@ static void   display_data(int, time_t, time_t),
 # else
 #define FILE_SIZE_ONLY(id_string, id_string_length)                    \
         {                                                              \
-           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;                        \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;       \
            while (*ptr != SEPARATOR_CHAR)                              \
            {                                                           \
               ptr++;                                                   \
@@ -853,7 +836,7 @@ get_data(void)
 
    if ((str_list = (XmStringTable)XtMalloc(LINES_BUFFERED * sizeof(XmString))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(appshell, FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -1039,7 +1022,7 @@ extract_data(char *current_log_file, int file_no)
 
    /* Get latest entry. */
    tmp_ptr = src + stat_buf.st_size - 2;
-   while ((*tmp_ptr != '\n') && (src != (tmp_ptr - 1)))
+   while ((*tmp_ptr != '\n') && (src != tmp_ptr))
    {
       tmp_ptr--;
    }
@@ -1051,12 +1034,12 @@ extract_data(char *current_log_file, int file_no)
    {
       ptr = tmp_ptr;
    }
-   time_val = (time_t)strtol(ptr, NULL, 16);
+   time_val = (time_t)str2timet(ptr, NULL, 16);
    latest_entry = time_val;
 
    /* Get earliest entry. */
    ptr = src;
-   time_val = (time_t)strtol(ptr, NULL, 16);
+   time_val = (time_t)str2timet(ptr, NULL, 16);
    earliest_entry = time_val;
 
    if (local_start_time == -1)
@@ -1203,14 +1186,14 @@ search_time(char   *src,
          do
          {
             ptr = bs_ptr;
-            ptr -= 11 + MAX_HOSTNAME_LENGTH + 3;
-            while (*ptr != '\n')
+            ptr -= LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+            while ((ptr >= src) && (*ptr != '\n'))
             {
                ptr--;
             }
             bs_ptr = ptr - 1;
             ptr++;
-            time_val = (time_t)strtol(ptr, NULL, 16);
+            time_val = (time_t)str2timet(ptr, NULL, 16);
          } while ((time_val >= search_time_val) && (ptr > src));
          while (*ptr != '\n')
          {
@@ -1222,13 +1205,13 @@ search_time(char   *src,
          ptr = src;
          do
          {
-            ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+            ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
             while (*ptr != '\n')
             {
                ptr++;
             }
             ptr++;
-            time_val = (time_t)strtol(ptr, NULL, 16);
+            time_val = (time_t)str2timet(ptr, NULL, 16);
          } while ((time_val < search_time_val) && (ptr < (src + size)));
          while (*ptr != '\n')
          {
@@ -1285,7 +1268,7 @@ no_criteria(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
@@ -1406,8 +1389,8 @@ no_criteria(register char *ptr,
                  INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-         ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
@@ -1415,7 +1398,7 @@ no_criteria(register char *ptr,
             ptr++; j++;
          }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -1539,16 +1522,16 @@ file_name_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
             if (toggles_set & SHOW_AGE_OUTPUT)
             {
-               ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+               ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                {
-                  il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                  il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                   INSERT_TIME_TYPE(AGE_OUTPUT_ID_STR, AGE_OUTPUT_ID_LENGTH);
                   j = 0;
                   while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -1572,10 +1555,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = YES;
                  if (toggles_set & SHOW_AGE_INPUT)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(AGE_INPUT_ID_STR, AGE_INPUT_ID_LENGTH);
                        j = 0;
                        while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -1600,10 +1583,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = YES;
                  if (toggles_set & SHOW_DUP_INPUT)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(DUP_INPUT_ID_STR, DUP_INPUT_ID_LENGTH);
                        j = 0;
                        while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -1627,10 +1610,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_DUP_OUTPUT)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(DUP_OUTPUT_ID_STR, DUP_OUTPUT_ID_LENGTH);
                        j = 0;
                        while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -1655,10 +1638,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_USER_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(USER_DEL_ID_STR, USER_DEL_ID_LENGTH);
                        j = 0;
                        while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -1682,10 +1665,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_EXEC_FAILED_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(EXEC_FAILED_DEL_ID_STR,
                                         EXEC_FAILED_DEL_ID_LENGTH);
                        j = 0;
@@ -1710,10 +1693,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(OTHER_OUTPUT_DEL_ID_STR,
                                         OTHER_OUTPUT_DEL_ID_LENGTH);
                        j = 0;
@@ -1738,10 +1721,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = YES;
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(OTHER_INPUT_DEL_ID_STR,
                                         OTHER_INPUT_DEL_ID_LENGTH);
                        j = 0;
@@ -1766,10 +1749,10 @@ file_name_only(register char *ptr,
                  il[file_no].input_id[item_counter] = YES;
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(DEL_UNKNOWN_FILE_ID_STR,
                                         DEL_UNKNOWN_FILE_ID_LENGTH);
                        j = 0;
@@ -1791,10 +1774,10 @@ file_name_only(register char *ptr,
               }
               else
               {
-                 ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                 ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                  {
-                    il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                    il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                     INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
                     j = 0;
                     while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -1809,7 +1792,7 @@ file_name_only(register char *ptr,
                  }
               }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -1933,7 +1916,7 @@ file_size_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
@@ -2053,9 +2036,9 @@ file_size_only(register char *ptr,
                  FILE_SIZE_ONLY(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          il[file_no].line_offset[item_counter] = (int)(ptr - p_start_log_file);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -2068,7 +2051,7 @@ file_size_only(register char *ptr,
             *(p_file_name + j) = *ptr;
             ptr++; j++;
          }
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -2156,13 +2139,13 @@ file_name_and_size(register char *ptr,
 
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
             if (toggles_set & SHOW_AGE_OUTPUT)
             {
-               ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+               ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                {
                   IGNORE_ENTRY();
@@ -2178,7 +2161,7 @@ file_name_and_size(register char *ptr,
                  il[file_no].input_id[item_counter] = YES;
                  if (toggles_set & SHOW_AGE_INPUT)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                     {
                        IGNORE_ENTRY();
@@ -2195,7 +2178,7 @@ file_name_and_size(register char *ptr,
                  il[file_no].input_id[item_counter] = YES;
                  if (toggles_set & SHOW_DUP_INPUT)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                     {
                        IGNORE_ENTRY();
@@ -2211,7 +2194,7 @@ file_name_and_size(register char *ptr,
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_DUP_OUTPUT)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                     {
                        IGNORE_ENTRY();
@@ -2228,7 +2211,7 @@ file_name_and_size(register char *ptr,
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_USER_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                     {
                        IGNORE_ENTRY();
@@ -2244,7 +2227,7 @@ file_name_and_size(register char *ptr,
                  il[file_no].input_id[item_counter] = NO;
                  if (toggles_set & SHOW_EXEC_FAILED_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                     {
                        IGNORE_ENTRY();
@@ -2268,7 +2251,7 @@ file_name_and_size(register char *ptr,
                  }
                  if (toggles_set & SHOW_OTHER_DEL)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                     {
                        IGNORE_ENTRY();
@@ -2281,14 +2264,14 @@ file_name_and_size(register char *ptr,
               }
               else
               {
-                 ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                 ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                  if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                  {
                     IGNORE_ENTRY();
                  }
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -2354,10 +2337,10 @@ file_name_and_size(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -2503,7 +2486,7 @@ recipient_only(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
@@ -2513,7 +2496,7 @@ recipient_only(register char *ptr,
 
                for (ii = 0; ii < no_of_search_hosts; ii++)
                {
-                  if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                   {
                      current_search_host = ii;
                      break;
@@ -2542,7 +2525,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2572,7 +2555,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2601,7 +2584,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2631,7 +2614,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2660,7 +2643,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2690,7 +2673,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2720,7 +2703,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2750,7 +2733,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -2777,7 +2760,7 @@ recipient_only(register char *ptr,
 
                  for (ii = 0; ii < no_of_search_hosts; ii++)
                  {
-                    if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                     {
                        current_search_host = ii;
                        break;
@@ -2793,8 +2776,8 @@ recipient_only(register char *ptr,
                  }
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
-         ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
@@ -2802,7 +2785,7 @@ recipient_only(register char *ptr,
             ptr++; j++;
          }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -2923,7 +2906,7 @@ file_name_and_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
@@ -2990,7 +2973,7 @@ file_name_and_recipient(register char *ptr,
 
                  for (ii = 0; ii < no_of_search_hosts; ii++)
                  {
-                    if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                     {
                        current_search_host = ii;
                        break;
@@ -2998,10 +2981,10 @@ file_name_and_recipient(register char *ptr,
                  }
                  if (current_search_host != -1)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
                     {
-                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+                       il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
                        INSERT_TIME_TYPE(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
                        j = 0;
                        while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -3021,7 +3004,7 @@ file_name_and_recipient(register char *ptr,
                  }
               }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -3141,7 +3124,7 @@ file_size_and_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
@@ -3265,9 +3248,9 @@ file_size_and_recipient(register char *ptr,
                  FILE_SIZE_AND_RECIPIENT(UNKNOWN_ID_STR, UNKNOWN_ID_LENGTH);
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          il[file_no].line_offset[item_counter] = (int)(ptr - p_start_log_file);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -3280,7 +3263,7 @@ file_size_and_recipient(register char *ptr,
             *(p_file_name + j) = *ptr;
             ptr++; j++;
          }
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -3364,7 +3347,7 @@ file_name_size_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         type = (int)(*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1) - 48);
+         type = (int)(*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1) - 48);
          if (type == AGE_OUTPUT)
          {
             il[file_no].input_id[item_counter] = NO;
@@ -3374,7 +3357,7 @@ file_name_size_recipient(register char *ptr,
 
                for (ii = 0; ii < no_of_search_hosts; ii++)
                {
-                  if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                   {
                      current_search_host = ii;
                      break;
@@ -3382,7 +3365,7 @@ file_name_size_recipient(register char *ptr,
                }
                if (current_search_host != -1)
                {
-                  ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                  ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                   if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                   {
                      IGNORE_ENTRY();
@@ -3407,7 +3390,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3415,7 +3398,7 @@ file_name_size_recipient(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                        if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                        {
                           IGNORE_ENTRY();
@@ -3441,7 +3424,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3449,7 +3432,7 @@ file_name_size_recipient(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                        if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                        {
                           IGNORE_ENTRY();
@@ -3474,7 +3457,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3482,7 +3465,7 @@ file_name_size_recipient(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                        if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                        {
                           IGNORE_ENTRY();
@@ -3508,7 +3491,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3516,7 +3499,7 @@ file_name_size_recipient(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                        if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                        {
                           IGNORE_ENTRY();
@@ -3541,7 +3524,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3549,7 +3532,7 @@ file_name_size_recipient(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                        if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                        {
                           IGNORE_ENTRY();
@@ -3582,7 +3565,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3590,7 +3573,7 @@ file_name_size_recipient(register char *ptr,
                     }
                     if (current_search_host != -1)
                     {
-                       ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                       ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                        if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                        {
                           IGNORE_ENTRY();
@@ -3612,7 +3595,7 @@ file_name_size_recipient(register char *ptr,
 
                  for (ii = 0; ii < no_of_search_hosts; ii++)
                  {
-                    if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                     {
                        current_search_host = ii;
                        break;
@@ -3620,7 +3603,7 @@ file_name_size_recipient(register char *ptr,
                  }
                  if (current_search_host != -1)
                  {
-                    ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+                    ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
                     if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
                     {
                        IGNORE_ENTRY();
@@ -3632,7 +3615,7 @@ file_name_size_recipient(register char *ptr,
                  }
               }
 
-         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
+         il[file_no].line_offset[item_counter] = (int)(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3 - p_start_log_file);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -3698,10 +3681,10 @@ file_name_size_recipient(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length + 1);
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;

@@ -1,6 +1,6 @@
 /*
  *  check_permissions.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -78,6 +78,7 @@ check_permissions(void)
                      {
 #ifdef GROUP_CAN_WRITE
                         { SYSTEM_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
+                        { EVENT_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { RECEIVE_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { TRANSFER_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { TRANS_DEBUG_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
@@ -120,9 +121,9 @@ check_permissions(void)
                         { AMG_COUNTER_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { FILE_MASK_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) },
                         { DC_LIST_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
-                        { WINDOW_ID_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
 #else
                         { SYSTEM_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
+                        { EVENT_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { RECEIVE_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { TRANSFER_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { TRANS_DEBUG_LOG_FIFO, (S_IFIFO | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
@@ -165,7 +166,6 @@ check_permissions(void)
                         { AMG_COUNTER_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { FILE_MASK_FILE, (S_IFREG | S_IRUSR | S_IWUSR), (S_IRUSR | S_IWUSR) },
                         { DC_LIST_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP| S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
-                        { WINDOW_ID_FILE, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP| S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
 #endif /* !GROUP_CAN_WRITE */
                         { DIR_NAME_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
                         { JOB_ID_DATA_FILE, (S_IFREG | FILE_MODE), FILE_MODE },
@@ -205,6 +205,7 @@ check_permissions(void)
 # endif
                         { RECEIVE_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
                         { SYSTEM_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
+                        { EVENT_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
                         { TRANSFER_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
                         { TRANS_DB_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH) },
 #else
@@ -231,6 +232,7 @@ check_permissions(void)
 # endif
                         { RECEIVE_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
                         { SYSTEM_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
+                        { EVENT_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
                         { TRANSFER_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
                         { TRANS_DB_LOG_NAME, (S_IFREG | S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH), (S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) },
 #endif /* GROUP_CAN_WRITE */

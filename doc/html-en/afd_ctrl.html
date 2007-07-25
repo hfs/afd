@@ -23,8 +23,23 @@ see <a href="afd_users.html">afd.users</a> for more details.
 </p>
 <br clear=left>
 <br>
-<img align=left src="../images/host_popup.png" alt="[popup of Host button]">
+<img align=left src="../images/host_popup.gif" alt="[popup of Host button]">
 <table border>
+   <tr>
+      <td><a name="handle_event">Handle event</a></td>
+      <td>This allows one to acknowledge an error situation, put an
+          error situation offline or unset the acknowledge and/or offline
+          setting. You must select one or more host to get the
+          handle_event popup. In the reason text field one can enter
+          a reason which will then show up in the event log via the
+          <a href="show_elog.html">show_elog</a> dialog. Acknowleding
+          an event means that the destination alias field now becomes
+          pink (<img src="../images/acknowledge_host.gif">). If the
+          host is put offline it will turn Steelblue
+          (<img src="../images/offline_host.gif">) and errors and
+          warnings will be marked as offline in the logs.</td>
+      <td align=center><img src="../images/handle_event_popup.gif" alt="[Dialog to handle event]"></td>
+   </tr>
    <tr>
       <td><a name="start_stop_input_queue">Start/Stop input queue</a></td>
       <td>Allows you to start or stop the queue of one or more selected
@@ -55,7 +70,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
       <td><a name="Switch_host">Switch host</a></td>
       <td>Switch host allows to change the destination address of
           selected host. To see whether a certain host has a secondary
-          address look in <a HREF="afd_info.html">afd_info dialog</a>.</td>
+          address look in <a href="afd_info.html">afd_info dialog</a>.</td>
       <td>&nbsp;</td>
    </tr>
    <tr>
@@ -103,7 +118,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
       <td>Search + (De)Select</td>
       <td>This allows to search for a given host (alias and real) name,
           with wild cards. The found hosts will then be selected.</td>
-      <td><img src="../images/search_select.png" alt="[Search and select dialog]"></td>
+      <td align=center><img src="../images/search_select.png" alt="[Search and select dialog]"></td>
    </tr>
    <tr>
       <td>Long/Short line</td>
@@ -138,12 +153,18 @@ see <a href="afd_users.html">afd.users</a> for more details.
 </table>
 <br clear=left>
 <br>
-<img align=left src="../images/view_popup.png" alt="[popup of View button]">
+<img align=left src="../images/view_popup.gif" alt="[popup of View button]">
 <table border>
    <tr>
       <td>System Log</td>
       <td>System Log opens the <a href="show_log.html">system
           dialog</a>. See <a href="log.html#system_log">Log Files</a> for
+          a more detailed description of the output.</td>
+   </tr>
+   <tr>
+      <td>Event Log</td>
+      <td>Event Log opens the <a href="show_elog.html">event
+          dialog</a>. See <a href="log.html#event_log">Log Files</a> for
           a more detailed description of the output.</td>
    </tr>
    <tr>
@@ -358,6 +379,15 @@ The meaning of each field is shown below:
 	  <td>Transfer active. Files are currently being transfered.</td>
        </tr>
        <tr>
+          <td><center><img src="../images/acknowledge_host.gif"></center></td>
+	  <td>Errors acknowledged. Files cannot be transmitted.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/offline_host.gif"></center></td>
+	  <td>Errors/Warnings offline. Files cannot be transmitted.
+	      Error and warnings have been put offline.</td>
+       </tr>
+       <tr>
           <td><center><img src="../images/error_host.gif"></center></td>
 	  <td>Error. Files cannot be transmitted. It turns red when the error
 	      counter has reached the value set in the 
@@ -416,16 +446,56 @@ The meaning of each field is shown below:
 <tr>
    <td><b>4</b></td>
    <td>Transfer Led</td>
-   <td>The color of this LED tells what the FD will do when a message arrives
-       for this destination.
+   <td>This LED is split in two halfs. The top half is for output and the
+       bottom part is input. The color tells the status of this which can be
+       one of the following:
        <table>
        <tr>
-          <td><center><img src="../images/normal_status.gif"></center></td>
-	  <td>Normal status. Files will be distributed by the FD.</td>
+          <td><center><img src="../images/normal_output_status.gif"></center></td>
+	  <td>Normal status, retrieve not configured. Files will be
+	      distributed by the FD.</td>
        </tr>
        <tr>
-          <td><center><img src="../images/transfer_stopped.gif"></center></td>
+          <td><center><img src="../images/normal_output_input_disabled_status.gif"></center></td>
+	  <td>Normal status, retrieve disabled. Files will be
+	      distributed by the FD.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/normal_input_status.gif"></center></td>
+	  <td>Normal status, distribtion not configured. Files will be
+	      retrieved by the FD.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/normal_input_output_status.gif"></center></td>
+	  <td>Normal status. Files will be retrieved and distributed by the
+	      FD.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfer_stopped_output.gif"></center></td>
+	  <td>Distribution stopped, retrieve not configured. No files will
+	      be distributed.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfer_stopped_output_input_disabled.gif"></center></td>
+	  <td>Distribution stopped, retrieve disabled. No files will
+	      be distributed.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfer_stopped_input.gif"></center></td>
+	  <td>Retrieve stopped, distribution not configured. No files will
+	      be retrieved.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/transfer_stopped_input_output.gif"></center></td>
 	  <td>Transfer stopped by user. No files will be distributed.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/input_disabled_output_not_configured.gif"></center></td>
+	  <td>No distribution configured, retrieve disabled.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/input_output_not_configured.gif"></center></td>
+	  <td>No retrieve or distribution configured.</td>
        </tr>
        </table>
    </td>
@@ -836,9 +906,9 @@ it shorter.
 <table width=100%>
 <tr>
    <td width=90%><address><small>
-   Copyright &copy; 1997 - 2006 by H.Kiehl<br>
+   Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 21.11.2006
+   Last updated: 21.07.2007
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

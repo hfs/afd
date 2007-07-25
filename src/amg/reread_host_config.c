@@ -1,7 +1,7 @@
 /*
  *  reread_host_config.c - Part of AFD, an automatic file distribution
  *                         program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,19 +26,26 @@ DESCR__S_M3
  **   reread_host_config - reads the HOST_CONFIG file
  **
  ** SYNOPSIS
- **   void reread_host_config(time_t           *hc_old_time,
- **                           int              *old_no_of_hosts,
- **                           int              *rewrite_host_config,
- **                           size_t           *old_size,
- **                           struct host_list **old_hl,
- **                           int              inform_fd)
+ **   int reread_host_config(time_t           *hc_old_time,
+ **                          int              *old_no_of_hosts,
+ **                          int              *rewrite_host_config,
+ **                          size_t           *old_size,
+ **                          struct host_list **old_hl,
+ **                          unsigned int     *warn_counter,
+ **                          int              inform_fd)
  **
  ** DESCRIPTION
  **   This function reads the HOST_CONFIG file and sets the values
  **   in the FSA.
  **
  ** RETURN VALUES
- **   None.
+ **   Depending on the error, the function calls exit() or returns
+ **   INCORRECT. On success one of the following values are returned:
+ **     NO_CHANGE_IN_HOST_CONFIG
+ **     HOST_CONFIG_RECREATED
+ **     HOST_CONFIG_DATA_CHANGED
+ **     HOST_CONFIG_ORDER_CHANGED
+ **     HOST_CONFIG_DATA_ORDER_CHANGED
  **
  ** AUTHOR
  **   H.Kiehl
@@ -49,6 +56,7 @@ DESCR__S_M3
  **                      and some protocol specific information.
  **   19.02.2002 H.Kiehl Stop process dir_check when we reorder the
  **                      FSA.
+ **   03.05.2007 H.Kiehl Changed function that it returns what was done.
  **
  */
 DESCR__E_M3
@@ -62,7 +70,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External Global Variables */
+/* External Global Variables. */
 extern int                        no_of_hosts;
 extern pid_t                      dc_pid;
 extern char                       *host_config_file,
@@ -73,14 +81,16 @@ extern struct afd_status          *p_afd_status;
 
 
 /*########################## reread_host_config() #######################*/
-void
+int
 reread_host_config(time_t           *hc_old_time,
                    int              *old_no_of_hosts,
                    int              *rewrite_host_config,
                    size_t           *old_size,
                    struct host_list **old_hl,
+                   unsigned int     *warn_counter,
                    int              inform_fd)
 {
+   int         ret = NO_CHANGE_IN_HOST_CONFIG;
    struct stat stat_buf;
 
    /* Get the size of the database file */
@@ -91,17 +101,18 @@ reread_host_config(time_t           *hc_old_time,
          system_log(INFO_SIGN, NULL, 0,
                     "Recreating HOST_CONFIG file with %d hosts.", no_of_hosts);
          *hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
+         return(HOST_CONFIG_RECREATED);
       }
       else
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Could not stat() HOST_CONFIG file %s : %s",
                     host_config_file, strerror(errno));
-         return;
+         return(INCORRECT);
       }
    }
 
-   /* Check if HOST_CONFIG has changed */
+   /* Check if HOST_CONFIG has changed. */
    if (*hc_old_time < stat_buf.st_mtime)
    {
       int              dir_check_stopped = NO,
@@ -140,7 +151,7 @@ reread_host_config(time_t           *hc_old_time,
       /* Now store the new time */
       *hc_old_time = stat_buf.st_mtime;
 
-      /* Reread HOST_CONFIG file */
+      /* Reread HOST_CONFIG file. */
       if (hl != NULL)
       {
          *old_size = no_of_hosts * sizeof(struct host_list);
@@ -149,7 +160,7 @@ reread_host_config(time_t           *hc_old_time,
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "malloc() error : %s", strerror(errno));
-            return;
+            return(INCORRECT);
          }
          (void)memcpy(*old_hl, hl, *old_size);
          *old_no_of_hosts = no_of_hosts;
@@ -162,7 +173,7 @@ reread_host_config(time_t           *hc_old_time,
        * will overwrite no_of_hosts! Store it somewhere save.
        */
       *rewrite_host_config = eval_host_config(&no_of_hosts, host_config_file,
-                                              &hl, NO);
+                                              &hl, warn_counter, NO);
       new_no_of_hosts = no_of_hosts;
       if (fsa_attach() == INCORRECT)
       {
@@ -314,7 +325,7 @@ reread_host_config(time_t           *hc_old_time,
                fsa[host_pos].dup_check_flag = hl[i].dup_check_flag;
                fsa[host_pos].dup_check_timeout = hl[i].dup_check_timeout;
 #endif
-               fsa[host_pos].special_flag = (fsa[host_pos].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
+               fsa[host_pos].special_flag = 0;
                if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
                {
                   fsa[host_pos].special_flag |= HOST_DISABLED;
@@ -339,6 +350,14 @@ reread_host_config(time_t           *hc_old_time,
                else
                {
                   fsa[host_pos].host_status &= ~PAUSE_QUEUE_STAT;
+               }
+               if (hl[i].host_status & HOST_ERROR_OFFLINE_STATIC)
+               {
+                  fsa[host_pos].host_status |= HOST_ERROR_OFFLINE_STATIC;
+               }
+               else
+               {
+                  fsa[host_pos].host_status &= ~HOST_ERROR_OFFLINE_STATIC;
                }
             }
          }
@@ -384,6 +403,7 @@ reread_host_config(time_t           *hc_old_time,
       {
          system_log(INFO_SIGN, NULL, 0,
                     "%d host changed in HOST_CONFIG.", no_of_host_changed);
+         ret = HOST_CONFIG_DATA_CHANGED;
       }
 
       /*
@@ -442,6 +462,14 @@ reread_host_config(time_t           *hc_old_time,
             dir_check_stopped = YES;
          }
          system_log(INFO_SIGN, NULL, 0, "Changing host alias order.");
+         if (ret == HOST_CONFIG_DATA_CHANGED)
+         {
+            ret = HOST_CONFIG_DATA_ORDER_CHANGED;
+         }
+         else
+         {
+            ret = HOST_CONFIG_ORDER_CHANGED;
+         }
          if (inform_fd == YES)
          {
             if ((p_afd_status->amg_jobs & REREADING_DIR_CONFIG) == 0)
@@ -474,5 +502,5 @@ reread_host_config(time_t           *hc_old_time,
                  "There is no change in the HOST_CONFIG file.");
    }
 
-   return;
+   return(ret);
 }

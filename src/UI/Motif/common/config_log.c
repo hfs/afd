@@ -1,6 +1,6 @@
 /*
  *  config_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -25,10 +25,15 @@ DESCR__S_M3
  **   config_log - log configuration entries to system log
  **
  ** SYNOPSIS
- **   void config_log(char *fmt, ...)
+ **   void config_log(unsigned int event_class,
+ **                   unsigned int event_type,
+ **                   unsigned int event_action,
+ **                   char         *alias,
+ **                   char         *fmt, ...)
  **
  ** DESCRIPTION
- **   This function logs all configuration options to SYSTEM_LOG.
+ **   This function logs all configuration options to SYSTEM_LOG and
+ **   EVENT_LOG.
  **
  ** RETURN VALUES
  **   None.
@@ -38,6 +43,7 @@ DESCR__S_M3
  **
  ** HISTORY
  **   28.03.2004 H.Kiehl Created
+ **   24.06.2007 H.Kiehl Added event log.
  **
  */
 DESCR__E_M3
@@ -50,22 +56,28 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <errno.h>
 #include "x_common_defs.h"
+#include "ea_str.h"
 
-/* External global variables */
+/* External global variables. */
 extern int  sys_log_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
 extern int  sys_log_readfd;
 #endif
-extern char *profile,
-            *p_work_dir,
+extern char *p_work_dir,
             user[];
 
 
 /*############################ config_log() #############################*/
 void
-config_log(char *fmt, ...)
+config_log(unsigned int event_class,
+           unsigned int event_type,
+           unsigned int event_action,
+           char         *alias,
+           char         *fmt, ...)
 {
-   size_t    length;
+   size_t    length,
+             pos1,
+             pos2;
    time_t    tvalue;
    char      buf[MAX_LINE_LENGTH];
    va_list   ap;
@@ -133,20 +145,68 @@ config_log(char *fmt, ...)
    buf[15] = ' ';
    length = 16;
 
-   va_start(ap, fmt);
-   length += vsprintf(&buf[length], fmt, ap);
-   va_end(ap);
-
-   if (profile != NULL)
+   if (alias == NULL)
    {
-      length += sprintf(&buf[length], " (%s <%s>)\n", profile, user);
+      length += sprintf(&buf[length], "%s", eastr[event_action]);
    }
    else
    {
-      length += sprintf(&buf[length], " (%s)\n", user);
+      int alias_length;
+
+      if (event_class == EC_HOST)
+      {
+         alias_length = MAX_HOSTNAME_LENGTH;
+      }
+      else
+      {
+         alias_length = MAX_DIR_ALIAS_LENGTH;
+      }
+      length += sprintf(&buf[length], "%-*s: %s",
+                        alias_length, alias, eastr[event_action]);
+   }
+   if (fmt != NULL)
+   {
+      buf[length++] = ' ';
+      pos1 = length;
+      va_start(ap, fmt);
+      length += vsprintf(&buf[length], fmt, ap);
+      va_end(ap);
    }
 
+   pos2 = length;
+   length += sprintf(&buf[length], " (%s)\n", user);
    (void)write(sys_log_fd, buf, length);
+
+   buf[pos2 + (length - pos2 - 2)] = '\0';
+   if (alias == NULL)
+   {
+      if (fmt == NULL)
+      {
+         event_log(tvalue, event_class, event_type, event_action,
+                   "%s", &buf[pos2 + 2]);
+      }
+      else
+      {
+         buf[pos1] = '\0';
+         event_log(tvalue, event_class, event_type, event_action,
+                   "%x%c%s%c%s", &buf[pos1], SEPARATOR_CHAR, &buf[pos2 + 2]);
+      }
+   }
+   else
+   {
+      if (fmt == NULL)
+      {
+         event_log(tvalue, event_class, event_type, event_action,
+                   "%s%c%s", alias, SEPARATOR_CHAR, &buf[pos2 + 2]);
+      }
+      else
+      {
+         buf[pos2] = '\0';
+         event_log(tvalue, event_class, event_type, event_action,
+                   "%s%c%s%c%s", alias, SEPARATOR_CHAR,
+                   &buf[pos2 + 2], SEPARATOR_CHAR, &buf[pos1]);
+      }
+   }
 
    return;
 }

@@ -80,7 +80,7 @@ DESCR__E_M3
 
 /* #define _MACRO_DEBUG */
 
-/* External global variables */
+/* External global variables. */
 extern Display          *display;
 extern Window           main_window;
 extern XtAppContext     app;
@@ -142,7 +142,7 @@ static char             *p_file_name,
 static XmStringTable    str_list;
 static XtIntervalId     interval_id_log;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static char   *search_time(char *, time_t, time_t, time_t, size_t);
 static void   check_log_updates(Widget),
               display_data(int, time_t, time_t),
@@ -188,26 +188,9 @@ static void   check_log_updates(Widget),
            ptr++; i--;            \
            continue;              \
         }
-#define CONVERT_TIME()                                \
-        {                                             \
-           line[0] = ((p_ts->tm_mon + 1) / 10) + '0'; \
-           line[1] = ((p_ts->tm_mon + 1) % 10) + '0'; \
-           line[2] = '.';                             \
-           line[3] = (p_ts->tm_mday / 10) + '0';      \
-           line[4] = (p_ts->tm_mday % 10) + '0';      \
-           line[5] = '.';                             \
-           line[7] = (p_ts->tm_hour / 10) + '0';      \
-           line[8] = (p_ts->tm_hour % 10) + '0';      \
-           line[9] = ':';                             \
-           line[10] = (p_ts->tm_min / 10) + '0';      \
-           line[11] = (p_ts->tm_min % 10) + '0';      \
-           line[12] = ':';                            \
-           line[13] = (p_ts->tm_sec / 10) + '0';      \
-           line[14] = (p_ts->tm_sec % 10) + '0';      \
-        }
 #define SET_FILE_NAME_POINTER()                         \
         {                                               \
-           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;         \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
            if (file_name_toggle_set == REMOTE_FILENAME) \
            {                                            \
               tmp_ptr = ptr;                            \
@@ -233,7 +216,7 @@ static void   check_log_updates(Widget),
 #define INSERT_TIME_TYPE(protocol)                         \
         {                                                  \
            (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
-           time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);\
+           time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);\
            if (first_date_found == -1)                     \
            {                                               \
               first_date_found = time_when_transmitted;    \
@@ -241,46 +224,6 @@ static void   check_log_updates(Widget),
            p_ts = localtime(&time_when_transmitted);       \
            CONVERT_TIME();                                 \
            (void)memcpy(p_type, (protocol), 5);            \
-        }
-#define HEX_CHAR_TO_INT(hex_char)        \
-        {                                \
-           switch ((hex_char))           \
-           {                             \
-              case '0' : type = 0;       \
-                         break;          \
-              case '1' : type = 1;       \
-                         break;          \
-              case '2' : type = 2;       \
-                         break;          \
-              case '3' : type = 3;       \
-                         break;          \
-              case '4' : type = 4;       \
-                         break;          \
-              case '5' : type = 5;       \
-                         break;          \
-              case '6' : type = 6;       \
-                         break;          \
-              case '7' : type = 7;       \
-                         break;          \
-              case '8' : type = 8;       \
-                         break;          \
-              case '9' : type = 9;       \
-                         break;          \
-              case 'a' : type = 10;      \
-                         break;          \
-              case 'b' : type = 11;      \
-                         break;          \
-              case 'c' : type = 12;      \
-                         break;          \
-              case 'd' : type = 13;      \
-                         break;          \
-              case 'e' : type = 14;      \
-                         break;          \
-              case 'f' : type = 15;      \
-                         break;          \
-              default  : type = 100;     \
-                         break;          \
-           }                             \
         }
 #define COMMON_BLOCK()         \
         {                      \
@@ -442,7 +385,7 @@ static void   check_log_updates(Widget),
                           time_t delete_time;\
                                \
                           long_no[cc] = '\0';\
-                          delete_time = (time_t)strtol(long_no, (char **)NULL, 16);\
+                          delete_time = (time_t)str2timet(long_no, (char **)NULL, 16);\
                           if (now > (delete_time + ARCHIVE_STEP_TIME))\
                           {    \
                              archive_status = 'D';\
@@ -492,7 +435,7 @@ static void   check_log_updates(Widget),
                                                            \
            for (ii = 0; ii < no_of_search_hosts; ii++)     \
            {                                               \
-              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
               {                                            \
                  current_search_host = ii;                 \
                  break;                                    \
@@ -500,7 +443,7 @@ static void   check_log_updates(Widget),
            }                                               \
            if (current_search_host != -1)                  \
            {                                               \
-              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;         \
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -578,7 +521,7 @@ static void   check_log_updates(Widget),
                                                            \
            for (ii = 0; ii < no_of_search_hosts; ii++)     \
            {                                               \
-              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
               {                                            \
                  current_search_host = ii;                 \
                  break;                                    \
@@ -586,7 +529,7 @@ static void   check_log_updates(Widget),
            }                                               \
            if (current_search_host != -1)                  \
            {                                               \
-              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;         \
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -675,7 +618,7 @@ static void   check_log_updates(Widget),
                                                            \
            for (ii = 0; ii < no_of_search_hosts; ii++)     \
            {                                               \
-              if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+              if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
               {                                            \
                  current_search_host = ii;                 \
                  break;                                    \
@@ -683,7 +626,7 @@ static void   check_log_updates(Widget),
            }                                               \
            if (current_search_host != -1)                  \
            {                                               \
-              ptr += 11 + MAX_HOSTNAME_LENGTH + 3;         \
+              ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
               while (*ptr != SEPARATOR_CHAR)               \
               {                                            \
                  ptr++;                                    \
@@ -764,7 +707,7 @@ static void   check_log_updates(Widget),
                                                            \
                for (ii = 0; ii < no_of_search_hosts; ii++) \
                {                                           \
-                  if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)\
+                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)\
                   {                                        \
                      current_search_host = ii;             \
                      break;                                \
@@ -803,7 +746,7 @@ static void   check_log_updates(Widget),
 #ifdef HAVE_STRTOULL
 #define FILE_SIZE_ONLY(id_string)                          \
         {                                                  \
-           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;            \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
            while (*ptr != SEPARATOR_CHAR)                  \
            {                                               \
               ptr++;                                       \
@@ -872,7 +815,7 @@ static void   check_log_updates(Widget),
 # ifdef LINUX
 #define FILE_SIZE_ONLY(id_string)                          \
         {                                                  \
-           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;            \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
            while (*ptr != SEPARATOR_CHAR)                  \
            {                                               \
               ptr++;                                       \
@@ -952,7 +895,7 @@ static void   check_log_updates(Widget),
 # else
 #define FILE_SIZE_ONLY(id_string)                          \
         {                                                  \
-           ptr += 11 + MAX_HOSTNAME_LENGTH + 3;            \
+           ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;\
            while (*ptr != SEPARATOR_CHAR)                  \
            {                                               \
               ptr++;                                       \
@@ -1093,7 +1036,7 @@ get_data(void)
 
    if ((str_list = (XmStringTable)XtMalloc(LINES_BUFFERED * sizeof(XmString))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(appshell, FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
@@ -1330,7 +1273,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
 
    /* Get latest entry. */
    tmp_ptr = src + stat_buf.st_size - 2;
-   while ((*tmp_ptr != '\n') && (src != (tmp_ptr - 1)))
+   while ((*tmp_ptr != '\n') && (src != tmp_ptr))
    {
       tmp_ptr--;
    }
@@ -1342,12 +1285,12 @@ extract_data(char *current_log_file, int file_no, int log_no)
    {
       ptr = tmp_ptr;
    }
-   time_val = (time_t)strtol(ptr, NULL, 16);
+   time_val = (time_t)str2timet(ptr, NULL, 16);
    latest_entry = time_val;
 
    /* Get earliest entry. */
    ptr = src;
-   time_val = (time_t)strtol(ptr, NULL, 16);
+   time_val = (time_t)str2timet(ptr, NULL, 16);
    earliest_entry = time_val;
 
    if (local_start_time == -1)
@@ -1721,14 +1664,14 @@ search_time(char   *src,
          do
          {
             ptr = bs_ptr;
-            ptr -= 11 + MAX_HOSTNAME_LENGTH + 3;
-            while (*ptr != '\n')
+            ptr -= LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
+            while ((ptr >= src) && (*ptr != '\n'))
             {
                ptr--;
             }
             bs_ptr = ptr - 1;
             ptr++;
-            time_val = (time_t)strtol(ptr, NULL, 16);
+            time_val = (time_t)str2timet(ptr, NULL, 16);
          } while ((time_val >= search_time_val) && (ptr > src));
          while (*ptr != '\n')
          {
@@ -1740,13 +1683,13 @@ search_time(char   *src,
          ptr = src;
          do
          {
-            ptr += 11 + MAX_HOSTNAME_LENGTH + 3;
+            ptr += LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
             while (*ptr != '\n')
             {
                ptr++;
             }
             ptr++;
-            time_val = (time_t)strtol(ptr, NULL, 16);
+            time_val = (time_t)str2timet(ptr, NULL, 16);
          } while ((time_val < search_time_val) && (ptr < (src + size)));
          while (*ptr != '\n')
          {
@@ -1818,7 +1761,7 @@ no_criteria(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -1963,7 +1906,7 @@ no_criteria(register char *ptr,
             ptr++; j++;
          }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -2193,7 +2136,7 @@ no_criteria(register char *ptr,
                         time_t delete_time;
 
                         long_no[cc] = '\0';
-                        delete_time = (time_t)strtol(long_no, (char **)NULL, 16);
+                        delete_time = (time_t)str2timet(long_no, (char **)NULL, 16);
                         if (now > (delete_time + ARCHIVE_STEP_TIME))
                         {
                            archive_status = 'D';
@@ -2313,7 +2256,7 @@ file_name_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -2628,7 +2571,7 @@ file_name_only(register char *ptr,
                  }
               }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -2781,7 +2724,7 @@ file_size_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -2916,9 +2859,9 @@ file_size_only(register char *ptr,
                  FILE_SIZE_ONLY(UNKNOWN_ID_STR);
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -2952,7 +2895,7 @@ file_size_only(register char *ptr,
             *(p_file_name + j) = *ptr;
             ptr++; j++;
          }
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -3069,7 +3012,7 @@ file_name_and_size(register char *ptr,
 
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -3327,10 +3270,10 @@ file_name_and_size(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -3521,7 +3464,7 @@ recipient_only(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -3530,7 +3473,7 @@ recipient_only(register char *ptr,
 
                for (ii = 0; ii < no_of_search_hosts; ii++)
                {
-                  if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                   {
                      current_search_host = ii;
                      break;
@@ -3558,7 +3501,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3586,7 +3529,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3614,7 +3557,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3642,7 +3585,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3671,7 +3614,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3701,7 +3644,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3731,7 +3674,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3761,7 +3704,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3789,7 +3732,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3817,7 +3760,7 @@ recipient_only(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -3844,7 +3787,7 @@ recipient_only(register char *ptr,
 
                  for (ii = 0; ii < no_of_search_hosts; ii++)
                  {
-                    if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                     {
                        current_search_host = ii;
                        break;
@@ -3869,7 +3812,7 @@ recipient_only(register char *ptr,
             ptr++; j++;
          }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -4099,7 +4042,7 @@ recipient_only(register char *ptr,
                         time_t delete_time;
 
                         long_no[cc] = '\0';
-                        delete_time = (time_t)strtol(long_no, (char **)NULL, 16);
+                        delete_time = (time_t)str2timet(long_no, (char **)NULL, 16);
                         if (now > (delete_time + ARCHIVE_STEP_TIME))
                         {
                            archive_status = 'D';
@@ -4215,7 +4158,7 @@ file_name_and_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             FILE_NAME_AND_RECIPIENT(SHOW_FTP, FTP_ID_STR);
@@ -4274,7 +4217,7 @@ file_name_and_recipient(register char *ptr,
 
                  for (ii = 0; ii < no_of_search_hosts; ii++)
                  {
-                    if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                     {
                        current_search_host = ii;
                        break;
@@ -4305,7 +4248,7 @@ file_name_and_recipient(register char *ptr,
                  }
               }
 
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -4454,7 +4397,7 @@ file_size_and_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -4589,9 +4532,9 @@ file_size_and_recipient(register char *ptr,
                  FILE_SIZE_AND_RECIPIENT(UNKNOWN_ID_STR);
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -4625,7 +4568,7 @@ file_size_and_recipient(register char *ptr,
             *(p_file_name + j) = *ptr;
             ptr++; j++;
          }
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
 
          /* If necessary, ignore rest of file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -4737,7 +4680,7 @@ file_name_size_recipient(register char *ptr,
          current_search_host = -1;
          ptr_start_line = ptr;
 
-         HEX_CHAR_TO_INT((*(ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 1)))
+         HEX_CHAR_TO_INT((*(ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1)))
          if (type == FTP)
          {
             if (toggles_set & SHOW_FTP)
@@ -4746,7 +4689,7 @@ file_name_size_recipient(register char *ptr,
 
                for (ii = 0; ii < no_of_search_hosts; ii++)
                {
-                  if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                  if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                   {
                      current_search_host = ii;
                      break;
@@ -4778,7 +4721,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -4810,7 +4753,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -4842,7 +4785,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -4874,7 +4817,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -4907,7 +4850,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -4941,7 +4884,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -4975,7 +4918,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -5009,7 +4952,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -5041,7 +4984,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -5073,7 +5016,7 @@ file_name_size_recipient(register char *ptr,
 
                     for (ii = 0; ii < no_of_search_hosts; ii++)
                     {
-                       if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                       if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                        {
                           current_search_host = ii;
                           break;
@@ -5104,7 +5047,7 @@ file_name_size_recipient(register char *ptr,
 
                  for (ii = 0; ii < no_of_search_hosts; ii++)
                  {
-                    if (sfilter(search_recipient[ii], ptr_start_line + 11, ' ') == 0)
+                    if (sfilter(search_recipient[ii], ptr_start_line + LOG_DATE_LENGTH + 1, ' ') == 0)
                     {
                        current_search_host = ii;
                        break;
@@ -5199,10 +5142,10 @@ file_name_size_recipient(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + 11 + MAX_HOSTNAME_LENGTH + 3;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3;
          (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);
-         (void)memcpy(p_host_name, ptr_start_line + 11, MAX_HOSTNAME_LENGTH);
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         (void)memcpy(p_host_name, ptr_start_line + LOG_DATE_LENGTH + 1, MAX_HOSTNAME_LENGTH);
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, (char **)NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;

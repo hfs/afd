@@ -87,7 +87,7 @@ DESCR__E_M3
 #include <unistd.h>                  /* gethostname()                    */
 #include "fddefs.h"
 
-/* Global variables */
+/* Global variables. */
 extern struct filetransfer_status *fsa;
 
 
@@ -120,7 +120,6 @@ eval_recipient(char       *recipient,
 #endif
    if ((*ptr == ':') && (*(ptr + 1) == '/') && (*(ptr + 2) == '/'))
    {
-      int          smtp_server_in_msg = NO;
       time_t       time_modifier = 0;
       char         time_mod_sign = '+';
       register int i;
@@ -132,7 +131,7 @@ eval_recipient(char       *recipient,
          ptr++;
          i = 0;
          while ((*ptr != '@') && (*ptr != ';') && (*ptr != ':') &&
-                (*ptr != '\0') && (i < MAX_HOSTNAME_LENGTH))
+                (*ptr != '\0') && (i < MAX_REAL_HOSTNAME_LENGTH))
          {
             if (*ptr == '\\')
             {
@@ -141,11 +140,11 @@ eval_recipient(char       *recipient,
             p_db->user[i] = *ptr;
             ptr++; i++;
          }
-         if (i > MAX_HOSTNAME_LENGTH)
+         if (i >= MAX_REAL_HOSTNAME_LENGTH)
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Unable to store group name. It may only be %d characters long!",
-                       MAX_HOSTNAME_LENGTH);
+                       MAX_REAL_HOSTNAME_LENGTH);
             return(INCORRECT);
          }
          if (i == 0)
@@ -188,7 +187,7 @@ eval_recipient(char       *recipient,
 
          p_db->group_list = NULL;
 
-         /* Get user name */
+         /* Get user name. */
          if (*ptr == '\0')
          {
             system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -315,22 +314,22 @@ eval_recipient(char       *recipient,
                else
                {
                   /* Get fingerprint. */
-                  if ((isxdigit(*ptr)) && (isxdigit(*(ptr + 1))) && (*(ptr + 2) == '-') &&
-                      (isxdigit(*(ptr + 3))) && (isxdigit(*(ptr + 4))) && (*(ptr + 5) == '-') &&
-                      (isxdigit(*(ptr + 6))) && (isxdigit(*(ptr + 7))) && (*(ptr + 8) == '-') &&
-                      (isxdigit(*(ptr + 9))) && (isxdigit(*(ptr + 10))) && (*(ptr + 11) == '-') &&
-                      (isxdigit(*(ptr + 12))) && (isxdigit(*(ptr + 13))) && (*(ptr + 14) == '-') &&
-                      (isxdigit(*(ptr + 15))) && (isxdigit(*(ptr + 16))) && (*(ptr + 17) == '-') &&
-                      (isxdigit(*(ptr + 18))) && (isxdigit(*(ptr + 19))) && (*(ptr + 20) == '-') &&
-                      (isxdigit(*(ptr + 21))) && (isxdigit(*(ptr + 22))) && (*(ptr + 23) == '-') &&
-                      (isxdigit(*(ptr + 24))) && (isxdigit(*(ptr + 25))) && (*(ptr + 26) == '-') &&
-                      (isxdigit(*(ptr + 27))) && (isxdigit(*(ptr + 28))) && (*(ptr + 29) == '-') &&
-                      (isxdigit(*(ptr + 30))) && (isxdigit(*(ptr + 31))) && (*(ptr + 32) == '-') &&
-                      (isxdigit(*(ptr + 33))) && (isxdigit(*(ptr + 34))) && (*(ptr + 35) == '-') &&
-                      (isxdigit(*(ptr + 36))) && (isxdigit(*(ptr + 37))) && (*(ptr + 38) == '-') &&
-                      (isxdigit(*(ptr + 39))) && (isxdigit(*(ptr + 40))) && (*(ptr + 41) == '-') &&
-                      (isxdigit(*(ptr + 42))) && (isxdigit(*(ptr + 43))) && (*(ptr + 44) == '-') &&
-                      (isxdigit(*(ptr + 45))) && (isxdigit(*(ptr + 46))))
+                  if ((isxdigit((int)(*ptr))) && (isxdigit((int)(*(ptr + 1)))) && (*(ptr + 2) == '-') &&
+                      (isxdigit((int)(*(ptr + 3)))) && (isxdigit((int)(*(ptr + 4)))) && (*(ptr + 5) == '-') &&
+                      (isxdigit((int)(*(ptr + 6)))) && (isxdigit((int)(*(ptr + 7)))) && (*(ptr + 8) == '-') &&
+                      (isxdigit((int)(*(ptr + 9)))) && (isxdigit((int)(*(ptr + 10)))) && (*(ptr + 11) == '-') &&
+                      (isxdigit((int)(*(ptr + 12)))) && (isxdigit((int)(*(ptr + 13)))) && (*(ptr + 14) == '-') &&
+                      (isxdigit((int)(*(ptr + 15)))) && (isxdigit((int)(*(ptr + 16)))) && (*(ptr + 17) == '-') &&
+                      (isxdigit((int)(*(ptr + 18)))) && (isxdigit((int)(*(ptr + 19)))) && (*(ptr + 20) == '-') &&
+                      (isxdigit((int)(*(ptr + 21)))) && (isxdigit((int)(*(ptr + 22)))) && (*(ptr + 23) == '-') &&
+                      (isxdigit((int)(*(ptr + 24)))) && (isxdigit((int)(*(ptr + 25)))) && (*(ptr + 26) == '-') &&
+                      (isxdigit((int)(*(ptr + 27)))) && (isxdigit((int)(*(ptr + 28)))) && (*(ptr + 29) == '-') &&
+                      (isxdigit((int)(*(ptr + 30)))) && (isxdigit((int)(*(ptr + 31)))) && (*(ptr + 32) == '-') &&
+                      (isxdigit((int)(*(ptr + 33)))) && (isxdigit((int)(*(ptr + 34)))) && (*(ptr + 35) == '-') &&
+                      (isxdigit((int)(*(ptr + 36)))) && (isxdigit((int)(*(ptr + 37)))) && (*(ptr + 38) == '-') &&
+                      (isxdigit((int)(*(ptr + 39)))) && (isxdigit((int)(*(ptr + 40)))) && (*(ptr + 41) == '-') &&
+                      (isxdigit((int)(*(ptr + 42)))) && (isxdigit((int)(*(ptr + 43)))) && (*(ptr + 44) == '-') &&
+                      (isxdigit((int)(*(ptr + 45)))) && (isxdigit((int)(*(ptr + 46)))))
                   {
                      p_db->ssh_fingerprint[0] = tolower(*ptr);
                      p_db->ssh_fingerprint[1] = tolower(*(ptr + 1));
@@ -439,7 +438,7 @@ eval_recipient(char       *recipient,
                           "Hmmm. How am I suppose to find the hostname?");
                return(INCORRECT);
             }
-            if (i > MAX_USER_NAME_LENGTH)
+            if (i >= MAX_USER_NAME_LENGTH)
             {
                system_log(ERROR_SIGN, __FILE__, __LINE__,
                           "Unable to store password. It is longer than %d Bytes!",
@@ -514,7 +513,7 @@ eval_recipient(char       *recipient,
             }
          }
 #endif
-         if (i > MAX_REAL_HOSTNAME_LENGTH)
+         if (i >= MAX_REAL_HOSTNAME_LENGTH)
          {
             while ((*ptr != '\0') && (*ptr != '/') &&
                    (*ptr != ':') && (*ptr != ';'))
@@ -701,7 +700,7 @@ eval_recipient(char       *recipient,
                              break;
                        }
                        j = 0;
-                       while ((isdigit(*ptr)) && (j < MAX_INT_LENGTH))
+                       while ((isdigit((int)(*ptr))) && (j < MAX_INT_LENGTH))
                        {
                           string[j++] = *ptr++;
                        }
@@ -911,7 +910,7 @@ eval_recipient(char       *recipient,
                     if (i != 0)
                     {
                        p_db->smtp_server[i] = '\0';
-                       smtp_server_in_msg = YES;
+                       p_db->special_flag |= SMTP_SERVER_NAME_IN_MESSAGE;
                     }
                  }
             else if (count == 8)
@@ -954,8 +953,9 @@ eval_recipient(char       *recipient,
       /*
        * Find position of this hostname in FSA.
        */
-      if ((p_db->smtp_server[0] == '\0') &&
-          ((p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG) == 0))
+      if ((p_db->smtp_server[0] == '\0') ||
+          ((p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG) &&
+           ((p_db->special_flag & SMTP_SERVER_NAME_IN_MESSAGE) == 0)))
       {
          t_hostname(p_db->hostname, p_db->host_alias);
       }
@@ -963,17 +963,7 @@ eval_recipient(char       *recipient,
       {
          t_hostname(p_db->smtp_server, p_db->host_alias);
       }
-      if (CHECK_STRCMP(p_db->host_alias, fsa->host_alias) == 0)
-      {
-         if ((p_db->smtp_server[0] != '\0') &&
-             (((p_db->special_flag & SMTP_SERVER_NAME_IN_AFD_CONFIG) == 0) ||
-              (smtp_server_in_msg == YES)))
-         {
-            (void)strcpy(p_db->smtp_server,
-                         fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
-         }
-      }
-      else
+      if (CHECK_STRCMP(p_db->host_alias, fsa->host_alias) != 0)
       {
          int ret;
 

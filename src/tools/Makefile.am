@@ -25,20 +25,20 @@ else
 endif
 
 INCLUDES                     = -I.. -I../init_afd -I../amg -I../fd\
-                               -I../statistics
-bin_PROGRAMS                 = afdcmd afdcfg afd_status fsa_view fra_view\
-                               get_dc_data get_hostname grib2wmo set_pw udc
+                               -I../statistics -I../log
+bin_PROGRAMS                 = afdcmd afdcfg afd_hex_print afd_status\
+                               fsa_edit fsa_view fra_view get_dc_data\
+                               get_hostname grib2wmo jid_view set_pw udc
 sbin_PROGRAMS                = cache_spy convert_fsa convert_stat\
                                current_job_list_spy dc_id_spy dir_spy\
                                $(DUPCHECK) file_dir_check file_mask_list_spy\
-                               fsa_edit gen_file queue_spy job_list_spy\
-                               reset_fsa set_counter rm_job show_exec_stat\
-                               view_ls_data
+                               gen_file queue_spy set_counter rm_job\
+                               show_exec_stat view_ls_data
 EXTRA_PROGRAMS               = bfc binfc byte_order convert_jid count_burst\
                                del_cache $(EXTRA_DUPCHECK) get_counter\
                                force_archive_check get_full_date\
-                               get_file_size gts2tiff linger rdu sysconf\
-                               tiff_sniffer watch_dir fra_version\
+                               get_file_size gts2tiff linger reset_fsa\
+                               rdu sysconf tiff_sniffer watch_dir fra_version\
                                convert_ls_data view_error_queue
 MAINTAINERCLEANFILES         = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES                   = gmon.out core core.*
@@ -103,8 +103,9 @@ grib2wmo_LDADD               = ../misc/libmisc.a
 gts2tiff_SOURCES             = gts2tiff.c\
                                receive_log.c
 gts2tiff_LDADD               = ../misc/libmisc.a ../common/libafd.a 
-job_list_spy_SOURCES         = job_list_spy.c
-job_list_spy_LDADD           = ../common/libafd.a
+afd_hex_print_SOURCES        = afd_hex_print.c
+jid_view_SOURCES             = jid_view.c
+jid_view_LDADD               = ../common/libafd.a
 linger_SOURCES               = linger.c
 queue_spy_SOURCES            = queue_spy.c
 queue_spy_LDADD              = ../common/libafd.a

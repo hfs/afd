@@ -5,7 +5,7 @@
 #                 Your hostname must be entered in the local .rhost
 #                 file.
 #
-# Synopsis      : rafdd_cmd <display name> <afd user name> <remote command>
+# Synopsis      : rafdd_cmd <display name> <AFD workdir> <remote command>
 #
 # Author        : H.Kiehl
 # Date          : 21.01.1999

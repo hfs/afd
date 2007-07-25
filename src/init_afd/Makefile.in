@@ -62,7 +62,7 @@ am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am_afd_OBJECTS = afd.$(OBJEXT) check_afd_heartbeat.$(OBJEXT) \
-	shutdown_afd.$(OBJEXT)
+	startup_afd.$(OBJEXT) shutdown_afd.$(OBJEXT)
 afd_OBJECTS = $(am_afd_OBJECTS)
 afd_DEPENDENCIES = ../common/libafd.a
 am_init_afd_OBJECTS = init_afd.$(OBJEXT) check_afd_heartbeat.$(OBJEXT) \
@@ -235,7 +235,7 @@ sysconfdir = @sysconfdir@
 target_alias = @target_alias@
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES = gmon.out core core.*
-noinst_HEADERS = afddefs.h bit_array.h permission.h ports.h
+noinst_HEADERS = afddefs.h bit_array.h ea_str.h permission.h ports.h
 INCLUDES = -I.. -I../amg -I../log -I../statistics
 init_afd_SOURCES = init_afd.c\
                        check_afd_heartbeat.c\
@@ -246,6 +246,7 @@ init_afd_SOURCES = init_afd.c\
 init_afd_LDADD = ../common/libafd.a @EXTRA_SOCKET_LIBS@
 afd_SOURCES = afd.c\
                        check_afd_heartbeat.c\
+                       startup_afd.c\
                        shutdown_afd.c
 
 afd_LDADD = ../common/libafd.a
@@ -325,6 +326,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_afd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/init_fifos_afd.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shutdown_afd.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/startup_afd.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \

@@ -500,7 +500,7 @@ get_rename_rules(char *rule_file, int verbose)
                }
             }
          }
-#endif /* _DEBUG_RULES */
+#endif
       } /* if (stat_buf.st_mtime != last_read) */
    }
 

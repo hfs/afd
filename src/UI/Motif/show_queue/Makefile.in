@@ -64,7 +64,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am_show_queue_OBJECTS = callbacks.$(OBJEXT) delete_files.$(OBJEXT) \
 	display_data.$(OBJEXT) format_info.$(OBJEXT) \
 	get_data.$(OBJEXT) print_data.$(OBJEXT) send_files.$(OBJEXT) \
-	show_queue.$(OBJEXT)
+	show_queue.$(OBJEXT) view_files.$(OBJEXT)
 show_queue_OBJECTS = $(am_show_queue_OBJECTS)
 show_queue_DEPENDENCIES = ../common/libxafd.a ../../../common/libafd.a
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -243,7 +243,8 @@ show_queue_SOURCES = callbacks.c\
                        get_data.c\
                        print_data.c\
                        send_files.c\
-                       show_queue.c
+                       show_queue.c\
+                       view_files.c
 
 show_queue_LDADD = ../common/libxafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
@@ -322,6 +323,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/print_data.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/send_files.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_queue.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/view_files.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \

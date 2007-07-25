@@ -355,7 +355,7 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
       str_hex_number[0] = '0';
       str_hex_number[1] = 'x';
       i = 2;
-      while ((*ptr != SEPARATOR_CHAR) && (i < 11))
+      while ((*ptr != SEPARATOR_CHAR) && (i < (LOG_DATE_LENGTH + 1)))
       {
          str_hex_number[i] = *ptr;
          ptr++; i++;
@@ -363,7 +363,7 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
       if (*ptr == SEPARATOR_CHAR)
       {
          str_hex_number[i] = '\0';
-         *date = (time_t)strtol(str_hex_number, NULL, 16);
+         *date = (time_t)str2timet(str_hex_number, NULL, 16);
       }
       else
       {
@@ -371,7 +371,7 @@ get_sum_data(int item, time_t *date, double *file_size, double *trans_time)
       }
 
       /* Ignore file name */
-      ptr = &buffer[11 + MAX_HOSTNAME_LENGTH + 3];
+      ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
       while (*ptr != SEPARATOR_CHAR)
       {
          ptr++;
@@ -479,15 +479,15 @@ get_all(int item)
 
       /* Store the date. */
       ptr = buffer;
-      while ((*ptr != ' ') && (i < 11))
+      while ((*ptr != ' ') && (i < (LOG_DATE_LENGTH + 1)))
       {
          ptr++; i++;
       }
       *ptr = '\0';
-      id.date_send = (time_t)strtol(buffer, NULL, 16);
+      id.date_send = (time_t)str2timet(buffer, NULL, 16);
 
       /* Store local file name. */
-      ptr = &buffer[11 + MAX_HOSTNAME_LENGTH + 3];
+      ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
       i = 0;
       while (*ptr != SEPARATOR_CHAR)
       {

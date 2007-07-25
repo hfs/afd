@@ -1,6 +1,6 @@
 /*
  *  shutdown_afd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -26,7 +26,7 @@ DESCR__S_M3
  **   shutdown_afd - does a shutdown of the AFD
  **
  ** SYNOPSIS
- **   void shutdown_afd(char *fake_user)
+ **   void shutdown_afd(char *user)
  **
  ** DESCRIPTION
  **
@@ -60,7 +60,7 @@ extern char *p_work_dir;
 
 /*########################### shutdown_afd() ############################*/
 void
-shutdown_afd(char *fake_user)
+shutdown_afd(char *user)
 {
    int            afd_cmd_fd,
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -73,11 +73,10 @@ shutdown_afd(char *fake_user)
    fd_set         rset;
    char           buffer[DEFAULT_BUFFER_SIZE],
                   afd_cmd_fifo[MAX_PATH_LENGTH],
-                  afd_resp_fifo[MAX_PATH_LENGTH],
-                  user[MAX_FULL_USER_ID_LENGTH];
+                  afd_resp_fifo[MAX_PATH_LENGTH];
    struct timeval timeout;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    (void)strcpy(afd_cmd_fifo, p_work_dir);
    (void)strcat(afd_cmd_fifo, FIFO_DIR);
    (void)strcpy(afd_resp_fifo, afd_cmd_fifo);
@@ -105,8 +104,7 @@ shutdown_afd(char *fake_user)
       exit(INCORRECT);
    }
 
-   /* Tell user what we are doing */
-   get_user(user, fake_user);
+   /* Tell user what we are doing. */
    system_log(CONFIG_SIGN, NULL, 0, "Starting AFD shutdown (%s) ...", user);
 
    /* Send SHUTDOWN command */
@@ -122,7 +120,7 @@ shutdown_afd(char *fake_user)
     * Now lets wait for a reply from 'init_afd', but not more then 10s.
     */
 
-   /* Initialise descriptor set and timeout */
+   /* Initialise descriptor set and timeout. */
    FD_ZERO(&rset);
    FD_SET(afd_resp_fd, &rset);
    timeout.tv_usec = 0L;

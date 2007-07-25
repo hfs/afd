@@ -33,6 +33,7 @@ DESCR__S_M1
  **          -i            initialize AFD_MON, by deleting fifodir
  **          -I            initialize AFD_MON, by deleting everything except
  **                        for the etc directory
+ **          -p <role>     role to use
  **          -s            shutdown AFD_MON
  **          -S            silent AFD_MON shutdown
  **          -u[ <user>]   fake user
@@ -123,7 +124,8 @@ main(int argc, char *argv[])
                   shutdown_perm,
                   start_up,
                   startup_perm,
-                  status;
+                  status,
+                  user_offset;
    char           *perm_buffer,
                   work_dir[MAX_PATH_LENGTH],
                   block_file[MAX_PATH_LENGTH],
@@ -150,8 +152,18 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   if (get_arg(&argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+   }
+   else
+   {
+      user_offset = strlen(user);
+   }
 
    check_fake_user(&argc, argv, MON_CONFIG_FILE, fake_user);
+   get_user(user, fake_user, user_offset);
+
    switch (get_permissions(&perm_buffer, fake_user))
    {
       case NO_ACCESS : /* Cannot access afd.users file. */
@@ -441,13 +453,13 @@ main(int argc, char *argv[])
          (void)fprintf(stdout, "Starting %s shutdown ", AFD_MON);
          fflush(stdout);
 
-         shutdown_mon(NO, fake_user);
+         shutdown_mon(NO, user);
 
          (void)fprintf(stdout, "\nDone!\n");
       }
       else
       {
-         shutdown_mon(YES, fake_user);
+         shutdown_mon(YES, user);
       }
 
       exit(0);
@@ -476,7 +488,6 @@ main(int argc, char *argv[])
            }
 
            (void)strcpy(exec_cmd, AFD_MON);
-           get_user(user, fake_user);
            system_log(INFO_SIGN, NULL, 0,
                       "AFD_MON startup initiated by %s", user);
            switch (fork())
@@ -528,7 +539,6 @@ main(int argc, char *argv[])
                    }
 
                    (void)strcpy(exec_cmd, AFD_MON);
-                   get_user(user, fake_user);
                    system_log(INFO_SIGN, NULL, 0,
                               "Hmm. AFD_MON is NOT running! Startup initiated by %s",
                               user);
@@ -659,7 +669,6 @@ main(int argc, char *argv[])
 
       /* Start AFD_MON */
       (void)strcpy(exec_cmd, AFD_MON);
-      get_user(user, fake_user);
       system_log(INFO_SIGN, NULL, 0,
                  "AFD_MON automatic startup initiated by %s", user);
       switch (fork())
@@ -790,21 +799,22 @@ delete_fifodir_files(char *fifodir, int offset)
         tmp_sys_log_fd;
    char *file_ptr,
         *filelist[] =
-         {
-            MON_ACTIVE_FILE,
-            AFD_MON_STATUS_FILE,
-            MSA_ID_FILE,
-            MON_CMD_FIFO,
-            MON_RESP_FIFO,
-            MON_PROBE_ONLY_FIFO,
-            MON_SYS_LOG_FIFO
-         },
+        {
+           MON_ACTIVE_FILE,
+           AFD_MON_STATUS_FILE,
+           MSA_ID_FILE,
+           MON_CMD_FIFO,
+           MON_RESP_FIFO,
+           MON_PROBE_ONLY_FIFO,
+           MON_SYS_LOG_FIFO
+        },
         *mfilelist[] =
         {
            MON_STATUS_FILE_ALL,
            RETRY_MON_FIFO_ALL,
            ADL_FILE_NAME_ALL,
-           AHL_FILE_NAME_ALL
+           AHL_FILE_NAME_ALL,
+           AJL_FILE_NAME_ALL
         };
 
    file_ptr = fifodir + offset;
@@ -878,7 +888,7 @@ delete_log_files(char *logdir, int offset)
 static void
 usage(char *progname)
 {
-   (void)fprintf(stderr, "Usage: %s [-w <AFD_MON working dir>] [-u[ <user>]] [option]\n", progname);
+   (void)fprintf(stderr, "Usage: %s[ -w <AFD_MON working dir>][ -p <role>][ -u[ <user>]] [option]\n", progname);
    (void)fprintf(stderr, "              -a          only start AFD_MON\n");
    (void)fprintf(stderr, "              -c          only check if AFD_MON is active\n");
    (void)fprintf(stderr, "              -C          check if AFD_MON is active, if not start it\n");

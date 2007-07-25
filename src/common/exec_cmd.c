@@ -262,7 +262,7 @@ exec_cmd(char   *cmd,
                      {
                         (void)rec(log_fd, INFO_SIGN,
 #if SIZEOF_PID_T == 4
-                                  "%-*s%s: [%ld] Exec time: %.3fs\n",
+                                  "%-*s%s: [%d] Exec time: %.3fs\n",
 #else
                                   "%-*s%s: [%lld] Exec time: %.3fs\n",
 #endif

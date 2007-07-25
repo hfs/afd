@@ -90,7 +90,7 @@ DESCR__E_M1
 #include "cursor2.h"
 #include "cursormask2.h"
 
-/* Global variables */
+/* Global variables. */
 Display        *display;
 XtAppContext   app;
 XtIntervalId   interval_id_host;
@@ -125,6 +125,7 @@ char           log_dir[MAX_PATH_LENGTH],
                   "Config",
                   "Warn",
                   "Error",
+                  "Offline",
                   "Debug",
                   "Trace"
                },
@@ -132,7 +133,7 @@ char           log_dir[MAX_PATH_LENGTH],
 FILE           *p_log_file;
 const char     *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local functions. */
 static void    init_log_file(int *, char **),
                create_cursors(void),
                sig_bus(int),
@@ -243,7 +244,7 @@ main(int argc, char *argv[])
    wpr_position = 0;
    total_length = 0;
 
-   /* Get display pointer */
+   /* Get display pointer. */
    if ((display = XtDisplay(toplevel)) == NULL)
    {
       (void)fprintf(stderr,
@@ -252,18 +253,19 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Create managing widget */
+   /* Create managing widget. */
    form = XmCreateForm(toplevel, "form", NULL, 0);
 
-   /* Prepare the font */
+   /* Prepare the font. */
    entry = XmFontListEntryLoad(XtDisplay(toplevel), font_name,
                                XmFONT_IS_FONT, "TAG1");
    fontlist = XmFontListAppendEntry(NULL, entry);
    XmFontListEntryFree(&entry);
 
-   /* Create managing widget for the toggle buttons */
+   /* Create managing widget for the toggle buttons. */
    togglebox = XtVaCreateWidget("togglebox", xmRowColumnWidgetClass, form,
                                 XmNorientation,      XmHORIZONTAL,
+                                XmNspacing,          0,
                                 XmNpacking,          XmPACK_TIGHT,
                                 XmNnumColumns,       1,
                                 XmNtopAttachment,    XmATTACH_FORM,
@@ -271,7 +273,7 @@ main(int argc, char *argv[])
                                 XmNresizable,        False,
                                 NULL);
 
-   /* Create toggle button widget */
+   /* Create toggle button widget. */
    toggle = XtVaCreateManagedWidget(toggle_label[0],
                                     xmToggleButtonGadgetClass, togglebox,
                                     XmNfontList,               fontlist,
@@ -311,10 +313,17 @@ main(int argc, char *argv[])
                                     XmNset,                    False,
                                     NULL);
    XtAddCallback(toggle, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggled, (XtPointer)SHOW_OFFLINE);
+   toggle = XtVaCreateManagedWidget(toggle_label[5],
+                                    xmToggleButtonGadgetClass, togglebox,
+                                    XmNfontList,               fontlist,
+                                    XmNset,                    False,
+                                    NULL);
+   XtAddCallback(toggle, XmNvalueChangedCallback,
                  (XtCallbackProc)toggled, (XtPointer)SHOW_DEBUG);
    if (log_type_flag == TRANS_DB_LOG_TYPE)
    {
-      toggle = XtVaCreateManagedWidget(toggle_label[5],
+      toggle = XtVaCreateManagedWidget(toggle_label[6],
                                        xmToggleButtonGadgetClass, togglebox,
                                        XmNfontList,               fontlist,
                                        XmNset,                    False,
@@ -325,7 +334,7 @@ main(int argc, char *argv[])
    XtManageChild(togglebox);
    toggles_set = SHOW_INFO | SHOW_CONFIG | SHOW_WARN | SHOW_ERROR | SHOW_FATAL;
 
-   /* Create the first horizontal separator */
+   /* Create the first horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
    argcount++;
@@ -340,7 +349,7 @@ main(int argc, char *argv[])
    h_separator1 = XmCreateSeparator(form, "h_separator1", args, argcount);
    XtManageChild(h_separator1);
 
-   /* Create the first vertical separator */
+   /* Create the first vertical separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
    argcount++;
@@ -364,7 +373,7 @@ main(int argc, char *argv[])
       int  i;
       char label[MAX_INT_LENGTH];
 
-      /* Create managing widget for the second toggle buttons */
+      /* Create managing widget for the second toggle buttons. */
       togglebox = XtVaCreateWidget("togglebox2",
                              xmRowColumnWidgetClass, form,
                              XmNorientation,      XmHORIZONTAL,
@@ -391,7 +400,7 @@ main(int argc, char *argv[])
       }
       XtManageChild(togglebox);
 
-      /* Create the second vertical separator */
+      /* Create the second vertical separator. */
       argcount = 0;
       XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
       argcount++;
@@ -423,7 +432,7 @@ main(int argc, char *argv[])
       argcount++;
       box_w = XmCreateForm(form, "button_box", args, argcount);
 
-      /* Create a pulldown pane and attach it to the option menu */
+      /* Create a pulldown pane and attach it to the option menu. */
       argcount = 0;
       XtSetArg(args[argcount], XmNfontList,         fontlist);
       argcount++;
@@ -468,13 +477,13 @@ main(int argc, char *argv[])
          button = XtCreateManagedWidget(str_number, xmPushButtonWidgetClass,
                                         pane_w, args, argcount);
 
-         /* Add callback handler */
+         /* Add callback handler. */
          XtAddCallback(button, XmNactivateCallback, toggled_jobs, (XtPointer)i);
       }
-      toggles_set_parallel_jobs = 0; /* Default to 'all' */
+      toggles_set_parallel_jobs = 0; /* Default to 'all'. */
       XtManageChild(box_w);
 
-      /* Create the second vertical separator */
+      /* Create the second vertical separator. */
       argcount = 0;
       XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
       argcount++;
@@ -494,7 +503,7 @@ main(int argc, char *argv[])
    }
 
 #ifdef _WITH_SEARCH_FUNCTION
-   /* Create search box */
+   /* Create search box. */
    label_w = XtVaCreateManagedWidget("Search:",
                         xmLabelGadgetClass,       form,
                         XmNtopAttachment,         XmATTACH_FORM,
@@ -523,7 +532,7 @@ main(int argc, char *argv[])
    XtManageChild(searchbox);
    XtAddCallback(searchbox, XmNactivateCallback, search_text, NULL);
 
-   /* Create another vertical separator */
+   /* Create another vertical separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
    argcount++;
@@ -543,7 +552,7 @@ main(int argc, char *argv[])
    XtManageChild(v_separator1);
 #endif
 
-   /* Create line counter box */
+   /* Create line counter box. */
    counterbox = XtVaCreateWidget("counterbox",
                         xmTextWidgetClass,        form,
                         XmNtopAttachment,         XmATTACH_FORM,
@@ -562,7 +571,7 @@ main(int argc, char *argv[])
                         NULL);
    XtManageChild(counterbox);
 
-   /* Create the second vertical separator */
+   /* Create the second vertical separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,      XmVERTICAL);
    argcount++;
@@ -581,7 +590,7 @@ main(int argc, char *argv[])
    v_separator2 = XmCreateSeparator(form, "v_separator2", args, argcount);
    XtManageChild(v_separator2);
 
-   /* Create scale widget for selecting the log file number */
+   /* Create scale widget for selecting the log file number. */
    argcount = 0;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_WIDGET);
    argcount++;
@@ -602,7 +611,7 @@ main(int argc, char *argv[])
    scalebox = XmCreateForm(form, "scalebox", args, argcount);
 
 #ifdef _WITH_SEARCH_FUNCTION
-   /* Create a pulldown pane and attach it to the option menu */
+   /* Create a pulldown pane and attach it to the option menu. */
    argcount = 0;
    XtSetArg(args[argcount], XmNfontList,         fontlist);
    argcount++;
@@ -774,7 +783,7 @@ main(int argc, char *argv[])
                  (XtCallbackProc)close_button, 0);
    XtManageChild(buttonbox);
 
-   /* Create the second horizontal separator */
+   /* Create the second horizontal separator. */
    argcount = 0;
    XtSetArg(args[argcount], XmNorientation,           XmHORIZONTAL);
    argcount++;
@@ -789,7 +798,7 @@ main(int argc, char *argv[])
    h_separator2 = XmCreateSeparator(form, "h_separator2", args, argcount);
    XtManageChild(h_separator2);
 
-   /* Create log_text as a ScrolledText window */
+   /* Create log_text as a ScrolledText window. */
    argcount = 0;
    XtSetArg(args[argcount], XmNrows,                   9);
    argcount++;
@@ -836,7 +845,7 @@ main(int argc, char *argv[])
    XtAddEventHandler(toplevel, (EventMask)0, True, _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(toplevel);
    wait_visible(toplevel);
 
@@ -850,7 +859,7 @@ main(int argc, char *argv[])
                  SHOW_LOG, strerror(errno));
    }
 
-   /* Create pixmaps for cursor */
+   /* Create pixmaps for cursor. */
    create_cursors();
 
    /*
@@ -861,12 +870,12 @@ main(int argc, char *argv[])
 
    init_text();
 
-   /* Call check_log() after LOG_START_TIMEOUT ms */
+   /* Call check_log() after LOG_START_TIMEOUT ms. */
    interval_id_host = XtAppAddTimeOut(app, LOG_START_TIMEOUT,
                                       (XtTimerCallbackProc)check_log,
                                       log_output);
 
-   /* Show line_counter if necessary */
+   /* Show line_counter if necessary. */
    if (line_counter != 0)
    {
       (void)sprintf(str_number, "%*d",
@@ -874,10 +883,10 @@ main(int argc, char *argv[])
       XmTextSetString(counterbox, str_number);
    }
 
-   /* We want the keyboard focus on the log output */
+   /* We want the keyboard focus on the log output. */
    XmProcessTraversal(log_output, XmTRAVERSE_CURRENT);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -911,7 +920,7 @@ init_log_file(int *argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise log directory */
+   /* Initialise log directory. */
    (void)strcpy(log_dir, work_dir);
    (void)strcat(log_dir, LOG_DIR);
    if (strcmp(log_type, SYSTEM_STR) == 0)
@@ -998,7 +1007,7 @@ init_log_file(int *argc, char *argv[])
       current_inode_no = stat_buf.st_ino;
    }
 
-   /* Collect all hostnames */
+   /* Collect all hostnames. */
    no_of_hosts = *argc - 1;
    if (no_of_hosts > 0)
    {

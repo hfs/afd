@@ -121,7 +121,7 @@ check_fsa_entries(void)
                       (CHECK_STRCMP(fsa[i].host_alias, fra[j].host_alias) == 0))
                   {
                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                                "Queued flag set for dir_alias %s, but actieve_transfers is 0. Unsetting queued flag.",
+                                "Queued flag set for dir_alias %s, but active_transfers is 0. Unsetting queued flag.",
                                 fra[j].dir_alias);
                      fra[i].queued = NO;
                   }

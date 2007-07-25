@@ -1,6 +1,6 @@
 /*
  *  show_log.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -24,14 +24,15 @@
 
 #define _WITH_SEARCH_FUNCTION
 
-/* What information should be displayed */
+/* What information should be displayed. */
 #define SHOW_INFO               1
 #define SHOW_CONFIG             2
 #define SHOW_WARN               4
 #define SHOW_ERROR              8
 #define SHOW_FATAL              16
-#define SHOW_DEBUG              32
-#define SHOW_TRACE              64
+#define SHOW_OFFLINE            32
+#define SHOW_DEBUG              64
+#define SHOW_TRACE              128
 
 #define MISS                    0
 #define HIT                     1
@@ -58,7 +59,7 @@
 #define LOG_TIMEOUT             2000
 #define FALLING_SAND_SPEED      50
 
-/* Function prototypes */
+/* Function prototypes. */
 extern int  log_filter(char *, char *);
 extern void check_log(Widget),
             toggled(Widget, XtPointer, XtPointer),

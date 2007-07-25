@@ -451,7 +451,7 @@ change_name(char         *orig_file_name,
                            break;
                      }
                      i = 0;
-                     while ((isdigit(*ptr_rule)) && (i < MAX_INT_LENGTH))
+                     while ((isdigit((int)(*ptr_rule))) && (i < MAX_INT_LENGTH))
                      {
                         string[i++] = *ptr_rule++;
                      }

@@ -25,7 +25,7 @@ DESCR__S_M3
  **   tcpcmd - commands to send files via TCP/IP
  **
  ** SYNOPSIS
- **   int  tcp_connect(char *hostname, int port)
+ **   int  tcp_connect(char *hostname, int port, int sending_logdata)
  **   int  tcp_quit(void)
  **
  ** DESCRIPTION
@@ -57,18 +57,34 @@ DESCR__E_M3
 #include <ctype.h>            /* isdigit()                               */
 #include <sys/types.h>        /* fd_set                                  */
 #include <sys/time.h>         /* struct timeval                          */
-#include <sys/socket.h>       /* socket(), shutdown(), bind(), accept(), */
+#ifdef HAVE_SYS_SOCKET_H
+# include <sys/socket.h>      /* socket(), shutdown(), bind(), accept(), */
                               /* setsockopt()                            */
-#include <netinet/in.h>       /* struct in_addr, sockaddr_in, htons()    */
-#include <netdb.h>            /* struct hostent, gethostbyname()         */
-#include <arpa/inet.h>        /* inet_addr()                             */
+#endif
+#ifdef HAVE_NETINET_IN_H
+# include <netinet/in.h>      /* struct in_addr, sockaddr_in, htons()    */
+#endif
+#if defined (_WITH_TOS) && defined (IP_TOS)
+# ifdef HAVE_NETINET_IN_SYSTM_H
+#  include <netinet/in_systm.h>
+# endif
+# ifdef HAVE_NETINET_IP_H
+#  include <netinet/ip.h>     /* IPTOS_LOWDELAY, IPTOS_THROUGHPUT        */
+# endif
+#endif
+#ifdef HAVE_NETDB_H
+# include <netdb.h>           /* struct hostent, gethostbyname()         */
+#endif
+#ifdef HAVE_ARPA_INET_H
+# include <arpa/inet.h>       /* inet_addr()                             */
+#endif
 #include <unistd.h>           /* select(), exit(), write(), read(),      */
                               /* close()                                 */
 #include <errno.h>
 #include "mondefs.h"
 
 
-/* External global variables */
+/* External global variables. */
 extern int                timeout_flag;
 extern char               msg_str[];
 #ifdef LINUX
@@ -90,7 +106,7 @@ static int                get_reply(void),
 
 /*########################## tcp_connect() ##############################*/
 int
-tcp_connect(char *hostname, int port)
+tcp_connect(char *hostname, int port, int sending_logdata)
 {
    int                     reply;
    my_socklen_t            length;
@@ -206,6 +222,35 @@ tcp_connect(char *hostname, int port)
       return(INCORRECT);
    }
 
+   if (sending_logdata == YES)
+   {
+      reply = 1;
+      if (setsockopt(sock_fd, SOL_SOCKET, SO_KEEPALIVE, (char *)&reply,
+                     sizeof(reply)) < 0)
+      {
+         mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, NULL,
+                 "tcp_connect(): setsockopt() SO_KEEPALIVE error : %s",
+                 strerror(errno));
+      }
+   }
+#if defined (_WITH_TOS) && defined (IP_TOS) && defined (IPTOS_LOWDELAY) && defined (IPTOS_THROUGHPUT)
+   if (sending_logdata == YES)
+   {
+      reply = IPTOS_THROUGHPUT;
+   }
+   else
+   {
+      reply = IPTOS_LOWDELAY;
+   }
+   if (setsockopt(sock_fd, IPPROTO_IP, IP_TOS, (char *)&reply,
+                  sizeof(reply)) < 0)
+   {
+      mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, NULL,
+              "tcp_connect(): setsockopt() IP_TOS error : %s",
+              strerror(errno));
+   }
+#endif
+
    if ((p_control = fdopen(sock_fd, "r+")) == NULL)
    {
       mon_log(ERROR_SIGN, __FILE__, __LINE__, 0L, NULL,
@@ -239,20 +284,20 @@ tcp_quit(void)
    {
       int reply;
 
-      (void)fprintf(p_control, "QUIT\r\n");
-      if (fflush(p_control) == EOF)
-      {
-         mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, NULL,
-                 "Failed to fflush() connection : %s", strerror(errno));
-      }
-
       /*
        * If timeout_flag is ON, lets NOT check the reply from
-       * the QUIT command. Else we are again waiting 'ftp_timeout'
+       * the QUIT command. Else we are again waiting 'tcp_timeout'
        * seconds for the reply!
        */
-      if (timeout_flag != ON)
+      if (timeout_flag == OFF)
       {
+         (void)fprintf(p_control, "QUIT\r\n");
+         if (fflush(p_control) == EOF)
+         {
+            mon_log(WARN_SIGN, __FILE__, __LINE__, 0L, NULL,
+                    "Failed to fflush() connection : %s", strerror(errno));
+         }
+
          if ((reply = get_reply()) < 0)
          {
             return(INCORRECT);
@@ -265,14 +310,7 @@ tcp_quit(void)
          {
             return(reply);
          }
-      }
 
-      /*
-       * DON'T do a shutdown when timeout_flag is ON!!! Let the kernel
-       * handle the last buffers with TIME_WAIT.
-       */
-      if (timeout_flag != ON)
-      {
          if (shutdown(sock_fd, 1) < 0)
          {
             mon_log(DEBUG_SIGN, __FILE__, __LINE__, 0L, NULL,

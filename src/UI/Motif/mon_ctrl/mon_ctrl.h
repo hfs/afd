@@ -1,6 +1,6 @@
 /*
  *  mon_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -47,15 +47,16 @@
 /* Definitions for View pulldown. */
 #define MON_AFD_CTRL_W                 0
 #define MON_SYSTEM_W                   1
-#define MON_RECEIVE_W                  2
-#define MON_TRANS_W                    3
-#define MON_INPUT_W                    4
-#define MON_OUTPUT_W                   5
-#define MON_DELETE_W                   6
-#define MON_SHOW_QUEUE_W               7
-#define MON_VIEW_LOAD_W                8
+#define MON_EVENT_W                    2
+#define MON_RECEIVE_W                  3
+#define MON_TRANS_W                    4
+#define MON_INPUT_W                    5
+#define MON_OUTPUT_W                   6
+#define MON_DELETE_W                   7
+#define MON_SHOW_QUEUE_W               8
+#define MON_VIEW_LOAD_W                9
 
-/* Definitions for Control pulldown */
+/* Definitions for Control pulldown. */
 #define AMG_CTRL_W                     0
 #define FD_CTRL_W                      1
 #define RR_DC_W                        2
@@ -166,7 +167,7 @@ struct mon_line
           char           afd_toggle;
        };
       
-/* Structure that holds the permissions */
+/* Structure that holds the permissions. */
 struct mon_control_perm
        {
           char        **mon_ctrl_list;
@@ -176,12 +177,13 @@ struct mon_control_perm
           char        **disable_list;
           char        **afd_ctrl_list;
           char        **show_slog_list;
+          char        **show_elog_list;
           char        **show_rlog_list;
           char        **show_tlog_list;
           char        **show_mm_log_list;
           char        **show_ilog_list;
           char        **show_olog_list;
-          char        **show_elog_list;
+          char        **show_dlog_list;
           char        **afd_load_list;
           char        **edit_hc_list;
           signed char amg_ctrl;              /* Start/Stop the AMG       */
@@ -198,18 +200,19 @@ struct mon_control_perm
           signed char show_mm_log;           /* Show Monitor Log         */
           signed char afd_ctrl;              /* Show AFD Control Dialog  */
           signed char show_slog;             /* Show System Log          */
+          signed char show_elog;             /* Show Event Log           */
           signed char show_rlog;             /* Show Receive Log         */
           signed char show_tlog;             /* Show Transfer Log        */
           signed char show_ilog;             /* Show Input Log           */
           signed char show_olog;             /* Show Output Log          */
-          signed char show_elog;             /* Show Delete Log          */
+          signed char show_dlog;             /* Show Delete Log          */
           signed char show_queue;            /* Show AFD Queue           */
           signed char afd_load;              /* Show load of AFD         */
           signed char edit_hc;               /* Edit HOST_CONFIG         */
           signed char dir_ctrl;              /* dir_ctrl dialog          */
        };
 
-/* Function Prototypes */
+/* Function Prototypes. */
 signed char mon_window_size(int *, int *),
             resize_mon_window(void);
 void        calc_mon_but_coord(int),

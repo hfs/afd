@@ -1,6 +1,6 @@
 /*
  *  show_queue.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2001 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2001 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -111,6 +111,7 @@ struct sol_perm
           int         list_limit;
           int         send_limit;
           signed char delete;
+          signed char view_data;
           signed char view_passwd;
        };
 
@@ -169,6 +170,8 @@ extern void close_button(Widget, XtPointer, XtPointer),
             scrollbar_moved(Widget, XtPointer, XtPointer),
             search_button(Widget, XtPointer, XtPointer),
             show_summary(unsigned int, double),
-            toggled(Widget, XtPointer, XtPointer);
+            toggled(Widget, XtPointer, XtPointer),
+            view_button(Widget, XtPointer, XtPointer),
+            view_files(int, int *);
 
 #endif /* __show_queue_h */

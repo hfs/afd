@@ -65,7 +65,9 @@ error_action(char *alias_name, char *action)
                  p_work_dir, ETC_DIR, ERROR_ACTION_DIR, alias_name);
    if (eaccess(fullname, X_OK) == 0)
    {
+      int   status;
       pid_t pid;
+      char  reason_str[38 + MAX_INT_LENGTH + 1];
 
       if ((pid = fork()) < 0)
       {
@@ -102,7 +104,7 @@ error_action(char *alias_name, char *action)
               _exit(SUCCESS);
            }
 
-      if (waitpid(pid, NULL, 0) != pid)
+      if (waitpid(pid, &status, 0) != pid)
       {
          system_log(WARN_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
@@ -112,6 +114,33 @@ error_action(char *alias_name, char *action)
 #endif
                     (pri_pid_t)pid, strerror(errno));
       }
+      if (WIFEXITED(status))
+      {
+         (void)sprintf(reason_str, "%d", WEXITSTATUS(status));
+      }
+      else if (WIFSIGNALED(status))
+           {
+              (void)sprintf(reason_str,
+                            "Abnormal termination caused by signal %d",
+                            WTERMSIG(status));
+           }
+           else
+           {
+              (void)strcpy(reason_str, "Unable to determine return code");
+           }
+      if ((action[0] == 's') && (action[1] == 't') && (action[2] == 'a') &&
+          (action[3] == 'r') && (action[4] == 't') && (action[5] == '\0'))
+      {
+         event_log(0L, EC_HOST, ET_AUTO, EA_EXEC_ERROR_ACTION_START, "%s%c%s",
+                   alias_name, SEPARATOR_CHAR, reason_str);
+      }
+      else if ((action[0] == 's') && (action[1] == 't') && (action[2] == 'o') &&
+               (action[3] == 'p') && (action[4] == '\0'))
+           {
+              event_log(0L, EC_HOST, ET_AUTO, EA_EXEC_ERROR_ACTION_STOP,
+                        "%s%c%s",
+                        alias_name, SEPARATOR_CHAR, reason_str);
+           }
    }
    return;
 }

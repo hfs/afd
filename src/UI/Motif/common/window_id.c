@@ -1,6 +1,6 @@
 /*
  *  window_id.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -69,16 +69,22 @@ DESCR__E_M3
 #include <sys/types.h>
 #include <signal.h>                  /* kill()                           */
 #include <sys/stat.h>
-#include <unistd.h>                  /* ftruncate()                      */
+#include <unistd.h>                  /* ftruncate(), geteuid(), getuid() */
 #include <fcntl.h>
 #include <errno.h>
 #include "x_common_defs.h"
 
-/* External global variables */
+#define AFD_WINDOW_ID_FILE ".afd_window_ids"
+
+/* External global variables. */
+extern int  sys_log_fd;
 extern char *p_work_dir;
 
-/* Local global variables */
+/* Local global variables. */
 static char window_id_file[MAX_PATH_LENGTH] = { 0 };
+
+/* Local function prototypes. */
+static void get_window_id_name(void);
 
 
 /*########################### write_window_id() #########################*/
@@ -86,21 +92,44 @@ void
 write_window_id(Window w, pid_t pid, char *progname)
 {
    int               fd,
-                     *no_of_windows;
+                     *no_of_windows,
+                     tmp_sys_log_fd;
    size_t            new_size;
+   uid_t             euid, /* Effective user ID. */
+                     ruid; /* Real user ID. */
    char              *ptr;
    struct window_ids *wl;
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s%s",
-                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
+      get_window_id_name();
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(window_id_file, &fd, new_size, progname,
-                         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-                         YES)) == (caddr_t) -1)
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (seteuid(ruid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       ruid, strerror(errno));
+      }
+   }
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDERR_FILENO;
+   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+                    S_IRUSR | S_IWUSR, YES);
+   sys_log_fd = tmp_sys_log_fd;
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
+   }
+   if (ptr == (caddr_t) -1)
    {
       (void)fprintf(stderr, "Failed to mmap() to %s : %s\n",
                     window_id_file, strerror(errno));
@@ -143,23 +172,46 @@ Window
 get_window_id(pid_t pid, char *progname)
 {
    int               fd,
+                     i,
                      *no_of_windows,
-                     i;
+                     tmp_sys_log_fd;
    size_t            new_size;
+   uid_t             euid, /* Effective user ID. */
+                     ruid; /* Real user ID. */
    char              *ptr;
    Window            window_id = 0L;
    struct window_ids *wl;
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s%s",
-                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
+      get_window_id_name();
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(window_id_file, &fd, new_size, progname,
-                         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-                         YES)) == (caddr_t) -1)
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (seteuid(ruid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       ruid, strerror(errno));
+      }
+   }
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDERR_FILENO;
+   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+                    S_IRUSR | S_IWUSR, YES);
+   sys_log_fd = tmp_sys_log_fd;
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
+   }
+   if (ptr == (caddr_t) -1)
    {
       (void)fprintf(stderr, "Failed to mmap() to %s : %s\n",
                     window_id_file, strerror(errno));
@@ -220,21 +272,44 @@ remove_window_id(pid_t pid, char *progname)
 {
    int               fd,
                      *no_of_windows,
-                     i;
+                     i,
+                     tmp_sys_log_fd;
    size_t            new_size;
+   uid_t             euid, /* Effective user ID. */
+                     ruid; /* Real user ID. */
    char              *ptr;
    struct window_ids *wl;
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s%s",
-                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
+      get_window_id_name();
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(window_id_file, &fd, new_size, progname,
-                         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-                         YES)) == (caddr_t) -1)
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (seteuid(ruid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       ruid, strerror(errno));
+      }
+   }
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDERR_FILENO;
+   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+                    S_IRUSR | S_IWUSR, YES);
+   sys_log_fd = tmp_sys_log_fd;
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
+   }
+   if (ptr == (caddr_t) -1)
    {
       (void)fprintf(stderr, "Failed to mmap() to %s : %s\n",
                     window_id_file, strerror(errno));
@@ -286,22 +361,45 @@ void
 check_window_ids(char *progname)
 {
    int               fd,
+                     i,
                      *no_of_windows,
-                     i;
+                     tmp_sys_log_fd;
    size_t            new_size;
+   uid_t             euid, /* Effective user ID. */
+                     ruid; /* Real user ID. */
    char              *ptr;
    struct window_ids *wl;
 
    if (window_id_file[0] == '\0')
    {
-      (void)sprintf(window_id_file, "%s%s%s",
-                    p_work_dir, FIFO_DIR, WINDOW_ID_FILE);
+      get_window_id_name();
    }
    new_size = (DEFAULT_WINDOW_ID_STEPSIZE * sizeof(struct window_ids)) +
               AFD_WORD_OFFSET;
-   if ((ptr = attach_buf(window_id_file, &fd, new_size, progname,
-                         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH,
-                         YES)) == (caddr_t) -1)
+   euid = geteuid();
+   ruid = getuid();
+   if (euid != ruid)
+   {
+      if (seteuid(ruid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       ruid, strerror(errno));
+      }
+   }
+   tmp_sys_log_fd = sys_log_fd;
+   sys_log_fd = STDERR_FILENO;
+   ptr = attach_buf(window_id_file, &fd, new_size, progname,
+                    S_IRUSR | S_IWUSR, YES);
+   sys_log_fd = tmp_sys_log_fd;
+   if (euid != ruid)
+   {
+      if (seteuid(euid) == -1)
+      {
+         (void)fprintf(stderr, "Failed to seteuid() to %d : %s\n",
+                       euid, strerror(errno));
+      }
+   }
+   if (ptr == (caddr_t) -1)
    {
       (void)fprintf(stderr, "Failed to mmap() to %s : %s\n",
                     window_id_file, strerror(errno));
@@ -344,5 +442,23 @@ check_window_ids(char *progname)
    }
    unmap_data(fd, (void *)&wl);
 
+   return;
+}
+
+
+/*++++++++++++++++++++++++ get_window_id_name() +++++++++++++++++++++++++*/
+static void
+get_window_id_name(void)
+{
+   char *ptr;
+
+   if ((ptr = getenv("HOME")) == NULL)
+   {
+      (void)strcpy(window_id_file, AFD_WINDOW_ID_FILE);
+   }
+   else
+   {
+      (void)sprintf(window_id_file, "%s/%s", ptr, AFD_WINDOW_ID_FILE);
+   }
    return;
 }

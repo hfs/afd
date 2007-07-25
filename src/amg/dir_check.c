@@ -78,6 +78,8 @@ DESCR__S_M1
  */
 DESCR__E_M1
 
+/* #define WITH_MEMCHECK */
+
 #include <stdio.h>                 /* fprintf(), sprintf()               */
 #include <string.h>                /* strcpy(), strcat(), strcmp(),      */
                                    /* memcpy(), strerror(), strlen()     */
@@ -89,10 +91,13 @@ DESCR__E_M1
 #include <sys/stat.h>
 #include <sys/time.h>              /* struct timeval                     */
 #ifdef HAVE_MMAP
-#include <sys/mman.h>              /* munmap()                           */
+# include <sys/mman.h>             /* munmap()                           */
 #endif
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
+#endif
+#ifdef WITH_MEMCHECK
+# include <mcheck.h>
 #endif
 #include <unistd.h>                /* fork(), rmdir(), getuid(), getgid()*/
 #include <dirent.h>                /* opendir(), closedir(), readdir(),  */
@@ -108,6 +113,7 @@ DESCR__E_M1
 
 /* Global variables. */
 int                        afd_status_fd,
+                           event_log_fd = STDERR_FILENO,
                            fra_id,         /* ID of FRA.                 */
                            fra_fd = -1,    /* Needed by fra_attach()     */
                            fsa_id,         /* ID of FSA.                 */
@@ -297,6 +303,9 @@ main(int argc, char *argv[])
 #endif
    struct timeval   timeout;
 
+#ifdef WITH_MEMCHECK
+   mtrace();
+#endif
    CHECK_FOR_VERSION(argc, argv);
 
    (void)umask(0);
@@ -852,7 +861,8 @@ main(int argc, char *argv[])
                        }
 
                        if ((fra[de[i].fra_pos].fsa_pos == -1) &&
-                           (fra[de[i].fra_pos].time_option == YES))
+                           (fra[de[i].fra_pos].time_option == YES) &&
+                           ((fdc == 0) || (full_dir[fdc - 1] != i)))
                        {
                           fra[de[i].fra_pos].next_check_time = calc_next_time(&fra[de[i].fra_pos].te, start_time);
                        }
@@ -1830,7 +1840,6 @@ handle_dir(int    dir_pos,
                                                  creation_time,
                                                  de[dir_pos].fme[j].pos[k],
 #ifdef _WITH_PTHREAD
-                                                 file_name_buffer,
 # ifdef _DELETE_LOG
                                                  file_size_pool,
                                                  file_name_pool,
@@ -1844,6 +1853,9 @@ handle_dir(int    dir_pos,
                                     {
                                        pid_t pid;
 
+#ifdef WITH_MEMCHECK
+                                       muntrace();
+#endif
                                        in_child = YES;
                                        if ((db[de[dir_pos].fme[j].pos[k]].lfs & SPLIT_FILE_LIST) &&
                                            (files_linked > MAX_FILES_TO_PROCESS))
@@ -1928,7 +1940,6 @@ handle_dir(int    dir_pos,
                                                              tmp_creation_time,
                                                              de[dir_pos].fme[j].pos[k],
 #ifdef _WITH_PTHREAD
-                                                             file_name_buffer,
 # ifdef _DELETE_LOG
                                                              file_size_pool,
                                                              file_name_pool,
@@ -1975,7 +1986,6 @@ handle_dir(int    dir_pos,
                                                           creation_time,
                                                           de[dir_pos].fme[j].pos[k],
 #ifdef _WITH_PTHREAD
-                                                          file_name_buffer,
 # ifdef _DELETE_LOG
                                                           file_size_pool,
                                                           file_name_pool,
@@ -2017,7 +2027,6 @@ handle_dir(int    dir_pos,
                                                        creation_time,
                                                        de[dir_pos].fme[j].pos[k],
 #ifdef _WITH_PTHREAD
-                                                       file_name_buffer,
 # ifdef _DELETE_LOG
                                                        file_size_pool,
                                                        file_name_pool,
@@ -2076,7 +2085,6 @@ handle_dir(int    dir_pos,
                                            creation_time,
                                            de[dir_pos].fme[j].pos[k],
 #ifdef _WITH_PTHREAD
-                                           file_name_buffer,
 # ifdef _DELETE_LOG
                                            file_size_pool,
                                            file_name_pool,
@@ -2305,11 +2313,11 @@ get_one_zombie(pid_t cpid)
               /* abnormal termination */;
               system_log(ERROR_SIGN, __FILE__, __LINE__,
 #if SIZEOF_PID_T == 4
-                         "Abnormal termination of forked process dir_check (%d)",
+                         "Abnormal termination of forked process dir_check (%d), caused by signal %d.",
 #else
-                         "Abnormal termination of forked process dir_check (%lld)",
+                         "Abnormal termination of forked process dir_check (%lld), caused by signal %d.",
 #endif
-                         (pri_pid_t)pid);
+                         (pri_pid_t)pid, WTERMSIG(status));
            }
       else if (WIFSTOPPED(status))
            {
@@ -2541,6 +2549,11 @@ check_fifo(int read_fd, int write_fd)
                              "Failed to detach from error queue.");
                }
 #endif
+               if (fjd != NULL)
+               {
+                  free(fjd);
+                  fjd = NULL;
+               }
                system_log(INFO_SIGN, NULL, 0, "Stopped dir_check.");
 
                /* Set flag to indicate that the the dir_check is NOT active. */

@@ -1,6 +1,6 @@
 /*
  *  mouse_handler.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -64,8 +64,11 @@ DESCR__E_M3
 #include <fcntl.h>
 #include <signal.h>            /* kill()                                 */
 #include <unistd.h>            /* fork()                                 */
+#ifdef WITH_MEMCHECK
+# include <mcheck.h>
+#endif
 #ifdef HAVE_MMAP
-#include <sys/mman.h>          /* munmap()                               */
+# include <sys/mman.h>         /* munmap()                               */
 #endif
 #include <errno.h>
 #include <X11/Xlib.h>
@@ -79,11 +82,13 @@ DESCR__E_M3
 #include "show_log.h"
 #include "afd_ctrl.h"
 #include "permission.h"
+#include "logdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display                    *display;
 extern XtAppContext               app;
 extern XtIntervalId               interval_id_tv;
+extern XtInputId                  db_update_cmd_id;
 extern Widget                     fw[],
                                   rw[],
                                   lsw[],
@@ -136,9 +141,10 @@ extern off_t                      afd_active_size;
 #endif
 extern float                      max_bar_length;
 extern unsigned long              color_pool[];
-extern char                       *p_work_dir,
+extern char                       *db_update_reply_fifo,
+                                  *p_work_dir,
                                   *pid_list,
-                                  *profile,
+                                  profile[],
                                   line_style,
                                   fake_user[],
                                   font_name[],
@@ -155,16 +161,21 @@ extern struct filetransfer_status *fsa;
 extern struct afd_control_perm    acp;
 extern struct apps_list           *apps_list;
 
-/* Local global variables */
-static int                        in_window = NO;
+/* Local global variables. */
+static int                        db_update_reply_fd,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                  db_update_reply_writefd,
+#endif
+                                  in_window = NO;
 
-/* Global variables */
+/* Global variables. */
 size_t                            current_jd_size = 0;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static int                        to_long(int, int, int),
                                   to_short(int, int, int);
-static void                       redraw_long(int),
+static void                       read_reply(XtPointer, int *, XtInputId *),
+                                  redraw_long(int),
                                   redraw_short(void);
 
 
@@ -972,11 +983,12 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                     cmd[2],
 #endif
        	            err_msg[1025 + 100];
-   size_t           new_size = (no_of_hosts + 9) * sizeof(char *);
+   size_t           new_size = (no_of_hosts + 11) * sizeof(char *);
    struct host_list *hl = NULL;
 
    if ((no_selected == 0) && (no_selected_static == 0) &&
-       ((sel_typ == QUEUE_SEL) || (sel_typ == TRANS_SEL) ||
+       ((sel_typ == EVENT_SEL) ||
+        (sel_typ == QUEUE_SEL) || (sel_typ == TRANS_SEL) ||
         (sel_typ == DISABLE_SEL) || (sel_typ == SWITCH_SEL) ||
         (sel_typ == RETRY_SEL) || (sel_typ == DEBUG_SEL) ||
         (sel_typ == TRACE_SEL) || (sel_typ == FULL_TRACE_SEL) ||
@@ -998,13 +1010,40 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
 
    switch (sel_typ)
    {
+      case EVENT_SEL : /* Handle Event */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
+         if (profile[0] != '\0')
+         {
+            args[offset] = "-p";
+            args[offset + 1] = profile;
+            offset += 2;
+         }
+         args[offset] = "-h";
+         offset++;
+         (void)strcpy(progname, HANDLE_EVENT);
+         break;
+
       case QUEUE_SEL:
       case TRANS_SEL:
       case DISABLE_SEL:
       case SWITCH_SEL:
          (void)sprintf(host_config_file, "%s%s%s",
                        p_work_dir, ETC_DIR, DEFAULT_HOST_CONFIG_FILE);
-         ehc = eval_host_config(&hosts_found, host_config_file, &hl, NO);
+         ehc = eval_host_config(&hosts_found, host_config_file, &hl, NULL, NO);
          if ((ehc == NO) && (no_of_hosts != hosts_found))
          {
             (void)xrec(appshell, WARN_DIALOG,
@@ -1074,6 +1113,27 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          make_xprocess(progname, progname, args, -1);
          return;
 
+      case E_LOG_SEL : /* Event Log */
+         args[0] = progname;
+         args[1] = WORK_DIR_ID;
+         args[2] = p_work_dir;
+         args[3] = "-f";
+         args[4] = font_name;
+         if (fake_user[0] != '\0')
+         {
+            args[5] = "-u";
+            args[6] = fake_user;
+            offset = 7;
+         }
+         else
+         {
+            offset = 5;
+         }
+         args[offset] = "-h";
+         offset++;
+         (void)strcpy(progname, SHOW_ELOG);
+         break;
+
       case R_LOG_SEL : /* Receive Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
@@ -1099,7 +1159,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, SHOW_LOG);
          break;
 
-      case D_LOG_SEL : /* Transfer Debug Log */
+      case TD_LOG_SEL : /* Transfer Debug Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -1148,7 +1208,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          (void)strcpy(progname, SHOW_OLOG);
          break;
 
-      case E_LOG_SEL : /* Delete Log */
+      case D_LOG_SEL : /* Delete Log */
          args[0] = progname;
          args[1] = WORK_DIR_ID;
          args[2] = p_work_dir;
@@ -1164,7 +1224,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             offset = 5;
          }
-         (void)strcpy(progname, SHOW_RLOG);
+         (void)strcpy(progname, SHOW_DLOG);
          break;
 
       case SHOW_QUEUE_SEL : /* View AFD Queue */
@@ -1182,6 +1242,12 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          else
          {
             offset = 5;
+         }
+         if (profile[0] != '\0')
+         {
+            args[offset] = "-p";
+            args[offset + 1] = profile;
+            offset += 2;
          }
          (void)strcpy(progname, SHOW_QUEUE);
          break;
@@ -1301,6 +1367,12 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             offset = 5;
          }
+         if (profile[0] != '\0')
+         {
+            args[offset] = "-p";
+            args[offset + 1] = profile;
+            offset += 2;
+         }
          if ((no_selected > 0) || (no_selected_static > 0))
          {
             args[offset] = "-h";
@@ -1350,7 +1422,7 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             offset = 3;
          }
-         if (profile != NULL)
+         if (profile[0] != '\0')
          {
             args[offset] = "-p";
             args[offset + 1] = profile;
@@ -1407,6 +1479,10 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             FREE_RT_ARRAY(acp.ctrl_queue_list);
          }
+         if (acp.handle_event_list != NULL)
+         {
+            FREE_RT_ARRAY(acp.handle_event_list);
+         }
          if (acp.switch_host_list != NULL)
          {
             FREE_RT_ARRAY(acp.switch_host_list);
@@ -1431,6 +1507,10 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             FREE_RT_ARRAY(acp.show_slog_list);
          }
+         if (acp.show_elog_list != NULL)
+         {
+            FREE_RT_ARRAY(acp.show_elog_list);
+         }
          if (acp.show_rlog_list != NULL)
          {
             FREE_RT_ARRAY(acp.show_rlog_list);
@@ -1439,9 +1519,9 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             FREE_RT_ARRAY(acp.show_tlog_list);
          }
-         if (acp.show_dlog_list != NULL)
+         if (acp.show_tdlog_list != NULL)
          {
-            FREE_RT_ARRAY(acp.show_dlog_list);
+            FREE_RT_ARRAY(acp.show_tdlog_list);
          }
          if (acp.show_ilog_list != NULL)
          {
@@ -1451,9 +1531,9 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
          {
             FREE_RT_ARRAY(acp.show_olog_list);
          }
-         if (acp.show_elog_list != NULL)
+         if (acp.show_dlog_list != NULL)
          {
-            FREE_RT_ARRAY(acp.show_elog_list);
+            FREE_RT_ARRAY(acp.show_dlog_list);
          }
          if (acp.show_queue_list != NULL)
          {
@@ -1530,15 +1610,15 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   {
                      if (fsa[i].host_status & PAUSE_QUEUE_STAT)
                      {
-                        config_log("%s: STARTED input queue",
-                                   connect_data[i].host_display_str);
+                        config_log(EC_HOST, ET_MAN, EA_START_QUEUE,
+                                   fsa[i].host_alias, NULL);
                         fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                         hl[i].host_status &= ~PAUSE_QUEUE_STAT;
                      }
                      else
                      {
-                        config_log("%s: STOPPED input queue",
-                                   connect_data[i].host_display_str);
+                        config_log(EC_HOST, ET_MAN, EA_STOP_QUEUE,
+                                   fsa[i].host_alias, NULL);
                         fsa[i].host_status ^= PAUSE_QUEUE_STAT;
                         hl[i].host_status |= PAUSE_QUEUE_STAT;
                      }
@@ -1607,8 +1687,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                                          FD_WAKE_UP_FIFO, strerror(errno));
                            }
                         }
-                        config_log("%s: STARTED transfer",
-                                   connect_data[i].host_display_str);
+                        config_log(EC_HOST, ET_MAN, EA_START_TRANSFER,
+                                   fsa[i].host_alias, NULL);
                         hl[i].host_status &= ~STOP_TRANSFER_STAT;
                         fsa[i].host_status ^= STOP_TRANSFER_STAT;
                      }
@@ -1634,8 +1714,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                               }
                            }
                         }
-                        config_log("%s: STOPPED transfer",
-                                   connect_data[i].host_display_str);
+                        config_log(EC_HOST, ET_MAN, EA_STOP_TRANSFER,
+                                   fsa[i].host_alias, NULL);
                         hl[i].host_status |= STOP_TRANSFER_STAT;
                      }
                      change_host_config = YES;
@@ -1660,8 +1740,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                      {
                         fsa[i].special_flag ^= HOST_DISABLED;
                         hl[i].host_status &= ~HOST_CONFIG_HOST_DISABLED;
-                        config_log("%s: ENABLED",
-                                   connect_data[i].host_display_str);
+                        config_log(EC_HOST, ET_MAN, EA_ENABLE_HOST,
+                                   fsa[i].host_alias, NULL);
                      }
                      else
                      {
@@ -1677,10 +1757,15 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                            char   delete_jobs_host_fifo[MAX_PATH_LENGTH];
 
                            length = strlen(fsa[i].host_alias) + 1;
+                           fsa[i].host_status &= ~HOST_ERROR_ACKNOWLEDGED;
+                           fsa[i].host_status &= ~HOST_ERROR_OFFLINE;
+                           fsa[i].host_status &= ~HOST_ERROR_ACKNOWLEDGED_T;
+                           fsa[i].host_status &= ~HOST_ERROR_OFFLINE_T;
+                           fsa[i].host_status &= ~PENDING_ERRORS;
                            fsa[i].special_flag ^= HOST_DISABLED;
                            hl[i].host_status |= HOST_CONFIG_HOST_DISABLED;
-                           config_log("%s: DISABLED",
-                                      connect_data[i].host_display_str);
+                           config_log(EC_HOST, ET_MAN, EA_DISABLE_HOST,
+                                      fsa[i].host_alias, NULL);
 
                            (void)sprintf(delete_jobs_host_fifo, "%s%s%s",
                                          p_work_dir, FIFO_DIR, FD_DELETE_FIFO);
@@ -1782,6 +1867,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   if ((fsa[i].toggle_pos > 0) &&
                       (fsa[i].host_toggle_str[0] != '\0'))
                   {
+                     char tmp_host_alias[MAX_HOSTNAME_LENGTH + 1];
+
                      if (fsa[i].host_toggle == HOST_ONE)
                      {
                         connect_data[i].host_toggle = fsa[i].host_toggle = HOST_TWO;
@@ -1793,10 +1880,11 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                         hl[i].host_status &= ~HOST_TWO_FLAG;
                      }
                      change_host_config = YES;
+                     (void)strcpy(tmp_host_alias, fsa[i].host_dsp_name);
                      fsa[i].host_dsp_name[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[(int)fsa[i].host_toggle];
-                     config_log("SWITCHING from %s -> %s",
-                                connect_data[i].host_display_str,
-                                fsa[i].host_dsp_name);
+                     config_log(EC_HOST, ET_MAN, EA_SWITCH_HOST,
+                                fsa[i].host_alias, "%s -> %s",
+                                tmp_host_alias, fsa[i].host_dsp_name);
                      connect_data[i].host_display_str[(int)fsa[i].toggle_pos] = fsa[i].host_toggle_str[(int)fsa[i].host_toggle];
 
                      /* Don't forget to redraw display name of tv window. */
@@ -1874,6 +1962,8 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   }
                   else
                   {
+                     event_log(0L, EC_HOST, ET_MAN, EA_RETRY_HOST, "%s%c%s",
+                               fsa[i].host_alias, SEPARATOR_CHAR, user);
                      if (write(fd, &i, sizeof(int)) != sizeof(int))
                      {
                         (void)xrec(appshell, ERROR_DIALOG,
@@ -1902,28 +1992,27 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
             case DEBUG_SEL :
                if (fsa[i].debug == NORMAL_MODE)
                {
-                  config_log("%s: Enabled DEBUG mode",
-                             connect_data[i].host_display_str);
+                  config_log(EC_HOST, ET_MAN, EA_ENABLE_DEBUG_HOST,
+                             fsa[i].host_alias, NULL);
                   fsa[i].debug = DEBUG_MODE;
                }
                else
                {
-                  char msg[11];
-
                   if (fsa[i].debug == TRACE_MODE)
                   {
-                     (void)strcpy(msg, "TRACE");
+                     config_log(EC_HOST, ET_MAN, EA_DISABLE_TRACE_HOST,
+                                fsa[i].host_alias, NULL);
                   }
                   else if (fsa[i].debug == FULL_TRACE_MODE)
                        {
-                          (void)strcpy(msg, "FULL TRACE");
+                          config_log(EC_HOST, ET_MAN, EA_DISABLE_FULL_TRACE_HOST,
+                                     fsa[i].host_alias, NULL);
                        }
                        else
                        {
-                          (void)strcpy(msg, "DEBUG");
+                          config_log(EC_HOST, ET_MAN, EA_DISABLE_DEBUG_HOST,
+                                     fsa[i].host_alias, NULL);
                        }
-                  config_log("%s: Disabled %s mode",
-                             connect_data[i].host_display_str, msg);
                   fsa[i].debug = NORMAL_MODE;
                }
                break;
@@ -1931,28 +2020,27 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
             case TRACE_SEL :
                if (fsa[i].debug == NORMAL_MODE)
                {
-                  config_log("%s: Enabled TRACE mode",
-                             connect_data[i].host_display_str);
+                  config_log(EC_HOST, ET_MAN, EA_ENABLE_TRACE_HOST,
+                             fsa[i].host_alias, NULL);
                   fsa[i].debug = TRACE_MODE;
                }
                else
                {
-                  char msg[11];
-
                   if (fsa[i].debug == TRACE_MODE)
                   {
-                     (void)strcpy(msg, "TRACE");
+                     config_log(EC_HOST, ET_MAN, EA_DISABLE_TRACE_HOST,
+                                fsa[i].host_alias, NULL);
                   }
                   else if (fsa[i].debug == FULL_TRACE_MODE)
                        {
-                          (void)strcpy(msg, "FULL TRACE");
+                          config_log(EC_HOST, ET_MAN, EA_DISABLE_FULL_TRACE_HOST,
+                                     fsa[i].host_alias, NULL);
                        }
                        else
                        {
-                          (void)strcpy(msg, "DEBUG");
+                          config_log(EC_HOST, ET_MAN, EA_DISABLE_DEBUG_HOST,
+                                     fsa[i].host_alias, NULL);
                        }
-                  config_log("%s: Disabled %s mode",
-                             connect_data[i].host_display_str, msg);
                   fsa[i].debug = NORMAL_MODE;
                }
                break;
@@ -1960,28 +2048,27 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
             case FULL_TRACE_SEL :
                if (fsa[i].debug == NORMAL_MODE)
                {
-                  config_log("%s: Enabled FULL TRACE mode",
-                             connect_data[i].host_display_str);
+                  config_log(EC_HOST, ET_MAN, EA_ENABLE_FULL_TRACE_HOST,
+                             fsa[i].host_alias, NULL);
                   fsa[i].debug = FULL_TRACE_MODE;
                }
                else
                {
-                  char msg[11];
-
                   if (fsa[i].debug == TRACE_MODE)
                   {
-                     (void)strcpy(msg, "TRACE");
+                     config_log(EC_HOST, ET_MAN, EA_DISABLE_TRACE_HOST,
+                                fsa[i].host_alias, NULL);
                   }
                   else if (fsa[i].debug == FULL_TRACE_MODE)
                        {
-                          (void)strcpy(msg, "FULL TRACE");
+                          config_log(EC_HOST, ET_MAN, EA_DISABLE_FULL_TRACE_HOST,
+                                     fsa[i].host_alias, NULL);
                        }
                        else
                        {
-                          (void)strcpy(msg, "DEBUG");
+                          config_log(EC_HOST, ET_MAN, EA_DISABLE_DEBUG_HOST,
+                                     fsa[i].host_alias, NULL);
                        }
-                  config_log("%s: Disabled %s mode",
-                             connect_data[i].host_display_str, msg);
                   fsa[i].debug = NORMAL_MODE;
                }
                break;
@@ -2003,16 +2090,52 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
                }
                break;
 
+            case EVENT_SEL :
+               {
+                  int    gotcha = NO,
+                         ii;
+                  Window window_id;
+
+                  for (ii = 0; ii < no_of_active_process; ii++)
+                  {
+                     if ((apps_list[ii].position == -1) &&
+                         (CHECK_STRCMP(apps_list[ii].progname, HANDLE_EVENT) == 0))
+                     {
+                        if ((window_id = get_window_id(apps_list[ii].pid,
+                                                       AFD_CTRL)) != 0L)
+                        {
+                           gotcha = YES;
+                        }
+                        break;
+                     }
+                  }
+                  if (gotcha == NO)
+                  {
+                    (void)strcpy(hosts[k], fsa[i].host_alias);
+                    args[k + offset] = hosts[k];
+                    k++;
+                  }
+                  else
+                  {
+                     XRaiseWindow(display, window_id);
+                     XSetInputFocus(display, window_id, RevertToParent,
+                                    CurrentTime);
+                     return;
+                  }
+               }
+               break;
+
+            case E_LOG_SEL :
             case I_LOG_SEL :
             case O_LOG_SEL :
-            case E_LOG_SEL :
+            case D_LOG_SEL :
             case SHOW_QUEUE_SEL :
                (void)strcpy(hosts[k], fsa[i].host_alias);
                args[k + offset] = hosts[k];
                k++;
                break;
 
-            case D_LOG_SEL :
+            case TD_LOG_SEL :
             case T_LOG_SEL : /* Start Debug/Transfer Log */
                (void)strcpy(hosts[k], fsa[i].host_alias);
                if (fsa[i].host_toggle_str[0] != '\0')
@@ -2131,13 +2254,14 @@ popup_cb(Widget w, XtPointer client_data, XtPointer call_data)
       args[k + 7] = NULL;
       make_xprocess(progname, progname, args, -1);
    }
-   else if (sel_typ == D_LOG_SEL)
+   else if (sel_typ == TD_LOG_SEL)
         {
            (void)strcpy(log_typ, TRANS_DB_STR);
            args[k + 7] = NULL;
            make_xprocess(progname, progname, args, -1);
         }
-   else if ((sel_typ == O_LOG_SEL) || (sel_typ == E_LOG_SEL) ||
+   else if ((sel_typ == EVENT_SEL) || (sel_typ == E_LOG_SEL) ||
+            (sel_typ == O_LOG_SEL) || (sel_typ == D_LOG_SEL) ||
             (sel_typ == I_LOG_SEL) || (sel_typ == SHOW_QUEUE_SEL))
         {
            args[k + offset] = NULL;
@@ -2251,12 +2375,15 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              __FILE__, __LINE__);
                   return;
                }
-               config_log("Stopping %s", AMG);
                if (send_cmd(STOP_AMG, afd_cmd_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,
                              "Was not able to stop %s. (%s %d)",
                              AMG, __FILE__, __LINE__);
+               }
+               else
+               {
+                  config_log(EC_GLOB, ET_MAN, EA_AMG_STOP, NULL, NULL);
                }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                if (close(afd_cmd_readfd) == -1)
@@ -2293,12 +2420,15 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                           afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
-            config_log("Starting %s", AMG);
             if (send_cmd(START_AMG, afd_cmd_fd) < 0)
             {
                (void)xrec(appshell, ERROR_DIALOG,
                           "Was not able to start %s. (%s %d)",
                           AMG, __FILE__, __LINE__);
+            }
+            else
+            {
+               config_log(EC_GLOB, ET_MAN, EA_AMG_START, NULL, NULL);
             }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
             if (close(afd_cmd_readfd) == -1)
@@ -2341,12 +2471,15 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                              __FILE__, __LINE__);
                   return;
                }
-               config_log("Stopping %s", FD);
                if (send_cmd(STOP_FD, afd_cmd_fd) < 0)
                {
                   (void)xrec(appshell, ERROR_DIALOG,
                              "Was not able to stop %s. (%s %d)",
                              FD, __FILE__, __LINE__);
+               }
+               else
+               {
+                  config_log(EC_GLOB, ET_MAN, EA_FD_STOP, NULL, NULL);
                }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
                if (close(afd_cmd_readfd) == -1)
@@ -2383,12 +2516,15 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                           afd_cmd_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
-            config_log("Starting %s", FD);
             if (send_cmd(START_FD, afd_cmd_fd) < 0)
             {
                (void)xrec(appshell, ERROR_DIALOG,
                            "Was not able to start %s. (%s %d)",
                            FD, __FILE__, __LINE__);
+            }
+            else
+            {
+               config_log(EC_GLOB, ET_MAN, EA_FD_START, NULL, NULL);
             }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
             if (close(afd_cmd_readfd) == -1)
@@ -2408,14 +2544,17 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
       case REREAD_DIR_CONFIG_SEL :
       case REREAD_HOST_CONFIG_SEL : /* Reread DIR_CONFIG or HOST_CONFIG */
          {
-            int  db_update_fd;
+            int   db_update_fd,
+                  *read_reply_length;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-            int  db_update_readfd;
+            int   db_update_readfd;
 #endif
-            char db_update_fifo[MAX_PATH_LENGTH];
+            pid_t my_pid;
+            char  buffer[1 + SIZEOF_PID_T],
+                  db_update_fifo[MAX_PATH_LENGTH];
 
-            (void)sprintf(db_update_fifo, "%s%s%s",
-                          p_work_dir, FIFO_DIR, DB_UPDATE_FIFO);
+            db_update_reply_fd = sprintf(db_update_fifo, "%s%s%s",
+                                         p_work_dir, FIFO_DIR, DB_UPDATE_FIFO);
 #ifdef WITHOUT_FIFO_RW_SUPPORT
             if (open_fifo_rw(db_update_fifo, &db_update_readfd, &db_update_fd) == -1)
 #else
@@ -2427,25 +2566,100 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                           db_update_fifo, strerror(errno), __FILE__, __LINE__);
                return;
             }
+            my_pid = getpid();
+            if (db_update_reply_fifo == NULL)
+            {
+               db_update_reply_fd += sizeof(DB_UPDATE_REPLY_FIFO) + MAX_LONG_LONG_LENGTH;
+               if ((db_update_reply_fifo = malloc(db_update_reply_fd)) == NULL)
+               {
+                  (void)xrec(appshell, ERROR_DIALOG,
+                             "Failed to allocate %d bytes of memory : %s (%s %d)",
+                             db_update_reply_fd, strerror(errno),
+                             __FILE__, __LINE__);
+                  (void)close(db_update_fd);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                  (void)close(db_update_readfd);
+#endif
+                  return;
+               }
+#if SIZEOF_PID_T == 4
+               (void)sprintf(db_update_reply_fifo, "%s%s%s%d",
+#else
+               (void)sprintf(db_update_reply_fifo, "%s%s%s%lld",
+#endif
+                             p_work_dir, FIFO_DIR, DB_UPDATE_REPLY_FIFO,
+                             (pri_pid_t)my_pid);
+            }
+#ifdef GROUP_CAN_WRITE
+            if ((mkfifo(db_update_reply_fifo, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) == -1) &&
+#else
+            if ((mkfifo(db_update_reply_fifo, S_IRUSR | S_IWUSR) == -1) &&
+#endif
+                (errno != EEXIST))
+            {
+               (void)xrec(appshell, ERROR_DIALOG,
+                          "Could not create fifo `%s' : %s (%s %d)",
+                          db_update_reply_fifo, strerror(errno),
+                          __FILE__, __LINE__);
+               (void)close(db_update_fd);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               (void)close(db_update_readfd);
+#endif
+               return;
+            }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (open_fifo_rw(db_update_reply_fifo, &db_update_reply_fd,
+                             &db_update_reply_writefd) == -1)
+#else
+            if ((db_update_reply_fd = open(db_update_reply_fifo, O_RDWR)) == -1)
+#endif
+            {
+               (void)xrec(appshell, ERROR_DIALOG,
+                          "Could not create fifo `%s' : %s (%s %d)",
+                          db_update_reply_fifo, strerror(errno),
+                          __FILE__, __LINE__);
+               (void)close(db_update_fd);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+               (void)close(db_update_readfd);
+#endif
+               (void)unlink(db_update_reply_fifo);
+               free(db_update_reply_fifo);
+               db_update_reply_fifo = NULL;
+               return;
+            }
 
             if (item_no == REREAD_DIR_CONFIG_SEL)
             {
-               config_log("Reread DIR_CONFIG initiated");
-               if (send_cmd(REREAD_DIR_CONFIG, db_update_fd) < 0)
+               buffer[0] = REREAD_DIR_CONFIG;
+               (void)memcpy(&buffer[1], &my_pid, SIZEOF_PID_T);
+               if (write(db_update_fd, buffer, (1 + SIZEOF_PID_T)) != (1 + SIZEOF_PID_T))
                {
                   (void)xrec(appshell, ERROR_DIALOG,
                              "Was not able to send reread command to %s. (%s %d)",
                              AMG, __FILE__, __LINE__);
+                  read_reply_length = 0;
+               }
+               else
+               {
+                  config_log(EC_GLOB, ET_MAN, EA_REREAD_DIR_CONFIG, NULL, NULL);
+                  read_reply_length = (int *)MAX_UDC_RESPONCE_LENGTH;
                }
             }
             else
             {
-               config_log("Reread HOST_CONFIG initiated");
-               if (send_cmd(REREAD_HOST_CONFIG, db_update_fd) < 0)
+               buffer[0] = REREAD_HOST_CONFIG;
+               (void)memcpy(&buffer[1], &my_pid, SIZEOF_PID_T);
+               if (write(db_update_fd, buffer, (1 + SIZEOF_PID_T)) != (1 + SIZEOF_PID_T))
                {
                   (void)xrec(appshell, ERROR_DIALOG,
                              "Was not able to send reread command to %s. (%s %d)",
                              AMG, __FILE__, __LINE__);
+                  read_reply_length = 0;
+               }
+               else
+               {
+                  config_log(EC_GLOB, ET_MAN, EA_REREAD_HOST_CONFIG, NULL, NULL);
+                  read_reply_length = (int *)MAX_UHC_RESPONCE_LENGTH;
                }
             }
 #ifdef WITHOUT_FIFO_RW_SUPPORT
@@ -2460,6 +2674,11 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                system_log(DEBUG_SIGN, __FILE__, __LINE__,
                           "close() error : %s", strerror(errno));
             }
+            db_update_cmd_id = XtAppAddInput(XtWidgetToApplicationContext(appshell),
+                                             db_update_reply_fd,
+                                             (XtPointer)XtInputReadMask,
+                                             (XtInputCallbackProc)read_reply,
+                                             (XtPointer)read_reply_length);
          }
          break;
 
@@ -2493,6 +2712,9 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                   break;
 
                case 0 : /* Child process */
+#ifdef WITH_MEMCHECK
+                  muntrace();
+#endif
                   (void)execvp(progname, args); /* NOTE: NO return from execvp() */
                   _exit(INCORRECT);
 
@@ -2503,19 +2725,20 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                                 "Failed to waitpid() : %s (%s %d)",
                                 strerror(errno), __FILE__, __LINE__);
                   }
+                  config_log(EC_GLOB, ET_MAN, EA_AFD_START, NULL, NULL);
                   break;
             }
 	 }
 	 return;
 
       case SHUTDOWN_AFD_SEL : /* Shutdown AFD */
-
          if (xrec(appshell, QUESTION_DIALOG,
                   "Are you shure that you want to do a shutdown?") == YES)
          {
             char *args[7],
                  progname[4];
 
+            config_log(EC_GLOB, ET_MAN, EA_AFD_STOP, NULL, NULL);
             args[0] = progname;
             args[1] = WORK_DIR_ID;
             args[2] = p_work_dir;
@@ -2545,6 +2768,116 @@ control_cb(Widget w, XtPointer client_data, XtPointer call_data)
                     item_no);
          break;
    }
+
+   return;
+}
+
+
+/*+++++++++++++++++++++++++++ read_reply() ++++++++++++++++++++++++++++++*/
+static void
+read_reply(XtPointer client_data, int *fd, XtInputId *id)
+{
+   XT_PTR_TYPE read_reply_length = (XT_PTR_TYPE)client_data;
+   int         n;
+   char        rbuffer[MAX_UDC_RESPONCE_LENGTH];
+
+   if ((n = read(db_update_reply_fd, rbuffer,
+                 read_reply_length)) >= MAX_UHC_RESPONCE_LENGTH)
+   {
+      int          hc_result,
+                   see_sys_log,
+                   tmp_type,
+                   type;
+      unsigned int hc_warn_counter;
+      char         hc_result_str[MAX_UPDATE_REPLY_STR_LENGTH];
+
+      see_sys_log = NO;
+      (void)memcpy(&hc_result, rbuffer, SIZEOF_INT);
+      (void)memcpy(&hc_warn_counter, &rbuffer[SIZEOF_INT], SIZEOF_INT);
+      if (read_reply_length == MAX_UDC_RESPONCE_LENGTH)
+      {
+         if (n == MAX_UDC_RESPONCE_LENGTH)
+         {
+            int          dc_result;
+            unsigned int dc_warn_counter;
+            char         dc_result_str[MAX_UPDATE_REPLY_STR_LENGTH];
+
+            (void)memcpy(&dc_result, &rbuffer[SIZEOF_INT + SIZEOF_INT],
+                         SIZEOF_INT);
+            (void)memcpy(&dc_warn_counter,
+                         &rbuffer[SIZEOF_INT + SIZEOF_INT + SIZEOF_INT],
+                         SIZEOF_INT);
+            if (hc_result != NO_CHANGE_IN_HOST_CONFIG)
+            {
+               get_hc_result_str(hc_result_str, hc_result,
+                                 hc_warn_counter, &see_sys_log, &tmp_type);
+               (void)strcat(hc_result_str, "\n");
+            }
+            else
+            {
+               hc_result_str[0] = '\0';
+               tmp_type = 0;
+            }
+            get_dc_result_str(dc_result_str, dc_result, dc_warn_counter,
+                              &see_sys_log, &type);
+            if (tmp_type > type)
+            {
+               type = tmp_type;
+            }
+            if (see_sys_log == YES)
+            {
+               (void)xrec(appshell, type,
+                          "%s%s\n--> See %s0 for more details. <--",
+                          hc_result_str, dc_result_str, SYSTEM_LOG_NAME);
+            }
+            else
+            {
+               (void)xrec(appshell, type, "%s%s", hc_result_str, dc_result_str);
+            }
+         }
+         else
+         {
+            (void)xrec(appshell, ERROR_DIALOG,
+                       "Unable to evaluate reply since it is to short (%d, should be %d).",
+                       n, MAX_UDC_RESPONCE_LENGTH);
+         }
+      }
+      else
+      {
+         get_hc_result_str(hc_result_str, hc_result, hc_warn_counter,
+                           &see_sys_log, &type);
+         if (see_sys_log == YES)
+         {
+            (void)xrec(appshell, type, "%s\n--> See %s0 for more details. <--",
+                       hc_result_str, SYSTEM_LOG_NAME);
+         }
+         else
+         {
+            (void)xrec(appshell, type, "%s", hc_result_str);
+         }
+      }
+   }
+   else if (n == -1)
+        {
+           (void)fprintf(stderr, "read() error : %s (%s %d)\n",
+                         strerror(errno), __FILE__, __LINE__);
+        }
+
+   XtRemoveInput(db_update_cmd_id);
+   db_update_cmd_id = 0L;
+   if (close(db_update_reply_fd) == -1)
+   {
+      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (close(db_update_reply_writefd) == -1)
+   {
+      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
+#endif
+   (void)unlink(db_update_reply_fifo);
 
    return;
 }

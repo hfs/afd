@@ -96,6 +96,7 @@ extern char                afd_name[],
                            *p_work_dir,
                            *p_work_dir_end;
 extern struct logdata      ld[];
+extern struct afd_status   *p_afd_status;
 
 /* Local global variables. */
 static int                 report_changes = NO;
@@ -151,6 +152,18 @@ handle_request(int  sock_sd,
    {
       system_log(FATAL_SIGN, __FILE__, __LINE__, "Failed to attach to FRA.");
       exit(INCORRECT);
+   }
+
+   status = 0;
+   while (p_afd_status->amg_jobs & WRITTING_JID_STRUCT)
+   {
+      (void)my_usleep(100000L);
+      status++;
+      if ((status > 1) && (status % 100))
+      {
+         system_log(ERROR_SIGN, __FILE__, __LINE__,
+                    "Timeout arrived for waiting for AMG to finish writting to JID structure.");
+      }
    }
 
    if (atexit(report_shutdown) != 0)
@@ -259,7 +272,7 @@ handle_request(int  sock_sd,
               }
               else if (in_log_child == YES)
                    {
-                      log_interval = check_logs();
+                      log_interval = check_logs(now + log_interval);
                    }
                    else
                    {
@@ -289,8 +302,8 @@ handle_request(int  sock_sd,
                  (void)fprintf(p_data,
                                "214- The following commands are recognized (* =>'s unimplemented).\r\n\
    *AFDSTAT *DISC    HELP     ILOG     *INFO    *LDB     LOG      LRF\r\n\
-   OLOG     *PROC    QUIT     SLOG     STAT     TDLOG    TLOG     *TRACEF\r\n\
-   *TRACEI *TRACEO  SSTAT\r\n\
+   NOP      OLOG     *PROC    QUIT     SLOG     STAT     TDLOG    TLOG\r\n\
+   *TRACEF  *TRACEI *TRACEO  SSTAT\r\n\
 214 Direct comments to %s\r\n",
                                   AFD_MAINTAINER);
               }
@@ -375,6 +388,10 @@ handle_request(int  sock_sd,
                  else if (strcmp(&cmd[5], AFDSTAT_CMDL) == 0)
                       {
                          (void)fprintf(p_data, "%s\r\n", AFDSTAT_SYNTAX);
+                      }
+                 else if (strcmp(&cmd[5], NOP_CMDL) == 0)
+                      {
+                         (void)fprintf(p_data, "%s\r\n", NOP_SYNTAX);
                       }
                  else if (strcmp(&cmd[5], LOG_CMDL) == 0)
                       {
@@ -672,10 +689,15 @@ handle_request(int  sock_sd,
                       show_summary_stat(p_data);
                       show_host_list(p_data);
                       show_dir_list(p_data);
+                      show_job_list(p_data);
                       (void)fprintf(p_data, "LC %d\r\nWD %s\r\nAV %s\r\n",
                                     ip_log_defs[trusted_ip_pos], p_work_dir,
                                     PACKAGE_VERSION);
                       report_changes = YES;
+                   }
+              else if (strncmp(cmd, NOP_CMD, NOP_CMD_LENGTH) == 0)
+                   {
+                      (void)fprintf(p_data, "200 OK\r\n");
                    }
               else if (strncmp(cmd, LRF_CMD, LRF_CMD_LENGTH) == 0)
                    {
@@ -826,6 +848,37 @@ handle_request(int  sock_sd,
                                      system_log(DEBUG_SIGN, __FILE__, __LINE__,
                                                 "Host %s was denied access for %s",
                                                 p_remote_ip, SYSTEM_LOG_NAME);
+                                  }
+                                  break;
+                               case 'E' : /* Event Log. */
+                                  if (ip_log_defs[trusted_ip_pos] & AFDD_EVENT_LOG)
+                                  {
+                                     ld[EVE_LOG_POS].options = ld[DUM_LOG_POS].options;
+                                     ld[EVE_LOG_POS].current_log_inode = ld[DUM_LOG_POS].current_log_inode;
+                                     ld[EVE_LOG_POS].offset = ld[DUM_LOG_POS].offset;
+                                     ld[EVE_LOG_POS].flag = ld[DUM_LOG_POS].flag;
+                                     (void)strcpy(ld[EVE_LOG_POS].log_name, EVENT_LOG_NAME);
+                                     ld[EVE_LOG_POS].log_name_length = EVENT_LOG_NAME_LENGTH;
+                                     ld[EVE_LOG_POS].log_data_cmd[0] = 'L';
+                                     ld[EVE_LOG_POS].log_data_cmd[1] = 'E';
+                                     ld[EVE_LOG_POS].log_data_cmd[2] = '\0';
+                                     ld[EVE_LOG_POS].log_inode_cmd[0] = 'O';
+                                     ld[EVE_LOG_POS].log_inode_cmd[1] = 'E';
+                                     ld[EVE_LOG_POS].log_inode_cmd[2] = '\0';
+                                     ld[EVE_LOG_POS].log_flag = AFDD_EVENT_LOG;
+                                     ld[EVE_LOG_POS].fp = NULL;
+                                     ld[EVE_LOG_POS].current_log_no = 0;
+                                     ld[EVE_LOG_POS].packet_no = 0;
+                                     if ((log_defs & AFDD_EVENT_LOG) == 0)
+                                     {
+                                        log_defs |= AFDD_EVENT_LOG;
+                                     }
+                                  }
+                                  else
+                                  {
+                                     system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                                                "Host %s was denied access for %s",
+                                                p_remote_ip, EVENT_LOG_NAME);
                                   }
                                   break;
                                case 'R' : /* Retrieve Log. */

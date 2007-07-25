@@ -1,6 +1,6 @@
 /*
  *  check_log.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -137,6 +137,7 @@ Widget w;
                     (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
                     (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
                     (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
                     (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
 #ifdef _TOGGLED_PROC_SELECTION
@@ -160,6 +161,7 @@ Widget w;
                     (((toggles_set & SHOW_CONFIG) == 0) && (line[LOG_SIGN_POSITION] == 'C')) ||
                     (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
                     (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
+                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
                     (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
                {
@@ -201,6 +203,7 @@ Widget w;
                     (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
                     (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
                     (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D')) ||
                     (((toggles_set & SHOW_TRACE) == 0) && (line[LOG_SIGN_POSITION] == 'T')) ||
 #ifdef _TOGGLED_PROC_SELECTION
@@ -225,6 +228,7 @@ Widget w;
                     (((toggles_set & SHOW_WARN) == 0) && (line[LOG_SIGN_POSITION] == 'W')) ||
                     (((toggles_set & SHOW_ERROR) == 0) && (line[LOG_SIGN_POSITION] == 'E')) ||
                     (((toggles_set & SHOW_FATAL) == 0) && (line[LOG_SIGN_POSITION] == 'F')) ||
+                    (((toggles_set & SHOW_OFFLINE) == 0) && (line[LOG_SIGN_POSITION] == 'O')) ||
                     (((toggles_set & SHOW_DEBUG) == 0) && (line[LOG_SIGN_POSITION] == 'D'))))
                {
                   continue;

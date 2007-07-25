@@ -1,6 +1,6 @@
 /*
  *  set_pw.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005, 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -50,7 +50,6 @@ DESCR__E_M1
 #include <stdlib.h>                 /* exit()                            */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <setjmp.h>
 #include <signal.h>
 #include <fcntl.h>                  /* open()                            */
 #include <termios.h>
@@ -69,13 +68,8 @@ const char           *sys_log_name = SYSTEM_LOG_FIFO;
 struct termios       buf,
                      set;
 
-/* Local variables. */
-static jmp_buf       env_alarm;
-
 /* Local function prototypes. */
-static unsigned char get_key(void);
-static void          sig_alarm(int),
-                     sig_handler(int);
+static void          sig_handler(int);
 
 
 /*$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ main() $$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$*/
@@ -86,7 +80,8 @@ main(int argc, char *argv[])
                        i,
                        no_of_job_ids,
                        *no_of_passwd,
-                       read_from_stdin;
+                       read_from_stdin,
+                       user_offset;
    unsigned int        job_id;
    size_t              size;
    char                current_user[MAX_FULL_USER_ID_LENGTH],
@@ -120,6 +115,14 @@ main(int argc, char *argv[])
    else
    {
       read_from_stdin = NO;
+   }
+   if (get_arg(&argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+   }
+   else
+   {
+      user_offset = strlen(user);
    }
 
    if (get_arg(&argc, argv, "-c", uh_name,
@@ -183,7 +186,7 @@ main(int argc, char *argv[])
    /*
     * Ensure that the user may use this program.
     */
-   get_user(current_user, fake_user);
+   get_user(current_user, fake_user, user_offset);
    switch (get_permissions(&perm_buffer, fake_user))
    {
       case NO_ACCESS : /* Cannot access afd.users file. */
@@ -431,19 +434,75 @@ main(int argc, char *argv[])
    }
    else
    {
-      unsigned char key;
+      int            echo_disabled,
+                     pas_char;
+      FILE           *input;
+      void           (*sig)(int);
 
-      while (((key = get_key()) != '\n') && (i < MAX_USER_NAME_LENGTH))
+      if ((input = fopen("/dev/tty", "w+")) == NULL)
       {
-         if ((i % 2) == 0)
+         input = stdin;
+      }
+      if ((sig = signal(SIGINT, sig_handler)) == SIG_ERR)
+      {
+         (void)fprintf(stderr, "ERROR   : signal() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+
+      if (tcgetattr(fileno(stdin), &buf) < 0)
+      {
+         (void)fprintf(stderr, "ERROR   : tcgetattr() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
+      }
+      set = buf;
+
+      if (set.c_lflag & ECHO)
+      {
+         set.c_lflag &= ~ECHO;
+
+         if (tcsetattr(fileno(stdin), TCSAFLUSH, &set) < 0)
          {
-            passwd[i] = key - 24 + i;
+            (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+                          strerror(errno), __FILE__, __LINE__);
+            exit(INCORRECT);
          }
-         else
+         echo_disabled = YES;
+      }
+      else
+      {
+         echo_disabled = NO;
+      }
+      while (((pas_char = fgetc(input)) != '\n') && (pas_char != EOF))
+      {
+         if (i < MAX_USER_NAME_LENGTH)
          {
-            passwd[i] = key - 11 + i;
+            if ((i % 2) == 0)
+            {
+               passwd[i] = (unsigned char)(pas_char - 24 + i);
+            }
+            else
+            {
+               passwd[i] = (unsigned char)(pas_char - 11 + i);
+            }
+            i++;
          }
-         i++;
+      }
+      if (echo_disabled == YES)
+      {
+         if (tcsetattr(fileno(stdin), TCSANOW, &buf) < 0)
+         {
+            (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
+                          strerror(errno), __FILE__, __LINE__);
+            exit(INCORRECT);
+         }
+      }
+      if (signal(SIGINT, sig) == SIG_ERR)
+      {
+         (void)fprintf(stderr, "ERROR   : signal() error : %s (%s %d)\n",
+                       strerror(errno), __FILE__, __LINE__);
+         exit(INCORRECT);
       }
    }
    (void)fprintf(stdout, "\n");
@@ -506,89 +565,16 @@ main(int argc, char *argv[])
 }
 
 
-/*+++++++++++++++++++++++++++++++ get_key() +++++++++++++++++++++++++++++*/
-static unsigned char
-get_key(void)
-{
-   static unsigned char byte;
-
-   if ((signal(SIGQUIT, sig_handler) == SIG_ERR) ||
-       (signal(SIGINT, sig_handler) == SIG_ERR) ||
-       (signal(SIGTSTP, sig_handler) == SIG_ERR) ||
-       (signal(SIGALRM, sig_alarm) == SIG_ERR))
-   {
-      (void)fprintf(stderr, "ERROR   : signal() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   if (tcgetattr(STDIN_FILENO, &buf) < 0)
-   {
-      (void)fprintf(stderr, "ERROR   : tcgetattr() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   set = buf;
-
-   set.c_lflag &= ~ICANON;
-   set.c_lflag &= ~ECHO;
-   set.c_cc[VMIN] = 1;
-   set.c_cc[VTIME] = 0;
-
-   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &set) < 0)
-   {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   if (setjmp(env_alarm) != 0)
-   {
-      if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
-      {
-         (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
-                       strerror(errno), __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      return(0);
-   }
-   alarm(5);
-   if (read(STDIN_FILENO, &byte, 1) < 0)
-   {
-      (void)fprintf(stderr, "ERROR   : read() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-   alarm(0);
-
-   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
-   {
-      (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
-   }
-
-   return(byte);
-}
-
-
-/*------------------------------ sig_alarm() ----------------------------*/
-static void
-sig_alarm(int signo)
-{
-   longjmp(env_alarm, 1);
-}
-
-
 /*---------------------------- sig_handler() ----------------------------*/
 static void
 sig_handler(int signo)
 {
-   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &buf) < 0)
+   if (tcsetattr(fileno(stdin), TCSANOW, &buf) < 0)
    {
       (void)fprintf(stderr, "ERROR   : tcsetattr() error : %s (%s %d)\n",
                     strerror(errno), __FILE__, __LINE__);
    }
-   exit(0);
+   (void)fprintf(stdout, "\n");
+
+   exit(INCORRECT);
 }

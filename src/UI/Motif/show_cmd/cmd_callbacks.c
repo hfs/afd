@@ -56,9 +56,10 @@ DESCR__E_M3
 #include "show_cmd.h"
 
 /* External global variables */
-extern char           cmd[];
+extern int            cmd_fd,
+                      go_to_beginning;
 extern pid_t          cmd_pid;
-extern int            cmd_fd;
+extern char           cmd[];
 extern Display        *display;
 extern Widget         cmd_output,
                       statusbox_w;
@@ -67,7 +68,8 @@ extern XmTextPosition wpr_position;
 extern XtAppContext   app;
 
 /* Local function prototypes */
-static void           kill_child(Widget),
+static void           catch_child(Widget),
+                      kill_child(Widget),
                       repeat_cmd(Widget);
 
 
@@ -99,7 +101,7 @@ void
 print_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    reset_message(statusbox_w);
-   print_data();
+   print_data(w, client_data, call_data);
 
    return;
 }
@@ -151,18 +153,21 @@ kill_child(Widget w)
 
 
 /*--------------------------- catch_child() -----------------------------*/
-void
+static void
 catch_child(Widget w)
 {
    int   n;
-   char  buffer[MAX_PATH_LENGTH + 3];
+   char  buffer[4096 + 3];
 
-   if ((n = read(cmd_fd, buffer, MAX_PATH_LENGTH)) > 0)
+   if ((n = read(cmd_fd, buffer, 4096)) > 0)
    {
       buffer[n] = '\0';
       XmTextInsert(cmd_output, wpr_position, buffer);
       wpr_position += n;
-      XmTextShowPosition(cmd_output, wpr_position);
+      if (go_to_beginning == NO)
+      {
+         XmTextShowPosition(cmd_output, wpr_position);
+      }
       XFlush(display);
    }
    else if (n == 0)
@@ -170,7 +175,14 @@ catch_child(Widget w)
            buffer[0] = '>';
            buffer[1] = '\0';
            XmTextInsert(cmd_output, wpr_position, buffer);
-           XmTextShowPosition(cmd_output, wpr_position);
+           if (go_to_beginning == NO)
+           {
+              XmTextShowPosition(cmd_output, wpr_position);
+           }
+           else
+           {
+              XmTextShowPosition(cmd_output, 0);
+           }
            XFlush(display);
            if (cmd_pid > 0)
            {

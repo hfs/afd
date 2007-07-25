@@ -72,7 +72,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   if (argc < 1)
+   if (argc < 2)
    {
       usage(argv[0]);
       exit(INCORRECT);

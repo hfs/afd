@@ -456,18 +456,18 @@ main(int argc, char *argv[])
                           (void)fprintf(output_file,
 #if SIZEOF_OFF_T == 4
 # if SIZEOF_TIME_T == 4
-                                        "%-10lx %s%c%s%c%lx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*lx %s%c%s%c%lx%c%.2f%c%x%c%s%c%s\n",
 # else
-                                        "%-10llx %s%c%s%c%lx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*llx %s%c%s%c%lx%c%.2f%c%x%c%s%c%s\n",
 # endif
 #else
 # if SIZEOF_TIME_T == 4
-                                        "%-10lx %s%c%s%c%llx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*lx %s%c%s%c%llx%c%.2f%c%x%c%s%c%s\n",
 # else
-                                        "%-10llx %s%c%s%c%llx%c%.2f%c%x%c%s%c%s\n",
+                                        "%-*llx %s%c%s%c%llx%c%.2f%c%x%c%s%c%s\n",
 # endif
 #endif
-                                        (pri_time_t)now,
+                                        LOG_DATE_LENGTH, (pri_time_t)now,
                                         p_host_name,
                                         SEPARATOR_CHAR,
                                         p_file_name + *unl,
@@ -489,18 +489,18 @@ main(int argc, char *argv[])
                           (void)fprintf(output_file,
 #if SIZEOF_OFF_T == 4
 # if SIZEOF_TIME_T == 4
-                                        "%-10lx %s%c%s%c%lx%c%.2f%c%x%c%s\n",
+                                        "%-*lx %s%c%s%c%lx%c%.2f%c%x%c%s\n",
 # else
-                                        "%-10llx %s%c%s%c%lx%c%.2f%c%x%c%s\n",
+                                        "%-*llx %s%c%s%c%lx%c%.2f%c%x%c%s\n",
 # endif
 #else
 # if SIZEOF_TIME_T == 4
-                                        "%-10lx %s%c%s%c%llx%c%.2f%c%x%c%s\n",
+                                        "%-*lx %s%c%s%c%llx%c%.2f%c%x%c%s\n",
 # else
-                                        "%-10llx %s%c%s%c%llx%c%.2f%c%x%c%s\n",
+                                        "%-*llx %s%c%s%c%llx%c%.2f%c%x%c%s\n",
 # endif
 #endif
-                                        (pri_time_t)now,
+                                        LOG_DATE_LENGTH, (pri_time_t)now,
                                         p_host_name,
                                         SEPARATOR_CHAR,
                                         p_file_name + *unl,

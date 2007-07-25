@@ -25,15 +25,16 @@ DESCR__S_M3
  **   reread_dir_config - reads the DIR_CONFIG file
  **
  ** SYNOPSIS
- **   void reread_dir_config(int              dc_changed,
- **                          off_t            db_size,
- **                          time_t           *hc_old_time,
- **                          int              old_no_of_hosts,
- **                          int              rewrite_host_config,
- **                          size_t           old_size,
- **                          int              rescan_time,
- **                          int              max_no_proc,
- **                          struct host_list *old_hl)
+ **   int reread_dir_config(int              dc_changed,
+ **                         off_t            db_size,
+ **                         time_t           *hc_old_time,
+ **                         int              old_no_of_hosts,
+ **                         int              rewrite_host_config,
+ **                         size_t           old_size,
+ **                         int              rescan_time,
+ **                         int              max_no_proc,
+ **                         unsigned int     *warn_counter,
+ **                         struct host_list *old_hl)
  **                                                         
  ** DESCRIPTION
  **   This function reads the DIR_CONFIG file and sets the values
@@ -50,6 +51,7 @@ DESCR__S_M3
  **   04.08.2001 H.Kiehl Added changes for host_status and special flag
  **                      field fromt the HOST_CONFIG file.
  **   16.05.2002 H.Kiehl Removed shared memory stuff.
+ **   03.05.2007 H.Kiehl Changed function that it returns what was done.
  **
  */
 DESCR__E_M3
@@ -62,7 +64,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        data_length,
                                   dnb_fd,
                                   no_of_hosts,
@@ -78,7 +80,7 @@ extern struct filetransfer_status *fsa;
 
 
 /*########################## reread_dir_config() ########################*/
-void
+int
 reread_dir_config(int              dc_changed,
                   off_t            db_size,
                   time_t           *hc_old_time,
@@ -87,9 +89,11 @@ reread_dir_config(int              dc_changed,
                   size_t           old_size,
                   int              rescan_time,
                   int              max_no_proc,
+                  unsigned int     *warn_counter,
                   struct host_list *old_hl)
 {
-   int new_fsa = NO;
+   int new_fsa = NO,
+       ret = NO_CHANGE_IN_DIR_CONFIG;
 
    if (db_size > 0)
    {
@@ -112,7 +116,7 @@ reread_dir_config(int              dc_changed,
                  i,
                  j,
                  no_of_gotchas = 0;
-            char *gotcha = NULL;
+            char *gotcha;
 
             /*
              * The gotcha array is used to find hosts that are in the
@@ -216,12 +220,11 @@ reread_dir_config(int              dc_changed,
             hl[i].in_dir_config = NO;
             hl[i].protocol = 0;
          }
-         if (eval_dir_config(db_size) < 0)
+         if (eval_dir_config(db_size, warn_counter) < 0)
          {
-            system_log(FATAL_SIGN, __FILE__, __LINE__,
+            system_log(ERROR_SIGN, __FILE__, __LINE__,
                        "Could not find any valid entries in database %s",
                        (no_of_dir_configs > 1) ? "files" : "file");
-            exit(INCORRECT);
          }
 
          /* Free dir name buffer which is no longer needed. */
@@ -230,20 +233,20 @@ reread_dir_config(int              dc_changed,
             unmap_data(dnb_fd, (void *)&dnb);
          }
 
-         /*
-          * Since there might have been an old FSA which has more
-          * information then the HOST_CONFIG lets rewrite this
-          * file using the information from both HOST_CONFIG and
-          * old FSA. That what is found in the HOST_CONFIG will
-          * always have a higher priority.
-          */
-         *hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
-         system_log(INFO_SIGN, NULL, 0,
-                    "Found %d hosts in HOST_CONFIG.", no_of_hosts);
-
          /* Start, restart or stop jobs */
          if (data_length > 0)
          {
+            /*
+             * Since there might have been an old FSA which has more
+             * information then the HOST_CONFIG lets rewrite this
+             * file using the information from both HOST_CONFIG and
+             * old FSA. That what is found in the HOST_CONFIG will
+             * always have a higher priority.
+             */
+            *hc_old_time = write_host_config(no_of_hosts, host_config_file, hl);
+            system_log(INFO_SIGN, NULL, 0,
+                       "Found %d hosts in HOST_CONFIG.", no_of_hosts);
+
             switch (dc_pid)
             {
                case NOT_RUNNING :
@@ -296,6 +299,14 @@ reread_dir_config(int              dc_changed,
                              "Hmmm..., whats going on? I should not be here.");
                   break;
             }
+            if (dc_pid > 0)
+            {
+               ret = DIR_CONFIG_UPDATED;
+            }
+            else
+            {
+               ret = DIR_CONFIG_UPDATED_DC_PROBLEMS;
+            }
          }
          else
          {
@@ -304,6 +315,7 @@ reread_dir_config(int              dc_changed,
                com(STOP);
                dc_pid = NOT_RUNNING;
             }
+            ret = DIR_CONFIG_NO_VALID_DATA;
          }
 
          /* Tell user we have reread new DIR_CONFIG file */
@@ -318,13 +330,13 @@ reread_dir_config(int              dc_changed,
                    host_pos,
                    i,
                    j;
-              char *mark_list = NULL;
+              char *mark_list;
 
               if (fsa_attach() == INCORRECT)
               {
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "Could not attach to FSA!");
-                 return;
+                 return(INCORRECT);
               }
 
               /*
@@ -334,10 +346,10 @@ reread_dir_config(int              dc_changed,
                */
               if ((mark_list = malloc(old_no_of_hosts)) == NULL)
               {
-                 (void)fsa_detach(NO);
                  system_log(ERROR_SIGN, __FILE__, __LINE__,
                             "malloc() error : %s", strerror(errno));
-                 return;
+                 (void)fsa_detach(NO);
+                 return(INCORRECT);
               }
               for (i = 0; i < no_of_hosts; i++)
               {
@@ -412,7 +424,7 @@ reread_dir_config(int              dc_changed,
                        fsa[host_pos].dup_check_flag = hl[i].dup_check_flag;
                        fsa[host_pos].dup_check_timeout = hl[i].dup_check_timeout;
 #endif
-                       fsa[host_pos].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
+                       fsa[host_pos].special_flag = 0;
                        if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
                        {
                           fsa[host_pos].special_flag |= HOST_DISABLED;
@@ -438,6 +450,14 @@ reread_dir_config(int              dc_changed,
                        {
                           fsa[host_pos].host_status &= ~PAUSE_QUEUE_STAT;
                        }
+                       if (hl[i].host_status & HOST_ERROR_OFFLINE_STATIC)
+                       {
+                          fsa[host_pos].host_status |= HOST_ERROR_OFFLINE_STATIC;
+                       }
+                       else
+                       {
+                          fsa[host_pos].host_status &= ~HOST_ERROR_OFFLINE_STATIC;
+                       }
                     }
                  }
               } /* for (i = 0; i < no_of_hosts; i++) */
@@ -457,15 +477,15 @@ reread_dir_config(int              dc_changed,
               if (host_order_changed == YES)
               {
                  size_t new_size = no_of_hosts * sizeof(char *);
-                 char   **p_host_names = NULL;
+                 char   **p_host_names;
 
                  if ((p_host_names = malloc(new_size)) == NULL)
                  {
-                    (void)fsa_detach(NO);
                     system_log(FATAL_SIGN, __FILE__, __LINE__,
                                "malloc() error [%d Bytes] : %s",
                                new_size, strerror(errno));
-                    return;
+                    (void)fsa_detach(NO);
+                    return(INCORRECT);
                  }
                  for (i = 0; i < no_of_hosts; i++)
                  {
@@ -489,6 +509,7 @@ reread_dir_config(int              dc_changed,
       {
          system_log(WARN_SIGN, NULL, 0, "DIR_CONFIG file is empty.");
       }
+      ret = DIR_CONFIG_EMPTY;
    }
 
    if (rewrite_host_config == YES)
@@ -498,5 +519,5 @@ reread_dir_config(int              dc_changed,
                 "Found %d hosts in HOST_CONFIG.", no_of_hosts);
    }
 
-   return;
+   return(ret);
 }

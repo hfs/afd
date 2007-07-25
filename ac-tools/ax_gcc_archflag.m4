@@ -1,38 +1,76 @@
-dnl @synopsis AX_GCC_ARCHFLAG([PORTABLE?], [ACTION-SUCCESS], [ACTION-FAILURE])
-dnl
-dnl @summary find target architecture name for gcc -march/-mtune flags
-dnl
-dnl This macro tries to guess the "native" arch corresponding to the
-dnl target architecture for use with gcc's -march=arch or -mtune=arch
-dnl flags. If found, the cache variable $ax_cv_gcc_archflag is set to
-dnl this flag and ACTION-SUCCESS is executed; otherwise
-dnl $ax_cv_gcc_archflag is is set to "unknown" and ACTION-FAILURE is
-dnl executed. The default ACTION-SUCCESS is to add $ax_cv_gcc_archflag
-dnl to the end of $CFLAGS.
-dnl
-dnl PORTABLE? should be either [yes] (default) or [no]. In the former
-dnl case, the flag is set to -mtune (or equivalent) so that the
-dnl architecture is only used for tuning, but the instruction set used
-dnl is still portable. In the latter case, the flag is set to -march
-dnl (or equivalent) so that architecture-specific instructions are
-dnl enabled.
-dnl
-dnl The user can specify --with-gcc-arch=<arch> in order to override
-dnl the macro's choice of architecture, or --without-gcc-arch to
-dnl disable this.
-dnl
-dnl When cross-compiling, or if $CC is not gcc, then ACTION-FAILURE is
-dnl called unless the user specified --with-gcc-arch manually.
-dnl
-dnl Requires macros: AX_CHECK_COMPILER_FLAGS, AX_GCC_X86_CPUID
-dnl
-dnl (The main emphasis here is on recent CPUs, on the principle that
-dnl doing high-performance computing on old hardware is uncommon.)
-dnl
-dnl @category Misc
-dnl @author Steven G. Johnson <stevenj@alum.mit.edu> and Matteo Frigo.
-dnl @version 2006-01-04
-dnl @license GPLWithACException
+##### http://autoconf-archive.cryp.to/ax_gcc_archflag.html
+#
+# SYNOPSIS
+#
+#   AX_GCC_ARCHFLAG([PORTABLE?], [ACTION-SUCCESS], [ACTION-FAILURE])
+#
+# DESCRIPTION
+#
+#   This macro tries to guess the "native" arch corresponding to the
+#   target architecture for use with gcc's -march=arch or -mtune=arch
+#   flags. If found, the cache variable $ax_cv_gcc_archflag is set to
+#   this flag and ACTION-SUCCESS is executed; otherwise
+#   $ax_cv_gcc_archflag is is set to "unknown" and ACTION-FAILURE is
+#   executed. The default ACTION-SUCCESS is to add $ax_cv_gcc_archflag
+#   to the end of $CFLAGS.
+#
+#   PORTABLE? should be either [yes] (default) or [no]. In the former
+#   case, the flag is set to -mtune (or equivalent) so that the
+#   architecture is only used for tuning, but the instruction set used
+#   is still portable. In the latter case, the flag is set to -march
+#   (or equivalent) so that architecture-specific instructions are
+#   enabled.
+#
+#   The user can specify --with-gcc-arch=<arch> in order to override
+#   the macro's choice of architecture, or --without-gcc-arch to
+#   disable this.
+#
+#   When cross-compiling, or if $CC is not gcc, then ACTION-FAILURE is
+#   called unless the user specified --with-gcc-arch manually.
+#
+#   Requires macros: AX_CHECK_COMPILER_FLAGS, AX_GCC_X86_CPUID
+#
+#   (The main emphasis here is on recent CPUs, on the principle that
+#   doing high-performance computing on old hardware is uncommon.)
+#
+# LAST MODIFICATION
+#
+#   2006-01-04
+#
+# COPYLEFT
+#
+#   Copyright (c) 2006 Steven G. Johnson <stevenj@alum.mit.edu>
+#   Copyright (c) 2006 Matteo Frigo
+#
+#   This program is free software; you can redistribute it and/or
+#   modify it under the terms of the GNU General Public License as
+#   published by the Free Software Foundation; either version 2 of the
+#   License, or (at your option) any later version.
+#
+#   This program is distributed in the hope that it will be useful, but
+#   WITHOUT ANY WARRANTY; without even the implied warranty of
+#   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+#   General Public License for more details.
+#
+#   You should have received a copy of the GNU General Public License
+#   along with this program; if not, write to the Free Software
+#   Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
+#   02111-1307, USA.
+#
+#   As a special exception, the respective Autoconf Macro's copyright
+#   owner gives unlimited permission to copy, distribute and modify the
+#   configure scripts that are the output of Autoconf when processing
+#   the Macro. You need not follow the terms of the GNU General Public
+#   License when using or distributing such scripts, even though
+#   portions of the text of the Macro appear in them. The GNU General
+#   Public License (GPL) does govern all other use of the material that
+#   constitutes the Autoconf Macro.
+#
+#   This special exception to the GPL applies to versions of the
+#   Autoconf Macro released by the Autoconf Macro Archive. When you
+#   make and distribute a modified version of the Autoconf Macro, you
+#   may extend this special exception to the GPL to apply to your
+#   modified version as well.
 
 AC_DEFUN([AX_GCC_ARCHFLAG],
 [AC_REQUIRE([AC_PROG_CC])

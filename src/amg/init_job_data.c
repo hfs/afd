@@ -1,6 +1,6 @@
 /*
  *  init_job_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,7 +61,9 @@ extern int                 dnb_fd,
                            *no_of_dir_names,
                            *no_of_file_masks,
                            *no_of_job_ids;
+extern off_t               fmd_size;
 extern char                *fmd,
+                           *fmd_end,
                            msg_dir[],
                            *p_msg_dir,
                            *p_work_dir;
@@ -73,11 +75,12 @@ extern struct dir_name_buf *dnb;
 void
 init_job_data(void)
 {
-   char   *ptr,
-          job_id_data_file[MAX_PATH_LENGTH],
-          dir_name_file[MAX_PATH_LENGTH],
-          file_mask_file[MAX_PATH_LENGTH];
-   size_t new_size;
+   char        *ptr,
+               job_id_data_file[MAX_PATH_LENGTH],
+               dir_name_file[MAX_PATH_LENGTH],
+               file_mask_file[MAX_PATH_LENGTH];
+   size_t      new_size;
+   struct stat stat_buf;
 
    (void)strcpy(job_id_data_file, p_work_dir);
    (void)strcat(job_id_data_file, FIFO_DIR);
@@ -165,6 +168,14 @@ init_job_data(void)
                  file_mask_file, strerror(errno));
       exit(INCORRECT);
    }
+   if (fstat(fmd_fd, &stat_buf) == -1)
+   {
+      system_log(FATAL_SIGN, __FILE__, __LINE__,
+                 "fstat() error : %s", strerror(errno));
+      exit(INCORRECT);
+   }
+   fmd_end = ptr + stat_buf.st_size;
+   fmd_size = stat_buf.st_size;
    no_of_file_masks = (int *)ptr;
    if (*no_of_file_masks == 0)
    {                       

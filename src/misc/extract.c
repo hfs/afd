@@ -1,6 +1,6 @@
 /*
  *  extract.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2004 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -29,6 +29,7 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int extract(char           *file_name,
  **               char           *dest_dir,
+ **               char           *p_filter,
  **               time_t         creation_time,
  **               unsigned short unique_number,
  **               unsigned int   split_job_counter,
@@ -78,6 +79,8 @@ DESCR__S_M3
  **   05.04.1999 H.Kiehl Added WMO standard.
  **   03.10.2004 H.Kiehl Added production log.
  **   16.08.2005 H.Kiehl Added ASCII option.
+ **   13.07.2007 H.Kiehl Added option to filter out only those bulletins
+ **                      we really nead.
  **
  */
 DESCR__E_M3
@@ -110,7 +113,8 @@ static time_t         tmp_creation_time;
 static unsigned short tmp_unique_number;
 static unsigned int   tmp_split_job_counter;
 #endif
-static char           *p_full_file_name,
+static char           *extract_p_filter,
+                      *p_full_file_name,
                       *p_file_name,
                       *p_orig_name;
 
@@ -135,6 +139,7 @@ static off_t          *p_file_size;
 int
 extract(char           *file_name,
         char           *dest_dir,
+        char           *p_filter,
 #ifdef _PRODUCTION_LOG
         time_t         creation_time,
         unsigned short unique_number,
@@ -216,6 +221,7 @@ extract(char           *file_name,
       }
    }
    extract_options = options;
+   extract_p_filter = p_filter;
 
    /*
     * Prepare file_name pointer for function write_file(), so we
@@ -682,7 +688,8 @@ write_file(char *msg, unsigned int length, int soh_etx)
                   "Failed to read bulletin header. No header found.");
       return(INCORRECT);
    }
-   if (isdigit(*ptr) && isdigit(*(ptr + 1)) && isdigit(*(ptr + 2)) &&
+   if ((isdigit((int)(*ptr))) && (isdigit((int)(*(ptr + 1)))) &&
+       (isdigit((int)(*(ptr + 2)))) &&
        ((*(ptr + 3) == 13) || (*(ptr + 3) == 10)))
    {
       ptr += 3;
@@ -710,6 +717,14 @@ write_file(char *msg, unsigned int length, int soh_etx)
       receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                   "Length of WMO header is 0!? Discarding file.");
       return(INCORRECT);
+   }
+   if (extract_p_filter != NULL)
+   {
+      if (pmatch(extract_p_filter, p_file_name, NULL) != 0)
+      {
+         /* Ignore this bulletin. */
+         return(SUCCESS);
+      }
    }
    if (extract_options & EXTRACT_ADD_CRC_CHECKSUM)
    {

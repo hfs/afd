@@ -237,6 +237,7 @@ DESCR__E_M3
 #                          1 (1)   - If set transfer is stopped for this host.\n\
 #                          2 (2)   - If set queue is stopped for this host.\n\
 #                          3 (4)   - If set host is NOT in DIR_CONFIG.\n\
+#                          5 (16)  - Error status offline.\n\
 #                          6 (32)  - If set this host is disabled.\n\
 #                          7 (64)  - If set and host switching is used\n\
 #                                    this tells that host two is active.\n\

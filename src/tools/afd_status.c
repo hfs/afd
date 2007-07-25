@@ -83,6 +83,7 @@ main(int argc, char *argv[])
    (void)fprintf(stdout, "AMG jobs             : %d\n", p_afd_status->amg_jobs);
    (void)fprintf(stdout, "FD                   : %d\n", p_afd_status->fd);
    (void)fprintf(stdout, "System log           : %d\n", p_afd_status->sys_log);
+   (void)fprintf(stdout, "Event log            : %d\n", p_afd_status->event_log);
    (void)fprintf(stdout, "Transfer log         : %d\n", p_afd_status->trans_log);
    (void)fprintf(stdout, "Trans debug log      : %d\n", p_afd_status->trans_db_log);
    (void)fprintf(stdout, "Archive watch        : %d\n", p_afd_status->archive_watch);
@@ -218,6 +219,9 @@ main(int argc, char *argv[])
          case WARNING_ID :
             (void)fprintf(stdout, " W");
             break;
+         case ERROR_OFFLINE_ID :
+            (void)fprintf(stdout, " O");
+            break;
          case FAULTY_ID :
             (void)fprintf(stdout, " F");
             break;
@@ -235,19 +239,18 @@ main(int argc, char *argv[])
          case INFO_ID :
             (void)fprintf(stdout, " I");
             break;
-
          case ERROR_ID :
             (void)fprintf(stdout, " E");
             break;
-
          case WARNING_ID :
             (void)fprintf(stdout, " W");
             break;
-
+         case ERROR_OFFLINE_ID :
+            (void)fprintf(stdout, " O");
+            break;
          case FAULTY_ID :
             (void)fprintf(stdout, " F");
             break;
-
          default :
             (void)fprintf(stdout, " ?");
             break;

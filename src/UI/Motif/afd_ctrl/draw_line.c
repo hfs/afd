@@ -1,6 +1,6 @@
 /*
  *  draw_line.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1996 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -60,6 +60,8 @@ DESCR__S_M3
  **   22.12.2001 H.Kiehl Added variable column length.
  **   26.12.2001 H.Kiehl Allow for more changes in line style.
  **   14.03.2003 H.Kiehl Added history log in button bar.
+ **   21.06.2007 H.Kiehl Split second LED in two halfs to show the
+ **                      transfer direction.
  **
  */
 DESCR__E_M3
@@ -89,10 +91,12 @@ extern GC                         letter_gc,
                                   tr_bar_gc,
                                   color_gc,
                                   black_line_gc,
+                                  unset_led_bg_gc,
                                   white_line_gc,
                                   led_gc;
 extern Colormap                   default_cmap;
 extern char                       line_style;
+extern unsigned char              saved_feature_flag;
 extern unsigned long              color_pool[];
 extern float                      max_bar_length;
 extern int                        *line_length,
@@ -101,6 +105,7 @@ extern int                        *line_length,
                                   bar_thickness_2,
                                   bar_thickness_3,
                                   button_width,
+                                  even_height,
                                   led_width,
                                   no_of_long_lines,
                                   no_of_short_columns,
@@ -619,8 +624,66 @@ draw_led(int pos, int led_no, int x, int y)
 
    gc_values.foreground = color_pool[(int)connect_data[pos].status_led[led_no]];
    XChangeGC(display, color_gc, GCForeground, &gc_values);
-   XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
-                  led_width, glyph_height);
+   if (led_no == 1)
+   {
+      if (connect_data[pos].status_led[2] == 1)
+      {
+         /* Transfer only. */
+         XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
+                        led_width, bar_thickness_2 + even_height);
+         XFillRectangle(display, line_window, unset_led_bg_gc,
+                        x_offset, y_offset + bar_thickness_2 + even_height,
+                        led_width, bar_thickness_2);
+      }
+      else if (connect_data[pos].status_led[2] == 2)
+           {
+              /* Retrieve only. */
+              XFillRectangle(display, line_window, unset_led_bg_gc,
+                             x_offset, y_offset,
+                             led_width, bar_thickness_2 + even_height);
+              if ((saved_feature_flag & DISABLE_RETRIEVE) == 0)
+              {
+                 XFillRectangle(display, line_window, color_gc,
+                                x_offset, y_offset + bar_thickness_2 + even_height,
+                                led_width, bar_thickness_2);
+              }
+              else
+              {
+                 XFillRectangle(display, line_window, white_line_gc,
+                                x_offset, y_offset + bar_thickness_2 + even_height,
+                                led_width, bar_thickness_2);
+              }
+           }
+      else if (connect_data[pos].status_led[2] == 3)
+           {
+              /* Transfer + Retrieve. */
+              if ((saved_feature_flag & DISABLE_RETRIEVE) == 0)
+              {
+                 XFillRectangle(display, line_window, color_gc,
+                                x_offset, y_offset, led_width, glyph_height);
+              }
+              else
+              {
+                 XFillRectangle(display, line_window, color_gc,
+                                x_offset, y_offset,
+                                led_width, bar_thickness_2 + even_height);
+                 XFillRectangle(display, line_window, white_line_gc,
+                                x_offset, y_offset + bar_thickness_2 + even_height,
+                                led_width, bar_thickness_2);
+              }
+           }
+           else
+           {
+              /* Not configured. */
+              XFillRectangle(display, line_window, unset_led_bg_gc,
+                             x_offset, y_offset, led_width, glyph_height);
+           }
+   }
+   else
+   {
+      XFillRectangle(display, line_window, color_gc, x_offset, y_offset,
+                     led_width, glyph_height);
+   }
 #ifndef _NO_LED_FRAME
    if (connect_data[pos].inverse == OFF)
    {

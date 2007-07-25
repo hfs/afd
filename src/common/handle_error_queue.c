@@ -1,6 +1,6 @@
 /*
  *  handle_error_queue.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 2006 - 2007 Deutscher Wetterdienst (DWD),
  *                Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -28,9 +28,12 @@ DESCR__S_M3
  ** SYNOPSIS
  **   int  attach_error_queue(void)
  **   int  detach_error_queue(void)
- **   void add_to_error_queue(unsigned int job_id)
- **   int  check_error_queue(unsigned int job_id)
- **   int  remove_from_error_queue(unsigned int job_id)
+ **   void add_to_error_queue(unsigned int               job_id,
+ **                           struct filetransfer_status *fsa,
+ **                           int                        error_id)
+ **   int  check_error_queue(unsigned int job_id, int queue_threshold)
+ **   int  remove_from_error_queue(unsigned int               job_id,
+ **                                struct filetransfer_status *fsa)
  **   int  print_error_queue(FILE *fp)
  **
  ** DESCRIPTION
@@ -146,7 +149,9 @@ detach_error_queue(void)
 
 /*####################### add_to_error_queue() ##########################*/
 void
-add_to_error_queue(unsigned int job_id, struct filetransfer_status *fsa)
+add_to_error_queue(unsigned int               job_id,
+                   struct filetransfer_status *fsa,
+                   int                        error_id)
 {
    int detach,
        i;
@@ -198,6 +203,8 @@ add_to_error_queue(unsigned int job_id, struct filetransfer_status *fsa)
 #else
    unlock_region(eq_fd, 1);
 #endif
+   event_log(0L, EC_HOST, ET_EXT, EA_START_ERROR_QUEUE, "%s%c%x%c%x",
+             fsa->host_alias, SEPARATOR_CHAR, job_id, SEPARATOR_CHAR, error_id);
 
    if (detach == YES)
    {
@@ -324,6 +331,14 @@ remove_from_error_queue(unsigned int job_id, struct filetransfer_status *fsa)
             if ((gotcha == NO) && (fsa->host_status & ERROR_QUEUE_SET))
             {
                fsa->host_status ^= ERROR_QUEUE_SET;
+               event_log(0L, EC_HOST, ET_EXT, EA_STOP_ERROR_QUEUE, "%s%c%x",
+                         fsa->host_alias, SEPARATOR_CHAR, job_id);
+            }
+            else
+            {
+               system_log(DEBUG_SIGN, NULL, 0,
+                          "%s: Removed job %x from error queue.",
+                          fsa->host_dsp_name, job_id);
             }
          }
 

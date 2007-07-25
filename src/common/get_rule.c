@@ -1,6 +1,6 @@
 /*
  *  get_rule.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2002 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -40,13 +40,12 @@ DESCR__S_M3
  **   10.12.2002 H.Kiehl Catch the case that someone has empty characters
  **                      behind the rule identifier. This is required for
  **                      the new overwrite option.
+ **   17.05.2007 H.Kiehl 128 byte should be enough and no need to malloc().
  **
  */
 DESCR__E_M3
 
-#include <string.h>                     /* strcmp(), strlen()            */
-#include <stdlib.h>                     /* malloc(), free()              */
-#include <errno.h>
+#include <string.h>                     /* strcmp()                      */
 
 /* External global variables */
 extern struct rule *rule;
@@ -56,46 +55,31 @@ extern struct rule *rule;
 int
 get_rule(char *wanted_rule, int no_of_rule_headers)
 {
-   size_t length;
+   int  i;
+   char rule_buffer[128];
 
-   if ((length = strlen(wanted_rule)) < 1025)
+   i = 0;
+   while ((i < 128) && (wanted_rule[i] != '\0') && (wanted_rule[i] != ' ') &&
+          (wanted_rule[i] != '\t'))
    {
-      char *rule_buffer;
-
-      if ((rule_buffer = malloc(length + 1)) == NULL)
-      {
-         system_log(ERROR_SIGN, __FILE__, __LINE__,
-                    "malloc() error : %s", strerror(errno));
-      }
-      else
-      {
-         int  i = 0;
-         char *ptr = wanted_rule;
-
-         while ((*ptr != '\0') && (*ptr != ' ') &&
-                (*ptr != '\t') && (i != length))
-         {
-            rule_buffer[i] = *ptr;
-            i++; ptr++;
-         }
-         rule_buffer[i] = '\0';
-
-         for (i = 0; i < no_of_rule_headers; i++)
-         {
-            if (CHECK_STRCMP(rule[i].header, rule_buffer) == 0)
-            {
-               free(rule_buffer);
-               return(i);
-            }
-         }
-         free(rule_buffer);
-      }
+      rule_buffer[i] = wanted_rule[i];
+      i++;
+   }
+   if (i == 128)
+   {
+      system_log(ERROR_SIGN, __FILE__, __LINE__,
+                 "Rule identifier is to long, limit is 128.");
    }
    else
    {
-      system_log(ERROR_SIGN, __FILE__, __LINE__,
-                 "Refuse to allocate %d of memory for a rule identifier, limit is 1024",
-                 length);
+      rule_buffer[i] = '\0';
+      for (i = 0; i < no_of_rule_headers; i++)
+      {
+         if (CHECK_STRCMP(rule[i].header, rule_buffer) == 0)
+         {
+            return(i);
+         }
+      }
    }
 
    return(INCORRECT);

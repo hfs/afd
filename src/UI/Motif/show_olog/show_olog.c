@@ -46,6 +46,7 @@ DESCR__S_M1
  **                      height.
  **   10.04.2004 H.Kiehl Added TLS/SSL support.
  **   31.01.2006 H.Kiehl Added SFTP support.
+ **   04.04.2007 H.Kiehl Added button to view data.
  **
  */
 DESCR__E_M1
@@ -106,7 +107,8 @@ Widget                     cont_togglebox_w,
                            summarybox_w,
                            scrollbar_w,
                            special_button_w,
-                           togglebox_w;
+                           togglebox_w,
+                           view_button_w;
 Window                     main_window;
 XmFontList                 fontlist;
 int                        amg_flag = NO,
@@ -149,7 +151,7 @@ struct fileretrieve_status *fra;
 struct apps_list           *apps_list;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                init_show_olog(int *, char **),
                            eval_permissions(char *),
                            show_olog_exit(void),
@@ -666,6 +668,7 @@ main(int argc, char *argv[])
                                 xmRowColumnWidgetClass, selectionbox_w,
                                 XmNorientation,         XmHORIZONTAL,
                                 XmNpacking,             XmPACK_TIGHT,
+                                XmNspacing,             0,
                                 XmNnumColumns,          1,
                                 XmNtopAttachment,       XmATTACH_FORM,
                                 XmNleftAttachment,      XmATTACH_WIDGET,
@@ -970,7 +973,7 @@ main(int argc, char *argv[])
    XtSetArg(args[argcount], XmNbottomAttachment, XmATTACH_FORM);
    argcount++;
    if ((perm.resend_limit == NO_PERMISSION) &&
-       (perm.send_limit == NO_PERMISSION))
+       (perm.send_limit == NO_PERMISSION) && (perm.view_data == NO))
    {
       XtSetArg(args[argcount], XmNfractionBase, 31);
       argcount++;
@@ -1016,8 +1019,69 @@ main(int argc, char *argv[])
                            XmNbottomPosition,       30,
                            NULL);
    }
+   else if ((perm.resend_limit == NO_PERMISSION) &&
+            (perm.send_limit == NO_PERMISSION) && (perm.view_data == YES))
+        {
+           XtSetArg(args[argcount], XmNfractionBase, 41);
+           argcount++;
+           buttonbox_w = XmCreateForm(mainform_w, "buttonbox", args, argcount);
+           special_button_w = XtVaCreateManagedWidget("Search",
+                           xmPushButtonWidgetClass, buttonbox_w,
+                           XmNfontList,             fontlist,
+                           XmNtopAttachment,        XmATTACH_POSITION,
+                           XmNtopPosition,          1,
+                           XmNleftAttachment,       XmATTACH_POSITION,
+                           XmNleftPosition,         1,
+                           XmNrightAttachment,      XmATTACH_POSITION,
+                           XmNrightPosition,        10,
+                           XmNbottomAttachment,     XmATTACH_POSITION,
+                           XmNbottomPosition,       40,
+                           NULL);
+           XtAddCallback(special_button_w, XmNactivateCallback,
+                         (XtCallbackProc)search_button, 0);
+           view_button_w = XtVaCreateManagedWidget("View",
+                           xmPushButtonWidgetClass, buttonbox_w,
+                           XmNfontList,             fontlist,
+                           XmNtopAttachment,        XmATTACH_POSITION,
+                           XmNtopPosition,          1,
+                           XmNleftAttachment,       XmATTACH_POSITION,
+                           XmNleftPosition,         11,
+                           XmNrightAttachment,      XmATTACH_POSITION,
+                           XmNrightPosition,        20,
+                           XmNbottomAttachment,     XmATTACH_POSITION,
+                           XmNbottomPosition,       40,
+                           NULL);
+           XtAddCallback(view_button_w, XmNactivateCallback,
+                         (XtCallbackProc)view_button, 0);
+           print_button_w = XtVaCreateManagedWidget("Print",
+                           xmPushButtonWidgetClass, buttonbox_w,
+                           XmNfontList,             fontlist,
+                           XmNtopAttachment,        XmATTACH_POSITION,
+                           XmNtopPosition,          1,
+                           XmNleftAttachment,       XmATTACH_POSITION,
+                           XmNleftPosition,         21,
+                           XmNrightAttachment,      XmATTACH_POSITION,
+                           XmNrightPosition,        30,
+                           XmNbottomAttachment,     XmATTACH_POSITION,
+                           XmNbottomPosition,       40,
+                           NULL);
+           XtAddCallback(print_button_w, XmNactivateCallback,
+                         (XtCallbackProc)print_button, 0);
+           button_w = XtVaCreateManagedWidget("Close",
+                           xmPushButtonWidgetClass, buttonbox_w,
+                           XmNfontList,             fontlist,
+                           XmNtopAttachment,        XmATTACH_POSITION,
+                           XmNtopPosition,          1,
+                           XmNleftAttachment,       XmATTACH_POSITION,
+                           XmNleftPosition,         31,
+                           XmNrightAttachment,      XmATTACH_POSITION,
+                           XmNrightPosition,        40,
+                           XmNbottomAttachment,     XmATTACH_POSITION,
+                           XmNbottomPosition,       40,
+                           NULL);
+        }
    else if ((perm.resend_limit != NO_PERMISSION) &&
-            (perm.send_limit != NO_PERMISSION))
+            (perm.send_limit != NO_PERMISSION) && (perm.view_data == NO))
         {
            XtSetArg(args[argcount], XmNfractionBase, 51);
            argcount++;
@@ -1091,9 +1155,10 @@ main(int argc, char *argv[])
                            XmNbottomPosition,       50,
                            NULL);
         }
-        else
+   else if ((perm.resend_limit != NO_PERMISSION) &&
+            (perm.send_limit != NO_PERMISSION) && (perm.view_data == YES))
         {
-           XtSetArg(args[argcount], XmNfractionBase, 41);
+           XtSetArg(args[argcount], XmNfractionBase, 61);
            argcount++;
            buttonbox_w = XmCreateForm(mainform_w, "buttonbox", args, argcount);
            special_button_w = XtVaCreateManagedWidget("Search",
@@ -1106,13 +1171,11 @@ main(int argc, char *argv[])
                            XmNrightAttachment,      XmATTACH_POSITION,
                            XmNrightPosition,        10,
                            XmNbottomAttachment,     XmATTACH_POSITION,
-                           XmNbottomPosition,       40,
+                           XmNbottomPosition,       60,
                            NULL);
            XtAddCallback(special_button_w, XmNactivateCallback,
                          (XtCallbackProc)search_button, 0);
-           if (perm.resend_limit != NO_PERMISSION)
-           {
-              resend_button_w = XtVaCreateManagedWidget("Resend",
+           view_button_w = XtVaCreateManagedWidget("View",
                            xmPushButtonWidgetClass, buttonbox_w,
                            XmNfontList,             fontlist,
                            XmNtopAttachment,        XmATTACH_POSITION,
@@ -1122,29 +1185,11 @@ main(int argc, char *argv[])
                            XmNrightAttachment,      XmATTACH_POSITION,
                            XmNrightPosition,        20,
                            XmNbottomAttachment,     XmATTACH_POSITION,
-                           XmNbottomPosition,       40,
+                           XmNbottomPosition,       60,
                            NULL);
-              XtAddCallback(resend_button_w, XmNactivateCallback,
-                            (XtCallbackProc)resend_button, 0);
-           }
-           else
-           {
-              send_button_w = XtVaCreateManagedWidget("Send",
-                           xmPushButtonWidgetClass, buttonbox_w,
-                           XmNfontList,             fontlist,
-                           XmNtopAttachment,        XmATTACH_POSITION,
-                           XmNtopPosition,          1,
-                           XmNleftAttachment,       XmATTACH_POSITION,
-                           XmNleftPosition,         11,
-                           XmNrightAttachment,      XmATTACH_POSITION,
-                           XmNrightPosition,        20,
-                           XmNbottomAttachment,     XmATTACH_POSITION,
-                           XmNbottomPosition,       40,
-                           NULL);
-              XtAddCallback(send_button_w, XmNactivateCallback,
-                            (XtCallbackProc)send_button, 0);
-           }
-           print_button_w = XtVaCreateManagedWidget("Print",
+           XtAddCallback(view_button_w, XmNactivateCallback,
+                         (XtCallbackProc)view_button, 0);
+           resend_button_w = XtVaCreateManagedWidget("Resend",
                            xmPushButtonWidgetClass, buttonbox_w,
                            XmNfontList,             fontlist,
                            XmNtopAttachment,        XmATTACH_POSITION,
@@ -1154,11 +1199,11 @@ main(int argc, char *argv[])
                            XmNrightAttachment,      XmATTACH_POSITION,
                            XmNrightPosition,        30,
                            XmNbottomAttachment,     XmATTACH_POSITION,
-                           XmNbottomPosition,       40,
+                           XmNbottomPosition,       60,
                            NULL);
-           XtAddCallback(print_button_w, XmNactivateCallback,
-                         (XtCallbackProc)print_button, 0);
-           button_w = XtVaCreateManagedWidget("Close",
+           XtAddCallback(resend_button_w, XmNactivateCallback,
+                         (XtCallbackProc)resend_button, 0);
+           send_button_w = XtVaCreateManagedWidget("Send",
                            xmPushButtonWidgetClass, buttonbox_w,
                            XmNfontList,             fontlist,
                            XmNtopAttachment,        XmATTACH_POSITION,
@@ -1168,8 +1213,213 @@ main(int argc, char *argv[])
                            XmNrightAttachment,      XmATTACH_POSITION,
                            XmNrightPosition,        40,
                            XmNbottomAttachment,     XmATTACH_POSITION,
-                           XmNbottomPosition,       40,
+                           XmNbottomPosition,       60,
                            NULL);
+           XtAddCallback(send_button_w, XmNactivateCallback,
+                         (XtCallbackProc)send_button, 0);
+           print_button_w = XtVaCreateManagedWidget("Print",
+                           xmPushButtonWidgetClass, buttonbox_w,
+                           XmNfontList,             fontlist,
+                           XmNtopAttachment,        XmATTACH_POSITION,
+                           XmNtopPosition,          1,
+                           XmNleftAttachment,       XmATTACH_POSITION,
+                           XmNleftPosition,         41,
+                           XmNrightAttachment,      XmATTACH_POSITION,
+                           XmNrightPosition,        50,
+                           XmNbottomAttachment,     XmATTACH_POSITION,
+                           XmNbottomPosition,       60,
+                           NULL);
+           XtAddCallback(print_button_w, XmNactivateCallback,
+                         (XtCallbackProc)print_button, 0);
+           button_w = XtVaCreateManagedWidget("Close",
+                           xmPushButtonWidgetClass, buttonbox_w,
+                           XmNfontList,             fontlist,
+                           XmNtopAttachment,        XmATTACH_POSITION,
+                           XmNtopPosition,          1,
+                           XmNleftAttachment,       XmATTACH_POSITION,
+                           XmNleftPosition,         51,
+                           XmNrightAttachment,      XmATTACH_POSITION,
+                           XmNrightPosition,        60,
+                           XmNbottomAttachment,     XmATTACH_POSITION,
+                           XmNbottomPosition,       60,
+                           NULL);
+        }
+        else
+        {
+           if (perm.view_data == NO)
+           {
+              XtSetArg(args[argcount], XmNfractionBase, 41);
+              argcount++;
+              buttonbox_w = XmCreateForm(mainform_w, "buttonbox", args, argcount);
+              special_button_w = XtVaCreateManagedWidget("Search",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         1,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        10,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       40,
+                              NULL);
+              XtAddCallback(special_button_w, XmNactivateCallback,
+                            (XtCallbackProc)search_button, 0);
+              if (perm.resend_limit != NO_PERMISSION)
+              {
+                 resend_button_w = XtVaCreateManagedWidget("Resend",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         11,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        20,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       40,
+                              NULL);
+                 XtAddCallback(resend_button_w, XmNactivateCallback,
+                               (XtCallbackProc)resend_button, 0);
+              }
+              else
+              {
+                 send_button_w = XtVaCreateManagedWidget("Send",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         11,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        20,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       40,
+                              NULL);
+                 XtAddCallback(send_button_w, XmNactivateCallback,
+                               (XtCallbackProc)send_button, 0);
+              }
+              print_button_w = XtVaCreateManagedWidget("Print",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         21,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        30,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       40,
+                              NULL);
+              XtAddCallback(print_button_w, XmNactivateCallback,
+                            (XtCallbackProc)print_button, 0);
+              button_w = XtVaCreateManagedWidget("Close",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         31,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        40,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       40,
+                              NULL);
+           }
+           else
+           {
+              XtSetArg(args[argcount], XmNfractionBase, 51);
+              argcount++;
+              buttonbox_w = XmCreateForm(mainform_w, "buttonbox", args, argcount);
+              special_button_w = XtVaCreateManagedWidget("Search",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         1,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        10,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       50,
+                              NULL);
+              XtAddCallback(special_button_w, XmNactivateCallback,
+                            (XtCallbackProc)search_button, 0);
+              view_button_w = XtVaCreateManagedWidget("View",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         11,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        20,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       50,
+                              NULL);
+              XtAddCallback(view_button_w, XmNactivateCallback,
+                            (XtCallbackProc)view_button, 0);
+              if (perm.resend_limit != NO_PERMISSION)
+              {
+                 resend_button_w = XtVaCreateManagedWidget("Resend",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         21,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        30,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       50,
+                              NULL);
+                 XtAddCallback(resend_button_w, XmNactivateCallback,
+                               (XtCallbackProc)resend_button, 0);
+              }
+              else
+              {
+                 send_button_w = XtVaCreateManagedWidget("Send",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         21,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        30,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       50,
+                              NULL);
+                 XtAddCallback(send_button_w, XmNactivateCallback,
+                               (XtCallbackProc)send_button, 0);
+              }
+              print_button_w = XtVaCreateManagedWidget("Print",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         31,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        40,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       50,
+                              NULL);
+              XtAddCallback(print_button_w, XmNactivateCallback,
+                            (XtCallbackProc)print_button, 0);
+              button_w = XtVaCreateManagedWidget("Close",
+                              xmPushButtonWidgetClass, buttonbox_w,
+                              XmNfontList,             fontlist,
+                              XmNtopAttachment,        XmATTACH_POSITION,
+                              XmNtopPosition,          1,
+                              XmNleftAttachment,       XmATTACH_POSITION,
+                              XmNleftPosition,         41,
+                              XmNrightAttachment,      XmATTACH_POSITION,
+                              XmNrightPosition,        50,
+                              XmNbottomAttachment,     XmATTACH_POSITION,
+                              XmNbottomPosition,       50,
+                              NULL);
+           }
         }
    XtAddCallback(button_w, XmNactivateCallback,
                  (XtCallbackProc)close_button, 0);
@@ -1465,6 +1715,7 @@ init_show_olog(int *argc, char *argv[])
                        /* be able to disable permission checking let    */
                        /* the user have all permissions.                */
          perm.view_passwd  = NO;
+         perm.view_data    = NO;
          perm.resend_limit = NO_LIMIT;
          perm.send_limit   = NO_LIMIT;
          perm.list_limit   = NO_LIMIT;
@@ -1521,7 +1772,7 @@ init_show_olog(int *argc, char *argv[])
 }
 
 
-/*---------------------------------- usage() ----------------------------*/
+/*------------------------------- usage() -------------------------------*/
 static void
 usage(char *progname)
 {
@@ -1565,6 +1816,7 @@ eval_permissions(char *perm_buffer)
       perm.send_limit   = NO_LIMIT;
       perm.list_limit   = NO_LIMIT;
       perm.view_passwd  = YES;
+      perm.view_data    = YES;
    }
    else
    {
@@ -1654,6 +1906,13 @@ eval_permissions(char *perm_buffer)
       {
          /* The user may NOT view the password. */
          perm.view_passwd = NO;
+      }
+
+      /* May he see the data being distributed? */
+      if (posi(perm_buffer, VIEW_DATA_PERM) == NULL)
+      {
+         /* The user may NOT view the password. */
+         perm.view_data = NO;
       }
 
       /* Is there a limit on how many items the user may view? */

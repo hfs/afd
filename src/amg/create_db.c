@@ -113,6 +113,7 @@ int                               dnb_fd,
                                   *no_of_job_ids;
 off_t                             fmd_size = 0;
 char                              *fmd,
+                                  *fmd_end,
 #ifdef WITH_GOTCHA_LIST
                                   *gotcha = NULL,
 #endif

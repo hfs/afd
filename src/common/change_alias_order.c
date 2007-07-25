@@ -311,7 +311,7 @@ change_alias_order(char **p_host_names, int new_no_of_hosts)
                new_fsa[i].protocol = hl[i].protocol;
                new_fsa[i].protocol_options = hl[i].protocol_options;
                new_fsa[i].ttl = hl[i].ttl;
-               new_fsa[i].special_flag = (new_fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | hl[i].number_of_no_bursts;
+               new_fsa[i].special_flag = 0;
                if (hl[i].host_status & HOST_CONFIG_HOST_DISABLED)
                {
                   new_fsa[i].special_flag |= HOST_DISABLED;

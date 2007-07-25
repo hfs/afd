@@ -29,5 +29,6 @@ afdd_SOURCES         = afdd.c\
                        handle_request.c\
                        show_dir_list.c\
                        show_host_list.c\
+                       show_job_list.c\
                        show_summary_stat.c
 afdd_LDADD           = ../common/libafd.a @EXTRA_SOCKET_LIBS@

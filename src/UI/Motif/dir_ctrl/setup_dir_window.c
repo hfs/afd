@@ -134,36 +134,37 @@ setup_dir_window(char *font_name)
    {
       /* Set the font for the directory pulldown */
       XtVaSetValues(mw[DIR_W], XmNfontList, fontlist, NULL);
-      if ((dcp.disable != NO_PERMISSION) || (dcp.rescan != NO_PERMISSION) ||
-          (dcp.afd_load != NO_PERMISSION))
+      if (dcp.handle_event != NO_PERMISSION)
       {
-         if (dcp.disable != NO_PERMISSION)
-         {
-            XtVaSetValues(dw[DIR_DISABLE_W], XmNfontList, fontlist, NULL);
-         }
-         if (dcp.rescan != NO_PERMISSION)
-         {
-            XtVaSetValues(dw[DIR_RESCAN_W], XmNfontList, fontlist, NULL);
-         }
-         if (dcp.afd_load != NO_PERMISSION)
-         {
-            XtVaSetValues(dw[DIR_VIEW_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[FILE_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[KBYTE_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[CONNECTION_LOAD_W], XmNfontList, fontlist, NULL);
-            XtVaSetValues(lw[TRANSFER_LOAD_W], XmNfontList, fontlist, NULL);
-         }
+         XtVaSetValues(dw[DIR_HANDLE_EVENT_W], XmNfontList, fontlist, NULL);
+      }
+      if (dcp.disable != NO_PERMISSION)
+      {
+         XtVaSetValues(dw[DIR_DISABLE_W], XmNfontList, fontlist, NULL);
+      }
+      if (dcp.rescan != NO_PERMISSION)
+      {
+         XtVaSetValues(dw[DIR_RESCAN_W], XmNfontList, fontlist, NULL);
+      }
+      if (dcp.afd_load != NO_PERMISSION)
+      {
+         XtVaSetValues(dw[DIR_VIEW_LOAD_W], XmNfontList, fontlist, NULL);
+         XtVaSetValues(lw[FILE_LOAD_W], XmNfontList, fontlist, NULL);
+         XtVaSetValues(lw[KBYTE_LOAD_W], XmNfontList, fontlist, NULL);
+         XtVaSetValues(lw[CONNECTION_LOAD_W], XmNfontList, fontlist, NULL);
+         XtVaSetValues(lw[TRANSFER_LOAD_W], XmNfontList, fontlist, NULL);
       }
       XtVaSetValues(dw[DIR_SELECT_W], XmNfontList, fontlist, NULL);
       XtVaSetValues(dw[DIR_EXIT_W], XmNfontList, fontlist, NULL);
 
       /* Set the font for the View pulldown */
       if ((dcp.show_slog != NO_PERMISSION) ||
+          (dcp.show_elog != NO_PERMISSION) ||
           (dcp.show_rlog != NO_PERMISSION) ||
           (dcp.show_tlog != NO_PERMISSION) ||
           (dcp.show_ilog != NO_PERMISSION) ||
           (dcp.show_olog != NO_PERMISSION) ||
-          (dcp.show_elog != NO_PERMISSION) ||
+          (dcp.show_dlog != NO_PERMISSION) ||
           (dcp.show_queue != NO_PERMISSION) ||
           (dcp.info != NO_PERMISSION) ||
           (dcp.view_dc != NO_PERMISSION))
@@ -172,6 +173,10 @@ setup_dir_window(char *font_name)
          if (dcp.show_slog != NO_PERMISSION)
          {
             XtVaSetValues(vw[DIR_SYSTEM_W], XmNfontList, fontlist, NULL);
+         }
+         if (dcp.show_elog != NO_PERMISSION)
+         {
+            XtVaSetValues(vw[DIR_EVENT_W], XmNfontList, fontlist, NULL);
          }
          if (dcp.show_rlog != NO_PERMISSION)
          {
@@ -189,7 +194,7 @@ setup_dir_window(char *font_name)
          {
             XtVaSetValues(vw[DIR_OUTPUT_W], XmNfontList, fontlist, NULL);
          }
-         if (dcp.show_elog != NO_PERMISSION)
+         if (dcp.show_dlog != NO_PERMISSION)
          {
             XtVaSetValues(vw[DIR_DELETE_W], XmNfontList, fontlist, NULL);
          }

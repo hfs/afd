@@ -24,6 +24,7 @@ MAINTAINERCLEANFILES  = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES            = gmon.out core core.*
 amg_SOURCES           = amg.c\
                         amg_zombie_check.c\
+                        check_option.c\
                         clear_pool_dir.c\
                         com.c\
                         convert_fsa.c\

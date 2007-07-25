@@ -1,6 +1,6 @@
 /*
  *  print_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -130,11 +130,11 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          else
          {
-            prepare_status = prepare_file(&fd);
+            prepare_status = prepare_file(&fd, (device_type == MAIL_TOGGLE) ? 0 : 1);
             if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
             {
                prepare_tmp_name();
-               prepare_status = prepare_printer(&fd);
+               prepare_status = prepare_file(&fd, 1);
             }
          }
          if (prepare_status == SUCCESS)
@@ -230,11 +230,11 @@ print_data_button(Widget w, XtPointer client_data, XtPointer call_data)
       }
       else
       {
-         prepare_status = prepare_file(&fd);
+         prepare_status = prepare_file(&fd, (device_type == MAIL_TOGGLE) ? 0 : 1);
          if ((prepare_status != SUCCESS) && (device_type == MAIL_TOGGLE))
          {
             prepare_tmp_name();
-            prepare_status = prepare_printer(&fd);
+            prepare_status = prepare_file(&fd, 1);
          }
       }
       if (prepare_status == SUCCESS)

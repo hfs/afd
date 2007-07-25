@@ -1,6 +1,6 @@
 /*
  *  xexec_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -62,7 +62,8 @@ DESCR__E_M3
 #define  WRITE 1
 
 /* External global variables */
-extern int            cmd_fd;
+extern int            cmd_fd,
+                      go_to_beginning;
 extern pid_t          cmd_pid;
 extern Display        *display;
 extern Widget         appshell,
@@ -137,14 +138,17 @@ static void
 read_data(XtPointer client_data, int *fd, XtInputId *id)
 {
    int  n;
-   char buffer[MAX_PATH_LENGTH + 1];
+   char buffer[4096 + 1];
 
-   if ((n = read(*fd, buffer, MAX_PATH_LENGTH)) > 0)
+   if ((n = read(*fd, buffer, 4096)) > 0)
    {
       buffer[n] = '\0';
       XmTextInsert(cmd_output, wpr_position, buffer);
       wpr_position += n;
-      XmTextShowPosition(cmd_output, wpr_position);
+      if (go_to_beginning == NO)
+      {
+         XmTextShowPosition(cmd_output, wpr_position);
+      }
       XFlush(display);
    }
    else if (n == 0)
@@ -152,7 +156,14 @@ read_data(XtPointer client_data, int *fd, XtInputId *id)
            buffer[0] = '>';
            buffer[1] = '\0';
            XmTextInsert(cmd_output, wpr_position, buffer);
-           XmTextShowPosition(cmd_output, wpr_position);
+           if (go_to_beginning == NO)
+           {
+              XmTextShowPosition(cmd_output, wpr_position);
+           }
+           else
+           {
+              XmTextShowPosition(cmd_output, 0);
+           }
            XFlush(display);
            if (cmd_pid > 0)
            {

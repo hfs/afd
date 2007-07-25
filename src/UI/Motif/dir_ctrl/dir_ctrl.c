@@ -128,6 +128,7 @@ Window                     label_window,
                            line_window;
 float                      max_bar_length;
 int                        bar_thickness_3,
+                           event_log_fd = STDERR_FILENO,
                            fra_fd = -1,
                            fra_id,
                            no_input,
@@ -172,7 +173,7 @@ char                       work_dir[MAX_PATH_LENGTH],
                            fake_user[MAX_FULL_USER_ID_LENGTH],
                            font_name[20],
                            blink_flag,
-                           *profile,
+                           profile[MAX_PROFILE_NAME_LENGTH],
                            user[MAX_FULL_USER_ID_LENGTH],
                            username[MAX_USER_NAME_LENGTH];
 clock_t                    clktck;
@@ -438,7 +439,8 @@ main(int argc, char *argv[])
 static void
 init_dir_ctrl(int *argc, char *argv[], char *window_title)
 {
-   int           i;
+   int           i,
+                 user_offset;
    unsigned int  new_bar_length;
    char          *perm_buffer,
                  hostname[MAX_AFD_NAME_LENGTH];
@@ -453,12 +455,6 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
                     "Usage: %s [-w <work_dir>] [-p <profile>] [-u[ <user>]] [-no_input] [-f <font name>]\n",
                     argv[0]);
       exit(SUCCESS);
-   }
-   if ((profile = malloc(41)) == NULL)
-   {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
 
    /*
@@ -481,10 +477,15 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
    {
       no_input = False;
    }
-   if (get_arg(argc, argv, "-p", profile, 40) == INCORRECT)
+   if (get_arg(argc, argv, "-p", profile, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
    {
-      free(profile);
-      profile = NULL;
+      profile[0] = '\0';
+      user_offset = 0;
+   }
+   else
+   {
+      (void)strcpy(user, profile);
+      user_offset = strlen(profile);
    }
    if (get_arg(argc, argv, "-f", font_name, 20) == INCORRECT)
    {
@@ -585,7 +586,7 @@ init_dir_ctrl(int *argc, char *argv[], char *window_title)
       (void)strcat(window_title, hostname);
    }
 
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
    if ((pwd = getpwuid(getuid())) == NULL)
    {
       (void)fprintf(stderr, "getpwuid() error : %s (%s %d)\n",
@@ -773,6 +774,15 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               XmNsubMenuId,               dir_pull_down_w,
                               NULL);
 
+   if (dcp.handle_event != NO_PERMISSION)
+   {
+      dw[DIR_HANDLE_EVENT_W] = XtVaCreateManagedWidget("Handle event",
+                           xmPushButtonWidgetClass, dir_pull_down_w,
+                           XmNfontList,             fontlist,
+                           NULL);
+      XtAddCallback(dw[DIR_HANDLE_EVENT_W], XmNactivateCallback, dir_popup_cb,
+                    (XtPointer)DIR_HANDLE_EVENT_SEL);
+   }
    if (dcp.disable != NO_PERMISSION)
    {
       dw[DIR_DISABLE_W] = XtVaCreateManagedWidget("Enable/Disable",
@@ -878,6 +888,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                               XmNsubMenuId,               view_pull_down_w,
                               NULL);
       if ((dcp.show_slog != NO_PERMISSION) ||
+          (dcp.show_elog != NO_PERMISSION) ||
           (dcp.show_rlog != NO_PERMISSION) ||
           (dcp.show_tlog != NO_PERMISSION))
       {
@@ -892,6 +903,15 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  NULL);
             XtAddCallback(vw[DIR_SYSTEM_W], XmNactivateCallback, dir_popup_cb,
                           (XtPointer)S_LOG_SEL);
+         }
+         if (dcp.show_elog != NO_PERMISSION)
+         {
+            vw[DIR_EVENT_W] = XtVaCreateManagedWidget("Event Log",
+                                 xmPushButtonWidgetClass, view_pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 NULL);
+            XtAddCallback(vw[DIR_EVENT_W], XmNactivateCallback, dir_popup_cb,
+                          (XtPointer)E_LOG_SEL);
          }
          if (dcp.show_rlog != NO_PERMISSION)
          {
@@ -914,7 +934,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       }
       if ((dcp.show_ilog != NO_PERMISSION) ||
           (dcp.show_olog != NO_PERMISSION) ||
-          (dcp.show_elog != NO_PERMISSION))
+          (dcp.show_dlog != NO_PERMISSION))
       {
          XtVaCreateManagedWidget("Separator",
                               xmSeparatorWidgetClass, view_pull_down_w,
@@ -937,14 +957,14 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
             XtAddCallback(vw[DIR_OUTPUT_W], XmNactivateCallback, dir_popup_cb,
                           (XtPointer)O_LOG_SEL);
          }
-         if (dcp.show_elog != NO_PERMISSION)
+         if (dcp.show_dlog != NO_PERMISSION)
          {
             vw[DIR_DELETE_W] = XtVaCreateManagedWidget("Delete Log",
                               xmPushButtonWidgetClass, view_pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(vw[DIR_DELETE_W], XmNactivateCallback, dir_popup_cb,
-                          (XtPointer)E_LOG_SEL);
+                          (XtPointer)D_LOG_SEL);
          }
       }
       if (dcp.show_queue != NO_PERMISSION)
@@ -1595,7 +1615,7 @@ eval_permissions(char *perm_buffer)
       }
 
       /* May the user view the delete log? */
-      if ((ptr = posi(perm_buffer, SHOW_ELOG_PERM)) == NULL)
+      if ((ptr = posi(perm_buffer, SHOW_DLOG_PERM)) == NULL)
       {
          /* The user may NOT view the delete log. */
          dcp.show_elog = NO_PERMISSION;

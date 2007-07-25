@@ -1,7 +1,7 @@
 /*
  *  check_host_status.c - Part of AFD, an automatic file distribution
  *                        program.
- *  Copyright (c) 1996 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -42,6 +42,8 @@ DESCR__S_M3
  **   30.08.1997 H.Kiehl Remove sprintf() from critical areas.
  **   22.12.2001 H.Kiehl Added variable column length.
  **   26.12.2001 H.Kiehl Allow for more changes in line style.
+ **   21.06.2007 H.Kiehl Split second LED in two halfs to show the
+ **                      transfer direction.
  **
  */
 DESCR__E_M3
@@ -67,6 +69,8 @@ extern Window                     line_window,
                                   short_line_window;
 extern char                       line_style,
                                   tv_window;
+extern unsigned char              *p_feature_flag,
+                                  saved_feature_flag;
 extern float                      max_bar_length;
 extern size_t                     current_jd_size;
 extern int                        no_of_hosts,
@@ -94,7 +98,7 @@ extern struct job_data            *jd;
 extern struct line                *connect_data;
 extern struct filetransfer_status *fsa;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                       calc_transfer_rate(int, clock_t);
 static int                        check_fsa_data(char *),
                                   check_disp_data(char *, int);
@@ -108,6 +112,7 @@ Widget   w;
    unsigned char new_color;
    signed char   flush;
    int           column,
+                 disable_retrieve_flag_changed,
                  i,
                  j,
                  x,
@@ -123,7 +128,7 @@ Widget   w;
    double        tmp_transfer_rate;
    struct tms    tmsdummy;
 
-   /* Initialise variables */
+   /* Initialise variables. */
    location_where_changed = no_of_hosts + 10;
    flush = NO;
 
@@ -138,6 +143,7 @@ Widget   w;
       size_t      new_size = no_of_hosts * sizeof(struct line);
       struct line *new_connect_data;
 
+      p_feature_flag = (unsigned char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
       if ((new_connect_data = calloc(no_of_hosts, sizeof(struct line))) == NULL)
       {
          (void)xrec(w, FATAL_DIALOG, "calloc() error : %s (%s %d)",
@@ -170,7 +176,7 @@ Widget   w;
             (void)memcpy(&new_connect_data[i], &connect_data[pos],
                          sizeof(struct line));
          }
-         else /* A new host has been added */
+         else /* A new host has been added. */
          {
             /* Initialise values for new host */
             (void)strcpy(new_connect_data[i].hostname, fsa[i].host_alias);
@@ -184,13 +190,37 @@ Widget   w;
             {
                new_connect_data[i].host_toggle_display = fsa[i].host_dsp_name[(int)fsa[i].toggle_pos];
             }
-            if (fsa[i].special_flag & HOST_DISABLED)
+            new_connect_data[i].host_status = fsa[i].host_status;
+            new_connect_data[i].special_flag = fsa[i].special_flag;
+            if (new_connect_data[i].special_flag & HOST_DISABLED)
             {
                new_connect_data[i].stat_color_no = WHITE;
             }
-            else if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+            else if ((new_connect_data[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
                  {
                     new_connect_data[i].stat_color_no = DEFAULT_BG;
+                 }
+            else if (fsa[i].error_counter >= fsa[i].max_errors)
+                 {
+                    if ((new_connect_data[i].host_status & HOST_ERROR_OFFLINE) ||
+                        (new_connect_data[i].host_status & HOST_ERROR_OFFLINE_T) ||
+                        (new_connect_data[i].host_status & HOST_ERROR_OFFLINE_STATIC))
+                    {
+                       new_connect_data[i].stat_color_no = ERROR_OFFLINE_ID;
+                    }
+                    else if ((connect_data[i].host_status & HOST_ERROR_ACKNOWLEDGED) ||
+                             (connect_data[i].host_status & HOST_ERROR_ACKNOWLEDGED_T))
+                         {
+                            new_connect_data[i].stat_color_no = ERROR_ACKNOWLEDGED_ID;
+                         }
+                         else
+                         {
+                            new_connect_data[i].stat_color_no = NOT_WORKING2;
+                         }
+                 }
+            else if (fsa[i].active_transfers > 0)
+                 {
+                    new_connect_data[i].stat_color_no = TRANSFER_ACTIVE; /* Transferring files */
                  }
                  else
                  {
@@ -210,17 +240,18 @@ Widget   w;
             new_connect_data[i].max_average_tr = 0.0;
             new_connect_data[i].max_errors = fsa[i].max_errors;
             new_connect_data[i].error_counter = fsa[i].error_counter;
-            if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+            new_connect_data[i].protocol = fsa[i].protocol;
+            if (new_connect_data[i].host_status & PAUSE_QUEUE_STAT)
             {
                new_connect_data[i].status_led[0] = PAUSE_QUEUE;
             }
-            else if ((fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
-                     (fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT))
+            else if ((new_connect_data[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+                     (new_connect_data[i].host_status & DANGER_PAUSE_QUEUE_STAT))
                  {
                     new_connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
                  }
 #ifdef WITH_ERROR_QUEUE
-            else if (fsa[i].host_status & ERROR_QUEUE_SET)
+            else if (new_connect_data[i].host_status & ERROR_QUEUE_SET)
                  {
                     new_connect_data[i].status_led[0] = JOBS_IN_ERROR_QUEUE;
                  }
@@ -229,7 +260,7 @@ Widget   w;
                  {
                     new_connect_data[i].status_led[0] = NORMAL_STATUS;
                  }
-            if (fsa[i].host_status & STOP_TRANSFER_STAT)
+            if (new_connect_data[i].host_status & STOP_TRANSFER_STAT)
             {
                new_connect_data[i].status_led[1] = STOP_TRANSFER;
             }
@@ -237,6 +268,7 @@ Widget   w;
             {
                new_connect_data[i].status_led[1] = NORMAL_STATUS;
             }
+            new_connect_data[i].status_led[2] = (new_connect_data[i].protocol >> 30);
             CREATE_EC_STRING(new_connect_data[i].str_ec, new_connect_data[i].error_counter);
             if (new_connect_data[i].max_errors < 2)
             {
@@ -250,7 +282,6 @@ Widget   w;
             new_connect_data[i].bar_length[ERROR_BAR_NO] = 0;
             new_connect_data[i].inverse = OFF;
             new_connect_data[i].expose_flag = NO;
-            new_connect_data[i].special_flag = fsa[i].special_flag | 191;
             new_connect_data[i].allowed_transfers = fsa[i].allowed_transfers;
             for (j = 0; j < new_connect_data[i].allowed_transfers; j++)
             {
@@ -297,7 +328,7 @@ Widget   w;
             }
             if (connect_data[i].inverse == ON)
             {
-               /* Host has been deleted */
+               /* Host has been deleted. */
                no_selected--;
             }
          }
@@ -329,13 +360,13 @@ Widget   w;
          return;
       }
 
-      /* Activate the new connect_data structure */
+      /* Activate the new connect_data structure. */
       (void)memcpy(&connect_data[0], &new_connect_data[0],
                    no_of_hosts * sizeof(struct line));
 
       free(new_connect_data);
 
-      /* Resize window if necessary */
+      /* Resize window if necessary. */
       if ((redraw_everything = resize_window()) == YES)
       {
          if (no_of_columns != 0)
@@ -460,6 +491,26 @@ Widget   w;
    if ((line_style & SHOW_CHARACTERS) || (line_style & SHOW_BARS))
    {
       end_time = times(&tmsdummy);
+   }
+
+   if (*p_feature_flag != saved_feature_flag)
+   {
+      if (((saved_feature_flag & DISABLE_RETRIEVE) &&
+           (*p_feature_flag & DISABLE_RETRIEVE)) ||
+          (((saved_feature_flag & DISABLE_RETRIEVE) == 0) &&
+           ((*p_feature_flag & DISABLE_RETRIEVE) == 0)))
+      {
+         disable_retrieve_flag_changed = NO;
+      }
+      else
+      {
+         disable_retrieve_flag_changed = YES;
+      }
+      saved_feature_flag = *p_feature_flag;
+   }
+   else
+   {
+      disable_retrieve_flag_changed = NO;
    }
 
    /* Change information for each remote host if necessary. */
@@ -598,7 +649,7 @@ Widget   w;
             flush = YES;
          }
 
-         /* For each transfer, see if number of files changed */
+         /* For each transfer, see if number of files changed. */
          for (j = 0; j < fsa[i].allowed_transfers; j++)
          {
             if (connect_data[i].connect_status[j] != fsa[i].job_status[j].connect_status)
@@ -642,42 +693,46 @@ Widget   w;
           */
       }
 
-      if (connect_data[i].special_flag != (fsa[i].special_flag | 191))
+      if (connect_data[i].special_flag != fsa[i].special_flag)
       {
-         connect_data[i].special_flag = fsa[i].special_flag | 191;
-
-         if ((i < location_where_changed) && (redraw_everything == NO))
-         {
-            if (connect_data[i].short_pos == -1)
-            {
-               if (x == -1)
-               {
-                  locate_xy_column(connect_data[i].long_pos, &x, &y, &column);
-               }
-               draw_dest_identifier(line_window, i, x, y);
-            }
-            else
-            {
-               locate_xy_short(connect_data[i].short_pos, &x, &y);
-               draw_dest_identifier(short_line_window, i, x, y);
-            }
-            flush = YES;
-         }
+         connect_data[i].special_flag = fsa[i].special_flag;
+      }
+      if (connect_data[i].host_status != fsa[i].host_status)
+      {
+         connect_data[i].host_status = fsa[i].host_status;
+      }
+      if (connect_data[i].protocol != fsa[i].protocol)
+      {
+         connect_data[i].protocol = fsa[i].protocol;
       }
 
       /* Did any significant change occur in the status */
       /* for this host?                                 */
-      if (fsa[i].special_flag & HOST_DISABLED)
+      if (connect_data[i].special_flag & HOST_DISABLED)
       {
          new_color = WHITE;
       }
-      else if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+      else if ((connect_data[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
            {
               new_color = DEFAULT_BG;
            }
       else if (fsa[i].error_counter >= fsa[i].max_errors)
            {
-              new_color = NOT_WORKING2;
+              if ((connect_data[i].host_status & HOST_ERROR_OFFLINE) ||
+                  (connect_data[i].host_status & HOST_ERROR_OFFLINE_T) ||
+                  (connect_data[i].host_status & HOST_ERROR_OFFLINE_STATIC))
+              {
+                 new_color = ERROR_OFFLINE_ID;
+              }
+              else if ((connect_data[i].host_status & HOST_ERROR_ACKNOWLEDGED) ||
+                       (connect_data[i].host_status & HOST_ERROR_ACKNOWLEDGED_T))
+                   {
+                      new_color = ERROR_ACKNOWLEDGED_ID;
+                   }
+                   else
+                   {
+                      new_color = NOT_WORKING2;
+                   }
            }
       else if (fsa[i].active_transfers > 0)
            {
@@ -863,7 +918,7 @@ Widget   w;
              * STATUS LED
              * ==========
              */
-            if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+            if (connect_data[i].host_status & PAUSE_QUEUE_STAT)
             {
                if (connect_data[i].status_led[0] != PAUSE_QUEUE)
                {
@@ -871,8 +926,8 @@ Widget   w;
                   led_changed |= LED_ONE;
                }
             }
-            else if ((fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
-                     (fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT))
+            else if ((connect_data[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+                     (connect_data[i].host_status & DANGER_PAUSE_QUEUE_STAT))
                  {
                     if (connect_data[i].status_led[0] != AUTO_PAUSE_QUEUE)
                     {
@@ -881,7 +936,7 @@ Widget   w;
                     }
                  }
 #ifdef WITH_ERROR_QUEUE
-            else if (fsa[i].host_status & ERROR_QUEUE_SET)
+            else if (connect_data[i].host_status & ERROR_QUEUE_SET)
                  {
                     if (connect_data[i].status_led[0] != JOBS_IN_ERROR_QUEUE)
                     {
@@ -898,7 +953,7 @@ Widget   w;
                        led_changed |= LED_ONE;
                     }
                  }
-            if (fsa[i].host_status & STOP_TRANSFER_STAT)
+            if (connect_data[i].host_status & STOP_TRANSFER_STAT)
             {
                if (connect_data[i].status_led[1] != STOP_TRANSFER)
                {
@@ -914,9 +969,14 @@ Widget   w;
                   led_changed |= LED_TWO;
                }
             }
-            if (led_changed > 0)
+            if (connect_data[i].status_led[2] != (connect_data[i].protocol >> 30))
             {
-               if ((i < location_where_changed) && (redraw_everything == NO))
+               connect_data[i].status_led[2] = (connect_data[i].protocol >> 30);
+               led_changed |= LED_TWO;
+            }
+            if ((i < location_where_changed) && (redraw_everything == NO))
+            {
+               if ((led_changed > 0) || (disable_retrieve_flag_changed == YES))
                {
                   if (x == -1)
                   {
@@ -927,7 +987,8 @@ Widget   w;
                   {
                      draw_led(i, 0, x, y);
                   }
-                  if (led_changed & LED_TWO)
+                  if ((led_changed & LED_TWO) ||
+                      (disable_retrieve_flag_changed == YES))
                   {
                      draw_led(i, 1, x + led_width + LED_SPACING, y);
                   }
@@ -1202,7 +1263,7 @@ Widget   w;
          }
       }
 
-      /* Redraw the line */
+      /* Redraw the line. */
       if ((i >= location_where_changed) && (redraw_everything == NO))
       {
 #ifdef _DEBUG
@@ -1225,7 +1286,7 @@ Widget   w;
       flush = YES;
    }
 
-   /* Make sure all changes are shown */
+   /* Make sure all changes are shown. */
    if ((flush == YES) || (flush == YUP))
    {
       XFlush(display);
@@ -1246,7 +1307,7 @@ Widget   w;
 #endif
    }
 
-   /* Redraw every redraw_time_host ms */
+   /* Redraw every redraw_time_host ms. */
    (void)XtAppAddTimeOut(app, redraw_time_host,
                          (XtTimerCallbackProc)check_host_status, w);
  
@@ -1312,7 +1373,7 @@ calc_transfer_rate(int i, clock_t end_time)
 
       if (connect_data[i].average_tr > (double)0.0)
       {
-         /* Arithmetischer Mittelwert */
+         /* Arithmetischer Mittelwert. */
          connect_data[i].average_tr = (double)(connect_data[i].average_tr +
                                       (double)connect_data[i].bytes_per_sec) /
                                       (double)2.0;

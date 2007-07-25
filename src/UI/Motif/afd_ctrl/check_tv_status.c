@@ -1,6 +1,6 @@
 /*
  *  check_tv_status.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -84,9 +84,9 @@ check_tv_status(Widget w)
        * HOST NAME
        * =========
        */
-      if (jd[i].special_flag != (fsa[jd[i].fsa_no].special_flag | 191))
+      if (jd[i].special_flag != fsa[jd[i].fsa_no].special_flag)
       {
-         jd[i].special_flag = fsa[jd[i].fsa_no].special_flag | 191;
+         jd[i].special_flag = fsa[jd[i].fsa_no].special_flag;
 
          tv_locate_xy(i, &x, &y);
          draw_tv_dest_identifier(i, x, y);

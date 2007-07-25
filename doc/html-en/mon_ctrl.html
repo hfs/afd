@@ -20,32 +20,41 @@ The menu area has four pull down buttons: Monitor, RView, RControl and Setup.
 If your mon_ctrl window does not have all buttons shown and described here,
 then the system administrator did not allow you to use this function.
 </p>
-<img align=left src="../images/monitor_popup.png" alt="[popup of Monitor button]">
+<img align=left src="../images/monitor_popup.gif" alt="[popup of Monitor button]">
 <table border>
    <tr>
       <td>System Log</td>
       <td>Allows you to view the system log of the afd_mon process.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Monitor Log</td>
       <td>Shows the log entries of any major activity of the remote AFD.
           Such as loosing the connection or a shutdown of the AFD.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Search + (De)Select</td>
-      <td>This allows to search for a given AFD (alias and real) name,
-          with wild cards. The found AFD's will then be selected.</td>
+      <td>This allows to search for a given AFD (alias and real) name
+          in the mon_ctrl dialog, if name type AFD is selected. If the
+          name type Host is selected, it will search all AFD's for the
+          given host alias or real host name. The names can be entered
+          with wild cards. The found AFD's or hostnames will then be
+          selected.</td>
+      <td align=center><img src="../images/search_select_afd.gif" alt="[Search and select AFD dialog]"></td>
    </tr>
    <tr>
       <td>Retry</td>
       <td>If the remote AFD is red and the connection is back again it
           might take more then two minutes before afd_mon retries. To
           speed this up manually, press the retry button.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Switch AFD</td>
       <td>Switch AFD allows to change the destination address of
           the selected AFD.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Test</td>
@@ -54,34 +63,39 @@ then the system administrator did not allow you to use this function.
           must configure <a href="afd_config.html#ping_cmd">PING_CMD</a>
           and/or <a href="afd_config.html#traceroute_cmd">
           TRACEROUTE_CMD</a> in AFD_CONFIG file.</td>
+      <td align=center><img src="../images/test.png" alt="[Different tests to check network]"></td>
    </tr>
    <tr>
       <td>Info</td>
       <td>The Info button opens the <a href="mon_info.html">mon_info
           dialog</a> for this AFD, showing some internal details of
           this AFD.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Enable/Disable AFD</td>
       <td>If the monitored AFD is taken offline for a longer time you
           can disable monitoring of the AFD with the help of this
           button.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Exit</td>
       <td>Exit will close the mon_ctrl window and all other windows that
           have been started from this dialog. It does not effect any of the
           main process of afd_mon running in the background.</td>
+      <td>&nbsp;</td>
    </tr>
 </table>
 <br clear=left>
 <br>
-<img align=left src="../images/rview_popup.png" alt="[rview popup]">
+<img align=left src="../images/rview_popup.gif" alt="[rview popup]">
 <table border>
    <tr>
       <td>AFD Control</td>
       <td>This opens the <a href="afd_ctrl.html">afd_ctrl</a> dialog,
           for the selected AFD.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>System Log</td>
@@ -89,41 +103,56 @@ then the system administrator did not allow you to use this function.
           system dialog</a> of the selected AFD. See
           <a href="log.html#system_log">Log Files</a> for a more detailed
           description of the output.</td>
+      <td>&nbsp;</td>
+   </tr>
+   <tr>
+      <td>Event Log</td>
+      <td>Event Log opens the <a href="show_elog.html">
+          event dialog</a> of the selected AFD. See
+          <a href="log.html#event_log">Log Files</a> for a more detailed
+          description of the output.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Transfer Log</td>
       <td>Transfer Log opens the <a href="show_log.html#transfer">transfer
           dialog</a>. See <a href="log.html#transfer_log">Log Files</a>
           for a more detailed description of the output.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Input Log</td>
       <td>Input Log opens the <a href="show_ilog.html"> input dialog</a>.
           See <a href="log.html#input_log">Log Files</a> for a more detailed
           description of the output.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Output Log</td>
       <td>Output Log opens the <a href="show_olog.html">output dialog</a>.
           See <a href="log.html#output_log">Log Files</a> for a more detailed
           description of the output.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Delete Log</td>
       <td>Delete Log opens the <a href="show_dlog.html">delete dialog</a>.
           See <a href="log.html#delete_log">Log Files</a> for a more detailed
           description of the output.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Queue</td>
       <td>Queue opens the <a href="show_queue.html">queue dialog</a>. Here
           you can see all files being queued by the selected AFD.</td>
+      <td>&nbsp;</td>
    </tr>
    <tr>
       <td>Load</td>
       <td>Load shows the current load of either: Files send per second,
           KBytes send per second, Connections done per second and the number
           of Active-Transfers.</td>
+      <td align=center><img src="../images/load.png" alt="[Choise of different loads]"></td>
    </tr>
 </table>
 <br clear=left>
@@ -662,9 +691,9 @@ whats in its log files.
 <table width=100%>
 <tr>
    <td width=90%><address><small>
-   Copyright &copy; 2000 - 2005 by H.Kiehl<br>
+   Copyright &copy; 2000 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 17.10.2005
+   Last updated: 22.07.2007
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -119,7 +119,7 @@ get_group_list(void)
                     }
                else if ((*ptr == ' ') || (*ptr == '\t'))
                     {
-                       ptr++;
+                       /* Ignore spaces! */;
                     }
                     else
                     {
@@ -173,7 +173,7 @@ get_group_list(void)
                        }
                   else if ((*ptr == ' ') || (*ptr == '\t'))
                        {
-                          ptr++;
+                          /* Ignore spaces! */;
                        }
                        else
                        {

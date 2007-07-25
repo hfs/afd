@@ -33,6 +33,7 @@
 #define MAX_VERSION_LENGTH       40
 #define MAX_CONVERT_USERNAME     5
 #define MAX_INODE_LOG_NO_LENGTH  (MAX_LONG_LONG_LENGTH + 1 + MAX_INT_LENGTH + 1)
+#define DATA_STEP_SIZE           10
 
 #define MON_CONFIG_FILE          "/MON_CONFIG"
 #define AFD_MON_CONFIG_FILE      "/AFD_MON_CONFIG"
@@ -46,8 +47,18 @@
 #define MSA_ID_FILE              "/msa.id"
 #define ADL_FILE_NAME            "/afd_dir_list."
 #define ADL_FILE_NAME_ALL        "/afd_dir_list.*"
+#define OLD_ADL_FILE_NAME        "/afd_old_dir_list."
+#define OLD_ADL_FILE_NAME_ALL    "/afd_old_dir_list.*"
+#define TMP_ADL_FILE_NAME        "/afd_tmp_dir_list."
+#define TMP_ADL_FILE_NAME_ALL    "/afd_tmp_dir_list.*"
 #define AHL_FILE_NAME            "/afd_host_list."
 #define AHL_FILE_NAME_ALL        "/afd_host_list.*"
+#define AJL_FILE_NAME            "/afd_job_list."
+#define AJL_FILE_NAME_ALL        "/afd_job_list.*"
+#define OLD_AJL_FILE_NAME        "/afd_old_job_list."
+#define OLD_AJL_FILE_NAME_ALL    "/afd_old_job_list.*"
+#define TMP_AJL_FILE_NAME        "/afd_tmp_job_list."
+#define TMP_AJL_FILE_NAME_ALL    "/afd_tmp_job_list.*"
 #define MON_CMD_FIFO             "/afd_mon_cmd.fifo"
 #define MON_RESP_FIFO            "/afd_mon_resp.fifo"
 #define MON_PROBE_ONLY_FIFO      "/afd_mon_probe_only.fifo"
@@ -91,6 +102,7 @@
 #define REMOTE_HANGUP            6
 #define FAILED_LOG_CMD           7
 #define LOG_CONNECT_ERROR        8
+#define LOG_DATA_TIMEOUT         9
 
 /* Different return codes for function evaluate_message(). */
 #define UNKNOWN_MESSAGE          1
@@ -103,7 +115,7 @@
 #define MINUS_Y_FLAG             2
 #define DONT_USE_FULL_PATH_FLAG  4
 #define ENABLE_SSL_ENCRYPTION    8 /* Still to be implemented. */
-/* NOTE: afddefs.h defines bits 5 - 14 . */
+/* NOTE: afddefs.h defines bits 5 - 15 . */
 
 /* Different toggling status for switching AFD's. */
 #define NO_SWITCHING             0
@@ -122,9 +134,23 @@ struct afd_host_list
 struct afd_dir_list
        {
           unsigned int  dir_id;
+          unsigned int  home_dir_length;
+          time_t        entry_time; /* Time when this first enlisted. */
           char          dir_alias[MAX_DIR_ALIAS_LENGTH + 1];
           char          dir_name[MAX_PATH_LENGTH];
           char          orig_dir_name[MAX_PATH_LENGTH];
+          char          home_dir_user[MAX_USER_NAME_LENGTH];
+       };
+
+/* Structure to hold all job ID's. */
+struct afd_job_list
+       {
+          unsigned int  job_id;
+          unsigned int  dir_id;
+          int           no_of_loptions;
+          time_t        entry_time; /* Time when this first enlisted. */
+          char          recipient[MAX_RECIPIENT_LENGTH];
+          char          priority;
        };
 
 /* Structure to hold data from AFD_MON_CONFIG file. */
@@ -404,7 +430,7 @@ int   attach_afd_mon_status(void),
       init_fifos_mon(void),
       read_msg(void),
       send_log_cmd(int, char *, int *),
-      tcp_connect(char *, int),
+      tcp_connect(char *, int, int),
       tcp_quit(void);
 pid_t start_process(char *, int);
 char  *convert_msa(int, char *, off_t *, int, unsigned char, unsigned char);

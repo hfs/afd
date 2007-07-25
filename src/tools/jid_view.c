@@ -1,6 +1,6 @@
 /*
- *  job_list_spy.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  jid_view.c - Part of AFD, an automatic file distribution program.
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,10 +22,10 @@
 DESCR__S_M1
 /*
  ** NAME
- **   job_list_spy - shows all jobs that are held by the AFD
+ **   jid_view - shows all jobs that are held by the AFD
  **
  ** SYNOPSIS
- **   job_list_spy [-w <AFD work dir>] [--version] [-f] [<job no>]
+ **   jid_view [-w <AFD work dir>] [--version] [-f] [<job no>]
  **
  ** DESCRIPTION
  **
@@ -55,7 +55,7 @@ DESCR__E_M1
 #include <errno.h>
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int        sys_log_fd = STDERR_FILENO;
 char       *p_work_dir = NULL;
 const char *sys_log_name = SYSTEM_LOG_FIFO;
@@ -260,6 +260,7 @@ main(int argc, char *argv[])
                }
             }
             (void)fprintf(stdout, "Recipient    : %s\n", jd[i].recipient);
+            (void)fprintf(stdout, "Host alias   : %s\n", jd[i].host_alias);
             if ((search_id == NO) && ((i + 1) < no_of_job_ids))
             {
                (void)fprintf(stdout, "--------------------------------------------------------------------------------\n");

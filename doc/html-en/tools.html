@@ -18,7 +18,7 @@ dialog on a per host or directory basis. When you call afdcmd without
 any parameters it will show all commands it knows:
 </p>
 <pre>
-   SYNTAX  : afdcmd [-w working directory] [-u[ &lt;user&gt;]] options hostname|directory|position
+   SYNTAX  : afdcmd[ -w working directory][ -p &lt;role&gt;][ -u[ &lt;user&gt;]] options hostname|directory|position
        FSA options:
                   -q      start queue
                   -Q      stop queue
@@ -189,10 +189,10 @@ follows:
 </p>
 <pre>
 afd@r2d2:~$ fra_view 3
-     Number of directories: 42   FRA ID: 32  Struct Version: 3
+     Number of directories: 42   FRA ID: 32  Struct Version: 4
 
-=============================&gt; 99ca01ad &lt;=============================
-Directory alias      : 99ca01ad
+============================&gt; testmaus (4) &lt;============================
+Directory alias      : testmaus
 Directory ID         : 99ca01ad
 URL                  : ftp://funk:bla@testmaus
 Host alias           : testmaus
@@ -200,6 +200,7 @@ Wait for             :
 FSA position         : 25
 Priority             : 9
 Number of process    : 0
+Max number of process: 10
 Bytes received       : 0
 Files received       : 0
 Files in directory   : 0
@@ -219,6 +220,7 @@ Max files            : 100
 Max size             : 104857600
 Directory status( 12): NORMAL_STATUS
 Directory flag(  8)  : LINK_NO_EXEC
+In DIR_CONFIG flag   : DIR_ALIAS
 Dupcheck timeout     : Disabled
 Force reread         : NO
 Queued               : NO
@@ -255,6 +257,7 @@ AMG                  : 1
 AMG jobs             : 1
 FD                   : 1
 System log           : 1
+Event log            : 1
 Transfer log         : 1
 Trans debug log      : 1
 Archive watch        : 1
@@ -329,7 +332,7 @@ that you might wish to manipulate as shown below:
         |  9  |Transfer timeout  |            120 |
         |  a  |Real hostname     |      127.0.0.1 |
         |  b  |Host display name |           fiau |
-        |  c  |No. of no bursts  |              0 |
+        |  c  |Error offline stat|            YES |
         |  d  |Active transfers  |              0 |
         |  e  |File name         |                |
         |  f  |Jobs queued       |              0 |
@@ -365,9 +368,11 @@ and you will be asked to enter a value:
         |  9  |Transfer timeout  |            120 |
         |  a  |Real hostname     |      127.0.0.1 |
         |  b  |Host display name |           fiau |
-        |  c  |No. of no bursts  |              0 |
+        |  c  |Error offline stat|            YES |
         |  d  |Active transfers  |              0 |
         |  e  |File name         |                |
+        |  f  |Jobs queued       |              0 |
+        |  g  |Transferrate limit|              0 |
         +-----+------------------+----------------+
 
 
@@ -395,6 +400,12 @@ just use udc.
 When there is a change in the HOST_CONFIG and you do not want to use the
 <a href="afd_ctrl.html">afd_ctrl</a> dialog to activate this HOST_CONFIG
 just use uhc.
+</p>
+<p>
+Both udc and uhc return 0 when the update was performed succesfully. On
+error either 3 or -1 is returned. If it returns 2 the update was done but
+there are warnings, meaning that you have to check the SYSTEM_LOG for
+possible errors in DIR_CONFIG or HOST_CONFIG.
 </p>
 <h3 align=center><a name="get_dc_data"><u>Get DIR_CONFIG data (get_dc_data)</u></a></h3>
 <p>
@@ -463,11 +474,13 @@ all commands it knows:
 </p>
 <pre>
    SYNTAX  : ./mafdcmd [-w working directory] options AFD|position
-                                              -e      enable AFD
-                                              -E      disable AFD
-                                              -r      retry
-                                              -X      toggle enable/disable AFD
-                                              -v      just print Version
+                                              -e          enable AFD
+                                              -E          disable AFD
+                                              -r          retry
+                                              -s          switch AFD
+                                              -X          toggle enable/disable AFD
+                                              -u[ <user>] fake user
+                                              -v          just print Version
 </pre>
 <p>
 You may specify more than one AFD or position.
@@ -607,7 +620,7 @@ user interaction, so it can be used from any shell scripts or programs such as
    <td width=90%><address><small>
    Copyright &copy; 2001 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 24.03.2007
+   Last updated: 22.07.2007
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

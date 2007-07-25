@@ -293,11 +293,7 @@ ftp_connect(char *hostname, int port)
    register struct hostent *p_host = NULL;
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
-   if ((sin.sin_addr.s_addr = inet_addr(hostname)) != -1)
-   {
-      sin.sin_family = AF_INET;
-   }
-   else
+   if ((sin.sin_addr.s_addr = inet_addr(hostname)) == -1)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
@@ -334,19 +330,18 @@ ftp_connect(char *hostname, int port)
 #endif
          return(INCORRECT);
       }
-      sin.sin_family = p_host->h_addrtype;
 
-      /* Copy IP number to socket structure */
+      /* Copy IP number to socket structure. */
       memcpy((char *)&sin.sin_addr, p_host->h_addr, p_host->h_length);
    }
 
-   if ((control_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+   if ((control_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "ftp_connect(): socket() error : %s", strerror(errno));
       return(INCORRECT);
    }
-
+   sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
    if (connect(control_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
@@ -1368,6 +1363,7 @@ ftp_list(int mode, int type, ...)
    va_end(ap);
 
    data = ctrl;
+   data.sin_family = AF_INET;
    data.sin_port = htons((u_short)0);
    msg_str[0] = '\0';
 
@@ -1485,8 +1481,7 @@ ftp_list(int mode, int type, ...)
             }
          }
 
-         if ((new_sock_fd = socket(data.sin_family, SOCK_STREAM,
-                                   IPPROTO_TCP)) < 0)
+         if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "ftp_list(): socket() error : %s", strerror(errno));
@@ -1546,7 +1541,7 @@ ftp_list(int mode, int type, ...)
                          *p;
       struct sockaddr_in from;
 
-      if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+      if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                    "ftp_list(): socket() error : %s", strerror(errno));
@@ -1833,6 +1828,7 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
          int number;
 
          data = ctrl;
+         data.sin_family = AF_INET;
          if ((mode & EXTENDED_MODE) == 0)
          {
             if ((number = get_number(&ptr, ',')) != INCORRECT)
@@ -1906,8 +1902,7 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
             }
          }
 
-         if ((new_sock_fd = socket(data.sin_family, SOCK_STREAM,
-                                   IPPROTO_TCP)) < 0)
+         if ((new_sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "ftp_data(): socket() error : %s", strerror(errno));
@@ -1951,6 +1946,19 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
             {
                timeout_flag = ON;
             }
+# ifdef ECONNREFUSED
+            else if (errno == ECONNREFUSED)
+                 {
+                    timeout_flag = CON_REFUSED;
+                 }
+# endif
+#else
+# ifdef ECONNREFUSED
+            if (errno == ECONNREFUSED)
+            {
+               timeout_flag = CON_REFUSED;
+            }
+# endif
 #endif
             h = (char *)&data.sin_addr;
             p = (char *)&data.sin_port;
@@ -2091,6 +2099,7 @@ ftp_data(char *filename, off_t seek, int mode, int type, int sockbuf_size)
       do
       {
          data = ctrl;
+         data.sin_family = AF_INET;
 #ifdef FTP_REUSE_DATA_PORT
 try_again:
          if (type != DATA_READ)
@@ -2105,7 +2114,7 @@ try_again:
          data.sin_port = htons((u_short)0);
 #endif
 
-         if ((sock_fd = socket(data.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+         if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                       "ftp_data(): socket() error : %s", strerror(errno));

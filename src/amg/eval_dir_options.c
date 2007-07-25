@@ -115,7 +115,7 @@ DESCR__E_M3
 #include <errno.h>
 #include "amgdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int             default_delete_files_flag,
 #ifdef WITH_INOTIFY
                        default_inotify_flag,
@@ -735,7 +735,7 @@ eval_dir_options(int  dir_pos,
            {
               used |= DUPCHECK_FLAG;
               ptr = eval_dupcheck_options(ptr, &dd[dir_pos].dup_check_timeout,
-                                          &dd[dir_pos].dup_check_flag);
+                                          &dd[dir_pos].dup_check_flag, NULL);
 
            }
 #endif /* WITH_DUP_CHECK */
@@ -850,7 +850,8 @@ eval_dir_options(int  dir_pos,
               {
                  ptr++;
               }
-              while ((isascii((int)(*ptr))) && (length < MAX_WAIT_FOR_LENGTH))
+              while (((isalpha((int)(*ptr))) || (*ptr == '?') ||
+                      (*ptr == '*')) && (length < MAX_WAIT_FOR_LENGTH))
               {
                  dd[dir_pos].wait_for_filename[length] = *ptr;
                  ptr++; length++;
@@ -922,7 +923,7 @@ eval_dir_options(int  dir_pos,
                (strncmp(ptr, ACCUMULATE_SIZE_ID, ACCUMULATE_SIZE_ID_LENGTH) == 0))
            {
               int  length = 0;
-              char number[MAX_INT_LENGTH + 1];
+              char number[MAX_OFF_T_LENGTH + 1];
 
               used |= ACCUMULATE_SIZE_FLAG;
               ptr += ACCUMULATE_SIZE_ID_LENGTH;
@@ -930,15 +931,23 @@ eval_dir_options(int  dir_pos,
               {
                  ptr++;
               }
-              while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+              while ((isdigit((int)(*ptr))) && (length < MAX_OFF_T_LENGTH))
               {
                  number[length] = *ptr;
                  ptr++; length++;
               }
-              if ((length > 0) && (length != MAX_INT_LENGTH))
+              if ((length > 0) && (length != MAX_OFF_T_LENGTH))
               {
                  number[length] = '\0';
+#ifdef HAVE_STRTOULL
+# if SIZEOF_OFF_T == 4
                  dd[dir_pos].accumulate_size = (off_t)strtoul(number, NULL, 10);
+# else
+                 dd[dir_pos].accumulate_size = (off_t)strtoull(number, NULL, 10);
+# endif
+#else
+                 dd[dir_pos].accumulate_size = (off_t)strtoul(number, NULL, 10);
+#endif
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {
                     ptr++;
@@ -964,7 +973,7 @@ eval_dir_options(int  dir_pos,
                (strncmp(ptr, IGNORE_SIZE_ID, IGNORE_SIZE_ID_LENGTH) == 0))
            {
               int  length = 0;
-              char number[MAX_INT_LENGTH + 1];
+              char number[MAX_OFF_T_LENGTH + 1];
 
               used |= IGNORE_SIZE_FLAG;
               ptr += IGNORE_SIZE_ID_LENGTH;
@@ -991,15 +1000,27 @@ eval_dir_options(int  dir_pos,
               {
                  ptr++;
               }
-              while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+              while ((isdigit((int)(*ptr))) && (length < MAX_OFF_T_LENGTH))
               {
                  number[length] = *ptr;
                  ptr++; length++;
               }
-              if ((length > 0) && (length != MAX_INT_LENGTH))
+              if ((length > 0) && (length != MAX_OFF_T_LENGTH))
               {
                  number[length] = '\0';
-                 if ((dd[dir_pos].ignore_size = strtoul(number, NULL, 10)) == ULONG_MAX)
+#ifdef HAVE_STRTOLL
+# if SIZEOF_OFF_T == 4
+                 if ((dd[dir_pos].ignore_size = (off_t)strtol(number, NULL, 10)) == LONG_MAX)
+# else
+#  ifdef LLONG_MAX
+                 if ((dd[dir_pos].ignore_size = (off_t)strtoll(number, NULL, 10)) == LLONG_MAX)
+#  else
+                 if ((dd[dir_pos].ignore_size = (off_t)strtoll(number, NULL, 10)) == LONG_MAX)
+#  endif
+# endif
+#else
+                 if ((dd[dir_pos].ignore_size = (off_t)strtol(number, NULL, 10)) == LONG_MAX)
+#endif
                  {
                     dd[dir_pos].ignore_size = 0;
                     system_log(WARN_SIGN, __FILE__, __LINE__,
@@ -1102,7 +1123,7 @@ eval_dir_options(int  dir_pos,
                (strncmp(ptr, MAX_SIZE_ID, MAX_SIZE_ID_LENGTH) == 0))
            {
               int  length = 0;
-              char number[MAX_INT_LENGTH + 1];
+              char number[MAX_OFF_T_LENGTH + 1];
 
               used |= MAX_SIZE_FLAG;
               ptr += MAX_SIZE_ID_LENGTH;
@@ -1110,15 +1131,23 @@ eval_dir_options(int  dir_pos,
               {
                  ptr++;
               }
-              while ((isdigit((int)(*ptr))) && (length < MAX_INT_LENGTH))
+              while ((isdigit((int)(*ptr))) && (length < MAX_OFF_T_LENGTH))
               {
                  number[length] = *ptr;
                  ptr++; length++;
               }
-              if ((length > 0) && (length != MAX_INT_LENGTH))
+              if ((length > 0) && (length != MAX_OFF_T_LENGTH))
               {
                  number[length] = '\0';
+#ifdef HAVE_STRTOULL
+# if SIZEOF_OFF_T == 4
                  dd[dir_pos].max_copied_file_size = (off_t)strtoul(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
+# else
+                 dd[dir_pos].max_copied_file_size = (off_t)strtoull(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
+# endif
+#else
+                 dd[dir_pos].max_copied_file_size = (off_t)strtoul(number, NULL, 10) * MAX_COPIED_FILE_SIZE_UNIT;
+#endif
                  dd[dir_pos].in_dc_flag |= MAX_CP_FILE_SIZE_IDC;
                  while ((*ptr == ' ') || (*ptr == '\t'))
                  {

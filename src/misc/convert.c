@@ -1,6 +1,6 @@
 /*
  *  convert.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2003 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2003 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -476,11 +476,12 @@ convert(char *file_path, char *file_name, int type, off_t *file_size)
          break;
 
       case MRZ2WMO :
-         if (bin_file_convert(src_ptr, stat_buf.st_size, to_fd) < 0)
+         if ((new_length = bin_file_convert(src_ptr, stat_buf.st_size, to_fd)) < 0)
          {
             receive_log(WARN_SIGN, __FILE__, __LINE__, 0L,
                         "Failed to convert MRZ file %s to WMO-format.",
                         file_name);
+            new_length = 0;
          }
          break;
 

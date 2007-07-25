@@ -62,7 +62,7 @@ DESCR__E_M3
 
 /* #define WITH_VERBOSE_LOG */
 
-/* External global variables */
+/* External global variables. */
 extern int                        *no_msg_queued,
                                   qb_fd;
 extern char                       file_dir[],
@@ -87,8 +87,8 @@ static int                        check_jobs(int),
 int
 check_file_dir(int force_check)
 {
-   static int    all_checked;
-   struct stat   stat_buf;
+   int         all_checked;
+   struct stat stat_buf;
 
    if (stat(file_dir, &stat_buf) == -1)
    {
@@ -515,7 +515,7 @@ add_message_to_queue(char         *dir_name,
       return;
    }
    *ptr = '\0';
-   creation_time = (time_t)strtol(p_start, (char **)NULL, 16);
+   creation_time = (time_t)str2timet(p_start, (char **)NULL, 16);
    ptr++;
    p_start = ptr;
    while ((*ptr != '_') && (*ptr != '\0'))
@@ -709,6 +709,7 @@ read_job_ids(void)
                              "Failed to read() from `%s' : %s",
                              job_id_data_file, strerror(errno));
                   free(jd);
+                  jd = NULL;
                   ret = INCORRECT;
                }
             }

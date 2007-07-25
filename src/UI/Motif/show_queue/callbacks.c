@@ -22,7 +22,7 @@
 DESCR__S_M3
 /*
  ** NAME
- **   callbacks - all callback functions for module show_olog
+ **   callbacks - all callback functions for module show_queue
  **
  ** SYNOPSIS
  **   void toggled(Widget w, XtPointer client_data, XtPointer call_data)
@@ -35,11 +35,13 @@ DESCR__S_M3
  **   void save_input(Widget w, XtPointer client_data, XtPointer call_data)
  **   void scrollbar_moved(Widget w, XtPointer client_data, XtPointer call_data)
  **   void send_button(Widget w, XtPointer client_data, XtPointer call_data)
+ **   void view_button(Widget w, XtPointer client_data, XtPointer call_data)
  **
  ** DESCRIPTION
  **   The function toggled() is used to set the bits in the global
- **   variable toggles_set. The following bits can be set: SHOW_FTP,
- **   SHOW_SMTP and SHOW_FILE.
+ **   variable toggles_set. The following bits can be set: SHOW_INPUT,
+ **   SHOW_OUTPUT, SHOW_RETRIEVES, SHOW_UNSENT_INPUT, SHOW_UNSENT_OUTPUT,
+ **   SHOW_PENDING_RETRIEVES and SHOW_TIME_JOBS.
  **
  **   Function item_selection() calculates a new summary string of
  **   the items that are currently selected and displays them.
@@ -50,8 +52,8 @@ DESCR__S_M3
  **   recipient, AMG-options, FD-options, priority, job ID and archive
  **   directory.
  **
- **   search_button() activates the search in the output log. When
- **   pressed the label of the button changes to 'Stop'. Now the user
+ **   search_button() activates the search in the internal queues of AFD.
+ **   When pressed the label of the button changes to 'Stop'. Now the user
  **   has the chance to stop the search. During the search only the
  **   list widget and the Stop button can be used.
  **
@@ -103,7 +105,8 @@ extern Widget                  appshell,
                                listbox_w,
                                headingbox_w,
                                statusbox_w,
-                               summarybox_w;
+                               summarybox_w,
+                               view_button_w;
 extern Window                  main_window;
 extern int                     items_selected,
                                no_of_search_dirs,
@@ -372,6 +375,28 @@ search_button(Widget w, XtPointer client_data, XtPointer call_data)
 }
 
 
+/*############################ view_button() ############################*/
+void
+view_button(Widget w, XtPointer client_data, XtPointer call_data)
+{
+   int no_selected,
+       *select_list;
+
+   reset_message(statusbox_w);
+   if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
+   {
+      view_files(no_selected, select_list);
+      XtFree((char *)select_list);
+   }
+   else
+   {
+      show_message(statusbox_w, "No file selected!");
+   }
+
+   return;
+}
+
+
 /*########################### send_button() #############################*/
 void
 send_button(Widget w, XtPointer client_data, XtPointer call_data)
@@ -383,6 +408,7 @@ send_button(Widget w, XtPointer client_data, XtPointer call_data)
    if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
    {
       send_files(no_selected, select_list);
+      XtFree((char *)select_list);
    }
    else
    {
@@ -404,6 +430,7 @@ delete_button(Widget w, XtPointer client_data, XtPointer call_data)
    if (XmListGetSelectedPos(listbox_w, &select_list, &no_selected) == True)
    {
       delete_files(no_selected, select_list);
+      XtFree((char *)select_list);
    }
    else
    {
@@ -419,7 +446,7 @@ void
 print_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    reset_message(statusbox_w);
-   print_data();
+   print_data(w, client_data, call_data);
 
    return;
 }
@@ -616,8 +643,8 @@ save_input(Widget w, XtPointer client_data, XtPointer call_data)
                {
                   if ((search_dirid = malloc(no_of_search_dirids * sizeof(unsigned int))) == NULL)
                   {
-                     (void)fprintf(stderr, "Failed to malloc() %lu bytes : %s (%s %d)\n",
-                                   no_of_search_dirids * sizeof(unsigned int),
+                     (void)fprintf(stderr, "Failed to malloc() %d bytes : %s (%s %d)\n",
+                                   no_of_search_dirids * (int)sizeof(unsigned int),
                                    strerror(errno), __FILE__, __LINE__);
                      exit(INCORRECT);
                   }

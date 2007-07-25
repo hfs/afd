@@ -1,6 +1,6 @@
 /*
  *  resend_files.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1997 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -562,7 +562,7 @@ get_archive_data(int pos, int file_no)
       return(INCORRECT);
    }
 
-   ptr = &buffer[11 + MAX_HOSTNAME_LENGTH + 3];
+   ptr = &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3];
 
    /* Mark end of file name. */
    while (*ptr != SEPARATOR_CHAR)
@@ -625,7 +625,7 @@ get_archive_data(int pos, int file_no)
    *(p_archive_name + i++) = '_';
 
    /* Copy the file name to the archive directory. */
-   (void)strcpy((p_archive_name + i), &buffer[11 + MAX_HOSTNAME_LENGTH + 3]);
+   (void)strcpy((p_archive_name + i), &buffer[LOG_DATE_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 3]);
    p_file_name = p_archive_name + i;
 
    return(SUCCESS);

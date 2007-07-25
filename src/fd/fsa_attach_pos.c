@@ -44,6 +44,8 @@ DESCR__S_M3
  ** HISTORY
  **   09.02.2003 H.Kiehl Created
  **   06.04.2005 H.Kiehl Added fsa_detach_pos().
+ **   04.06.2007 H.Kiehl Added fix for HPUX which does not allow more
+ **                      then one mmap() on the same file.
  **
  */
 DESCR__E_M3
@@ -169,10 +171,14 @@ fsa_attach_pos(int pos)
       char *ptr;
 
 #ifdef HAVE_MMAP
-      if ((ptr = mmap(0, AFD_WORD_OFFSET, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap(0, AFD_WORD_OFFSET, PROT_READ,
+# ifdef _HPUX
+                      MAP_PRIVATE, fsa_fd, 0)) == (caddr_t) -1)
+# else
                       MAP_SHARED, fsa_fd, 0)) == (caddr_t) -1)
+# endif
 #else
-      if ((ptr = mmap_emu(0, AFD_WORD_OFFSET, (PROT_READ | PROT_WRITE),
+      if ((ptr = mmap_emu(0, AFD_WORD_OFFSET, PROT_READ,
                           MAP_SHARED, fsa_stat_file, 0)) == (caddr_t) -1)
 #endif
       {

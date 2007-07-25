@@ -66,7 +66,8 @@ ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = common afd_ctrl dir_ctrl afd_info dir_info afd_load \
 	edit_hc show_cmd show_log show_olog show_ilog show_dlog \
-	show_queue view_dc xsend_file xshow_stat mon_ctrl mon_info
+	show_elog show_queue view_dc xsend_file xshow_stat \
+	handle_event mon_ctrl mon_info
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AFD_GTK_INCLUDES = @AFD_GTK_INCLUDES@
@@ -228,8 +229,8 @@ target_alias = @target_alias@
 @WITH_AFD_MON_TRUE@AFD_MON_DIR = mon_ctrl mon_info
 @WITH_AFD_MON_ONLY_FALSE@OTHER_DIRS = common afd_ctrl dir_ctrl afd_info dir_info afd_load\
 @WITH_AFD_MON_ONLY_FALSE@                edit_hc show_cmd show_log $(AFD_SHOW_OLOG) $(AFD_SHOW_ILOG)\
-@WITH_AFD_MON_ONLY_FALSE@                $(AFD_SHOW_DLOG) show_queue view_dc xsend_file xshow_stat\
-@WITH_AFD_MON_ONLY_FALSE@                $(AFD_MON_DIR)
+@WITH_AFD_MON_ONLY_FALSE@                $(AFD_SHOW_DLOG) show_elog show_queue view_dc xsend_file\
+@WITH_AFD_MON_ONLY_FALSE@                xshow_stat handle_event $(AFD_MON_DIR)
 
 @WITH_AFD_MON_ONLY_TRUE@OTHER_DIRS = common mon_ctrl mon_info show_log
 MAINTAINERCLEANFILES = Makefile.in

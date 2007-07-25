@@ -51,17 +51,22 @@ DESCR__S_M1
  */
 DESCR__E_M1
 
+/* #define WITH_MEMCHECK */
+
 #include <stdio.h>            /* fprintf(), stderr                       */
 #include <string.h>           /* strcpy(), strcmp()                      */
 #include <ctype.h>            /* toupper()                               */
 #include <unistd.h>           /* gethostname(), getcwd(), STDERR_FILENO  */
 #include <stdlib.h>           /* getenv(), calloc()                      */
+#ifdef WITH_MEMCHECK
+# include <mcheck.h>
+#endif
 #include <math.h>             /* log10()                                 */
 #include <sys/times.h>        /* times(), struct tms                     */
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef HAVE_MMAP
-#include <sys/mman.h>         /* mmap()                                  */
+# include <sys/mman.h>        /* mmap()                                  */
 #endif
 #include <signal.h>           /* kill(), signal(), SIGINT                */
 #include <fcntl.h>            /* O_RDWR                                  */
@@ -90,11 +95,12 @@ DESCR__E_M1
 #include "version.h"
 #include "permission.h"
 
-/* Global variables */
+/* Global variables. */
 Display                    *display;
 XtAppContext               app;
 XtIntervalId               interval_id_status,
                            interval_id_tv;
+XtInputId                  db_update_cmd_id;
 GC                         letter_gc,
                            normal_letter_gc,
                            locked_letter_gc,
@@ -107,14 +113,15 @@ GC                         letter_gc,
                            tr_bar_gc,
                            color_gc,
                            black_line_gc,
+                           unset_led_bg_gc,
                            white_line_gc,
                            led_gc;
 Colormap                   default_cmap;
 XFontStruct                *font_struct;
 XmFontList                 fontlist = NULL;
 Widget                     mw[5],          /* Main menu */
-                           ow[11],         /* Host menu */
-                           vw[11],         /* View menu */
+                           ow[12],         /* Host menu */
+                           vw[12],         /* View menu */
                            cw[8],          /* Control menu */
                            sw[4],          /* Setup menu */
                            hw[3],          /* Help menu */
@@ -123,7 +130,7 @@ Widget                     mw[5],          /* Main menu */
                            tw[2],          /* Test (ping, traceroute) */
                            lw[4],          /* AFD load */
                            lsw[4],         /* Line style */
-                           pw[8],          /* Popup menu */
+                           pw[9],          /* Popup menu */
                            dprw[3],        /* Debug pull right */
                            appshell,
                            button_window_w,
@@ -144,6 +151,8 @@ int                        amg_flag = NO,
                            bar_thickness_2,
                            bar_thickness_3,
                            button_width,
+                           even_height,
+                           event_log_fd = STDERR_FILENO,
                            filename_display_length,
                            fsa_fd = -1,
                            fsa_id,
@@ -221,17 +230,20 @@ char                       work_dir[MAX_PATH_LENGTH],
                            *p_work_dir,
                            *pid_list,
                            afd_active_file[MAX_PATH_LENGTH],
+                           *db_update_reply_fifo = NULL,
                            line_style,
                            fake_user[MAX_FULL_USER_ID_LENGTH],
                            font_name[20],
                            tv_window = OFF,
                            blink_flag,
-                           *profile,
+                           profile[MAX_PROFILE_NAME_LENGTH + 1],
                            *ping_cmd = NULL,
                            *ptr_ping_cmd,
                            *traceroute_cmd = NULL,
                            *ptr_traceroute_cmd,
                            user[MAX_FULL_USER_ID_LENGTH];
+unsigned char              *p_feature_flag,
+                           saved_feature_flag;
 clock_t                    clktck;
 struct apps_list           *apps_list = NULL;
 struct coord               coord[3][LOG_FIFO_SIZE];
@@ -243,7 +255,7 @@ struct filetransfer_status *fsa;
 struct afd_control_perm    acp;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                afd_ctrl_exit(void),
                            create_pullright_debug(Widget),
                            create_pullright_font(Widget),
@@ -285,13 +297,16 @@ main(int argc, char *argv[])
    uid_t         euid, /* Effective user ID. */
                  ruid; /* Real user ID. */
 
+#ifdef WITH_MEMCHECK
+   mtrace();
+#endif
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    init_afd_ctrl(&argc, argv, window_title);
 
    /*
-    * SSH uses wants to look at .Xauthority and with setuid flag
+    * SSH wants to look at .Xauthority and with setuid flag
     * set we cannot do that. So when we initialize X lets temporaly
     * disable it. After XtAppInitialize() we set it back.
     */
@@ -306,7 +321,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Create the top-level shell widget and initialise the toolkit */
+   /* Create the top-level shell widget and initialise the toolkit. */
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0, &argc, argv,
@@ -343,7 +358,7 @@ main(int argc, char *argv[])
    /* Get window size. */
    (void)window_size(&window_width, &window_height);
 
-   /* Create managing widget for label, line and button widget */
+   /* Create managing widget for label, line and button widget. */
    mainform_w = XmCreateForm(mainwindow, "mainform_w", NULL, 0);
    XtManageChild(mainform_w);
 
@@ -352,7 +367,7 @@ main(int argc, char *argv[])
       init_menu_bar(mainform_w, &menu_w);
    }
 
-   /* Setup colors */
+   /* Setup colors. */
    default_cmap = DefaultColormap(display, DefaultScreen(display));
    init_color(XtDisplay(appshell));
 
@@ -384,13 +399,13 @@ main(int argc, char *argv[])
                                         argcount);
    XtManageChild(label_window_w);
 
-   /* Get background color from the widget's resources */
+   /* Get background color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNbackground, &color_pool[LABEL_BG]);
    argcount++;
    XtGetValues(label_window_w, args, argcount);
 
-   /* Create the line_window_w */
+   /* Create the line_window_w. */
    argcount = 0;
    XtSetArg(args[argcount], XmNheight, (Dimension)(line_height * no_of_rows));
    argcount++;
@@ -410,7 +425,7 @@ main(int argc, char *argv[])
                                        argcount);
    XtManageChild(line_window_w);
 
-   /* Create the short_line_window_w */
+   /* Create the short_line_window_w. */
    argcount = 0;
    if (no_of_short_rows > 0)
    {
@@ -437,15 +452,15 @@ main(int argc, char *argv[])
                                              args, argcount);
    XtManageChild(short_line_window_w);
 
-   /* Initialise the GC's */
+   /* Initialise the GC's. */
    init_gcs();
 
-   /* Get foreground color from the widget's resources */
+   /* Get foreground color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNforeground, &color_pool[FG]); argcount++;
    XtGetValues(line_window_w, args, argcount);
 
-   /* Create the button_window_w */
+   /* Create the button_window_w. */
    argcount = 0;
    XtSetArg(args[argcount], XmNheight, (Dimension)line_height);
    argcount++;
@@ -467,7 +482,7 @@ main(int argc, char *argv[])
                                          argcount);
    XtManageChild(button_window_w);
 
-   /* Get background color from the widget's resources */
+   /* Get background color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNbackground, &color_pool[LABEL_BG]);
    argcount++;
@@ -491,7 +506,7 @@ main(int argc, char *argv[])
                         ButtonPressMask | ButtonReleaseMask | Button1MotionMask,
                         False, (XtEventHandler)short_input, NULL);
 
-      /* Set toggle button for font|row|style */
+      /* Set toggle button for font|row|style. */
       XtVaSetValues(fw[current_font], XmNset, True, NULL);
       XtVaSetValues(rw[current_row], XmNset, True, NULL);
       if (line_style & SHOW_LEDS)
@@ -511,7 +526,7 @@ main(int argc, char *argv[])
          XtVaSetValues(lsw[BARS_STYLE_W], XmNset, True, NULL);
       }
 
-      /* Setup popup menu */
+      /* Setup popup menu. */
       init_popup_menu(line_window_w);
       init_popup_menu(short_line_window_w);
 
@@ -525,7 +540,7 @@ main(int argc, char *argv[])
    XtAddEventHandler(appshell, (EventMask)0, True, _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
    /* Set some signal handlers. */
@@ -548,13 +563,13 @@ main(int argc, char *argv[])
                  AFD_CTRL, strerror(errno));
    }
 
-   /* Get window ID of four main windows */
+   /* Get window ID of four main windows. */
    label_window = XtWindow(label_window_w);
    line_window = XtWindow(line_window_w);
    short_line_window = XtWindow(short_line_window_w);
    button_window = XtWindow(button_window_w);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -567,7 +582,8 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
 {
    int          i,
                 j,
-                fd;
+                fd,
+                user_offset;
    unsigned int new_bar_length;
    time_t       start_time;
    char         afd_file_dir[MAX_PATH_LENGTH],
@@ -588,12 +604,6 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
                     "Usage: %s [-w <work_dir>] [-p <profile>] [-u[ <user>]] [-no_input] [-f <numeric font name>]\n",
                     argv[0]);
       exit(SUCCESS);
-   }
-   if ((profile = malloc(41)) == NULL)
-   {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
 
    /*
@@ -619,17 +629,22 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    {
       no_input = False;
    }
-   if (get_arg(argc, argv, "-p", profile, 40) == INCORRECT)
+   if (get_arg(argc, argv, "-p", profile, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
    {
-      free(profile);
-      profile = NULL;
+      user_offset = 0;
+      profile[0] = '\0';
+   }
+   else
+   {
+      (void)strcpy(user, profile);
+      user_offset = strlen(profile);
    }
    if (get_arg(argc, argv, "-f", font_name, 20) == INCORRECT)
    {
       (void)strcpy(font_name, DEFAULT_FONT);
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -682,6 +697,8 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
          acp.shutdown_afd       = YES; /* Shutdown the AFD      */
          acp.ctrl_transfer      = YES; /* Start/Stop a transfer */
          acp.ctrl_transfer_list = NULL;
+         acp.handle_event       = YES;
+         acp.handle_event_list  = NULL;
          acp.ctrl_queue         = YES; /* Start/Stop the input  */
          acp.ctrl_queue_list    = NULL;
          acp.switch_host        = YES;
@@ -746,7 +763,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       (void)strcat(window_title, hostname);
    }
 
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
 
    /*
     * Attach to the FSA and get the number of host
@@ -758,9 +775,11 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
                     __FILE__, __LINE__);
       exit(INCORRECT);
    }
+   p_feature_flag = (unsigned char *)fsa - AFD_FEATURE_FLAG_OFFSET_END;
+   saved_feature_flag = *p_feature_flag;
 
    /*
-    * Attach to the AFD Status Area
+    * Attach to the AFD Status Area.
     */
    if (attach_afd_status(NULL) < 0)
    {
@@ -862,11 +881,11 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
    read_setup(AFD_CTRL, profile, &filename_display_length, NULL, hosts,
               MAX_HOSTNAME_LENGTH);
 
-   /* Determine the default bar length */
+   /* Determine the default bar length. */
    max_bar_length  = 6 * BAR_LENGTH_MODIFIER;
    step_size = MAX_INTENSITY / max_bar_length;
 
-   /* Initialise all display data for each host */
+   /* Initialise all display data for each host. */
    start_time = times(&tmsdummy);
    for (i = 0; i < no_of_hosts; i++)
    {
@@ -885,29 +904,54 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       connect_data[i].total_file_counter = fsa[i].total_file_counter;
       CREATE_FC_STRING(connect_data[i].str_tfc, connect_data[i].total_file_counter);
       connect_data[i].debug = fsa[i].debug;
-      if (fsa[i].special_flag & HOST_DISABLED)
+      connect_data[i].host_status = fsa[i].host_status;
+      connect_data[i].protocol = fsa[i].protocol;
+      connect_data[i].special_flag = fsa[i].special_flag;
+      if (connect_data[i].special_flag & HOST_DISABLED)
       {
          connect_data[i].stat_color_no = WHITE;
       }
-      else if ((fsa[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
+      else if ((connect_data[i].special_flag & HOST_IN_DIR_CONFIG) == 0)
            {
               connect_data[i].stat_color_no = DEFAULT_BG;
+           }
+      else if (fsa[i].error_counter >= fsa[i].max_errors)
+           {
+              if ((connect_data[i].host_status & HOST_ERROR_OFFLINE) ||
+                  (connect_data[i].host_status & HOST_ERROR_OFFLINE_T) ||
+                  (connect_data[i].host_status & HOST_ERROR_OFFLINE_STATIC))
+              {
+                 connect_data[i].stat_color_no = ERROR_OFFLINE_ID;
+              }
+              else if ((connect_data[i].host_status & HOST_ERROR_ACKNOWLEDGED) ||
+                       (connect_data[i].host_status & HOST_ERROR_ACKNOWLEDGED_T))
+                   {
+                      connect_data[i].stat_color_no = ERROR_ACKNOWLEDGED_ID;
+                   }
+                   else
+                   {
+                      connect_data[i].stat_color_no = NOT_WORKING2;
+                   }
+           }
+      else if (fsa[i].active_transfers > 0)
+           {
+              connect_data[i].stat_color_no = TRANSFER_ACTIVE;
            }
            else
            {
               connect_data[i].stat_color_no = NORMAL_STATUS;
            }
-      if (fsa[i].host_status & PAUSE_QUEUE_STAT)
+      if (connect_data[i].host_status & PAUSE_QUEUE_STAT)
       {
          connect_data[i].status_led[0] = PAUSE_QUEUE;
       }
-      else if ((fsa[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
-               (fsa[i].host_status & DANGER_PAUSE_QUEUE_STAT))
+      else if ((connect_data[i].host_status & AUTO_PAUSE_QUEUE_STAT) ||
+               (connect_data[i].host_status & DANGER_PAUSE_QUEUE_STAT))
            {
               connect_data[i].status_led[0] = AUTO_PAUSE_QUEUE;
            }
 #ifdef WITH_ERROR_QUEUE
-      else if (fsa[i].host_status & ERROR_QUEUE_SET)
+      else if (connect_data[i].host_status & ERROR_QUEUE_SET)
            {
               connect_data[i].status_led[0] = JOBS_IN_ERROR_QUEUE;
            }
@@ -916,7 +960,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
            {
               connect_data[i].status_led[0] = NORMAL_STATUS;
            }
-      if (fsa[i].host_status & STOP_TRANSFER_STAT)
+      if (connect_data[i].host_status & STOP_TRANSFER_STAT)
       {
          connect_data[i].status_led[1] = STOP_TRANSFER;
       }
@@ -924,6 +968,7 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       {
          connect_data[i].status_led[1] = NORMAL_STATUS;
       }
+      connect_data[i].status_led[2] = (connect_data[i].protocol >> 30);
       connect_data[i].total_file_size = fsa[i].total_file_size;
       CREATE_FS_STRING(connect_data[i].str_tfs, connect_data[i].total_file_size);
       connect_data[i].bytes_per_sec = 0;
@@ -965,7 +1010,6 @@ init_afd_ctrl(int *argc, char *argv[], char *window_title)
       connect_data[i].bar_length[TR_BAR_NO] = 0;
       connect_data[i].inverse = OFF;
       connect_data[i].expose_flag = NO;
-      connect_data[i].special_flag = fsa[i].special_flag | 191;
       connect_data[i].allowed_transfers = fsa[i].allowed_transfers;
       for (j = 0; j < connect_data[i].allowed_transfers; j++)
       {
@@ -1188,7 +1232,8 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
 #endif
                            XmNsubMenuId,               pull_down_w,
                            NULL);
-   if ((acp.ctrl_queue != NO_PERMISSION) ||
+   if ((acp.handle_event != NO_PERMISSION) ||
+       (acp.ctrl_queue != NO_PERMISSION) ||
        (acp.ctrl_transfer != NO_PERMISSION) ||
        (acp.disable != NO_PERMISSION) ||
        (acp.switch_host != NO_PERMISSION) ||
@@ -1196,10 +1241,19 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
        (acp.debug != NO_PERMISSION) ||
        (acp.trace != NO_PERMISSION) ||
        (acp.full_trace != NO_PERMISSION) ||
-       (traceroute_cmd != NULL) ||
        (ping_cmd != NULL) ||
+       (traceroute_cmd != NULL) ||
        (acp.afd_load != NO_PERMISSION))
    {
+      if (acp.handle_event != NO_PERMISSION)
+      {
+         ow[HANDLE_EVENT_W] = XtVaCreateManagedWidget("Handle event",
+                                 xmPushButtonWidgetClass, pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 NULL);
+         XtAddCallback(ow[HANDLE_EVENT_W], XmNactivateCallback, popup_cb,
+                       (XtPointer)EVENT_SEL);
+      }
       if (acp.ctrl_queue != NO_PERMISSION)
       {
          ow[QUEUE_W] = XtVaCreateManagedWidget("Start/Stop input queue",
@@ -1355,12 +1409,13 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
    /**********************************************************************/
    /*                           View Menu                                */
    /**********************************************************************/
-   if ((acp.show_slog != NO_PERMISSION) || (acp.show_rlog != NO_PERMISSION) ||
+   if ((acp.show_slog != NO_PERMISSION) || (acp.show_elog != NO_PERMISSION) ||
+       (acp.show_rlog != NO_PERMISSION) || (acp.show_tlog != NO_PERMISSION) ||
        (acp.show_tlog != NO_PERMISSION) || (acp.show_dlog != NO_PERMISSION) ||
-       (acp.show_ilog != NO_PERMISSION) || (acp.show_olog != NO_PERMISSION) ||
-       (acp.show_elog != NO_PERMISSION) || (acp.show_queue != NO_PERMISSION) ||
-       (acp.info != NO_PERMISSION) || (acp.view_dc != NO_PERMISSION) ||
-       (acp.view_jobs != NO_PERMISSION))
+       (acp.show_tdlog != NO_PERMISSION) || (acp.show_ilog != NO_PERMISSION) ||
+       (acp.show_olog != NO_PERMISSION) || (acp.show_dlog != NO_PERMISSION) ||
+       (acp.show_queue != NO_PERMISSION) || (acp.info != NO_PERMISSION) ||
+       (acp.view_dc != NO_PERMISSION) || (acp.view_jobs != NO_PERMISSION))
    {
       pull_down_w = XmCreatePulldownMenu(*menu_w,
                                               "View Pulldown", NULL, 0);
@@ -1382,6 +1437,15 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          XtAddCallback(vw[SYSTEM_W], XmNactivateCallback, popup_cb,
                        (XtPointer)S_LOG_SEL);
       }
+      if (acp.show_elog != NO_PERMISSION)
+      {
+         vw[EVENT_W] = XtVaCreateManagedWidget("Event Log",
+                                 xmPushButtonWidgetClass, pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 NULL);
+         XtAddCallback(vw[EVENT_W], XmNactivateCallback, popup_cb,
+                       (XtPointer)E_LOG_SEL);
+      }
       if (acp.show_rlog != NO_PERMISSION)
       {
          vw[RECEIVE_W] = XtVaCreateManagedWidget("Receive Log",
@@ -1400,18 +1464,18 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          XtAddCallback(vw[TRANS_W], XmNactivateCallback, popup_cb,
                        (XtPointer)T_LOG_SEL);
       }
-      if (acp.show_dlog != NO_PERMISSION)
+      if (acp.show_tdlog != NO_PERMISSION)
       {
          vw[TRANS_DEBUG_W] = XtVaCreateManagedWidget("Transfer Debug Log",
                                  xmPushButtonWidgetClass, pull_down_w,
                                  XmNfontList,             fontlist,
                                  NULL);
          XtAddCallback(vw[TRANS_DEBUG_W], XmNactivateCallback, popup_cb,
-                       (XtPointer)D_LOG_SEL);
+                       (XtPointer)TD_LOG_SEL);
       }
       if ((acp.show_ilog != NO_PERMISSION) ||
           (acp.show_olog != NO_PERMISSION) ||
-          (acp.show_elog != NO_PERMISSION))
+          (acp.show_dlog != NO_PERMISSION))
       {
 #if defined (_INPUT_LOG) || defined (_OUTPUT_LOG) || defined (_DELETE_LOG)
          XtVaCreateManagedWidget("Separator",
@@ -1441,14 +1505,14 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          }
 #endif
 #ifdef _DELETE_LOG
-         if (acp.show_elog != NO_PERMISSION)
+         if (acp.show_dlog != NO_PERMISSION)
          {
             vw[DELETE_W] = XtVaCreateManagedWidget("Delete Log",
                                     xmPushButtonWidgetClass, pull_down_w,
                                     XmNfontList,             fontlist,
                                     NULL);
             XtAddCallback(vw[DELETE_W], XmNactivateCallback, popup_cb,
-                          (XtPointer)E_LOG_SEL);
+                          (XtPointer)D_LOG_SEL);
          }
 #endif
       }
@@ -1702,14 +1766,15 @@ init_popup_menu(Widget w)
 {
    XmString x_string;
    Widget   popupmenu;
-   Arg      args[MAXARGS];
+   Arg      args[6];
    Cardinal argcount;
 
    argcount = 0;
    XtSetArg(args[argcount], XmNtearOffModel, XmTEAR_OFF_ENABLED); argcount++;
    popupmenu = XmCreateSimplePopupMenu(w, "popup", args, argcount);
 
-   if ((acp.ctrl_queue != NO_PERMISSION) ||
+   if ((acp.handle_event != NO_PERMISSION) ||
+       (acp.ctrl_queue != NO_PERMISSION) ||
        (acp.ctrl_transfer != NO_PERMISSION) ||
        (acp.disable != NO_PERMISSION) ||
        (acp.switch_host != NO_PERMISSION) ||
@@ -1722,16 +1787,28 @@ init_popup_menu(Widget w)
        (ping_cmd != NULL) ||
        (traceroute_cmd != NULL))
    {
+      if (acp.handle_event != NO_PERMISSION)
+      {
+         argcount = 0;
+         x_string = XmStringCreateLocalized("Handle event");
+         XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
+         XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
+         pw[0] = XmCreatePushButton(popupmenu, "Event", args, argcount);
+         XtAddCallback(pw[0], XmNactivateCallback,
+                       popup_cb, (XtPointer)EVENT_SEL);
+         XtManageChild(pw[0]);
+         XmStringFree(x_string);
+      }
       if (acp.ctrl_queue != NO_PERMISSION)
       {
          argcount = 0;
          x_string = XmStringCreateLocalized("Start/Stop input queue");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-         pw[0] = XmCreatePushButton(popupmenu, "Queue", args, argcount);
-         XtAddCallback(pw[0], XmNactivateCallback,
+         pw[1] = XmCreatePushButton(popupmenu, "Queue", args, argcount);
+         XtAddCallback(pw[1], XmNactivateCallback,
                        popup_cb, (XtPointer)QUEUE_SEL);
-         XtManageChild(pw[0]);
+         XtManageChild(pw[1]);
          XmStringFree(x_string);
       }
       if (acp.ctrl_transfer != NO_PERMISSION)
@@ -1740,10 +1817,10 @@ init_popup_menu(Widget w)
          x_string = XmStringCreateLocalized("Start/Stop transfer");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-         pw[1] = XmCreatePushButton(popupmenu, "Transfer", args, argcount);
-         XtAddCallback(pw[1], XmNactivateCallback,
+         pw[2] = XmCreatePushButton(popupmenu, "Transfer", args, argcount);
+         XtAddCallback(pw[2], XmNactivateCallback,
                        popup_cb, (XtPointer)TRANS_SEL);
-         XtManageChild(pw[1]);
+         XtManageChild(pw[2]);
          XmStringFree(x_string);
       }
       if (acp.disable != NO_PERMISSION)
@@ -1752,10 +1829,10 @@ init_popup_menu(Widget w)
          x_string = XmStringCreateLocalized("Enable/Disable host");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-         pw[2] = XmCreatePushButton(popupmenu, "Disable", args, argcount);
-         XtAddCallback(pw[2], XmNactivateCallback,
+         pw[3] = XmCreatePushButton(popupmenu, "Disable", args, argcount);
+         XtAddCallback(pw[3], XmNactivateCallback,
                        popup_cb, (XtPointer)DISABLE_SEL);
-         XtManageChild(pw[2]);
+         XtManageChild(pw[3]);
          XmStringFree(x_string);
       }
       if (acp.switch_host != NO_PERMISSION)
@@ -1764,10 +1841,10 @@ init_popup_menu(Widget w)
          x_string = XmStringCreateLocalized("Switch host");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-         pw[3] = XmCreatePushButton(popupmenu, "Switch", args, argcount);
-         XtAddCallback(pw[3], XmNactivateCallback,
+         pw[4] = XmCreatePushButton(popupmenu, "Switch", args, argcount);
+         XtAddCallback(pw[4], XmNactivateCallback,
                        popup_cb, (XtPointer)SWITCH_SEL);
-         XtManageChild(pw[3]);
+         XtManageChild(pw[4]);
          XmStringFree(x_string);
       }
       if (acp.retry != NO_PERMISSION)
@@ -1786,10 +1863,10 @@ init_popup_menu(Widget w)
 #endif
          XtSetArg(args[argcount], XmNmnemonic, 'R'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-         pw[4] = XmCreatePushButton(popupmenu, "Retry", args, argcount);
-         XtAddCallback(pw[4], XmNactivateCallback,
+         pw[5] = XmCreatePushButton(popupmenu, "Retry", args, argcount);
+         XtAddCallback(pw[5], XmNactivateCallback,
                        popup_cb, (XtPointer)RETRY_SEL);
-         XtManageChild(pw[4]);
+         XtManageChild(pw[5]);
          XmStringFree(x_string);
       }
       if (acp.debug != NO_PERMISSION)
@@ -1799,7 +1876,7 @@ init_popup_menu(Widget w)
          pullright_debug = XmCreateSimplePulldownMenu(popupmenu,
                                                       "pullright_debug",
                                                       NULL, 0);
-         pw[5] = XtVaCreateManagedWidget("Debug",
+         pw[6] = XtVaCreateManagedWidget("Debug",
                                  xmCascadeButtonWidgetClass, popupmenu,
                                  XmNfontList,                fontlist,
                                  XmNsubMenuId,               pullright_debug,
@@ -1818,10 +1895,10 @@ init_popup_menu(Widget w)
 #endif
          XtSetArg(args[argcount], XmNmnemonic, 'I'); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-         pw[6] = XmCreatePushButton(popupmenu, "Info", args, argcount);
-         XtAddCallback(pw[6], XmNactivateCallback,
+         pw[7] = XmCreatePushButton(popupmenu, "Info", args, argcount);
+         XtAddCallback(pw[7], XmNactivateCallback,
                        popup_cb, (XtPointer)INFO_SEL);
-         XtManageChild(pw[6]);
+         XtManageChild(pw[7]);
          XmStringFree(x_string);
       }
       if (acp.view_dc != NO_PERMISSION)
@@ -1830,11 +1907,11 @@ init_popup_menu(Widget w)
          x_string = XmStringCreateLocalized("Configuration");
          XtSetArg(args[argcount], XmNlabelString, x_string); argcount++;
          XtSetArg(args[argcount], XmNfontList, fontlist); argcount++;
-         pw[7] = XmCreatePushButton(popupmenu, "Configuration",
+         pw[8] = XmCreatePushButton(popupmenu, "Configuration",
                                          args, argcount);
-         XtAddCallback(pw[7], XmNactivateCallback,
+         XtAddCallback(pw[8], XmNactivateCallback,
                        popup_cb, (XtPointer)VIEW_DC_SEL);
-         XtManageChild(pw[7]);
+         XtManageChild(pw[8]);
          XmStringFree(x_string);
       }
    }
@@ -2187,6 +2264,8 @@ eval_permissions(char *perm_buffer)
       acp.shutdown_afd       = YES;   /* Shutdown AFD          */
       acp.ctrl_transfer      = YES;   /* Start/Stop a transfer */
       acp.ctrl_transfer_list = NULL;
+      acp.handle_event       = YES;
+      acp.handle_event_list  = NULL;
       acp.ctrl_queue         = YES;   /* Start/Stop the input queue */
       acp.ctrl_queue_list    = NULL;
       acp.switch_host        = YES;
@@ -2329,6 +2408,26 @@ eval_permissions(char *perm_buffer)
       else
       {
          acp.dir_ctrl = NO_LIMIT;
+      }
+
+      /* May the user handle event queue? */
+      if ((ptr = posi(perm_buffer, HANDLE_EVENT_PERM)) == NULL)
+      {
+         /* The user may NOT handle internal events. */
+         acp.handle_event = NO_PERMISSION;
+      }
+      else
+      {
+         ptr--;
+         if ((*ptr == ' ') || (*ptr == '\t'))
+         {
+            acp.handle_event = store_host_names(&acp.handle_event_list, ptr + 1);
+         }
+         else
+         {
+            acp.handle_event = NO_LIMIT;
+            acp.handle_event_list = NULL;
+         }
       }
 
       /* May the user start/stop the input queue? */
@@ -2553,10 +2652,10 @@ eval_permissions(char *perm_buffer)
          }
       }
 
-      /* May the user view the debug log? */
-      if ((ptr = posi(perm_buffer, SHOW_DLOG_PERM)) == NULL)
+      /* May the user view the transfer debug log? */
+      if ((ptr = posi(perm_buffer, SHOW_TDLOG_PERM)) == NULL)
       {
-         /* The user may NOT view the debug log. */
+         /* The user may NOT view the transfer debug log. */
          acp.show_dlog = NO_PERMISSION;
       }
       else
@@ -2614,7 +2713,7 @@ eval_permissions(char *perm_buffer)
       }
 
       /* May the user view the delete log? */
-      if ((ptr = posi(perm_buffer, SHOW_ELOG_PERM)) == NULL)
+      if ((ptr = posi(perm_buffer, SHOW_DLOG_PERM)) == NULL)
       {
          /* The user may NOT view the delete log. */
          acp.show_elog = NO_PERMISSION;
@@ -2740,6 +2839,10 @@ afd_ctrl_exit(void)
                        (pri_pid_t)apps_list[i].pid, strerror(errno));
          }
       }
+   }
+   if (db_update_reply_fifo != NULL)
+   {
+      (void)unlink(db_update_reply_fifo);
    }
 
    return;

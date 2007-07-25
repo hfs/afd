@@ -16,6 +16,7 @@
 ## Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 ##
 
+EXTRA_DIST           = sfilter_old.c
 MAINTAINERCLEANFILES = Makefile.in
 noinst_HEADERS       = x_common_defs.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
@@ -44,4 +45,5 @@ libxafd_a_SOURCES    = check_host_permissions.c\
                        update_time.c\
                        wait_visible.c\
                        window_id.c\
+                       view_data.c\
                        xrec.c

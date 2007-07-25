@@ -157,6 +157,7 @@ Widget                     active_mode_w,
                            host_2_label_w,
                            host_list_w,
                            host_switch_toggle_w,
+                           ignore_errors_toggle_w,
                            keep_connected_w,
 #ifdef FTP_CTRL_KEEP_ALIVE_INTERVAL
                            ftp_keepalive_w,
@@ -186,7 +187,9 @@ Widget                     active_mode_w,
                            transfer_rate_limit_w,
                            transfer_timeout_w;
 Atom                       compound_text;
-int                        fra_fd = -1,
+XtInputId                  db_update_cmd_id;
+int                        event_log_fd = STDERR_FILENO,
+                           fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
                            fsa_id,
@@ -199,9 +202,10 @@ int                        fra_fd = -1,
 off_t                      fra_size,
                            fsa_size;
 #endif
-char                       fake_user[MAX_FULL_USER_ID_LENGTH],
+char                       fake_user[MAX_FULL_USER_ID_LENGTH + 1],
+                           last_selected_host[MAX_HOSTNAME_LENGTH + 1],
                            *p_work_dir,
-                           last_selected_host[MAX_HOSTNAME_LENGTH + 1];
+                           user[MAX_FULL_USER_ID_LENGTH + 1];
 struct fileretrieve_status *fra;
 struct filetransfer_status *fsa;
 struct afd_status          *p_afd_status;
@@ -324,8 +328,8 @@ main(int argc, char *argv[])
 /*-----------------------------------------------------------------------*/
 /*                            Button Box                                 */
 /*                            ----------                                 */
-/* Contains two buttons, one to activate the changes and the other to    */
-/* close this window.                                                    */
+/* Contains three buttons, one to activate the changes, to remove a host */
+/* and to close this window.                                             */
 /*-----------------------------------------------------------------------*/
    argcount = 0;
    XtSetArg(args[argcount], XmNleftAttachment,   XmATTACH_FORM);
@@ -815,15 +819,15 @@ main(int argc, char *argv[])
    argcount++;
    XtSetArg(args[argcount], XmNrightOffset,     SIDE_OFFSET);
    argcount++;
-   XtSetArg(args[argcount], XmNfractionBase,    63);
+   XtSetArg(args[argcount], XmNfractionBase,    60);
    argcount++;
    box_w = XmCreateForm(form_w, "text_input_box", args, argcount);
 
-   label_w = XtVaCreateManagedWidget("Transfer timeout:",
+   label_w = XtVaCreateManagedWidget("Transfer timeout  :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      1,
+                           XmNtopPosition,      0,
                            XmNleftAttachment,   XmATTACH_POSITION,
                            XmNleftPosition,     1,
                            XmNbottomAttachment, XmATTACH_POSITION,
@@ -838,11 +842,9 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      1,
+                           XmNtopPosition,      0,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
-                           XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   20,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(transfer_timeout_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -852,11 +854,11 @@ main(int argc, char *argv[])
    XtAddCallback(transfer_timeout_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)TRANSFER_TIMEOUT);
 
-   label_w = XtVaCreateManagedWidget("Retry interval    :",
+   label_w = XtVaCreateManagedWidget("Retry interval  :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      1,
+                           XmNtopPosition,      0,
                            XmNleftAttachment,   XmATTACH_POSITION,
                            XmNleftPosition,     31,
                            XmNbottomAttachment, XmATTACH_POSITION,
@@ -871,11 +873,9 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      1,
+                           XmNtopPosition,      0,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
-                           XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   20,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(retry_interval_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -885,15 +885,15 @@ main(int argc, char *argv[])
    XtAddCallback(retry_interval_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)RETRY_INTERVAL);
 
-   label_w = XtVaCreateManagedWidget("Maximum errors  :",
+   label_w = XtVaCreateManagedWidget("Maximum errors    :",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      21,
+                           XmNtopPosition,      20,
                            XmNleftAttachment,   XmATTACH_POSITION,
                            XmNleftPosition,     1,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   41,
+                           XmNbottomPosition,   40,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    max_errors_w = XtVaCreateManagedWidget("",
@@ -904,11 +904,9 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      21,
+                           XmNtopPosition,      20,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
-                           XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   41,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(max_errors_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -918,15 +916,30 @@ main(int argc, char *argv[])
    XtAddCallback(max_errors_w, XmNlosingFocusCallback, save_input,
                  (XtPointer)MAXIMUM_ERRORS);
 
+   ignore_errors_toggle_w = XtVaCreateManagedWidget("Ignore errors+warnings",
+                           xmToggleButtonGadgetClass, box_w,
+                           XmNfontList,               fontlist,
+                           XmNtopAttachment,          XmATTACH_POSITION,
+                           XmNtopPosition,            20,
+                           XmNleftAttachment,         XmATTACH_POSITION,
+                           XmNleftPosition,           31,
+                           XmNbottomAttachment,       XmATTACH_POSITION,
+                           XmNbottomPosition,         40,
+                           XmNset,                    False,
+                           NULL);
+   XtAddCallback(ignore_errors_toggle_w, XmNvalueChangedCallback,
+                 (XtCallbackProc)toggle_button2,
+                 (XtPointer)ERROR_OFFLINE_STATIC_CHANGED);
+
    successful_retries_label_w = XtVaCreateManagedWidget("Successful retries:",
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      21,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_POSITION,
-                           XmNleftPosition,     31,
+                           XmNleftPosition,     1,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   41,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    successful_retries_w = XtVaCreateManagedWidget("",
@@ -937,11 +950,9 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      21,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       successful_retries_label_w,
-                           XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   41,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(successful_retries_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -956,11 +967,11 @@ main(int argc, char *argv[])
                            xmLabelGadgetClass,  box_w,
                            XmNfontList,         fontlist,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      42,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_POSITION,
-                           XmNleftPosition,     1,
+                           XmNleftPosition,     31,
                            XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   62,
+                           XmNbottomPosition,   60,
                            XmNalignment,        XmALIGNMENT_BEGINNING,
                            NULL);
    keep_connected_w = XtVaCreateManagedWidget("",
@@ -971,11 +982,9 @@ main(int argc, char *argv[])
                            XmNmarginWidth,      1,
                            XmNshadowThickness,  1,
                            XmNtopAttachment,    XmATTACH_POSITION,
-                           XmNtopPosition,      42,
+                           XmNtopPosition,      40,
                            XmNleftAttachment,   XmATTACH_WIDGET,
                            XmNleftWidget,       label_w,
-                           XmNbottomAttachment, XmATTACH_POSITION,
-                           XmNbottomPosition,   62,
                            XmNdropSiteActivity, XmDROP_SITE_INACTIVE,
                            NULL);
    XtAddCallback(keep_connected_w, XmNmodifyVerifyCallback, check_nummeric,
@@ -1774,6 +1783,7 @@ main(int argc, char *argv[])
 static void
 init_edit_hc(int *argc, char *argv[], char *window_title)
 {
+   int  user_offset;
    char *perm_buffer,
         *p_user,
         hostname[MAX_AFD_NAME_LENGTH],
@@ -1795,8 +1805,20 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
    {
       selected_host[0] = '\0';
    }
+   if (get_arg(argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+   }
+   else
+   {
+      user_offset = strlen(user);
+   }
+   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
+   {
+      (void)strcpy(font_name, "fixed");
+   }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, AFD_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -1848,6 +1870,8 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
                       exit(INCORRECT);
    }
 
+   get_user(user, fake_user, user_offset);
+
    /* Check that no one else is using this dialog. */
    if ((p_user = lock_proc(EDIT_HC_LOCK_ID, NO)) != NULL)
    {
@@ -1855,12 +1879,6 @@ init_edit_hc(int *argc, char *argv[], char *window_title)
                     "Only one user may use this dialog. Currently %s is using it.\n",
                     p_user);
       exit(INCORRECT);
-   }
-
-   /* Get the font if supplied. */
-   if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
-   {
-      (void)strcpy(font_name, "fixed");
    }
 
    /*
@@ -2321,7 +2339,7 @@ init_widget_data(void)
    no_source_icon_w = XmCreateDragIcon(host_list_w, "no_source_icon",
                       args, argcount);
 
-   /* Select the first host */
+   /* Select the first host. */
    if (no_of_hosts > 0)
    {
       int top,

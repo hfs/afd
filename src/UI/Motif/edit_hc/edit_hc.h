@@ -115,6 +115,7 @@
 # define ALLOW_BURST_CHANGED          1
 #endif
 #define FTP_PASSIVE_REDIRECT_CHANGED  2
+#define ERROR_OFFLINE_STATIC_CHANGED  4
 
 /* Structure holding all changed entries of one host */
 struct changed_entry

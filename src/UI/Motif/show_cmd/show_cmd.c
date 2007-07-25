@@ -1,6 +1,6 @@
 /*
  *  show_cmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,7 +71,7 @@ DESCR__E_M1
 #include "show_cmd.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 Display        *display;
 XtAppContext   app;
 XmTextPosition wpr_position;
@@ -80,6 +80,7 @@ Widget         appshell,
                cmd_output,
                statusbox_w;
 int            cmd_fd,
+               go_to_beginning = NO,
                sys_log_fd = STDERR_FILENO;
 pid_t          cmd_pid;
 char           cmd[MAX_PATH_LENGTH],
@@ -88,7 +89,7 @@ char           cmd[MAX_PATH_LENGTH],
                *p_work_dir;
 const char     *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local functions. */
 static void    init_cmd(int *, char **, char *),
                sig_bus(int),
                sig_segv(int),
@@ -99,7 +100,7 @@ static void    init_cmd(int *, char **, char *),
 int
 main(int argc, char *argv[])
 {
-   char            window_title[MAX_TITLE_CMD_LENGTH + 1 + MAX_HOSTNAME_LENGTH + 1];
+   char            window_title[MAX_TITLE_CMD_LENGTH + 1 + 25 + 1];
    static String   fallback_res[] =
                    {
                       ".show_cmd*mwmDecorations : 110",
@@ -362,7 +363,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
       exit(SUCCESS);
    }
 
-   /* Get working directory for the AFD */
+   /* Get working directory for the AFD. */
    if (get_afd_path(argc, argv, work_dir) < 0)
    {
       exit(INCORRECT);
@@ -370,6 +371,10 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    if (get_arg(argc, argv, "-f", font_name, 40) == INCORRECT)
    {
       (void)strcpy(font_name, "fixed");
+   }
+   if (get_arg(argc, argv, "-b", NULL, 0) == SUCCESS)
+   {
+      go_to_beginning = YES;
    }
    if (*argc < 2)
    {
@@ -405,9 +410,9 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
    }
    (*argc)--;
 
-   /* Cut out command for title of window */
+   /* Cut out command for title of window. */
    ptr = cmd;
-   if ((cmd[0] == '/') || (cmd[0] == '.'))
+   if ((cmd[0] == '/') || (cmd[0] == '.') || (cmd[0] == '~'))
    {
       char *p_end;
 
@@ -416,7 +421,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
          ptr++;
       }
       p_end = ptr;
-      while ((*ptr != '/') && (*ptr != '.'))
+      while ((*ptr != '/') && (*ptr != '.') && (*ptr != '~'))
       {
          ptr--;
       }
@@ -455,7 +460,7 @@ init_cmd(int *argc, char *argv[], char *title_cmd)
       *ptr = '\0';
       ptr++;
    }
-   (void)strcat(title_cmd, ptr);
+   (void)strncat(title_cmd, ptr, 25);
 
    return;
 }
@@ -467,6 +472,7 @@ usage(char *progname)
 {
    (void)fprintf(stderr, "Usage: %s [options] <command to execute>\n", progname);
    (void)fprintf(stderr, "              --version\n");
+   (void)fprintf(stderr, "              -b\n");
    (void)fprintf(stderr, "              -f <font name>\n");
    (void)fprintf(stderr, "              -w <working directory>\n");
    return;

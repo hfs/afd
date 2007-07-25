@@ -1,6 +1,6 @@
 /*
  *  show_dir_list.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2006, 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -40,14 +40,17 @@ DESCR__S_M3
  **
  ** HISTORY
  **   09.10.2006 H.Kiehl Created
+ **   19.04.2007 H.Kiehl Added handling for directories not using the
+ **                      absolute path name.
  */
 DESCR__E_M3
 
 #include <stdio.h>
-#include <string.h>
+#include <string.h>    /* strerror()                                     */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <pwd.h>       /* getpwent(), setpwent(), endpwent(), getpwname()*/
 #ifdef HAVE_MMAP
 # include <sys/mman.h>
 #endif
@@ -55,10 +58,14 @@ DESCR__E_M3
 #include <errno.h>
 #include "afdddefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int                        no_of_dirs;
 extern char                       *p_work_dir;
 extern struct fileretrieve_status *fra;
+
+/* Local function prototypes. */
+static int                        get_home_dir_length(char *);
+static void                       get_home_dir_user(char *, char *, int *);
 
 
 /*########################### show_dir_list() ###########################*/
@@ -118,7 +125,9 @@ show_dir_list(FILE *p_data)
 
                if (*no_of_dir_names > 0)
                {
-                  int i, k;
+                  int  home_dir_length,
+                       i, k, m;
+                  char home_dir_user[MAX_USER_NAME_LENGTH];
 
                   for (i = 0; i < no_of_dirs; i++)
                   {
@@ -126,9 +135,37 @@ show_dir_list(FILE *p_data)
                      {
                         if (fra[i].dir_id == dnb[k].dir_id)
                         {
-                           (void)fprintf(p_data, "DL %d %x %s %s %s\r\n",
-                                         i, fra[i].dir_id, fra[i].dir_alias,
-                                         dnb[k].dir_name, dnb[k].orig_dir_name);
+                           if (dnb[k].orig_dir_name[0] == '~')
+                           {
+                              m = 1;
+                              while (dnb[k].orig_dir_name[m] != '/')
+                              {
+                                 home_dir_user[m - 1] = dnb[k].orig_dir_name[m];
+                                 m++;
+                              }
+                              home_dir_user[m - 1] = '\0';
+                              home_dir_length = get_home_dir_length(home_dir_user);
+                           }
+                           else
+                           {
+                              get_home_dir_user(dnb[k].dir_name, home_dir_user,
+                                                &home_dir_length);
+                           }
+                           if (home_dir_user[0] == '\0')
+                           {
+                              (void)fprintf(p_data, "DL %d %x %s %s %s\r\n",
+                                            i, fra[i].dir_id, fra[i].dir_alias,
+                                            dnb[k].dir_name,
+                                            dnb[k].orig_dir_name);
+                           }
+                           else
+                           {
+                              (void)fprintf(p_data, "DL %d %x %s %s %s %s %x\r\n",
+                                            i, fra[i].dir_id, fra[i].dir_alias,
+                                            dnb[k].dir_name,
+                                            dnb[k].orig_dir_name,
+                                            home_dir_user, m);
+                           }
                            (void)fflush(p_data);
                            break;
                         }
@@ -165,4 +202,48 @@ show_dir_list(FILE *p_data)
    }
 
    return;
+}
+
+
+/*+++++++++++++++++++++++++ get_home_dir_user() +++++++++++++++++++++++++*/
+static void
+get_home_dir_user(char *dir_name, char *home_dir_user, int *home_dir_length)
+{
+   struct passwd *pw;
+
+   home_dir_user[0] = '\0';
+   *home_dir_length = 0;
+   setpwent();
+   while ((pw = getpwent()) != NULL)
+   {
+      *home_dir_length = strlen(pw->pw_dir);
+      if (strncmp(pw->pw_dir, dir_name, *home_dir_length) == 0)
+      {
+         (void)strcpy(home_dir_user, pw->pw_name);
+         break;
+      }
+   }
+   endpwent();
+
+   return;
+}
+
+
+/*++++++++++++++++++++++++ get_home_dir_length() ++++++++++++++++++++++++*/
+static int
+get_home_dir_length(char *home_dir_user)
+{
+   int           length;
+   struct passwd *pw;
+
+   if ((pw = getpwnam(home_dir_user)) == NULL)
+   {
+      length = 0;
+   }
+   else
+   {
+      length = strlen(pw->pw_dir);
+   }
+
+   return(length);
 }

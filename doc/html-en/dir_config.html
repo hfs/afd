@@ -137,7 +137,8 @@ There may not be any tabs or spaces in front.
 With the options in the table below, it is possible to specify what
 the AFD should for example do with files that are in the directory but
 are not being distributed, how files are to be retrieved from a remote
-hosts, etc. A full list of options for this optional section and the
+hosts, etc. [dir options] may only be specified once for each [directory]
+option. A full list of options for this optional section and the
 defaults is shown in the table below:
 </p>
 <center><table border>
@@ -320,7 +321,7 @@ defaults is shown in the table below:
    <td>If the files in the directory have the given size they will
        be ignored. A greater or less then sign may also be used to
        ignore files which have a size greater or less then the
-       given value.</td>
+       given value. The unit entered is in bytes.</td>
    <td align=center>X</td>
    <td align=center>X</td>
    <td align=center>&nbsp;</td>
@@ -485,10 +486,16 @@ defaults is shown in the table below:
 <p>
 In this section it possible which files are to be distributed from the
 directory specified in the directory section. Each file name may
-contain the wild cards '*' and/or '?' in any order. If the file entry
-starts with a '!' it means NOT this file. It is important to put these
-entries first otherwise the '!' option is meaningless. Here follow some
-more additional options that one can insert into the file filter:
+contain the wild cards '*' and/or '?' in any order. One may also list
+characters enclosed in []. A pair of characters separated by a hyphen
+denotes a range expression; any character that sorts between those two
+characters is matched. If the first character following the [ is a ! then
+any character not enclosed is matched.
+</p>
+<p>
+If the file entry starts with a '!' it means NOT this file. It is important
+to put these entries first otherwise the '!' option is meaningless. Here
+follow some more additional options that one can insert into the file filter:
 </p>
 <table border>
 <tr>
@@ -626,7 +633,7 @@ list of mail addresses as shown in the following example:
 <p>
 In this case it is also possible to just write mailto://$hotels. In
 the afd_ctrl dialog it will then appear as hotels. The group name may
-not be longer then 8 characters.
+not be longer then 40 characters.
 </p>
 <p>
 The directory name may contain modifiers for which AFD will insert
@@ -849,7 +856,7 @@ section. Valid options can be taken from the following table:
    <td>time no collect &lt;min hour dom month dow&gt;</td>
    <td>This option is the same as the above time option only that no files
        will be collected (these will be deleted) outside the given time
-       frames.</td>
+       frames. The number of time no collect option is not limited.</td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1068,7 +1075,20 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td>grib2wmo [CCCC]</td>
+   <td>fax2gts</td>
+   <td>Converts FAX to a GTS T4 file. The GTS header is taken from
+       the filename, so this must be a typical "TTAAii CCCC YYGGgg"
+       WMO header.</td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>grib2wmo[ CCCC]</td>
    <td>Converts GRIB to WMO files with "TTAAii CCCC YYGGgg" headers,
        SOH and ETX at start and end and 10 Byte ASCII length and
        type indicator. You can optionally supply the CCCC if you
@@ -1104,7 +1124,19 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td>assemble &lt;type&gt; &lt;file name&gt;</td>
+   <td>afw2wmo</td>
+   <td>afw2wmo will convert the old AFW format used at DWD to WMO
+       bulletin format.</td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>assemble &lt;type&gt;[ &lt;file name&gt;]</td>
    <td>This options assembles all files to a single file. The original
        files will be deleted. To help extraction of the files a length
        indicator may be inserted. The following types can be assembled:
@@ -1120,6 +1152,11 @@ section. Valid options can be taken from the following table:
       <tr>
          <td><b>HBF</b></td>
          <td>Four byte length indicator with high byte first.</td>
+      </tr>
+      <tr>
+         <td><b>DWD</b></td>
+         <td>Four byte length indicator DWD standard, that is like HBF
+             but with four NULL bytes at end.</td>
       </tr>
       <tr>
          <td><b>MSS</b></td>
@@ -1215,7 +1252,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td>extract [-c|-C|-n|-N|-s|-S] &lt;type&gt;</td>
+   <td>extract [-c|-C|-n|-N|-s|-S] &lt;type&gt; [&lt;pattern&gt;]</td>
    <td>This options extracts files with WMO bulletins into one file per
        bulletin and will delete the original file. Since it is not possible
        to automatically detect the file type and its length encoding, you
@@ -1272,7 +1309,11 @@ section. Valid options can be taken from the following table:
       -N     do not add a four digit unique number to end of filename [default]
       -s     add SOH and ETX if not there [default]
       -S     remove SOH and ETX
-   </pre></td>
+   </pre>
+   <p>
+   If a pattern is supplied, only those files will be extracted that match
+   the given pattern.
+   </p></td>
    <td align=center>X</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
@@ -1359,7 +1400,7 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
 </tr>
 <tr>
-   <td>lock</td>
+   <td>lock &lt;type&gt;</td>
    <td><table border>
    <tr>
       <td><b>DOT</b></td>
@@ -1435,8 +1476,32 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td>archive x</td>
-   <td>Tells the AFD to archive files to this user for x days (default 0).</td>
+   <td>archive x[d|h|m|s]</td>
+   <td>Tells the AFD to archive files to this user for x days if no
+       unit [d|h|m|s] is specified. The meaning of the units is as
+       follows:
+       <table border>
+       <tr>
+          <td>d</td>
+          <td>Days</td>
+       </tr>
+       <tr>
+          <td>h</td>
+          <td>Hours</td>
+       </tr>
+       <tr>
+          <td>m</td>
+          <td>Minutes</td>
+       </tr>
+       <tr>
+          <td>s</td>
+          <td>Seconds</td>
+       </tr>
+       </table>
+       When no archive option is set, the default (0 = no archiving
+       (DEFAULT_ARCHIVE_TIME)) is set. With <a href="tools.html#afdcfg">
+       afdcfg</a> the system administrator can disable archiving
+       completely for all jobs.</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td align=center>X</td>
@@ -1458,7 +1523,8 @@ section. Valid options can be taken from the following table:
 </tr>
 <tr>
    <td><a name="no_log_output">no log output</a></td>
-   <td>When set each file name distributed will NOT be logged.</td>
+   <td>When set each file name distributed will NOT be logged to
+       OUTPUT_LOG.</td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
    <td align=center>X</td>
@@ -1480,7 +1546,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="file_name_is_user">file name is user [rename rule]</a></td>
+   <td><a name="file_name_is_user">file name is user[ rename rule]</a></td>
    <td>The user name of the mail is the file name. This can only be used
        when sending mails. The optional rename rule allows to filter or
        create the user name from the file name. For a detailed description
@@ -1494,7 +1560,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="file_name_is_target">file name is target [rename rule]</a></td>
+   <td><a name="file_name_is_target">file name is target[ rename rule]</a></td>
    <td>The full recipient of the mail is the file name. This can only be used
        when sending mails. The optional rename rule allows to filter or
        create the user name from the file name. For a detailed description
@@ -1508,7 +1574,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="mail_header">mail header [full path to mail header file]</a></td>
+   <td><a name="mail_header">mail header[ full path to mail header file]</a></td>
    <td>Is used to insert some default information at the top of the
        main body of the mail. If the option is used without the optional
        mail header file, it will take the file MAIL-host_alias in the
@@ -1522,7 +1588,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="attach_file">attach file [rename rule]</a></td>
+   <td><a name="attach_file">attach file[ rename rule]</a></td>
    <td>With this option it is possible to attach a file to a mail.
        Each file will be attached to a separate mail (one file
        per mail).  The encoding will be done in BASE64 according to
@@ -1538,7 +1604,7 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="attach_all_files">attach all files [rename rule]</a></td>
+   <td><a name="attach_all_files">attach all files[ rename rule]</a></td>
    <td>With this option it is possible to attach files to a mail.
        If more than one file is available they will all be
        attached to ONE mail. The encoding will be done in BASE64
@@ -1568,8 +1634,9 @@ section. Valid options can be taken from the following table:
    <td><pre>&nbsp;</pre></td>
 </tr>
 <tr>
-   <td><a name="subject_line">subject "xxx" [rename rule]</a></td>
+   <td><a name="subject_line">subject "xxx"[ rename rule]</a></td>
    <td>Adds the line xxx after the subject identifier to the mails subject.
+       Note that only 7-bit ASCII characters are allowed in the subject.
        It is possible to insert the current date in any form with %tx
        where character x determines the time format which can be one of
        the following:<br>
@@ -1637,6 +1704,19 @@ section. Valid options can be taken from the following table:
 	  ISO-8859-15    --&gt; Latin 9; Western European Languages with Euro
        </pre>
        </td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td><a name="encode_ansi">encode ansi</a></td>
+   <td>This converts ASCII to ISO8859 when mailing the content. Note
+       not all characters are converted, mainly only the german characters
+       are working.  Please contact developer if you need more.</td>
    <td><pre>&nbsp;</pre></td>
    <td><pre>&nbsp;</pre></td>
    <td align=center>X</td>
@@ -1822,6 +1902,45 @@ section. Valid options can be taken from the following table:
    <td align=center>X</td>
 </tr>
 <tr>
+   <td>socket send buffer &lt;buffer size&gt;</td>
+   <td>Specifies the socket send buffer size in bytes.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>socket receive buffer &lt;buffer size&gt;</td>
+   <td>Specifies the socket receive buffer size in bytes.</td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
+   <td>eumetsat &lt;DestEnvId&gt;</td>
+   <td>This option creates the header and subheader for EUMETSAT according
+       to "MSG Ground Segment Design Specification Volume F". You might
+       also need to execute create_eumetsat_name to create the correct
+       file name. Syntax of create_eumetsat_name is as follows:
+       <pre>
+       create_eumetsat_name &lt;file name&gt;[ &lt;rename rule&gt;]
+       </pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td><pre>&nbsp;</pre></td>
+   <td align=center>X</td>
+   <td><pre>&nbsp;</pre></td>
+</tr>
+<tr>
    <td>restart &lt;file&gt;</td>
    <td>Append file on remote site. This option is for internal use only!</td>
    <td><pre>&nbsp;</pre></td>
@@ -1863,7 +1982,6 @@ An example entry in the DIR_CONFIG file might look as follows:
 
                      [options]
                      archive 3
-                     lock DOT
                      priority 1
 </pre>
 <p>
@@ -1895,7 +2013,6 @@ their own options as follows:
 
                      [options]
                      archive 3
-                     lock DOT
                      priority 1
 
                 [destination]
@@ -1931,7 +2048,6 @@ another time:
 
                      [options]
                      archive 3
-                     lock DOT
                      priority 1
 
            [files]
@@ -1973,7 +2089,6 @@ we just need to change the directory entry as follows:
 
                      [options]
                      archive 3
-                     lock DOT
                      priority 1
 </pre>
 <p>
@@ -2005,7 +2120,6 @@ the files on the remote host:
 
                      [options]
                      archive 3
-                     lock DOT
                      priority 1
 </pre>
 <p>
@@ -2032,7 +2146,6 @@ add the following option:
 
                      [options]
                      archive 3
-                     lock DOT
                      priority 1
 </pre>
 <p>
@@ -2061,7 +2174,6 @@ to 30 minutes, it needs to be done asfollows:
 
                      [options]
                      archive 3
-                     lock DOT
                      priority 1
 </pre>
 <hr size=3 noshade>
@@ -2070,7 +2182,7 @@ to 30 minutes, it needs to be done asfollows:
    <td width=90%><address><small>
    Copyright &copy; 1997 - 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 11.02.2007
+   Last updated: 14.07.2007
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

@@ -35,7 +35,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-EXTRA_PROGRAMS = tfilter1$(EXEEXT) tfilter2$(EXEEXT) tfilter3$(EXEEXT)
+EXTRA_PROGRAMS = tfilter$(EXEEXT) tfilter1$(EXEEXT) tfilter2$(EXEEXT) \
+	tfilter3$(EXEEXT)
 subdir = src/test/filter
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -55,6 +56,9 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
+am_tfilter_OBJECTS = tfilter.$(OBJEXT)
+tfilter_OBJECTS = $(am_tfilter_OBJECTS)
+tfilter_DEPENDENCIES = ../../common/libafd.a
 am_tfilter1_OBJECTS = tfilter.$(OBJEXT) filter1.$(OBJEXT)
 tfilter1_OBJECTS = $(am_tfilter1_OBJECTS)
 tfilter1_LDADD = $(LDADD)
@@ -71,9 +75,10 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(tfilter1_SOURCES) $(tfilter2_SOURCES) $(tfilter3_SOURCES)
-DIST_SOURCES = $(tfilter1_SOURCES) $(tfilter2_SOURCES) \
+SOURCES = $(tfilter_SOURCES) $(tfilter1_SOURCES) $(tfilter2_SOURCES) \
 	$(tfilter3_SOURCES)
+DIST_SOURCES = $(tfilter_SOURCES) $(tfilter1_SOURCES) \
+	$(tfilter2_SOURCES) $(tfilter3_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -227,8 +232,11 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
-MAINTAINERCLEANFILES = Makefile.in
+INCLUDES = -I../.. -I../../init_afd
 CLEANFILES = gmon.out core core.*
+MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
+tfilter_SOURCES = tfilter.c
+tfilter_LDADD = ../../common/libafd.a
 tfilter1_SOURCES = tfilter.c\
                        filter1.c
 
@@ -238,7 +246,7 @@ tfilter2_SOURCES = tfilter.c\
 tfilter3_SOURCES = tfilter.c\
                        filter3.c
 
-EXTRA_DIST = match.c match2.c sfilter.c
+EXTRA_DIST = match.c match2.c sfilter.c pmatch.data
 all: all-am
 
 .SUFFIXES:
@@ -272,6 +280,9 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
+tfilter$(EXEEXT): $(tfilter_OBJECTS) $(tfilter_DEPENDENCIES) 
+	@rm -f tfilter$(EXEEXT)
+	$(LINK) $(tfilter_LDFLAGS) $(tfilter_OBJECTS) $(tfilter_LDADD) $(LIBS)
 tfilter1$(EXEEXT): $(tfilter1_OBJECTS) $(tfilter1_DEPENDENCIES) 
 	@rm -f tfilter1$(EXEEXT)
 	$(LINK) $(tfilter1_LDFLAGS) $(tfilter1_OBJECTS) $(tfilter1_LDADD) $(LIBS)

@@ -41,6 +41,10 @@
 #define MAX_AFDD_CONNECTIONS     5
 #define MAX_AFDD_CONNECTIONS_DEF "MAX_AFDD_CONNECTIONS"
 #define AFD_SHUTTING_DOWN        124
+#define LOG_WRITE_INTERVAL       30 /* Interval at which we must write */
+                                    /* some log data before afd_mon    */
+                                    /* thinks that the connection is   */
+                                    /* dead and disconnects.           */
 
 #define DEFAULT_CHECK_INTERVAL   3 /* Default interval in seconds to */
                                    /* check if certain values have   */
@@ -95,6 +99,9 @@
 #define LOG_CMD               "LOG"
 #define LOG_CMD_LENGTH        (sizeof(LOG_CMD) - 1)
 #define LOG_CMDL              "LOG\r\n"
+#define NOP_CMD               "NOP"
+#define NOP_CMD_LENGTH        (sizeof(NOP_CMD) - 1)
+#define NOP_CMDL              "NOP\r\n"
 
 #define QUIT_SYNTAX           "214 Syntax: QUIT (terminate service)"
 #define HELP_SYNTAX           "214 Syntax: HELP [ <sp> <string> ]"
@@ -114,16 +121,63 @@
 #define LRF_SYNTAX            "214 Syntax: LRF (list rename file)"
 #define INFO_SYNTAX           "214 Syntax: INFO <sp> <host name>"
 #define AFDSTAT_SYNTAX        "214 Syntax: AFDSTAT [<sp> <host name>]"
+#define NOP_SYNTAX            "214 Syntax: NOP (checks if connection is still up)"
 #define LOG_SYNTAX            "214 Syntax: LOG <sp> <log type> <sp> <options> <sp> <date> <offset>"
-#define LOG_TYPES_SYNTAX      "214         log types: LS,LR,LT,LB,LI,LP,LO,LD,JD"
+#define LOG_TYPES_SYNTAX      "214         log types: LS,LE,LR,LT,LB,LI,LP,LO,LD,JD"
 
 /* Definitions for the different logs in the logdata array. */
 #define SYS_LOG_POS           0
-#define REC_LOG_POS           1
-#define TRA_LOG_POS           2
-#define TDB_LOG_POS           3
+#define EVE_LOG_POS           1
+#define REC_LOG_POS           2
+#define TRA_LOG_POS           3
+#define TDB_LOG_POS           4
 #ifdef _INPUT_LOG
-# define INP_LOG_POS          4
+# define INP_LOG_POS          5
+# ifdef _PRODUCTION_LOG
+#  define PRO_LOG_POS         6
+#  ifdef _OUTPUT_LOG
+#   define OUT_LOG_POS        7
+#   ifdef _DELETE_LOG
+#    define DEL_LOG_POS       8
+#    define DUM_LOG_POS       9
+#    define NO_OF_LOGS        10
+#   else
+#    define DUM_LOG_POS       8
+#    define NO_OF_LOGS        9
+#   endif
+#  else
+#   ifdef _DELETE_LOG
+#    define DEL_LOG_POS       7
+#    define DUM_LOG_POS       8
+#    define NO_OF_LOGS        9
+#   else
+#    define DUM_LOG_POS       6
+#    define NO_OF_LOGS        7
+#   endif
+#  endif
+# else
+#  ifdef _OUTPUT_LOG
+#   define OUT_LOG_POS        6
+#   ifdef _DELETE_LOG
+#    define DEL_LOG_POS       7
+#    define DUM_LOG_POS       8
+#    define NO_OF_LOGS        9
+#   else
+#    define DUM_LOG_POS       6
+#    define NO_OF_LOGS        7
+#   endif
+#  else
+#   ifdef _DELETE_LOG
+#    define DEL_LOG_POS       6
+#    define DUM_LOG_POS       7
+#    define NO_OF_LOGS        8
+#   else
+#    define DUM_LOG_POS       6
+#    define NO_OF_LOGS        7
+#   endif
+#  endif
+# endif
+#else
 # ifdef _PRODUCTION_LOG
 #  define PRO_LOG_POS         5
 #  ifdef _OUTPUT_LOG
@@ -133,8 +187,8 @@
 #    define DUM_LOG_POS       8
 #    define NO_OF_LOGS        9
 #   else
-#    define DUM_LOG_POS       7
-#    define NO_OF_LOGS        8
+#    define DUM_LOG_POS       6
+#    define NO_OF_LOGS        7
 #   endif
 #  else
 #   ifdef _DELETE_LOG
@@ -142,8 +196,8 @@
 #    define DUM_LOG_POS       7
 #    define NO_OF_LOGS        8
 #   else
-#    define DUM_LOG_POS       5
-#    define NO_OF_LOGS        6
+#    define DUM_LOG_POS       6
+#    define NO_OF_LOGS        7
 #   endif
 #  endif
 # else
@@ -154,8 +208,8 @@
 #    define DUM_LOG_POS       7
 #    define NO_OF_LOGS        8
 #   else
-#    define DUM_LOG_POS       5
-#    define NO_OF_LOGS        6
+#    define DUM_LOG_POS       6
+#    define NO_OF_LOGS        7
 #   endif
 #  else
 #   ifdef _DELETE_LOG
@@ -165,51 +219,6 @@
 #   else
 #    define DUM_LOG_POS       5
 #    define NO_OF_LOGS        6
-#   endif
-#  endif
-# endif
-#else
-# ifdef _PRODUCTION_LOG
-#  define PRO_LOG_POS         4
-#  ifdef _OUTPUT_LOG
-#   define OUT_LOG_POS        5
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       6
-#    define DUM_LOG_POS       7
-#    define NO_OF_LOGS        8
-#   else
-#    define DUM_LOG_POS       5
-#    define NO_OF_LOGS        6
-#   endif
-#  else
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       5
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
-#   else
-#    define DUM_LOG_POS       5
-#    define NO_OF_LOGS        6
-#   endif
-#  endif
-# else
-#  ifdef _OUTPUT_LOG
-#   define OUT_LOG_POS        4
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       5
-#    define DUM_LOG_POS       6
-#    define NO_OF_LOGS        7
-#   else
-#    define DUM_LOG_POS       5
-#    define NO_OF_LOGS        6
-#   endif
-#  else
-#   ifdef _DELETE_LOG
-#    define DEL_LOG_POS       4
-#    define DUM_LOG_POS       5
-#    define NO_OF_LOGS        6
-#   else
-#    define DUM_LOG_POS       4
-#    define NO_OF_LOGS        5
 #   endif
 #  endif
 # endif
@@ -235,12 +244,13 @@ struct logdata
 
 /* Function prototypes. */
 extern int  get_display_data(char *, char *, int, int, int);
-extern long check_logs(void);
+extern long check_logs(time_t);
 extern void check_changes(FILE *),
             display_file(FILE *),
             handle_request(int, int, int, char *),
             show_dir_list(FILE *),
             show_host_list(FILE *),
+            show_job_list(FILE *),
             show_summary_stat(FILE *);
 
 #endif /* __afdddefs_h */

@@ -1,6 +1,6 @@
 /*
  *  setup_window.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2003 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,6 +55,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "permission.h"
 
+/* External global variables. */
 extern Display                    *display;
 extern XFontStruct                *font_struct;
 extern XmFontList                 fontlist;
@@ -81,6 +82,7 @@ extern GC                         letter_gc,
                                   tr_bar_gc,
                                   color_gc,
                                   black_line_gc,
+                                  unset_led_bg_gc,
                                   white_line_gc,
                                   led_gc;
 extern float                      max_bar_length;
@@ -91,6 +93,7 @@ extern int                        no_of_hosts,
                                   bar_thickness_2,
                                   bar_thickness_3,
                                   button_width,
+                                  even_height,
                                   short_line_length,
                                   x_offset_led,
                                   x_offset_debug_led,
@@ -123,7 +126,7 @@ setup_window(char *font_name, int redraw_mainmenu)
    {
       XmFontListEntry entry;
 
-      /* Get width and height of font and fid for the GC */
+      /* Get width and height of font and fid for the GC. */
       if ((font_struct = XLoadQueryFont(display, font_name)) == NULL)
       {
          (void)fprintf(stderr, "Could not load %s font.\n", font_name);
@@ -144,47 +147,55 @@ setup_window(char *font_name, int redraw_mainmenu)
 
       if (line_height != 0)
       {
-         /* Set the font for the Host pulldown */
+         /* Set the font for the Host pulldown. */
          XtVaSetValues(mw[HOST_W], XmNfontList, fontlist, NULL);
-         if ((acp.ctrl_queue != NO_PERMISSION) ||
+         if ((acp.handle_event != NO_PERMISSION) ||
+             (acp.ctrl_queue != NO_PERMISSION) ||
              (acp.ctrl_transfer != NO_PERMISSION) ||
              (acp.disable != NO_PERMISSION) ||
              (acp.switch_host != NO_PERMISSION) ||
              (acp.retry != NO_PERMISSION) ||
              (acp.debug != NO_PERMISSION) ||
+             (acp.trace != NO_PERMISSION) ||
+             (acp.full_trace != NO_PERMISSION) ||
              (ping_cmd != NULL) ||
              (traceroute_cmd != NULL) ||
              (acp.afd_load != NO_PERMISSION))
          {
+            if (acp.handle_event != NO_PERMISSION)
+            {
+               XtVaSetValues(ow[HANDLE_EVENT_W], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[0], XmNfontList, fontlist, NULL);
+            }
             if (acp.ctrl_queue != NO_PERMISSION)
             {
                XtVaSetValues(ow[QUEUE_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[0], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[1], XmNfontList, fontlist, NULL);
             }
             if (acp.ctrl_transfer != NO_PERMISSION)
             {
                XtVaSetValues(ow[TRANSFER_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[1], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[2], XmNfontList, fontlist, NULL);
             }
             if (acp.disable != NO_PERMISSION)
             {
                XtVaSetValues(ow[DISABLE_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[2], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[3], XmNfontList, fontlist, NULL);
             }
             if (acp.switch_host != NO_PERMISSION)
             {
                XtVaSetValues(ow[SWITCH_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[3], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[4], XmNfontList, fontlist, NULL);
             }
             if (acp.retry != NO_PERMISSION)
             {
                XtVaSetValues(ow[RETRY_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[4], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[5], XmNfontList, fontlist, NULL);
             }
             if (acp.debug != NO_PERMISSION)
             {
                XtVaSetValues(ow[DEBUG_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[5], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[6], XmNfontList, fontlist, NULL);
             }
             XtVaSetValues(ow[SELECT_W], XmNfontList, fontlist, NULL);
             XtVaSetValues(ow[LONG_SHORT_W], XmNfontList, fontlist, NULL);
@@ -211,14 +222,15 @@ setup_window(char *font_name, int redraw_mainmenu)
          }
          XtVaSetValues(ow[EXIT_W], XmNfontList, fontlist, NULL);
 
-         /* Set the font for the View pulldown */
+         /* Set the font for the View pulldown. */
          if ((acp.show_slog != NO_PERMISSION) ||
+             (acp.show_elog != NO_PERMISSION) ||
              (acp.show_rlog != NO_PERMISSION) ||
              (acp.show_tlog != NO_PERMISSION) ||
-             (acp.show_dlog != NO_PERMISSION) ||
+             (acp.show_tdlog != NO_PERMISSION) ||
              (acp.show_ilog != NO_PERMISSION) ||
              (acp.show_olog != NO_PERMISSION) ||
-             (acp.show_elog != NO_PERMISSION) ||
+             (acp.show_dlog != NO_PERMISSION) ||
              (acp.show_queue != NO_PERMISSION) ||
              (acp.info != NO_PERMISSION) ||
              (acp.view_dc != NO_PERMISSION) ||
@@ -229,6 +241,10 @@ setup_window(char *font_name, int redraw_mainmenu)
             {
                XtVaSetValues(vw[SYSTEM_W], XmNfontList, fontlist, NULL);
             }
+            if (acp.show_elog != NO_PERMISSION)
+            {
+               XtVaSetValues(vw[EVENT_W], XmNfontList, fontlist, NULL);
+            }
             if (acp.show_rlog != NO_PERMISSION)
             {
                XtVaSetValues(vw[RECEIVE_W], XmNfontList, fontlist, NULL);
@@ -237,7 +253,7 @@ setup_window(char *font_name, int redraw_mainmenu)
             {
                XtVaSetValues(vw[TRANS_W], XmNfontList, fontlist, NULL);
             }
-            if (acp.show_dlog != NO_PERMISSION)
+            if (acp.show_tdlog != NO_PERMISSION)
             {
                XtVaSetValues(vw[TRANS_DEBUG_W], XmNfontList, fontlist, NULL);
             }
@@ -249,7 +265,7 @@ setup_window(char *font_name, int redraw_mainmenu)
             {
                XtVaSetValues(vw[OUTPUT_W], XmNfontList, fontlist, NULL);
             }
-            if (acp.show_elog != NO_PERMISSION)
+            if (acp.show_dlog != NO_PERMISSION)
             {
                XtVaSetValues(vw[DELETE_W], XmNfontList, fontlist, NULL);
             }
@@ -260,12 +276,12 @@ setup_window(char *font_name, int redraw_mainmenu)
             if (acp.info != NO_PERMISSION)
             {
                XtVaSetValues(vw[INFO_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[6], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[7], XmNfontList, fontlist, NULL);
             }
             if (acp.view_dc != NO_PERMISSION)
             {
                XtVaSetValues(vw[VIEW_DC_W], XmNfontList, fontlist, NULL);
-               XtVaSetValues(pw[7], XmNfontList, fontlist, NULL);
+               XtVaSetValues(pw[8], XmNfontList, fontlist, NULL);
             }
             if (acp.view_jobs != NO_PERMISSION)
             {
@@ -273,7 +289,7 @@ setup_window(char *font_name, int redraw_mainmenu)
             }
          }
 
-         /* Set the font for the Control pulldown */
+         /* Set the font for the Control pulldown. */
          if ((acp.amg_ctrl != NO_PERMISSION) || (acp.fd_ctrl != NO_PERMISSION) ||
              (acp.rr_dc != NO_PERMISSION) || (acp.rr_hc != NO_PERMISSION) ||
              (acp.edit_hc != NO_PERMISSION) ||
@@ -316,14 +332,14 @@ setup_window(char *font_name, int redraw_mainmenu)
             }
          }
 
-         /* Set the font for the Setup pulldown */
+         /* Set the font for the Setup pulldown. */
          XtVaSetValues(mw[CONFIG_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(sw[FONT_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(sw[ROWS_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(sw[STYLE_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(sw[SAVE_W], XmNfontList, fontlist, NULL);
 
-         /* Set the font for the Help pulldown */
+         /* Set the font for the Help pulldown. */
 #ifdef _WITH_HELP_PULLDOWN
          XtVaSetValues(mw[HELP_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(hw[ABOUT_W], XmNfontList, fontlist, NULL);
@@ -331,7 +347,7 @@ setup_window(char *font_name, int redraw_mainmenu)
          XtVaSetValues(hw[VERSION_W], XmNfontList, fontlist, NULL);
 #endif
 
-         /* Set the font for the Row pulldown */
+         /* Set the font for the Row pulldown. */
          XtVaSetValues(rw[ROW_0_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(rw[ROW_1_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(rw[ROW_2_W], XmNfontList, fontlist, NULL);
@@ -350,7 +366,7 @@ setup_window(char *font_name, int redraw_mainmenu)
          XtVaSetValues(rw[ROW_15_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(rw[ROW_16_W], XmNfontList, fontlist, NULL);
 
-         /* Set the font for the Line Style pulldown */
+         /* Set the font for the Line Style pulldown. */
          XtVaSetValues(lsw[STYLE_0_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(lsw[STYLE_1_W], XmNfontList, fontlist, NULL);
          XtVaSetValues(lsw[STYLE_2_W], XmNfontList, fontlist, NULL);
@@ -382,7 +398,7 @@ setup_window(char *font_name, int redraw_mainmenu)
       /*       calculate the bar length and queue scale!         */
       for (i = 0; i < no_of_hosts; i++)
       {
-         /* Calculate new scale for error bar */
+         /* Calculate new scale for error bar. */
          if (connect_data[i].error_counter > 0)
          {
             if (fsa[i].max_errors < 1)
@@ -441,6 +457,7 @@ setup_window(char *font_name, int redraw_mainmenu)
    text_offset     = font_struct->ascent;
    line_height     = SPACE_ABOVE_LINE + glyph_height + SPACE_BELOW_LINE;
    bar_thickness_2 = glyph_height / 2;
+   even_height     = glyph_height % 2;
    bar_thickness_3 = glyph_height / 3;
    button_width    = 2 * glyph_width;
    y_offset_led    = (glyph_height - glyph_width) / 2;
@@ -502,7 +519,7 @@ init_gcs(void)
    XGCValues  gc_values;
    Window     window = RootWindow(display, DefaultScreen(display));
 
-   /* GC for drawing letters on default background */
+   /* GC for drawing letters on default background. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[FG];
    gc_values.background = color_pool[DEFAULT_BG];
@@ -510,7 +527,7 @@ init_gcs(void)
                          GCBackground, &gc_values);
    XSetFunction(display, letter_gc, GXcopy);
 
-   /* GC for drawing letters for normal selection */
+   /* GC for drawing letters for normal selection. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[WHITE];
    gc_values.background = color_pool[BLACK];
@@ -518,7 +535,7 @@ init_gcs(void)
                                 GCForeground | GCBackground, &gc_values);
    XSetFunction(display, normal_letter_gc, GXcopy);
 
-   /* GC for drawing letters for locked selection */
+   /* GC for drawing letters for locked selection. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[WHITE];
    gc_values.background = color_pool[LOCKED_INVERSE];
@@ -526,7 +543,7 @@ init_gcs(void)
                                 GCForeground | GCBackground, &gc_values);
    XSetFunction(display, locked_letter_gc, GXcopy);
 
-   /* GC for drawing letters for host name */
+   /* GC for drawing letters for host name. */
    gc_values.font = font_struct->fid;
    gc_values.foreground = color_pool[FG];
    gc_values.background = color_pool[WHITE];
@@ -534,67 +551,73 @@ init_gcs(void)
                                  GCForeground | GCBackground, &gc_values);
    XSetFunction(display, color_letter_gc, GXcopy);
 
-   /* GC for drawing the default background */
+   /* GC for drawing the default background. */
    gc_values.foreground = color_pool[DEFAULT_BG];
    default_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, default_bg_gc, GXcopy);
 
-   /* GC for drawing the normal selection background */
+   /* GC for drawing the normal selection background. */
    gc_values.foreground = color_pool[BLACK];
    normal_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, normal_bg_gc, GXcopy);
 
-   /* GC for drawing the locked selection background */
+   /* GC for drawing the locked selection background. */
    gc_values.foreground = color_pool[LOCKED_INVERSE];
    locked_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, locked_bg_gc, GXcopy);
 
-   /* GC for drawing the label background */
+   /* GC for drawing the unset LED. */
+   gc_values.foreground = color_pool[CHAR_BACKGROUND];
+   unset_led_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
+                            &gc_values);
+   XSetFunction(display, unset_led_bg_gc, GXcopy);
+
+   /* GC for drawing the label background. */
    gc_values.foreground = color_pool[LABEL_BG];
    label_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                            &gc_values);
    XSetFunction(display, label_bg_gc, GXcopy);
 
-   /* GC for drawing the button background */
+   /* GC for drawing the button background. */
    gc_values.foreground = color_pool[BUTTON_BACKGROUND];
    button_bg_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, button_bg_gc, GXcopy);
 
-   /* GC for drawing the background for "bytes on input" bar */
+   /* GC for drawing the background for "bytes on input" bar. */
    gc_values.foreground = color_pool[TR_BAR];
    tr_bar_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                             &gc_values);
    XSetFunction(display, tr_bar_gc, GXcopy);
 
-   /* GC for drawing the background for queue bar and leds */
+   /* GC for drawing the background for queue bar and leds. */
    gc_values.foreground = color_pool[TR_BAR];
    color_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                         &gc_values);
    XSetFunction(display, color_gc, GXcopy);
 
-   /* GC for drawing the black lines */
+   /* GC for drawing the black lines. */
    gc_values.foreground = color_pool[BLACK];
    black_line_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, black_line_gc, GXcopy);
 
-   /* GC for drawing the white lines */
+   /* GC for drawing the white lines. */
    gc_values.foreground = color_pool[WHITE];
    white_line_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                              &gc_values);
    XSetFunction(display, white_line_gc, GXcopy);
 
-   /* GC for drawing led's */
+   /* GC for drawing led's. */
    gc_values.foreground = color_pool[TR_BAR];
    led_gc = XCreateGC(display, window, (XtGCMask) GCForeground,
                       &gc_values);
    XSetFunction(display, led_gc, GXcopy);
 
-   /* Flush buffers so all GC's are known */
+   /* Flush buffers so all GC's are known. */
    XFlush(display);
 
    return;

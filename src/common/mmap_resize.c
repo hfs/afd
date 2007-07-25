@@ -1,6 +1,6 @@
 /*
  *  mmap_resize.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2005 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   19.01.1998 H.Kiehl Created
+ **   22.04.2007 H.Kiehl Handle case when the mapped area already has
+ **                      the given size.
  **
  */
 DESCR__E_M3
@@ -51,7 +53,6 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <sys/mman.h>   /* mmap(), msync(), munmap()                     */
 #include <errno.h>
-#include "fddefs.h"
 
 
 /*############################ mmap_resize() ############################*/
@@ -65,6 +66,10 @@ mmap_resize(int fd, void *area, size_t new_size)
       system_log(FATAL_SIGN, __FILE__, __LINE__,
                  "fstat() error : %s", strerror(errno));
       return((void *)-1);
+   }
+   if (stat_buf.st_size == new_size)
+   {
+      return(area);
    }
 
    /* Always unmap from current mmapped area. */

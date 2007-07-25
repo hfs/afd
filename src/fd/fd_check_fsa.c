@@ -137,7 +137,7 @@ fd_check_fsa(void)
                     "Got reset of REREADING_DIR_CONFIG flag after %d loops (%8.3fs).",
                     loops, (float)((float)loops / 10.0));
       }
-#endif /* DEBUG_WAIT_LOOP */
+#endif
 
       ptr = (char *)fsa;
       ptr -= AFD_WORD_OFFSET;

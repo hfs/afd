@@ -25,13 +25,14 @@ DESCR__S_M3
  **   check_logs - Checks for changes in any of the specified logs
  **
  ** SYNOPSIS
- **   long check_logs()
+ **   long check_logs(time_t now)
  **
  ** DESCRIPTION
  **   This function prints all the specified log data in the following
  **   format:
  **     L? <options> <packet no.> <packet length>
  **      S - System
+ **      E - Event
  **      R - Retrieve
  **      T - Transfer
  **      B - Transfer Debug
@@ -49,6 +50,8 @@ DESCR__S_M3
  **
  ** HISTORY
  **   25.11.2006 H.Kiehl Created
+ **   13.04.2007 H.Kiehl If we do not send log data for a given time
+ **                      send an empty log message.
  */
 DESCR__E_M3
 
@@ -88,16 +91,17 @@ static int            get_log_inode(char *, char *, int, char *, ino_t,
 
 /*############################# check_logs() ############################*/
 long
-check_logs(void)
+check_logs(time_t now)
 {
-   int          i,
-                length;
-   unsigned int chars_buffered,
-                chars_buffered_log;
-   long         log_interval;
-   char         buffer[2 + 1 + MAX_LONG_LONG_LENGTH + 1 + MAX_INT_LENGTH + 3],
-                line[MAX_LINE_LENGTH + 1];
-   struct stat  stat_buf;
+   int           i,
+                 length;
+   unsigned int  chars_buffered,
+                 chars_buffered_log;
+   long          log_interval;
+   static time_t last_log_write_time;
+   char          buffer[2 + 1 + MAX_LONG_LONG_LENGTH + 1 + MAX_INT_LENGTH + 3],
+                 line[MAX_LINE_LENGTH + 1];
+   struct stat   stat_buf;
 
    /* Initialize some variables. */
    chars_buffered_log = 0;
@@ -344,21 +348,41 @@ check_logs(void)
       {
          exit(INCORRECT);
       }
-   }
+      last_log_write_time = now;
 
-   /*
-    * So that we do not read the logs at AFDD_LOG_CHECK_INTERVAL time
-    * when the buffer is full, lets always return the check interval
-    * to the calling process. Otherwise we will only be able to read
-    * data at MAX_LOG_DATA_BUFFER / AFDD_LOG_CHECK_INTERVAL bytes
-    * per second.
-    */
-   if ((chars_buffered_log + MAX_LINE_LENGTH + MAX_LOG_COMMAND_LENGTH) >= MAX_LOG_DATA_BUFFER)
-   {
-      log_interval = 0;
+      /*
+       * So that we do not read the logs at AFDD_LOG_CHECK_INTERVAL time
+       * when the buffer is full, lets always return the check interval
+       * to the calling process. Otherwise we will only be able to read
+       * data at MAX_LOG_DATA_BUFFER / AFDD_LOG_CHECK_INTERVAL bytes
+       * per second.
+       */
+      if ((chars_buffered_log + MAX_LINE_LENGTH + MAX_LOG_COMMAND_LENGTH) >= MAX_LOG_DATA_BUFFER)
+      {
+         log_interval = 0;
+      }
+      else
+      {
+         log_interval = AFDD_LOG_CHECK_INTERVAL;
+      }
    }
    else
    {
+      if ((last_log_write_time + LOG_WRITE_INTERVAL) < now)
+      {
+         buffer[0] = 'L';
+         buffer[1] = 'N';
+         buffer[2] = '\r';
+         buffer[3] = '\n';
+         if (log_write(buffer, 4) == INCORRECT)
+         {
+            exit(INCORRECT);
+         }
+#ifdef DEBUG_LOG_CMD
+         system_log(DEBUG_SIGN, __FILE__, __LINE__, "Send LN.");
+#endif
+         last_log_write_time = now;
+      }
       log_interval = AFDD_LOG_CHECK_INTERVAL;
    }
 
@@ -432,7 +456,7 @@ get_log_inode(char  *log_dir,
                            if (ptr != p_dir->d_name)
                            {
                               ptr--;
-                              while (isdigit(*ptr))
+                              while (isdigit((int)(*ptr)))
                               {
                                  ptr--;
                               }

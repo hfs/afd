@@ -58,8 +58,7 @@ extern int                        host_config_counter,
                                   log_defs,
                                   no_of_hosts;
 extern pid_t                      log_pid;
-extern char                       afd_config_file[],
-                                  current_msg_list_file[];
+extern char                       afd_config_file[];
 extern unsigned char              **old_error_history;
 extern struct afd_status          *p_afd_status;
 extern struct filetransfer_status *fsa;
@@ -72,8 +71,7 @@ check_changes(FILE *p_data)
    static int          old_amg_status,
                        old_archive_watch_status,
                        old_fd_status,
-                       old_max_connections,
-                       old_no_of_jobs;
+                       old_max_connections;
    static unsigned int old_sys_log_ec;
    static time_t       next_stat_time,
                        old_st_mtime;
@@ -85,33 +83,9 @@ check_changes(FILE *p_data)
 
    if (check_fsa(YES) == YES)
    {
-      int fd,
-          loop_counter = 0,
-          no_of_jobs = -1;
+      int loop_counter = 0;
 
 retry_check:
-      if ((fd = open(current_msg_list_file, O_RDONLY)) == -1)
-      {
-         system_log(WARN_SIGN, __FILE__, __LINE__,
-                   "Failed to open() `%s' : %s",
-                   current_msg_list_file, strerror(errno));
-      }
-      else
-      {
-         if (read(fd, &no_of_jobs, sizeof(int)) != sizeof(int))
-         {
-            system_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Failed to read() %d bytes from `%s' : %s",
-                      sizeof(int), current_msg_list_file, strerror(errno));
-            no_of_jobs = -1;
-         }
-         if (close(fd) == -1)
-         {
-            system_log(WARN_SIGN, __FILE__, __LINE__,
-                      "Failed to close() `%s' : %s",
-                      current_msg_list_file, strerror(errno));
-         }
-      }
       if (old_error_history != NULL)
       {
          FREE_RT_ARRAY(old_error_history);
@@ -138,11 +112,7 @@ retry_check:
       }
       host_config_counter = (int)*(unsigned char *)((char *)fsa - AFD_WORD_OFFSET + SIZEOF_INT);
       show_host_list(p_data);
-      if (old_no_of_jobs != no_of_jobs)
-      {
-         (void)fprintf(p_data, "NJ %u\r\n", no_of_jobs);
-         old_no_of_jobs = no_of_jobs;
-      }
+      show_job_list(p_data);
    }
    else
    {

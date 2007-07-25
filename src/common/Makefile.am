@@ -1,5 +1,5 @@
 ## Makefile.am -- Process this file with automake to produce Makefile.in
-## Copyright (C) 2001 - 2003 Holger Kiehl
+## Copyright (C) 2001 - 2007 Holger Kiehl
 ##
 ## This program is free software; you can redistribute it and/or modify
 ## it under the terms of the GNU General Public License as published by
@@ -51,6 +51,20 @@ else
    SET_AFD_EUID =
    EXTRA_SET_AFD_EUID = set_afd_euid.c
 endif
+if WITH_PRODUCTION_LOG
+   PRODUCTION_LOG = production_log.c
+   EXTRA_PRODUCTION_LOG =
+else
+   PRODUCTION_LOG =
+   EXTRA_PRODUCTION_LOG = production_log.c
+endif
+if WITH_DELETE_LOG
+   DELETE_LOG_PTRS = delete_log_ptrs.c
+   EXTRA_DELETE_LOG_PTRS =
+else
+   DELETE_LOG_PTRS =
+   EXTRA_DELETE_LOG_PTRS = delete_log_ptrs.c
+endif
 if WITH_FIFO_RW_SUPPORT
    OPEN_FIFO_RW =
    EXTRA_OPEN_FIFO_RW = open_fifo_rw.c
@@ -66,8 +80,9 @@ else
    EXTRA_HANDLE_ERROR_QUEUE = handle_error_queue.c
 endif
 EXTRA_DIST = $(EXTRA_MAPPER) $(EXTRA_AFD_MON) $(EXTRA_EACCESS)\
-             $(EXTRA_DUPCHECK) $(EXTRA_SET_AFD_EUID) $(EXTRA_OPEN_FIFO_RW)\
-             $(EXTRA_HANDLE_ERROR_QUEUE)
+             $(EXTRA_DUPCHECK) $(EXTRA_SET_AFD_EUID) $(EXTRA_PRODUCTION_LOG)\
+             $(EXTRA_DELETE_LOG_PTRS) $(EXTRA_OPEN_FIFO_RW)\
+             $(EXTRA_HANDLE_ERROR_QUEUE) pmatch_old.c
 
 MAINTAINERCLEANFILES = Makefile.in
 INCLUDES             = -I.. -I../init_afd -I../amg -I../fd -I../misc\
@@ -95,12 +110,13 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        create_name.c\
                        daemon_init.c\
                        datestr2unixtime.c\
-                       delete_log_ptrs.c\
+                       $(DELETE_LOG_PTRS)\
                        detach_afd_status.c\
                        $(AFD_EACCESS)\
                        error_action.c\
                        eval_host_config.c\
                        eval_timeout.c\
+                       event_log.c\
                        exec_cmd.c\
                        fra_attach.c\
                        fra_detach.c\
@@ -123,6 +139,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        get_pw.c\
                        get_rename_rules.c\
                        get_rule.c\
+                       get_update_config_str.c\
                        get_user.c\
                        $(HANDLE_ERROR_QUEUE)\
                        inform_fd_about_fsa_change.c\
@@ -145,7 +162,7 @@ libafd_a_SOURCES     = attach_afd_status.c\
                        $(OPEN_FIFO_RW)\
                        posi.c\
                        pmatch.c\
-                       production_log.c\
+                       $(PRODUCTION_LOG)\
                        read_file.c\
                        readn.c\
                        rec.c\

@@ -25,7 +25,7 @@ DESCR__S_M3
  **   get_user - gets user name and DISPLAY
  **
  ** SYNOPSIS
- **   void get_user(char *user, char *fake_user)
+ **   void get_user(char *user, char *fake_user, int user_offset)
  **
  ** DESCRIPTION
  **   Gets the username and display of the current process. This
@@ -49,6 +49,9 @@ DESCR__S_M3
  **   29.10.2003 H.Kiehl Try to evaluate SSH_CLIENT as well when
  **                      DISPLAY is localhost.
  **   02.05.2004 H.Kiehl Take user from command line option, if allowed.
+ **   26.06.2007 H.Kiehl Added parameter user_offset to indicate we
+ **                      have already added the profile name in the
+ **                      user string.
  **
  */
 DESCR__E_M3
@@ -63,20 +66,27 @@ DESCR__E_M3
 
 /*############################ get_user() ###############################*/
 void
-get_user(char *user, char *fake_user)
+get_user(char *user, char *fake_user, int user_offset)
 {
    size_t        length;
    char          *ptr;
    struct passwd *pwd;
 
+   if (user_offset > 0)
+   {
+      user[user_offset] = ' ';
+      user[user_offset + 1] = '<';
+      user_offset += 2;
+   }
    if ((pwd = getpwuid(getuid())) != NULL)
    {
       length = strlen(pwd->pw_name);
       if (length > 0)
       {
-         if ((length + 1) < MAX_FULL_USER_ID_LENGTH)
+         if ((user_offset + length + 1) < MAX_FULL_USER_ID_LENGTH)
          {
-            (void)memcpy(user, pwd->pw_name, length);
+            (void)memcpy(&user[user_offset], pwd->pw_name, length);
+            length += user_offset;
             if (fake_user[0] != '\0')
             {
                size_t tmp_length;
@@ -95,17 +105,18 @@ get_user(char *user, char *fake_user)
          }
          else
          {
-            (void)memcpy(user, pwd->pw_name, MAX_FULL_USER_ID_LENGTH - 1);
-            user[MAX_FULL_USER_ID_LENGTH - 1] = '\0';
+            (void)memcpy(&user[user_offset], pwd->pw_name,
+                         MAX_FULL_USER_ID_LENGTH - user_offset - 1);
+            user[MAX_FULL_USER_ID_LENGTH - user_offset - 1] = '\0';
             length = MAX_FULL_USER_ID_LENGTH;
          }
       }
       else
       {
-         if (8 < MAX_FULL_USER_ID_LENGTH)
+         if (8 < (MAX_FULL_USER_ID_LENGTH - user_offset))
          {
-            length = 7;
-            (void)memcpy(user, "unknown", 7);
+            length = user_offset + 7;
+            (void)memcpy(&user[user_offset], "unknown", 7);
             if (fake_user[0] != '\0')
             {
                size_t tmp_length;
@@ -124,17 +135,17 @@ get_user(char *user, char *fake_user)
          }
          else
          {
-            user[0] = '\0';
-            length = 0;
+            user[user_offset] = '\0';
+            length = user_offset;
          }
       }
    }
    else
    {
-      if (8 < MAX_FULL_USER_ID_LENGTH)
+      if (8 < (MAX_FULL_USER_ID_LENGTH - user_offset))
       {
-         length = 7;
-         (void)memcpy(user, "unknown", 7);
+         length = user_offset + 7;
+         (void)memcpy(&user[user_offset], "unknown", 7);
          if (fake_user[0] != '\0')
          {
             size_t tmp_length;
@@ -153,8 +164,8 @@ get_user(char *user, char *fake_user)
       }
       else
       {
-         user[0] = '\0';
-         length = 0;
+         user[user_offset] = '\0';
+         length = user_offset;
       }
    }
 
@@ -183,10 +194,25 @@ get_user(char *user, char *fake_user)
                display_length = search_ptr - ptr;
                if ((length + display_length) >= MAX_FULL_USER_ID_LENGTH)
                {
-                  display_length = MAX_FULL_USER_ID_LENGTH - length;
+                  if (user_offset > 0)
+                  {
+                     display_length = MAX_FULL_USER_ID_LENGTH - length - 1;
+                  }
+                  else
+                  {
+                     display_length = MAX_FULL_USER_ID_LENGTH - length;
+                  }
                }
                (void)memcpy(&user[length], ptr, display_length);
-               user[length + display_length] = '\0';
+               if (user_offset > 0)
+               {
+                  user[length + display_length] = '>';
+                  user[length + display_length + 1] = '\0';
+               }
+               else
+               {
+                  user[length + display_length] = '\0';
+               }
                return;
             }
             else
@@ -214,13 +240,26 @@ get_user(char *user, char *fake_user)
                      }
                      if (*search_ptr == ')')
                      {
-                        int real_display_length = search_ptr - start_ptr;
+                        int offset,
+                            real_display_length = search_ptr - start_ptr;
 
-                        if ((length + real_display_length) < MAX_FULL_USER_ID_LENGTH)
+                        if (user_offset > 0)
+                        {
+                           offset = 1;
+                        }
+                        else
+                        {
+                           offset = 0;
+                        }
+                        if ((length + real_display_length + offset) < MAX_FULL_USER_ID_LENGTH)
                         {
                            (void)memcpy(&user[length], start_ptr,
                                         real_display_length);
-                           user[length + real_display_length] = '\0';
+                           if (offset)
+                           {
+                              user[length + real_display_length] = '>';
+                           }
+                           user[length + real_display_length + offset] = '\0';
                            if (buffer != NULL)
                            {
                               free(buffer);
@@ -240,6 +279,11 @@ get_user(char *user, char *fake_user)
          if ((length + display_length) < MAX_FULL_USER_ID_LENGTH)
          {
             (void)strcpy(&user[length], ptr);
+            if ((user_offset > 0) &&
+                ((length + display_length + 1) < MAX_FULL_USER_ID_LENGTH))
+            {
+               (void)strcat(&user[length], ">");
+            }
          }
       }
       else
@@ -247,6 +291,11 @@ get_user(char *user, char *fake_user)
          if ((length + 7) < MAX_FULL_USER_ID_LENGTH)
          {
             (void)strcpy(&user[length], "unknown");
+            if ((user_offset > 0) &&
+                ((length + 7 + 1) < MAX_FULL_USER_ID_LENGTH))
+            {
+               (void)strcat(&user[length], ">");
+            }
          }
       }
    }

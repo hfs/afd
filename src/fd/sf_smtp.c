@@ -101,8 +101,12 @@ DESCR__E_M1
 #include "smtpdefs.h"
 #include "version.h"
 
-/* Global variables */
-int                        exitflag = IS_FAULTY_VAR,
+/* Note: WITH_MAILER_IDENTIFIER is not defined since it has security */
+/*       implications.                                               */
+
+/* Global variables. */
+int                        event_log_fd = STDERR_FILENO,
+                           exitflag = IS_FAULTY_VAR,
                            files_to_delete, /* NOT USED */
                            no_of_hosts,   /* This variable is not used   */
                                           /* in this module.             */
@@ -138,7 +142,7 @@ struct delete_log          dl;
 #endif
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local functions */
+/* Local functions. */
 static void                sf_smtp_exit(void),
                            sig_bus(int),
                            sig_segv(int),
@@ -160,14 +164,12 @@ main(int argc, char *argv[])
                     files_to_send = 0,
                     files_send,
                     blocksize,
-                    set_smtp_server,
                     write_size;
    off_t            no_of_bytes,
                     *p_file_size_buffer;
    clock_t          clktck;
    char             *smtp_buffer = NULL,
                     *p_file_name_buffer,
-                    *ptr,
                     host_name[256],
                     local_user[MAX_FILENAME_LENGTH],
                     multipart_boundary[MAX_FILENAME_LENGTH],
@@ -231,7 +233,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    p_work_dir = work_dir;
    files_to_send = init_sf(argc, argv, file_path, SMTP_FLAG);
    p_db = &db;
@@ -309,14 +311,9 @@ main(int argc, char *argv[])
    if (db.smtp_server[0] == '\0')
    {
       (void)strcpy(db.smtp_server, SMTP_HOST_NAME);
-      set_smtp_server = NO;
-   }
-   else
-   {
-      set_smtp_server = YES;
    }
 
-   /* Connect to remote SMTP-server */
+   /* Connect to remote SMTP-server. */
    if ((status = smtp_connect(db.smtp_server, db.port)) != SUCCESS)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -332,7 +329,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Now send HELO */
+   /* Now send HELO. */
    if (gethostname(host_name, 255) < 0)
    {
       system_log(ERROR_SIGN, __FILE__, __LINE__,
@@ -354,7 +351,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Inform FSA that we have finished connecting */
+   /* Inform FSA that we have finished connecting. */
    (void)gsf_check_fsa();
    if (db.fsa_pos != INCORRECT)
    {
@@ -380,6 +377,8 @@ main(int argc, char *argv[])
    }
    else
    {
+      char *ptr;
+
       if ((ptr = getenv("LOGNAME")) != NULL)
       {
          (void)sprintf(local_user, "%s@%s", ptr, host_name);
@@ -390,28 +389,23 @@ main(int argc, char *argv[])
       }
    }
 
-   if (set_smtp_server == YES)
+   if ((db.special_flag & SMTP_SERVER_NAME_IN_MESSAGE) == 0)
    {
-      ptr = db.smtp_server;
-   }
-   else
-   {
-      ptr = db.hostname;
-   }
-   if (db.toggle_host == YES)
-   {
-      if (fsa->host_toggle == HOST_ONE)
+      if (db.toggle_host == YES)
       {
-         (void)strcpy(ptr, fsa->real_hostname[HOST_TWO - 1]);
+         if (fsa->host_toggle == HOST_ONE)
+         {
+            (void)strcpy(db.hostname, fsa->real_hostname[HOST_TWO - 1]);
+         }
+         else
+         {
+            (void)strcpy(db.hostname, fsa->real_hostname[HOST_ONE - 1]);
+         }
       }
       else
       {
-         (void)strcpy(ptr, fsa->real_hostname[HOST_ONE - 1]);
+         (void)strcpy(db.hostname, fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
       }
-   }
-   else
-   {
-      (void)strcpy(ptr, fsa->real_hostname[(int)(fsa->host_toggle - 1)]);
    }
    if (((db.special_flag & FILE_NAME_IS_USER) == 0) &&
        ((db.special_flag & FILE_NAME_IS_TARGET) == 0) &&
@@ -560,14 +554,14 @@ main(int argc, char *argv[])
       (void)sprintf(multipart_boundary, "----%s", db.msg_name);
    }
 
-   /* Send all files */
+   /* Send all files. */
    p_file_name_buffer = file_name_buffer;
    p_file_size_buffer = file_size_buffer;
    for (files_send = 0; files_send < files_to_send; files_send++)
    {
       if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0))
       {
-         /* Send local user name */
+         /* Send local user name. */
          if ((status = smtp_user(local_user)) != SUCCESS)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -613,6 +607,7 @@ main(int argc, char *argv[])
          else if (db.special_flag & FILE_NAME_IS_TARGET)
               {
                  register int k;
+                 char         *ptr;
 
                  if (db.user_rename_rule[0] != '\0')
                  {
@@ -653,7 +648,7 @@ main(int argc, char *argv[])
                  }
               }
    
-         /* Send remote user name */
+         /* Send remote user name. */
          if (db.group_list == NULL)
          {
             if ((status = smtp_rcpt(remote_user)) != SUCCESS)
@@ -700,7 +695,7 @@ main(int argc, char *argv[])
             }
          }
 
-         /* Enter data mode */
+         /* Enter data mode. */
          if ((status = smtp_open()) != SUCCESS)
          {
             trans_log(ERROR_SIGN, __FILE__, __LINE__, msg_str,
@@ -718,7 +713,7 @@ main(int argc, char *argv[])
          }
       } /* if (((db.special_flag & ATTACH_ALL_FILES) == 0) || (files_send == 0)) */
 
-      /* Get the the name of the file we want to send next */
+      /* Get the the name of the file we want to send next. */
       (void)strcpy(final_filename, p_file_name_buffer);
       (void)sprintf(fullname, "%s/%s", file_path, p_file_name_buffer);
 
@@ -1079,6 +1074,19 @@ main(int argc, char *argv[])
             }
          } /* if (mail_header_buffer != NULL) */
 
+#ifdef WITH_MAILER_IDENTIFIER
+         /* Write mailer name. */
+         length = sprintf(buffer, "X-Mailer: AFD %s\n", PACKAGE_VERSION);
+         if (smtp_write(buffer, NULL, length) < 0)
+         {
+            trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
+                      "Failed to write Reply-To to SMTP-server.");
+            (void)smtp_quit();
+            exit(eval_timeout(WRITE_REMOTE_ERROR));
+         }
+         no_of_bytes += length;
+#endif
+
          /*
           * We need a second CRLF to indicate end of header. The stuff
           * that follows is the message body.
@@ -1124,17 +1132,33 @@ main(int argc, char *argv[])
             get_content_type(new_filename, content_type);
             if (files_send == 0)
             {
+#ifdef WITH_MAILER_IDENTIFIER
+               length = sprintf(encode_buffer,
+                                "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\nX-Mailer: AFD %s\r\n\r\n",
+                                multipart_boundary, content_type,
+                                new_filename, new_filename,
+                                PACKAGE_VERSION);
+#else
                length = sprintf(encode_buffer,
                                 "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
                                 multipart_boundary, content_type,
                                 new_filename, new_filename);
+#endif
             }
             else
             {
+#ifdef WITH_MAILER_IDENTIFIER
+               length = sprintf(encode_buffer,
+                                "\r\n\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\nX-Mailer: AFD %s\r\n\r\n",
+                                multipart_boundary, content_type,
+                                new_filename, new_filename,
+                                PACKAGE_VERSION);
+#else
                length = sprintf(encode_buffer,
                                 "\r\n\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
                                 multipart_boundary, content_type,
                                 new_filename, new_filename);
+#endif
             }
          }
          else
@@ -1142,17 +1166,33 @@ main(int argc, char *argv[])
             get_content_type(final_filename, content_type);
             if (files_send == 0)
             {
+#ifdef WITH_MAILER_IDENTIFIER
+               length = sprintf(encode_buffer,
+                                "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\nX-Mailer: AFD %s\r\n\r\n",
+                                multipart_boundary, content_type,
+                                final_filename, final_filename,
+                                PACKAGE_VERSION);
+#else
                length = sprintf(encode_buffer,
                                 "\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
                                 multipart_boundary, content_type,
                                 final_filename, final_filename);
+#endif
             }
             else
             {
+#ifdef WITH_MAILER_IDENTIFIER
+               length = sprintf(encode_buffer,
+                                "\r\n\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\nX-Mailer: AFD %s\r\n\r\n",
+                                multipart_boundary, content_type,
+                                final_filename, final_filename,
+                                PACKAGE_VERSION);
+#else
                length = sprintf(encode_buffer,
                                 "\r\n\r\n--%s\r\nContent-Type: %s; name=\"%s\"\r\nContent-Transfer-Encoding: BASE64\r\nContent-Disposition: attachment; filename=\"%s\"\r\n\r\n",
                                 multipart_boundary, content_type,
                                 final_filename, final_filename);
+#endif
             }
          }
 
@@ -1490,8 +1530,7 @@ main(int argc, char *argv[])
           * (in struct p_db) it does not always have to check
           * whether the directory has been created or not. And
           * we ensure that we do not create duplicate names
-          * when adding ARCHIVE_UNIT * db.archive_time to
-          * msg_name.
+          * when adding db.archive_time to msg_name.
           */
          if (archive_file(file_path, p_file_name_buffer, p_db) < 0)
          {
@@ -1691,15 +1730,40 @@ main(int argc, char *argv[])
           */
          if (fsa->host_status & AUTO_PAUSE_QUEUE_STAT)
          {
+            char *sign;
+
             fsa->host_status ^= AUTO_PAUSE_QUEUE_STAT;
+            if (fsa->host_status & HOST_ERROR_EA_STATIC)
+            {
+               fsa->host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+            }
+            else
+            {
+               fsa->host_status &= ~EVENT_STATUS_FLAGS;
+            }
             error_action(fsa->host_alias, "stop");
-            system_log(INFO_SIGN, __FILE__, __LINE__,
+            event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
+                      fsa->host_alias);
+            if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
+                (fsa->host_status & HOST_ERROR_OFFLINE) ||
+                (fsa->host_status & HOST_ERROR_OFFLINE_T))
+            {
+               sign = OFFLINE_SIGN;
+            }
+            else
+            {
+               sign = INFO_SIGN;
+            }
+            system_log(sign, __FILE__, __LINE__,
                        "Starting input queue for %s that was stopped by init_afd.",
                        fsa->host_alias);
+            event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
+                      fsa->host_alias);
          }
       }
 #ifdef WITH_ERROR_QUEUE
-      if (db.special_flag & IN_ERROR_QUEUE)
+      if ((db.special_flag & IN_ERROR_QUEUE) &&
+          (fsa->host_status & ERROR_QUEUE_SET))
       {
          remove_from_error_queue(db.job_id, fsa);
       }

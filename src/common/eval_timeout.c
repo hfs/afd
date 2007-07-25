@@ -1,7 +1,7 @@
 /*
  *  eval_timeout.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2005 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2005 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,6 +59,10 @@ eval_timeout(int error)
    else if (timeout_flag == CON_RESET)
         {
            return(CONNECTION_RESET_ERROR);
+        }
+   else if (timeout_flag == CON_REFUSED)
+        {
+           return(CONNECTION_REFUSED_ERROR);
         }
 
    return(error);

@@ -1,6 +1,6 @@
 /*
  *  cmdline.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2004 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2004 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -72,6 +72,7 @@
 # define READ_REMOTE_ERROR          22
 # define SIZE_ERROR                 23
 # define CONNECTION_RESET_ERROR     28
+# define CONNECTION_REFUSED_ERROR   29
 # define OPEN_LOCAL_ERROR           30
 # define READ_LOCAL_ERROR           31
 # define ALLOC_ERROR                35

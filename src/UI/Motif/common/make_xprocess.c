@@ -1,6 +1,6 @@
 /*
  *  make_xprocess.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2004 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -59,12 +59,15 @@ DESCR__E_M3
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>       /* waitpid()                                 */
+#ifdef WITH_MEMCHECK
+# include <mcheck.h>
+#endif
 #include <errno.h>
 
 #include <Xm/Xm.h>
 #include "x_common_defs.h"
 
-/* External global variables */
+/* External global variables. */
 extern int              no_of_active_process;
 extern Widget           appshell;
 extern XtAppContext     app;
@@ -101,6 +104,9 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
    }
    else if (pid == 0)
         {
+#ifdef WITH_MEMCHECK
+           muntrace();
+#endif
            if (((progname[0] == 'r') || (progname[0] == 's')) &&
                (progname[1] == 's') &&
                (progname[2] == 'h') &&
@@ -114,7 +120,7 @@ make_xprocess(char *progname, char *real_progname, char **args, int position)
               }
            }
 
-           /* Child process */
+           /* Child process. */
            (void)execvp(progname, args); /* NOTE: NO return from execvp() */
 
            _exit(INCORRECT);

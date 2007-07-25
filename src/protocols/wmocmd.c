@@ -1,6 +1,6 @@
 /*
  *  wmocmd.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1998 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -105,11 +105,7 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
 #endif
 
    (void)memset((struct sockaddr *) &sin, 0, sizeof(sin));
-   if ((sin.sin_addr.s_addr = inet_addr(hostname)) != -1)
-   {
-      sin.sin_family = AF_INET;
-   }
-   else
+   if ((sin.sin_addr.s_addr = inet_addr(hostname)) == -1)
    {
       if ((p_host = gethostbyname(hostname)) == NULL)
       {
@@ -146,19 +142,18 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
 #endif
          return(INCORRECT);
       }
-      sin.sin_family = p_host->h_addrtype;
 
-      /* Copy IP number to socket structure */
+      /* Copy IP number to socket structure. */
       memcpy((char *)&sin.sin_addr, p_host->h_addr, p_host->h_length);
    }
 
-   if ((sock_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+   if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
    {
       trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                 "socket() error : %s", strerror(errno));
       return(INCORRECT);
    }
-
+   sin.sin_family = AF_INET;
    sin.sin_port = htons((u_short)port);
 
    while (connect(sock_fd, (struct sockaddr *) &sin, sizeof(sin)) < 0)
@@ -188,7 +183,7 @@ wmo_connect(char *hostname, int port, int sndbuf_size)
          trans_log(DEBUG_SIGN, __FILE__, __LINE__, NULL,
                    "close() error : %s", strerror(errno));
       }
-      if ((sock_fd = socket(sin.sin_family, SOCK_STREAM, IPPROTO_TCP)) < 0)
+      if ((sock_fd = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
       {
          trans_log(ERROR_SIGN, __FILE__, __LINE__, NULL,
                    "socket() error : %s", strerror(errno));

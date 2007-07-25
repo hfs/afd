@@ -36,24 +36,24 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-bin_PROGRAMS = afdcmd$(EXEEXT) afdcfg$(EXEEXT) afd_status$(EXEEXT) \
-	fsa_view$(EXEEXT) fra_view$(EXEEXT) get_dc_data$(EXEEXT) \
-	get_hostname$(EXEEXT) grib2wmo$(EXEEXT) set_pw$(EXEEXT) \
+bin_PROGRAMS = afdcmd$(EXEEXT) afdcfg$(EXEEXT) afd_hex_print$(EXEEXT) \
+	afd_status$(EXEEXT) fsa_edit$(EXEEXT) fsa_view$(EXEEXT) \
+	fra_view$(EXEEXT) get_dc_data$(EXEEXT) get_hostname$(EXEEXT) \
+	grib2wmo$(EXEEXT) jid_view$(EXEEXT) set_pw$(EXEEXT) \
 	udc$(EXEEXT)
 sbin_PROGRAMS = cache_spy$(EXEEXT) convert_fsa$(EXEEXT) \
 	convert_stat$(EXEEXT) current_job_list_spy$(EXEEXT) \
 	dc_id_spy$(EXEEXT) dir_spy$(EXEEXT) $(am__EXEEXT_2) \
 	file_dir_check$(EXEEXT) file_mask_list_spy$(EXEEXT) \
-	fsa_edit$(EXEEXT) gen_file$(EXEEXT) queue_spy$(EXEEXT) \
-	job_list_spy$(EXEEXT) reset_fsa$(EXEEXT) set_counter$(EXEEXT) \
+	gen_file$(EXEEXT) queue_spy$(EXEEXT) set_counter$(EXEEXT) \
 	rm_job$(EXEEXT) show_exec_stat$(EXEEXT) view_ls_data$(EXEEXT)
 EXTRA_PROGRAMS = bfc$(EXEEXT) binfc$(EXEEXT) byte_order$(EXEEXT) \
 	convert_jid$(EXEEXT) count_burst$(EXEEXT) del_cache$(EXEEXT) \
 	$(am__EXEEXT_1) get_counter$(EXEEXT) \
 	force_archive_check$(EXEEXT) get_full_date$(EXEEXT) \
 	get_file_size$(EXEEXT) gts2tiff$(EXEEXT) linger$(EXEEXT) \
-	rdu$(EXEEXT) sysconf$(EXEEXT) tiff_sniffer$(EXEEXT) \
-	watch_dir$(EXEEXT) fra_version$(EXEEXT) \
+	reset_fsa$(EXEEXT) rdu$(EXEEXT) sysconf$(EXEEXT) \
+	tiff_sniffer$(EXEEXT) watch_dir$(EXEEXT) fra_version$(EXEEXT) \
 	convert_ls_data$(EXEEXT) view_error_queue$(EXEEXT)
 subdir = src/tools
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
@@ -80,6 +80,9 @@ binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 @WITHOUT_DUPCHECK_FALSE@am__EXEEXT_2 = dup_spy$(EXEEXT)
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS) $(sbin_PROGRAMS)
+am_afd_hex_print_OBJECTS = afd_hex_print.$(OBJEXT)
+afd_hex_print_OBJECTS = $(am_afd_hex_print_OBJECTS)
+afd_hex_print_LDADD = $(LDADD)
 am_afd_status_OBJECTS = afd_status.$(OBJEXT)
 afd_status_OBJECTS = $(am_afd_status_OBJECTS)
 afd_status_DEPENDENCIES = ../common/libafd.a
@@ -176,9 +179,9 @@ grib2wmo_DEPENDENCIES = ../misc/libmisc.a
 am_gts2tiff_OBJECTS = gts2tiff.$(OBJEXT) receive_log.$(OBJEXT)
 gts2tiff_OBJECTS = $(am_gts2tiff_OBJECTS)
 gts2tiff_DEPENDENCIES = ../misc/libmisc.a ../common/libafd.a
-am_job_list_spy_OBJECTS = job_list_spy.$(OBJEXT)
-job_list_spy_OBJECTS = $(am_job_list_spy_OBJECTS)
-job_list_spy_DEPENDENCIES = ../common/libafd.a
+am_jid_view_OBJECTS = jid_view.$(OBJEXT)
+jid_view_OBJECTS = $(am_jid_view_OBJECTS)
+jid_view_DEPENDENCIES = ../common/libafd.a
 am_linger_OBJECTS = linger.$(OBJEXT)
 linger_OBJECTS = $(am_linger_OBJECTS)
 linger_LDADD = $(LDADD)
@@ -228,30 +231,9 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(afd_status_SOURCES) $(afdcfg_SOURCES) $(afdcmd_SOURCES) \
-	$(bfc_SOURCES) $(binfc_SOURCES) $(byte_order_SOURCES) \
-	$(cache_spy_SOURCES) $(convert_fsa_SOURCES) \
-	$(convert_jid_SOURCES) $(convert_ls_data_SOURCES) \
-	$(convert_stat_SOURCES) $(count_burst_SOURCES) \
-	$(current_job_list_spy_SOURCES) $(dc_id_spy_SOURCES) \
-	$(del_cache_SOURCES) $(dir_spy_SOURCES) $(dup_spy_SOURCES) \
-	$(file_dir_check_SOURCES) $(file_mask_list_spy_SOURCES) \
-	$(force_archive_check_SOURCES) $(fra_version_SOURCES) \
-	$(fra_view_SOURCES) $(fsa_edit_SOURCES) $(fsa_view_SOURCES) \
-	$(gen_file_SOURCES) $(get_counter_SOURCES) \
-	$(get_dc_data_SOURCES) $(get_file_size_SOURCES) \
-	$(get_full_date_SOURCES) $(get_hostname_SOURCES) \
-	$(grib2wmo_SOURCES) $(gts2tiff_SOURCES) \
-	$(job_list_spy_SOURCES) $(linger_SOURCES) $(queue_spy_SOURCES) \
-	$(rdu_SOURCES) $(reset_fsa_SOURCES) $(rm_job_SOURCES) \
-	$(set_counter_SOURCES) $(set_pw_SOURCES) \
-	$(show_exec_stat_SOURCES) $(sysconf_SOURCES) \
-	$(tiff_sniffer_SOURCES) $(udc_SOURCES) \
-	$(view_error_queue_SOURCES) $(view_ls_data_SOURCES) \
-	$(watch_dir_SOURCES)
-DIST_SOURCES = $(afd_status_SOURCES) $(afdcfg_SOURCES) \
-	$(afdcmd_SOURCES) $(bfc_SOURCES) $(binfc_SOURCES) \
-	$(byte_order_SOURCES) $(cache_spy_SOURCES) \
+SOURCES = $(afd_hex_print_SOURCES) $(afd_status_SOURCES) \
+	$(afdcfg_SOURCES) $(afdcmd_SOURCES) $(bfc_SOURCES) \
+	$(binfc_SOURCES) $(byte_order_SOURCES) $(cache_spy_SOURCES) \
 	$(convert_fsa_SOURCES) $(convert_jid_SOURCES) \
 	$(convert_ls_data_SOURCES) $(convert_stat_SOURCES) \
 	$(count_burst_SOURCES) $(current_job_list_spy_SOURCES) \
@@ -262,11 +244,30 @@ DIST_SOURCES = $(afd_status_SOURCES) $(afdcfg_SOURCES) \
 	$(fsa_view_SOURCES) $(gen_file_SOURCES) $(get_counter_SOURCES) \
 	$(get_dc_data_SOURCES) $(get_file_size_SOURCES) \
 	$(get_full_date_SOURCES) $(get_hostname_SOURCES) \
-	$(grib2wmo_SOURCES) $(gts2tiff_SOURCES) \
-	$(job_list_spy_SOURCES) $(linger_SOURCES) $(queue_spy_SOURCES) \
-	$(rdu_SOURCES) $(reset_fsa_SOURCES) $(rm_job_SOURCES) \
-	$(set_counter_SOURCES) $(set_pw_SOURCES) \
-	$(show_exec_stat_SOURCES) $(sysconf_SOURCES) \
+	$(grib2wmo_SOURCES) $(gts2tiff_SOURCES) $(jid_view_SOURCES) \
+	$(linger_SOURCES) $(queue_spy_SOURCES) $(rdu_SOURCES) \
+	$(reset_fsa_SOURCES) $(rm_job_SOURCES) $(set_counter_SOURCES) \
+	$(set_pw_SOURCES) $(show_exec_stat_SOURCES) $(sysconf_SOURCES) \
+	$(tiff_sniffer_SOURCES) $(udc_SOURCES) \
+	$(view_error_queue_SOURCES) $(view_ls_data_SOURCES) \
+	$(watch_dir_SOURCES)
+DIST_SOURCES = $(afd_hex_print_SOURCES) $(afd_status_SOURCES) \
+	$(afdcfg_SOURCES) $(afdcmd_SOURCES) $(bfc_SOURCES) \
+	$(binfc_SOURCES) $(byte_order_SOURCES) $(cache_spy_SOURCES) \
+	$(convert_fsa_SOURCES) $(convert_jid_SOURCES) \
+	$(convert_ls_data_SOURCES) $(convert_stat_SOURCES) \
+	$(count_burst_SOURCES) $(current_job_list_spy_SOURCES) \
+	$(dc_id_spy_SOURCES) $(del_cache_SOURCES) $(dir_spy_SOURCES) \
+	$(dup_spy_SOURCES) $(file_dir_check_SOURCES) \
+	$(file_mask_list_spy_SOURCES) $(force_archive_check_SOURCES) \
+	$(fra_version_SOURCES) $(fra_view_SOURCES) $(fsa_edit_SOURCES) \
+	$(fsa_view_SOURCES) $(gen_file_SOURCES) $(get_counter_SOURCES) \
+	$(get_dc_data_SOURCES) $(get_file_size_SOURCES) \
+	$(get_full_date_SOURCES) $(get_hostname_SOURCES) \
+	$(grib2wmo_SOURCES) $(gts2tiff_SOURCES) $(jid_view_SOURCES) \
+	$(linger_SOURCES) $(queue_spy_SOURCES) $(rdu_SOURCES) \
+	$(reset_fsa_SOURCES) $(rm_job_SOURCES) $(set_counter_SOURCES) \
+	$(set_pw_SOURCES) $(show_exec_stat_SOURCES) $(sysconf_SOURCES) \
 	$(tiff_sniffer_SOURCES) $(udc_SOURCES) \
 	$(view_error_queue_SOURCES) $(view_ls_data_SOURCES) \
 	$(watch_dir_SOURCES)
@@ -428,7 +429,7 @@ target_alias = @target_alias@
 @WITHOUT_DUPCHECK_FALSE@EXTRA_DUPCHECK = 
 @WITHOUT_DUPCHECK_TRUE@EXTRA_DUPCHECK = dup_spy
 INCLUDES = -I.. -I../init_afd -I../amg -I../fd\
-                               -I../statistics
+                               -I../statistics -I../log
 
 MAINTAINERCLEANFILES = Makefile.in $(EXTRA_PROGRAMS)
 CLEANFILES = gmon.out core core.*
@@ -495,8 +496,9 @@ gts2tiff_SOURCES = gts2tiff.c\
                                receive_log.c
 
 gts2tiff_LDADD = ../misc/libmisc.a ../common/libafd.a 
-job_list_spy_SOURCES = job_list_spy.c
-job_list_spy_LDADD = ../common/libafd.a
+afd_hex_print_SOURCES = afd_hex_print.c
+jid_view_SOURCES = jid_view.c
+jid_view_LDADD = ../common/libafd.a
 linger_SOURCES = linger.c
 queue_spy_SOURCES = queue_spy.c
 queue_spy_LDADD = ../common/libafd.a
@@ -600,6 +602,9 @@ uninstall-sbinPROGRAMS:
 
 clean-sbinPROGRAMS:
 	-test -z "$(sbin_PROGRAMS)" || rm -f $(sbin_PROGRAMS)
+afd_hex_print$(EXEEXT): $(afd_hex_print_OBJECTS) $(afd_hex_print_DEPENDENCIES) 
+	@rm -f afd_hex_print$(EXEEXT)
+	$(LINK) $(afd_hex_print_LDFLAGS) $(afd_hex_print_OBJECTS) $(afd_hex_print_LDADD) $(LIBS)
 afd_status$(EXEEXT): $(afd_status_OBJECTS) $(afd_status_DEPENDENCIES) 
 	@rm -f afd_status$(EXEEXT)
 	$(LINK) $(afd_status_LDFLAGS) $(afd_status_OBJECTS) $(afd_status_LDADD) $(LIBS)
@@ -696,9 +701,9 @@ grib2wmo$(EXEEXT): $(grib2wmo_OBJECTS) $(grib2wmo_DEPENDENCIES)
 gts2tiff$(EXEEXT): $(gts2tiff_OBJECTS) $(gts2tiff_DEPENDENCIES) 
 	@rm -f gts2tiff$(EXEEXT)
 	$(LINK) $(gts2tiff_LDFLAGS) $(gts2tiff_OBJECTS) $(gts2tiff_LDADD) $(LIBS)
-job_list_spy$(EXEEXT): $(job_list_spy_OBJECTS) $(job_list_spy_DEPENDENCIES) 
-	@rm -f job_list_spy$(EXEEXT)
-	$(LINK) $(job_list_spy_LDFLAGS) $(job_list_spy_OBJECTS) $(job_list_spy_LDADD) $(LIBS)
+jid_view$(EXEEXT): $(jid_view_OBJECTS) $(jid_view_DEPENDENCIES) 
+	@rm -f jid_view$(EXEEXT)
+	$(LINK) $(jid_view_LDFLAGS) $(jid_view_OBJECTS) $(jid_view_LDADD) $(LIBS)
 linger$(EXEEXT): $(linger_OBJECTS) $(linger_DEPENDENCIES) 
 	@rm -f linger$(EXEEXT)
 	$(LINK) $(linger_LDFLAGS) $(linger_OBJECTS) $(linger_LDADD) $(LIBS)
@@ -748,6 +753,7 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afd_hex_print.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afd_status.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afdcfg.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/afdcmd.Po@am__quote@
@@ -780,7 +786,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_hostname.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/grib2wmo.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gts2tiff.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/job_list_spy.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/jid_view.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/linger.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/queue_spy.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rdu.Po@am__quote@

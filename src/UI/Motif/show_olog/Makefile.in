@@ -64,7 +64,7 @@ PROGRAMS = $(bin_PROGRAMS)
 am_show_olog_OBJECTS = calculate_summary.$(OBJEXT) callbacks.$(OBJEXT) \
 	format_info.$(OBJEXT) get_data.$(OBJEXT) get_info.$(OBJEXT) \
 	print_data.$(OBJEXT) resend_files.$(OBJEXT) \
-	send_files.$(OBJEXT) show_olog.$(OBJEXT)
+	send_files.$(OBJEXT) show_olog.$(OBJEXT) view_files.$(OBJEXT)
 show_olog_OBJECTS = $(am_show_olog_OBJECTS)
 show_olog_DEPENDENCIES = ../common/libxafd.a ../../../common/libafd.a
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -245,7 +245,8 @@ show_olog_SOURCES = calculate_summary.c\
                        print_data.c\
                        resend_files.c\
                        send_files.c\
-                       show_olog.c
+                       show_olog.c\
+                       view_files.c
 
 show_olog_LDADD = ../common/libxafd.a\
                        ../../../common/libafd.a @AFD_MOTIF_LIBS@
@@ -325,6 +326,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/resend_files.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/send_files.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_olog.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/view_files.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \

@@ -94,7 +94,6 @@ extern struct message_buf         *mb;
 #ifdef _WITH_PTHREAD
 extern pthread_mutex_t            fsa_mutex;
 #else
-extern char                       *file_name_buffer;
 # ifdef _DELETE_LOG
 extern off_t                      *file_size_pool;
 extern char                       **file_name_pool;
@@ -117,7 +116,6 @@ send_message(char           *outgoing_file_dir,
              time_t         creation_time,
              int            position,
 #ifdef _WITH_PTHREAD
-             char           *file_name_buffer,
 # ifdef _DELETE_LOG
              off_t          *file_size_pool,
              char           **file_name_pool,
@@ -233,6 +231,7 @@ send_message(char           *outgoing_file_dir,
       }
 #endif
       *(time_t *)(fifo_buffer) = creation_time;
+#if SIZEOF_TIME_T == 4
       *(unsigned int *)(fifo_buffer + sizeof(time_t)) = db[position].job_id;
       *(unsigned int *)(fifo_buffer + sizeof(time_t) +
                         sizeof(unsigned int)) = split_job_counter;
@@ -241,6 +240,16 @@ send_message(char           *outgoing_file_dir,
       *(off_t *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                  sizeof(unsigned int) +
                  sizeof(unsigned int)) = file_size_to_send;
+#else
+      *(off_t *)(fifo_buffer + sizeof(time_t)) = file_size_to_send;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) +
+                        sizeof(off_t)) = db[position].job_id;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(off_t) +
+                        sizeof(unsigned int)) = split_job_counter;
+      *(unsigned int *)(fifo_buffer + sizeof(time_t) + sizeof(off_t) +
+                        sizeof(unsigned int) +
+                        sizeof(unsigned int)) = files_to_send;
+#endif
       *(unsigned short *)(fifo_buffer + sizeof(time_t) + sizeof(unsigned int) +
                           sizeof(unsigned int) + sizeof(unsigned int) +
                           sizeof(off_t)) = dir_no;

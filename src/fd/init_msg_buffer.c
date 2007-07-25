@@ -1,6 +1,6 @@
 /*
  *  init_msg_buffer.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1998 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1998 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -186,11 +186,11 @@ init_msg_buffer(void)
       {
          do
          {
-            (void)sleep(1);
+            (void)my_usleep(100000L);
             errno = 0;
             sleep_counter++;
             if (((jd_fd = coe_open(job_id_data_file, O_RDWR)) == -1) &&
-                ((errno != ENOENT) || (sleep_counter > 10)))
+                ((errno != ENOENT) || (sleep_counter > 100)))
             {
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           "Failed to open() `%s' : %s",
@@ -257,9 +257,9 @@ stat_again:
    sleep_counter = 0;
    while ((p_afd_status->amg_jobs & WRITTING_JID_STRUCT) == 1)
    {
-      (void)sleep(1);
+      (void)my_usleep(100000L);
       sleep_counter++;
-      if (sleep_counter > 10)
+      if (sleep_counter > 110)
       {
          system_log(ERROR_SIGN, __FILE__, __LINE__,
                     "Timeout arrived for waiting for AMG to finish writting to JID structure.");
@@ -1883,7 +1883,7 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                             j,
                             mask_offset,
                             *no_of_file_mask_ids;
-                     size_t original_size = stat_buf.st_size,
+                     size_t original_size = stat_buf.st_size - AFD_WORD_OFFSET,
                             remove_size,
                             size_removed = 0;
                      char   *fmd;
@@ -1950,7 +1950,7 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                      if (size_removed > 0)
                      {
                         if ((ptr = mmap_resize(fmd_fd, ptr,
-                                               original_size - size_removed)) == (caddr_t) -1)
+                                               original_size + AFD_WORD_OFFSET - size_removed)) == (caddr_t) -1)
                         {
                            system_log(FATAL_SIGN, __FILE__, __LINE__,
                                       "Failed to mmap_resize() `%s' : %s",
@@ -1961,7 +1961,7 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                                    "Removed %d file masks.", file_mask_removed);
                      }
 #ifdef HAVE_MMAP
-                     if (msync(ptr, (original_size - size_removed), MS_SYNC) == -1)
+                     if (msync(ptr, (original_size + AFD_WORD_OFFSET - size_removed), MS_SYNC) == -1)
 #else
                      if (msync_emu(ptr) == -1)
 #endif
@@ -1971,7 +1971,7 @@ remove_jobs(int jd_fd, off_t *jid_struct_size, char *job_id_data_file)
                                    fmd_file_name, strerror(errno));
                      }
 #ifdef HAVE_MMAP
-                     if (munmap(ptr, (original_size - size_removed)) == -1)
+                     if (munmap(ptr, (original_size + AFD_WORD_OFFSET - size_removed)) == -1)
 #else
                      if (munmap_emu((void *)ptr) == -1)
 #endif

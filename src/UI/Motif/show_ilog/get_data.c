@@ -75,7 +75,7 @@ DESCR__E_M3
 #include "afd_ctrl.h"
 #include "show_ilog.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display          *display;
 extern Window           main_window;
 extern XtAppContext     app;
@@ -129,7 +129,7 @@ static char             *p_file_name,
 static XmStringTable    str_list;
 static XtIntervalId     interval_id_log;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static char   *search_time(char *, time_t, time_t, time_t, size_t);
 static void   check_log_updates(Widget),
               display_data(int, time_t, time_t),
@@ -177,27 +177,10 @@ static void   check_log_updates(Widget),
            ptr++; i--;         \
            continue;           \
         }
-#define CONVERT_TIME()                               \
-        {                                            \
-           line[0] = ((p_ts->tm_mon + 1) / 10) + '0';\
-           line[1] = ((p_ts->tm_mon + 1) % 10) + '0';\
-           line[2] = '.';                            \
-           line[3] = (p_ts->tm_mday / 10) + '0';     \
-           line[4] = (p_ts->tm_mday % 10) + '0';     \
-           line[5] = '.';                            \
-           line[7] = (p_ts->tm_hour / 10) + '0';     \
-           line[8] = (p_ts->tm_hour % 10) + '0';     \
-           line[9] = ':';                            \
-           line[10] = (p_ts->tm_min / 10) + '0';     \
-           line[11] = (p_ts->tm_min % 10) + '0';     \
-           line[12] = ':';                           \
-           line[13] = (p_ts->tm_sec / 10) + '0';     \
-           line[14] = (p_ts->tm_sec % 10) + '0';     \
-        }
 #define INSERT_TIME()                                     \
         {                                                 \
            (void)memset(line, ' ', MAX_OUTPUT_LINE_LENGTH + file_name_length);\
-           time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);\
+           time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);\
            if (first_date_found == -1)                    \
            {                                              \
               first_date_found = time_when_transmitted;   \
@@ -275,7 +258,7 @@ static void   check_log_updates(Widget),
            }                                                                \
         }
 
-/* #define MACRO_DEBUG */
+#define MACRO_DEBUG
 
 
 /*############################### get_data() ############################*/
@@ -349,12 +332,12 @@ get_data(void)
 
    if ((str_list = (XmStringTable)XtMalloc(LINES_BUFFERED * sizeof(XmString))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(appshell, FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }
 
-   /* Allocate memory for item list */
+   /* Allocate memory for item list. */
    if (il == NULL)
    {
       if ((il = malloc(max_input_log_files * sizeof(struct item_list))) == NULL)
@@ -570,7 +553,7 @@ extract_data(char *current_log_file, int file_no, int log_no)
 
    /* Get latest entry. */
    tmp_ptr = src + stat_buf.st_size - 2;
-   while ((*tmp_ptr != '\n') && (src != (tmp_ptr - 1)))
+   while ((*tmp_ptr != '\n') && (src != tmp_ptr))
    {
       tmp_ptr--;
    }
@@ -582,12 +565,12 @@ extract_data(char *current_log_file, int file_no, int log_no)
    {
       ptr = tmp_ptr;
    }
-   time_val = (time_t)strtol(ptr, NULL, 16);
+   time_val = (time_t)str2timet(ptr, NULL, 16);
    latest_entry = time_val;
 
    /* Get earliest entry. */
    ptr = src;
-   time_val = (time_t)strtol(ptr, NULL, 16);
+   time_val = (time_t)str2timet(ptr, NULL, 16);
    earliest_entry = time_val;
 
    if (local_start_time == -1)
@@ -969,14 +952,14 @@ search_time(char   *src,
          do
          {
             ptr = bs_ptr;
-            ptr -= 11 + 1;
-            while (*ptr != '\n')
+            ptr -= LOG_DATE_LENGTH + 1 + 1;
+            while ((ptr >= src) && (*ptr != '\n'))
             {
                ptr--;
             }
             bs_ptr = ptr - 1;
             ptr++;
-            time_val = (time_t)strtol(ptr, NULL, 16);
+            time_val = (time_t)str2timet(ptr, NULL, 16);
          } while ((time_val >= search_time_val) && (ptr > src));
          while (*ptr != '\n')
          {
@@ -988,13 +971,13 @@ search_time(char   *src,
          ptr = src;
          do
          {
-            ptr += 11 + 1;
+            ptr += LOG_DATE_LENGTH + 1 + 1;
             while (*ptr != '\n')
             {
                ptr++;
             }
             ptr++;
-            time_val = (time_t)strtol(ptr, NULL, 16);
+            time_val = (time_t)str2timet(ptr, NULL, 16);
          } while ((time_val < search_time_val) && (ptr < (src + size)));
          while (*ptr != '\n')
          {
@@ -1064,7 +1047,7 @@ no_criteria(register char *ptr,
 
          j = 0;
          il[file_no].line_offset[item_counter] = (off_t)(ptr - p_start_log_file + offset);
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
          INSERT_TIME();
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
@@ -1267,10 +1250,10 @@ file_name_only(register char *ptr,
 
          ptr_start_line = ptr;
 
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
          if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
          {
-            il[file_no].line_offset[item_counter] = (off_t)(ptr - 11 - p_start_log_file + offset);
+            il[file_no].line_offset[item_counter] = (off_t)(ptr - (LOG_DATE_LENGTH + 1) - p_start_log_file + offset);
             INSERT_TIME();
             j = 0;
             while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
@@ -1421,7 +1404,7 @@ file_size_only(register char *ptr,
          }
 
          ptr_start_line = ptr;
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
 
          /* Away with the file name. */
          while (*ptr != SEPARATOR_CHAR)
@@ -1501,8 +1484,8 @@ file_size_only(register char *ptr,
               }
 
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-         ptr = ptr_start_line + 11;
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1;
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -1618,7 +1601,7 @@ file_name_and_size(register char *ptr,
 
          ptr_start_line = ptr;
 
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
          if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) != 0)
          {
             IGNORE_ENTRY();
@@ -1689,7 +1672,7 @@ file_name_and_size(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + 11;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1;
          INSERT_TIME();
 
          j = 0;
@@ -1806,7 +1789,7 @@ recipient_only(register char *ptr,
          INSERT_TIME();
          j = 0;
          il[file_no].line_offset[item_counter] = (off_t)(ptr - p_start_log_file + offset);
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
             *(p_file_name + j) = *ptr;
@@ -2063,7 +2046,7 @@ file_name_and_recipient(register char *ptr,
 
          ptr_start_line = ptr;
 
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
          if (sfilter(search_file_name, ptr, SEPARATOR_CHAR) == 0)
          {
             il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
@@ -2330,7 +2313,7 @@ file_size_and_recipient(register char *ptr,
 
          ptr_start_line = ptr;
 
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
@@ -2418,8 +2401,8 @@ file_size_and_recipient(register char *ptr,
               }
 
          il[file_no].line_offset[item_counter] = (off_t)(ptr_start_line - p_start_log_file + offset);
-         ptr = ptr_start_line + 11;
-         time_when_transmitted = (time_t)strtol(ptr_start_line, NULL, 16);
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1;
+         time_when_transmitted = (time_t)str2timet(ptr_start_line, NULL, 16);
          if (first_date_found == -1)
          {
             first_date_found = time_when_transmitted;
@@ -2646,7 +2629,7 @@ file_name_size_recipient(register char *ptr,
 
          ptr_start_line = ptr;
 
-         ptr += 11;
+         ptr += LOG_DATE_LENGTH + 1;
          j = 0;
          while ((*ptr != SEPARATOR_CHAR) && (j < file_name_length))
          {
@@ -2726,7 +2709,7 @@ file_name_size_recipient(register char *ptr,
                  IGNORE_ENTRY();
               }
 
-         ptr = ptr_start_line + 11;
+         ptr = ptr_start_line + LOG_DATE_LENGTH + 1;
          INSERT_TIME();
 
          j = 0;

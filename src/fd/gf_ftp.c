@@ -65,7 +65,8 @@ DESCR__E_M1
 #include "fddefs.h"
 #include "version.h"
 
-int                        exitflag = IS_FAULTY_VAR,
+int                        event_log_fd = STDERR_FILENO,
+                           exitflag = IS_FAULTY_VAR,
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -930,11 +931,35 @@ main(int argc, char *argv[])
                          */
                         if (fsa->host_status & AUTO_PAUSE_QUEUE_STAT)
                         {
+                           char *sign;
+
                            fsa->host_status ^= AUTO_PAUSE_QUEUE_STAT;
+                           if (fsa->host_status & HOST_ERROR_EA_STATIC)
+                           {
+                              fsa->host_status &= ~EVENT_STATUS_STATIC_FLAGS;
+                           }
+                           else
+                           {
+                              fsa->host_status &= ~EVENT_STATUS_FLAGS;
+                           }
                            error_action(fsa->host_alias, "stop");
-                           system_log(INFO_SIGN, __FILE__, __LINE__,
+                           event_log(0L, EC_HOST, ET_EXT, EA_ERROR_END, "%s",
+                                     fsa->host_alias);
+                           if ((fsa->host_status & HOST_ERROR_OFFLINE_STATIC) ||
+                               (fsa->host_status & HOST_ERROR_OFFLINE) ||
+                               (fsa->host_status & HOST_ERROR_OFFLINE_T))
+                           {
+                              sign = OFFLINE_SIGN;
+                           }
+                           else
+                           {
+                              sign = INFO_SIGN;
+                           }
+                           system_log(sign, __FILE__, __LINE__,
                                       "Starting input queue for <%s> that was stopped by init_afd.",
                                       fsa->host_alias);
+                           event_log(0L, EC_HOST, ET_AUTO, EA_START_QUEUE, "%s",
+                                     fsa->host_alias);
                         }
                      }
                   }

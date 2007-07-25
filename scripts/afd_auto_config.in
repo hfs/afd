@@ -42,6 +42,7 @@ then
    echo "         [options]" >> $AFD_WORK_DIR/etc/DIR_CONFIG
    echo "         priority 9" >> $AFD_WORK_DIR/etc/DIR_CONFIG
    echo "         rename disneyland" >> $AFD_WORK_DIR/etc/DIR_CONFIG
+   chmod 600 $AFD_WORK_DIR/etc/DIR_CONFIG
 fi
 
 if [ ! -f $AFD_WORK_DIR/etc/AFD_CONFIG ]
@@ -49,6 +50,7 @@ then
    if [ -f @prefix@/etc/AFD_CONFIG.sample ]
    then
       cp @prefix@/etc/AFD_CONFIG.sample $AFD_WORK_DIR/etc/AFD_CONFIG
+      chmod 640 $AFD_WORK_DIR/etc/AFD_CONFIG
    fi
 fi
 

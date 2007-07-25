@@ -23,8 +23,22 @@ see <a href="afd_users.html">afd.users</a> for more details.
 </p>
 <br clear=left>
 <br>
-<img align=left src="../images/dir_popup.png" alt="[popup of Dir button]">
+<img align=left src="../images/dir_popup.gif" alt="[popup of Dir button]">
 <table border>
+   <tr>
+      <td><a name="handle_event">Handle event</a></td>
+      <td>This allows one to acknowledge an error situation, put an
+          error situation offline or unset the acknowledge and/or offline
+          setting. You must select one or more directories to get the
+          handle_event popup. In the reason text field one can enter
+          a reason which will then show up in the event log via the
+          <a href="show_elog.html">show_elog</a> dialog. Acknowleding
+          pink (<img src="../images/acknowledge_source.gif">). If the
+          host is put offline it will turn Steelblue
+          (<img src="../images/offline_source.gif">) and errors and
+          warnings will be marked as offline in the logs.</td>
+      <td align=center><img src="../images/handle_event_popup.gif" alt="[Dialog to handle event]"></td>
+   </tr>
    <tr>
       <td>Enable/disable</td>
       <td>Allows you to enable or disable the selected directory. When
@@ -44,7 +58,7 @@ see <a href="afd_users.html">afd.users</a> for more details.
       <td>Search + (De)Select</td>
       <td>This allows to search for a given directory (alias and real) name,
           with wild cards. The found directory will then be selected.</td>
-      <td><img src="../images/dir_search_select.png" alt="[Search and select dialog]"></td>
+      <td align=center><img src="../images/dir_search_select.png" alt="[Search and select dialog]"></td>
    </tr>
    <tr>
       <td>Load</td>
@@ -62,12 +76,18 @@ see <a href="afd_users.html">afd.users</a> for more details.
 </table>
 <br clear=left>
 <br>
-<img align=left src="../images/dir_view_popup.png" alt="[popup of View button]">
+<img align=left src="../images/dir_view_popup.gif" alt="[popup of View button]">
 <table border>
    <tr>
       <td>System Log</td>
       <td>System Log opens the <a href="show_log.html">system
           dialog</a>. See <a href="log.html#system_log">Log Files</a> for
+          a more detailed description of the output.</td>
+   </tr>
+   <tr>
+      <td>Event Log</td>
+      <td>Event Log opens the <a href="show_elog.html">event
+          dialog</a>. See <a href="log.html#event_log">Log Files</a> for
           a more detailed description of the output.</td>
    </tr>
    <tr>
@@ -238,6 +258,16 @@ directories of the AFD. The meaning of each field is shown below:
 	      been set for this source.</td>
        </tr>
        <tr>
+          <td><center><img src="../images/acknowledge_source.gif"></center></td>
+	  <td>Errors acknowledged. Files cannot be retrieved from the
+	      source.</td>
+       </tr>
+       <tr>
+          <td><center><img src="../images/offline_source.gif"></center></td>
+	  <td>Errors offline. Files cannot be retrieved from the
+	      source. Error and warnings have been put offline.</td>
+       </tr>
+       <tr>
           <td><center><img src="../images/error_source.gif"></center></td>
 	  <td>Error. Files cannot be retrieved from the source.</td>
        </tr>
@@ -369,9 +399,9 @@ change to black or grey respectively.
 <table width=100%>
 <tr>
    <td width=90%><address><small>
-   Copyright &copy; 2006 by H.Kiehl<br>
+   Copyright &copy; 2006, 2007 by H.Kiehl<br>
    <a href="mailto:Holger.Kiehl@dwd.de?subject=AFD Homepage">Holger.Kiehl@dwd.de</a><br>
-   Last updated: 21.11.2006
+   Last updated: 22.07.2007
    </small></address></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="contents.html">Index</a></small></td>
    <td nowrap><small><img align=middle src="../images/reddot.gif" alt="[red dot]"><a href="index.html">Home</a></small></td>

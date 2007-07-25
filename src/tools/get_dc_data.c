@@ -1,6 +1,6 @@
 /*
  *  get_dc_data.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -91,7 +91,8 @@ static int                 no_of_dirs_in_dnb,
                            no_of_file_mask_ids,
                            no_of_job_ids,
                            no_of_passwd;
-static char                *fmd = NULL;
+static char                *fmd = NULL,
+                           *fmd_end;
 static struct job_id_data  *jd = NULL;
 static struct dir_name_buf *dnb = NULL;
 static struct passwd_buf   *pwb = NULL;
@@ -147,7 +148,7 @@ main(int argc, char *argv[])
             if (my_strncpy(host_name, argv[1], MAX_HOSTNAME_LENGTH + 1) == -1)
             {
                usage(stderr, argv[0]);
-               if (strlen(argv[1]) > MAX_HOSTNAME_LENGTH)
+               if (strlen(argv[1]) >= MAX_HOSTNAME_LENGTH)
                {
                   (void)fprintf(stderr,
                                 "Given host_alias `%s' is to long (> %d)\n",
@@ -203,10 +204,18 @@ main(int argc, char *argv[])
             free(perm_buffer);
             break;
          }
-         else if (posi(perm_buffer, VIEW_PASSWD_PERM) != NULL)
-              {
-                 view_passwd = YES;
-              }
+         else
+         {
+            if (posi(perm_buffer, VIEW_DIR_CONFIG_PERM) == NULL)
+            {
+               (void)fprintf(stderr, "%s\n", PERMISSION_DENIED_STR);
+               exit(INCORRECT);
+            }
+            if (posi(perm_buffer, VIEW_PASSWD_PERM) != NULL)
+            {
+               view_passwd = YES;
+            }
+         }
          free(perm_buffer);
          break;
 
@@ -440,6 +449,7 @@ get_dc_data(char *host_name, char *dir_alias)
                             MAP_SHARED, fmd_fd, 0)) != (caddr_t) -1)
             {
                fmd_size = stat_buf.st_size;
+               fmd_end = ptr + stat_buf.st_size;
                no_of_file_mask_ids = *(int *)ptr;
                ptr += AFD_WORD_OFFSET;
                fmd = ptr;
@@ -719,6 +729,12 @@ show_data(struct job_id_data *p_jd,
          }
          ptr += (mask_offset + *(int *)(ptr + fml_offset) + sizeof(char) +
                  *(ptr + mask_offset - 1));
+         if (ptr > fmd_end)
+         {
+            (void)fprintf(stdout,
+                          "Filter        : Unable to locate, database corrupt.\n");
+            break;
+         }
       }
       if (p_file != NULL)
       {
@@ -732,7 +748,7 @@ show_data(struct job_id_data *p_jd,
       }
    }
 
-   /* Print recipient */
+   /* Print recipient. */
    (void)strcpy(value, p_jd->recipient);
    print_recipient(value);
    (void)fprintf(stdout, "Recipient     : %s\n", value);
@@ -744,7 +760,7 @@ show_data(struct job_id_data *p_jd,
                     fsa[position].real_hostname[1]);
    }
 
-   /* Show all AMG options */
+   /* Show all AMG options. */
    if (p_jd->no_of_loptions > 0)
    {
       char *ptr = p_jd->loptions;
@@ -758,7 +774,7 @@ show_data(struct job_id_data *p_jd,
       }
    }
 
-   /* Show all FD options */
+   /* Show all FD options. */
    if (p_jd->no_of_soptions > 0)
    {
       int  counter = 0;
@@ -790,10 +806,10 @@ show_data(struct job_id_data *p_jd,
       }
    }
 
-   /* Priority */
+   /* Priority. */
    (void)fprintf(stdout, "Priority      : %c\n", p_jd->priority);
 
-   /* Job ID */
+   /* Job ID. */
    (void)fprintf(stdout, "Job-ID        : %x\n\n", p_jd->job_id);
 
    return;
@@ -885,6 +901,13 @@ show_dir_data(int dir_pos)
             }
             ptr += (mask_offset + *(int *)(ptr + fml_offset) + sizeof(char) +
                     *(ptr + mask_offset - 1));
+            if (ptr > fmd_end)
+            {
+               (void)fprintf(stdout,
+                             "   %s\n   * # Filter database broken, assuming this filter!!!\n",
+                             FILE_IDENTIFIER);
+               break;
+            }
          }
          if (p_file != NULL)
          {

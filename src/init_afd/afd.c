@@ -37,6 +37,7 @@ DESCR__S_M1
  **          -i            initialize AFD, by deleting fifodir
  **          -I            initialize AFD, by deleting everything except for
  **                        the etc directory
+ **          -p <role>     use the given user role
  **          -r            Removes blocking file
  **          -s            shutdown AFD
  **          -S            silent AFD shutdown
@@ -130,12 +131,11 @@ DESCR__E_M1
 #define AFD_FULL_INITIALIZE      13
 #define SET_SHUTDOWN_BIT         14
 
-/* External global variables */
+/* External global variables. */
 int         sys_log_fd = STDERR_FILENO;
 char        *p_work_dir,
             afd_active_file[MAX_PATH_LENGTH],
-            afd_cmd_fifo[MAX_PATH_LENGTH],
-            probe_only_fifo[MAX_PATH_LENGTH];
+            afd_cmd_fifo[MAX_PATH_LENGTH];
 const char  *sys_log_name = SYSTEM_LOG_FIFO;
 
 /* Local functions. */
@@ -149,29 +149,21 @@ static int  check_database(void);
 int
 main(int argc, char *argv[])
 {
-   int            start_up,
-                  status,
-                  n,
-                  readfd,
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-                  writefd,
-#endif
-                  afd_ctrl_perm,
-                  initialize_perm,
-                  startup_perm,
-                  shutdown_perm;
-   char           *perm_buffer,
-                  work_dir[MAX_PATH_LENGTH],
-                  auto_block_file[MAX_PATH_LENGTH],
-                  exec_cmd[MAX_PATH_LENGTH],
-                  fake_user[MAX_FULL_USER_ID_LENGTH],
-                  sys_log_fifo[MAX_PATH_LENGTH],
-                  user[MAX_FULL_USER_ID_LENGTH],
-                  buffer[2];
-   fd_set         rset;
-   struct timeval timeout;
-   struct stat    stat_buf,
-                  stat_buf_fifo;
+   int         start_up,
+               readfd,
+               afd_ctrl_perm,
+               initialize_perm,
+               startup_perm,
+               shutdown_perm,
+               user_offset;
+   char        *perm_buffer,
+               work_dir[MAX_PATH_LENGTH],
+               auto_block_file[MAX_PATH_LENGTH],
+               exec_cmd[AFD_CTRL_LENGTH + 1],
+               fake_user[MAX_FULL_USER_ID_LENGTH],
+               sys_log_fifo[MAX_PATH_LENGTH],
+               user[MAX_FULL_USER_ID_LENGTH];
+   struct stat stat_buf;
 
    CHECK_FOR_VERSION(argc, argv);
    if ((argc > 1) &&
@@ -186,11 +178,19 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   if (get_arg(&argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+   }
+   else
+   {
+      user_offset = strlen(user);
+   }
 #ifdef WITH_SETUID_PROGS
    set_afd_euid(work_dir);
 #endif
    check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
 
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -438,7 +438,7 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
 
-   /* Initialise variables */
+   /* Initialise variables. */
    (void)strcpy(auto_block_file, work_dir);
    (void)strcat(auto_block_file, ETC_DIR);
    (void)strcat(auto_block_file, BLOCK_FILE);
@@ -452,8 +452,6 @@ main(int argc, char *argv[])
    (void)strcat(sys_log_fifo, SYSTEM_LOG_FIFO);
    (void)strcpy(afd_cmd_fifo, afd_active_file);
    (void)strcat(afd_cmd_fifo, AFD_CMD_FIFO);
-   (void)strcpy(probe_only_fifo, afd_active_file);
-   (void)strcat(probe_only_fifo, PROBE_ONLY_FIFO);
    (void)strcat(afd_active_file, AFD_ACTIVE_FILE);
 
    if ((stat(sys_log_fifo, &stat_buf) == -1) || (!S_ISFIFO(stat_buf.st_mode)))
@@ -527,7 +525,7 @@ main(int argc, char *argv[])
          fflush(stdout);
       }
 
-      shutdown_afd(fake_user);
+      shutdown_afd(user);
 
       /*
        * Wait for init_afd to terminate. But lets not wait forever.
@@ -556,8 +554,13 @@ main(int argc, char *argv[])
             if (kill(ia_pid, SIGINT) == -1)
             {
                (void)fprintf(stderr,
+#if SIZEOF_PID_T == 4
                              "Failed to kill init_afd (%d) : %s (%s %d)\n",
-                             ia_pid, strerror(errno),  __FILE__, __LINE__);
+#else
+                             "Failed to kill init_afd (%lld) : %s (%s %d)\n",
+#endif
+                             (pri_pid_t)ia_pid, strerror(errno),
+                             __FILE__, __LINE__);
             }
             else
             {
@@ -588,8 +591,13 @@ main(int argc, char *argv[])
             if (kill(ia_pid, SIGKILL) == -1)
             {
                (void)fprintf(stderr,
+#if SIZEOF_PID_T == 4
                              "Failed to kill init_afd (%d) : %s (%s %d)\n",
-                             ia_pid, strerror(errno),  __FILE__, __LINE__);
+#else
+                             "Failed to kill init_afd (%lld) : %s (%s %d)\n",
+#endif
+                             (pri_pid_t)ia_pid, strerror(errno),
+                             __FILE__, __LINE__);
             }
             break;
          }
@@ -629,35 +637,17 @@ main(int argc, char *argv[])
               exit(INCORRECT);
            }
 
-           (void)strcpy(exec_cmd, AFD);
-           switch (fork())
+           if (check_afd_heartbeat(25L, NO) == 1)
            {
-              case -1 :
-
-                 /* Could not generate process */
-                 (void)fprintf(stderr,
-                               "Could not create a new process : %s (%s %d)\n",
-                               strerror(errno),  __FILE__, __LINE__);
-                 break;
-
-              case  0 :
-
-                 /* Child process */
-                 if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
-                            (char *) 0) == -1)
-                 {
-                    (void)fprintf(stderr,
-                                  "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                                  exec_cmd, strerror(errno), __FILE__, __LINE__);
-                    exit(1);
-                 }
-                 exit(0);
-
-              default :
-
-                 /* Parent process */
-                 break;
+              (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
+              exit(AFD_IS_ACTIVE);
            }
+
+           if (startup_afd() != YES)
+           {
+              exit(INCORRECT);
+           }
+
            exit(0);
         }
    else if ((start_up == AFD_CHECK) || (start_up == AFD_CHECK_ONLY) ||
@@ -667,7 +657,7 @@ main(int argc, char *argv[])
            if ((start_up == AFD_CHECK_ONLY) ||
                (start_up == AFD_HEARTBEAT_CHECK_ONLY))
            {
-              if (check_afd_heartbeat(30L, NO) == 1)
+              if (check_afd_heartbeat(25L, NO) == 1)
               {
                  (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
                  exit(AFD_IS_ACTIVE);
@@ -675,7 +665,7 @@ main(int argc, char *argv[])
            }
            else
            {
-              if (check_afd_heartbeat(30L, YES) == 1)
+              if (check_afd_heartbeat(25L, YES) == 1)
               {
                  (void)fprintf(stdout, "AFD is active in %s\n", p_work_dir);
                  exit(AFD_IS_ACTIVE);
@@ -701,29 +691,9 @@ main(int argc, char *argv[])
                  exit(NO_DIR_CONFIG);
               }
 
-              (void)strcpy(exec_cmd, AFD);
-              switch (fork())
+              if (startup_afd() != YES)
               {
-                 case -1 : /* Could not generate process */
-                    (void)fprintf(stderr,
-                                  "Could not create a new process : %s (%s %d)\n",
-                                  strerror(errno),  __FILE__, __LINE__);
-                    break;
-
-                 case  0 : /* Child process */
-                    if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
-                               (char *) 0) == -1)
-                    {
-                       (void)fprintf(stderr,
-                                     "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                                     exec_cmd, strerror(errno),
-                                     __FILE__, __LINE__);
-                       exit(1);
-                    }
-                    exit(0);
-
-                 default : /* Parent process */
-                    break;
+                 exit(INCORRECT);
               }
            }
            else
@@ -773,7 +743,7 @@ main(int argc, char *argv[])
         }
    else if ((start_up == AFD_INITIALIZE) || (start_up == AFD_FULL_INITIALIZE))
         {
-           if (check_afd_heartbeat(30L, NO) == 1)
+           if (check_afd_heartbeat(25L, NO) == 1)
            {
               (void)fprintf(stderr,
                             "ERROR   : AFD is still active, unable to initialize.\n");
@@ -879,7 +849,7 @@ main(int argc, char *argv[])
    }
 
    /* Is another AFD active in this directory? */
-   if (check_afd_heartbeat(30L, YES) == 1)
+   if (check_afd_heartbeat(25L, YES) == 1)
    {
       /* Another AFD is active. Only start afd_ctrl. */
       (void)strcpy(exec_cmd, AFD_CTRL);
@@ -902,128 +872,23 @@ main(int argc, char *argv[])
          exit(INCORRECT);
       }
 
-      if ((stat(probe_only_fifo, &stat_buf_fifo) == -1) ||
-          (!S_ISFIFO(stat_buf_fifo.st_mode)))
+      if (startup_afd() == YES)
       {
-         if (make_fifo(probe_only_fifo) < 0)
+         (void)strcpy(exec_cmd, AFD_CTRL);
+         if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
+                    (char *) 0) == -1)
          {
             (void)fprintf(stderr,
-                          "Could not create fifo %s. (%s %d)\n",
-                          probe_only_fifo, __FILE__, __LINE__);
-            exit(INCORRECT);
+                          "ERROR   : Failed to execute %s : %s (%s %d)\n",
+                          exec_cmd, strerror(errno),
+                          __FILE__, __LINE__);
+            exit(1);
          }
       }
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(probe_only_fifo, &readfd, &writefd) == -1)
-#else
-      if ((readfd = coe_open(probe_only_fifo, O_RDWR)) == -1)
-#endif
+      else
       {
-         (void)fprintf(stderr,
-                       "Could not open fifo %s : %s (%s %d)\n",
-                       probe_only_fifo, strerror(errno), __FILE__, __LINE__);
          exit(INCORRECT);
       }
-
-      /* Start AFD */
-      (void)strcpy(exec_cmd, AFD);
-      switch (fork())
-      {
-         case -1 : /* Could not generate process */
-            (void)fprintf(stderr,
-                          "Could not create a new process : %s (%s %d)\n",
-                          strerror(errno),  __FILE__, __LINE__);
-            break;
-
-         case  0 : /* Child process */
-            if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
-                       (char *) 0) < 0)
-            {
-               (void)fprintf(stderr,
-                             "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                             exec_cmd, strerror(errno), __FILE__, __LINE__);
-               exit(1);
-            }
-            exit(0);
-
-         default : /* Parent process */
-            break;
-      }
-
-      /* Now lets wait for the AFD to have finished creating */
-      /* FSA (Filetransfer Status Area).                     */
-      FD_ZERO(&rset);
-      FD_SET(readfd, &rset);
-      timeout.tv_usec = 0;
-      timeout.tv_sec = 20;
-
-      /* Wait for message x seconds and then continue. */
-      status = select(readfd + 1, &rset, NULL, NULL, &timeout);
-
-      if (status == 0)
-      {
-         /* No answer from the other AFD. Lets assume it */
-         /* not able to startup properly.                */
-         (void)fprintf(stderr, "%s does not reply. (%s %d)\n",
-                       AFD, __FILE__, __LINE__);
-         exit(INCORRECT);
-      }
-      else if (FD_ISSET(readfd, &rset))
-           {
-              /* Ahhh! Now we can start afd_ctrl */
-              if ((n = read(readfd, buffer, 1)) > 0)
-              {
-                 if (buffer[0] == ACKN)
-                 {
-                    (void)close(readfd);
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-                    (void)close(writefd);
-#endif
-
-                    (void)strcpy(exec_cmd, AFD_CTRL);
-                    if (execlp(exec_cmd, exec_cmd, WORK_DIR_ID, work_dir,
-                               (char *) 0) == -1)
-                    {
-                       (void)fprintf(stderr,
-                                     "ERROR   : Failed to execute %s : %s (%s %d)\n",
-                                     exec_cmd, strerror(errno),
-                                     __FILE__, __LINE__);
-                       exit(1);
-                    }
-                 }
-                 else
-                 {
-                    (void)fprintf(stderr,
-                                  "Reading garbage from fifo %s. (%s %d)\n",
-                                  probe_only_fifo,  __FILE__, __LINE__);
-                    exit(INCORRECT);
-                 }
-              }
-              else if (n < 0)
-                   {
-                      (void)fprintf(stderr, "read() error : %s (%s %d)\n",
-                                    strerror(errno),  __FILE__, __LINE__);
-                      exit(INCORRECT);
-                   }
-           }
-           else if (status < 0)
-                {
-                   (void)fprintf(stderr, "Select error : %s (%s %d)\n",
-                                 strerror(errno),  __FILE__, __LINE__);
-                   exit(INCORRECT);
-                }
-                else
-                {
-                   (void)fprintf(stderr,
-                                 "Unknown condition. Maybe you can tell what's going on here. (%s %d)\n",
-                                 __FILE__, __LINE__);
-                   exit(INCORRECT);
-                }
-
-      (void)close(readfd);
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      (void)close(writefd);
-#endif
    }
 
    exit(0);
@@ -1137,6 +1002,7 @@ delete_fifodir_files(char *fifodir, int offset)
             AFD_ACTIVE_FILE,
             WINDOW_ID_FILE,
             SYSTEM_LOG_FIFO,
+            EVENT_LOG_FIFO,
             RECEIVE_LOG_FIFO,
             TRANSFER_LOG_FIFO,
             TRANS_DEBUG_LOG_FIFO,
@@ -1175,7 +1041,8 @@ delete_fifodir_files(char *fifodir, int offset)
         {
            FSA_STAT_FILE_ALL,
            FRA_STAT_FILE_ALL,
-           ALTERNATE_FILE_ALL
+           ALTERNATE_FILE_ALL,
+           DB_UPDATE_REPLY_FIFO_ALL
         };
 
    file_ptr = fifodir + offset;
@@ -1219,6 +1086,7 @@ delete_log_files(char *logdir, int offset)
         *mloglist[] =
         {
            SYSTEM_LOG_NAME_ALL,
+           EVENT_LOG_NAME_ALL,
            RECEIVE_LOG_NAME_ALL,
            TRANSFER_LOG_NAME_ALL,
            TRANS_DB_LOG_NAME_ALL,
@@ -1267,7 +1135,7 @@ delete_log_files(char *logdir, int offset)
 static void
 usage(char *progname)
 {
-   (void)fprintf(stderr, "Usage: %s [-w <AFD working dir>] [-u[ <user>]] [option]\n", progname);
+   (void)fprintf(stderr, "Usage: %s[ -w <AFD working dir>][ -p <role>][ -u[ <user>]] [option]\n", progname);
    (void)fprintf(stderr, "              -a          only start AFD\n");
    (void)fprintf(stderr, "              -b          Blocks auto restart of AFD\n");
    (void)fprintf(stderr, "              -c          only check if AFD is active\n");

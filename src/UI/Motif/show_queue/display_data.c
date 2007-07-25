@@ -90,7 +90,7 @@ display_data(void)
 
    if ((str_list = (XmStringTable)XtMalloc((LINES_BUFFERED + 1) * sizeof(XmString))) == NULL)
    {
-      (void)xrec(appshell, FATAL_DIALOG, "malloc() error : %s (%s %d)",
+      (void)xrec(appshell, FATAL_DIALOG, "XtMalloc() error : %s (%s %d)",
                  strerror(errno), __FILE__, __LINE__);
       return;
    }

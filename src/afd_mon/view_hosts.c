@@ -1,6 +1,6 @@
 /*
  *  view_hosts.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1999 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1999 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -46,12 +46,13 @@ DESCR__E_M1
 #include <stdlib.h>                      /* malloc()                     */
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>                       /* O_RDWR, O_CREAT              */
 #include <unistd.h>                      /* STDERR_FILENO                */
 #include <errno.h>
 #include "mondefs.h"
 #include "version.h"
 
-/* Local functions */
+/* Local functions. */
 static void usage(void);
 
 int                    sys_log_fd = STDERR_FILENO,   /* Not used!    */
@@ -127,14 +128,15 @@ main(int argc, char *argv[])
    }
    for (i = 0; i < no_of_afds; i++)
    {
-      (void)sprintf(p_ahl_file, "%d", i);
+      (void)sprintf(p_ahl_file, "%s", msa[i].afd_alias);
       if ((stat(ahl_file, &stat_buf) == 0) && (stat_buf.st_size > 0))
       {
-         if ((ptr = map_file(ahl_file, &ahl_fd)) == (caddr_t) -1)
+         if ((ptr = map_file(ahl_file, &ahl_fd, &stat_buf, O_RDWR | O_CREAT,
+                             FILE_MODE)) == (caddr_t) -1)
          {
             (void)fprintf(stderr,
                           "ERROR : Failed to mmap() to %s : %s (%s %d)\n",
-                         ahl_file, strerror(errno), __FILE__, __LINE__);
+                          ahl_file, strerror(errno), __FILE__, __LINE__);
             exit(INCORRECT);
          }
          ahl[i] = (struct afd_host_list *)ptr;

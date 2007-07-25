@@ -1,8 +1,8 @@
 /*
  *  store_host_names.c - Part of AFD, an automatic file distribution
  *                       program.
- *  Copyright (c) 1997 Deutscher Wetterdienst (DWD),
- *                     Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 1997 - 2007 Deutscher Wetterdienst (DWD),
+ *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -66,10 +66,10 @@ DESCR__E_M3
 int
 store_host_names(char ***buffer, char *data)
 {
-   static int count = 0;
-   int        length,
-              max_length = 0;
-   char       *ptr = data;
+   int  count = 0,
+        length,
+        max_length = 0;
+   char *ptr = data;
 
    while ((*ptr != '\0') && (*ptr != ','))
    {
@@ -99,7 +99,7 @@ store_host_names(char ***buffer, char *data)
       int i,
           j;
 
-      max_length++; /* For \0 at end of string */
+      max_length++; /* For '\0' at end of string. */
       RT_ARRAY(*buffer, count, max_length, char);
 
       ptr = data;
@@ -124,7 +124,7 @@ store_host_names(char ***buffer, char *data)
    }
    else
    {
-      return(NO_PERMISSION);
+      count = NO_PERMISSION;
    }
 
    return(count);

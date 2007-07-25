@@ -25,10 +25,11 @@
 #  10 (512)   - Production Log                                           #
 #  11 (1024)  - Output Log                                               #
 #  12 (2048)  - Delete Log                                               #
+#  15 (16384) - Event Log                                                #
 #                                                                        #
 # Default:  0 (Disabled)                                                 #
 ##########################################################################
-#AFD_TCP_LOGS                     4080
+#AFD_TCP_LOGS                     20336
 
 ##########################################################################
 # With the following entry it is possible to specify who may connect to  #
@@ -274,6 +275,22 @@ PING_CMD                         "@PING_CMD@ -c 10"
 # Default traceroute command.                                            #
 ##########################################################################
 TRACEROUTE_CMD                   @TRACEROUTE_CMD@
+
+##########################################################################
+# Program to view data of show_olog and show_queue dialog. May be        #
+# used multiple times. Note that the order matters, it goes from top to  #
+# bottom and the first pattern that matches will be taken. Command       #
+# syntax is as follows:                                                  #
+#   VIEW_DATA_PROG <progname> <pattern>                                  #
+# <progname> is the program name of the program to be called. If         #
+#            parameters are to be added, put this in ". The filename to  #
+#            be shown can be added with %s.                              #
+# <pattern>  The filename pattern that applies for the above program     #
+#            name. Multiple patterns must be seperated with a pipe sign  #
+#            (|).                                                        #
+##########################################################################
+#VIEW_DATA_PROG display *.jpg|*.png
+#VIEW_DATA_PROG xv *.tif
 
 ##########################################################################
 # The FAKE_USER option allows the administrator to allow certain users   #

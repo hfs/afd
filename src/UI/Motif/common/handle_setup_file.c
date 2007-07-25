@@ -70,7 +70,7 @@ DESCR__E_M3
 #include <stdlib.h>                  /* getenv()                         */
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <unistd.h>                  /* ftruncate()                      */
+#include <unistd.h>                  /* ftruncate(), geteuid(), getuid() */
 #include <fcntl.h>
 #include <errno.h>
 #include "x_common_defs.h"

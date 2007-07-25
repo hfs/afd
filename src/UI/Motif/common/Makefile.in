@@ -81,7 +81,8 @@ am_libxafd_a_OBJECTS = check_host_permissions.$(OBJEXT) \
 	print_file_size.$(OBJEXT) sfilter.$(OBJEXT) \
 	show_info.$(OBJEXT) show_message.$(OBJEXT) \
 	store_host_names.$(OBJEXT) update_time.$(OBJEXT) \
-	wait_visible.$(OBJEXT) window_id.$(OBJEXT) xrec.$(OBJEXT)
+	wait_visible.$(OBJEXT) window_id.$(OBJEXT) view_data.$(OBJEXT) \
+	xrec.$(OBJEXT)
 libxafd_a_OBJECTS = $(am_libxafd_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/ac-tools/depcomp
@@ -246,6 +247,7 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
 target_alias = @target_alias@
+EXTRA_DIST = sfilter_old.c
 MAINTAINERCLEANFILES = Makefile.in
 noinst_HEADERS = x_common_defs.h
 INCLUDES = @AFD_MOTIF_INCLUDES@ -I../../.. -I../../../init_afd\
@@ -275,6 +277,7 @@ libxafd_a_SOURCES = check_host_permissions.c\
                        update_time.c\
                        wait_visible.c\
                        window_id.c\
+                       view_data.c\
                        xrec.c
 
 all: all-am
@@ -371,6 +374,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/show_message.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/store_host_names.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/update_time.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/view_data.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/wait_visible.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/window_id.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xrec.Po@am__quote@

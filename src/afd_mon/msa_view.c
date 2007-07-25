@@ -249,6 +249,10 @@ main(int argc, char *argv[])
          {
             (void)fprintf(stdout, " System");
          }
+         if (msa[j].log_capabilities & AFDD_EVENT_LOG)
+         {
+            (void)fprintf(stdout, " Event");
+         }
          if (msa[j].log_capabilities & AFDD_RECEIVE_LOG)
          {
             (void)fprintf(stdout, " Receive");
@@ -430,6 +434,10 @@ main(int argc, char *argv[])
 
             case WARNING_ID :
                (void)fprintf(stdout, " W");
+               break;
+
+            case ERROR_OFFLINE_ID :
+               (void)fprintf(stdout, " O");
                break;
 
             case FAULTY_ID :

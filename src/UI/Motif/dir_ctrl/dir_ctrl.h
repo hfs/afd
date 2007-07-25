@@ -1,6 +1,6 @@
 /*
  *  dir_ctrl.h - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 2000 - 2006 Holger Kiehl <Holger.Kiehl@dwd.de>
+ *  Copyright (c) 2000 - 2007 Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -38,31 +38,34 @@
 #define CONFIG_W                       2
 #define HELP_W                         3
 
-/* Definitions for Monitor pulldown. */
-#define DIR_DISABLE_W                  0
-#define DIR_RESCAN_W                   1
-#define DIR_SELECT_W                   2
-#define DIR_VIEW_LOAD_W                3
-#define DIR_EXIT_W                     4
-#define NO_DIR_MENU                    5
+/* Definitions for Directory pulldown. */
+#define DIR_HANDLE_EVENT_W             0
+#define DIR_DISABLE_W                  1
+#define DIR_RESCAN_W                   2
+#define DIR_SELECT_W                   3
+#define DIR_VIEW_LOAD_W                4
+#define DIR_EXIT_W                     5
+#define NO_DIR_MENU                    6
 
 /* Definitions for View pulldown. */
 #define DIR_SYSTEM_W                   0
-#define DIR_RECEIVE_W                  1
-#define DIR_TRANS_W                    2
-#define DIR_INPUT_W                    3
-#define DIR_OUTPUT_W                   4
-#define DIR_DELETE_W                   5
-#define DIR_SHOW_QUEUE_W               6
-#define DIR_INFO_W                     7
-#define DIR_VIEW_DC_W                  8
-#define NO_DIR_VIEW_MENU               9
+#define DIR_EVENT_W                    1
+#define DIR_RECEIVE_W                  2
+#define DIR_TRANS_W                    3
+#define DIR_INPUT_W                    4
+#define DIR_OUTPUT_W                   5
+#define DIR_DELETE_W                   6
+#define DIR_SHOW_QUEUE_W               7
+#define DIR_INFO_W                     8
+#define DIR_VIEW_DC_W                  9
+#define NO_DIR_VIEW_MENU               10
 
 /* Definitions of popup selections. */
 #define DIR_INFO_SEL                   70
-#define DIR_DISABLE_SEL                71
-#define DIR_RESCAN_SEL                 72
-#define DIR_VIEW_DC_SEL                73
+#define DIR_HANDLE_EVENT_SEL           71
+#define DIR_DISABLE_SEL                72
+#define DIR_RESCAN_SEL                 73
+#define DIR_VIEW_DC_SEL                74
 /* NOTE: Since some of these are used by more then one */
 /*       program each may define only a certain range: */
 /*         afd_ctrl.h        0 - 39                    */
@@ -126,37 +129,41 @@ struct dir_line
           unsigned char expose_flag;
        };
       
-/* Structure that holds the permissions */
+/* Structure that holds the permissions. */
 struct dir_control_perm
        {
           char        **dir_ctrl_list;
           char        **info_list;
+          char        **handle_event_list;
           char        **disable_list;
           char        **rescan_list;
           char        **show_slog_list;
+          char        **show_elog_list;
           char        **show_rlog_list;
           char        **show_tlog_list;
           char        **show_ilog_list;
           char        **show_olog_list;
-          char        **show_elog_list;
+          char        **show_dlog_list;
           char        **show_queue_list;
           char        **afd_load_list;
           char        **view_dc_list;
           signed char info;                  /* Info about AFD           */
+          signed char handle_event;          /* Handle event             */
           signed char disable;               /* Enable/Disable AFD       */
           signed char rescan;                /* Rescan Directory         */
           signed char show_slog;             /* Show System Log          */
+          signed char show_elog;             /* Show Event Log           */
           signed char show_rlog;             /* Show Receive Log         */
           signed char show_tlog;             /* Show Transfer Log        */
           signed char show_ilog;             /* Show Input Log           */
           signed char show_olog;             /* Show Output Log          */
-          signed char show_elog;             /* Show Delete Log          */
+          signed char show_dlog;             /* Show Delete Log          */
           signed char show_queue;            /* Show Queue               */
           signed char afd_load;              /* Show load of AFD         */
           signed char view_dc;               /* View DIR_CONFIG entries  */
        };
 
-/* Function Prototypes */
+/* Function Prototypes. */
 signed char dir_window_size(int *, int *),
             resize_dir_window(void);
 void        check_dir_status(Widget),

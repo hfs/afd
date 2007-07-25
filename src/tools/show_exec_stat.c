@@ -63,7 +63,8 @@ const char *sys_log_name = SYSTEM_LOG_FIFO;
 int
 main(int argc, char *argv[])
 {
-   int  fd;
+   int  fd,
+        user_offset;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
    int  readfd;
 #endif
@@ -81,9 +82,17 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   if (get_arg(&argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+   }
+   else
+   {
+      user_offset = strlen(user);
+   }
 
    check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
 
    /*
     * Ensure that the user may use this program.

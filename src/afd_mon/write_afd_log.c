@@ -174,6 +174,10 @@ get_log_name(int  log_type, char *log_name)
          (void)strcpy(log_name, SYSTEM_LOG_NAME);
          log_name_length = SYSTEM_LOG_NAME_LENGTH;
          break;
+      case EVE_LOG_POS :
+         (void)strcpy(log_name, EVENT_LOG_NAME);
+         log_name_length = EVENT_LOG_NAME_LENGTH;
+         break;
       case TDB_LOG_POS :
          (void)strcpy(log_name, TRANS_DB_LOG_NAME);
          log_name_length = TRANS_DB_LOG_NAME_LENGTH;
@@ -224,7 +228,7 @@ add_log_number(char *log_name, int log_name_length)
 
             i++;
             orig_i = i;
-            while ((i < MAX_INODE_LOG_NO_LENGTH) && (isdigit(buffer[i])))
+            while ((i < MAX_INODE_LOG_NO_LENGTH) && (isdigit((int)(buffer[i]))))
             {
                log_name[log_name_length] = buffer[i];
                log_name_length++;

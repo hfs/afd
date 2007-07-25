@@ -1,6 +1,6 @@
 /*
  *  inspect_archive.c - Part of AFD, an automatic file distribution program.
- *  Copyright (c) 1996 - 2005 Deutscher Wetterdienst (DWD),
+ *  Copyright (c) 1996 - 2007 Deutscher Wetterdienst (DWD),
  *                            Holger Kiehl <Holger.Kiehl@dwd.de>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -256,11 +256,11 @@ check_time(char *name)
 
    if (name[1] == '_')
    {
-      archive_time = (time_t)strtol(&name[2], (char **)NULL, 10);
+      archive_time = (time_t)str2timet(&name[2], (char **)NULL, 10);
    }
    else
    {
-      archive_time = (time_t)strtol(name, (char **)NULL, 16);
+      archive_time = (time_t)str2timet(name, (char **)NULL, 16);
    }
 
    if ((errno != ERANGE) && (current_time < archive_time))

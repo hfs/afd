@@ -66,8 +66,9 @@ DESCR__E_M1
 #include "permission.h"
 #include "version.h"
 
-/* Global variables */
-int                        sys_log_fd = STDERR_FILENO,   /* Not used!    */
+/* Global variables. */
+int                        event_log_fd = STDERR_FILENO,
+                           sys_log_fd = STDERR_FILENO,   /* Not used!    */
                            fra_fd = -1,
                            fra_id,
                            fsa_fd = -1,
@@ -83,7 +84,7 @@ struct fileretrieve_status *fra;
 struct filetransfer_status *fsa;
 const char                 *sys_log_name = SYSTEM_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void                usage(char *);
 
 #define ENABLE_ARCHIVE_SEL            1
@@ -101,7 +102,8 @@ static void                usage(char *);
 int
 main(int argc, char *argv[])
 {
-   int  action;
+   int  action,
+        user_offset;
    char *perm_buffer,
         *ptr_fra,
         *ptr_fsa,
@@ -116,6 +118,14 @@ main(int argc, char *argv[])
       exit(INCORRECT);
    }
    p_work_dir = work_dir;
+   if (get_arg(&argc, argv, "-p", user, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
+   {
+      user_offset = 0;
+   }
+   else
+   {
+      user_offset = strlen(user);
+   }
 
    if (argc != 2)
    {
@@ -188,7 +198,7 @@ main(int argc, char *argv[])
       action = ENABLE_ARCHIVE_SEL;
    }
    check_fake_user(&argc, argv, AFD_CONFIG_FILE, fake_user);
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
 
    /*
     * Ensure that the user may use this program.
@@ -216,7 +226,7 @@ main(int argc, char *argv[])
       case SUCCESS  : /* Lets evaluate the permissions and see what */
                       /* the user may do.                           */
          {
-            int permission = NO;
+            int permission;
 
             if ((perm_buffer[0] == 'a') && (perm_buffer[1] == 'l') &&
                 (perm_buffer[2] == 'l') &&
@@ -230,6 +240,10 @@ main(int argc, char *argv[])
                if (posi(perm_buffer, AFD_CFG_PERM) != NULL)
                {
                   permission = YES;
+               }
+               else
+               {
+                  permission = NO;
                }
             }
             free(perm_buffer);
@@ -287,6 +301,8 @@ main(int argc, char *argv[])
             *ptr_fsa ^= DISABLE_ARCHIVE;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Archiving enabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_ARCHIVE, "%s",
+                      user);
          }
          else
          {
@@ -304,6 +320,8 @@ main(int argc, char *argv[])
             *ptr_fsa |= DISABLE_ARCHIVE;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Archiving disabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_ARCHIVE, "%s",
+                      user);
          }
          break;
 
@@ -317,6 +335,8 @@ main(int argc, char *argv[])
             *ptr_fsa |= ENABLE_CREATE_TARGET_DIR;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Create target dir by default enabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_CREATE_TARGET_DIR,
+                      "%s", user);
          }
          break;
 
@@ -326,6 +346,8 @@ main(int argc, char *argv[])
             *ptr_fsa ^= ENABLE_CREATE_TARGET_DIR;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Create target dir by default disabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_CREATE_TARGET_DIR,
+                      "%s", user);
          }
          else
          {
@@ -339,6 +361,8 @@ main(int argc, char *argv[])
             *ptr_fra ^= DISABLE_DIR_WARN_TIME;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Directory warn time enabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_DIR_WARN_TIME,
+                      "%s", user);
          }
          else
          {
@@ -366,6 +390,8 @@ main(int argc, char *argv[])
             }
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Directory warn time is disabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_DIR_WARN_TIME,
+                      "%s", user);
          }
          break;
 
@@ -375,6 +401,8 @@ main(int argc, char *argv[])
             *ptr_fsa ^= DISABLE_RETRIEVE;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Retrieving enabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_ENABLE_RETRIEVE,
+                      "%s", user);
          }
          else
          {
@@ -392,6 +420,8 @@ main(int argc, char *argv[])
             *ptr_fsa |= DISABLE_RETRIEVE;
             system_log(CONFIG_SIGN, __FILE__, __LINE__,
                        "Retrieving disabled by %s", user);
+            event_log(0L, EC_GLOB, ET_MAN, EA_DISABLE_RETRIEVE,
+                      "%s", user);
          }
          break;
          

@@ -68,25 +68,25 @@ make_process_amg(char *work_dir,
                  int  rescan_time,
                  int  max_process)
 {
-   static pid_t proc_id;
-   char         rt_str[MAX_INT_LENGTH],
-                mp_str[MAX_INT_LENGTH],
-                nd_str[MAX_INT_LENGTH];
+   pid_t proc_id;
+   char  rt_str[MAX_INT_LENGTH],
+         mp_str[MAX_INT_LENGTH],
+         nd_str[MAX_INT_LENGTH];
 
-   /* First convert int's into a char string */
+   /* First convert int's into a char string. */
    (void)sprintf(rt_str, "%d", rescan_time);
    (void)sprintf(mp_str, "%d", max_process);
    (void)sprintf(nd_str, "%d", no_of_local_dirs);
 
    switch (proc_id = fork())
    {
-      case -1: /* Could not generate process */
+      case -1: /* Could not generate process. */
                system_log(FATAL_SIGN, __FILE__, __LINE__,
                           "Could not create a new process : %s",
                           strerror(errno));
                exit(INCORRECT);
 
-      case  0: /* Child process */
+      case  0: /* Child process. */
                if (execlp(prog_name, prog_name, work_dir,
                           rt_str, mp_str, nd_str, (char *)0) < 0)
                {                                                
@@ -97,7 +97,7 @@ make_process_amg(char *work_dir,
                }
                exit(SUCCESS);
 
-      default: /* Parent process */
+      default: /* Parent process. */
                return(proc_id);
    }
 

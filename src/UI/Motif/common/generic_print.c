@@ -25,9 +25,9 @@ DESCR__S_M3
  **   generic_print - generic printer interface
  **
  ** SYNOPSIS
- **   void print_data(void)
+ **   void print_data(Widget w, XtPointer client_data, XtPointer call_data)
  **   int  prepare_printer(int *)
- **   int  prepare_file(int *)
+ **   int  prepare_file(int *, int)
  **   void prepare_tmp_name(void)
  **   void send_mail_cmd(char *)
  **
@@ -70,18 +70,18 @@ DESCR__E_M3
 #include <errno.h>
 #include "afd_ctrl.h"
 
-/* Global variables */
+/* Global variables. */
 Widget         printshell = (Widget)NULL;
 XT_PTR_TYPE    range_type,
                device_type;
 char           file_name[MAX_PATH_LENGTH];
 FILE           *fp;             /* File pointer for printer command.     */
 
-/* External global variables */
+/* External global variables. */
 extern Widget  appshell;
 extern char    font_name[];
 
-/* Local global variables */
+/* Local global variables. */
 static Widget  printer_text_w,
                printer_radio_w,
                file_text_w,
@@ -103,7 +103,7 @@ static void    cancel_print_button(Widget, XtPointer, XtPointer),
 
 /*############################# print_data() ############################*/
 void
-print_data(void)
+print_data(Widget w, XtPointer client_data, XtPointer call_data)
 {
    if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
    {
@@ -132,17 +132,18 @@ print_data(void)
       Cardinal        argcount;
       XmFontList      p_fontlist;
       XmFontListEntry entry;
+      XT_PTR_TYPE     select_all = (XT_PTR_TYPE)client_data;
 
       /* Get default values from AFD_CONFIG file. */
       get_printer_cmd(printer_cmd, printer_name);
 
       printshell = XtVaCreatePopupShell("Print Data", topLevelShellWidgetClass,
-                                       appshell, NULL);
+                                        appshell, NULL);
 
-      /* Create managing widget */
+      /* Create managing widget. */
       main_form_w = XmCreateForm(printshell, "main_form", NULL, 0);
 
-      /* Prepare font */
+      /* Prepare font. */
       if ((entry = XmFontListEntryLoad(XtDisplay(main_form_w), font_name,
                                        XmFONT_IS_FONT, "TAG1")) == NULL)
       {
@@ -234,73 +235,92 @@ print_data(void)
                         XmNbottomWidget,     separator_w,
                         NULL);
 
-      /*---------------------------------------------------------------*/
-      /*                         Range Box                             */
-      /*---------------------------------------------------------------*/
-      /* Frame for Range Box */
-      frame_w = XtVaCreateManagedWidget("range_frame",
-                        xmFrameWidgetClass,  criteriabox_w,
-                        XmNshadowType,       XmSHADOW_ETCHED_IN,
-                        XmNtopAttachment,    XmATTACH_FORM,
-                        XmNtopOffset,        5,
-                        XmNleftAttachment,   XmATTACH_FORM,
-                        XmNleftOffset,       5,
-                        XmNbottomAttachment, XmATTACH_FORM,
-                        XmNbottomOffset,     5,
-                        NULL);
+      if (select_all == 0)
+      {
+         /*---------------------------------------------------------------*/
+         /*                         Range Box                             */
+         /*---------------------------------------------------------------*/
+         /* Frame for Range Box */
+         frame_w = XtVaCreateManagedWidget("range_frame",
+                           xmFrameWidgetClass,  criteriabox_w,
+                           XmNshadowType,       XmSHADOW_ETCHED_IN,
+                           XmNtopAttachment,    XmATTACH_FORM,
+                           XmNtopOffset,        5,
+                           XmNleftAttachment,   XmATTACH_FORM,
+                           XmNleftOffset,       5,
+                           XmNbottomAttachment, XmATTACH_FORM,
+                           XmNbottomOffset,     5,
+                           NULL);
 
-      /* Label for the frame */
-      XtVaCreateManagedWidget("Range",
-                        xmLabelGadgetClass,        frame_w,
-                        XmNchildType,              XmFRAME_TITLE_CHILD,
-                        XmNchildVerticalAlignment, XmALIGNMENT_CENTER,
-                        NULL);
+         /* Label for the frame */
+         XtVaCreateManagedWidget("Range",
+                           xmLabelGadgetClass,        frame_w,
+                           XmNchildType,              XmFRAME_TITLE_CHILD,
+                           XmNchildVerticalAlignment, XmALIGNMENT_CENTER,
+                           NULL);
 
-      /* Manager widget for the actual range stuff */
-      radiobox_w = XtVaCreateWidget("radiobox",
-                        xmRowColumnWidgetClass, frame_w,
-                        XmNradioBehavior,       True,
-                        XmNorientation,         XmVERTICAL,
-                        XmNpacking,             XmPACK_COLUMN,
-                        XmNnumColumns,          1,
-                        XmNresizable,           False,
-                        NULL);
+         /* Manager widget for the actual range stuff */
+         radiobox_w = XtVaCreateWidget("radiobox",
+                           xmRowColumnWidgetClass, frame_w,
+                           XmNradioBehavior,       True,
+                           XmNorientation,         XmVERTICAL,
+                           XmNpacking,             XmPACK_COLUMN,
+                           XmNnumColumns,          1,
+                           XmNresizable,           False,
+                           NULL);
 
-      radio_w = XtVaCreateManagedWidget("Selection",
-                        xmToggleButtonGadgetClass, radiobox_w,
-                        XmNfontList,               p_fontlist,
-                        XmNset,                    True,
-                        NULL);
-      XtAddCallback(radio_w, XmNarmCallback,
-                    (XtCallbackProc)range_select, (XtPointer)SELECTION_TOGGLE);
-      radio_w = XtVaCreateManagedWidget("All",
-                        xmToggleButtonGadgetClass, radiobox_w,
-                        XmNfontList,               p_fontlist,
-                        XmNset,                    False,
-                        NULL);
-      XtAddCallback(radio_w, XmNarmCallback,
-                    (XtCallbackProc)range_select, (XtPointer)ALL_TOGGLE);
-      XtManageChild(radiobox_w);
-      range_type = SELECTION_TOGGLE;
+         radio_w = XtVaCreateManagedWidget("Selection",
+                           xmToggleButtonGadgetClass, radiobox_w,
+                           XmNfontList,               p_fontlist,
+                           XmNset,                    True,
+                           NULL);
+         XtAddCallback(radio_w, XmNarmCallback, (XtCallbackProc)range_select,
+                       (XtPointer)SELECTION_TOGGLE);
+         radio_w = XtVaCreateManagedWidget("All",
+                           xmToggleButtonGadgetClass, radiobox_w,
+                           XmNfontList,               p_fontlist,
+                           XmNset,                    False,
+                           NULL);
+         XtAddCallback(radio_w, XmNarmCallback,
+                       (XtCallbackProc)range_select, (XtPointer)ALL_TOGGLE);
+         XtManageChild(radiobox_w);
+         range_type = SELECTION_TOGGLE;
+
+         /* Frame for Device Box */
+         frame_w = XtVaCreateManagedWidget("device_frame",
+                           xmFrameWidgetClass,   criteriabox_w,
+                           XmNshadowType,        XmSHADOW_ETCHED_IN,
+                           XmNtopAttachment,     XmATTACH_FORM,
+                           XmNtopOffset,         5,
+                           XmNleftAttachment,    XmATTACH_WIDGET,
+                           XmNleftWidget,        frame_w,
+                           XmNleftOffset,        5,
+                           XmNrightAttachment,   XmATTACH_FORM,
+                           XmNrightOffset,       5,
+                           XmNbottomAttachment,  XmATTACH_FORM,
+                           XmNbottomOffset,      5,
+                           NULL);
+      }
+      else
+      {
+         /* Frame for Device Box */
+         frame_w = XtVaCreateManagedWidget("device_frame",
+                           xmFrameWidgetClass,   criteriabox_w,
+                           XmNshadowType,        XmSHADOW_ETCHED_IN,
+                           XmNtopAttachment,     XmATTACH_FORM,
+                           XmNtopOffset,         5,
+                           XmNleftAttachment,    XmATTACH_FORM,
+                           XmNleftOffset,        5,
+                           XmNrightAttachment,   XmATTACH_FORM,
+                           XmNrightOffset,       5,
+                           XmNbottomAttachment,  XmATTACH_FORM,
+                           XmNbottomOffset,      5,
+                           NULL);
+      }
 
       /*---------------------------------------------------------------*/
       /*                        Device Box                             */
       /*---------------------------------------------------------------*/
-      /* Frame for Device Box */
-      frame_w = XtVaCreateManagedWidget("device_frame",
-                        xmFrameWidgetClass,   criteriabox_w,
-                        XmNshadowType,        XmSHADOW_ETCHED_IN,
-                        XmNtopAttachment,     XmATTACH_FORM,
-                        XmNtopOffset,         5,
-                        XmNleftAttachment,    XmATTACH_WIDGET,
-                        XmNleftWidget,        frame_w,
-                        XmNleftOffset,        5,
-                        XmNrightAttachment,   XmATTACH_FORM,
-                        XmNrightOffset,       5,
-                        XmNbottomAttachment,  XmATTACH_FORM,
-                        XmNbottomOffset,      5,
-                        NULL);
-
       /* Label for the frame */
       XtVaCreateManagedWidget("Device",
                         xmLabelGadgetClass,          frame_w,
@@ -495,14 +515,17 @@ prepare_tmp_name(void)
 
 /*########################### prepare_file() ############################*/
 int
-prepare_file(int *fd)
+prepare_file(int *fd, int show_error)
 {
    if ((*fd = open(file_name, (O_RDWR | O_CREAT | O_TRUNC), FILE_MODE)) < 0)
    {
-      (void)xrec(appshell, ERROR_DIALOG,
-                 "Failed to open() %s : %s (%s %d)",
-                 file_name, strerror(errno), __FILE__, __LINE__);
-      XtPopdown(printshell);
+      if (show_error)
+      {
+         (void)xrec(appshell, ERROR_DIALOG,
+                    "Failed to open() %s : %s (%s %d)",
+                    file_name, strerror(errno), __FILE__, __LINE__);
+         XtPopdown(printshell);
+      }
 
       return(INCORRECT);
    }

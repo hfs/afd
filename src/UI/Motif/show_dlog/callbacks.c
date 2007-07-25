@@ -445,7 +445,7 @@ void
 print_button(Widget w, XtPointer client_data, XtPointer call_data)
 {
    reset_message(statusbox_w);
-   print_data();
+   print_data(w, client_data, call_data);
 
    return;
 }

@@ -501,7 +501,7 @@
 17.11.2006 - Make creation of source directories in AFD_CONFIG configurable.
 18.11.2006 - Function calc_next_time() did not calculate the correct time
              when the current minute was 59. Fixed.
-21.11.2006 - tr and fr fields where swapped. Fixed.
+21.11.2006 - tr and fr fields where swapped in dir_ctrl dialog. Fixed.
 13.12.2006 - Fix an error in "extract ASCII" that could lead to a crash
              of process dir_check.
 20.12.2006 - Implemented no last suffix option for dupcheck option.
@@ -530,3 +530,72 @@
              pass on the number of retries, otherwise when we do the
              duplicate check will delete data that we still need to send.
 ------------------------> Released: 27.03.2007 <---------------------------
+
+
+
+----------------------------> Version 1.3.5 <------------------------------
+                             ---------------
+31.03.2007 - Process FD could crash if it removed file filters from the
+             internal database due to an error in function init_msg_buffer().
+           - When starting AFD via 'afd -a' it must wait until init_afd
+             has started up, otherwise starting AFD via init script
+             (/etc/init.d/afd) might not start after a system crash.
+01.04.2007 - Fix an error in pmatch() and sfilter() function where they
+             could not handle the case "r10013*00" r10013301000.
+03.04.2007 - If DEFAULT_SMTP_SERVER is set in AFD_CONFIG and none specified
+             in DIR_CONFIG, sf_smtp() would fail to send the mail. Fixed.
+07.04.2007 - Created new program afd_hex_print to view binary data.
+09.04.2007 - Added button to show_olog dialog to view data in archive.
+11.04.2007 - Improved set_pw program so it can handle input from mouse
+             as well, not just the keyboard.
+           - Did not compile with --disable-dupcheck_support. Fixed.
+13.04.2007 - When afdd has no log data to send it sends empty log data
+             at regular intervals.
+           - Added user errors to those types of errors that need to
+             age.
+24.04.2007 - Fix error in 'wait for' directory option.
+25.04.2007 - Fix two memory leaks in show_queue.
+           - Added button to show_queue dialog to view data in queue.
+30.04.2007 - When process return abnormally try pass more information
+             what might be the cause of it.
+           - Recount files when we rename and overwrite files.
+01.05.2007 - udc and uhc now expect a responce from AMG if the action
+             was successfull or not.
+06.05.2007 - Fix error where afd_mon hangs when reading from fifo.
+09.05.2007 - Moved window id from fifodir to users home directory.
+16.05.2007 - Calculate correct file size when using 'convert mrz2wmo'.
+17.05.2007 - During evaluation of DIR_CONFIG, check if options are correct.
+22.05.2007 - Allow user to set some other unit for option archive.
+23.05.2007 - Function get_dir_option() returned for 'delete old locked files'
+             the value from 'delete queued files'. Fixed.
+30.05.2007 - Replaced pmatch function with that from Karl Heuer, which also
+             adds support for listing characters in [].
+03.06.2007 - Added new status ERROR_ACKNOWLEDGED and ERROR_OFFLINE to
+             host status in afd_ctrl dialog.
+04.06.2007 - Added fix for HPUX which cannot handle more then one shared
+             mmap() from one process to the same file.
+05.06.2007 - Use mmap() to write pid's to AFD_ACTIVE file.
+10.06.2007 - Added event log.
+12.06.2007 - Hopefully improved error handling when file_masks file
+             in fifodir gets corrupted.
+20.06.2007 - Fix error in initializing socket() function.
+21.06.2007 - Split transfer status LED in two halfs indicating direction
+             of transfer.
+24.06.2007 - Created new dialog to handle events.
+           - Added event handler to afd_ctrl dialog.
+26.06.2007 - Added permission check for udc and uhc.
+29.06.2007 - When updating DIR_CONFIG it could happen that certain retrieve
+             jobs would no longer work until FD was restarted. An additional
+             check was added that tries to detect such a situation and
+             correct it automaticaly.
+01.07.2007 - Do not calculate a new directory scan time if the directory
+             was full.
+04.07.2007 - Changed meaning of show_dlog and show_elog in afd.users file.
+             show_dlog now means the delete log, transfer debug log is
+             now set with show_tdlog. show_elog now means event log,
+             the delete log is now set with show_dlog.
+13.07.2007 - For the extract option it is possible to only extract certain
+             files.
+15.07.2007 - Implemented new dialog show_elog to view the event log.
+           - Allow event log to be centralized via afd_mon.
+------------------------> Released: 24.07.2007 <---------------------------

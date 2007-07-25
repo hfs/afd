@@ -18,7 +18,7 @@
 
 MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
-noinst_HEADERS       = afddefs.h bit_array.h permission.h ports.h
+noinst_HEADERS       = afddefs.h bit_array.h ea_str.h permission.h ports.h
 INCLUDES             = -I.. -I../amg -I../log -I../statistics
 bin_PROGRAMS         = init_afd afd
 init_afd_SOURCES     = init_afd.c\
@@ -29,6 +29,7 @@ init_afd_SOURCES     = init_afd.c\
 init_afd_LDADD       = ../common/libafd.a @EXTRA_SOCKET_LIBS@
 afd_SOURCES          = afd.c\
                        check_afd_heartbeat.c\
+                       startup_afd.c\
                        shutdown_afd.c
 afd_LDADD            = ../common/libafd.a
 

@@ -33,7 +33,7 @@ DESCR__S_M3
  **
  ** DESCRIPTION
  **   When process wants to log the files it changed, it writes them
- **   via a fifo. The data it will look as follows:
+ **   via a fifo. The data it will write looks as follows:
  **       <ML><UDN>|<OFN>|<NFL>[|<CMD>]\n
  **         |   |     |     |      |
  **         |   |     |     |      +-------> Command executed.
@@ -63,16 +63,13 @@ DESCR__E_M3
 #include <sys/stat.h>
 #include <unistd.h>                   /* STDERR_FILENO                   */
 #ifdef HAVE_FCNTL_H
-#include <fcntl.h>
+# include <fcntl.h>
 #endif
 #include <errno.h>
-#include "fddefs.h"
 
-/* External global variables */
-#ifdef _PRODUCTION_LOG
+/* External global variables. */
 extern int  production_log_fd;
 extern char *p_work_dir;
-#endif
 
 
 /*########################## production_log() ###########################*/
@@ -83,7 +80,6 @@ production_log(time_t         creation_time,
                char           *fmt,
                ...)
 {
-#ifdef _PRODUCTION_LOG
    size_t  length;
    char    production_buffer[MAX_INT_LENGTH + MAX_INT_LENGTH + MAX_PRODUCTION_BUFFER_LENGTH + 1];
    va_list ap;
@@ -154,6 +150,5 @@ production_log(time_t         creation_time,
                  strerror(errno));
    }
 
-#endif /* _PRODUCTION_LOG */
    return;
 }

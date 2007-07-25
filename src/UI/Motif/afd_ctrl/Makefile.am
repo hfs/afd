@@ -20,7 +20,7 @@ MAINTAINERCLEANFILES = Makefile.in
 CLEANFILES           = gmon.out core core.*
 noinst_HEADERS       = afd_ctrl.h
 INCLUDES             = @AFD_MOTIF_INCLUDES@ -I../../.. -I../common\
-                       -I../../../init_afd -I../show_log
+                       -I../../../init_afd -I../../../log -I../show_log
 bin_PROGRAMS         = afd_ctrl
 afd_ctrl_SOURCES     = afd_ctrl.c\
                        calc_but_coord.c\

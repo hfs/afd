@@ -719,6 +719,13 @@ get_file_names(char *file_path, off_t *file_size_to_send)
 # endif
                 files_not_send, (pri_off_t)file_size_not_send);
 #endif
+#ifdef WITH_ERROR_QUEUE
+      if ((db.special_flag & IN_ERROR_QUEUE) &&
+          (fsa->host_status & ERROR_QUEUE_SET))
+      {
+         (void)remove_from_error_queue(db.job_id, fsa);
+      }
+#endif
    }
 
    if (closedir(dp) < 0)
@@ -737,12 +744,6 @@ get_file_names(char *file_path, off_t *file_size_to_send)
    if ((files_to_send == 0) && (files_not_send > 0))
    {
       files_to_send = -1;
-#ifdef WITH_ERROR_QUEUE
-      if (fsa->host_status & ERROR_QUEUE_SET)
-      {
-         (void)remove_from_error_queue(db.job_id, fsa);
-      }
-#endif
    }
    return(files_to_send);
 }

@@ -61,18 +61,18 @@ DESCR__E_M3
 #include <Xm/Xm.h>
 #include <Xm/Text.h>
 #include <Xm/List.h>
-#ifdef WITH_DUP_CHECK
-# include <Xm/ToggleB.h>
-#endif
+#include <Xm/ToggleB.h>
 #include "edit_hc.h"
 #include "afd_ctrl.h"
+#include "logdefs.h"
 
-/* External global variables */
+/* External global variables. */
 extern Display                    *display;
 extern Widget                     active_mode_w,
 #ifdef _WITH_BURST_2
                                   allow_burst_w,
 #endif
+                                  appshell,
                                   auto_toggle_w,
 #ifdef WITH_DUP_CHECK
                                   dc_delete_w,
@@ -104,6 +104,7 @@ extern Widget                     active_mode_w,
                                   host_2_label_w,
                                   host_list_w,
                                   host_switch_toggle_w,
+                                  ignore_errors_toggle_w,
                                   keep_connected_w,
                                   max_errors_w,
                                   mode_label_w,
@@ -129,6 +130,7 @@ extern Widget                     active_mode_w,
                                   transfer_timeout_w,
                                   transfer_rate_limit_label_w,
                                   transfer_rate_limit_w;
+extern XtInputId                  db_update_cmd_id;
 extern int                        fsa_id,
                                   host_alias_order_change,
                                   in_drop_site,
@@ -136,7 +138,8 @@ extern int                        fsa_id,
                                   no_of_hosts;
 extern char                       fake_user[],
                                   *p_work_dir,
-                                  last_selected_host[];
+                                  last_selected_host[],
+                                  user[];
 extern struct filetransfer_status *fsa;
 extern struct afd_status          *p_afd_status;
 extern struct changed_entry       *ce;
@@ -145,13 +148,16 @@ extern struct no_of_no_bursts     nob;
 extern struct transfer_blocksize  tb;
 extern struct file_size_offset    fso;
 
-/* Local global variables */
+/* Local global variables. */
 static int                        cur_pos,
                                   value_changed = NO;
-static char                       label_str[8] =
+static char                       db_update_reply_fifo[MAX_PATH_LENGTH],
+                                  label_str[8] =
                                   {
                                      'H', 'o', 's', 't', ' ', '1', ':', '\0'
                                   };
+/* Local function prototypes. */
+static void                       read_reply(XtPointer, int *, XtInputId *);
 
 
 /*############################ close_button() ###########################*/
@@ -236,103 +242,198 @@ remove_button(Widget w, XtPointer client_data, XtPointer call_data)
 
    if (removed_hosts > 0)
    {
-      int  db_update_fd;
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      int  db_update_readfd;
-#endif
-      char db_update_fifo[MAX_PATH_LENGTH];
+      pid_t my_pid;
 
-      (void)strcpy(db_update_fifo, p_work_dir);
-      (void)strcat(db_update_fifo, FIFO_DIR);
-      (void)strcat(db_update_fifo, DB_UPDATE_FIFO);
-#ifdef WITHOUT_FIFO_RW_SUPPORT
-      if (open_fifo_rw(db_update_fifo, &db_update_readfd, &db_update_fd) == -1)
+      my_pid = getpid();
+#if SIZEOF_PID_T == 4
+      (void)sprintf(db_update_reply_fifo, "%s%s%s%d",
 #else
-      if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
+      (void)sprintf(db_update_reply_fifo, "%s%s%s%lld",
 #endif
+                    p_work_dir, FIFO_DIR, DB_UPDATE_REPLY_FIFO,
+                    (pri_pid_t)my_pid);
+#ifdef GROUP_CAN_WRITE
+      if ((mkfifo(db_update_reply_fifo, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP) == -1) &&
+#else
+      if ((mkfifo(db_update_reply_fifo, S_IRUSR | S_IWUSR) == -1) &&
+#endif
+          (errno != EEXIST))
       {
-         (void)xrec(w, WARN_DIALOG, "Failed to open() %s : %s (%s %d)",
-                    db_update_fifo, strerror(errno), __FILE__, __LINE__);
+         (void)xrec(w, ERROR_DIALOG,
+                    "Could not create fifo `%s' : %s (%s %d)",
+                    db_update_reply_fifo, strerror(errno),
+                    __FILE__, __LINE__);
       }
       else
       {
-         int  ret;
-
-         if ((ret = send_cmd(REREAD_HOST_CONFIG, db_update_fd)) != SUCCESS)
-         {
-            (void)xrec(w, ERROR_DIALOG,
-                       "Failed to REREAD_HOST_CONFIG message to AMG : %s (%s %d)",
-                       strerror(-ret), __FILE__, __LINE__);
+         int  db_update_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-            if (close(db_update_readfd) == -1)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "close() error : %s", strerror(errno));
-            }
+         int  db_update_readfd;
 #endif
-            if (close(db_update_fd) == -1)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "close() error : %s", strerror(errno));
-            }
+         char db_update_fifo[MAX_PATH_LENGTH];
+
+         (void)sprintf(db_update_fifo, "%s%s%s",
+                       p_work_dir, FIFO_DIR, DB_UPDATE_FIFO);
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+         if (open_fifo_rw(db_update_fifo, &db_update_readfd, &db_update_fd) == -1)
+#else
+         if ((db_update_fd = open(db_update_fifo, O_RDWR)) == -1)
+#endif
+         {
+            (void)xrec(w, ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
+                       db_update_fifo, strerror(errno), __FILE__, __LINE__);
          }
          else
          {
-            int sleep_counter = 0;
-
+            int db_update_reply_fd;
 #ifdef WITHOUT_FIFO_RW_SUPPORT
-            if (close(db_update_readfd) == -1)
-            {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "close() error : %s", strerror(errno));
-            }
+            int *db_update_reply_writefd;
+
+            if (open_fifo_rw(db_update_reply_fifo, &db_update_reply_fd,
+                             db_update_reply_writefd) == -1)
+#else
+
+            if ((db_update_reply_fd = open(db_update_reply_fifo, O_RDWR)) == -1)
 #endif
-            if (close(db_update_fd) == -1)
             {
-               system_log(DEBUG_SIGN, __FILE__, __LINE__,
-                          "close() error : %s", strerror(errno));
+               (void)xrec(w, ERROR_DIALOG, "Failed to open() %s : %s (%s %d)",
+                          db_update_reply_fifo, strerror(errno),
+                          __FILE__, __LINE__);
             }
-
-            /* Wait for AMG to update the FSA. */
-            while ((check_fsa(NO) == NO) && (sleep_counter < 12))
+            else
             {
-               (void)sleep(1);
-               sleep_counter++;
-            }
-         }
+               char buffer[1 + SIZEOF_PID_T];
 
-         if (removed_hosts == no_selected)
-         {
-            if (last_removed_position != -1)
-            {
-               if ((last_removed_position - 1) == 0)
+               buffer[0] = REREAD_HOST_CONFIG;
+               (void)memcpy(&buffer[1], &my_pid, SIZEOF_PID_T);
+               if (write(db_update_fd, buffer, (1 + SIZEOF_PID_T)) != (1 + SIZEOF_PID_T))
                {
-                  XmListSelectPos(host_list_w, 1, True);
+                  (void)xrec(w, ERROR_DIALOG,
+                             "Failed to REREAD_HOST_CONFIG message to AMG : %s (%s %d)",
+                             strerror(errno), __FILE__, __LINE__);
                }
                else
                {
-                  XmListSelectPos(host_list_w, last_removed_position - 1, False);
+                  db_update_cmd_id = XtAppAddInput(XtWidgetToApplicationContext(appshell),
+                                                   db_update_reply_fd,
+                                                   (XtPointer)XtInputReadMask,
+                                                   (XtInputCallbackProc)read_reply,
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+                                                   (XtPointer)db_update_reply_writefd);
+#else
+                                                   (XtPointer)NULL);
+#endif
+
+                  if (removed_hosts == no_selected)
+                  {
+                     if (last_removed_position != -1)
+                     {
+                        if ((last_removed_position - 1) == 0)
+                        {
+                           XmListSelectPos(host_list_w, 1, True);
+                        }
+                        else
+                        {
+                           XmListSelectPos(host_list_w,
+                                           last_removed_position - 1, False);
+                        }
+                     }
+                  }
+                  else
+                  {
+                     XmStringTable xmsel;
+
+                     XtVaGetValues(host_list_w,
+                                   XmNselectedItemCount, &no_selected,
+                                   XmNselectedItems,     &xmsel,
+                                   NULL);
+                     if (no_selected > 0)
+                     {
+                        XmListSelectItem(host_list_w, xmsel[no_selected - 1],
+                                         False);
+                     }
+                  }
                }
             }
-         }
-         else
-         {
-            XmStringTable xmsel;
-
-            XtVaGetValues(host_list_w,
-                          XmNselectedItemCount, &no_selected,
-                          XmNselectedItems,     &xmsel,
-                          NULL);
-            if (no_selected > 0)
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+            if (close(db_update_readfd) == -1)
             {
-               XmListSelectItem(host_list_w, xmsel[no_selected - 1], False);
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
             }
+#endif
+            if (close(db_update_fd) == -1)
+            {
+               system_log(DEBUG_SIGN, __FILE__, __LINE__,
+                          "close() error : %s", strerror(errno));
+            }
+
          }
       }
    } /* if (removed_hosts > 0) */
 
    (void)sprintf(msg, "Removed %d hosts from FSA.", removed_hosts);
    show_message(statusbox_w, msg);
+
+   return;
+}
+
+
+/*+++++++++++++++++++++++++++ read_reply() ++++++++++++++++++++++++++++++*/
+static void
+read_reply(XtPointer client_data, int *fd, XtInputId *id)
+{
+   int         n;
+   char        rbuffer[MAX_UHC_RESPONCE_LENGTH];
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   XT_PTR_TYPE db_update_reply_writefd = (XT_PTR_TYPE)client_data;
+#endif
+
+   if ((n = read(*fd, rbuffer,
+                 MAX_UHC_RESPONCE_LENGTH)) != MAX_UHC_RESPONCE_LENGTH)
+   {
+      (void)fprintf(stderr, "read() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
+   else
+   {
+      int          hc_result,
+                   see_sys_log,
+                   type;
+      unsigned int hc_warn_counter;
+      char         hc_result_str[MAX_UPDATE_REPLY_STR_LENGTH];
+
+      see_sys_log = NO;
+      (void)memcpy(&hc_result, rbuffer, SIZEOF_INT);
+      (void)memcpy(&hc_warn_counter, &rbuffer[SIZEOF_INT], SIZEOF_INT);
+      get_hc_result_str(hc_result_str, hc_result, hc_warn_counter,
+                        &see_sys_log, &type);
+      if (see_sys_log == YES)
+      {
+         (void)xrec(appshell, type, "%s\n--> See %s0 for more details. <--",
+                    hc_result_str, SYSTEM_LOG_NAME);
+      }
+      else
+      {
+         (void)xrec(appshell, type, "%s", hc_result_str);
+      }
+
+   }
+   XtRemoveInput(db_update_cmd_id);
+   db_update_cmd_id = 0L;
+   if (close(*fd) == -1)
+   {
+      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
+#ifdef WITHOUT_FIFO_RW_SUPPORT
+   if (close(db_update_reply_writefd) == -1)
+   {
+      (void)fprintf(stderr, "close() error : %s (%s %d)\n",
+                    strerror(errno), __FILE__, __LINE__);
+   }
+#endif
+   (void)unlink(db_update_reply_fifo);
 
    return;
 }
@@ -1415,6 +1516,29 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       }
       XtVaSetValues(max_errors_w, XmNvalue, numeric_str, NULL);
 
+      if (ce[cur_pos].value_changed2 & ERROR_OFFLINE_STATIC_CHANGED)
+      {
+         if (fsa[cur_pos].host_status & HOST_ERROR_OFFLINE_STATIC)
+         {
+            XtVaSetValues(ignore_errors_toggle_w, XmNset, False, NULL);
+         }
+         else
+         {
+            XtVaSetValues(ignore_errors_toggle_w, XmNset, True, NULL);
+         }
+      }
+      else
+      {
+         if (fsa[cur_pos].host_status & HOST_ERROR_OFFLINE_STATIC)
+         {
+            XtVaSetValues(ignore_errors_toggle_w, XmNset, True, NULL);
+         }
+         else
+         {
+            XtVaSetValues(ignore_errors_toggle_w, XmNset, False, NULL);
+         }
+      }
+
       if (ce[cur_pos].value_changed & KEEP_CONNECTED_CHANGED)
       {
          (void)sprintf(numeric_str, "%u", ce[cur_pos].keep_connected);
@@ -1541,7 +1665,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
       XtVaSetValues(dc_timeout_w, XmNvalue, numeric_str, NULL);
 #endif /* WITH_DUP_CHECK */
 
-      /* Set option menu for Parallel Transfers */
+      /* Set option menu for Parallel Transfers. */
       if (ce[cur_pos].value_changed & ALLOWED_TRANSFERS_CHANGED)
       {
          choice = ce[cur_pos].allowed_transfers - 1;
@@ -1559,7 +1683,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
                     NULL);
       XmUpdateDisplay(pt.option_menu_w);
 
-      /* Set option menu for Transfer Blocksize */
+      /* Set option menu for Transfer Blocksize. */
       if (ce[cur_pos].value_changed & BLOCK_SIZE_CHANGED)
       {
          if (ce[cur_pos].block_size == tb.value[0])
@@ -1718,7 +1842,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          XtSetSensitive(fso.option_menu_w, False);
       }
 
-      /* Set option menu for number of no bursts */
+      /* Set option menu for number of no bursts. */
       if ((fsa[cur_pos].protocol & FTP_FLAG)
           || (fsa[cur_pos].protocol & FTP_FLAG)
 #ifdef _WITH_WMO_SUPPORT
@@ -1737,7 +1861,7 @@ selected(Widget w, XtPointer client_data, XtPointer call_data)
          }
          else
          {
-            choice = (fsa[cur_pos].special_flag & NO_BURST_COUNT_MASK);
+            choice = 0;
          }
          XtVaSetValues(nob.option_menu_w,
                        XmNmenuHistory, nob.button_w[choice],
@@ -1778,9 +1902,6 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
    /* Ensure that the FSA we are mapped to is up to date */
    if (check_fsa(NO) == YES)
    {
-      char user[MAX_FULL_USER_ID_LENGTH];
-
-      get_user(user, fake_user);
       system_log(DEBUG_SIGN, __FILE__, __LINE__,
                  "%s was using edit_hc while someone changed the DIR_CONFIG!",
                  user);
@@ -2209,7 +2330,6 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          }
          if (ce[i].value_changed & NO_OF_NO_BURST_CHANGED)
          {
-            fsa[i].special_flag = (fsa[i].special_flag & (~NO_BURST_COUNT_MASK)) | ce[i].no_of_no_bursts;
             changes++;
          }
          if (ce[i].value_changed & FTP_MODE_CHANGED)
@@ -2265,6 +2385,11 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
          if (ce[i].value_changed2 & FTP_PASSIVE_REDIRECT_CHANGED)
          {
             fsa[i].protocol_options ^= FTP_ALLOW_DATA_REDIRECT;
+            changes++;
+         }
+         if (ce[i].value_changed2 & ERROR_OFFLINE_STATIC_CHANGED)
+         {
+            fsa[i].host_status ^= HOST_ERROR_OFFLINE_STATIC;
             changes++;
          }
 
@@ -2324,19 +2449,16 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
 
       if (changes > 1)
       {
-         (void)sprintf(msg, "Changed alias order and submitted %d changes to FSA",
+         (void)sprintf(msg, "Changed alias order and submitted %d changes to FSA.",
                        changes);
       }
       else if (changes == 1)
            {
-              (void)sprintf(msg, "Changed alias order and submitted one change to FSA");
+              (void)sprintf(msg, "Changed alias order and submitted one change to FSA.");
            }
            else
            {
-              char user[MAX_FULL_USER_ID_LENGTH];
-
-              (void)sprintf(msg, "Changed alias order in FSA");
-              get_user(user, fake_user);
+              (void)sprintf(msg, "Changed alias order in FSA.");
               system_log(CONFIG_SIGN, NULL, 0, "%s (%s)", msg, user);
            }
    }
@@ -2344,24 +2466,24 @@ submite_button(Widget w, XtPointer client_data, XtPointer call_data)
    {
       if (changes == 1)
       {
-         (void)sprintf(msg, "Submitted one change to FSA");
+         (void)sprintf(msg, "Submitted one change to FSA.");
       }
       else if (changes > 1)
            {
-              (void)sprintf(msg, "Submitted %d changes to FSA", changes);
+              (void)sprintf(msg, "Submitted %d changes to FSA.", changes);
            }
            else
            {
               (void)sprintf(msg, "No values have been changed!");
            }
    }
+   event_log(0L, EC_GLOB, ET_MAN, EA_REREAD_HOST_CONFIG, "%s %s",
+             user, msg);
    show_message(statusbox_w, msg);
    if (changes != 0)
    {
-      int  line_length;
-      char user[MAX_FULL_USER_ID_LENGTH];
+      int line_length;
 
-      get_user(user, fake_user);
       system_log(CONFIG_SIGN, NULL, 0, "%s (%s)", msg, user);
 
       /*

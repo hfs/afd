@@ -72,7 +72,7 @@ DESCR__E_M1
 #include "afdddefs.h"
 #include "version.h"
 
-/* Global variables */
+/* Global variables. */
 int               default_log_defs = DEFAULT_AFDD_LOG_DEFS,
                   *ip_log_defs = NULL,
                   log_defs = 0,
@@ -81,7 +81,6 @@ int               default_log_defs = DEFAULT_AFDD_LOG_DEFS,
 clock_t           clktck;
 char              afd_config_file[MAX_PATH_LENGTH],
                   afd_name[MAX_AFD_NAME_LENGTH],
-                  current_msg_list_file[MAX_PATH_LENGTH],
                   hostname[MAX_FULL_USER_ID_LENGTH],
                   *p_work_dir,
                   *p_work_dir_end,
@@ -172,30 +171,24 @@ main(int argc, char *argv[])
       }
       else
       {
-         if (8 < MAX_FULL_USER_ID_LENGTH)
-         {
-            (void)strcpy(hostname, "unknown@");
-            length = 8;
-         }
-         else
-         {
-            hostname[0] = '\0';
-            length = 0;
-         }
+#if MAX_FULL_USER_ID_LENGTH > 8
+         (void)strcpy(hostname, "unknown@");
+         length = 8;
+#else
+         hostname[0] = '\0';
+         length = 0;
+#endif
       }
    }
    else
    {
-      if (8 < MAX_FULL_USER_ID_LENGTH)
-      {
-         (void)strcpy(hostname, "unknown@");
-         length = 8;
-      }
-      else
-      {
-         hostname[0] = '\0';
-         length = 0;
-      }
+#if MAX_FULL_USER_ID_LENGTH > 8
+      (void)strcpy(hostname, "unknown@");
+      length = 8;
+#else
+      hostname[0] = '\0';
+      length = 0;
+#endif
    }
    if (length < MAX_FULL_USER_ID_LENGTH)
    {
@@ -272,8 +265,6 @@ main(int argc, char *argv[])
    /* Get full name to AFD_CONFIG file. */
    (void)sprintf(afd_config_file, "%s%s%s",
                  p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
-   (void)sprintf(current_msg_list_file, "%s%s%s",
-                 p_work_dir, FIFO_DIR, CURRENT_MSG_LIST_FILE);
 
    do
    {
@@ -607,7 +598,7 @@ get_afdd_config_value(char *port_no, int *max_afdd_connections)
                {
                   check_ptr++;
                   counter = 0;
-                  while ((((int)(isdigit(*check_ptr))) || (*check_ptr == '*') ||
+                  while (((isdigit((int)(*check_ptr))) || (*check_ptr == '*') ||
                           (*check_ptr == '?')) && (counter < 3))
                   {
                      check_ptr++; counter++;

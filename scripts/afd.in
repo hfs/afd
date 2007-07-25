@@ -32,10 +32,6 @@ then
 else
    AFD_USERS=""
 fi
-if [ "$AFD_USERS" = "" ]
-then
-   exit 0
-fi
 
 
 # See how we were called.

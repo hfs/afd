@@ -28,7 +28,7 @@ DESCR__S_M1
  ** SYNOPSIS
  **   mon_ctrl [--version]
  **            [-w <work dir>]
- **            [-p <user profile>]
+ **            [-p <profile/role>]
  **            [-u[ <user>]]
  **            [-f <font name>]
  **            [-no_input]
@@ -92,7 +92,7 @@ DESCR__E_M1
 #include "version.h"
 #include "permission.h"
 
-/* Global variables */
+/* Global variables. */
 Display                 *display;
 XtAppContext            app;
 XtIntervalId            interval_id_afd;
@@ -122,7 +122,7 @@ Widget                  appshell,
                         mw[5],          /* Main menu */
                         ow[9],          /* Monitor menu */
                         tw[2],          /* Test (ping, traceroute) */
-                        vw[9],          /* Remote view menu */
+                        vw[10],         /* Remote view menu */
                         cw[8],          /* Remote control menu */
                         sw[5],          /* Setup menu */
                         hw[3],          /* Help menu */
@@ -201,7 +201,7 @@ char                    work_dir[MAX_PATH_LENGTH],
                         fake_user[MAX_FULL_USER_ID_LENGTH],
                         font_name[20],
                         blink_flag,
-                        *profile,
+                        profile[MAX_PROFILE_NAME_LENGTH],
                         *ping_cmd = NULL,
                         *ptr_ping_cmd,
                         *traceroute_cmd = NULL,
@@ -219,7 +219,7 @@ struct mon_status_area  *msa;
 struct mon_control_perm mcp;
 const char              *sys_log_name = MON_SYS_LOG_FIFO;
 
-/* Local function prototypes */
+/* Local function prototypes. */
 static void             mon_ctrl_exit(void),
                         create_pullright_font(Widget),
                         create_pullright_history(Widget),
@@ -249,6 +249,7 @@ main(int argc, char *argv[])
                     ".mon_ctrl.Search AFD.main_form.buttonbox*foreground : Black",
                     ".mon_ctrl.Search AFD.main_form.buttonbox*highlightColor : Black",
                     ".mon_ctrl.Search AFD*background : NavajoWhite2",
+                    ".mon_ctrl.Search AFD*XmText.background : NavajoWhite1",
                     ".mon_ctrl*background : NavajoWhite2",
                     NULL
                  };
@@ -262,7 +263,7 @@ main(int argc, char *argv[])
 
    CHECK_FOR_VERSION(argc, argv);
 
-   /* Initialise global values */
+   /* Initialise global values. */
    init_mon_ctrl(&argc, argv, window_title);
 
 #ifdef _X_DEBUG
@@ -285,7 +286,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Create the top-level shell widget and initialise the toolkit */
+   /* Create the top-level shell widget and initialise the toolkit. */
    argcount = 0;
    XtSetArg(args[argcount], XmNtitle, window_title); argcount++;
    appshell = XtAppInitialize(&app, "AFD", NULL, 0, &argc, argv,
@@ -299,7 +300,7 @@ main(int argc, char *argv[])
       }
    }
 
-   /* Get display pointer */
+   /* Get display pointer. */
    if ((display = XtDisplay(appshell)) == NULL)
    {
       (void)fprintf(stderr,
@@ -312,13 +313,13 @@ main(int argc, char *argv[])
                                         xmMainWindowWidgetClass, appshell,
                                         NULL);
 
-   /* setup and determine window parameters */
+   /* Setup and determine window parameters. */
    setup_mon_window(font_name);
 
-   /* Get window size */
+   /* Get window size. */
    (void)mon_window_size(&window_width, &window_height);
 
-   /* Create managing widget for label and line widget */
+   /* Create managing widget for label and line widget. */
    mainform_w = XmCreateForm(mainwindow, "mainform_w", NULL, 0);
    XtManageChild(mainform_w);
 
@@ -327,11 +328,11 @@ main(int argc, char *argv[])
       init_menu_bar(mainform_w, &menu_w);
    }
 
-   /* Setup colors */
+   /* Setup colors. */
    default_cmap = DefaultColormap(display, DefaultScreen(display));
    init_color(XtDisplay(appshell));
 
-   /* Create the label_window_w */
+   /* Create the label_window_w. */
    argcount = 0;
    XtSetArg(args[argcount], XmNheight, (Dimension) line_height);
    argcount++;
@@ -359,13 +360,13 @@ main(int argc, char *argv[])
                                         argcount);
    XtManageChild(label_window_w);
 
-   /* Get background color from the widget's resources */
+   /* Get background color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNbackground, &color_pool[LABEL_BG]);
    argcount++;
    XtGetValues(label_window_w, args, argcount);
 
-   /* Create the line_window_w */
+   /* Create the line_window_w. */
    argcount = 0;
    XtSetArg(args[argcount], XmNheight, (Dimension) window_height);
    argcount++;
@@ -385,15 +386,15 @@ main(int argc, char *argv[])
                                        argcount);
    XtManageChild(line_window_w);
 
-   /* Initialise the GC's */
+   /* Initialise the GC's. */
    init_gcs();
 
-   /* Get foreground color from the widget's resources */
+   /* Get foreground color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNforeground, &color_pool[FG]); argcount++;
    XtGetValues(line_window_w, args, argcount);
 
-   /* Create the button_window_w */
+   /* Create the button_window_w. */
    argcount = 0;
    XtSetArg(args[argcount], XmNheight, (Dimension)line_height);
    argcount++;
@@ -415,7 +416,7 @@ main(int argc, char *argv[])
                                          argcount);
    XtManageChild(button_window_w);
 
-   /* Get background color from the widget's resources */
+   /* Get background color from the widget's resources. */
    argcount = 0;
    XtSetArg(args[argcount], XmNbackground, &color_pool[LABEL_BG]);
    argcount++;
@@ -441,7 +442,7 @@ main(int argc, char *argv[])
       XtVaSetValues(lsw[current_style], XmNset, True, NULL);
       XtVaSetValues(hlw[current_his_log], XmNset, True, NULL);
 
-      /* Setup popup menu */
+      /* Setup popup menu. */
       init_popup_menu(line_window_w);
 
       XtAddEventHandler(line_window_w,
@@ -453,7 +454,7 @@ main(int argc, char *argv[])
    XtAddEventHandler(appshell, (EventMask)0, True, _XEditResCheckMessages, NULL);
 #endif
 
-   /* Realize all widgets */
+   /* Realize all widgets. */
    XtRealizeWidget(appshell);
 
    /* Disallow user to change window width and height. */
@@ -489,12 +490,12 @@ main(int argc, char *argv[])
                  strerror(errno));
    }
 
-   /* Get window ID of three main windows */
+   /* Get window ID of three main windows. */
    label_window = XtWindow(label_window_w);
    line_window = XtWindow(line_window_w);
    button_window = XtWindow(button_window_w);
 
-   /* Start the main event-handling loop */
+   /* Start the main event-handling loop. */
    XtAppMainLoop(app);
 
    exit(SUCCESS);
@@ -506,7 +507,8 @@ static void
 init_mon_ctrl(int *argc, char *argv[], char *window_title)
 {
    int           fd,
-                 i;
+                 i,
+                 user_offset;
    unsigned int  new_bar_length;
    char          *buffer,
                  config_file[MAX_PATH_LENGTH],
@@ -522,15 +524,9 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
        (get_arg(argc, argv, "--help", NULL, 0) == SUCCESS))
    {
       (void)fprintf(stdout,
-                    "Usage: %s [-w <work_dir>] [-p <profile>] [-u[ <user>] [-no_input] [-f <font name>]\n",
+                    "Usage: %s[ -w <work_dir>][ -p <profile/role>][ -u[ <user>][ -no_input][ -f <font name>]\n",
                     argv[0]);
       exit(SUCCESS);
-   }
-   if ((profile = malloc(41)) == NULL)
-   {
-      (void)fprintf(stderr, "malloc() error : %s (%s %d)\n",
-                    strerror(errno), __FILE__, __LINE__);
-      exit(INCORRECT);
    }
 
    /*
@@ -553,17 +549,22 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    {
       no_input = False;
    }
-   if (get_arg(argc, argv, "-p", profile, 40) == INCORRECT)
+   if (get_arg(argc, argv, "-p", profile, MAX_PROFILE_NAME_LENGTH) == INCORRECT)
    {
-      free(profile);
-      profile = NULL;
+      user_offset = 0;
+      profile[0] = '\0';
+   }
+   else
+   {
+      (void)strcpy(user, profile);
+      user_offset = strlen(user);
    }
    if (get_arg(argc, argv, "-f", font_name, 20) == INCORRECT)
    {
       (void)strcpy(font_name, DEFAULT_FONT);
    }
 
-   /* Now lets see if user may use this program */
+   /* Now lets see if user may use this program. */
    check_fake_user(argc, argv, MON_CONFIG_FILE, fake_user);
    switch (get_permissions(&perm_buffer, fake_user))
    {
@@ -677,7 +678,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
       (void)strcat(window_title, hostname);
    }
 
-   get_user(user, fake_user);
+   get_user(user, fake_user, user_offset);
    if ((pwd = getpwuid(getuid())) == NULL)
    {
       (void)fprintf(stderr, "getpwuid() error : %s (%s %d)\n",
@@ -934,7 +935,7 @@ init_mon_ctrl(int *argc, char *argv[], char *window_title)
    redraw_time_line = redraw_time_status = STARTING_REDRAW_TIME;
 
    (void)sprintf(config_file, "%s%s%s",
-                 p_work_dir, ETC_DIR, MON_CONFIG_FILE);
+                 p_work_dir, ETC_DIR, AFD_CONFIG_FILE);
    if ((eaccess(config_file, F_OK) == 0) &&
        (read_file(config_file, &buffer) != INCORRECT))
    {
@@ -1197,6 +1198,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                        start_remote_prog, (XtPointer)AFD_CTRL_SEL);
       }
       if ((mcp.show_slog != NO_PERMISSION) ||
+          (mcp.show_elog != NO_PERMISSION) ||
           (mcp.show_rlog != NO_PERMISSION) ||
           (mcp.show_tlog != NO_PERMISSION))
       {
@@ -1211,6 +1213,15 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
                                  NULL);
             XtAddCallback(vw[MON_SYSTEM_W], XmNactivateCallback,
                           start_remote_prog, (XtPointer)S_LOG_SEL);
+         }
+         if (mcp.show_elog != NO_PERMISSION)
+         {
+            vw[MON_EVENT_W] = XtVaCreateManagedWidget("Event Log",
+                                 xmPushButtonWidgetClass, pull_down_w,
+                                 XmNfontList,             fontlist,
+                                 NULL);
+            XtAddCallback(vw[MON_EVENT_W], XmNactivateCallback,
+                          start_remote_prog, (XtPointer)E_LOG_SEL);
          }
          if (mcp.show_rlog != NO_PERMISSION)
          {
@@ -1233,7 +1244,7 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
       }
       if ((mcp.show_ilog != NO_PERMISSION) ||
           (mcp.show_olog != NO_PERMISSION) ||
-          (mcp.show_elog != NO_PERMISSION))
+          (mcp.show_dlog != NO_PERMISSION))
       {
 #if defined (_INPUT_LOG) || defined (_OUTPUT_LOG) || defined (_DELETE_LOG)
          XtVaCreateManagedWidget("Separator",
@@ -1263,14 +1274,14 @@ init_menu_bar(Widget mainform_w, Widget *menu_w)
          }
 #endif
 #ifdef _DELETE_LOG
-         if (mcp.show_elog != NO_PERMISSION)
+         if (mcp.show_dlog != NO_PERMISSION)
          {
             vw[MON_DELETE_W] = XtVaCreateManagedWidget("Delete Log",
                               xmPushButtonWidgetClass, pull_down_w,
                               XmNfontList,             fontlist,
                               NULL);
             XtAddCallback(vw[MON_DELETE_W], XmNactivateCallback,
-                          start_remote_prog, (XtPointer)E_LOG_SEL);
+                          start_remote_prog, (XtPointer)D_LOG_SEL);
          }
 #endif
       }
@@ -2277,7 +2288,7 @@ eval_permissions(char *perm_buffer)
       }
 
       /* May the user view the delete log? */
-      if ((ptr = posi(perm_buffer, SHOW_ELOG_PERM)) == NULL)
+      if ((ptr = posi(perm_buffer, SHOW_DLOG_PERM)) == NULL)
       {
          /* The user may NOT view the delete log. */
          mcp.show_elog = NO_PERMISSION;

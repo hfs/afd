@@ -29,6 +29,7 @@ DESCR__S_M3
  **   int eval_host_config(int              *hosts_found,
  **                        char             *host_config_file,
  **                        struct host_list **hl,
+ **                        unsigned int     *warn_counter,
  **                        int              first_time)
  **
  ** DESCRIPTION
@@ -113,6 +114,7 @@ int
 eval_host_config(int              *hosts_found,
                  char             *host_config_file,
                  struct host_list **hl,
+                 unsigned int     *warn_counter,
                  int              first_time)
 {
    int    i,
@@ -233,6 +235,10 @@ eval_host_config(int              *hosts_found,
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Maximum length for host alias name %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
                     (*hl)[host_counter].host_alias, MAX_HOSTNAME_LENGTH);
+         if (warn_counter != NULL)
+         {
+            (*warn_counter)++;
+         }
          while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
@@ -298,6 +304,10 @@ eval_host_config(int              *hosts_found,
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Maximum length for real hostname 1 for %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
                     (*hl)[host_counter].host_alias, MAX_REAL_HOSTNAME_LENGTH);
+         if (warn_counter != NULL)
+         {
+            (*warn_counter)++;
+         }
          while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
@@ -364,6 +374,10 @@ eval_host_config(int              *hosts_found,
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Maximum length for real hostname 2 for %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
                     (*hl)[host_counter].host_alias, MAX_REAL_HOSTNAME_LENGTH);
+         if (warn_counter != NULL)
+         {
+            (*warn_counter)++;
+         }
          while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
@@ -429,6 +443,10 @@ eval_host_config(int              *hosts_found,
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Maximum length for the host toggle string %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
                     (*hl)[host_counter].host_alias, MAX_TOGGLE_STR_LENGTH);
+         if (warn_counter != NULL)
+         {
+            (*warn_counter)++;
+         }
          while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
@@ -443,6 +461,10 @@ eval_host_config(int              *hosts_found,
                          "Host toggle string <%s> not four characters long for host %s in HOST_CONFIG. Will be ignored.",
                          (*hl)[host_counter].host_toggle_str,
                          (*hl)[host_counter].host_alias);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               i = 0;
            }
       (*hl)[host_counter].host_toggle_str[i] = '\0';
@@ -500,6 +522,10 @@ eval_host_config(int              *hosts_found,
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Maximum length for proxy name for host %s exceeded in HOST_CONFIG. Will be truncated to %d characters.",
                     (*hl)[host_counter].host_alias, MAX_PROXY_NAME_LENGTH);
+         if (warn_counter != NULL)
+         {
+            (*warn_counter)++;
+         }
          while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
          {
             ptr++;
@@ -562,6 +588,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in allowed transfers field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_NO_PARALLEL_JOBS);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -586,6 +616,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_NO_PARALLEL_JOBS);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].allowed_transfers = DEFAULT_NO_PARALLEL_JOBS;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -604,6 +638,10 @@ eval_host_config(int              *hosts_found,
                  system_log(WARN_SIGN, NULL, 0,
                             "Setting it to the maximum value %d.",
                             MAX_NO_PARALLEL_JOBS);
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  (*hl)[host_counter].allowed_transfers = MAX_NO_PARALLEL_JOBS;
               }
            }
@@ -663,6 +701,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in max error field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_MAX_ERRORS);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -687,6 +729,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_MAX_ERRORS);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].max_errors = DEFAULT_MAX_ERRORS;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -752,6 +798,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in retry interval field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_RETRY_INTERVAL);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry */
             i = 0;
@@ -776,6 +826,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_RETRY_INTERVAL);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].retry_interval = DEFAULT_RETRY_INTERVAL;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -840,6 +894,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in transfer block size field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_TRANSFER_BLOCKSIZE);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -864,6 +922,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_TRANSFER_BLOCKSIZE);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].transfer_blksize = DEFAULT_TRANSFER_BLOCKSIZE;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -880,6 +942,10 @@ eval_host_config(int              *hosts_found,
                             (*hl)[host_counter].host_alias,
                             (*hl)[host_counter].transfer_blksize, 
                             MAX_TRANSFER_BLOCKSIZE);
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  (*hl)[host_counter].transfer_blksize = MAX_TRANSFER_BLOCKSIZE;
               }
            }
@@ -936,6 +1002,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in successful retries field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_SUCCESSFUL_RETRIES);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -960,6 +1030,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_SUCCESSFUL_RETRIES);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].successful_retries = DEFAULT_SUCCESSFUL_RETRIES;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1022,6 +1096,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in file size offset field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_FILE_SIZE_OFFSET);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1046,6 +1124,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_FILE_SIZE_OFFSET);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].file_size_offset = (char)DEFAULT_FILE_SIZE_OFFSET;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1107,6 +1189,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in transfer timeout field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_TRANSFER_TIMEOUT);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1131,6 +1217,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_TRANSFER_TIMEOUT);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].transfer_timeout = DEFAULT_TRANSFER_TIMEOUT;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1190,6 +1280,10 @@ eval_host_config(int              *hosts_found,
                        "Non numeric character <%d> in number of no bursts field for host %s, using default %d.",
                        (int)*ptr, (*hl)[host_counter].host_alias,
                        DEFAULT_NO_OF_NO_BURSTS);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1214,6 +1308,10 @@ eval_host_config(int              *hosts_found,
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value %d.",
                          DEFAULT_NO_OF_NO_BURSTS);
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].number_of_no_bursts = (unsigned char)DEFAULT_NO_OF_NO_BURSTS;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1231,6 +1329,10 @@ eval_host_config(int              *hosts_found,
                             (*hl)[host_counter].number_of_no_bursts);
                  system_log(WARN_SIGN, NULL, 0, "Setting it to %d.",
                             (*hl)[host_counter].allowed_transfers);
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  (*hl)[host_counter].number_of_no_bursts = (*hl)[host_counter].allowed_transfers;
               }
            }
@@ -1347,6 +1449,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in host status field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1370,6 +1476,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                         "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].host_status = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1378,15 +1488,19 @@ eval_host_config(int              *hosts_found,
            }
            else
            {
-              if (((*hl)[host_counter].host_status = (unsigned char)atoi(number)) > (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG))
+              if (((*hl)[host_counter].host_status = (unsigned char)atoi(number)) > (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_ERROR_OFFLINE_STATIC|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG))
               {
                  error_flag = YES;
                  system_log(WARN_SIGN, __FILE__, __LINE__,
                             "Unknown host status <%d> for host %s, largest value is %d.",
                             (*hl)[host_counter].host_status,
                             (*hl)[host_counter].host_alias,
-                            (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG));
+                            (PAUSE_QUEUE_STAT|STOP_TRANSFER_STAT|HOST_ERROR_OFFLINE_STATIC|HOST_CONFIG_HOST_DISABLED|HOST_NOT_IN_DIR_CONFIG|HOST_TWO_FLAG));
                  system_log(WARN_SIGN, NULL, 0, "Setting it to 0.");
+                 if (warn_counter != NULL)
+                 {
+                    (*warn_counter)++;
+                 }
                  (*hl)[host_counter].host_status = 0;
               }
            }
@@ -1467,6 +1581,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in protocol options field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1490,6 +1608,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].protocol_options = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1584,7 +1706,7 @@ eval_host_config(int              *hosts_found,
          error_flag = YES;
          system_log(WARN_SIGN, __FILE__, __LINE__,
                     "Unknown protocol option <%d> for host %s, largest value is %d and smallest %d.",
-                    (*hl)[host_counter].host_status,
+                    (*hl)[host_counter].protocol_options,
                     (*hl)[host_counter].host_alias,
                     (FTP_ALLOW_DATA_REDIRECT |
 #ifdef _WITH_BURST_2
@@ -1601,6 +1723,10 @@ eval_host_config(int              *hosts_found,
                      FTP_PASSIVE_MODE),
                     FTP_PASSIVE_MODE);
          system_log(WARN_SIGN, NULL, 0, "Setting it to 0.");
+         if (warn_counter != NULL)
+         {
+            (*warn_counter)++;
+         }
          (*hl)[host_counter].protocol_options = 0;
       }
 
@@ -1620,6 +1746,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in transfer rate limit field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1643,6 +1773,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].transfer_rate_limit = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1697,6 +1831,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in TTL field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1720,6 +1858,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].ttl = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1772,6 +1914,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in SSB field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1795,6 +1941,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].socksnd_bufsize = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1846,6 +1996,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in SRB field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1869,6 +2023,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].sockrcv_bufsize = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1920,6 +2078,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in DT field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -1943,6 +2105,10 @@ eval_host_config(int              *hosts_found,
                          MAX_LONG_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].dup_check_timeout = 0L;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -1951,7 +2117,7 @@ eval_host_config(int              *hosts_found,
            }
            else
            {
-              (*hl)[host_counter].dup_check_timeout = strtol(number, NULL, 10);
+              (*hl)[host_counter].dup_check_timeout = str2timet(number, NULL, 10);
            }
       if ((*ptr == '\n') || (*ptr == '\0'))
       {
@@ -1990,6 +2156,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in DF field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -2013,6 +2183,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].dup_check_flag = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
@@ -2060,6 +2234,10 @@ eval_host_config(int              *hosts_found,
             system_log(WARN_SIGN, __FILE__, __LINE__,
                        "Non numeric character <%d> in KC field for host %s, using default 0.",
                        (int)*ptr, (*hl)[host_counter].host_alias);
+            if (warn_counter != NULL)
+            {
+               (*warn_counter)++;
+            }
 
             /* Ignore this entry. */
             i = 0;
@@ -2083,6 +2261,10 @@ eval_host_config(int              *hosts_found,
                          MAX_INT_LENGTH, (*hl)[host_counter].host_alias);
               system_log(WARN_SIGN, NULL, 0,
                          "Setting it to the default value 0.");
+              if (warn_counter != NULL)
+              {
+                 (*warn_counter)++;
+              }
               (*hl)[host_counter].keep_connected = 0;
               while ((*ptr != ':') && (*ptr != '\n') && (*ptr != '\0'))
               {
